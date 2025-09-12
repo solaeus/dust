@@ -5,8 +5,19 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-const OVERFLOW_ERROR_TEXT: &str =
-    "The source code position is out of bounds because the source file is too large.";
+#[derive(
+    Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
+pub struct Position {
+    pub file_index: u32,
+    pub span: Span,
+}
+
+impl Position {
+    pub fn new(file_index: u32, span: Span) -> Self {
+        Self { file_index, span }
+    }
+}
 
 #[derive(
     Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
@@ -16,11 +27,8 @@ pub struct Span(pub u32, pub u32);
 impl Span {
     pub fn new<T: TryInto<u32>>(start: T, end: T) -> Self {
         Self(
-            start
-                .try_into()
-                .unwrap_or_else(|_| panic!("{}", OVERFLOW_ERROR_TEXT)),
-            end.try_into()
-                .unwrap_or_else(|_| panic!("{}", OVERFLOW_ERROR_TEXT)),
+            start.try_into().unwrap_or_default(),
+            end.try_into().unwrap_or_default(),
         )
     }
 

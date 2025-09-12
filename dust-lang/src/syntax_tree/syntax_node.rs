@@ -8,7 +8,7 @@ use crate::Span;
 pub struct SyntaxNode {
     pub kind: SyntaxKind,
     pub children: (u32, u32),
-    pub position: Span,
+    pub span: Span,
     pub payload: u32,
 }
 

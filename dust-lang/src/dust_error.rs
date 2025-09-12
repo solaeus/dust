@@ -1,31 +1,32 @@
 //! Top-level error for the Dust language API that can create detailed reports with source code
 //! annotations.
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    sync::Arc,
+};
 
 use annotate_snippets::{Group, Renderer};
 
-use crate::{
-    CompileError,
-    jit_vm::{JIT_ERROR_TEXT, JitError},
-    parser::ParseError,
-};
+use crate::{CompileError, Source, jit_vm::JitError, parser::ParseError};
+
+const SOURCE_NOT_FOUND: &str = "<source not found>";
 
 /// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug)]
-pub struct DustError<'src> {
+pub struct DustError {
     pub error: DustErrorKind,
-    pub source: &'src str,
+    pub source: Source,
 }
 
-impl<'src> DustError<'src> {
-    pub fn parse(errors: Vec<ParseError>, source: &'src str) -> Self {
+impl DustError {
+    pub fn parse(errors: Vec<ParseError>, source: Source) -> Self {
         DustError {
             error: DustErrorKind::Parse(errors),
             source,
         }
     }
 
-    pub fn compile(error: CompileError, source: &'src str) -> Self {
+    pub fn compile(error: CompileError, source: Source) -> Self {
         DustError {
             error: DustErrorKind::Compile(error),
             source,
@@ -35,7 +36,10 @@ impl<'src> DustError<'src> {
     pub fn jit(error: JitError) -> Self {
         DustError {
             error: DustErrorKind::Jit(error),
-            source: JIT_ERROR_TEXT,
+            source: Source::Script {
+                name: Arc::new(SOURCE_NOT_FOUND.to_string()),
+                content: Arc::new(SOURCE_NOT_FOUND.to_string()),
+            },
         }
     }
 
@@ -45,7 +49,11 @@ impl<'src> DustError<'src> {
                 let mut report = Vec::new();
 
                 for parse_error in parse_errors {
-                    let group = parse_error.annotated_error(self.source);
+                    let source = self
+                        .source
+                        .get_file_source(parse_error.file_index())
+                        .unwrap_or(SOURCE_NOT_FOUND);
+                    let group = parse_error.annotated_error(source);
 
                     report.push(group);
                 }
@@ -55,13 +63,21 @@ impl<'src> DustError<'src> {
                 renderer.render(&report)
             }
             DustErrorKind::Compile(compile_error) => {
-                let report = [compile_error.annotated_error(self.source)];
+                let source = self
+                    .source
+                    .get_file_source(compile_error.file_index())
+                    .unwrap_or(SOURCE_NOT_FOUND);
+                let report = [compile_error.annotated_error(source)];
                 let renderer = Renderer::styled();
 
                 renderer.render(&report)
             }
             DustErrorKind::Jit(jit_error) => {
-                let report = [jit_error.annotated_error(self.source)];
+                let source = self
+                    .source
+                    .get_file_source(jit_error.file_index())
+                    .unwrap_or(SOURCE_NOT_FOUND);
+                let report = [jit_error.annotated_error(source)];
                 let renderer = Renderer::styled();
 
                 renderer.render(&report)
@@ -77,7 +93,7 @@ pub enum DustErrorKind {
     Jit(JitError),
 }
 
-impl Display for DustError<'_> {
+impl Display for DustError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.report())
     }
@@ -85,4 +101,5 @@ impl Display for DustError<'_> {
 
 pub trait AnnotatedError {
     fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a>;
+    fn file_index(&self) -> usize;
 }

@@ -8,7 +8,7 @@ use std::mem::{offset_of, transmute};
 use compile_direct_function::compile_direct_function;
 use compile_stackless_function::compile_stackless_function;
 use ffi_functions::*;
-pub use jit_error::{JIT_ERROR_TEXT, JitError};
+pub use jit_error::JitError;
 
 use cranelift::{
     codegen::ir::{FuncRef, InstBuilder},

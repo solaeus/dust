@@ -18,73 +18,73 @@ fn local_boolean_greater_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 3),
-                position: Span(0, 48),
+                span: Span(0, 48),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
-                position: Span(1, 20),
+                span: Span(1, 20),
                 payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
                 children: (0, 0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (1, 0),
-                position: Span(15, 19),
+                span: Span(15, 19),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (2, 0),
-                position: Span(15, 20),
+                span: Span(15, 20),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
-                position: Span(21, 41),
+                span: Span(21, 41),
                 payload: 257,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
                 children: (0, 0),
-                position: Span(28, 32),
+                span: Span(28, 32),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (0, 0),
-                position: Span(35, 40),
+                span: Span(35, 40),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (6, 0),
-                position: Span(35, 41),
+                span: Span(35, 41),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(42, 43),
+                span: Span(42, 43),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
                 children: (9, 10),
-                position: Span(42, 47),
+                span: Span(42, 47),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (257, 0),
-                position: Span(46, 47),
+                span: Span(46, 47),
                 payload: TypeId::BOOLEAN.0,
             },
         ]
@@ -103,73 +103,73 @@ fn local_byte_greater_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 3),
-                position: Span(0, 47),
+                span: Span(0, 47),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
-                position: Span(1, 20),
+                span: Span(1, 20),
                 payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
                 children: (0, 0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (43, 0),
-                position: Span(15, 19),
+                span: Span(15, 19),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (2, 0),
-                position: Span(15, 20),
+                span: Span(15, 20),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
-                position: Span(21, 40),
+                span: Span(21, 40),
                 payload: 257,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
                 children: (0, 0),
-                position: Span(28, 32),
+                span: Span(28, 32),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (42, 0),
-                position: Span(35, 39),
+                span: Span(35, 39),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (6, 0),
-                position: Span(35, 40),
+                span: Span(35, 40),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(41, 42),
+                span: Span(41, 42),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
                 children: (9, 10),
-                position: Span(41, 46),
+                span: Span(41, 46),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (257, 0),
-                position: Span(45, 46),
+                span: Span(45, 46),
                 payload: TypeId::BYTE.0,
             },
         ]
@@ -188,73 +188,73 @@ fn local_character_greater_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 3),
-                position: Span(0, 45),
+                span: Span(0, 45),
                 payload: TypeId::BOOLEAN.0
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
-                position: Span(1, 19),
+                span: Span(1, 19),
                 payload: 256
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterType,
                 children: (0, 0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: 0
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: ('{' as u32, 0),
-                position: Span(15, 18),
+                span: Span(15, 18),
                 payload: TypeId::CHARACTER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (2, 0),
-                position: Span(15, 19),
+                span: Span(15, 19),
                 payload: TypeId::CHARACTER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
-                position: Span(20, 38),
+                span: Span(20, 38),
                 payload: 257
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterType,
                 children: (0, 0),
-                position: Span(27, 31),
+                span: Span(27, 31),
                 payload: 0
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: ('z' as u32, 0),
-                position: Span(34, 37),
+                span: Span(34, 37),
                 payload: TypeId::CHARACTER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (6, 0),
-                position: Span(34, 38),
+                span: Span(34, 38),
                 payload: TypeId::CHARACTER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(39, 40),
+                span: Span(39, 40),
                 payload: TypeId::CHARACTER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
                 children: (9, 10),
-                position: Span(39, 44),
+                span: Span(39, 44),
                 payload: TypeId::BOOLEAN.0
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (257, 0),
-                position: Span(43, 44),
+                span: Span(43, 44),
                 payload: TypeId::CHARACTER.0
             },
         ]
@@ -273,73 +273,73 @@ fn local_float_greater_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 3),
-                position: Span(0, 49),
+                span: Span(0, 49),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
-                position: Span(1, 21),
+                span: Span(1, 21),
                 payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
                 children: (0, 0),
-                position: Span(8, 13),
+                span: Span(8, 13),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(43.0),
-                position: Span(16, 20),
+                span: Span(16, 20),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (2, 0),
-                position: Span(16, 21),
+                span: Span(16, 21),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
-                position: Span(22, 42),
+                span: Span(22, 42),
                 payload: 257,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
                 children: (0, 0),
-                position: Span(29, 34),
+                span: Span(29, 34),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(42.0),
-                position: Span(37, 41),
+                span: Span(37, 41),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (6, 0),
-                position: Span(37, 42),
+                span: Span(37, 42),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(43, 44),
+                span: Span(43, 44),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
                 children: (9, 10),
-                position: Span(43, 48),
+                span: Span(43, 48),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (257, 0),
-                position: Span(47, 48),
+                span: Span(47, 48),
                 payload: TypeId::FLOAT.0,
             },
         ]
@@ -358,73 +358,73 @@ fn local_integer_greater_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 3),
-                position: Span(0, 41),
+                span: Span(0, 41),
                 payload: TypeId::BOOLEAN.0
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
-                position: Span(1, 17),
+                span: Span(1, 17),
                 payload: 256
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
                 children: (0, 0),
-                position: Span(8, 11),
+                span: Span(8, 11),
                 payload: 0
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (43, 0),
-                position: Span(14, 16),
+                span: Span(14, 16),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (2, 0),
-                position: Span(14, 17),
+                span: Span(14, 17),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
-                position: Span(18, 34),
+                span: Span(18, 34),
                 payload: 257
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
                 children: (0, 0),
-                position: Span(25, 28),
+                span: Span(25, 28),
                 payload: 0
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
-                position: Span(31, 33),
+                span: Span(31, 33),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (6, 0),
-                position: Span(31, 34),
+                span: Span(31, 34),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(35, 36),
+                span: Span(35, 36),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
                 children: (9, 10),
-                position: Span(35, 40),
+                span: Span(35, 40),
                 payload: TypeId::BOOLEAN.0
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (257, 0),
-                position: Span(39, 40),
+                span: Span(39, 40),
                 payload: TypeId::INTEGER.0
             },
         ]
@@ -443,73 +443,73 @@ fn local_string_greater_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 3),
-                position: Span(0, 47),
+                span: Span(0, 47),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
-                position: Span(1, 20),
+                span: Span(1, 20),
                 payload: 256
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
                 children: (0, 0),
-                position: Span(8, 11),
+                span: Span(8, 11),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(14, 19),
+                span: Span(14, 19),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (2, 0),
-                position: Span(14, 20),
+                span: Span(14, 20),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
-                position: Span(21, 40),
+                span: Span(21, 40),
                 payload: 257
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
                 children: (0, 0),
-                position: Span(28, 31),
+                span: Span(28, 31),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(34, 39),
+                span: Span(34, 39),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (6, 0),
-                position: Span(34, 40),
+                span: Span(34, 40),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(41, 42),
+                span: Span(41, 42),
                 payload: TypeId::STRING.0
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
                 children: (9, 10),
-                position: Span(41, 46),
+                span: Span(41, 46),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (257, 0),
-                position: Span(45, 46),
+                span: Span(45, 46),
                 payload: TypeId::STRING.0
             },
         ]

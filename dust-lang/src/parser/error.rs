@@ -1,7 +1,7 @@
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
-    Span, Token, Type,
+    Position, Token, Type,
     dust_error::AnnotatedError,
     resolver::{DeclarationId, DeclarationKind, ScopeId, TypeId},
     syntax_tree::{SyntaxId, SyntaxKind},
@@ -13,92 +13,92 @@ pub enum ParseError {
     ExpectedToken {
         actual: Token,
         expected: Token,
-        position: Span,
+        position: Position,
     },
     ExpectedMultipleTokens {
         actual: Token,
         expected: &'static [Token],
-        position: Span,
+        position: Position,
     },
     UnexpectedToken {
         actual: Token,
-        position: Span,
+        position: Position,
     },
 
     // Semantic Errors
     ExpectedItem {
         actual: SyntaxKind,
-        position: Span,
+        position: Position,
     },
     ExpectedStatement {
         actual: SyntaxKind,
-        position: Span,
+        position: Position,
     },
     ExpectedExpression {
         actual: SyntaxKind,
-        position: Span,
+        position: Position,
     },
     ExpectedFunction {
         found: SyntaxKind,
-        position: Span,
+        position: Position,
     },
 
     // Type Errors
     AdditionTypeMismatch {
         left_type: Type,
-        left_position: Span,
+        left_position: Position,
         right_type: Type,
-        right_position: Span,
-        position: Span,
+        right_position: Position,
+        position: Position,
     },
     AssignmentToImmutable {
         found: DeclarationKind,
-        position: Span,
+        position: Position,
     },
     BinaryOperandTypeMismatch {
         operator: Token,
         left_type: Type,
-        left_position: Span,
+        left_position: Position,
         right_type: Type,
-        right_position: Span,
-        position: Span,
+        right_position: Position,
+        position: Position,
     },
     ExpectedBooleanCondition {
         condition_type: Type,
-        condition_position: Span,
+        condition_position: Position,
     },
     InvalidAssignmentTarget {
         found: SyntaxKind,
-        position: Span,
+        position: Position,
     },
     NegationTypeMismatch {
         operand_type: Type,
-        operand_position: Span,
-        position: Span,
+        operand_position: Position,
+        position: Position,
     },
     NotTypeMismatch {
         operand_type: Type,
-        operand_position: Span,
-        position: Span,
+        operand_position: Position,
+        position: Position,
     },
     UndeclaredType {
         identifier: String,
-        position: Span,
+        position: Position,
     },
 
     // Variable Errors
     DeclarationConflict {
         identifier: String,
-        first_declaration: Span,
-        second_declaration: Span,
+        first_declaration: Position,
+        second_declaration: Position,
     },
     OutOfScopeVariable {
-        position: Span,
-        declaration_position: Span,
+        position: Position,
+        declaration_position: Position,
     },
     UndeclaredVariable {
         identifier: String,
-        position: Span,
+        position: Position,
     },
 
     // Internal Errors
@@ -117,6 +117,37 @@ pub enum ParseError {
 }
 
 impl AnnotatedError for ParseError {
+    fn file_index(&self) -> usize {
+        (match self {
+            ParseError::ExpectedToken { position, .. } => position.file_index,
+            ParseError::ExpectedMultipleTokens { position, .. } => position.file_index,
+            ParseError::UnexpectedToken { position, .. } => position.file_index,
+            ParseError::ExpectedItem { position, .. } => position.file_index,
+            ParseError::ExpectedStatement { position, .. } => position.file_index,
+            ParseError::ExpectedExpression { position, .. } => position.file_index,
+            ParseError::ExpectedFunction { position, .. } => position.file_index,
+            ParseError::AdditionTypeMismatch { position, .. } => position.file_index,
+            ParseError::AssignmentToImmutable { position, .. } => position.file_index,
+            ParseError::BinaryOperandTypeMismatch { position, .. } => position.file_index,
+            ParseError::ExpectedBooleanCondition {
+                condition_position, ..
+            } => condition_position.file_index,
+            ParseError::InvalidAssignmentTarget { position, .. } => position.file_index,
+            ParseError::NegationTypeMismatch { position, .. } => position.file_index,
+            ParseError::NotTypeMismatch { position, .. } => position.file_index,
+            ParseError::UndeclaredType { position, .. } => position.file_index,
+            ParseError::DeclarationConflict {
+                second_declaration, ..
+            } => second_declaration.file_index,
+            ParseError::OutOfScopeVariable { position, .. } => position.file_index,
+            ParseError::UndeclaredVariable { position, .. } => position.file_index,
+            ParseError::MissingNode { .. } => 0,
+            ParseError::MissingScope { .. } => 0,
+            ParseError::MissingDeclaration { .. } => 0,
+            ParseError::MissingType { .. } => 0,
+        }) as usize
+    }
+
     fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a> {
         match self {
             ParseError::ExpectedToken {
@@ -129,7 +160,7 @@ impl AnnotatedError for ParseError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
-                            .span(position.as_usize_range())
+                            .span(position.span.as_usize_range())
                             .label(format!("Found {actual} but expected {expected} here")),
                     ),
                 )
@@ -149,7 +180,7 @@ impl AnnotatedError for ParseError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
-                            .span(position.as_usize_range())
+                            .span(position.span.as_usize_range())
                             .label(format!(
                                 "Found {actual} but expected one of: {expected_list} here"
                             )),
@@ -162,7 +193,7 @@ impl AnnotatedError for ParseError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
-                            .span(position.as_usize_range())
+                            .span(position.span.as_usize_range())
                             .label("This token was not expected here"),
                     ),
                 )
@@ -172,7 +203,7 @@ impl AnnotatedError for ParseError {
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
             ParseError::ExpectedStatement { position, .. } => {
@@ -180,7 +211,7 @@ impl AnnotatedError for ParseError {
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
             ParseError::ExpectedExpression { position, .. } => {
@@ -188,7 +219,7 @@ impl AnnotatedError for ParseError {
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
             ParseError::ExpectedFunction { found, position } => {
@@ -197,7 +228,7 @@ impl AnnotatedError for ParseError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
-                            .span(position.as_usize_range())
+                            .span(position.span.as_usize_range())
                             .label(format!("This {found} is not a function")),
                     ),
                 )
@@ -213,15 +244,15 @@ impl AnnotatedError for ParseError {
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.as_usize_range()))
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range()))
                         .annotation(
                             AnnotationKind::Context
-                                .span(left_position.as_usize_range())
+                                .span(left_position.span.as_usize_range())
                                 .label(format!("Left operand is of type {left_type}")),
                         )
                         .annotation(
                             AnnotationKind::Context
-                                .span(right_position.as_usize_range())
+                                .span(right_position.span.as_usize_range())
                                 .label(format!("Right operand is of type {right_type}")),
                         ),
                 )
@@ -232,7 +263,7 @@ impl AnnotatedError for ParseError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
-                            .span(position.as_usize_range())
+                            .span(position.span.as_usize_range())
                             .label(format!("This {found} is not mutable")),
                     ),
                 )
@@ -251,15 +282,15 @@ impl AnnotatedError for ParseError {
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.as_usize_range()))
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range()))
                         .annotation(
                             AnnotationKind::Context
-                                .span(left_position.as_usize_range())
+                                .span(left_position.span.as_usize_range())
                                 .label(format!("Left operand is of type {left_type}")),
                         )
                         .annotation(
                             AnnotationKind::Context
-                                .span(right_position.as_usize_range())
+                                .span(right_position.span.as_usize_range())
                                 .label(format!("Right operand is of type {right_type}")),
                         ),
                 )
@@ -273,7 +304,7 @@ impl AnnotatedError for ParseError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
-                            .span(condition_position.as_usize_range())
+                            .span(condition_position.span.as_usize_range())
                             .label(format!("Condition is of type {condition_type}")),
                     ),
                 )
@@ -284,7 +315,7 @@ impl AnnotatedError for ParseError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
-                            .span(position.as_usize_range())
+                            .span(position.span.as_usize_range())
                             .label(format!("{found} cannot be assigned to here")),
                     ),
                 )
@@ -298,10 +329,10 @@ impl AnnotatedError for ParseError {
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.as_usize_range()))
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range()))
                         .annotation(
                             AnnotationKind::Context
-                                .span(operand_position.as_usize_range())
+                                .span(operand_position.span.as_usize_range())
                                 .label(format!("Operand is of type {operand_type}")),
                         ),
                 )
@@ -315,10 +346,10 @@ impl AnnotatedError for ParseError {
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.as_usize_range()))
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range()))
                         .annotation(
                             AnnotationKind::Context
-                                .span(operand_position.as_usize_range())
+                                .span(operand_position.span.as_usize_range())
                                 .label(format!("Operand is of type {operand_type}")),
                         ),
                 )
@@ -332,7 +363,7 @@ impl AnnotatedError for ParseError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
-                            .span(position.as_usize_range())
+                            .span(position.span.as_usize_range())
                             .label(format!("The type `{identifier}` is not declared")),
                     ),
                 )
@@ -348,14 +379,14 @@ impl AnnotatedError for ParseError {
                     Snippet::source(source)
                         .annotation(
                             AnnotationKind::Primary
-                                .span(second_declaration.as_usize_range())
+                                .span(second_declaration.span.as_usize_range())
                                 .label(format!(
                                     "The variable `{identifier}` is declared here again"
                                 )),
                         )
                         .annotation(
                             AnnotationKind::Context
-                                .span(first_declaration.as_usize_range())
+                                .span(first_declaration.span.as_usize_range())
                                 .label(format!("First declaration of `{identifier}` is here")),
                         ),
                 )
@@ -370,12 +401,12 @@ impl AnnotatedError for ParseError {
                     Snippet::source(source)
                         .annotation(
                             AnnotationKind::Primary
-                                .span(position.as_usize_range())
+                                .span(position.span.as_usize_range())
                                 .label("This variable is used out of its scope"),
                         )
                         .annotation(
                             AnnotationKind::Context
-                                .span(declaration_position.as_usize_range())
+                                .span(declaration_position.span.as_usize_range())
                                 .label("The variable is declared here"),
                         ),
                 )
@@ -389,7 +420,7 @@ impl AnnotatedError for ParseError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
-                            .span(position.as_usize_range())
+                            .span(position.span.as_usize_range())
                             .label(format!("The variable `{identifier}` is not declared")),
                     ),
                 )

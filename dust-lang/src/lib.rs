@@ -25,8 +25,9 @@ pub mod jit_vm;
 pub mod lexer;
 pub mod native_function;
 pub mod parser;
+pub mod position;
 pub mod resolver;
-pub mod span;
+pub mod source;
 pub mod syntax_tree;
 pub mod token;
 pub mod r#type;
@@ -42,6 +43,7 @@ pub use dust_error::{AnnotatedError, DustError};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
 };
+pub use source::Source;
 // pub use jit_vm::{
 //     Cell,
 //     JIT_ERROR_TEXT,
@@ -57,8 +59,8 @@ pub use instruction::{
 // };
 pub use lexer::{Lexer, tokenize};
 pub use native_function::NativeFunction;
+pub use position::{Position, Span};
 pub use resolver::Resolver;
-pub use span::Span;
 pub use token::Token;
 pub use r#type::{FunctionType, Type};
 pub use value::{List, Value};

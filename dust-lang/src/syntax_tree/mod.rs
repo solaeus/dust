@@ -16,8 +16,10 @@ impl SyntaxId {
 }
 
 /// Lossless abstract syntax tree representing a Dust source code file.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SyntaxTree {
+    pub file_index: u32,
+
     /// List of nodes in the tree in the order they were parsed according to the Pratt algorithm
     /// used by the parser.
     pub nodes: Vec<SyntaxNode>,
@@ -32,6 +34,15 @@ pub struct SyntaxTree {
 }
 
 impl SyntaxTree {
+    pub fn new(file_index: u32) -> Self {
+        Self {
+            file_index,
+            nodes: Vec::new(),
+            children: Vec::new(),
+            constants: ConstantTable::new(),
+        }
+    }
+
     pub fn is_main_function(&self) -> bool {
         self.nodes
             .first()
@@ -42,15 +53,6 @@ impl SyntaxTree {
         self.nodes
             .first()
             .is_some_and(|node| node.kind == SyntaxKind::ModuleItem)
-    }
-
-    pub fn is_subtree(&self) -> bool {
-        self.nodes.first().is_some_and(|node| {
-            !matches!(
-                node.kind,
-                SyntaxKind::MainFunctionItem | SyntaxKind::ModuleItem
-            )
-        })
     }
 
     pub fn node_count(&self) -> usize {
@@ -93,7 +95,7 @@ impl SyntaxTree {
     pub fn sorted_nodes(&self) -> Vec<SyntaxNode> {
         let mut nodes = self.nodes.clone();
 
-        nodes.sort_by_key(|node| node.position.0);
+        nodes.sort_by_key(|node| node.span.0);
 
         nodes
     }
@@ -201,7 +203,7 @@ impl SyntaxTree {
                 output.push_str(&integer_display);
             }
             SyntaxKind::StringExpression => {
-                let string_display = format!(": <source {}>", node.position);
+                let string_display = format!(": <source {}>", node.span);
 
                 output.push_str(&string_display);
             }

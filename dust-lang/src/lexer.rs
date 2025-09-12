@@ -1,6 +1,6 @@
-use crate::{Span, Token, dust_error::DustError};
+use crate::{Span, Token};
 
-pub fn tokenize<'a>(source: &'a str) -> Result<Vec<(Token, Span)>, DustError<'a>> {
+pub fn tokenize(source: &str) -> Vec<(Token, Span)> {
     let mut lexer = Lexer::with_source(source);
     let mut tokens = Vec::new();
 
@@ -14,7 +14,7 @@ pub fn tokenize<'a>(source: &'a str) -> Result<Vec<(Token, Span)>, DustError<'a>
         }
     }
 
-    Ok(tokens)
+    tokens
 }
 
 #[derive(Debug, Default)]

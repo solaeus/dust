@@ -5,6 +5,7 @@ use std::{
     fs::OpenOptions,
     io::{self, Read},
     path::PathBuf,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -14,8 +15,9 @@ use clap::{
     crate_authors, crate_description, crate_version,
 };
 use dust_lang::{
+    Source,
     chunk::TuiDisassembler,
-    compiler::{Compiler, Sources},
+    compiler::Compiler,
     jit_vm::{JitVm, MINIMUM_OBJECT_HEAP_DEFAULT, MINIMUM_OBJECT_SWEEP_DEFAULT},
     parser::parse_main,
     tokenize,
@@ -191,13 +193,15 @@ fn main() {
     }) = mode
     {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-        let source_name = source_name.unwrap_or_else(|| "anonymous".to_string());
-
-        let compiler = Compiler::new(Sources {
+        let source_name = source_name
+            .map(Arc::new)
+            .unwrap_or_else(|| Arc::new("anonymous".to_string()));
+        let source = Source::Script {
             name: source_name.clone(),
-            main: &source,
-            modules: Vec::new(),
-        });
+            content: Arc::new(source),
+        };
+
+        let compiler = Compiler::new(source);
         let compile_result = compiler.compile();
         let compile_time = start_time.elapsed();
 
@@ -279,19 +283,23 @@ fn main() {
         style: _,
     }) = mode
     {
-        let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-        let source_name = source_name.unwrap_or_else(|| "anonymous".to_string());
-        let compiler = Compiler::new(Sources {
+        let (source_code, source_name) = get_source_and_name(file, name, stdin, eval);
+        let source_code = Arc::new(source_code);
+        let source_name = source_name
+            .map(Arc::new)
+            .unwrap_or_else(|| Arc::new("anonymous".to_string()));
+        let source = Source::Script {
             name: source_name.clone(),
-            main: &source,
-            modules: Vec::new(),
-        });
+            content: source_code.clone(),
+        };
+
+        let compiler = Compiler::new(source);
         let compile_result = compiler.compile();
         let compile_time = start_time.elapsed();
 
         match compile_result {
             Ok(program) => {
-                let disassembler = TuiDisassembler::new(&program, Some(&source));
+                let disassembler = TuiDisassembler::new(&program, Some(&source_code));
 
                 disassembler.disassemble().unwrap();
             }
@@ -362,7 +370,7 @@ fn main() {
     if let Mode::Tokenize(InputOptions { eval, stdin, file }) = mode {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
         let source_name = source_name.as_deref().unwrap_or("anonymous");
-        let tokens = tokenize(&source).expect("Failed to tokenize the source code");
+        let tokens = tokenize(&source);
         let tokenize_time = start_time.elapsed();
 
         match output_format {

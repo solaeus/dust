@@ -4,7 +4,7 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use dust_lang::tokenize;
 
 fn tokenize_bench(source: &str) {
-    tokenize(source).unwrap();
+    tokenize(source);
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

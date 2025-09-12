@@ -1,11 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Arc};
 
 use rustc_hash::FxBuildHasher;
 use tracing::{Level, debug, info, span};
 
 use crate::{
     Address, Chunk, CompileError, ConstantTable, FunctionType, Instruction, NativeFunction,
-    OperandType, Operation, Resolver, Type,
+    OperandType, Operation, Position, Resolver, Type,
     resolver::{DeclarationId, DeclarationKind, ScopeId, ScopeKind, TypeId, TypeNode},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
@@ -13,7 +13,7 @@ use crate::{
 #[derive(Debug)]
 pub struct ChunkCompiler<'a> {
     /// Target syntax tree for compilation.
-    syntax_tree: Rc<SyntaxTree>,
+    syntax_tree: Arc<SyntaxTree>,
 
     /// Target source code for compilation.
     source: &'a str,
@@ -54,13 +54,13 @@ pub struct ChunkCompiler<'a> {
 
 impl<'a> ChunkCompiler<'a> {
     pub fn new(
-        syntax_tree: SyntaxTree,
+        syntax_tree: Arc<SyntaxTree>,
         source: &'a str,
         resolver: &'a Resolver,
         prototypes: Rc<RefCell<Vec<Chunk>>>,
     ) -> Self {
         Self {
-            syntax_tree: Rc::new(syntax_tree),
+            syntax_tree,
             source,
             constants: ConstantTable::new(),
             resolver,
@@ -355,7 +355,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::MainFunctionItem => self.compile_main_function_statement(&node),
             _ => Err(CompileError::ExpectedItem {
                 node_kind: node.kind,
-                position: node.position,
+                position: Position::new(self.syntax_tree.file_index, node.span),
             }),
         }
     }
@@ -376,7 +376,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::SemicolonStatement => todo!("Compile semicolon statement"),
             _ => Err(CompileError::ExpectedStatement {
                 node_kind: node.kind,
-                position: node.position,
+                position: Position::new(self.syntax_tree.file_index, node.span),
             }),
         }
     }
@@ -499,7 +499,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: expression_node.kind,
-                    position: expression_node.position,
+                    position: Position::new(self.syntax_tree.file_index, node.span),
                 });
             }
         };
@@ -556,7 +556,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: expression_node.kind,
-                    position: expression_node.position,
+                    position: Position::new(self.syntax_tree.file_index, expression_node.span),
                 });
             }
         };
@@ -581,7 +581,7 @@ impl<'a> ChunkCompiler<'a> {
         else {
             return Err(CompileError::ExpectedFunction {
                 node_kind: function_node.kind,
-                position: function_node.position,
+                position: Position::new(self.syntax_tree.file_index, function_node.span),
             });
         };
 
@@ -635,7 +635,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::CallExpression => self.compile_call_expression(node),
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind,
-                position: node.position,
+                position: Position::new(self.syntax_tree.file_index, node.span),
             }),
         }
     }
@@ -682,8 +682,8 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_string_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling string expression");
 
-        let string_start = node.position.0 + 1;
-        let string_end = node.position.1 - 1;
+        let string_start = node.span.0 + 1;
+        let string_end = node.span.1 - 1;
         let string = &self.source[string_start as usize..string_end as usize];
         let (pool_start, pool_end) = self.constants.push_str_to_string_pool(string);
 
@@ -908,7 +908,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: left.kind,
-                    position: left.position,
+                    position: Position::new(self.syntax_tree.file_index, left.span),
                 });
             }
         };
@@ -934,7 +934,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: right.kind,
-                    position: right.position,
+                    position: Position::new(self.syntax_tree.file_index, right.span),
                 });
             }
         };
@@ -1041,7 +1041,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: left.kind,
-                    position: left.position,
+                    position: Position::new(self.syntax_tree.file_index, left.span),
                 });
             }
         };
@@ -1072,7 +1072,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: right.kind,
-                    position: right.position,
+                    position: Position::new(self.syntax_tree.file_index, right.span),
                 });
             }
         };
@@ -1199,11 +1199,11 @@ impl<'a> ChunkCompiler<'a> {
             .ok_or(CompileError::MissingDeclaration { id: declaration_id })?;
 
         if declaration.kind == DeclarationKind::NativeFunction {
-            let identifier = &self.source[node.position.0 as usize..node.position.1 as usize];
+            let identifier = &self.source[node.span.0 as usize..node.span.1 as usize];
             let native_function = NativeFunction::from_str(identifier).ok_or(
                 CompileError::InvalidNativeFunction {
                     name: identifier.to_string(),
-                    position: node.position,
+                    position: Position::new(self.syntax_tree.file_index, node.span),
                 },
             )?;
 
@@ -1295,7 +1295,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: condition_node.kind,
-                    position: condition_node.position,
+                    position: Position::new(self.syntax_tree.file_index, condition_node.span),
                 });
             }
         }
@@ -1417,7 +1417,7 @@ impl<'a> ChunkCompiler<'a> {
                 .resolver
                 .get_declaration(declaration_id)
                 .ok_or(CompileError::MissingDeclaration { id: declaration_id })?;
-            let name_range = declaration.identifier_position.as_usize_range();
+            let name_range = declaration.identifier_position.span.as_usize_range();
             let name = self.source[name_range].to_string();
 
             Some(name)
@@ -1525,7 +1525,7 @@ impl<'a> ChunkCompiler<'a> {
 
             return Err(CompileError::ExpectedFunction {
                 node_kind: function_node.kind,
-                position: function_node.position,
+                position: Position::new(self.syntax_tree.file_index, function_node.span),
             });
         };
 
@@ -1541,7 +1541,7 @@ impl<'a> ChunkCompiler<'a> {
         else {
             return Err(CompileError::ExpectedFunction {
                 node_kind: function_node.kind,
-                position: function_node.position,
+                position: Position::new(self.syntax_tree.file_index, function_node.span),
             });
         };
         let operand_type = function_type.return_type.as_operand_type();

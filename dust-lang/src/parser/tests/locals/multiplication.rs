@@ -18,73 +18,73 @@ fn local_byte_multiplication() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 3),
-                position: Span(0, 47),
+                span: Span(0, 47),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
-                position: Span(1, 20),
+                span: Span(1, 20),
                 payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
                 children: (0, 0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (14, 0),
-                position: Span(15, 19),
+                span: Span(15, 19),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (2, 0),
-                position: Span(15, 20),
+                span: Span(15, 20),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
-                position: Span(21, 40),
+                span: Span(21, 40),
                 payload: 257,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
                 children: (0, 0),
-                position: Span(28, 32),
+                span: Span(28, 32),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (3, 0),
-                position: Span(35, 39),
+                span: Span(35, 39),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (6, 0),
-                position: Span(35, 40),
+                span: Span(35, 40),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(41, 42),
+                span: Span(41, 42),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationExpression,
                 children: (9, 10),
-                position: Span(41, 46),
+                span: Span(41, 46),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (257, 0),
-                position: Span(45, 46),
+                span: Span(45, 46),
                 payload: TypeId::BYTE.0,
             },
         ]
@@ -103,73 +103,73 @@ fn local_float_multiplication() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 3),
-                position: Span(0, 48),
+                span: Span(0, 48),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
-                position: Span(1, 21),
+                span: Span(1, 21),
                 payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
                 children: (0, 0),
-                position: Span(8, 13),
+                span: Span(8, 13),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(14.0),
-                position: Span(16, 20),
+                span: Span(16, 20),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (2, 0),
-                position: Span(16, 21),
+                span: Span(16, 21),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
-                position: Span(22, 41),
+                span: Span(22, 41),
                 payload: 257,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
                 children: (0, 0),
-                position: Span(29, 34),
+                span: Span(29, 34),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(3.0),
-                position: Span(37, 40),
+                span: Span(37, 40),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (6, 0),
-                position: Span(37, 41),
+                span: Span(37, 41),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(42, 43),
+                span: Span(42, 43),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationExpression,
                 children: (9, 10),
-                position: Span(42, 47),
+                span: Span(42, 47),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (257, 0),
-                position: Span(46, 47),
+                span: Span(46, 47),
                 payload: TypeId::FLOAT.0,
             },
         ]
@@ -188,73 +188,73 @@ fn local_integer_multiplication() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 3),
-                position: Span(0, 40),
+                span: Span(0, 40),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
-                position: Span(1, 17),
+                span: Span(1, 17),
                 payload: 256
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
                 children: (0, 0),
-                position: Span(8, 11),
+                span: Span(8, 11),
                 payload: 0
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (14, 0),
-                position: Span(14, 16),
+                span: Span(14, 16),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (2, 0),
-                position: Span(14, 17),
+                span: Span(14, 17),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
-                position: Span(18, 33),
+                span: Span(18, 33),
                 payload: 257
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
                 children: (0, 0),
-                position: Span(25, 28),
+                span: Span(25, 28),
                 payload: 0
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (3, 0),
-                position: Span(31, 32),
+                span: Span(31, 32),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (6, 0),
-                position: Span(31, 33),
+                span: Span(31, 33),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(34, 35),
+                span: Span(34, 35),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationExpression,
                 children: (9, 10),
-                position: Span(34, 39),
+                span: Span(34, 39),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (257, 0),
-                position: Span(38, 39),
+                span: Span(38, 39),
                 payload: TypeId::INTEGER.0
             },
         ]
@@ -273,61 +273,61 @@ fn local_mut_byte_multiplication() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 3),
-                position: Span(0, 38),
+                span: Span(0, 38),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
                 children: (1, 3),
-                position: Span(1, 24),
+                span: Span(1, 24),
                 payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
                 children: (0, 0),
-                position: Span(12, 16),
+                span: Span(12, 16),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (14, 0),
-                position: Span(19, 23),
+                span: Span(19, 23),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (2, 0),
-                position: Span(19, 24),
+                span: Span(19, 24),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(25, 26),
+                span: Span(25, 26),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationAssignmentExpression,
                 children: (5, 6),
-                position: Span(25, 34),
+                span: Span(25, 34),
                 payload: TypeId::NONE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (7, 0),
-                position: Span(25, 35),
+                span: Span(25, 35),
                 payload: TypeId::NONE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (3, 0),
-                position: Span(30, 34),
+                span: Span(30, 34),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(36, 37),
+                span: Span(36, 37),
                 payload: TypeId::BYTE.0,
             },
         ]
@@ -346,61 +346,61 @@ fn local_mut_float_multiplication() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 3),
-                position: Span(0, 38),
+                span: Span(0, 38),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
                 children: (1, 3),
-                position: Span(1, 25),
+                span: Span(1, 25),
                 payload: 256,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
                 children: (0, 0),
-                position: Span(12, 17),
+                span: Span(12, 17),
                 payload: 0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(14.0),
-                position: Span(20, 24),
+                span: Span(20, 24),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (2, 0),
-                position: Span(20, 25),
+                span: Span(20, 25),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(26, 27),
+                span: Span(26, 27),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationAssignmentExpression,
                 children: (5, 6),
-                position: Span(26, 34),
+                span: Span(26, 34),
                 payload: TypeId::NONE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (7, 0),
-                position: Span(26, 35),
+                span: Span(26, 35),
                 payload: TypeId::NONE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(3.0),
-                position: Span(31, 34),
+                span: Span(31, 34),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(36, 37),
+                span: Span(36, 37),
                 payload: TypeId::FLOAT.0,
             },
         ]
@@ -419,61 +419,61 @@ fn local_mut_integer_multiplication() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 3),
-                position: Span(0, 32),
+                span: Span(0, 32),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
                 children: (1, 3),
-                position: Span(1, 21),
+                span: Span(1, 21),
                 payload: 256
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
                 children: (0, 0),
-                position: Span(12, 15),
+                span: Span(12, 15),
                 payload: 0
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (14, 0),
-                position: Span(18, 20),
+                span: Span(18, 20),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (2, 0),
-                position: Span(18, 21),
+                span: Span(18, 21),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(22, 23),
+                span: Span(22, 23),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationAssignmentExpression,
                 children: (5, 6),
-                position: Span(22, 28),
+                span: Span(22, 28),
                 payload: TypeId::NONE.0
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
                 children: (7, 0),
-                position: Span(22, 29),
+                span: Span(22, 29),
                 payload: TypeId::NONE.0
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (3, 0),
-                position: Span(27, 28),
+                span: Span(27, 28),
                 payload: TypeId::INTEGER.0
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
                 children: (256, 0),
-                position: Span(30, 31),
+                span: Span(30, 31),
                 payload: TypeId::INTEGER.0
             },
         ]

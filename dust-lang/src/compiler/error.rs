@@ -1,7 +1,7 @@
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
-    Span,
+    Position,
     dust_error::AnnotatedError,
     resolver::{DeclarationId, ScopeId, TypeId},
     syntax_tree::{SyntaxId, SyntaxKind},
@@ -11,32 +11,32 @@ use crate::{
 pub enum CompileError {
     InvalidEncodedConstant {
         node_kind: SyntaxKind,
-        position: Span,
+        position: Position,
         payload: (u32, u32),
     },
     InvalidNativeFunction {
         name: String,
-        position: Span,
+        position: Position,
     },
     DivisionByZero {
         node_kind: SyntaxKind,
-        position: Span,
+        position: Position,
     },
     ExpectedItem {
         node_kind: SyntaxKind,
-        position: Span,
+        position: Position,
     },
     ExpectedStatement {
         node_kind: SyntaxKind,
-        position: Span,
+        position: Position,
     },
     ExpectedExpression {
         node_kind: SyntaxKind,
-        position: Span,
+        position: Position,
     },
     ExpectedFunction {
         node_kind: SyntaxKind,
-        position: Span,
+        position: Position,
     },
     MissingChild {
         parent_kind: SyntaxKind,
@@ -63,6 +63,25 @@ pub enum CompileError {
 }
 
 impl AnnotatedError for CompileError {
+    fn file_index(&self) -> usize {
+        match self {
+            CompileError::InvalidEncodedConstant { position, .. } => position.file_index as usize,
+            CompileError::InvalidNativeFunction { position, .. } => position.file_index as usize,
+            CompileError::DivisionByZero { position, .. } => position.file_index as usize,
+            CompileError::ExpectedItem { position, .. } => position.file_index as usize,
+            CompileError::ExpectedStatement { position, .. } => position.file_index as usize,
+            CompileError::ExpectedExpression { position, .. } => position.file_index as usize,
+            CompileError::ExpectedFunction { position, .. } => position.file_index as usize,
+            CompileError::MissingChild { .. } => 0,
+            CompileError::MissingConstant { .. } => 0,
+            CompileError::MissingDeclaration { .. } => 0,
+            CompileError::MissingLocal { .. } => 0,
+            CompileError::MissingSyntaxNode { .. } => 0,
+            CompileError::MissingType { .. } => 0,
+            CompileError::MissingScope { .. } => 0,
+        }
+    }
+
     fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a> {
         match self {
             CompileError::InvalidEncodedConstant {
@@ -75,7 +94,7 @@ impl AnnotatedError for CompileError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
-                            .span(position.as_usize_range())
+                            .span(position.span.as_usize_range())
                             .label(format!(
                                 "Found {node_kind} with invalid encoded constant {payload:?} here"
                             )),
@@ -88,7 +107,7 @@ impl AnnotatedError for CompileError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
-                            .span(position.as_usize_range())
+                            .span(position.span.as_usize_range())
                             .label(format!("Found invalid native function {name} here")),
                     ),
                 )
@@ -102,7 +121,7 @@ impl AnnotatedError for CompileError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
-                            .span(position.as_usize_range())
+                            .span(position.span.as_usize_range())
                             .label(format!("Found {node_kind} that divides by zero here")),
                     ),
                 )
@@ -115,7 +134,7 @@ impl AnnotatedError for CompileError {
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
             CompileError::ExpectedStatement {
@@ -126,7 +145,7 @@ impl AnnotatedError for CompileError {
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
             CompileError::ExpectedExpression {
@@ -137,7 +156,7 @@ impl AnnotatedError for CompileError {
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
             CompileError::ExpectedFunction {
@@ -148,7 +167,7 @@ impl AnnotatedError for CompileError {
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.as_usize_range())),
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
             CompileError::MissingChild {

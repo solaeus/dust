@@ -3,8 +3,6 @@ use cranelift_module::ModuleError;
 
 use crate::{MemoryKind, OperandType, Operation, dust_error::AnnotatedError};
 
-pub const JIT_ERROR_TEXT: &str = "An error occurred during JIT compilation.";
-
 #[derive(Debug)]
 pub enum JitError {
     CompilationError {
@@ -56,6 +54,10 @@ pub enum JitError {
 }
 
 impl AnnotatedError for JitError {
+    fn file_index(&self) -> usize {
+        0
+    }
+
     fn annotated_error<'a>(&'a self, _source: &'a str) -> Group<'a> {
         match self {
             JitError::CompilationError { message, .. } => {

@@ -18,13 +18,13 @@ fn boolean() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (true as u32, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BOOLEAN.0,
             }
         ]
@@ -43,13 +43,13 @@ fn byte() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (42, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BYTE.0,
             }
         ]
@@ -68,13 +68,13 @@ fn character() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 3),
+                span: Span(0, 3),
                 payload: TypeId::CHARACTER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (113, 0),
-                position: Span(0, 3),
+                span: Span(0, 3),
                 payload: TypeId::CHARACTER.0,
             }
         ]
@@ -93,13 +93,13 @@ fn float() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(42.0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::FLOAT.0,
             }
         ]
@@ -118,13 +118,13 @@ fn integer() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 2),
+                span: Span(0, 2),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
-                position: Span(0, 2),
+                span: Span(0, 2),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -143,13 +143,13 @@ fn string() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 8),
+                span: Span(0, 8),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(0, 8),
+                span: Span(0, 8),
                 payload: TypeId::STRING.0,
             }
         ]
@@ -168,25 +168,25 @@ fn constant_byte_addition() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (40, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
                 children: (1, 2),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (2, 0),
-                position: Span(7, 11),
+                span: Span(7, 11),
                 payload: TypeId::BYTE.0,
             }
         ]
@@ -205,25 +205,25 @@ fn constant_float_addition() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(40.0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
                 children: (1, 2),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(2.0),
-                position: Span(7, 10),
+                span: Span(7, 10),
                 payload: TypeId::FLOAT.0,
             }
         ]
@@ -242,25 +242,25 @@ fn constant_integer_addition() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 6),
+                span: Span(0, 6),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (40, 0),
-                position: Span(0, 2),
+                span: Span(0, 2),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
                 children: (1, 2),
-                position: Span(0, 6),
+                span: Span(0, 6),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (2, 0),
-                position: Span(5, 6),
+                span: Span(5, 6),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -279,25 +279,25 @@ fn constant_byte_subtraction() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (44, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::SubtractionExpression,
                 children: (1, 2),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (2, 0),
-                position: Span(7, 11),
+                span: Span(7, 11),
                 payload: TypeId::BYTE.0,
             }
         ]
@@ -316,25 +316,25 @@ fn constant_float_subtraction() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(44.0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::SubtractionExpression,
                 children: (1, 2),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(2.0),
-                position: Span(7, 10),
+                span: Span(7, 10),
                 payload: TypeId::FLOAT.0,
             }
         ]
@@ -353,25 +353,25 @@ fn constant_integer_subtraction() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 6),
+                span: Span(0, 6),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (44, 0),
-                position: Span(0, 2),
+                span: Span(0, 2),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::SubtractionExpression,
                 children: (1, 2),
-                position: Span(0, 6),
+                span: Span(0, 6),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (2, 0),
-                position: Span(5, 6),
+                span: Span(5, 6),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -390,25 +390,25 @@ fn constant_byte_multiplication() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (14, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationExpression,
                 children: (1, 2),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (3, 0),
-                position: Span(7, 11),
+                span: Span(7, 11),
                 payload: TypeId::BYTE.0,
             }
         ]
@@ -427,25 +427,25 @@ fn constant_float_multiplication() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(14.0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationExpression,
                 children: (1, 2),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(3.0),
-                position: Span(7, 10),
+                span: Span(7, 10),
                 payload: TypeId::FLOAT.0,
             }
         ]
@@ -464,25 +464,25 @@ fn constant_integer_multiplication() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 6),
+                span: Span(0, 6),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (14, 0),
-                position: Span(0, 2),
+                span: Span(0, 2),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationExpression,
                 children: (1, 2),
-                position: Span(0, 6),
+                span: Span(0, 6),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (3, 0),
-                position: Span(5, 6),
+                span: Span(5, 6),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -501,25 +501,25 @@ fn constant_byte_division() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (84, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::DivisionExpression,
                 children: (1, 2),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (2, 0),
-                position: Span(7, 11),
+                span: Span(7, 11),
                 payload: TypeId::BYTE.0,
             }
         ]
@@ -538,25 +538,25 @@ fn constant_float_division() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(84.0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::DivisionExpression,
                 children: (1, 2),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(2.0),
-                position: Span(7, 10),
+                span: Span(7, 10),
                 payload: TypeId::FLOAT.0,
             }
         ]
@@ -575,25 +575,25 @@ fn constant_integer_division() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 6),
+                span: Span(0, 6),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (84, 0),
-                position: Span(0, 2),
+                span: Span(0, 2),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::DivisionExpression,
                 children: (1, 2),
-                position: Span(0, 6),
+                span: Span(0, 6),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (2, 0),
-                position: Span(5, 6),
+                span: Span(5, 6),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -612,25 +612,25 @@ fn constant_integer_negation() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 5),
+                span: Span(0, 5),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::NegationExpression,
                 children: (2, 0),
-                position: Span(0, 5),
+                span: Span(0, 5),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GroupedExpression,
                 children: (1, 0),
-                position: Span(1, 5),
+                span: Span(1, 5),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
-                position: Span(2, 4),
+                span: Span(2, 4),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -649,25 +649,25 @@ fn constant_float_negation() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 7),
+                span: Span(0, 7),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::NegationExpression,
                 children: (2, 0),
-                position: Span(0, 7),
+                span: Span(0, 7),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GroupedExpression,
                 children: (1, 0),
-                position: Span(1, 7),
+                span: Span(1, 7),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(42.0),
-                position: Span(2, 6),
+                span: Span(2, 6),
                 payload: TypeId::FLOAT.0,
             }
         ]
@@ -686,25 +686,25 @@ fn constant_string_concatenation() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 13),
+                span: Span(0, 13),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(0, 5),
+                span: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
                 children: (1, 2),
-                position: Span(0, 13),
+                span: Span(0, 13),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(8, 13),
+                span: Span(8, 13),
                 payload: TypeId::STRING.0,
             }
         ]
@@ -723,25 +723,25 @@ fn constant_character_concatenation() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 9),
+                span: Span(0, 9),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (113, 0),
-                position: Span(0, 3),
+                span: Span(0, 3),
                 payload: TypeId::CHARACTER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
                 children: (1, 2),
-                position: Span(0, 9),
+                span: Span(0, 9),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (113, 0),
-                position: Span(6, 9),
+                span: Span(6, 9),
                 payload: TypeId::CHARACTER.0,
             }
         ]
@@ -760,25 +760,25 @@ fn constant_string_character_concatenation() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(0, 5),
+                span: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
                 children: (1, 2),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (113, 0),
-                position: Span(8, 11),
+                span: Span(8, 11),
                 payload: TypeId::CHARACTER.0,
             }
         ]
@@ -797,25 +797,25 @@ fn constant_character_string_concatenation() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (113, 0),
-                position: Span(0, 3),
+                span: Span(0, 3),
                 payload: TypeId::CHARACTER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
                 children: (1, 2),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(6, 11),
+                span: Span(6, 11),
                 payload: TypeId::STRING.0,
             }
         ]
@@ -834,25 +834,25 @@ fn constant_boolean_and() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 13),
+                span: Span(0, 13),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (true as u32, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::AndExpression,
                 children: (1, 2),
-                position: Span(0, 13),
+                span: Span(0, 13),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (false as u32, 0),
-                position: Span(8, 13),
+                span: Span(8, 13),
                 payload: TypeId::BOOLEAN.0,
             }
         ]
@@ -871,25 +871,25 @@ fn constant_boolean_or() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 13),
+                span: Span(0, 13),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (true as u32, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::OrExpression,
                 children: (1, 2),
-                position: Span(0, 13),
+                span: Span(0, 13),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (false as u32, 0),
-                position: Span(8, 13),
+                span: Span(8, 13),
                 payload: TypeId::BOOLEAN.0,
             }
         ]
@@ -908,19 +908,19 @@ fn constant_boolean_not() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 5),
+                span: Span(0, 5),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::NotExpression,
                 children: (1, 0),
-                position: Span(0, 5),
+                span: Span(0, 5),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (true as u32, 0),
-                position: Span(1, 5),
+                span: Span(1, 5),
                 payload: TypeId::BOOLEAN.0,
             }
         ]
@@ -939,25 +939,25 @@ fn constant_boolean_greater_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (1, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
                 children: (1, 2),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (0, 0),
-                position: Span(7, 12),
+                span: Span(7, 12),
                 payload: TypeId::BOOLEAN.0,
             }
         ]
@@ -976,25 +976,25 @@ fn constant_boolean_less_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (0, 0),
-                position: Span(0, 5),
+                span: Span(0, 5),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
                 children: (1, 2),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (1, 0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: TypeId::BOOLEAN.0,
             }
         ]
@@ -1013,25 +1013,25 @@ fn constant_boolean_greater_than_or_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (1, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
                 children: (1, 2),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (1, 0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: TypeId::BOOLEAN.0,
             }
         ]
@@ -1050,25 +1050,25 @@ fn constant_boolean_less_than_or_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (1, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
                 children: (1, 2),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (1, 0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: TypeId::BOOLEAN.0,
             }
         ]
@@ -1087,25 +1087,25 @@ fn constant_boolean_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (1, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
                 children: (1, 2),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (1, 0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: TypeId::BOOLEAN.0,
             }
         ]
@@ -1124,25 +1124,25 @@ fn constant_boolean_not_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 13),
+                span: Span(0, 13),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (1, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
                 children: (1, 2),
-                position: Span(0, 13),
+                span: Span(0, 13),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
                 children: (0, 0),
-                position: Span(8, 13),
+                span: Span(8, 13),
                 payload: TypeId::BOOLEAN.0,
             }
         ]
@@ -1161,25 +1161,25 @@ fn constant_byte_greater_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (43, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
                 children: (1, 2),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (42, 0),
-                position: Span(7, 11),
+                span: Span(7, 11),
                 payload: TypeId::BYTE.0,
             }
         ]
@@ -1198,25 +1198,25 @@ fn constant_byte_less_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (41, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
                 children: (1, 2),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (42, 0),
-                position: Span(7, 11),
+                span: Span(7, 11),
                 payload: TypeId::BYTE.0,
             }
         ]
@@ -1235,25 +1235,25 @@ fn constant_byte_greater_than_or_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (42, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
                 children: (1, 2),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (42, 0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: TypeId::BYTE.0,
             }
         ]
@@ -1272,25 +1272,25 @@ fn constant_byte_less_than_or_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (42, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
                 children: (1, 2),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (42, 0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: TypeId::BYTE.0,
             }
         ]
@@ -1309,25 +1309,25 @@ fn constant_byte_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (42, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
                 children: (1, 2),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (42, 0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: TypeId::BYTE.0,
             }
         ]
@@ -1346,25 +1346,25 @@ fn constant_byte_not_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (42, 0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::BYTE.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
                 children: (1, 2),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
                 children: (43, 0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: TypeId::BYTE.0,
             }
         ]
@@ -1383,25 +1383,25 @@ fn constant_character_greater_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 9),
+                span: Span(0, 9),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (123, 0),
-                position: Span(0, 3),
+                span: Span(0, 3),
                 payload: TypeId::CHARACTER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
                 children: (1, 2),
-                position: Span(0, 9),
+                span: Span(0, 9),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (122, 0),
-                position: Span(6, 9),
+                span: Span(6, 9),
                 payload: TypeId::CHARACTER.0,
             }
         ]
@@ -1420,25 +1420,25 @@ fn constant_character_less_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 9),
+                span: Span(0, 9),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (121, 0),
-                position: Span(0, 3),
+                span: Span(0, 3),
                 payload: TypeId::CHARACTER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
                 children: (1, 2),
-                position: Span(0, 9),
+                span: Span(0, 9),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (122, 0),
-                position: Span(6, 9),
+                span: Span(6, 9),
                 payload: TypeId::CHARACTER.0,
             }
         ]
@@ -1457,25 +1457,25 @@ fn constant_character_greater_than_or_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (122, 0),
-                position: Span(0, 3),
+                span: Span(0, 3),
                 payload: TypeId::CHARACTER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
                 children: (1, 2),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (122, 0),
-                position: Span(7, 10),
+                span: Span(7, 10),
                 payload: TypeId::CHARACTER.0,
             }
         ]
@@ -1494,25 +1494,25 @@ fn constant_character_less_than_or_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (122, 0),
-                position: Span(0, 3),
+                span: Span(0, 3),
                 payload: TypeId::CHARACTER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
                 children: (1, 2),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (122, 0),
-                position: Span(7, 10),
+                span: Span(7, 10),
                 payload: TypeId::CHARACTER.0,
             }
         ]
@@ -1531,25 +1531,25 @@ fn constant_character_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (122, 0),
-                position: Span(0, 3),
+                span: Span(0, 3),
                 payload: TypeId::CHARACTER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
                 children: (1, 2),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (122, 0),
-                position: Span(7, 10),
+                span: Span(7, 10),
                 payload: TypeId::CHARACTER.0,
             }
         ]
@@ -1568,25 +1568,25 @@ fn constant_character_not_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (122, 0),
-                position: Span(0, 3),
+                span: Span(0, 3),
                 payload: TypeId::CHARACTER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
                 children: (1, 2),
-                position: Span(0, 10),
+                span: Span(0, 10),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
                 children: (123, 0),
-                position: Span(7, 10),
+                span: Span(7, 10),
                 payload: TypeId::CHARACTER.0,
             }
         ]
@@ -1605,25 +1605,25 @@ fn constant_float_greater_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(43.0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
                 children: (1, 2),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(42.0),
-                position: Span(7, 11),
+                span: Span(7, 11),
                 payload: TypeId::FLOAT.0,
             }
         ]
@@ -1642,25 +1642,25 @@ fn constant_float_less_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(41.0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
                 children: (1, 2),
-                position: Span(0, 11),
+                span: Span(0, 11),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(42.0),
-                position: Span(7, 11),
+                span: Span(7, 11),
                 payload: TypeId::FLOAT.0,
             }
         ]
@@ -1679,25 +1679,25 @@ fn constant_float_greater_than_or_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(42.0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
                 children: (1, 2),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(42.0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: TypeId::FLOAT.0,
             }
         ]
@@ -1716,25 +1716,25 @@ fn constant_float_less_than_or_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(42.0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
                 children: (1, 2),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(42.0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: TypeId::FLOAT.0,
             }
         ]
@@ -1753,25 +1753,25 @@ fn constant_float_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(42.0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
                 children: (1, 2),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(42.0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: TypeId::FLOAT.0,
             }
         ]
@@ -1790,25 +1790,25 @@ fn constant_float_not_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(42.0),
-                position: Span(0, 4),
+                span: Span(0, 4),
                 payload: TypeId::FLOAT.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
                 children: (1, 2),
-                position: Span(0, 12),
+                span: Span(0, 12),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
                 children: SyntaxNode::encode_float(43.0),
-                position: Span(8, 12),
+                span: Span(8, 12),
                 payload: TypeId::FLOAT.0,
             }
         ]
@@ -1827,25 +1827,25 @@ fn constant_integer_greater_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 7),
+                span: Span(0, 7),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (43, 0),
-                position: Span(0, 2),
+                span: Span(0, 2),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
                 children: (1, 2),
-                position: Span(0, 7),
+                span: Span(0, 7),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
-                position: Span(5, 7),
+                span: Span(5, 7),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -1864,25 +1864,25 @@ fn constant_integer_less_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 7),
+                span: Span(0, 7),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (41, 0),
-                position: Span(0, 2),
+                span: Span(0, 2),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
                 children: (1, 2),
-                position: Span(0, 7),
+                span: Span(0, 7),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
-                position: Span(5, 7),
+                span: Span(5, 7),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -1901,25 +1901,25 @@ fn constant_integer_greater_than_or_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 8),
+                span: Span(0, 8),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
-                position: Span(0, 2),
+                span: Span(0, 2),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
                 children: (1, 2),
-                position: Span(0, 8),
+                span: Span(0, 8),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
-                position: Span(6, 8),
+                span: Span(6, 8),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -1938,25 +1938,25 @@ fn constant_integer_less_than_or_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 8),
+                span: Span(0, 8),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
-                position: Span(0, 2),
+                span: Span(0, 2),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
                 children: (1, 2),
-                position: Span(0, 8),
+                span: Span(0, 8),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
-                position: Span(6, 8),
+                span: Span(6, 8),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -1975,25 +1975,25 @@ fn constant_integer_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 8),
+                span: Span(0, 8),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
-                position: Span(0, 2),
+                span: Span(0, 2),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
                 children: (1, 2),
-                position: Span(0, 8),
+                span: Span(0, 8),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
-                position: Span(6, 8),
+                span: Span(6, 8),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -2012,25 +2012,25 @@ fn constant_integer_not_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 8),
+                span: Span(0, 8),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (42, 0),
-                position: Span(0, 2),
+                span: Span(0, 2),
                 payload: TypeId::INTEGER.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
                 children: (1, 2),
-                position: Span(0, 8),
+                span: Span(0, 8),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
                 children: (43, 0),
-                position: Span(6, 8),
+                span: Span(6, 8),
                 payload: TypeId::INTEGER.0,
             }
         ]
@@ -2049,25 +2049,25 @@ fn constant_string_greater_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 13),
+                span: Span(0, 13),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(0, 5),
+                span: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
                 children: (1, 2),
-                position: Span(0, 13),
+                span: Span(0, 13),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(8, 13),
+                span: Span(8, 13),
                 payload: TypeId::STRING.0,
             }
         ]
@@ -2086,25 +2086,25 @@ fn constant_string_less_than() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 13),
+                span: Span(0, 13),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(0, 5),
+                span: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
                 children: (1, 2),
-                position: Span(0, 13),
+                span: Span(0, 13),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(8, 13),
+                span: Span(8, 13),
                 payload: TypeId::STRING.0,
             }
         ]
@@ -2123,25 +2123,25 @@ fn constant_string_greater_than_or_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 14),
+                span: Span(0, 14),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(0, 5),
+                span: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
                 children: (1, 2),
-                position: Span(0, 14),
+                span: Span(0, 14),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(9, 14),
+                span: Span(9, 14),
                 payload: TypeId::STRING.0,
             }
         ]
@@ -2160,25 +2160,25 @@ fn constant_string_less_than_or_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 14),
+                span: Span(0, 14),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(0, 5),
+                span: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
                 children: (1, 2),
-                position: Span(0, 14),
+                span: Span(0, 14),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(9, 14),
+                span: Span(9, 14),
                 payload: TypeId::STRING.0,
             }
         ]
@@ -2197,25 +2197,25 @@ fn constant_string_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 14),
+                span: Span(0, 14),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(0, 5),
+                span: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
                 children: (1, 2),
-                position: Span(0, 14),
+                span: Span(0, 14),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(9, 14),
+                span: Span(9, 14),
                 payload: TypeId::STRING.0,
             }
         ]
@@ -2234,25 +2234,25 @@ fn constant_string_not_equal() {
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
                 children: (0, 1),
-                position: Span(0, 14),
+                span: Span(0, 14),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(0, 5),
+                span: Span(0, 5),
                 payload: TypeId::STRING.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
                 children: (1, 2),
-                position: Span(0, 14),
+                span: Span(0, 14),
                 payload: TypeId::BOOLEAN.0,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
                 children: (0, 0),
-                position: Span(9, 14),
+                span: Span(9, 14),
                 payload: TypeId::STRING.0,
             }
         ]

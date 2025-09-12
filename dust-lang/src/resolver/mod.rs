@@ -6,7 +6,7 @@ use std::{
 use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
 
-use crate::{NativeFunction, OperandType, Span, Type};
+use crate::{NativeFunction, OperandType, Position, Type};
 
 #[derive(Debug)]
 pub struct Resolver {
@@ -40,7 +40,7 @@ impl Resolver {
                 ScopeId::MAIN,
                 read_line_type_id,
                 NativeFunction { index: 1 }.name(),
-                Span::default(),
+                Position::default(),
             );
 
             let value_parameters = resolver.push_type_members(&[TypeId::STRING]);
@@ -55,7 +55,7 @@ impl Resolver {
                 ScopeId::MAIN,
                 write_line_type_id,
                 NativeFunction { index: 2 }.name(),
-                Span::default(),
+                Position::default(),
             );
         }
 
@@ -69,7 +69,7 @@ impl Resolver {
                     ScopeId::MAIN,
                     TypeId::INTEGER,
                     &identifier,
-                    Span::default(),
+                    Position::default(),
                 );
             }
         }
@@ -101,7 +101,7 @@ impl Resolver {
         scope_id: ScopeId,
         type_id: TypeId,
         identifier: &str,
-        identifier_position: Span,
+        identifier_position: Position,
     ) -> DeclarationId {
         let symbol = {
             let mut hasher = FxHasher::default();
@@ -284,7 +284,7 @@ pub struct Declaration {
     pub kind: DeclarationKind,
     pub scope_id: ScopeId,
     pub type_id: TypeId,
-    pub identifier_position: Span,
+    pub identifier_position: Position,
     pub shadowed: Option<DeclarationId>,
 }
 
