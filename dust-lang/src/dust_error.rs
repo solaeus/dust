@@ -7,7 +7,7 @@ use std::{
 
 use annotate_snippets::{Group, Renderer};
 
-use crate::{CompileError, Source, jit_vm::JitError, parser::ParseError};
+use crate::{CompileError, Source, jit_vm::JitError, parser::ParseError, source::SourceFile};
 
 const SOURCE_NOT_FOUND: &str = "<source not found>";
 
@@ -36,10 +36,10 @@ impl DustError {
     pub fn jit(error: JitError) -> Self {
         DustError {
             error: DustErrorKind::Jit(error),
-            source: Source::Script {
-                name: Arc::new(SOURCE_NOT_FOUND.to_string()),
-                content: Arc::new(SOURCE_NOT_FOUND.to_string()),
-            },
+            source: Source::Script(Arc::new(SourceFile {
+                name: SOURCE_NOT_FOUND.to_string(),
+                source: SOURCE_NOT_FOUND.to_string(),
+            })),
         }
     }
 
@@ -49,10 +49,11 @@ impl DustError {
                 let mut report = Vec::new();
 
                 for parse_error in parse_errors {
-                    let source = self
-                        .source
-                        .get_file_source(parse_error.file_index())
-                        .unwrap_or(SOURCE_NOT_FOUND);
+                    let source_file = self.source.get_file(parse_error.file_index());
+                    let source = match source_file {
+                        Some(file) => &file.source,
+                        None => SOURCE_NOT_FOUND,
+                    };
                     let group = parse_error.annotated_error(source);
 
                     report.push(group);
@@ -63,20 +64,22 @@ impl DustError {
                 renderer.render(&report)
             }
             DustErrorKind::Compile(compile_error) => {
-                let source = self
-                    .source
-                    .get_file_source(compile_error.file_index())
-                    .unwrap_or(SOURCE_NOT_FOUND);
+                let source_file = self.source.get_file(compile_error.file_index());
+                let source = match source_file {
+                    Some(file) => &file.source,
+                    None => SOURCE_NOT_FOUND,
+                };
                 let report = [compile_error.annotated_error(source)];
                 let renderer = Renderer::styled();
 
                 renderer.render(&report)
             }
             DustErrorKind::Jit(jit_error) => {
-                let source = self
-                    .source
-                    .get_file_source(jit_error.file_index())
-                    .unwrap_or(SOURCE_NOT_FOUND);
+                let source_file = self.source.get_file(jit_error.file_index());
+                let source = match source_file {
+                    Some(file) => &file.source,
+                    None => SOURCE_NOT_FOUND,
+                };
                 let report = [jit_error.annotated_error(source)];
                 let renderer = Renderer::styled();
 

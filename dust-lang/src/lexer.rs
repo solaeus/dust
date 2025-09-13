@@ -256,6 +256,7 @@ impl<'src> Lexer<'src> {
             "map" => Token::Map,
             "mod" => Token::Mod,
             "mut" => Token::Mut,
+            "pub" => Token::Pub,
             "return" => Token::Return,
             "str" => Token::Str,
             "struct" => Token::Struct,

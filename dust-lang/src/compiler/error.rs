@@ -38,6 +38,10 @@ pub enum CompileError {
         node_kind: SyntaxKind,
         position: Position,
     },
+    ExpectedFunctionBody {
+        node_kind: SyntaxKind,
+        position: Position,
+    },
     MissingChild {
         parent_kind: SyntaxKind,
         child_index: u32,
@@ -46,7 +50,7 @@ pub enum CompileError {
         constant_index: u16,
     },
     MissingDeclaration {
-        id: DeclarationId,
+        declaration_id: DeclarationId,
     },
     MissingLocal {
         declaration_id: DeclarationId,
@@ -72,6 +76,7 @@ impl AnnotatedError for CompileError {
             CompileError::ExpectedStatement { position, .. } => position.file_index as usize,
             CompileError::ExpectedExpression { position, .. } => position.file_index as usize,
             CompileError::ExpectedFunction { position, .. } => position.file_index as usize,
+            CompileError::ExpectedFunctionBody { position, .. } => position.file_index as usize,
             CompileError::MissingChild { .. } => 0,
             CompileError::MissingConstant { .. } => 0,
             CompileError::MissingDeclaration { .. } => 0,
@@ -170,6 +175,17 @@ impl AnnotatedError for CompileError {
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
+            CompileError::ExpectedFunctionBody {
+                node_kind,
+                position,
+            } => {
+                let title = format!("Expected a function body, found {node_kind}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
+                )
+            }
             CompileError::MissingChild {
                 parent_kind,
                 child_index,
@@ -186,7 +202,7 @@ impl AnnotatedError for CompileError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
-            CompileError::MissingDeclaration { id } => {
+            CompileError::MissingDeclaration { declaration_id: id } => {
                 let title = format!(
                     "Declaration with id {id:?} was missing, this is a bug in the parser or compiler"
                 );

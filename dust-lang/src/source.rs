@@ -2,20 +2,28 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub enum Source {
-    Script {
-        name: Arc<String>,
-        content: Arc<String>,
-    },
-    Files(Vec<SourceFile>),
+    Script(Arc<SourceFile>),
+    Files(Vec<Arc<SourceFile>>),
 }
 
 impl Source {
+    pub fn len(&self) -> usize {
+        match self {
+            Source::Script(_) => 1,
+            Source::Files(sources) => sources.len(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn program_name(&self) -> &str {
         match self {
-            Source::Script { name, .. } => name,
+            Source::Script(source_file) => source_file.name.as_str(),
             Source::Files(sources) => {
-                if let Some(SourceFile { name, .. }) = sources.first() {
-                    name
+                if let Some(source_file) = sources.first().as_ref() {
+                    source_file.name.as_str()
                 } else {
                     "unknown"
                 }
@@ -23,26 +31,22 @@ impl Source {
         }
     }
 
-    pub fn get_file_source(&self, index: usize) -> Option<&str> {
+    pub fn get_file(&self, index: usize) -> Option<&Arc<SourceFile>> {
         match self {
-            Source::Script {
-                content: source, ..
-            } => {
+            Source::Script(source_file) => {
                 if index == 0 {
-                    Some(source)
+                    Some(source_file)
                 } else {
                     None
                 }
             }
-            Source::Files(sources) => sources
-                .get(index)
-                .map(|SourceFile { source, .. }| source.as_str()),
+            Source::Files(sources) => sources.get(index),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct SourceFile {
-    pub name: Arc<String>,
-    pub source: Arc<String>,
+    pub name: String,
+    pub source: String,
 }

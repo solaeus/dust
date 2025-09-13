@@ -18,6 +18,7 @@ impl SyntaxId {
 /// Lossless abstract syntax tree representing a Dust source code file.
 #[derive(Debug)]
 pub struct SyntaxTree {
+    /// Index that identifies the source file this syntax tree was parsed from and its resolver.
     pub file_index: u32,
 
     /// List of nodes in the tree in the order they were parsed according to the Pratt algorithm
@@ -148,6 +149,13 @@ impl SyntaxTree {
                     }
                 }
             }
+            SyntaxKind::FunctionStatement => {
+                if let Some(expression) = self.nodes.get(node.children.1 as usize) {
+                    self.display_node(expression, depth + 1, output);
+                } else {
+                    push_error(output);
+                }
+            }
             SyntaxKind::ExpressionStatement
             | SyntaxKind::GroupedExpression
             | SyntaxKind::FunctionSignature => {
@@ -249,7 +257,8 @@ impl SyntaxTree {
                     push_error(output);
                 }
             }
-            SyntaxKind::BlockExpression
+            SyntaxKind::ModuleItem
+            | SyntaxKind::BlockExpression
             | SyntaxKind::FunctionValueParameters
             | SyntaxKind::CallValueArguments => {
                 let children_start = node.children.0 as usize;

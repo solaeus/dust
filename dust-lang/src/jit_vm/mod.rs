@@ -16,7 +16,9 @@ pub use thread::{Thread, ThreadResult};
 
 use std::sync::{Arc, RwLock};
 
-use crate::{DustError, Source, Value, compiler::Compiler, dust_crate::Program};
+use crate::{
+    DustError, Source, Value, compiler::Compiler, dust_crate::Program, source::SourceFile,
+};
 
 pub const MINIMUM_OBJECT_HEAP_DEFAULT: usize = if cfg!(debug_assertions) {
     1024
@@ -32,10 +34,10 @@ pub const MINIMUM_OBJECT_SWEEP_DEFAULT: usize = if cfg!(debug_assertions) {
 pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 
 pub fn run_main(source: &str) -> Result<Option<Value>, DustError> {
-    let compiler = Compiler::new(Source::Script {
-        name: Arc::new("dust_program".to_string()),
-        content: Arc::new(source.to_string()),
-    });
+    let compiler = Compiler::new(Source::Script(Arc::new(SourceFile {
+        name: "dust_program".to_string(),
+        source: source.to_string(),
+    })));
     let program = compiler.compile()?;
     let vm = JitVm::new();
 

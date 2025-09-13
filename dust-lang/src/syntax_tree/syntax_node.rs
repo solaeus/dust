@@ -108,6 +108,7 @@ pub enum SyntaxKind {
     UseItem,
 
     // Statements
+    ItemStatement,
     ExpressionStatement,
     FunctionStatement,
     LetStatement,
@@ -169,13 +170,13 @@ pub enum SyntaxKind {
     BreakExpression,
 
     // Sub-Syntax
+    CallValueArguments,
     FunctionSignature,
     FunctionValueParameters,
     FunctionValueParameter,
     FunctionValueParameterName,
     FunctionValueParameterType,
     FunctionTypeParameters,
-    CallValueArguments,
 
     // Types (Sub-Syntax)
     BooleanType,
@@ -192,7 +193,13 @@ pub enum SyntaxKind {
 
 impl SyntaxKind {
     pub fn is_item(&self) -> bool {
-        matches!(self, SyntaxKind::MainFunctionItem | SyntaxKind::ModuleItem)
+        matches!(
+            self,
+            SyntaxKind::MainFunctionItem
+                | SyntaxKind::ModuleItem
+                | SyntaxKind::UseItem
+                | SyntaxKind::FunctionStatement
+        )
     }
 
     pub fn is_statement(&self) -> bool {
@@ -259,6 +266,7 @@ impl Display for SyntaxKind {
         match self {
             SyntaxKind::MainFunctionItem => write!(f, "main function item"),
             SyntaxKind::ModuleItem => write!(f, "module item"),
+            SyntaxKind::ItemStatement => write!(f, "item statement"),
             SyntaxKind::ExpressionStatement => write!(f, "expression statement"),
             SyntaxKind::FunctionStatement => write!(f, "function statement"),
             SyntaxKind::LetStatement => write!(f, "let statement"),

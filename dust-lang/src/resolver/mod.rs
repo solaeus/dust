@@ -5,6 +5,7 @@ use std::{
 
 use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
+use smallvec::SmallVec;
 
 use crate::{NativeFunction, OperandType, Position, Type};
 
@@ -65,9 +66,9 @@ impl Resolver {
                 let identifier = format!("__reserved_{}__", resolver.declarations.len());
 
                 resolver.add_declaration(
-                    DeclarationKind::Local,
+                    DeclarationKind::NativeFunction,
                     ScopeId::MAIN,
-                    TypeId::INTEGER,
+                    TypeId::NONE,
                     &identifier,
                     Position::default(),
                 );
@@ -75,6 +76,14 @@ impl Resolver {
         }
 
         resolver
+    }
+
+    pub fn add_export_to_scope(&mut self, parent: ScopeId, child: DeclarationId) {
+        if let Some(scope) = self.scopes.get_mut(parent.0 as usize) {
+            println!("Adding export: {:?} to scope {:?}", child, parent);
+
+            scope.exports.push(child);
+        }
     }
 
     pub fn add_scope(&mut self, scope: Scope) -> ScopeId {
@@ -113,13 +122,11 @@ impl Resolver {
             }
         };
 
-        let shadowed = self.find_declaration_in_block_scope(identifier, scope_id);
         let declaration = Declaration {
             kind,
             scope_id,
             type_id,
             identifier_position,
-            shadowed,
         };
         let declaration_id = DeclarationId(self.declarations.len() as u32);
 
@@ -127,9 +134,42 @@ impl Resolver {
 
         declaration_id
     }
+    pub fn find_declaration(
+        &self,
+        identifier: &str,
+        target_scope_id: ScopeId,
+    ) -> Option<DeclarationId> {
+        let symbol = {
+            let mut hasher = FxHasher::default();
 
-    pub fn find_declaration_in_block_scope(
-        &mut self,
+            identifier.hash(&mut hasher);
+
+            Symbol {
+                hash: hasher.finish(),
+            }
+        };
+
+        let mut current_scope_id = target_scope_id;
+        let mut current_scope = self.get_scope(current_scope_id)?;
+
+        loop {
+            if let Some(index) = self.declarations.get_index_of(&(symbol, current_scope_id)) {
+                return Some(DeclarationId(index as u32));
+            }
+
+            if current_scope_id == ScopeId::MAIN {
+                break;
+            }
+
+            current_scope_id = current_scope.parent;
+            current_scope = self.get_scope(current_scope_id)?;
+        }
+
+        None
+    }
+
+    pub fn find_declaration_in_scope(
+        &self,
         identifier: &str,
         target_scope_id: ScopeId,
     ) -> Option<DeclarationId> {
@@ -248,11 +288,12 @@ impl ScopeId {
     pub const MAIN: Self = ScopeId(0);
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Scope {
     pub kind: ScopeKind,
     pub parent: ScopeId,
     pub imports: (u32, u32),
+    pub exports: SmallVec<[DeclarationId; 4]>,
     pub depth: u32,
     pub index: u32,
 }
@@ -285,15 +326,14 @@ pub struct Declaration {
     pub scope_id: ScopeId,
     pub type_id: TypeId,
     pub identifier_position: Position,
-    pub shadowed: Option<DeclarationId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DeclarationKind {
     Function,
     NativeFunction,
-    Local,
-    LocalMutable,
+    Local { shadowed: Option<DeclarationId> },
+    LocalMutable { shadowed: Option<DeclarationId> },
     Module,
     Type,
 }
@@ -303,8 +343,8 @@ impl Display for DeclarationKind {
         match self {
             DeclarationKind::Function => write!(f, "function"),
             DeclarationKind::NativeFunction => write!(f, "native function"),
-            DeclarationKind::Local => write!(f, "local variable"),
-            DeclarationKind::LocalMutable => write!(f, "mutable local variable"),
+            DeclarationKind::Local { .. } => write!(f, "local variable"),
+            DeclarationKind::LocalMutable { .. } => write!(f, "mutable local variable"),
             DeclarationKind::Module => write!(f, "module"),
             DeclarationKind::Type => write!(f, "type"),
         }

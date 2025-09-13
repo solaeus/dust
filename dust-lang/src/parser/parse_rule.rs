@@ -266,7 +266,7 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::Assignment,
             },
             Token::Mod => ParseRule {
-                prefix: Some(Parser::parse_mod),
+                prefix: Some(Parser::parse_module_item),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -299,6 +299,11 @@ impl From<Token> for ParseRule<'_> {
                 prefix: None,
                 infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Assignment,
+            },
+            Token::Pub => ParseRule {
+                prefix: Some(Parser::parse_pub_item),
+                infix: None,
+                precedence: Precedence::None,
             },
             Token::Return => ParseRule {
                 prefix: Some(Parser::parse_return),
@@ -366,7 +371,7 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             Token::Use => ParseRule {
-                prefix: Some(Parser::parse_use),
+                prefix: Some(Parser::parse_use_item),
                 infix: None,
                 precedence: Precedence::None,
             },

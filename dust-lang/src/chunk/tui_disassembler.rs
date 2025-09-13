@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, sync::Arc};
 
 use ratatui::{
     buffer::Buffer,
@@ -9,18 +9,18 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph, Row, Table, Tabs, Widget, Wrap},
 };
 
-use crate::{Chunk, dust_crate::Program};
+use crate::{Chunk, Source, dust_crate::Program, source::SourceFile};
 
 pub struct TuiDisassembler<'a> {
     program: &'a Program,
-    source: Option<&'a str>,
+    source: Source,
     state: TuiState,
     selected_tab: usize,
     tab_count: usize,
 }
 
 impl<'a> TuiDisassembler<'a> {
-    pub fn new(program: &'a Program, source: Option<&'a str>) -> Self {
+    pub fn new(program: &'a Program, source: Source) -> Self {
         Self {
             program,
             source,
@@ -68,21 +68,21 @@ impl<'a> TuiDisassembler<'a> {
         Ok(())
     }
 
-    fn draw_source_tab(&self, source: Option<&str>, area: Rect, buffer: &mut Buffer) {
+    fn draw_source_tab(&self, source_file: Arc<SourceFile>, area: Rect, buffer: &mut Buffer) {
+        let SourceFile { name, source } = source_file.as_ref();
+
         let block = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Thick)
-            .title(Span::styled("Source", Style::default().bold()))
+            .title(Span::styled(name, Style::default().bold()))
             .title_alignment(Alignment::Center);
         let inner_area = block.inner(area);
 
         block.render(area, buffer);
 
-        let paragraph = if let Some(source) = source {
-            Paragraph::new(source).wrap(Wrap { trim: true })
-        } else {
-            Paragraph::new("No source available").wrap(Wrap { trim: true })
-        };
+        let paragraph = Paragraph::new(source.to_string())
+            .wrap(Wrap { trim: false })
+            .scroll((0, 0));
 
         paragraph.render(inner_area, buffer);
     }
@@ -333,18 +333,25 @@ impl Widget for &TuiDisassembler<'_> {
             .select(self.selected_tab)
             .render(chunk_tabs_header_area, buffer);
 
-        match self.selected_tab {
-            0 => {
-                self.draw_source_tab(self.source, tab_content_area, buffer);
-            }
-            1 => {
-                self.draw_chunk_tab(main_chunk, tab_content_area, buffer);
-            }
-            _ => {
-                if let Some(chunk) = self.program.prototypes.get(self.selected_tab - 1) {
-                    self.draw_chunk_tab(chunk, tab_content_area, buffer);
-                }
-            }
+        if self.selected_tab < self.source.len() {
+            let source_file = self
+                .source
+                .get_file(self.selected_tab)
+                .cloned()
+                .unwrap_or_else(|| {
+                    Arc::new(SourceFile {
+                        name: "unknown".to_string(),
+                        source: "// Source not available".to_string(),
+                    })
+                });
+
+            self.draw_source_tab(source_file, tab_content_area, buffer);
+        } else if let Some(chunk) = self
+            .program
+            .prototypes
+            .get(self.selected_tab - self.source.len())
+        {
+            self.draw_chunk_tab(chunk, tab_content_area, buffer);
         }
     }
 }

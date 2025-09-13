@@ -20,6 +20,7 @@ use crate::{
     dust_error::DustError,
     parser::parse_rule::{ParseRule, Precedence},
     resolver::{DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind, TypeId, TypeNode},
+    source::SourceFile,
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
@@ -34,15 +35,12 @@ pub fn parse_main(source: &'_ str) -> (SyntaxTree, Option<DustError>) {
     let dust_error = if errors.is_empty() {
         None
     } else {
-        let name = Arc::new("dust_program".to_string());
-        let source = Arc::new(source.to_string());
+        let name = "dust_program".to_string();
+        let source = source.to_string();
 
         Some(DustError::parse(
             errors,
-            Source::Script {
-                name,
-                content: source,
-            },
+            Source::Script(Arc::new(SourceFile { name, source })),
         ))
     };
 
@@ -99,7 +97,9 @@ impl<'a> Parser<'a> {
         if scope == ScopeId::MAIN {
             self.parse_main_function_item();
         } else {
-            self.parse_module_item();
+            let _ = self
+                .parse_module_item()
+                .map_err(|error| self.recover(error));
         }
 
         ParseResult {
@@ -120,7 +120,9 @@ impl<'a> Parser<'a> {
         if scope == ScopeId::MAIN {
             self.parse_main_function_item();
         } else {
-            self.parse_module_item();
+            let _ = self
+                .parse_module_item()
+                .map_err(|error| self.recover(error));
         }
 
         let file_index = self.syntax_tree.file_index;
@@ -178,12 +180,17 @@ impl<'a> Parser<'a> {
     }
 
     fn new_child_scope(&mut self, kind: ScopeKind) -> ScopeId {
+        let current_scope = self
+            .resolver
+            .get_scope(self.current_scope_id)
+            .expect("Scope must exist");
         let scope_id = self.resolver.add_scope(Scope {
             kind,
             parent: self.current_scope_id,
             imports: (0, 0),
-            depth: self.scope_count,
-            index: 0,
+            depth: current_scope.depth + 1,
+            exports: SmallVec::new(),
+            index: self.scope_count,
         });
         self.scope_count += 1;
 
@@ -258,7 +265,10 @@ impl<'a> Parser<'a> {
             self.current_token, self.current_span
         );
 
-        if matches!(self.current_token, Token::Semicolon) {
+        if matches!(
+            self.current_token,
+            Token::Semicolon | Token::RightCurlyBrace
+        ) {
             let _ = self.advance().map_err(|error| self.recover(error));
         }
     }
@@ -294,16 +304,57 @@ impl<'a> Parser<'a> {
     fn parse_item(&mut self) -> Result<(), ParseError> {
         self.pratt(Precedence::None)?;
 
-        if let Some(node) = self.syntax_tree.last_node()
-            && !node.kind.is_item()
-        {
+        let last_node_id = self.syntax_tree.last_node_id();
+
+        if let Some(node) = self.syntax_tree.get_node(last_node_id) {
+            if node.kind.is_item() {
+                return Ok(());
+            }
+
+            if node.kind.is_statement() {
+                let item_statement_node = SyntaxNode {
+                    kind: SyntaxKind::ItemStatement,
+                    span: node.span,
+                    children: (last_node_id.0, 0),
+                    payload: TypeId::NONE.0,
+                };
+
+                self.syntax_tree.push_node(item_statement_node);
+
+                return Ok(());
+            }
+
             Err(ParseError::ExpectedItem {
                 actual: node.kind,
                 position: Position::new(self.syntax_tree.file_index, node.span),
             })
         } else {
-            Ok(())
+            Err(ParseError::UnexpectedToken {
+                actual: self.previous_token,
+                position: Position::new(self.syntax_tree.file_index, self.previous_span),
+            })
         }
+    }
+
+    pub fn parse_pub_item(&mut self) -> Result<(), ParseError> {
+        info!("Parsing pub item");
+
+        self.advance()?;
+
+        match self.current_token {
+            Token::Use => self.parse_use_item()?,
+            Token::Mod => self.parse_module_item()?,
+            Token::Fn => self.parse_function_statement_or_expression()?,
+            _ => {
+                return Err(ParseError::ExpectedMultipleTokens {
+                    expected: &[Token::Use, Token::Mod, Token::Fn],
+                    actual: self.current_token,
+                    position: self.current_position(),
+                });
+            }
+        }
+
+        Ok(())
     }
 
     fn _parse_statement(&mut self) -> Result<(), ParseError> {
@@ -359,7 +410,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_main_function_item(&mut self) {
-        let span = span!(Level::INFO, "Parsing Main");
+        let span = span!(Level::INFO, "main");
         let _enter = span.enter();
         let placeholder_node = SyntaxNode {
             kind: SyntaxKind::MainFunctionItem,
@@ -371,6 +422,7 @@ impl<'a> Parser<'a> {
             kind: ScopeKind::Function,
             parent: ScopeId(0),
             imports: (0, 0),
+            exports: SmallVec::new(),
             depth: 0,
             index: 0,
         });
@@ -414,53 +466,122 @@ impl<'a> Parser<'a> {
         self.syntax_tree.children.extend(children);
     }
 
-    pub fn parse_module_item(&mut self) {
-        let span = span!(Level::INFO, "Parsing Module");
-        let _enter = span.enter();
+    pub fn parse_module_item(&mut self) -> Result<(), ParseError> {
+        info!("Parsing module item");
 
-        let end_token = if self.current_token == Token::Mod {
-            let _ = self.advance().map_err(|error| self.recover(error));
-            let _ = self
-                .expect(Token::LeftCurlyBrace)
-                .map_err(|error| self.recover(error));
+        let start = self.current_span.0;
+        let starting_scope_id = self.current_scope_id;
 
-            Token::RightCurlyBrace
+        // Allows for nested modules and whole file modules
+        let (end_token, declaration_id) = if self.current_token == Token::Mod {
+            self.advance()?;
+
+            let identifier_text = self.current_source();
+            let declaration_id = self.resolver.add_declaration(
+                DeclarationKind::Module,
+                starting_scope_id,
+                TypeId::NONE,
+                identifier_text,
+                Position::new(self.syntax_tree.file_index, self.current_span),
+            );
+            self.current_scope_id = self.new_child_scope(ScopeKind::Module);
+
+            self.resolver
+                .add_export_to_scope(starting_scope_id, declaration_id);
+            self.expect(Token::Identifier)?;
+            self.expect(Token::LeftCurlyBrace)?;
+
+            (Token::RightCurlyBrace, declaration_id)
         } else {
-            Token::Eof
+            (Token::Eof, DeclarationId(0))
         };
-
-        let node_index = self.syntax_tree.nodes.len();
-        let placeholder_node = SyntaxNode {
-            kind: SyntaxKind::ModuleItem,
-            span: Span::default(),
-            children: (0, 0),
-            payload: TypeId::NONE.0,
-        };
-
-        self.syntax_tree.push_node(placeholder_node);
 
         let mut children = Self::new_child_buffer();
 
-        while self.current_token != end_token {
-            let _ = self.parse_item().map_err(|error| self.recover(error));
+        while !self.allow(end_token)? {
+            self.parse_item()?;
+
             children.push(self.syntax_tree.last_node_id());
         }
 
+        let end = self.previous_span.1;
+        self.current_scope_id = starting_scope_id;
+
         let first_child = self.syntax_tree.children.len() as u32;
         let child_count = children.len() as u32;
-
-        self.syntax_tree.nodes[node_index] = SyntaxNode {
+        let node = SyntaxNode {
             kind: SyntaxKind::ModuleItem,
-            span: Span(0, self.current_span.1),
+            span: Span(start, end),
             children: (first_child, child_count),
-            payload: TypeId::NONE.0,
+            payload: declaration_id.0,
         };
 
+        self.syntax_tree.push_node(node);
         self.syntax_tree.children.extend(children);
+
+        Ok(())
+    }
+
+    fn parse_use_item(&mut self) -> Result<(), ParseError> {
+        info!("Parsing use statement");
+
+        let start = self.current_span.0;
+
+        self.advance()?;
+
+        let identifier_span = self.current_span;
+        let identifier_text = self.current_source();
+
+        self.expect(Token::Identifier)?;
+
+        let mut declaration_id = self
+            .resolver
+            .find_declaration(identifier_text, self.current_scope_id)
+            .ok_or_else(|| ParseError::UndeclaredModule {
+                identifier: identifier_text.to_string(),
+                position: Position::new(self.syntax_tree.file_index, identifier_span),
+            })?;
+
+        while self.allow(Token::DoubleColon)? {
+            let identifier_span = self.current_span;
+            let identifier_text = self.current_source();
+
+            self.expect(Token::Identifier)?;
+
+            let declaration = self
+                .resolver
+                .get_declaration(declaration_id)
+                .ok_or(ParseError::MissingDeclaration { id: declaration_id })?;
+
+            if let DeclarationKind::Module = declaration.kind {
+                declaration_id = self
+                    .resolver
+                    .find_declaration_in_scope(identifier_text, declaration.scope_id)
+                    .ok_or_else(|| ParseError::UndeclaredModule {
+                        identifier: identifier_text.to_string(),
+                        position: Position::new(self.syntax_tree.file_index, identifier_span),
+                    })?;
+            }
+        }
+
+        self.allow(Token::Semicolon)?;
+
+        let end = self.previous_span.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::UseItem,
+            span: Span(start, end),
+            children: (0, 0),
+            payload: declaration_id.0,
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
     }
 
     fn parse_function_statement_or_expression(&mut self) -> Result<(), ParseError> {
         let start = self.current_span.0;
+        let is_public = self.previous_token == Token::Pub;
 
         self.advance()?;
 
@@ -471,6 +592,24 @@ impl<'a> Parser<'a> {
                 let identifier_position =
                     Position::new(self.syntax_tree.file_index, self.current_span);
                 let identifier_text = self.current_source();
+
+                if let Some(existing_declaration) = self
+                    .resolver
+                    .find_declaration_in_scope(identifier_text, self.current_scope_id)
+                {
+                    let existing_declaration = self
+                        .resolver
+                        .get_declaration(existing_declaration)
+                        .ok_or(ParseError::MissingDeclaration {
+                            id: existing_declaration,
+                        })?;
+
+                    return Err(ParseError::DeclarationConflict {
+                        identifier: identifier_text.to_string(),
+                        first_declaration: existing_declaration.identifier_position,
+                        second_declaration: identifier_position,
+                    });
+                }
 
                 self.advance()?;
                 self.parse_function_expression()?;
@@ -493,6 +632,11 @@ impl<'a> Parser<'a> {
                 };
 
                 self.syntax_tree.push_node(node);
+
+                if is_public {
+                    self.resolver
+                        .add_export_to_scope(self.current_scope_id, declaration_id);
+                }
 
                 Ok(())
             }
@@ -616,8 +760,27 @@ impl<'a> Parser<'a> {
             };
             let type_node_id = self.syntax_tree.push_node(type_node);
             let parameter_end = self.previous_span.1;
+
+            if let Some(existing_declaration_id) = self
+                .resolver
+                .find_declaration_in_scope(identifier_text, self.current_scope_id)
+            {
+                let existing_declaration = self
+                    .resolver
+                    .get_declaration(existing_declaration_id)
+                    .ok_or(ParseError::MissingDeclaration {
+                    id: existing_declaration_id,
+                })?;
+
+                return Err(ParseError::DeclarationConflict {
+                    identifier: identifier_text.to_string(),
+                    first_declaration: existing_declaration.identifier_position,
+                    second_declaration: identifier_position,
+                });
+            }
+
             let declaration_id = self.resolver.add_declaration(
-                DeclarationKind::Local,
+                DeclarationKind::Local { shadowed: None },
                 self.current_scope_id,
                 type_id,
                 identifier_text,
@@ -671,7 +834,7 @@ impl<'a> Parser<'a> {
                 let identifier_text = self.current_source();
                 let declaration_id = self
                     .resolver
-                    .find_declaration_in_block_scope(identifier_text, self.current_scope_id)
+                    .find_declaration_in_scope(identifier_text, self.current_scope_id)
                     .ok_or(ParseError::UndeclaredType {
                         identifier: identifier_text.to_string(),
                         position: self.current_position(),
@@ -722,24 +885,25 @@ impl<'a> Parser<'a> {
 
         self.advance()?;
 
-        let (syntax_kind, declaration_kind) = if self.allow(Token::Mut)? {
-            (SyntaxKind::LetMutStatement, DeclarationKind::LocalMutable)
-        } else {
-            (SyntaxKind::LetStatement, DeclarationKind::Local)
-        };
+        let is_mutable = self.allow(Token::Mut)?;
         let identifier_position = Position::new(self.syntax_tree.file_index, self.current_span);
-        let identifier_text = if self.current_token == Token::Identifier {
-            let text = self.current_source();
+        let identifier_text = self.current_source();
 
-            self.advance()?;
+        self.expect(Token::Identifier)?;
 
-            text
+        let shadowed = self
+            .resolver
+            .find_declaration_in_scope(identifier_text, self.current_scope_id);
+        let (syntax_kind, declaration_kind) = if is_mutable {
+            (
+                SyntaxKind::LetMutStatement,
+                DeclarationKind::LocalMutable { shadowed },
+            )
         } else {
-            return Err(ParseError::ExpectedToken {
-                expected: Token::Identifier,
-                actual: self.current_token,
-                position: self.current_position(),
-            });
+            (
+                SyntaxKind::LetStatement,
+                DeclarationKind::Local { shadowed },
+            )
         };
         let (explicit_type, type_node_id) = if self.allow(Token::Colon)? {
             (Some(self.parse_type()?), self.syntax_tree.last_node_id())
@@ -817,7 +981,7 @@ impl<'a> Parser<'a> {
             .get_declaration(declaration_id)
             .ok_or(ParseError::MissingDeclaration { id: declaration_id })?;
 
-        if declaration.kind != DeclarationKind::LocalMutable {
+        if !matches!(declaration.kind, DeclarationKind::LocalMutable { .. }) {
             return Err(ParseError::AssignmentToImmutable {
                 found: declaration.kind,
                 position: Position::new(self.syntax_tree.file_index, path_node.span),
@@ -1166,7 +1330,7 @@ impl<'a> Parser<'a> {
                 });
             };
 
-            if declaration.kind != DeclarationKind::LocalMutable {
+            if !matches!(declaration.kind, DeclarationKind::LocalMutable { .. }) {
                 return Err(ParseError::AssignmentToImmutable {
                     found: declaration.kind,
                     position: Position::new(self.syntax_tree.file_index, left_node.span),
@@ -1290,6 +1454,21 @@ impl<'a> Parser<'a> {
             });
         };
 
+        if function_node.kind == SyntaxKind::PathExpression {
+            let identifier = &self.lexer.source()[function_node.span.as_usize_range()];
+
+            if self
+                .resolver
+                .find_declaration_in_scope(identifier, self.current_scope_id)
+                .is_none()
+            {
+                return Err(ParseError::UndeclaredVariable {
+                    identifier: identifier.to_string(),
+                    position: self.current_position(),
+                });
+            }
+        }
+
         let mut children = Self::new_child_buffer();
 
         info!("Parsing call arguments");
@@ -1376,21 +1555,7 @@ impl<'a> Parser<'a> {
 
         let start = self.current_span.0;
         let starting_scope_id = self.current_scope_id;
-        let starting_scope =
-            self.resolver
-                .get_scope(self.current_scope_id)
-                .ok_or(ParseError::MissingScope {
-                    id: self.current_scope_id,
-                })?;
-        let new_scope = Scope {
-            kind: ScopeKind::Block,
-            parent: starting_scope_id,
-            imports: (0, 0),
-            depth: starting_scope.depth + 1,
-            index: self.scope_count,
-        };
-        self.scope_count += 1;
-        self.current_scope_id = self.resolver.add_scope(new_scope);
+        self.current_scope_id = self.new_child_scope(ScopeKind::Block);
 
         let mut children = Self::new_child_buffer();
 
@@ -1544,7 +1709,7 @@ impl<'a> Parser<'a> {
 
         let Some(declaration_id) = self
             .resolver
-            .find_declaration_in_block_scope(identifier_text, self.current_scope_id)
+            .find_declaration_in_scope(identifier_text, self.current_scope_id)
         else {
             return Err(ParseError::UndeclaredVariable {
                 identifier: identifier_text.to_string(),
@@ -1567,15 +1732,7 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn parse_use(&mut self) -> Result<(), ParseError> {
-        todo!()
-    }
-
     fn parse_list(&mut self) -> Result<(), ParseError> {
-        todo!()
-    }
-
-    fn parse_mod(&mut self) -> Result<(), ParseError> {
         todo!()
     }
 

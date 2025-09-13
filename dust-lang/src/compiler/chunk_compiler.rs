@@ -5,25 +5,32 @@ use tracing::{Level, debug, info, span};
 
 use crate::{
     Address, Chunk, CompileError, ConstantTable, FunctionType, Instruction, NativeFunction,
-    OperandType, Operation, Position, Resolver, Type,
+    OperandType, Operation, Position, Resolver, Source, Type,
     resolver::{DeclarationId, DeclarationKind, ScopeId, ScopeKind, TypeId, TypeNode},
+    source::SourceFile,
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
 #[derive(Debug)]
-pub struct ChunkCompiler<'a> {
+pub struct ChunkCompiler {
+    /// All syntax trees and resolvers for the source files in the program being compiled.
+    file_trees: Arc<Vec<(Arc<SyntaxTree>, Arc<Resolver>)>>,
+
+    /// Source code for the program being compiled.
+    source: Source,
+
     /// Target syntax tree for compilation.
     syntax_tree: Arc<SyntaxTree>,
 
-    /// Target source code for compilation.
-    source: &'a str,
+    /// Target resolver for declaration, scope and type resolution during compilation.
+    resolver: Arc<Resolver>,
+
+    /// Target source code file for compilation by this chunk compiler.
+    source_file: Arc<SourceFile>,
 
     /// Constant collection from parsing that is pre-filled with strings. Other constant types are
     /// added during compilation after constant expression folding is applied.
     constants: ConstantTable,
-
-    /// Context for modules, types and declarations provided by the parser.
-    resolver: &'a Resolver,
 
     /// Global list of function prototypes that is filled during compilation.
     prototypes: Rc<RefCell<Vec<Chunk>>>,
@@ -52,18 +59,19 @@ pub struct ChunkCompiler<'a> {
     prototype_index: u16,
 }
 
-impl<'a> ChunkCompiler<'a> {
+impl ChunkCompiler {
     pub fn new(
-        syntax_tree: Arc<SyntaxTree>,
-        source: &'a str,
-        resolver: &'a Resolver,
+        file_trees: Arc<Vec<(Arc<SyntaxTree>, Arc<Resolver>)>>,
+        source: Source,
         prototypes: Rc<RefCell<Vec<Chunk>>>,
     ) -> Self {
         Self {
-            syntax_tree,
+            source_file: source.get_file(0).unwrap().clone(),
+            resolver: file_trees[0].1.clone(),
+            syntax_tree: file_trees[0].0.clone(),
+            file_trees,
             source,
             constants: ConstantTable::new(),
-            resolver,
             prototypes,
             instructions: Vec::new(),
             call_arguments: Vec::new(),
@@ -353,6 +361,8 @@ impl<'a> ChunkCompiler<'a> {
 
         match node.kind {
             SyntaxKind::MainFunctionItem => self.compile_main_function_statement(&node),
+            SyntaxKind::ModuleItem => self.compile_module_item(&node),
+            SyntaxKind::FunctionStatement => self.compile_function_statement(&node),
             _ => Err(CompileError::ExpectedItem {
                 node_kind: node.kind,
                 position: Position::new(self.syntax_tree.file_index, node.span),
@@ -417,6 +427,33 @@ impl<'a> ChunkCompiler<'a> {
             } else {
                 self.compile_statement(child_id)?;
             }
+        }
+
+        Ok(())
+    }
+
+    fn compile_module_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
+        info!("Compiling module item");
+
+        let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
+        let end_children = start_children + child_count;
+
+        if child_count == 0 {
+            return Ok(());
+        }
+
+        let mut current_child_index = start_children;
+
+        while current_child_index < end_children {
+            let child_id = *self.syntax_tree.children.get(current_child_index).ok_or(
+                CompileError::MissingChild {
+                    parent_kind: node.kind,
+                    child_index: current_child_index as u32,
+                },
+            )?;
+            current_child_index += 1;
+
+            self.compile_item(child_id)?;
         }
 
         Ok(())
@@ -684,7 +721,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let string_start = node.span.0 + 1;
         let string_end = node.span.1 - 1;
-        let string = &self.source[string_start as usize..string_end as usize];
+        let string = &self.source_file.source[string_start as usize..string_end as usize];
         let (pool_start, pool_end) = self.constants.push_str_to_string_pool(string);
 
         Ok(Emission::Constant(Constant::String {
@@ -1196,10 +1233,10 @@ impl<'a> ChunkCompiler<'a> {
         let declaration = self
             .resolver
             .get_declaration(declaration_id)
-            .ok_or(CompileError::MissingDeclaration { id: declaration_id })?;
+            .ok_or(CompileError::MissingDeclaration { declaration_id })?;
 
         if declaration.kind == DeclarationKind::NativeFunction {
-            let identifier = &self.source[node.span.0 as usize..node.span.1 as usize];
+            let identifier = &self.source_file.source[node.span.0 as usize..node.span.1 as usize];
             let native_function = NativeFunction::from_str(identifier).ok_or(
                 CompileError::InvalidNativeFunction {
                     name: identifier.to_string(),
@@ -1346,7 +1383,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::FunctionValueParameters
         );
 
-        let block_node = *self
+        let body_node = *self
             .syntax_tree
             .get_node(block_id)
             .ok_or(CompileError::MissingSyntaxNode { id: block_id })?;
@@ -1382,10 +1419,12 @@ impl<'a> ChunkCompiler<'a> {
         };
 
         let mut function_compiler = ChunkCompiler {
+            file_trees: self.file_trees.clone(),
+            source_file: self.source_file.clone(),
             syntax_tree: self.syntax_tree.clone(),
-            source: self.source,
+            source: self.source.clone(),
             constants: ConstantTable::new(),
-            resolver: self.resolver,
+            resolver: self.resolver.clone(),
             prototypes: self.prototypes.clone(),
             instructions: Vec::new(),
             call_arguments: Vec::new(),
@@ -1416,14 +1455,27 @@ impl<'a> ChunkCompiler<'a> {
             let declaration = self
                 .resolver
                 .get_declaration(declaration_id)
-                .ok_or(CompileError::MissingDeclaration { id: declaration_id })?;
+                .ok_or(CompileError::MissingDeclaration { declaration_id })?;
             let name_range = declaration.identifier_position.span.as_usize_range();
-            let name = self.source[name_range].to_string();
+            let name = self.source_file.source[name_range].to_string();
 
             Some(name)
         };
 
-        let _ = function_compiler.compile_block_expression(&block_node)?;
+        match body_node.kind {
+            SyntaxKind::BlockExpression => {
+                function_compiler.compile_block_expression(&body_node)?;
+            }
+            SyntaxKind::ExpressionStatement => {
+                function_compiler.compile_expression_statement(&body_node)?;
+            }
+            _ => {
+                return Err(CompileError::ExpectedFunctionBody {
+                    node_kind: body_node.kind,
+                    position: Position::new(self.syntax_tree.file_index, body_node.span),
+                });
+            }
+        }
 
         let function_chunk = Chunk {
             name,

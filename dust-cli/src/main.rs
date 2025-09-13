@@ -20,6 +20,7 @@ use dust_lang::{
     compiler::Compiler,
     jit_vm::{JitVm, MINIMUM_OBJECT_HEAP_DEFAULT, MINIMUM_OBJECT_SWEEP_DEFAULT},
     parser::parse_main,
+    source::SourceFile,
     tokenize,
 };
 use ron::ser::PrettyConfig;
@@ -193,13 +194,11 @@ fn main() {
     }) = mode
     {
         let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-        let source_name = source_name
-            .map(Arc::new)
-            .unwrap_or_else(|| Arc::new("anonymous".to_string()));
-        let source = Source::Script {
+        let source_name = source_name.unwrap_or_else(|| "anonymous".to_string());
+        let source = Source::Script(Arc::new(SourceFile {
             name: source_name.clone(),
-            content: Arc::new(source),
-        };
+            source,
+        }));
 
         let compiler = Compiler::new(source);
         let compile_result = compiler.compile();
@@ -284,22 +283,19 @@ fn main() {
     }) = mode
     {
         let (source_code, source_name) = get_source_and_name(file, name, stdin, eval);
-        let source_code = Arc::new(source_code);
-        let source_name = source_name
-            .map(Arc::new)
-            .unwrap_or_else(|| Arc::new("anonymous".to_string()));
-        let source = Source::Script {
+        let source_name = source_name.unwrap_or_else(|| "anonymous".to_string());
+        let source = Source::Script(Arc::new(SourceFile {
             name: source_name.clone(),
-            content: source_code.clone(),
-        };
+            source: source_code,
+        }));
 
-        let compiler = Compiler::new(source);
+        let compiler = Compiler::new(source.clone());
         let compile_result = compiler.compile();
         let compile_time = start_time.elapsed();
 
         match compile_result {
             Ok(program) => {
-                let disassembler = TuiDisassembler::new(&program, Some(&source_code));
+                let disassembler = TuiDisassembler::new(&program, source);
 
                 disassembler.disassemble().unwrap();
             }

@@ -100,6 +100,10 @@ pub enum ParseError {
         identifier: String,
         position: Position,
     },
+    UndeclaredModule {
+        identifier: String,
+        position: Position,
+    },
 
     // Internal Errors
     MissingNode {
@@ -141,6 +145,7 @@ impl AnnotatedError for ParseError {
             } => second_declaration.file_index,
             ParseError::OutOfScopeVariable { position, .. } => position.file_index,
             ParseError::UndeclaredVariable { position, .. } => position.file_index,
+            ParseError::UndeclaredModule { position, .. } => position.file_index,
             ParseError::MissingNode { .. } => 0,
             ParseError::MissingScope { .. } => 0,
             ParseError::MissingDeclaration { .. } => 0,
@@ -422,6 +427,20 @@ impl AnnotatedError for ParseError {
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!("The variable `{identifier}` is not declared")),
+                    ),
+                )
+            }
+            ParseError::UndeclaredModule {
+                identifier,
+                position,
+            } => {
+                let title = format!("Use of undeclared module `{identifier}`");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!("The module `{identifier}` is not declared")),
                     ),
                 )
             }

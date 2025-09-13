@@ -6,6 +6,7 @@ mod tests;
 
 pub use chunk_compiler::ChunkCompiler;
 pub use error::CompileError;
+use smallvec::SmallVec;
 
 use std::sync::Arc;
 pub use std::{cell::RefCell, rc::Rc};
@@ -20,40 +21,48 @@ use crate::{
     syntax_tree::SyntaxTree,
 };
 
-pub fn compile_main(source: &str) -> Result<Chunk, DustError> {
+pub fn compile_main(source_code: &str) -> Result<Chunk, DustError> {
     let mut resolver = Resolver::new(true);
     let parser = Parser::new(0, &mut resolver);
     let ParseResult {
         syntax_tree,
         errors,
-    } = parser.parse_once(source, ScopeId::MAIN);
+    } = parser.parse_once(source_code, ScopeId::MAIN);
+    let syntax_tree = Arc::new(syntax_tree);
 
     if !errors.is_empty() {
-        let name = Arc::new("dust_program".to_string());
-        let source = Arc::new(source.to_string());
+        let name = "dust_program".to_string();
+        let source = source_code.to_string();
 
-        return Err(DustError::parse(errors, Source::Script { name, content: source }));
+        return Err(DustError::parse(
+            errors,
+            Source::Script(Arc::new(SourceFile { name, source })),
+        ));
     }
 
+    let syntax_trees = Arc::new(vec![(syntax_tree, Arc::new(resolver))]);
+    let source_file = SourceFile {
+        name: "dust_program".to_string(),
+        source: source_code.to_string(),
+    };
+    let source = Source::Script(Arc::new(source_file));
+
     let chunk_compiler = ChunkCompiler::new(
-        Arc::new(syntax_tree),
-        source,
-        &resolver,
+        syntax_trees,
+        source.clone(),
         Rc::new(RefCell::new(Vec::new())),
     );
+    let compile_result = chunk_compiler.compile();
 
-    chunk_compiler.compile().map_err(|error| {
-        let name = Arc::new("dust_program".to_string());
-        let source = Arc::new(source.to_string());
-
-        DustError::compile(error, Source::Script { name, content: source })
-    })
+    match compile_result {
+        Ok(chunk) => Ok(chunk),
+        Err(error) => Err(DustError::compile(error, source)),
+    }
 }
 
 pub struct Compiler {
     source: Source,
-    file_trees: Vec<Arc<SyntaxTree>>,
-    resolver: Resolver,
+    file_trees: Vec<(Arc<SyntaxTree>, Arc<Resolver>)>,
 }
 
 impl Compiler {
@@ -61,42 +70,47 @@ impl Compiler {
         Self {
             source,
             file_trees: Vec::new(),
-            resolver: Resolver::new(true),
         }
     }
 
     pub fn compile(mut self) -> Result<Program, DustError> {
         let mut errors = Vec::new();
 
-        let (program_name, main_source) = match &self.source {
-            Source::Script { name, content: source } => {
+        let program_name = match &self.source {
+            Source::Script(source_file) => {
+                let SourceFile { name, source } = source_file.as_ref();
+                let mut resolver = Resolver::new(true);
                 let ParseResult {
                     syntax_tree,
                     errors: script_errors,
                 } = {
-                    let parser = Parser::new(0, &mut self.resolver);
+                    let parser = Parser::new(0, &mut resolver);
 
                     parser.parse_once(source, ScopeId::MAIN)
                 };
 
-                self.file_trees.push(Arc::new(syntax_tree));
+                self.file_trees
+                    .push((Arc::new(syntax_tree), Arc::new(resolver)));
                 errors.extend(script_errors);
 
-                (name.clone(), source.clone())
+                name.clone()
             }
             Source::Files(files) => {
-                for (file_index, SourceFile { name, source }) in files.iter().enumerate() {
+                for (file_index, source_file) in files.iter().enumerate() {
+                    let SourceFile { name, source } = source_file.as_ref();
                     let file_index = file_index as u32;
                     let scope = Scope {
                         kind: ScopeKind::Module,
                         parent: ScopeId::MAIN,
                         imports: (0, 0),
                         depth: 0,
+                        exports: SmallVec::new(),
                         index: 0,
                     };
-                    let scope_id = self.resolver.add_scope(scope);
+                    let mut resolver = Resolver::new(true);
+                    let scope_id = resolver.add_scope(scope);
 
-                    self.resolver.add_declaration(
+                    resolver.add_declaration(
                         DeclarationKind::Module,
                         scope_id,
                         TypeId::NONE,
@@ -108,29 +122,27 @@ impl Compiler {
                         syntax_tree,
                         errors: module_errors,
                     } = {
-                        let parser = Parser::new(file_index, &mut self.resolver);
+                        let parser = Parser::new(file_index, &mut resolver);
 
                         parser.parse_once(source, scope_id)
                     };
 
-                    self.file_trees.push(Arc::new(syntax_tree));
+                    self.file_trees
+                        .push((Arc::new(syntax_tree), Arc::new(resolver)));
 
                     errors.extend(module_errors);
                 }
 
-                let first_file = &files[0];
+                let first_file = files.first().expect("No files provided");
 
-                (first_file.name.clone(), first_file.source.clone())
+                first_file.name.clone()
             }
         };
 
-        let main_syntax_tree = self.file_trees[0].clone();
         let prototypes = Rc::new(RefCell::new(vec![Chunk::default()]));
-
         let chunk_compiler = ChunkCompiler::new(
-            main_syntax_tree,
-            &main_source,
-            &self.resolver,
+            Arc::new(self.file_trees),
+            self.source.clone(),
             prototypes.clone(),
         );
 
@@ -146,7 +158,7 @@ impl Compiler {
             .into_inner();
 
         Ok(Program {
-            name: program_name.to_string(),
+            name: program_name,
             prototypes,
             cell_count: 0,
         })
