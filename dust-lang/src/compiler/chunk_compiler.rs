@@ -1,5 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Arc};
 
+use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use tracing::{Level, debug, info, span};
 
@@ -33,7 +34,7 @@ pub struct ChunkCompiler {
     constants: ConstantTable,
 
     /// Global list of function prototypes that is filled during compilation.
-    prototypes: Rc<RefCell<Vec<Chunk>>>,
+    prototypes: Rc<RefCell<IndexMap<DeclarationId, Chunk, FxBuildHasher>>>,
 
     /// Bytecode instruction collection that is filled during compilation.
     instructions: Vec<Instruction>,
@@ -63,7 +64,7 @@ impl ChunkCompiler {
     pub fn new(
         file_trees: Arc<Vec<(Arc<SyntaxTree>, Arc<Resolver>)>>,
         source: Source,
-        prototypes: Rc<RefCell<Vec<Chunk>>>,
+        prototypes: Rc<RefCell<IndexMap<DeclarationId, Chunk, FxBuildHasher>>>,
     ) -> Self {
         Self {
             source_file: source.get_file(0).unwrap().clone(),
@@ -87,7 +88,12 @@ impl ChunkCompiler {
         let span = span!(Level::INFO, "Compiling");
         let _enter = span.enter();
 
-        self.compile_item(SyntaxId(0))?;
+        let root_node = *self
+            .syntax_tree
+            .get_node(SyntaxId(0))
+            .ok_or(CompileError::MissingSyntaxNode { id: SyntaxId(0) })?;
+
+        self.compile_item(&root_node)?;
 
         let return_type =
             self.resolver
@@ -353,16 +359,12 @@ impl ChunkCompiler {
         }
     }
 
-    fn compile_item(&mut self, node_id: SyntaxId) -> Result<(), CompileError> {
-        let node = *self
-            .syntax_tree
-            .get_node(node_id)
-            .ok_or(CompileError::MissingSyntaxNode { id: node_id })?;
-
+    fn compile_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         match node.kind {
-            SyntaxKind::MainFunctionItem => self.compile_main_function_statement(&node),
-            SyntaxKind::ModuleItem => self.compile_module_item(&node),
-            SyntaxKind::FunctionStatement => self.compile_function_statement(&node),
+            SyntaxKind::MainFunctionItem => self.compile_main_function_statement(node),
+            SyntaxKind::ModuleItem => self.compile_module_item(node),
+            SyntaxKind::FunctionStatement => self.compile_function_statement(node),
+            SyntaxKind::UseItem => self.compile_use_item(node),
             _ => Err(CompileError::ExpectedItem {
                 node_kind: node.kind,
                 position: Position::new(self.syntax_tree.file_index, node.span),
@@ -370,19 +372,14 @@ impl ChunkCompiler {
         }
     }
 
-    fn compile_statement(&mut self, node_id: SyntaxId) -> Result<(), CompileError> {
-        let node = *self
-            .syntax_tree
-            .get_node(node_id)
-            .ok_or(CompileError::MissingSyntaxNode { id: node_id })?;
-
+    fn compile_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         match node.kind {
-            SyntaxKind::FunctionStatement => self.compile_function_statement(&node),
-            SyntaxKind::ExpressionStatement => self.compile_expression_statement(&node),
+            SyntaxKind::FunctionStatement => self.compile_function_statement(node),
+            SyntaxKind::ExpressionStatement => self.compile_expression_statement(node),
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
-                self.compile_let_statement(&node)
+                self.compile_let_statement(node)
             }
-            SyntaxKind::ReassignStatement => self.compile_reassign_statement(&node),
+            SyntaxKind::ReassignStatement => self.compile_reassign_statement(node),
             SyntaxKind::SemicolonStatement => todo!("Compile semicolon statement"),
             _ => Err(CompileError::ExpectedStatement {
                 node_kind: node.kind,
@@ -415,17 +412,23 @@ impl ChunkCompiler {
                     child_index: current_child_index as u32,
                 },
             )?;
+            let child_node = *self
+                .syntax_tree
+                .get_node(child_id)
+                .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
             current_child_index += 1;
 
             if current_child_index == end_children {
-                let child_node = *self
-                    .syntax_tree
-                    .get_node(child_id)
-                    .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
-
-                self.compile_implicit_return(child_id, &child_node)?;
+                self.compile_implicit_return(&child_node)?;
+            } else if child_node.kind.is_statement() {
+                self.compile_statement(&child_node)?;
+            } else if child_node.kind.is_item() {
+                self.compile_item(&child_node)?;
             } else {
-                self.compile_statement(child_id)?;
+                return Err(CompileError::ExpectedStatement {
+                    node_kind: child_node.kind,
+                    position: Position::new(self.syntax_tree.file_index, child_node.span),
+                });
             }
         }
 
@@ -451,9 +454,43 @@ impl ChunkCompiler {
                     child_index: current_child_index as u32,
                 },
             )?;
+            let child_node = *self
+                .syntax_tree
+                .get_node(child_id)
+                .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
             current_child_index += 1;
 
-            self.compile_item(child_id)?;
+            self.compile_item(&child_node)?;
+        }
+
+        Ok(())
+    }
+
+    fn compile_use_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
+        info!("Compiling use item");
+
+        let declaration_id = DeclarationId(node.payload);
+        let declaration = self
+            .resolver
+            .get_declaration(declaration_id)
+            .ok_or(CompileError::MissingDeclaration { declaration_id })?;
+
+        match declaration.kind {
+            DeclarationKind::Function => {
+                let prototype_index = self
+                    .prototypes
+                    .borrow()
+                    .get_index_of(&declaration_id)
+                    .ok_or(CompileError::MissingFunctionPrototype { declaration_id })?;
+
+                self.locals.insert(
+                    declaration_id,
+                    Local {
+                        location: prototype_index as u16,
+                    },
+                );
+            }
+            _ => todo!(),
         }
 
         Ok(())
@@ -1189,9 +1226,13 @@ impl ChunkCompiler {
                     child_index: current_child_index as u32,
                 },
             )?;
+            let child_node = *self
+                .syntax_tree
+                .get_node(child_id)
+                .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
             current_child_index += 1;
 
-            self.compile_statement(child_id)?;
+            self.compile_statement(&child_node)?;
         }
 
         let last_child_id =
@@ -1214,11 +1255,11 @@ impl ChunkCompiler {
             .ok_or(CompileError::MissingScope { id: outer_scope_id })?;
 
         if last_child_node.kind.is_statement() {
-            self.compile_statement(last_child_id)?;
+            self.compile_statement(&last_child_node)?;
 
             Ok(Emission::None)
         } else if outer_scope.kind == ScopeKind::Function && outer_scope_id != ScopeId::MAIN {
-            self.compile_implicit_return(last_child_id, &last_child_node)?;
+            self.compile_implicit_return(&last_child_node)?;
 
             Ok(Emission::None)
         } else {
@@ -1489,7 +1530,9 @@ impl ChunkCompiler {
             is_recursive: false,
         };
 
-        self.prototypes.borrow_mut().push(function_chunk);
+        self.prototypes
+            .borrow_mut()
+            .insert(declaration_id, function_chunk);
 
         Ok(Emission::Constant(Constant::Function {
             type_id: function_type_id,
@@ -1610,20 +1653,16 @@ impl ChunkCompiler {
         ))
     }
 
-    fn compile_implicit_return(
-        &mut self,
-        node_id: SyntaxId,
-        node: &SyntaxNode,
-    ) -> Result<(), CompileError> {
+    fn compile_implicit_return(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         if node.kind.is_item() {
-            self.compile_item(node_id)?;
+            self.compile_item(node)?;
 
             let return_instruction =
                 Instruction::r#return(false, Address::default(), OperandType::NONE);
 
             self.instructions.push(return_instruction);
         } else if node.kind.is_statement() {
-            self.compile_statement(node_id)?;
+            self.compile_statement(node)?;
 
             let return_instruction =
                 Instruction::r#return(false, Address::default(), OperandType::NONE);

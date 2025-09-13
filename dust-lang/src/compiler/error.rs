@@ -64,6 +64,9 @@ pub enum CompileError {
     MissingScope {
         id: ScopeId,
     },
+    MissingFunctionPrototype {
+        declaration_id: DeclarationId,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -84,6 +87,7 @@ impl AnnotatedError for CompileError {
             CompileError::MissingSyntaxNode { .. } => 0,
             CompileError::MissingType { .. } => 0,
             CompileError::MissingScope { .. } => 0,
+            CompileError::MissingFunctionPrototype { .. } => 0,
         }
     }
 
@@ -233,6 +237,13 @@ impl AnnotatedError for CompileError {
             CompileError::MissingScope { id } => {
                 let title = format!(
                     "Scope with id {id:?} was missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingFunctionPrototype { declaration_id } => {
+                let title = format!(
+                    "Function prototype for declaration id {declaration_id:?} was missing, this is a bug in the parser or compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

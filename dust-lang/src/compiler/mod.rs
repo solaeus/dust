@@ -6,6 +6,7 @@ mod tests;
 
 pub use chunk_compiler::ChunkCompiler;
 pub use error::CompileError;
+use indexmap::IndexMap;
 use smallvec::SmallVec;
 
 use std::sync::Arc;
@@ -16,7 +17,7 @@ use crate::{
     dust_crate::Program,
     dust_error::DustError,
     parser::{ParseResult, Parser},
-    resolver::{DeclarationKind, Scope, ScopeId, ScopeKind, TypeId},
+    resolver::{DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind, TypeId},
     source::SourceFile,
     syntax_tree::SyntaxTree,
 };
@@ -50,7 +51,7 @@ pub fn compile_main(source_code: &str) -> Result<Chunk, DustError> {
     let chunk_compiler = ChunkCompiler::new(
         syntax_trees,
         source.clone(),
-        Rc::new(RefCell::new(Vec::new())),
+        Rc::new(RefCell::new(IndexMap::default())),
     );
     let compile_result = chunk_compiler.compile();
 
@@ -102,17 +103,19 @@ impl Compiler {
                     let scope = Scope {
                         kind: ScopeKind::Module,
                         parent: ScopeId::MAIN,
-                        imports: (0, 0),
-                        depth: 0,
+                        imports: SmallVec::new(),
                         exports: SmallVec::new(),
+                        depth: 0,
                         index: 0,
                     };
                     let mut resolver = Resolver::new(true);
                     let scope_id = resolver.add_scope(scope);
 
                     resolver.add_declaration(
-                        DeclarationKind::Module,
-                        scope_id,
+                        DeclarationKind::Module {
+                            inner_scope_id: scope_id,
+                        },
+                        ScopeId::MAIN,
                         TypeId::NONE,
                         name,
                         Position::new(file_index, Span::default()),
@@ -139,7 +142,15 @@ impl Compiler {
             }
         };
 
-        let prototypes = Rc::new(RefCell::new(vec![Chunk::default()]));
+        if !errors.is_empty() {
+            return Err(DustError::parse(errors, self.source));
+        }
+
+        let mut prototypes = IndexMap::default();
+
+        prototypes.insert(DeclarationId::MAIN, Chunk::default());
+
+        let prototypes = Rc::new(RefCell::new(prototypes));
         let chunk_compiler = ChunkCompiler::new(
             Arc::new(self.file_trees),
             self.source.clone(),
@@ -155,7 +166,10 @@ impl Compiler {
 
         let prototypes = Rc::into_inner(prototypes)
             .expect("Unneccessary borrow of 'prototypes'")
-            .into_inner();
+            .into_inner()
+            .into_iter()
+            .map(|(_, chunk)| chunk)
+            .collect::<Vec<Chunk>>();
 
         Ok(Program {
             name: program_name,

@@ -78,10 +78,14 @@ impl Resolver {
         resolver
     }
 
+    pub fn add_import_to_scope(&mut self, parent: ScopeId, child: DeclarationId) {
+        if let Some(scope) = self.scopes.get_mut(parent.0 as usize) {
+            scope.imports.push(child);
+        }
+    }
+
     pub fn add_export_to_scope(&mut self, parent: ScopeId, child: DeclarationId) {
         if let Some(scope) = self.scopes.get_mut(parent.0 as usize) {
-            println!("Adding export: {:?} to scope {:?}", child, parent);
-
             scope.exports.push(child);
         }
     }
@@ -134,6 +138,7 @@ impl Resolver {
 
         declaration_id
     }
+
     pub fn find_declaration(
         &self,
         identifier: &str,
@@ -189,6 +194,28 @@ impl Resolver {
         loop {
             if let Some(index) = self.declarations.get_index_of(&(symbol, current_scope_id)) {
                 return Some(DeclarationId(index as u32));
+            }
+
+            for import_id in &current_scope.imports {
+                let import_declaration = self.get_declaration(*import_id)?;
+
+                if self
+                    .declarations
+                    .contains_key(&(symbol, import_declaration.scope_id))
+                {
+                    return Some(*import_id);
+                }
+            }
+
+            for export_id in &current_scope.exports {
+                let export_declaration = self.get_declaration(*export_id)?;
+
+                if self
+                    .declarations
+                    .contains_key(&(symbol, export_declaration.scope_id))
+                {
+                    return Some(*export_id);
+                }
             }
 
             if current_scope.kind != ScopeKind::Block || current_scope_id == ScopeId::MAIN {
@@ -292,7 +319,7 @@ impl ScopeId {
 pub struct Scope {
     pub kind: ScopeKind,
     pub parent: ScopeId,
-    pub imports: (u32, u32),
+    pub imports: SmallVec<[DeclarationId; 4]>,
     pub exports: SmallVec<[DeclarationId; 4]>,
     pub depth: u32,
     pub index: u32,
@@ -334,7 +361,7 @@ pub enum DeclarationKind {
     NativeFunction,
     Local { shadowed: Option<DeclarationId> },
     LocalMutable { shadowed: Option<DeclarationId> },
-    Module,
+    Module { inner_scope_id: ScopeId },
     Type,
 }
 
@@ -345,7 +372,7 @@ impl Display for DeclarationKind {
             DeclarationKind::NativeFunction => write!(f, "native function"),
             DeclarationKind::Local { .. } => write!(f, "local variable"),
             DeclarationKind::LocalMutable { .. } => write!(f, "mutable local variable"),
-            DeclarationKind::Module => write!(f, "module"),
+            DeclarationKind::Module { .. } => write!(f, "module"),
             DeclarationKind::Type => write!(f, "type"),
         }
     }

@@ -187,9 +187,9 @@ impl<'a> Parser<'a> {
         let scope_id = self.resolver.add_scope(Scope {
             kind,
             parent: self.current_scope_id,
-            imports: (0, 0),
-            depth: current_scope.depth + 1,
+            imports: SmallVec::new(),
             exports: SmallVec::new(),
+            depth: current_scope.depth + 1,
             index: self.scope_count,
         });
         self.scope_count += 1;
@@ -421,7 +421,7 @@ impl<'a> Parser<'a> {
         self.current_scope_id = self.resolver.add_scope(Scope {
             kind: ScopeKind::Function,
             parent: ScopeId(0),
-            imports: (0, 0),
+            imports: SmallVec::new(),
             exports: SmallVec::new(),
             depth: 0,
             index: 0,
@@ -477,14 +477,16 @@ impl<'a> Parser<'a> {
             self.advance()?;
 
             let identifier_text = self.current_source();
+            self.current_scope_id = self.new_child_scope(ScopeKind::Module);
             let declaration_id = self.resolver.add_declaration(
-                DeclarationKind::Module,
+                DeclarationKind::Module {
+                    inner_scope_id: self.current_scope_id,
+                },
                 starting_scope_id,
                 TypeId::NONE,
                 identifier_text,
                 Position::new(self.syntax_tree.file_index, self.current_span),
             );
-            self.current_scope_id = self.new_child_scope(ScopeKind::Module);
 
             self.resolver
                 .add_export_to_scope(starting_scope_id, declaration_id);
@@ -530,7 +532,7 @@ impl<'a> Parser<'a> {
         self.advance()?;
 
         let identifier_span = self.current_span;
-        let identifier_text = self.current_source();
+        let mut identifier_text = self.current_source();
 
         self.expect(Token::Identifier)?;
 
@@ -541,26 +543,26 @@ impl<'a> Parser<'a> {
                 identifier: identifier_text.to_string(),
                 position: Position::new(self.syntax_tree.file_index, identifier_span),
             })?;
+        let mut declaration = *self
+            .resolver
+            .get_declaration(declaration_id)
+            .ok_or(ParseError::MissingDeclaration { id: declaration_id })?;
 
         while self.allow(Token::DoubleColon)? {
-            let identifier_span = self.current_span;
-            let identifier_text = self.current_source();
+            identifier_text = self.current_source();
 
             self.expect(Token::Identifier)?;
 
-            let declaration = self
-                .resolver
-                .get_declaration(declaration_id)
-                .ok_or(ParseError::MissingDeclaration { id: declaration_id })?;
-
-            if let DeclarationKind::Module = declaration.kind {
-                declaration_id = self
+            if let DeclarationKind::Module { inner_scope_id } = declaration.kind
+                && let Some(next_declaration_id) = self
                     .resolver
-                    .find_declaration_in_scope(identifier_text, declaration.scope_id)
-                    .ok_or_else(|| ParseError::UndeclaredModule {
-                        identifier: identifier_text.to_string(),
-                        position: Position::new(self.syntax_tree.file_index, identifier_span),
-                    })?;
+                    .find_declaration_in_scope(identifier_text, inner_scope_id)
+            {
+                declaration_id = next_declaration_id;
+                declaration = *self
+                    .resolver
+                    .get_declaration(declaration_id)
+                    .ok_or(ParseError::MissingDeclaration { id: declaration_id })?;
             }
         }
 
@@ -575,6 +577,8 @@ impl<'a> Parser<'a> {
         };
 
         self.syntax_tree.push_node(node);
+        self.resolver
+            .add_import_to_scope(self.current_scope_id, declaration_id);
 
         Ok(())
     }
