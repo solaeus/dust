@@ -1,4 +1,5 @@
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
+use smallvec::SmallVec;
 
 use crate::{
     Position, Token, Type,
@@ -40,6 +41,14 @@ pub enum ParseError {
     },
     ExpectedFunction {
         found: SyntaxKind,
+        position: Position,
+    },
+    ExpectedModule {
+        identifier: String,
+        position: Position,
+    },
+    PrivateImport {
+        identifier: String,
         position: Position,
     },
 
@@ -94,7 +103,7 @@ pub enum ParseError {
     },
     OutOfScopeVariable {
         position: Position,
-        declaration_position: Position,
+        declaration_positions: SmallVec<[Position; 4]>,
     },
     UndeclaredVariable {
         identifier: String,
@@ -130,6 +139,8 @@ impl AnnotatedError for ParseError {
             ParseError::ExpectedStatement { position, .. } => position.file_index,
             ParseError::ExpectedExpression { position, .. } => position.file_index,
             ParseError::ExpectedFunction { position, .. } => position.file_index,
+            ParseError::ExpectedModule { position, .. } => position.file_index,
+            ParseError::PrivateImport { position, .. } => position.file_index,
             ParseError::AdditionTypeMismatch { position, .. } => position.file_index,
             ParseError::AssignmentToImmutable { position, .. } => position.file_index,
             ParseError::BinaryOperandTypeMismatch { position, .. } => position.file_index,
@@ -235,6 +246,34 @@ impl AnnotatedError for ParseError {
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!("This {found} is not a function")),
+                    ),
+                )
+            }
+            ParseError::ExpectedModule {
+                identifier,
+                position,
+            } => {
+                let title = format!("Expected a module named `{identifier}`");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!("No module named `{identifier}` found here")),
+                    ),
+                )
+            }
+            ParseError::PrivateImport {
+                identifier,
+                position,
+            } => {
+                let title = format!("Cannot import private item `{identifier}`");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!("The item `{identifier}` is private")),
                     ),
                 )
             }
@@ -398,7 +437,7 @@ impl AnnotatedError for ParseError {
             }
             ParseError::OutOfScopeVariable {
                 position,
-                declaration_position,
+                declaration_positions,
             } => {
                 let title = "Use of out-of-scope variable".to_string();
 
@@ -407,13 +446,13 @@ impl AnnotatedError for ParseError {
                         .annotation(
                             AnnotationKind::Primary
                                 .span(position.span.as_usize_range())
-                                .label("This variable is used out of its scope"),
+                                .label("This variable is not in scope here"),
                         )
-                        .annotation(
+                        .annotations(declaration_positions.iter().map(|decl_pos| {
                             AnnotationKind::Context
-                                .span(declaration_position.span.as_usize_range())
-                                .label("The variable is declared here"),
-                        ),
+                                .span(decl_pos.span.as_usize_range())
+                                .label("Variable declared here")
+                        })),
                 )
             }
             ParseError::UndeclaredVariable {

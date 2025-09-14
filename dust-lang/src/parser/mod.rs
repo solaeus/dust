@@ -188,7 +188,7 @@ impl<'a> Parser<'a> {
             kind,
             parent: self.current_scope_id,
             imports: SmallVec::new(),
-            exports: SmallVec::new(),
+            modules: SmallVec::new(),
             depth: current_scope.depth + 1,
             index: self.scope_count,
         });
@@ -422,7 +422,7 @@ impl<'a> Parser<'a> {
             kind: ScopeKind::Function,
             parent: ScopeId(0),
             imports: SmallVec::new(),
-            exports: SmallVec::new(),
+            modules: SmallVec::new(),
             depth: 0,
             index: 0,
         });
@@ -471,6 +471,7 @@ impl<'a> Parser<'a> {
 
         let start = self.current_span.0;
         let starting_scope_id = self.current_scope_id;
+        let is_public = self.previous_token == Token::Pub;
 
         // Allows for nested modules and whole file modules
         let (end_token, declaration_id) = if self.current_token == Token::Mod {
@@ -484,12 +485,11 @@ impl<'a> Parser<'a> {
                 },
                 starting_scope_id,
                 TypeId::NONE,
+                is_public,
                 identifier_text,
                 Position::new(self.syntax_tree.file_index, self.current_span),
             );
 
-            self.resolver
-                .add_export_to_scope(starting_scope_id, declaration_id);
             self.expect(Token::Identifier)?;
             self.expect(Token::LeftCurlyBrace)?;
 
@@ -520,6 +520,8 @@ impl<'a> Parser<'a> {
 
         self.syntax_tree.push_node(node);
         self.syntax_tree.children.extend(children);
+        self.resolver
+            .add_module_to_scope(starting_scope_id, declaration_id);
 
         Ok(())
     }
@@ -531,14 +533,14 @@ impl<'a> Parser<'a> {
 
         self.advance()?;
 
-        let identifier_span = self.current_span;
+        let mut identifier_span = self.current_span;
         let mut identifier_text = self.current_source();
 
         self.expect(Token::Identifier)?;
 
         let mut declaration_id = self
             .resolver
-            .find_declaration(identifier_text, self.current_scope_id)
+            .find_declaration_in_scope(identifier_text, self.current_scope_id)
             .ok_or_else(|| ParseError::UndeclaredModule {
                 identifier: identifier_text.to_string(),
                 position: Position::new(self.syntax_tree.file_index, identifier_span),
@@ -549,20 +551,38 @@ impl<'a> Parser<'a> {
             .ok_or(ParseError::MissingDeclaration { id: declaration_id })?;
 
         while self.allow(Token::DoubleColon)? {
+            identifier_span = self.current_span;
             identifier_text = self.current_source();
 
             self.expect(Token::Identifier)?;
 
-            if let DeclarationKind::Module { inner_scope_id } = declaration.kind
-                && let Some(next_declaration_id) = self
-                    .resolver
-                    .find_declaration_in_scope(identifier_text, inner_scope_id)
-            {
-                declaration_id = next_declaration_id;
-                declaration = *self
-                    .resolver
-                    .get_declaration(declaration_id)
-                    .ok_or(ParseError::MissingDeclaration { id: declaration_id })?;
+            let DeclarationKind::Module { inner_scope_id } = declaration.kind else {
+                return Err(ParseError::ExpectedModule {
+                    identifier: identifier_text.to_string(),
+                    position: Position::new(self.syntax_tree.file_index, identifier_span),
+                });
+            };
+            let Some(next_declaration_id) = self
+                .resolver
+                .find_declaration_in_scope(identifier_text, inner_scope_id)
+            else {
+                return Err(ParseError::UndeclaredModule {
+                    identifier: identifier_text.to_string(),
+                    position: Position::new(self.syntax_tree.file_index, identifier_span),
+                });
+            };
+
+            declaration_id = next_declaration_id;
+            declaration = *self
+                .resolver
+                .get_declaration(declaration_id)
+                .ok_or(ParseError::MissingDeclaration { id: declaration_id })?;
+
+            if !declaration.is_public {
+                return Err(ParseError::PrivateImport {
+                    identifier: identifier_text.to_string(),
+                    position: Position::new(self.syntax_tree.file_index, identifier_span),
+                });
             }
         }
 
@@ -624,6 +644,7 @@ impl<'a> Parser<'a> {
                     DeclarationKind::Function,
                     self.current_scope_id,
                     TypeId(type_id),
+                    is_public,
                     identifier_text,
                     identifier_position,
                 );
@@ -639,7 +660,7 @@ impl<'a> Parser<'a> {
 
                 if is_public {
                     self.resolver
-                        .add_export_to_scope(self.current_scope_id, declaration_id);
+                        .add_module_to_scope(self.current_scope_id, declaration_id);
                 }
 
                 Ok(())
@@ -787,6 +808,7 @@ impl<'a> Parser<'a> {
                 DeclarationKind::Local { shadowed: None },
                 self.current_scope_id,
                 type_id,
+                false,
                 identifier_text,
                 identifier_position,
             );
@@ -944,6 +966,7 @@ impl<'a> Parser<'a> {
             declaration_kind,
             self.current_scope_id,
             TypeId(expression_type),
+            false,
             identifier_text,
             identifier_position,
         );
@@ -1466,6 +1489,16 @@ impl<'a> Parser<'a> {
                 .find_declaration_in_scope(identifier, self.current_scope_id)
                 .is_none()
             {
+                if let Some(declarations) = self.resolver.find_declarations(identifier) {
+                    return Err(ParseError::OutOfScopeVariable {
+                        position: self.current_position(),
+                        declaration_positions: declarations
+                            .iter()
+                            .map(|delcaration| delcaration.identifier_position)
+                            .collect(),
+                    });
+                }
+
                 return Err(ParseError::UndeclaredVariable {
                     identifier: identifier.to_string(),
                     position: self.current_position(),
@@ -1706,7 +1739,7 @@ impl<'a> Parser<'a> {
     fn parse_path_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing path expression");
 
-        let span = self.current_span;
+        let identifier_span = self.current_span;
         let identifier_text = self.current_source();
 
         self.advance()?;
@@ -1715,9 +1748,19 @@ impl<'a> Parser<'a> {
             .resolver
             .find_declaration_in_scope(identifier_text, self.current_scope_id)
         else {
+            if let Some(declarations) = self.resolver.find_declarations(identifier_text) {
+                return Err(ParseError::OutOfScopeVariable {
+                    position: Position::new(self.syntax_tree.file_index, identifier_span),
+                    declaration_positions: declarations
+                        .iter()
+                        .map(|delcaration| delcaration.identifier_position)
+                        .collect(),
+                });
+            }
+
             return Err(ParseError::UndeclaredVariable {
                 identifier: identifier_text.to_string(),
-                position: Position::new(self.syntax_tree.file_index, span),
+                position: Position::new(self.syntax_tree.file_index, identifier_span),
             });
         };
         let declaration = self
@@ -1726,7 +1769,7 @@ impl<'a> Parser<'a> {
             .ok_or(ParseError::MissingDeclaration { id: declaration_id })?;
         let node = SyntaxNode {
             kind: SyntaxKind::PathExpression,
-            span,
+            span: identifier_span,
             children: (declaration_id.0, 0),
             payload: declaration.type_id.0,
         };

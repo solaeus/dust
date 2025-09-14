@@ -36,10 +36,20 @@ impl Resolver {
                 return_type: TypeId::STRING,
             });
 
+            let main_scope = Scope {
+                kind: ScopeKind::Module,
+                parent: ScopeId::MAIN,
+                imports: SmallVec::new(),
+                modules: SmallVec::new(),
+                depth: 0,
+                index: 0,
+            };
+            let main_scope_id = resolver.add_scope(main_scope);
             resolver.add_declaration(
                 DeclarationKind::NativeFunction,
-                ScopeId::MAIN,
+                main_scope_id,
                 read_line_type_id,
+                false,
                 NativeFunction { index: 1 }.name(),
                 Position::default(),
             );
@@ -53,8 +63,9 @@ impl Resolver {
 
             resolver.add_declaration(
                 DeclarationKind::NativeFunction,
-                ScopeId::MAIN,
+                main_scope_id,
                 write_line_type_id,
+                false,
                 NativeFunction { index: 2 }.name(),
                 Position::default(),
             );
@@ -69,6 +80,7 @@ impl Resolver {
                     DeclarationKind::NativeFunction,
                     ScopeId::MAIN,
                     TypeId::NONE,
+                    false,
                     &identifier,
                     Position::default(),
                 );
@@ -84,9 +96,9 @@ impl Resolver {
         }
     }
 
-    pub fn add_export_to_scope(&mut self, parent: ScopeId, child: DeclarationId) {
+    pub fn add_module_to_scope(&mut self, parent: ScopeId, child: DeclarationId) {
         if let Some(scope) = self.scopes.get_mut(parent.0 as usize) {
-            scope.exports.push(child);
+            scope.modules.push(child);
         }
     }
 
@@ -113,6 +125,7 @@ impl Resolver {
         kind: DeclarationKind,
         scope_id: ScopeId,
         type_id: TypeId,
+        is_public: bool,
         identifier: &str,
         identifier_position: Position,
     ) -> DeclarationId {
@@ -131,6 +144,7 @@ impl Resolver {
             scope_id,
             type_id,
             identifier_position,
+            is_public,
         };
         let declaration_id = DeclarationId(self.declarations.len() as u32);
 
@@ -139,11 +153,7 @@ impl Resolver {
         declaration_id
     }
 
-    pub fn find_declaration(
-        &self,
-        identifier: &str,
-        target_scope_id: ScopeId,
-    ) -> Option<DeclarationId> {
+    pub fn find_declarations(&self, identifier: &str) -> Option<SmallVec<[Declaration; 4]>> {
         let symbol = {
             let mut hasher = FxHasher::default();
 
@@ -153,24 +163,15 @@ impl Resolver {
                 hash: hasher.finish(),
             }
         };
+        let mut found = SmallVec::<[Declaration; 4]>::new();
 
-        let mut current_scope_id = target_scope_id;
-        let mut current_scope = self.get_scope(current_scope_id)?;
-
-        loop {
-            if let Some(index) = self.declarations.get_index_of(&(symbol, current_scope_id)) {
-                return Some(DeclarationId(index as u32));
+        for ((found_symbol, _), declaration) in &self.declarations {
+            if *found_symbol == symbol {
+                found.push(*declaration);
             }
-
-            if current_scope_id == ScopeId::MAIN {
-                break;
-            }
-
-            current_scope_id = current_scope.parent;
-            current_scope = self.get_scope(current_scope_id)?;
         }
 
-        None
+        if found.is_empty() { None } else { Some(found) }
     }
 
     pub fn find_declaration_in_scope(
@@ -191,6 +192,8 @@ impl Resolver {
         let mut current_scope_id = target_scope_id;
         let mut current_scope = self.get_scope(current_scope_id)?;
 
+        println!("Resolving '{}' in scope {:?}", identifier, current_scope);
+
         loop {
             if let Some(index) = self.declarations.get_index_of(&(symbol, current_scope_id)) {
                 return Some(DeclarationId(index as u32));
@@ -203,22 +206,26 @@ impl Resolver {
                     .declarations
                     .contains_key(&(symbol, import_declaration.scope_id))
                 {
+                    println!("Found in import: {:?}", import_declaration);
+
                     return Some(*import_id);
                 }
             }
 
-            for export_id in &current_scope.exports {
-                let export_declaration = self.get_declaration(*export_id)?;
+            for module_id in &current_scope.modules {
+                let module_declaration = self.get_declaration(*module_id)?;
 
                 if self
                     .declarations
-                    .contains_key(&(symbol, export_declaration.scope_id))
+                    .contains_key(&(symbol, module_declaration.scope_id))
                 {
-                    return Some(*export_id);
+                    println!("Found in module: {:?}", module_declaration);
+
+                    return Some(*module_id);
                 }
             }
 
-            if current_scope.kind != ScopeKind::Block || current_scope_id == ScopeId::MAIN {
+            if current_scope.kind != ScopeKind::Block || current_scope_id == ScopeId(0) {
                 break;
             }
 
@@ -320,7 +327,7 @@ pub struct Scope {
     pub kind: ScopeKind,
     pub parent: ScopeId,
     pub imports: SmallVec<[DeclarationId; 4]>,
-    pub exports: SmallVec<[DeclarationId; 4]>,
+    pub modules: SmallVec<[DeclarationId; 4]>,
     pub depth: u32,
     pub index: u32,
 }
@@ -353,6 +360,7 @@ pub struct Declaration {
     pub scope_id: ScopeId,
     pub type_id: TypeId,
     pub identifier_position: Position,
+    pub is_public: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

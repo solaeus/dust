@@ -104,7 +104,7 @@ impl Compiler {
                         kind: ScopeKind::Module,
                         parent: ScopeId::MAIN,
                         imports: SmallVec::new(),
-                        exports: SmallVec::new(),
+                        modules: SmallVec::new(),
                         depth: 0,
                         index: 0,
                     };
@@ -115,8 +115,9 @@ impl Compiler {
                         DeclarationKind::Module {
                             inner_scope_id: scope_id,
                         },
-                        ScopeId::MAIN,
+                        scope_id,
                         TypeId::NONE,
+                        true,
                         name,
                         Position::new(file_index, Span::default()),
                     );
