@@ -11,7 +11,7 @@ use crate::{NativeFunction, OperandType, Position, Type};
 
 #[derive(Debug)]
 pub struct Resolver {
-    declarations: IndexMap<(Symbol, ScopeId), Declaration, FxBuildHasher>,
+    declarations: IndexMap<DeclarationKey, Declaration, FxBuildHasher>,
 
     scopes: Vec<Scope>,
 
@@ -150,8 +150,9 @@ impl Resolver {
             is_public,
         };
         let declaration_id = DeclarationId(self.declarations.len() as u32);
+        let key = DeclarationKey(symbol, scope_id);
 
-        self.declarations.insert((symbol, scope_id), declaration);
+        self.declarations.insert(key, declaration);
 
         declaration_id
     }
@@ -168,7 +169,7 @@ impl Resolver {
         };
         let mut found = SmallVec::<[Declaration; 4]>::new();
 
-        for ((found_symbol, _), declaration) in &self.declarations {
+        for (DeclarationKey(found_symbol, _), declaration) in &self.declarations {
             if *found_symbol == symbol {
                 found.push(*declaration);
             }
@@ -196,28 +197,26 @@ impl Resolver {
         let mut current_scope = self.get_scope(current_scope_id)?;
 
         loop {
-            if let Some(index) = self.declarations.get_index_of(&(symbol, current_scope_id)) {
+            let key = DeclarationKey(symbol, current_scope_id);
+
+            if let Some(index) = self.declarations.get_index_of(&key) {
                 return Some(DeclarationId(index as u32));
             }
 
             for import_id in &current_scope.imports {
                 let import_declaration = self.get_declaration(*import_id)?;
+                let key = DeclarationKey(symbol, import_declaration.scope_id);
 
-                if self
-                    .declarations
-                    .contains_key(&(symbol, import_declaration.scope_id))
-                {
+                if self.declarations.contains_key(&key) {
                     return Some(*import_id);
                 }
             }
 
             for module_id in &current_scope.modules {
                 let module_declaration = self.get_declaration(*module_id)?;
+                let key = DeclarationKey(symbol, module_declaration.scope_id);
 
-                if self
-                    .declarations
-                    .contains_key(&(symbol, module_declaration.scope_id))
-                {
+                if self.declarations.contains_key(&key) {
                     return Some(*module_id);
                 }
             }
@@ -350,6 +349,9 @@ impl DeclarationId {
     pub const MAIN: Self = DeclarationId(u32::MAX - 1);
     pub const NATIVE: Self = DeclarationId(u32::MAX - 2);
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct DeclarationKey(Symbol, ScopeId);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Declaration {
