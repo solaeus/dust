@@ -26,6 +26,7 @@ pub mod lexer;
 pub mod native_function;
 pub mod parser;
 pub mod position;
+pub mod project;
 pub mod resolver;
 pub mod source;
 pub mod syntax_tree;

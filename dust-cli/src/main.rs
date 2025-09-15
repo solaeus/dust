@@ -1,9 +1,10 @@
 #![feature(duration_millis_float, formatting_options, iter_intersperse)]
 
 use std::{
+    env::current_dir,
     fmt::{self},
-    fs::OpenOptions,
-    io::{self, Read},
+    fs::{File, OpenOptions, create_dir, create_dir_all},
+    io::{self, Read, Write},
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
@@ -20,6 +21,7 @@ use dust_lang::{
     compiler::Compiler,
     jit_vm::{JitVm, MINIMUM_OBJECT_HEAP_DEFAULT, MINIMUM_OBJECT_SWEEP_DEFAULT},
     parser::parse_main,
+    project::{EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
     source::SourceFile,
     tokenize,
 };
@@ -94,6 +96,9 @@ enum Mode {
     /// Lex the source code and print the tokens
     #[command(alias = "t")]
     Tokenize(InputOptions),
+
+    #[command(alias = "i")]
+    Init(InitOptions),
 }
 
 #[derive(Args)]
@@ -163,6 +168,13 @@ enum OutputOptions {
     Ron,
     Postcard,
     Yaml,
+}
+
+#[derive(Args)]
+struct InitOptions {
+    /// Directory to create the project in, defaults to the current directory
+    #[arg(value_hint = ValueHint::DirPath, value_name = "PATH")]
+    path: Option<PathBuf>,
 }
 
 fn main() {
@@ -405,6 +417,48 @@ fn main() {
         if time && !no_output {
             print_times(&[(source_name, tokenize_time, None)]);
         }
+
+        return;
+    }
+
+    if let Mode::Init(InitOptions { path }) = mode {
+        let project_path =
+            path.unwrap_or_else(|| current_dir().expect("Failed to get the current directory"));
+
+        if !project_path.exists() {
+            create_dir_all(&project_path).unwrap_or_else(|_| {
+                panic!("Failed to create directory `{}`", project_path.display())
+            });
+        } else if project_path.read_dir().unwrap().next().is_some() {
+            eprintln!("The directory `{}` is not empty", project_path.display());
+
+            return;
+        }
+
+        let example_config_path = project_path.join(PROJECT_CONFIG_PATH);
+        let example_project_config = toml::to_string_pretty(&ProjectConfig::example())
+            .expect("Failed to serialize example project config to TOML");
+
+        File::create(&example_config_path)
+            .expect("Failed to create project config file")
+            .write_all(example_project_config.as_bytes())
+            .expect("Failed to write to project config file");
+
+        let src_path = project_path.join("src");
+
+        create_dir(&src_path).expect("Failed to create `src` directory");
+
+        let example_program_path = src_path.join("main.ds");
+
+        File::create(&example_program_path)
+            .expect("Failed to create example program file")
+            .write_all(EXAMPLE_PROGRAM.as_bytes())
+            .expect("Failed to write to example program file");
+
+        println!(
+            "Initialized a new Dust project at `{}`",
+            project_path.display()
+        );
     }
 }
 
