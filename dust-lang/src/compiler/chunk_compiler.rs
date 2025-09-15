@@ -1734,6 +1734,7 @@ impl ChunkCompiler {
 
             self.instructions.push(return_instruction);
         }
+
         Ok(())
     }
 }

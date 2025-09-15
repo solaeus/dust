@@ -29,6 +29,18 @@ impl Resolver {
             type_members: Vec::new(),
         };
 
+        let main_scope = Scope {
+            kind: ScopeKind::Module,
+            parent: ScopeId::MAIN,
+            imports: SmallVec::new(),
+            modules: SmallVec::new(),
+            depth: 0,
+            index: 0,
+        };
+        let main_scope_id = resolver.add_scope(main_scope);
+
+        debug_assert_eq!(main_scope_id, ScopeId::MAIN);
+
         if with_native_functions {
             let read_line_type_id = resolver.add_type(TypeNode::Function {
                 type_parameters: (0, 0),
@@ -36,15 +48,6 @@ impl Resolver {
                 return_type: TypeId::STRING,
             });
 
-            let main_scope = Scope {
-                kind: ScopeKind::Module,
-                parent: ScopeId::MAIN,
-                imports: SmallVec::new(),
-                modules: SmallVec::new(),
-                depth: 0,
-                index: 0,
-            };
-            let main_scope_id = resolver.add_scope(main_scope);
             resolver.add_declaration(
                 DeclarationKind::NativeFunction,
                 main_scope_id,
@@ -192,8 +195,6 @@ impl Resolver {
         let mut current_scope_id = target_scope_id;
         let mut current_scope = self.get_scope(current_scope_id)?;
 
-        println!("Resolving '{}' in scope {:?}", identifier, current_scope);
-
         loop {
             if let Some(index) = self.declarations.get_index_of(&(symbol, current_scope_id)) {
                 return Some(DeclarationId(index as u32));
@@ -206,8 +207,6 @@ impl Resolver {
                     .declarations
                     .contains_key(&(symbol, import_declaration.scope_id))
                 {
-                    println!("Found in import: {:?}", import_declaration);
-
                     return Some(*import_id);
                 }
             }
@@ -219,8 +218,6 @@ impl Resolver {
                     .declarations
                     .contains_key(&(symbol, module_declaration.scope_id))
                 {
-                    println!("Found in module: {:?}", module_declaration);
-
                     return Some(*module_id);
                 }
             }

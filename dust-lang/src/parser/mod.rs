@@ -418,14 +418,7 @@ impl<'a> Parser<'a> {
             children: (0, 0),
             payload: TypeId::NONE.0,
         };
-        self.current_scope_id = self.resolver.add_scope(Scope {
-            kind: ScopeKind::Function,
-            parent: ScopeId(0),
-            imports: SmallVec::new(),
-            modules: SmallVec::new(),
-            depth: 0,
-            index: 0,
-        });
+        self.current_scope_id = ScopeId::MAIN;
 
         self.syntax_tree.push_node(placeholder_node);
 
