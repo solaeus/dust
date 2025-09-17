@@ -10,6 +10,7 @@ use cranelift::{
     },
 };
 use cranelift_module::{FuncId, Module, ModuleError};
+use smallvec::SmallVec;
 use tracing::info;
 
 use crate::{
@@ -850,11 +851,13 @@ pub fn compile_stackless_function(
                         total_argument_count: chunk.call_arguments.len(),
                     },
                 )?;
-                let mut arguments = Vec::with_capacity(call_arguments_list.len() + 3);
+                let mut arguments =
+                    SmallVec::<[CraneliftValue; 4]>::with_capacity(call_arguments_list.len() + 1);
+
+                arguments.push(thread_context);
 
                 for (address, r#type) in call_arguments_list {
                     let argument_value = match *r#type {
-                        OperandType::NONE => CraneliftValue::from_u32(0),
                         OperandType::INTEGER => {
                             let integer_value = get_integer(
                                 *address,
@@ -1495,16 +1498,14 @@ fn get_string(
                 .load(I64, MemFlags::new(), register_address, 0)
         }
         MemoryKind::CONSTANT => {
-            let string = chunk.constants.get_string(address.index).ok_or(
+            let (string_pointer, string_length) = chunk.constants.get_string(address.index).ok_or(
                 JitError::ConstantIndexOutOfBounds {
                     constant_index: address.index,
                     total_constant_count: chunk.constants.len(),
                 },
             )?;
-            let string_pointer = function_builder
-                .ins()
-                .iconst(I64, string.as_ptr() as usize as i64);
-            let string_length = function_builder.ins().iconst(I64, string.len() as i64);
+            let string_pointer = function_builder.ins().iconst(I64, string_pointer as i64);
+            let string_length = function_builder.ins().iconst(I64, string_length as i64);
             let call_allocate_string_instruction = function_builder.ins().call(
                 allocate_string_function,
                 &[string_pointer, string_length, thread_conxtext_pointer],

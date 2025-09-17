@@ -1,7 +1,7 @@
 use cranelift::{
-    codegen::CodegenError,
+    codegen::{CodegenError, ir::FuncRef},
     prelude::{
-        AbiParam, FunctionBuilder, FunctionBuilderContext, InstBuilder, IntCC,
+        AbiParam, FunctionBuilder, FunctionBuilderContext, InstBuilder, IntCC, Signature,
         Value as CraneliftValue, types::I64,
     },
 };
@@ -9,34 +9,10 @@ use cranelift_module::{FuncId, Module, ModuleError};
 use tracing::info;
 
 use crate::{
-    Address, Chunk, MemoryKind, OperandType, Operation,
-    instruction::{Add, Call, Jump, Load, Return},
+    Address, Chunk, MemoryKind, OperandType, Operation, Type,
+    instruction::{Add, Call, CallNative, Jump, Load, Return},
     jit_vm::{JitCompiler, JitError, jit_compiler::FunctionIds},
 };
-
-fn get_integer(
-    address: Address,
-    chunk: &Chunk,
-    ssa_registers: &[CraneliftValue],
-    function_builder: &mut FunctionBuilder,
-) -> Result<CraneliftValue, JitError> {
-    match address.memory {
-        MemoryKind::REGISTER => Ok(ssa_registers[address.index as usize]),
-        MemoryKind::CONSTANT => {
-            let integer = chunk.constants.get_integer(address.index).ok_or(
-                JitError::ConstantIndexOutOfBounds {
-                    constant_index: address.index,
-                    total_constant_count: chunk.constants.len(),
-                },
-            )?;
-
-            Ok(function_builder.ins().iconst(I64, integer))
-        }
-        _ => Err(JitError::UnsupportedMemoryKind {
-            memory_kind: address.memory,
-        }),
-    }
-}
 
 pub fn compile_direct_function(
     compiler: &mut JitCompiler,
@@ -47,6 +23,13 @@ pub fn compile_direct_function(
 
     let mut function_builder_context = FunctionBuilderContext::new();
     let mut compilation_context = compiler.module.make_context();
+    let pointer_type = compiler.module.target_config().pointer_type();
+
+    compilation_context
+        .func
+        .signature
+        .params
+        .push(AbiParam::new(pointer_type));
 
     for _ in 0..chunk.r#type.value_parameters.len() {
         compilation_context
@@ -82,6 +65,52 @@ pub fn compile_direct_function(
         )?
     };
 
+    let allocate_string_function = {
+        let mut allocate_string_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        allocate_string_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        allocate_string_signature.returns.push(AbiParam::new(I64)); // return value
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "allocate_string",
+            allocate_string_signature,
+        )?
+    };
+
+    let read_line_function = {
+        let mut read_line_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        read_line_signature.params.push(AbiParam::new(pointer_type));
+        read_line_signature.returns.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "read_line",
+            read_line_signature,
+        )?
+    };
+
+    let write_line_function = {
+        let mut write_line_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        write_line_signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(I64)]);
+        write_line_signature.returns = vec![];
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "write_line",
+            write_line_signature,
+        )?
+    };
+
     let bytecode_instructions = &chunk.instructions;
     let instruction_count = bytecode_instructions.len();
 
@@ -98,7 +127,9 @@ pub fn compile_direct_function(
     function_builder.switch_to_block(function_entry_block);
     function_builder.append_block_params_for_function_params(function_entry_block);
 
-    let function_arguments = function_builder.block_params(function_entry_block).to_vec();
+    let thread_context = function_builder.block_params(function_entry_block)[0];
+
+    let function_arguments = function_builder.block_params(function_entry_block)[1..].to_vec();
     let mut ssa_registers = vec![CraneliftValue::from_u32(0); chunk.register_count as usize];
 
     for (index, argument) in function_arguments.iter().enumerate() {
@@ -219,6 +250,51 @@ pub fn compile_direct_function(
 
                         function_builder.ins().iadd(left_value, right_value)
                     }
+                    OperandType::STRING => {
+                        let left_value = get_string(
+                            left,
+                            chunk,
+                            &ssa_registers,
+                            &mut function_builder,
+                            allocate_string_function,
+                            thread_context,
+                        )?;
+                        let right_value = get_string(
+                            right,
+                            chunk,
+                            &ssa_registers,
+                            &mut function_builder,
+                            allocate_string_function,
+                            thread_context,
+                        )?;
+
+                        let concatenate_strings_function = {
+                            let mut concatenate_strings_signature =
+                                Signature::new(compiler.module.isa().default_call_conv());
+
+                            concatenate_strings_signature.params.extend([
+                                AbiParam::new(pointer_type),
+                                AbiParam::new(pointer_type),
+                                AbiParam::new(pointer_type),
+                            ]);
+                            concatenate_strings_signature
+                                .returns
+                                .push(AbiParam::new(I64));
+
+                            compiler.declare_imported_function(
+                                &mut function_builder,
+                                "concatenate_strings",
+                                concatenate_strings_signature,
+                            )?
+                        };
+
+                        let call_instruction = function_builder.ins().call(
+                            concatenate_strings_function,
+                            &[left_value, right_value, thread_context],
+                        );
+
+                        function_builder.inst_results(call_instruction)[0]
+                    }
                     _ => {
                         return Err(JitError::UnsupportedOperandType {
                             operand_type: r#type,
@@ -305,6 +381,68 @@ pub fn compile_direct_function(
                 let return_value = function_builder.inst_results(call_instruction)[0];
 
                 ssa_registers[destination.index as usize] = return_value;
+
+                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
+            }
+            Operation::CALL_NATIVE => {
+                let CallNative {
+                    destination,
+                    function,
+                    arguments_index,
+                } = CallNative::from(*current_instruction);
+
+                let function_type = function.r#type();
+                let argument_count = function_type.value_parameters.len();
+                let arguments_range =
+                    arguments_index as usize..(arguments_index as usize + argument_count);
+                let call_arguments_list = chunk.call_arguments.get(arguments_range).ok_or(
+                    JitError::ArgumentsRangeOutOfBounds {
+                        arguments_list_start: arguments_index,
+                        arguments_list_end: arguments_index + argument_count as u16,
+                        total_argument_count: chunk.call_arguments.len(),
+                    },
+                )?;
+                let mut arguments = Vec::with_capacity(call_arguments_list.len() + 1);
+
+                for (address, r#type) in call_arguments_list {
+                    let argument_value = match *r#type {
+                        OperandType::STRING => get_string(
+                            *address,
+                            chunk,
+                            &ssa_registers,
+                            &mut function_builder,
+                            allocate_string_function,
+                            thread_context,
+                        )?,
+                        _ => {
+                            return Err(JitError::UnsupportedOperandType {
+                                operand_type: *r#type,
+                            });
+                        }
+                    };
+
+                    arguments.push(argument_value);
+                }
+
+                arguments.push(thread_context);
+
+                let function_reference = match function.name() {
+                    "read_line" => read_line_function,
+                    "write_line" => write_line_function,
+                    _ => {
+                        return Err(JitError::UnhandledNativeFunction {
+                            function_name: function.name().to_string(),
+                        });
+                    }
+                };
+
+                let call_instruction = function_builder.ins().call(function_reference, &arguments);
+
+                if function_type.return_type != Type::None {
+                    let return_value = function_builder.inst_results(call_instruction)[0];
+
+                    ssa_registers[destination.index as usize] = return_value;
+                }
 
                 function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }
@@ -399,4 +537,61 @@ pub fn compile_direct_function(
     compiler.module.clear_context(&mut compilation_context);
 
     Ok(())
+}
+
+fn get_integer(
+    address: Address,
+    chunk: &Chunk,
+    ssa_registers: &[CraneliftValue],
+    function_builder: &mut FunctionBuilder,
+) -> Result<CraneliftValue, JitError> {
+    match address.memory {
+        MemoryKind::REGISTER => Ok(ssa_registers[address.index as usize]),
+        MemoryKind::CONSTANT => {
+            let integer = chunk.constants.get_integer(address.index).ok_or(
+                JitError::ConstantIndexOutOfBounds {
+                    constant_index: address.index,
+                    total_constant_count: chunk.constants.len(),
+                },
+            )?;
+
+            Ok(function_builder.ins().iconst(I64, integer))
+        }
+        _ => Err(JitError::UnsupportedMemoryKind {
+            memory_kind: address.memory,
+        }),
+    }
+}
+
+fn get_string(
+    address: Address,
+    chunk: &Chunk,
+    ssa_registers: &[CraneliftValue],
+    function_builder: &mut FunctionBuilder,
+    allocate_strings_function: FuncRef,
+    thread_context: CraneliftValue,
+) -> Result<CraneliftValue, JitError> {
+    match address.memory {
+        MemoryKind::REGISTER => Ok(ssa_registers[address.index as usize]),
+        MemoryKind::CONSTANT => {
+            let (string_pointer, string_length) = chunk.constants.get_string(address.index).ok_or(
+                JitError::ConstantIndexOutOfBounds {
+                    constant_index: address.index,
+                    total_constant_count: chunk.constants.len(),
+                },
+            )?;
+            let string_pointer = function_builder.ins().iconst(I64, string_pointer as i64);
+            let string_length = function_builder.ins().iconst(I64, string_length as i64);
+            let string_object_pointer = function_builder.ins().call(
+                allocate_strings_function,
+                &[string_pointer, string_length, thread_context],
+            );
+            let string_object = function_builder.inst_results(string_object_pointer)[0];
+
+            Ok(string_object)
+        }
+        _ => Err(JitError::UnsupportedMemoryKind {
+            memory_kind: address.memory,
+        }),
+    }
 }

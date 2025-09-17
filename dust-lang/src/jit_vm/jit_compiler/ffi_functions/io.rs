@@ -21,14 +21,14 @@ pub unsafe extern "C" fn read_line(thread_context: *mut ThreadContext) -> i64 {
     }
 
     #[cfg(not(target_os = "windows"))]
-    input.pop(); // Remove the newline character
+    input.pop();
 
     #[cfg(target_os = "windows")]
     if input.ends_with("\r\n") {
-        input.pop(); // Remove the newline character
-        input.pop(); // Remove the carriage return character
+        input.pop();
+        input.pop();
     } else {
-        input.pop(); // Remove the newline character
+        input.pop();
     }
 
     let object = Object::string(input);

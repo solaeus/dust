@@ -102,11 +102,13 @@ impl<'a> JitCompiler<'a> {
             let stackless_name = format!("{name}_stackless");
             let mut direct_signature = Signature::new(self.module.isa().default_call_conv());
 
-            direct_signature.returns.push(AbiParam::new(I64));
+            direct_signature.params.push(AbiParam::new(pointer_type));
 
             for _ in 0..chunk.r#type.value_parameters.len() {
                 direct_signature.params.push(AbiParam::new(I64));
             }
+
+            direct_signature.returns.push(AbiParam::new(I64));
 
             let direct_function_id = self
                 .module
