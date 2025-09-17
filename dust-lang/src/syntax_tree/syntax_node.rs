@@ -177,6 +177,8 @@ pub enum SyntaxKind {
     FunctionValueParameterName,
     FunctionValueParameterType,
     FunctionTypeParameters,
+    Path,
+    PathSegment,
 
     // Types (Sub-Syntax)
     BooleanType,
@@ -331,6 +333,8 @@ impl Display for SyntaxKind {
             SyntaxKind::FunctionValueParameterType => write!(f, "function value parameter type"),
             SyntaxKind::FunctionTypeParameters => write!(f, "function type parameters"),
             SyntaxKind::CallValueArguments => write!(f, "call value arguments"),
+            SyntaxKind::Path => write!(f, "path"),
+            SyntaxKind::PathSegment => write!(f, "path segment"),
             SyntaxKind::BooleanType => write!(f, "boolean type"),
             SyntaxKind::ByteType => write!(f, "byte type"),
             SyntaxKind::CharacterType => write!(f, "character type"),

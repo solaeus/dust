@@ -89,6 +89,15 @@ impl SyntaxTree {
         self.children.get(start_index..start_index + count)
     }
 
+    pub fn push_children(&mut self, children: &[SyntaxId]) -> (u32, u32) {
+        let start_index = self.children.len() as u32;
+        let count = children.len() as u32;
+
+        self.children.extend_from_slice(children);
+
+        (start_index, count)
+    }
+
     pub fn last_node(&self) -> Option<&SyntaxNode> {
         self.nodes.last()
     }

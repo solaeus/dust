@@ -67,6 +67,9 @@ pub enum CompileError {
     MissingFunctionPrototype {
         declaration_id: DeclarationId,
     },
+    MissingSourceFile {
+        file_index: u32,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -88,6 +91,7 @@ impl AnnotatedError for CompileError {
             CompileError::MissingType { .. } => 0,
             CompileError::MissingScope { .. } => 0,
             CompileError::MissingFunctionPrototype { .. } => 0,
+            CompileError::MissingSourceFile { file_index } => *file_index as usize,
         }
     }
 
@@ -244,6 +248,13 @@ impl AnnotatedError for CompileError {
             CompileError::MissingFunctionPrototype { declaration_id } => {
                 let title = format!(
                     "Function prototype for declaration id {declaration_id:?} was missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingSourceFile { file_index } => {
+                let title = format!(
+                    "Source file with index {file_index} was missing, this is a bug in the parser or compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

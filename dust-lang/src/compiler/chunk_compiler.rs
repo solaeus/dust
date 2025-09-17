@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Arc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
@@ -13,24 +13,23 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct ChunkCompiler {
-    /// All syntax trees and resolvers for the source files in the program being compiled.
-    file_trees: Arc<Vec<(Arc<SyntaxTree>, Arc<Resolver>)>>,
-
+pub struct ChunkCompiler<'a> {
     /// Source code for the program being compiled.
-    source: Source,
+    source: &'a Source,
 
     /// Target syntax tree for compilation.
-    syntax_tree: Arc<SyntaxTree>,
+    syntax_tree: &'a SyntaxTree,
 
-    /// Target resolver for declaration, scope and type resolution during compilation.
-    resolver: Arc<Resolver>,
+    syntax_trees: &'a Vec<SyntaxTree>,
+
+    /// Global context for declaration, scope and type resolution.
+    resolver: Rc<Resolver>,
 
     /// Target source code file for compilation by this chunk compiler.
-    source_file: Arc<SourceFile>,
+    source_file: SourceFile,
 
-    /// Constant collection from parsing that is pre-filled with strings. Other constant types are
-    /// added during compilation after constant expression folding is applied.
+    /// Constant collection that is filled during compilation after constant expression folding is
+    /// applied.
     constants: ConstantTable,
 
     /// Global list of function prototypes that is filled during compilation.
@@ -45,8 +44,8 @@ pub struct ChunkCompiler {
     /// Concatenated list of register indexes that are referenced by DROP instructions.
     drop_lists: Vec<u16>,
 
-    /// Apparent return type of the function being compiled. This field is modified during compilation
-    /// to reflect the actual return type of the function
+    /// Apparent return type of the function being compiled. This field is modified during
+    /// compilation to reflect the actual return type of the function.
     return_type: TypeId,
 
     /// Local variables declared in the function being compiled.
@@ -60,17 +59,18 @@ pub struct ChunkCompiler {
     prototype_index: u16,
 }
 
-impl ChunkCompiler {
+impl<'a> ChunkCompiler<'a> {
     pub fn new(
-        file_trees: Arc<Vec<(Arc<SyntaxTree>, Arc<Resolver>)>>,
-        source: Source,
+        syntax_trees: &'a Vec<SyntaxTree>,
+        resolver: Rc<Resolver>,
+        source: &'a Source,
         prototypes: Rc<RefCell<IndexMap<DeclarationId, Chunk, FxBuildHasher>>>,
     ) -> Self {
         Self {
             source_file: source.get_file(0).unwrap().clone(),
-            resolver: file_trees[0].1.clone(),
-            syntax_tree: file_trees[0].0.clone(),
-            file_trees,
+            syntax_tree: &syntax_trees[0],
+            syntax_trees,
+            resolver,
             source,
             constants: ConstantTable::new(),
             prototypes,
@@ -477,11 +477,32 @@ impl ChunkCompiler {
 
         match declaration.kind {
             DeclarationKind::Function => {
-                let prototype_index = self
-                    .prototypes
-                    .borrow()
-                    .get_index_of(&declaration_id)
-                    .ok_or(CompileError::MissingFunctionPrototype { declaration_id })?;
+                let function_compiler = ChunkCompiler {
+                    source: self.source,
+                    syntax_tree: self.syntax_trees.get(declaration.scope.0 as usize).ok_or(
+                        CompileError::MissingSyntaxTree {
+                            file_index: declaration.scope.0,
+                        },
+                    )?,
+                    syntax_trees: self.syntax_trees,
+                    resolver: Rc::clone(&self.resolver),
+                    source_file: self
+                        .source
+                        .get_file(declaration.scope.0)
+                        .ok_or(CompileError::MissingSourceFile {
+                            file_index: declaration.scope.0,
+                        })?
+                        .clone(),
+                    constants: ConstantTable::new(),
+                    prototypes: Rc::clone(&self.prototypes),
+                    instructions: Vec::new(),
+                    call_arguments: Vec::new(),
+                    drop_lists: Vec::new(),
+                    return_type: TypeId::NONE,
+                    locals: HashMap::default(),
+                    minimum_register: 0,
+                    prototype_index: 0,
+                };
 
                 self.locals.insert(
                     declaration_id,
@@ -758,7 +779,7 @@ impl ChunkCompiler {
 
         let string_start = node.span.0 + 1;
         let string_end = node.span.1 - 1;
-        let string = &self.source_file.source[string_start as usize..string_end as usize];
+        let string = &self.source_file.source_code[string_start as usize..string_end as usize];
         let (pool_start, pool_end) = self.constants.push_str_to_string_pool(string);
 
         Ok(Emission::Constant(Constant::String {
@@ -1277,7 +1298,8 @@ impl ChunkCompiler {
             .ok_or(CompileError::MissingDeclaration { declaration_id })?;
 
         if declaration.kind == DeclarationKind::NativeFunction {
-            let identifier = &self.source_file.source[node.span.0 as usize..node.span.1 as usize];
+            let identifier =
+                &self.source_file.source_code[node.span.0 as usize..node.span.1 as usize];
             let native_function = NativeFunction::from_str(identifier).ok_or(
                 CompileError::InvalidNativeFunction {
                     name: identifier.to_string(),
@@ -1460,10 +1482,10 @@ impl ChunkCompiler {
         };
 
         let mut function_compiler = ChunkCompiler {
-            file_trees: self.file_trees.clone(),
+            syntax_trees: self.syntax_trees,
+            syntax_tree: self.syntax_tree,
             source_file: self.source_file.clone(),
-            syntax_tree: self.syntax_tree.clone(),
-            source: self.source.clone(),
+            source: self.source,
             constants: ConstantTable::new(),
             resolver: self.resolver.clone(),
             prototypes: self.prototypes.clone(),
@@ -1498,7 +1520,7 @@ impl ChunkCompiler {
                 .get_declaration(declaration_id)
                 .ok_or(CompileError::MissingDeclaration { declaration_id })?;
             let name_range = declaration.identifier_position.span.as_usize_range();
-            let name = self.source_file.source[name_range].to_string();
+            let name = self.source_file.source_code[name_range].to_string();
 
             Some(name)
         };

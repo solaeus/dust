@@ -1,27 +1,24 @@
 #![feature(duration_millis_float, formatting_options, iter_intersperse)]
 
+mod cli;
+
 use std::{
-    env::current_dir,
     fmt::{self},
-    fs::{File, OpenOptions, create_dir, create_dir_all},
+    fs::{File, create_dir, create_dir_all, read_to_string},
     io::{self, Read, Write},
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
 };
 
-use clap::{
-    Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint,
-    builder::{Styles, styling::AnsiColor},
-    crate_authors, crate_description, crate_version,
-};
+use clap::Parser;
 use dust_lang::{
-    Source,
+    Resolver, Source,
     chunk::TuiDisassembler,
     compiler::Compiler,
     jit_vm::{JitVm, MINIMUM_OBJECT_HEAP_DEFAULT, MINIMUM_OBJECT_SWEEP_DEFAULT},
     parser::parse_main,
-    project::{EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
+    project::{DEFAULT_PROGRAM_PATH, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
     source::SourceFile,
     tokenize,
 };
@@ -32,150 +29,9 @@ use tracing_subscriber::{
     registry::LookupSpan,
 };
 
-#[derive(Parser)]
-#[clap(
-    version = crate_version!(),
-    author = crate_authors!(),
-    about = crate_description!(),
-    color = ColorChoice::Auto,
-    styles = Styles::styled()
-        .header(AnsiColor::BrightMagenta.on_default().bold().underline())
-        .usage(AnsiColor::BrightMagenta.on_default().bold().underline())
-        .literal(AnsiColor::BrightCyan.on_default().bold())
-        .placeholder(AnsiColor::BrightCyan.on_default().bold())
-        .valid(AnsiColor::BrightGreen.on_default())
-        .invalid(AnsiColor::BrightYellow.on_default())
-        .error(AnsiColor::BrightRed.on_default()),
-)]
-struct Cli {
-    #[command(subcommand)]
-    mode: Option<Mode>,
-
-    #[command(flatten)]
-    run_options: RunOptions,
-
-    /// Set the log level
-    #[arg(short, long, value_name = "LEVEL")]
-    log: Option<LevelFilter>,
-
-    /// Display the time taken for each operation
-    #[arg(short, long)]
-    time: bool,
-
-    /// Disable all output
-    #[arg(long)]
-    no_output: bool,
-
-    /// Disable the standard library
-    #[arg(long)]
-    no_std: bool,
-
-    /// Custom program name, overrides the file name
-    #[arg(short, long)]
-    name: Option<String>,
-
-    /// Format for the output, defaults to a simple text format
-    #[arg(short, long, default_value = "dust", value_name = "FORMAT")]
-    output: OutputOptions,
-}
-
-#[derive(Subcommand)]
-enum Mode {
-    #[command(alias = "p")]
-    /// Parse the source code and print the syntax tree
-    Parse(ParseOptions),
-
-    /// Parse, compile and run the program (default)
-    #[command(alias = "r")]
-    Run(RunOptions),
-
-    /// Compile and output the compiled program
-    #[command(alias = "c")]
-    Compile(CompileOptions),
-
-    /// Lex the source code and print the tokens
-    #[command(alias = "t")]
-    Tokenize(InputOptions),
-
-    #[command(alias = "i")]
-    Init(InitOptions),
-}
-
-#[derive(Args)]
-struct ParseOptions {
-    #[command(flatten)]
-    input: InputOptions,
-}
-
-#[derive(Args)]
-struct RunOptions {
-    #[command(flatten)]
-    input: InputOptions,
-
-    /// Minimum heap size garbage collection is triggered
-    #[arg(long, value_name = "BYTES", requires = "min_sweep")]
-    min_heap: Option<usize>,
-
-    /// Minimum bytes allocated between garbage collections
-    #[arg(long, value_name = "BYTES", requires = "min_heap")]
-    min_sweep: Option<usize>,
-}
-
-#[derive(Args)]
-struct CompileOptions {
-    /// Print the time taken for compilation and execution, defaults to false
-    #[arg(short, long)]
-    time: bool,
-
-    /// Disable printing, defaults to false
-    #[arg(long)]
-    no_output: bool,
-
-    /// Disable the standard library, defaults to false
-    #[arg(long)]
-    no_std: bool,
-
-    /// Custom program name, overrides the file name
-    #[arg(short, long)]
-    name: Option<String>,
-
-    #[command(flatten)]
-    input: InputOptions,
-
-    /// Style disassembly output, defaults to true
-    #[arg(short, long, default_value = "true")]
-    style: bool,
-}
-
-#[derive(Args)]
-pub struct InputOptions {
-    /// Source code to run instead of a file
-    #[arg(short, long, value_hint = ValueHint::Other, value_name = "INPUT")]
-    eval: Option<String>,
-
-    /// Read source code from stdin
-    #[arg(long)]
-    stdin: bool,
-
-    /// Path to a source code file
-    file: Option<PathBuf>,
-}
-
-#[derive(ValueEnum, Clone, Copy, PartialEq)]
-enum OutputOptions {
-    Dust,
-    Json,
-    Ron,
-    Postcard,
-    Yaml,
-}
-
-#[derive(Args)]
-struct InitOptions {
-    /// Directory to create the project in, defaults to the current directory
-    #[arg(value_hint = ValueHint::DirPath, value_name = "PATH")]
-    path: Option<PathBuf>,
-}
+use crate::cli::{
+    Cli, CompileOptions, InitOptions, InputOptions, Mode, OutputOptions, ParseOptions, RunOptions,
+};
 
 fn main() {
     let start_time = Instant::now();
@@ -200,20 +56,15 @@ fn main() {
     }
 
     if let Mode::Run(RunOptions {
-        input: InputOptions { eval, stdin, file },
+        input: InputOptions { eval, stdin, path },
         min_heap,
         min_sweep,
     }) = mode
     {
-        let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-        let source_name = source_name.unwrap_or_else(|| "anonymous".to_string());
-        let source = Source::Script(Arc::new(SourceFile {
-            name: source_name.clone(),
-            source,
-        }));
-
-        let compiler = Compiler::new(source);
-        let compile_result = compiler.compile();
+        let source = get_source(path, name, stdin, eval);
+        let compiler = Compiler::new(source.clone());
+        let resolver = Resolver::new(true);
+        let compile_result = compiler.compile(resolver);
         let compile_time = start_time.elapsed();
 
         let program = match compile_result {
@@ -253,36 +104,48 @@ fn main() {
         }
 
         if time && !no_output {
-            print_times(&[(&source_name, compile_time, Some(run_time))]);
+            print_times(&[(source.program_name().as_str(), compile_time, Some(run_time))]);
         }
 
         return;
     }
 
     if let Mode::Parse(ParseOptions {
-        input: InputOptions { eval, stdin, file },
+        input: InputOptions {
+            eval,
+            stdin,
+            path: file,
+        },
     }) = mode
     {
-        let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-        let source_name = source_name.as_deref().unwrap_or("anonymous");
-        let (syntax_tree, error) = parse_main(&source);
-        let parse_time = start_time.elapsed();
+        let source = get_source(file, name, stdin, eval);
 
-        if no_output {
-            return;
+        match source {
+            Source::Script(SourceFile {
+                name,
+                source_code: source,
+            }) => {
+                let (syntax_tree, error) = parse_main(&source);
+                let parse_time = start_time.elapsed();
+
+                if no_output {
+                    return;
+                }
+
+                println!("{}", syntax_tree.display());
+
+                if let Some(error) = error {
+                    eprintln!("{}", error.report());
+                }
+
+                if time {
+                    print_times(&[(&name, parse_time, None)]);
+                }
+
+                return;
+            }
+            Source::Files(source_files) => todo!(),
         }
-
-        println!("{}", syntax_tree.display());
-
-        if let Some(error) = error {
-            eprintln!("{}", error.report());
-        }
-
-        if time {
-            print_times(&[(source_name, parse_time, None)]);
-        }
-
-        return;
     }
 
     if let Mode::Compile(CompileOptions {
@@ -290,96 +153,48 @@ fn main() {
         no_output,
         no_std: _,
         name,
-        input: InputOptions { eval, stdin, file },
+        input: InputOptions { eval, stdin, path },
         style: _,
     }) = mode
     {
-        let (source_code, source_name) = get_source_and_name(file, name, stdin, eval);
-        let source_name = source_name.unwrap_or_else(|| "anonymous".to_string());
-        let source = Source::Script(Arc::new(SourceFile {
-            name: source_name.clone(),
-            source: source_code,
-        }));
-
+        let source = get_source(path, name, stdin, eval);
         let compiler = Compiler::new(source.clone());
-        let compile_result = compiler.compile();
+        let resolver = Resolver::new(true);
+        let compile_result = compiler.compile(resolver);
         let compile_time = start_time.elapsed();
 
         match compile_result {
             Ok(program) => {
-                let disassembler = TuiDisassembler::new(&program, source);
+                let disassembler = TuiDisassembler::new(&program, source.clone());
 
                 disassembler.disassemble().unwrap();
             }
             Err(error) => eprintln!("{}", error.report()),
         }
 
-        // let dust_program = match compiler.compile_program(source_name, &source, !no_std) {
-        //     Ok(dust_crate) => dust_crate,
-        //     Err(error) => {
-        //         todo!("Handle compile error: {error}");
-
-        //         return;
-        //     }
-        // };
-
-        // match output {
-        //     Format::Dust => {
-        //         let disassembler = TuiDisassembler::new(&dust_program, Some(&source));
-
-        //         disassembler
-        //             .disassemble()
-        //             .expect("Failed to display disassembly");
-
-        //         // disassembler
-        //         //     .source(&source)
-        //         //     .style(style)
-        //         //     .show_type(true)
-        //         //     .disassemble()
-        //         //     .expect("Failed to write disassembly to stdout");
-        //     }
-        //     Format::Json => {
-        //         let json = serde_json::to_string_pretty(&dust_program)
-        //             .expect("Failed to serialize chunk to JSON");
-
-        //         println!("{json}");
-        //     }
-        //     Format::Postcard => {
-        //         let mut buffer = Vec::new();
-        //         let postcard = postcard::to_slice_cobs(&dust_program, &mut buffer)
-        //             .expect("Failed to serialize chunk to Postcard");
-
-        //         println!("{postcard:?}");
-        //     }
-        //     Format::Ron => {
-        //         let ron = ron::ser::to_string_pretty(
-        //             &dust_program,
-        //             PrettyConfig::new().struct_names(true),
-        //         )
-        //         .expect("Failed to serialize chunk to RON");
-
-        //         println!("{ron}");
-        //     }
-        //     Format::Yaml => {
-        //         let yaml = serde_yaml::to_string(&dust_program)
-        //             .expect("Failed to serialize chunk to YAML");
-
-        //         println!("{yaml}");
-        //     }
-        // }
-
         if time && !no_output {
-            print_times(&[(&source_name, compile_time, None)]);
+            print_times(&[(source.program_name().as_str(), compile_time, None)]);
         }
 
         return;
     }
 
-    if let Mode::Tokenize(InputOptions { eval, stdin, file }) = mode {
-        let (source, source_name) = get_source_and_name(file, name, stdin, eval);
-        let source_name = source_name.as_deref().unwrap_or("anonymous");
+    if let Mode::Tokenize(InputOptions {
+        eval,
+        stdin,
+        path: file,
+    }) = mode
+    {
+        let source = match get_source(file, name, stdin, eval) {
+            Source::Files(_) => {
+                eprintln!("Tokenizing multiple files is not supported");
+
+                return;
+            }
+            Source::Script(source_file) => source_file.source_code.clone(),
+        };
+
         let tokens = tokenize(&source);
-        let tokenize_time = start_time.elapsed();
 
         match output_format {
             OutputOptions::Dust => {
@@ -414,21 +229,12 @@ fn main() {
             }
         }
 
-        if time && !no_output {
-            print_times(&[(source_name, tokenize_time, None)]);
-        }
-
         return;
     }
 
-    if let Mode::Init(InitOptions { path }) = mode {
-        let project_path =
-            path.unwrap_or_else(|| current_dir().expect("Failed to get the current directory"));
-
+    if let Mode::Init(InitOptions { project_path }) = mode {
         if !project_path.exists() {
-            create_dir_all(&project_path).unwrap_or_else(|_| {
-                panic!("Failed to create directory `{}`", project_path.display())
-            });
+            create_dir_all(&project_path).expect("Failed to create project directory");
         } else if project_path.read_dir().unwrap().next().is_some() {
             eprintln!("The directory `{}` is not empty", project_path.display());
 
@@ -462,44 +268,121 @@ fn main() {
     }
 }
 
-fn get_source_and_name(
+fn get_source(
     path: Option<PathBuf>,
     name: Option<String>,
     stdin: bool,
     eval: Option<String>,
-) -> (String, Option<String>) {
-    if let Some(path) = &path {
-        let file_name = path
-            .file_stem()
-            .expect("The path `{path}` contains invalid UTF-8")
-            .to_string_lossy()
-            .to_string();
-        let mut file = OpenOptions::new()
-            .create(false)
-            .read(true)
-            .write(false)
-            .open(path)
-            .expect("Failed to open {path}");
-        let mut file_contents = String::new();
+) -> Source {
+    if let Some(source) = eval {
+        return Source::Script(SourceFile {
+            name: Arc::new(name.unwrap_or_else(|| "anonymous".to_string())),
+            source_code: Arc::new(source),
+        });
+    }
 
-        file.read_to_string(&mut file_contents)
-            .expect("The file at `{path}` contains invalid UTF-8");
+    if stdin {
+        let mut buffer = String::new();
 
-        (file_contents, Some(file_name))
-    } else {
-        let source = if stdin {
-            let mut source = String::new();
+        io::stdin()
+            .read_to_string(&mut buffer)
+            .expect("Failed to read from stdin");
 
-            io::stdin()
-                .read_to_string(&mut source)
-                .expect("The input from stdin contained invalid UTF-8");
+        return Source::Script(SourceFile {
+            name: Arc::new(name.unwrap_or_else(|| "anonymous".to_string())),
+            source_code: Arc::new(buffer),
+        });
+    }
 
-            source
-        } else {
-            eval.expect("No source code provided")
-        };
+    match path {
+        Some(path) if path.is_file() => {
+            let file_name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("unknown")
+                .to_string();
+            let file_content = read_to_string(&path).expect("Failed to read source file");
 
-        (source, name)
+            Source::Script(SourceFile {
+                name: Arc::new(name.unwrap_or(file_name)),
+                source_code: Arc::new(file_content),
+            })
+        }
+        Some(project_path) if project_path.is_dir() => {
+            let project_path = project_path.canonicalize().expect("Invalid project path");
+            let project_config_path = project_path.join(PROJECT_CONFIG_PATH);
+
+            if !project_config_path.is_file() {
+                panic!(
+                    "No project config file found at `{}`",
+                    project_config_path.display()
+                );
+            }
+
+            let project_config_content =
+                read_to_string(&project_config_path).expect("Failed to read project config file");
+            let ProjectConfig {
+                name: project_name,
+                version: _,
+                authors: _,
+                program,
+            } = toml::from_str(&project_config_content)
+                .expect("Failed to parse project config file");
+
+            let mut source_files = Vec::new();
+            let main_file_path = program
+                .map(|program| project_path.join(program.path))
+                .unwrap_or_else(|| project_path.join(DEFAULT_PROGRAM_PATH));
+            let main_file_content = read_to_string(&main_file_path).unwrap_or_else(|_| {
+                panic!(
+                    "Failed to read main source file at `{}`",
+                    main_file_path.display()
+                )
+            });
+
+            source_files.push(SourceFile {
+                name: Arc::new(project_name),
+                source_code: Arc::new(main_file_content),
+            });
+
+            let source_directory = project_path.join("src");
+
+            if source_directory.is_dir() {
+                for entry in source_directory
+                    .read_dir()
+                    .expect("Failed to read src directory")
+                {
+                    let entry = entry.expect("Failed to read directory entry");
+                    let path = entry.path();
+
+                    if path == main_file_path {
+                        continue;
+                    }
+
+                    let file_name = path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or("unknown")
+                        .trim_end_matches(".ds")
+                        .to_string();
+                    let file_content = read_to_string(&path).expect("Failed to read source file");
+
+                    source_files.push(SourceFile {
+                        name: Arc::new(file_name),
+                        source_code: Arc::new(file_content),
+                    });
+                }
+            }
+
+            if source_files.is_empty() {
+                panic!("No source files found");
+            }
+
+            Source::Files(source_files)
+        }
+        _ => {
+            panic!("No readable input source provided");
+        }
     }
 }
 

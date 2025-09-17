@@ -36,10 +36,10 @@ impl DustError {
     pub fn jit(error: JitError) -> Self {
         DustError {
             error: DustErrorKind::Jit(error),
-            source: Source::Script(Arc::new(SourceFile {
-                name: SOURCE_NOT_FOUND.to_string(),
-                source: SOURCE_NOT_FOUND.to_string(),
-            })),
+            source: Source::Script(SourceFile {
+                name: Arc::new(SOURCE_NOT_FOUND.to_string()),
+                source_code: Arc::new(SOURCE_NOT_FOUND.to_string()),
+            }),
         }
     }
 
@@ -51,7 +51,7 @@ impl DustError {
                 for parse_error in parse_errors {
                     let source_file = self.source.get_file(parse_error.file_index());
                     let source = match source_file {
-                        Some(file) => &file.source,
+                        Some(file) => &file.source_code,
                         None => SOURCE_NOT_FOUND,
                     };
                     let group = parse_error.annotated_error(source);
@@ -66,7 +66,7 @@ impl DustError {
             DustErrorKind::Compile(compile_error) => {
                 let source_file = self.source.get_file(compile_error.file_index());
                 let source = match source_file {
-                    Some(file) => &file.source,
+                    Some(file) => &file.source_code,
                     None => SOURCE_NOT_FOUND,
                 };
                 let report = [compile_error.annotated_error(source)];
@@ -77,7 +77,7 @@ impl DustError {
             DustErrorKind::Jit(jit_error) => {
                 let source_file = self.source.get_file(jit_error.file_index());
                 let source = match source_file {
-                    Some(file) => &file.source,
+                    Some(file) => &file.source_code,
                     None => SOURCE_NOT_FOUND,
                 };
                 let report = [jit_error.annotated_error(source)];

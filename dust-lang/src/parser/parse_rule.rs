@@ -131,9 +131,9 @@ impl From<Token> for ParseRule<'_> {
                 precedence: Precedence::Logic,
             },
             Token::DoubleColon => ParseRule {
-                prefix: Some(Parser::parse_unexpected),
-                infix: None,
-                precedence: Precedence::None,
+                prefix: None,
+                infix: Some(Parser::parse_path),
+                precedence: Precedence::Path,
             },
             Token::DoubleEqual => ParseRule {
                 prefix: None,
@@ -387,7 +387,8 @@ impl From<Token> for ParseRule<'_> {
 /// Operator precedence levels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Precedence {
-    Primary = 8,
+    Primary = 9,
+    Path = 8,
     Call = 7,
     Unary = 6,
     PrimaryMath = 5,
@@ -408,7 +409,8 @@ impl Precedence {
             Precedence::SecondaryMath => Precedence::PrimaryMath,
             Precedence::PrimaryMath => Precedence::Unary,
             Precedence::Unary => Precedence::Call,
-            Precedence::Call => Precedence::Primary,
+            Precedence::Call => Precedence::Path,
+            Precedence::Path => Precedence::Primary,
             Precedence::Primary => Precedence::Primary,
         }
     }

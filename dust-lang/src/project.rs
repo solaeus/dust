@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 
 pub const PROJECT_CONFIG_PATH: &str = "dust.toml";
+pub const DEFAULT_PROGRAM_PATH: &str = "src/main.ds";
 pub const EXAMPLE_PROGRAM: &str = "\
+write_line(\"Welcome to Dust!\");
+write_line(\"What is your name?\");
+
 let name = read_line(\"What is your name?\");
 
 write_line(\"Hello, \" + name + \"!\");
@@ -12,6 +16,7 @@ pub struct ProjectConfig {
     pub name: String,
     pub authors: Vec<String>,
     pub version: String,
+    pub program: Option<ProgramConfig>,
 }
 
 impl ProjectConfig {
@@ -20,6 +25,7 @@ impl ProjectConfig {
             name: "example_dust_project".to_string(),
             authors: Vec::new(),
             version: "0.1.0".to_string(),
+            program: Some(ProgramConfig::example()),
         }
     }
 }
@@ -34,7 +40,7 @@ impl ProgramConfig {
     pub fn example() -> Self {
         Self {
             name: "example_program".to_string(),
-            path: "src/main.dust".to_string(),
+            path: DEFAULT_PROGRAM_PATH.to_string(),
         }
     }
 }

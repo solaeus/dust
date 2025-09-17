@@ -24,33 +24,31 @@ use crate::{
 
 pub fn compile_main(source_code: &str) -> Result<Chunk, DustError> {
     let mut resolver = Resolver::new(true);
-    let parser = Parser::new(0, &mut resolver);
+    let source = Source::Script(SourceFile {
+        name: Arc::new("dust_program".to_string()),
+        source_code: Arc::new(source_code.to_string()),
+    });
+    let parser = Parser::new(&source, &mut resolver);
     let ParseResult {
         syntax_tree,
         errors,
-    } = parser.parse_once(source_code, ScopeId::MAIN);
-    let syntax_tree = Arc::new(syntax_tree);
+    } = parser.parse(0, ScopeId::MAIN);
+
+    let source_file = SourceFile {
+        name: Arc::new("dust_program".to_string()),
+        source_code: Arc::new(source_code.to_string()),
+    };
+    let source = Source::Script(source_file);
 
     if !errors.is_empty() {
-        let name = "dust_program".to_string();
-        let source = source_code.to_string();
-
-        return Err(DustError::parse(
-            errors,
-            Source::Script(Arc::new(SourceFile { name, source })),
-        ));
+        return Err(DustError::parse(errors, source));
     }
 
-    let syntax_trees = Arc::new(vec![(syntax_tree, Arc::new(resolver))]);
-    let source_file = SourceFile {
-        name: "dust_program".to_string(),
-        source: source_code.to_string(),
-    };
-    let source = Source::Script(Arc::new(source_file));
-
+    let file_trees = vec![syntax_tree];
     let chunk_compiler = ChunkCompiler::new(
-        syntax_trees,
-        source.clone(),
+        &file_trees,
+        Rc::new(resolver),
+        &source,
         Rc::new(RefCell::new(IndexMap::default())),
     );
     let compile_result = chunk_compiler.compile();
@@ -63,7 +61,7 @@ pub fn compile_main(source_code: &str) -> Result<Chunk, DustError> {
 
 pub struct Compiler {
     source: Source,
-    file_trees: Vec<(Arc<SyntaxTree>, Arc<Resolver>)>,
+    file_trees: Vec<SyntaxTree>,
 }
 
 impl Compiler {
@@ -74,77 +72,66 @@ impl Compiler {
         }
     }
 
-    pub fn compile(mut self) -> Result<Program, DustError> {
-        let mut errors = Vec::new();
+    pub fn source(&self) -> &Source {
+        &self.source
+    }
 
-        let program_name = match &self.source {
-            Source::Script(source_file) => {
-                let SourceFile { name, source } = source_file.as_ref();
-                let mut resolver = Resolver::new(true);
-                let ParseResult {
-                    syntax_tree,
-                    errors: script_errors,
-                } = {
-                    let parser = Parser::new(0, &mut resolver);
+    pub fn compile(mut self, mut resolver: Resolver) -> Result<Program, DustError> {
+        let program_name = self.source.program_name();
 
-                    parser.parse_once(source, ScopeId::MAIN)
-                };
+        for file_index in 1..self.source.len() {
+            let SourceFile { name, .. } = self.source.get_file(file_index).unwrap();
+            let file_scope = Scope {
+                kind: ScopeKind::Module,
+                parent: ScopeId::MAIN,
+                imports: SmallVec::new(),
+                modules: SmallVec::new(),
+            };
+            let file_scope_id = resolver.add_scope(file_scope);
+            let module_id = resolver.add_declaration(
+                DeclarationKind::FileModule {
+                    inner_scope_id: file_scope_id,
+                    is_parsed: false,
+                },
+                ScopeId::MAIN,
+                TypeId::NONE,
+                true,
+                name,
+                Position::new(file_index as u32, Span::default()),
+            );
 
-                self.file_trees
-                    .push((Arc::new(syntax_tree), Arc::new(resolver)));
-                errors.extend(script_errors);
+            resolver.add_module_to_scope(ScopeId::MAIN, module_id);
+        }
 
-                name.clone()
-            }
-            Source::Files(files) => {
-                for (file_index, source_file) in files.iter().enumerate() {
-                    let SourceFile { name, source } = source_file.as_ref();
-                    let file_index = file_index as u32;
-                    let scope = Scope {
-                        kind: ScopeKind::Module,
-                        parent: ScopeId::MAIN,
-                        imports: SmallVec::new(),
-                        modules: SmallVec::new(),
-                        depth: 0,
-                        index: 0,
-                    };
-                    let mut resolver = Resolver::new(true);
-                    let scope_id = resolver.add_scope(scope);
-
-                    resolver.add_declaration(
-                        DeclarationKind::Module {
-                            inner_scope_id: scope_id,
-                        },
-                        scope_id,
-                        TypeId::NONE,
-                        true,
-                        name,
-                        Position::new(file_index, Span::default()),
-                    );
-
-                    let ParseResult {
-                        syntax_tree,
-                        errors: module_errors,
-                    } = {
-                        let parser = Parser::new(file_index, &mut resolver);
-
-                        parser.parse_once(source, scope_id)
-                    };
-
-                    self.file_trees
-                        .push((Arc::new(syntax_tree), Arc::new(resolver)));
-
-                    errors.extend(module_errors);
-                }
-
-                let first_file = files.first().expect("No files provided");
-
-                first_file.name.clone()
+        let SourceFile { name, .. } = match self.source.get_file(0) {
+            Some(file) => file,
+            None => {
+                todo!("Error");
             }
         };
 
-        if !errors.is_empty() {
-            return Err(DustError::parse(errors, self.source));
+        resolver.add_declaration(
+            DeclarationKind::FileModule {
+                inner_scope_id: ScopeId::MAIN,
+                is_parsed: true,
+            },
+            ScopeId::MAIN,
+            TypeId::NONE,
+            true,
+            name,
+            Position::new(0, Span::default()),
+        );
+
+        let parser = Parser::new(&self.source, &mut resolver);
+        let ParseResult {
+            syntax_tree,
+            errors: module_errors,
+        } = parser.parse(0, ScopeId::MAIN);
+
+        self.file_trees.push(syntax_tree);
+
+        if !module_errors.is_empty() {
+            return Err(DustError::parse(module_errors, self.source));
         }
 
         let mut prototypes = IndexMap::default();
@@ -153,8 +140,9 @@ impl Compiler {
 
         let prototypes = Rc::new(RefCell::new(prototypes));
         let chunk_compiler = ChunkCompiler::new(
-            Arc::new(self.file_trees),
-            self.source.clone(),
+            &self.file_trees,
+            Rc::new(resolver),
+            &self.source,
             prototypes.clone(),
         );
 

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::Chunk;
 
 pub enum DustCrate {
@@ -6,13 +8,13 @@ pub enum DustCrate {
 }
 
 pub struct Program {
-    pub name: String,
+    pub name: Arc<String>,
     pub prototypes: Vec<Chunk>,
     pub cell_count: usize,
 }
 
 impl Program {
-    pub fn new(name: String, main_chunk: Chunk) -> Self {
+    pub fn new(name: Arc<String>, main_chunk: Chunk) -> Self {
         Self {
             name,
             prototypes: vec![main_chunk],

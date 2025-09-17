@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub enum Source {
-    Script(Arc<SourceFile>),
-    Files(Vec<Arc<SourceFile>>),
+    Script(SourceFile),
+    Files(Vec<SourceFile>),
 }
 
 impl Source {
@@ -18,20 +18,20 @@ impl Source {
         self.len() == 0
     }
 
-    pub fn program_name(&self) -> &str {
+    pub fn program_name(&self) -> Arc<String> {
         match self {
-            Source::Script(source_file) => source_file.name.as_str(),
+            Source::Script(source_file) => source_file.name.clone(),
             Source::Files(sources) => {
                 if let Some(source_file) = sources.first().as_ref() {
-                    source_file.name.as_str()
+                    source_file.name.clone()
                 } else {
-                    "unknown"
+                    Arc::new("anonymous".to_string())
                 }
             }
         }
     }
 
-    pub fn get_file(&self, index: usize) -> Option<&Arc<SourceFile>> {
+    pub fn get_file(&self, index: usize) -> Option<&SourceFile> {
         match self {
             Source::Script(source_file) => {
                 if index == 0 {
@@ -47,6 +47,6 @@ impl Source {
 
 #[derive(Debug, Clone)]
 pub struct SourceFile {
-    pub name: String,
-    pub source: String,
+    pub name: Arc<String>,
+    pub source_code: Arc<String>,
 }

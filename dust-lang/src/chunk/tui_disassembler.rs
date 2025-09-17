@@ -68,19 +68,20 @@ impl<'a> TuiDisassembler<'a> {
         Ok(())
     }
 
-    fn draw_source_tab(&self, source_file: Arc<SourceFile>, area: Rect, buffer: &mut Buffer) {
-        let SourceFile { name, source } = source_file.as_ref();
-
+    fn draw_source_tab(&self, source_file: SourceFile, area: Rect, buffer: &mut Buffer) {
         let block = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Thick)
-            .title(Span::styled(name, Style::default().bold()))
+            .title(Span::styled(
+                source_file.name.as_str(),
+                Style::default().bold(),
+            ))
             .title_alignment(Alignment::Center);
         let inner_area = block.inner(area);
 
         block.render(area, buffer);
 
-        let paragraph = Paragraph::new(source.to_string())
+        let paragraph = Paragraph::new(source_file.source_code.to_string())
             .wrap(Wrap { trim: false })
             .scroll((0, 0));
 
@@ -338,11 +339,9 @@ impl Widget for &TuiDisassembler<'_> {
                 .source
                 .get_file(self.selected_tab)
                 .cloned()
-                .unwrap_or_else(|| {
-                    Arc::new(SourceFile {
-                        name: "unknown".to_string(),
-                        source: "// Source not available".to_string(),
-                    })
+                .unwrap_or_else(|| SourceFile {
+                    name: Arc::new("unknown".to_string()),
+                    source_code: Arc::new("// Source not available".to_string()),
                 });
 
             self.draw_source_tab(source_file, tab_content_area, buffer);

@@ -24,22 +24,15 @@ impl Resolver {
     pub fn new(with_native_functions: bool) -> Self {
         let mut resolver = Self {
             declarations: IndexMap::default(),
-            scopes: Vec::new(),
+            scopes: vec![Scope {
+                kind: ScopeKind::Module,
+                parent: ScopeId::MAIN,
+                imports: SmallVec::new(),
+                modules: SmallVec::new(),
+            }],
             types: IndexSet::default(),
             type_members: Vec::new(),
         };
-
-        let main_scope = Scope {
-            kind: ScopeKind::Module,
-            parent: ScopeId::MAIN,
-            imports: SmallVec::new(),
-            modules: SmallVec::new(),
-            depth: 0,
-            index: 0,
-        };
-        let main_scope_id = resolver.add_scope(main_scope);
-
-        debug_assert_eq!(main_scope_id, ScopeId::MAIN);
 
         if with_native_functions {
             let read_line_type_id = resolver.add_type(TypeNode::Function {
@@ -50,7 +43,7 @@ impl Resolver {
 
             resolver.add_declaration(
                 DeclarationKind::NativeFunction,
-                main_scope_id,
+                ScopeId::GLOBAL,
                 read_line_type_id,
                 false,
                 NativeFunction { index: 1 }.name(),
@@ -66,7 +59,7 @@ impl Resolver {
 
             resolver.add_declaration(
                 DeclarationKind::NativeFunction,
-                main_scope_id,
+                ScopeId::GLOBAL,
                 write_line_type_id,
                 false,
                 NativeFunction { index: 2 }.name(),
@@ -81,7 +74,7 @@ impl Resolver {
 
                 resolver.add_declaration(
                     DeclarationKind::NativeFunction,
-                    ScopeId::MAIN,
+                    ScopeId::GLOBAL,
                     TypeId::NONE,
                     false,
                     &identifier,
@@ -91,6 +84,17 @@ impl Resolver {
         }
 
         resolver
+    }
+
+    pub fn mark_file_declaration_as_parsed(&mut self, id: DeclarationId) {
+        if let Some(declaration) = self.declarations.get_index_mut(id.0 as usize)
+            && let DeclarationKind::FileModule {
+                inner_scope_id: _,
+                is_parsed,
+            } = &mut declaration.1.kind
+        {
+            *is_parsed = true;
+        }
     }
 
     pub fn add_import_to_scope(&mut self, parent: ScopeId, child: DeclarationId) {
@@ -157,7 +161,10 @@ impl Resolver {
         declaration_id
     }
 
-    pub fn find_declarations(&self, identifier: &str) -> Option<SmallVec<[Declaration; 4]>> {
+    pub fn find_declarations(
+        &self,
+        identifier: &str,
+    ) -> Option<SmallVec<[(DeclarationId, Declaration); 4]>> {
         let symbol = {
             let mut hasher = FxHasher::default();
 
@@ -167,11 +174,15 @@ impl Resolver {
                 hash: hasher.finish(),
             }
         };
-        let mut found = SmallVec::<[Declaration; 4]>::new();
+        let mut found = SmallVec::<[(DeclarationId, Declaration); 4]>::new();
 
-        for (DeclarationKey(found_symbol, _), declaration) in &self.declarations {
+        for (index, (DeclarationKey(found_symbol, _), declaration)) in
+            self.declarations.iter().enumerate()
+        {
+            let declaration_id = DeclarationId(index as u32);
+
             if *found_symbol == symbol {
-                found.push(*declaration);
+                found.push((declaration_id, *declaration));
             }
         }
 
@@ -182,7 +193,7 @@ impl Resolver {
         &self,
         identifier: &str,
         target_scope_id: ScopeId,
-    ) -> Option<DeclarationId> {
+    ) -> Option<(DeclarationId, Declaration)> {
         let symbol = {
             let mut hasher = FxHasher::default();
 
@@ -199,8 +210,8 @@ impl Resolver {
         loop {
             let key = DeclarationKey(symbol, current_scope_id);
 
-            if let Some(index) = self.declarations.get_index_of(&key) {
-                return Some(DeclarationId(index as u32));
+            if let Some((index, _, declaration)) = self.declarations.get_full(&key) {
+                return Some((DeclarationId(index as u32), *declaration));
             }
 
             for import_id in &current_scope.imports {
@@ -208,7 +219,7 @@ impl Resolver {
                 let key = DeclarationKey(symbol, import_declaration.scope_id);
 
                 if self.declarations.contains_key(&key) {
-                    return Some(*import_id);
+                    return Some((*import_id, *import_declaration));
                 }
             }
 
@@ -217,7 +228,7 @@ impl Resolver {
                 let key = DeclarationKey(symbol, module_declaration.scope_id);
 
                 if self.declarations.contains_key(&key) {
-                    return Some(*module_id);
+                    return Some((*module_id, *module_declaration));
                 }
             }
 
@@ -316,6 +327,7 @@ pub struct ScopeId(pub u32);
 
 impl ScopeId {
     pub const MAIN: Self = ScopeId(0);
+    pub const GLOBAL: Self = ScopeId(u32::MAX);
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -324,14 +336,6 @@ pub struct Scope {
     pub parent: ScopeId,
     pub imports: SmallVec<[DeclarationId; 4]>,
     pub modules: SmallVec<[DeclarationId; 4]>,
-    pub depth: u32,
-    pub index: u32,
-}
-
-impl Scope {
-    pub fn contains(&self, other: &Scope) -> bool {
-        self.depth >= other.depth && self.index <= other.index
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -366,10 +370,36 @@ pub struct Declaration {
 pub enum DeclarationKind {
     Function,
     NativeFunction,
-    Local { shadowed: Option<DeclarationId> },
-    LocalMutable { shadowed: Option<DeclarationId> },
-    Module { inner_scope_id: ScopeId },
+    Local {
+        shadowed: Option<DeclarationId>,
+    },
+    LocalMutable {
+        shadowed: Option<DeclarationId>,
+    },
+    InlineModule {
+        inner_scope_id: ScopeId,
+    },
+    FileModule {
+        inner_scope_id: ScopeId,
+        is_parsed: bool,
+    },
     Type,
+}
+
+impl DeclarationKind {
+    pub fn is_local(&self) -> bool {
+        matches!(
+            self,
+            DeclarationKind::Local { .. } | DeclarationKind::LocalMutable { .. }
+        )
+    }
+
+    pub fn is_module(&self) -> bool {
+        matches!(
+            self,
+            DeclarationKind::InlineModule { .. } | DeclarationKind::FileModule { .. }
+        )
+    }
 }
 
 impl Display for DeclarationKind {
@@ -379,7 +409,8 @@ impl Display for DeclarationKind {
             DeclarationKind::NativeFunction => write!(f, "native function"),
             DeclarationKind::Local { .. } => write!(f, "local variable"),
             DeclarationKind::LocalMutable { .. } => write!(f, "mutable local variable"),
-            DeclarationKind::Module { .. } => write!(f, "module"),
+            DeclarationKind::InlineModule { .. } => write!(f, "inline module"),
+            DeclarationKind::FileModule { .. } => write!(f, "file module"),
             DeclarationKind::Type => write!(f, "type"),
         }
     }

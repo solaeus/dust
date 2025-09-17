@@ -118,6 +118,11 @@ pub enum ParseError {
     MissingNode {
         id: SyntaxId,
     },
+    MissingChildren {
+        parent_node: SyntaxId,
+        children_start: u32,
+        children_end: u32,
+    },
     MissingScope {
         id: ScopeId,
     },
@@ -158,6 +163,7 @@ impl AnnotatedError for ParseError {
             ParseError::UndeclaredVariable { position, .. } => position.file_index,
             ParseError::UndeclaredModule { position, .. } => position.file_index,
             ParseError::MissingNode { .. } => 0,
+            ParseError::MissingChildren { .. } => 0,
             ParseError::MissingScope { .. } => 0,
             ParseError::MissingDeclaration { .. } => 0,
             ParseError::MissingType { .. } => 0,
@@ -485,6 +491,18 @@ impl AnnotatedError for ParseError {
             }
             ParseError::MissingNode { id } => {
                 let title = format!("Internal error: Missing syntax node with ID {}", id.0);
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            ParseError::MissingChildren {
+                parent_node,
+                children_start,
+                children_end,
+            } => {
+                let title = format!(
+                    "Internal error: Missing children nodes {} to {} for parent node with ID {}",
+                    children_start, children_end, parent_node.0
+                );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
