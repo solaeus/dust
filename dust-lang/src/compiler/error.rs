@@ -64,11 +64,18 @@ pub enum CompileError {
     MissingScope {
         id: ScopeId,
     },
-    MissingFunctionPrototype {
+    MissingPrototype {
         declaration_id: DeclarationId,
     },
     MissingSourceFile {
         file_index: u32,
+    },
+    MissingSyntaxTree {
+        declaration_id: DeclarationId,
+    },
+    MissingPayloads {
+        payload_start: u32,
+        payload_count: u32,
     },
 }
 
@@ -90,8 +97,10 @@ impl AnnotatedError for CompileError {
             CompileError::MissingSyntaxNode { .. } => 0,
             CompileError::MissingType { .. } => 0,
             CompileError::MissingScope { .. } => 0,
-            CompileError::MissingFunctionPrototype { .. } => 0,
+            CompileError::MissingPrototype { .. } => 0,
             CompileError::MissingSourceFile { file_index } => *file_index as usize,
+            CompileError::MissingSyntaxTree { .. } => 0,
+            CompileError::MissingPayloads { .. } => 0,
         }
     }
 
@@ -245,7 +254,7 @@ impl AnnotatedError for CompileError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
-            CompileError::MissingFunctionPrototype { declaration_id } => {
+            CompileError::MissingPrototype { declaration_id } => {
                 let title = format!(
                     "Function prototype for declaration id {declaration_id:?} was missing, this is a bug in the parser or compiler"
                 );
@@ -255,6 +264,23 @@ impl AnnotatedError for CompileError {
             CompileError::MissingSourceFile { file_index } => {
                 let title = format!(
                     "Source file with index {file_index} was missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingSyntaxTree { declaration_id } => {
+                let title = format!(
+                    "Syntax tree for declaration id {declaration_id:?} was missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingPayloads {
+                payload_start,
+                payload_count,
+            } => {
+                let title = format!(
+                    "Expected {payload_count} payloads starting at {payload_start}, but they were missing, this is a bug in the parser or compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

@@ -81,13 +81,9 @@ impl<'a> JitCompiler<'a> {
 
         for (index, chunk) in self.program.prototypes.iter().enumerate() {
             if index == 0 {
-                let name = chunk
-                    .name
-                    .as_ref()
-                    .map_or_else(|| "main".to_string(), |name| name.to_string());
                 let stackless_function_id = self
                     .module
-                    .declare_function(&name, Linkage::Local, &stackless_signature)
+                    .declare_function(&chunk.name, Linkage::Local, &stackless_signature)
                     .map_err(|error| JitError::CraneliftModuleError {
                         error: Box::new(error),
                         cranelift_ir: context.func.display().to_string(),
@@ -101,10 +97,7 @@ impl<'a> JitCompiler<'a> {
                 continue;
             }
 
-            let name = chunk
-                .name
-                .as_ref()
-                .map_or_else(|| format!("proto_{index}"), |name| name.to_string());
+            let name = &chunk.name;
             let direct_name = format!("{name}_direct");
             let stackless_name = format!("{name}_stackless");
             let mut direct_signature = Signature::new(self.module.isa().default_call_conv());

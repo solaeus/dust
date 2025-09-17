@@ -16,7 +16,7 @@ pub struct TuiDisassembler<'a> {
     source: Source,
     state: TuiState,
     selected_tab: usize,
-    tab_count: usize,
+    tabs: Vec<String>,
 }
 
 impl<'a> TuiDisassembler<'a> {
@@ -25,8 +25,13 @@ impl<'a> TuiDisassembler<'a> {
             program,
             source,
             state: TuiState::Run,
-            selected_tab: 1,
-            tab_count: program.prototypes.len() + 1,
+            selected_tab: 0,
+            tabs: program
+                .prototypes
+                .iter()
+                .rev()
+                .map(|p| p.name.to_string())
+                .collect(),
         }
     }
 
@@ -53,10 +58,18 @@ impl<'a> TuiDisassembler<'a> {
         {
             match key.code {
                 KeyCode::Char('l') | KeyCode::Right => {
-                    self.selected_tab = (self.selected_tab + 1).min(self.tab_count - 1)
+                    if self.selected_tab < self.tabs.len() - 1 {
+                        self.selected_tab += 1;
+                    } else {
+                        self.selected_tab = 0;
+                    }
                 }
                 KeyCode::Char('h') | KeyCode::Left => {
-                    self.selected_tab = self.selected_tab.saturating_sub(1);
+                    if self.selected_tab > 0 {
+                        self.selected_tab -= 1;
+                    } else {
+                        self.selected_tab = self.tabs.len() - 1;
+                    }
                 }
                 KeyCode::Char('q') | KeyCode::Esc => {
                     self.state = TuiState::Quit;
@@ -316,39 +329,15 @@ impl Widget for &TuiDisassembler<'_> {
         .wrap(Wrap { trim: true })
         .render(program_info_area, buffer);
 
-        let mut tab_labels = Vec::with_capacity(self.program.prototypes.len() + 1);
-
-        tab_labels.push("source".to_string());
-        tab_labels.push("main".to_string());
-
-        for prototype in self.program.prototypes.iter().skip(1) {
-            if let Some(name) = &prototype.name {
-                tab_labels.push(name.to_string());
-            } else {
-                tab_labels.push("anonymous".to_string());
-            }
-        }
-
-        Tabs::new(tab_labels)
-            .highlight_style(Style::default().cyan().on_black())
+        Tabs::new(self.tabs.clone())
+            .highlight_style(Style::default().cyan().bold())
             .select(self.selected_tab)
             .render(chunk_tabs_header_area, buffer);
 
-        if self.selected_tab < self.source.len() {
-            let source_file = self
-                .source
-                .get_file(self.selected_tab)
-                .cloned()
-                .unwrap_or_else(|| SourceFile {
-                    name: Arc::new("unknown".to_string()),
-                    source_code: Arc::new("// Source not available".to_string()),
-                });
-
-            self.draw_source_tab(source_file, tab_content_area, buffer);
-        } else if let Some(chunk) = self
+        if let Some(chunk) = self
             .program
             .prototypes
-            .get(self.selected_tab - self.source.len())
+            .get(self.program.prototypes.len() - 1 - self.selected_tab)
         {
             self.draw_chunk_tab(chunk, tab_content_area, buffer);
         }

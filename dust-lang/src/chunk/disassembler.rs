@@ -95,11 +95,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
     pub fn disassemble(&mut self) -> Result<(), io::Error> {
         self.write_page_border(TOP_BORDER)?;
 
-        let name = self.chunk.name.as_ref().map(|path| path.to_string());
-
-        if let Some(name) = name {
-            self.write_center_border_bold(name.as_ref())?;
-        }
+        self.write_center_border_bold(self.chunk.name.as_str())?;
 
         if self.show_type {
             let type_display = self.chunk.r#type.to_string();
@@ -110,10 +106,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         if let Some(source) = self.source {
             let lazily_formatted = source.split_whitespace().collect::<Vec<&str>>().join(" ");
 
-            if self.chunk.name.is_some() {
-                self.write_center_border("")?;
-            }
-
+            self.write_center_border("")?;
             self.write_center_border(&lazily_formatted)?;
             self.write_center_border("")?;
         }

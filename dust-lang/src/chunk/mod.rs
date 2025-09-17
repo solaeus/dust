@@ -13,7 +13,10 @@ mod tui_disassembler;
 pub use disassembler::Disassembler;
 pub use tui_disassembler::TuiDisassembler;
 
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    sync::Arc,
+};
 
 use crate::{Address, ConstantTable, FunctionType, Instruction, OperandType};
 
@@ -22,7 +25,7 @@ use crate::{Address, ConstantTable, FunctionType, Instruction, OperandType};
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Chunk {
-    pub(crate) name: Option<String>,
+    pub(crate) name: Arc<String>,
     pub(crate) r#type: FunctionType,
 
     pub(crate) instructions: Vec<Instruction>,

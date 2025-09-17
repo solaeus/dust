@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Arc};
 
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
@@ -20,7 +20,7 @@ pub struct ChunkCompiler<'a> {
     /// Target syntax tree for compilation.
     syntax_tree: &'a SyntaxTree,
 
-    syntax_trees: &'a Vec<SyntaxTree>,
+    syntax_trees: &'a HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
 
     /// Global context for declaration, scope and type resolution.
     resolver: Rc<Resolver>,
@@ -61,14 +61,16 @@ pub struct ChunkCompiler<'a> {
 
 impl<'a> ChunkCompiler<'a> {
     pub fn new(
-        syntax_trees: &'a Vec<SyntaxTree>,
+        syntax_trees: &'a HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
+        syntax_tree: &'a SyntaxTree,
         resolver: Rc<Resolver>,
         source: &'a Source,
+        source_file: SourceFile,
         prototypes: Rc<RefCell<IndexMap<DeclarationId, Chunk, FxBuildHasher>>>,
     ) -> Self {
         Self {
-            source_file: source.get_file(0).unwrap().clone(),
-            syntax_tree: &syntax_trees[0],
+            source_file,
+            syntax_tree,
             syntax_trees,
             resolver,
             source,
@@ -106,7 +108,7 @@ impl<'a> ChunkCompiler<'a> {
         self.constants.trim_string_pool();
 
         Ok(Chunk {
-            name: Some("main".to_string()),
+            name: self.source_file.name.clone(),
             r#type: FunctionType::new([], [], return_type),
             instructions: self.instructions,
             constants: self.constants,
@@ -469,45 +471,54 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_use_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling use item");
 
-        let declaration_id = DeclarationId(node.payload);
-        let declaration = self
-            .resolver
-            .get_declaration(declaration_id)
-            .ok_or(CompileError::MissingDeclaration { declaration_id })?;
+        let file_declaration_id = DeclarationId(node.children.0);
+        let import_declaration_id = DeclarationId(node.payload);
+        let import_declaration = self.resolver.get_declaration(import_declaration_id).ok_or(
+            CompileError::MissingDeclaration {
+                declaration_id: import_declaration_id,
+            },
+        )?;
 
-        match declaration.kind {
+        match import_declaration.kind {
             DeclarationKind::Function => {
-                let function_compiler = ChunkCompiler {
-                    source: self.source,
-                    syntax_tree: self.syntax_trees.get(declaration.scope.0 as usize).ok_or(
+                let file_tree = if file_declaration_id == DeclarationId::ANONYMOUS {
+                    self.syntax_tree
+                } else {
+                    self.syntax_trees.get(&file_declaration_id).ok_or(
                         CompileError::MissingSyntaxTree {
-                            file_index: declaration.scope.0,
+                            declaration_id: import_declaration_id,
                         },
-                    )?,
-                    syntax_trees: self.syntax_trees,
-                    resolver: Rc::clone(&self.resolver),
-                    source_file: self
-                        .source
-                        .get_file(declaration.scope.0)
-                        .ok_or(CompileError::MissingSourceFile {
-                            file_index: declaration.scope.0,
-                        })?
-                        .clone(),
-                    constants: ConstantTable::new(),
-                    prototypes: Rc::clone(&self.prototypes),
-                    instructions: Vec::new(),
-                    call_arguments: Vec::new(),
-                    drop_lists: Vec::new(),
-                    return_type: TypeId::NONE,
-                    locals: HashMap::default(),
-                    minimum_register: 0,
-                    prototype_index: 0,
+                    )?
                 };
+                let source_file = self
+                    .source
+                    .get_file(import_declaration.identifier_position.file_index as usize)
+                    .ok_or(CompileError::MissingSourceFile {
+                        file_index: file_tree.file_index,
+                    })?
+                    .clone();
+                let function_compiler = ChunkCompiler::new(
+                    self.syntax_trees,
+                    file_tree,
+                    Rc::clone(&self.resolver),
+                    self.source,
+                    source_file,
+                    Rc::clone(&self.prototypes),
+                );
+
+                let _ = function_compiler.compile()?;
+                let prototype_index = self
+                    .prototypes
+                    .borrow()
+                    .get_index_of(&import_declaration_id)
+                    .ok_or(CompileError::MissingPrototype {
+                        declaration_id: import_declaration_id,
+                    })? as u16;
 
                 self.locals.insert(
-                    declaration_id,
+                    import_declaration_id,
                     Local {
-                        location: prototype_index as u16,
+                        location: prototype_index,
                     },
                 );
             }
@@ -1513,7 +1524,7 @@ impl<'a> ChunkCompiler<'a> {
         }
 
         let name = if declaration_id == DeclarationId::ANONYMOUS {
-            None
+            Arc::new("anonymous".to_string())
         } else {
             let declaration = self
                 .resolver
@@ -1522,7 +1533,7 @@ impl<'a> ChunkCompiler<'a> {
             let name_range = declaration.identifier_position.span.as_usize_range();
             let name = self.source_file.source_code[name_range].to_string();
 
-            Some(name)
+            Arc::new(name)
         };
 
         match body_node.kind {

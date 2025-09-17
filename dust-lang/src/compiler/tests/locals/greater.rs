@@ -1,6 +1,7 @@
 use crate::{
     Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main, tests::local_cases,
 };
+use std::sync::Arc;
 
 #[test]
 fn local_boolean_greater_than() {
@@ -10,7 +11,7 @@ fn local_boolean_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load(
@@ -60,7 +61,7 @@ fn local_byte_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load(
@@ -114,7 +115,7 @@ fn local_character_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load(
@@ -169,7 +170,7 @@ fn local_float_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load(
@@ -224,7 +225,7 @@ fn local_integer_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load(
@@ -279,7 +280,7 @@ fn local_string_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load(

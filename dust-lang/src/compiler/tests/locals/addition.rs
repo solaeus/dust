@@ -1,6 +1,7 @@
 use crate::{
     Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main, tests::local_cases,
 };
+use std::sync::Arc;
 
 #[test]
 fn local_byte_addition() {
@@ -10,7 +11,7 @@ fn local_byte_addition() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::load(
@@ -51,7 +52,7 @@ fn local_float_addition() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::load(
@@ -93,7 +94,7 @@ fn local_integer_addition() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::load(
@@ -135,7 +136,7 @@ fn local_string_concatenation() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::load(
@@ -177,7 +178,7 @@ fn local_character_concatenation() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::load(
@@ -219,7 +220,7 @@ fn local_string_character_concatenation() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::load(
@@ -261,7 +262,7 @@ fn local_character_string_concatenation() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::load(

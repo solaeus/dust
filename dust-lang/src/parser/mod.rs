@@ -5,8 +5,9 @@ mod parse_rule;
 mod tests;
 
 pub use error::ParseError;
+use rustc_hash::FxBuildHasher;
 
-use std::{mem::replace, sync::Arc};
+use std::{collections::HashMap, mem::replace, sync::Arc};
 
 use lexical_core::{ParseFloatOptions, format::RUST_LITERAL, parse_with_options};
 use smallvec::SmallVec;
@@ -31,18 +32,18 @@ pub fn parse_main(source: &'_ str) -> (SyntaxTree, Option<DustError>) {
         mut syntax_trees,
         errors,
         ..
-    } = parser.parse(0, ScopeId::MAIN);
+    } = parser.parse(0, DeclarationId::MAIN, ScopeId::MAIN);
     let dust_error = if errors.is_empty() {
         None
     } else {
         Some(DustError::parse(errors, source))
     };
 
-    (syntax_trees.swap_remove(0), dust_error)
+    (syntax_trees.remove(&DeclarationId(0)).unwrap(), dust_error)
 }
 
 pub struct ParseResult {
-    pub syntax_trees: Vec<SyntaxTree>,
+    pub syntax_trees: HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
     pub errors: Vec<ParseError>,
 }
 
@@ -60,7 +61,7 @@ pub struct Parser<'a> {
 
     current_scope_id: ScopeId,
 
-    syntax_trees: Vec<SyntaxTree>,
+    syntax_trees: HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
     errors: Vec<ParseError>,
 }
 
@@ -76,14 +77,19 @@ impl<'a> Parser<'a> {
             previous_token: Token::Eof,
             previous_span: Span::default(),
             current_scope_id: ScopeId(0),
-            syntax_trees: Vec::new(),
+            syntax_trees: HashMap::default(),
             errors: Vec::new(),
         }
     }
 
     /// Parses a source string as a complete file, returning the syntax tree and any parse errors.
     /// The parser is consumed and cannot be reused.
-    pub fn parse(mut self, file_index: usize, scope_id: ScopeId) -> ParseResult {
+    pub fn parse(
+        mut self,
+        file_index: usize,
+        declaration_id: DeclarationId,
+        scope_id: ScopeId,
+    ) -> ParseResult {
         let source_code = self
             .source
             .get_file(file_index)
@@ -104,7 +110,8 @@ impl<'a> Parser<'a> {
                 .map_err(|error| self.recover(error));
         }
 
-        self.syntax_trees.push(self.current_syntax_tree);
+        self.syntax_trees
+            .insert(declaration_id, self.current_syntax_tree);
 
         ParseResult {
             syntax_trees: self.syntax_trees,
@@ -397,6 +404,15 @@ impl<'a> Parser<'a> {
         let start = self.current_span.0;
         let starting_scope_id = self.current_scope_id;
         let is_public = self.previous_token == Token::Pub;
+        let placeholder_node = SyntaxNode {
+            kind: SyntaxKind::ModuleItem,
+            span: Span::default(),
+            children: (0, 0),
+            payload: TypeId::NONE.0,
+        };
+        let node_index = self.current_syntax_tree.nodes.len();
+
+        self.current_syntax_tree.push_node(placeholder_node);
 
         // Allows for nested modules and whole file modules
         let (end_token, declaration_id) = if self.current_token == Token::Mod {
@@ -443,7 +459,7 @@ impl<'a> Parser<'a> {
             payload: declaration_id.0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.current_syntax_tree.nodes[node_index] = node;
         self.current_syntax_tree.children.extend(children);
         self.resolver
             .add_module_to_scope(starting_scope_id, declaration_id);
@@ -480,8 +496,9 @@ impl<'a> Parser<'a> {
         debug_assert!(!segments.is_empty());
 
         let mut search_scope = self.current_scope_id;
+        let mut file_declaration_id = DeclarationId::ANONYMOUS;
 
-        for syntax_id in &segments[..segments.len() - 1] {
+        for (index, syntax_id) in segments[..segments.len() - 1].iter().enumerate() {
             let head = self
                 .current_syntax_tree
                 .get_node(*syntax_id)
@@ -505,14 +522,20 @@ impl<'a> Parser<'a> {
                         let file_index = head_declaration.identifier_position.file_index;
                         let parser = Parser::new(self.source, self.resolver);
                         let ParseResult {
-                            syntax_tree,
+                            syntax_trees,
                             errors,
-                        } = parser.parse(file_index as usize, inner_scope_id);
-                        self.syntax_trees.push(syntax_tree);
+                        } = parser.parse(file_index as usize, head_declaration_id, inner_scope_id);
+
+                        self.syntax_trees.extend(syntax_trees);
                         self.errors.extend(errors);
                         self.resolver
                             .mark_file_declaration_as_parsed(head_declaration_id);
+
+                        if index == segments.len() - 2 {
+                            file_declaration_id = head_declaration_id;
+                        }
                     }
+
                     inner_scope_id
                 }
                 _ => {
@@ -556,7 +579,7 @@ impl<'a> Parser<'a> {
         self.current_syntax_tree.push_node(SyntaxNode {
             kind: SyntaxKind::UseItem,
             span: Span(start, end),
-            children: (0, 0),
+            children: (file_declaration_id.0, 0),
             payload: tail_declaration_id.0,
         });
 

@@ -2,8 +2,6 @@ mod syntax_node;
 
 pub use syntax_node::{SyntaxKind, SyntaxNode};
 
-use crate::ConstantTable;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SyntaxId(pub u32);
 
@@ -28,10 +26,6 @@ pub struct SyntaxTree {
     /// Concatenated list of node indexes that represent children for nodes whose child indexes
     /// cannot be stored directly in the node (i.e. blocks and the root node).
     pub children: Vec<SyntaxId>,
-
-    /// Collection for constants, only used for strings during parsing. Other constant types are
-    /// encoded in the syntax nodes.
-    pub constants: ConstantTable,
 }
 
 impl SyntaxTree {
@@ -40,7 +34,6 @@ impl SyntaxTree {
             file_index,
             nodes: Vec::new(),
             children: Vec::new(),
-            constants: ConstantTable::new(),
         }
     }
 

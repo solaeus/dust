@@ -27,13 +27,7 @@ pub fn compile_stackless_function(
     is_main: bool,
     compiler: &mut JitCompiler,
 ) -> Result<(), JitError> {
-    info!(
-        "Compiling stackless function {}",
-        chunk
-            .name
-            .as_ref()
-            .map_or("anonymous", |name| name.as_str())
-    );
+    info!("Compiling stackless function {}", &chunk.name);
 
     let mut function_builder_context = FunctionBuilderContext::new();
     let mut compilation_context = compiler.module.make_context();
@@ -1288,13 +1282,7 @@ pub fn compile_stackless_function(
             }
         })?;
 
-    info!(
-        "Finished compiling stackless function {}",
-        chunk
-            .name
-            .as_ref()
-            .map_or("anonymous", |path| path.as_str()),
-    );
+    info!("Finished compiling stackless function {}", &chunk.name);
 
     compiler.module.clear_context(&mut compilation_context);
 

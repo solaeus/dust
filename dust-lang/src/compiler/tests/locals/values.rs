@@ -2,6 +2,7 @@ use crate::{
     Address, Chunk, ConstantTable, FunctionType, Instruction, OperandType, Type, compile_main,
     tests::local_cases,
 };
+use std::sync::Arc;
 
 #[test]
 fn local_boolean() {
@@ -11,7 +12,7 @@ fn local_boolean() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
@@ -31,7 +32,7 @@ fn local_byte() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
                 true,
@@ -54,7 +55,7 @@ fn local_character() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Character),
             instructions: vec![Instruction::r#return(
                 true,
@@ -78,7 +79,7 @@ fn local_float() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
                 true,
@@ -102,7 +103,7 @@ fn local_integer() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
@@ -126,7 +127,7 @@ fn local_string() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
                 true,

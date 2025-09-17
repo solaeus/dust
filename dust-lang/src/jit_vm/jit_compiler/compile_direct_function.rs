@@ -43,13 +43,7 @@ pub fn compile_direct_function(
     function_id: FuncId,
     chunk: &Chunk,
 ) -> Result<(), JitError> {
-    info!(
-        "Compiling direct function {}",
-        chunk
-            .name
-            .as_ref()
-            .map_or("anonymous", |path| path.as_str())
-    );
+    info!("Compiling direct function {}", &chunk.name);
 
     let mut function_builder_context = FunctionBuilderContext::new();
     let mut compilation_context = compiler.module.make_context();
@@ -400,13 +394,7 @@ pub fn compile_direct_function(
             }
         })?;
 
-    info!(
-        "Finished compiling direct function {}",
-        chunk
-            .name
-            .as_ref()
-            .map_or("anonymous", |name| name.as_str())
-    );
+    info!("Finished compiling direct function {}", &chunk.name);
 
     compiler.module.clear_context(&mut compilation_context);
 

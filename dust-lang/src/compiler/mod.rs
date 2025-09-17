@@ -7,10 +7,11 @@ mod tests;
 pub use chunk_compiler::ChunkCompiler;
 pub use error::CompileError;
 use indexmap::IndexMap;
+use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 
-use std::sync::Arc;
 pub use std::{cell::RefCell, rc::Rc};
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     Chunk, Position, Resolver, Source, Span,
@@ -25,30 +26,26 @@ use crate::{
 pub fn compile_main(source_code: &str) -> Result<Chunk, DustError> {
     let mut resolver = Resolver::new(true);
     let source = Source::Script(SourceFile {
-        name: Arc::new("dust_program".to_string()),
+        name: Arc::new("main".to_string()),
         source_code: Arc::new(source_code.to_string()),
     });
     let parser = Parser::new(&source, &mut resolver);
     let ParseResult {
-        syntax_tree,
+        syntax_trees,
         errors,
-    } = parser.parse(0, ScopeId::MAIN);
-
-    let source_file = SourceFile {
-        name: Arc::new("dust_program".to_string()),
-        source_code: Arc::new(source_code.to_string()),
-    };
-    let source = Source::Script(source_file);
+    } = parser.parse(0, DeclarationId::MAIN, ScopeId::MAIN);
 
     if !errors.is_empty() {
         return Err(DustError::parse(errors, source));
     }
 
-    let file_trees = vec![syntax_tree];
+    let source_file = source.get_file(0).unwrap().clone();
     let chunk_compiler = ChunkCompiler::new(
-        &file_trees,
+        &syntax_trees,
+        syntax_trees.get(&DeclarationId::MAIN).unwrap(),
         Rc::new(resolver),
         &source,
+        source_file,
         Rc::new(RefCell::new(IndexMap::default())),
     );
     let compile_result = chunk_compiler.compile();
@@ -61,14 +58,14 @@ pub fn compile_main(source_code: &str) -> Result<Chunk, DustError> {
 
 pub struct Compiler {
     source: Source,
-    file_trees: Vec<SyntaxTree>,
+    file_trees: HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
 }
 
 impl Compiler {
     pub fn new(source: Source) -> Self {
         Self {
             source,
-            file_trees: Vec::new(),
+            file_trees: HashMap::default(),
         }
     }
 
@@ -103,7 +100,7 @@ impl Compiler {
             resolver.add_module_to_scope(ScopeId::MAIN, module_id);
         }
 
-        let SourceFile { name, .. } = match self.source.get_file(0) {
+        let source_file = match self.source.get_file(0) {
             Some(file) => file,
             None => {
                 todo!("Error");
@@ -118,40 +115,40 @@ impl Compiler {
             ScopeId::MAIN,
             TypeId::NONE,
             true,
-            name,
+            &source_file.name,
             Position::new(0, Span::default()),
         );
 
         let parser = Parser::new(&self.source, &mut resolver);
         let ParseResult {
-            syntax_tree,
+            syntax_trees,
             errors: module_errors,
-        } = parser.parse(0, ScopeId::MAIN);
+        } = parser.parse(0, DeclarationId::MAIN, ScopeId::MAIN);
 
-        self.file_trees.push(syntax_tree);
+        self.file_trees.extend(syntax_trees);
 
         if !module_errors.is_empty() {
             return Err(DustError::parse(module_errors, self.source));
         }
 
-        let mut prototypes = IndexMap::default();
-
-        prototypes.insert(DeclarationId::MAIN, Chunk::default());
-
-        let prototypes = Rc::new(RefCell::new(prototypes));
+        let prototypes = Rc::new(RefCell::new(IndexMap::default()));
         let chunk_compiler = ChunkCompiler::new(
             &self.file_trees,
+            self.file_trees.get(&DeclarationId::MAIN).unwrap(),
             Rc::new(resolver),
             &self.source,
+            source_file.clone(),
             prototypes.clone(),
         );
 
-        prototypes.borrow_mut()[0] = match chunk_compiler.compile() {
+        let chunk = match chunk_compiler.compile() {
             Ok(chunk) => chunk,
             Err(error) => {
                 return Err(DustError::compile(error, self.source));
             }
         };
+
+        prototypes.borrow_mut().insert(DeclarationId::MAIN, chunk);
 
         let prototypes = Rc::into_inner(prototypes)
             .expect("Unneccessary borrow of 'prototypes'")

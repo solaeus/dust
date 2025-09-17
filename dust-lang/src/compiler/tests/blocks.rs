@@ -2,6 +2,7 @@ use crate::{
     Address, Chunk, ConstantTable, FunctionType, Instruction, OperandType, Type, compile_main,
     tests::block_cases,
 };
+use std::sync::Arc;
 
 #[test]
 fn empty_block() {
@@ -11,7 +12,7 @@ fn empty_block() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::None),
             instructions: vec![Instruction::r#return(
                 false,
@@ -34,7 +35,7 @@ fn block_expression() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
@@ -58,7 +59,7 @@ fn block_statement() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::load(
@@ -88,7 +89,7 @@ fn block_statement_and_expression() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::load(
@@ -123,7 +124,7 @@ fn parent_scope_access() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
@@ -149,7 +150,7 @@ fn nested_parrent_scope_access() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::load(
@@ -191,7 +192,7 @@ fn scope_shadowing() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::load(
@@ -221,7 +222,7 @@ fn scope_deshadowing() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::load(

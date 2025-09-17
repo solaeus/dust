@@ -1,6 +1,7 @@
 use crate::{
     Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main, tests::local_cases,
 };
+use std::sync::Arc;
 
 #[test]
 fn local_boolean_or() {
@@ -10,7 +11,7 @@ fn local_boolean_or() {
     assert_eq!(
         chunk,
         Chunk {
-            name: Some("main".to_string()),
+            name: Arc::new("main".to_string()),
             r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load(

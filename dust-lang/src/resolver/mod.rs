@@ -34,6 +34,17 @@ impl Resolver {
             type_members: Vec::new(),
         };
 
+        let _main_function_declaration_id = resolver.add_declaration(
+            DeclarationKind::Function,
+            ScopeId::MAIN,
+            TypeId::NONE,
+            true,
+            "main",
+            Position::default(),
+        );
+
+        debug_assert_eq!(_main_function_declaration_id, DeclarationId::MAIN);
+
         if with_native_functions {
             let read_line_type_id = resolver.add_type(TypeNode::Function {
                 type_parameters: (0, 0),
@@ -349,9 +360,9 @@ pub enum ScopeKind {
 pub struct DeclarationId(pub u32);
 
 impl DeclarationId {
+    pub const MAIN: Self = DeclarationId(0);
     pub const ANONYMOUS: Self = DeclarationId(u32::MAX);
-    pub const MAIN: Self = DeclarationId(u32::MAX - 1);
-    pub const NATIVE: Self = DeclarationId(u32::MAX - 2);
+    pub const NATIVE: Self = DeclarationId(u32::MAX - 1);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
