@@ -1536,20 +1536,7 @@ impl<'a> ChunkCompiler<'a> {
             Arc::new(name)
         };
 
-        match body_node.kind {
-            SyntaxKind::BlockExpression => {
-                function_compiler.compile_block_expression(&body_node)?;
-            }
-            SyntaxKind::ExpressionStatement => {
-                function_compiler.compile_expression_statement(&body_node)?;
-            }
-            _ => {
-                return Err(CompileError::ExpectedFunctionBody {
-                    node_kind: body_node.kind,
-                    position: Position::new(self.syntax_tree.file_index, body_node.span),
-                });
-            }
-        }
+        function_compiler.compile_implicit_return(&body_node)?;
 
         let function_chunk = Chunk {
             name,

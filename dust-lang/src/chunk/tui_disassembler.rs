@@ -1,4 +1,4 @@
-use std::{io, sync::Arc};
+use std::io;
 
 use ratatui::{
     buffer::Buffer,
@@ -29,7 +29,6 @@ impl<'a> TuiDisassembler<'a> {
             tabs: program
                 .prototypes
                 .iter()
-                .rev()
                 .map(|p| p.name.to_string())
                 .collect(),
         }
@@ -334,11 +333,7 @@ impl Widget for &TuiDisassembler<'_> {
             .select(self.selected_tab)
             .render(chunk_tabs_header_area, buffer);
 
-        if let Some(chunk) = self
-            .program
-            .prototypes
-            .get(self.program.prototypes.len() - 1 - self.selected_tab)
-        {
+        if let Some(chunk) = self.program.prototypes.get(self.selected_tab) {
             self.draw_chunk_tab(chunk, tab_content_area, buffer);
         }
     }

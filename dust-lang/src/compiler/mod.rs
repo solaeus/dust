@@ -131,7 +131,11 @@ impl Compiler {
             return Err(DustError::parse(module_errors, self.source));
         }
 
-        let prototypes = Rc::new(RefCell::new(IndexMap::default()));
+        let mut prototypes = IndexMap::default();
+
+        prototypes.insert(DeclarationId::MAIN, Chunk::default());
+
+        let prototypes = Rc::new(RefCell::new(prototypes));
         let chunk_compiler = ChunkCompiler::new(
             &self.file_trees,
             self.file_trees.get(&DeclarationId::MAIN).unwrap(),

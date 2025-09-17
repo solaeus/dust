@@ -854,6 +854,7 @@ pub fn compile_stackless_function(
 
                 for (address, r#type) in call_arguments_list {
                     let argument_value = match *r#type {
+                        OperandType::NONE => CraneliftValue::from_u32(0),
                         OperandType::INTEGER => {
                             let integer_value = get_integer(
                                 *address,
@@ -880,15 +881,17 @@ pub fn compile_stackless_function(
                     .call(callee_function_reference, &arguments);
                 let return_value = function_builder.inst_results(call_instruction)[0];
 
-                JitCompiler::set_register(
-                    destination.index,
-                    return_value,
-                    return_type,
-                    current_frame_base_register_address,
-                    current_frame_base_tag_address,
-                    &hot_registers,
-                    &mut function_builder,
-                )?;
+                if return_type != OperandType::NONE {
+                    JitCompiler::set_register(
+                        destination.index,
+                        return_value,
+                        return_type,
+                        current_frame_base_register_address,
+                        current_frame_base_tag_address,
+                        &hot_registers,
+                        &mut function_builder,
+                    )?;
+                }
 
                 function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }
