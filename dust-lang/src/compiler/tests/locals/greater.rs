@@ -107,10 +107,6 @@ fn local_byte_greater_than() {
 fn local_character_greater_than() {
     let source = local_cases::LOCAL_CHARACTER_GREATER_THAN;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_character('{');
-    constants.add_character('z');
 
     assert_eq!(
         chunk,
@@ -151,7 +147,6 @@ fn local_character_greater_than() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -162,10 +157,6 @@ fn local_character_greater_than() {
 fn local_float_greater_than() {
     let source = local_cases::LOCAL_FLOAT_GREATER_THAN;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_float(43.0);
-    constants.add_float(42.0);
 
     assert_eq!(
         chunk,
@@ -206,7 +197,6 @@ fn local_float_greater_than() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -217,10 +207,6 @@ fn local_float_greater_than() {
 fn local_integer_greater_than() {
     let source = local_cases::LOCAL_INTEGER_GREATER_THAN;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_integer(43);
-    constants.add_integer(42);
 
     assert_eq!(
         chunk,
@@ -261,7 +247,6 @@ fn local_integer_greater_than() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -272,10 +257,6 @@ fn local_integer_greater_than() {
 fn local_string_greater_than() {
     let source = local_cases::LOCAL_STRING_GREATER_THAN;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_string("bar");
-    constants.add_string("foo");
 
     assert_eq!(
         chunk,
@@ -316,7 +297,6 @@ fn local_string_greater_than() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }

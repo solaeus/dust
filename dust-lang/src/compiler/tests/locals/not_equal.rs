@@ -107,10 +107,6 @@ fn local_byte_not_equal() {
 fn local_character_not_equal() {
     let source = local_cases::LOCAL_CHARACTER_NOT_EQUAL;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_character('z');
-    constants.add_character('{');
 
     assert_eq!(
         chunk,
@@ -151,7 +147,6 @@ fn local_character_not_equal() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -162,10 +157,6 @@ fn local_character_not_equal() {
 fn local_float_not_equal() {
     let source = local_cases::LOCAL_FLOAT_NOT_EQUAL;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_float(42.0);
-    constants.add_float(43.0);
 
     assert_eq!(
         chunk,
@@ -206,7 +197,6 @@ fn local_float_not_equal() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -217,10 +207,6 @@ fn local_float_not_equal() {
 fn local_integer_not_equal() {
     let source = local_cases::LOCAL_INTEGER_NOT_EQUAL;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_integer(42);
-    constants.add_integer(43);
 
     assert_eq!(
         chunk,
@@ -261,7 +247,6 @@ fn local_integer_not_equal() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -272,10 +257,6 @@ fn local_integer_not_equal() {
 fn local_string_not_equal() {
     let source = local_cases::LOCAL_STRING_NOT_EQUAL;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_string("foo");
-    constants.add_string("bar");
 
     assert_eq!(
         chunk,
@@ -316,7 +297,6 @@ fn local_string_not_equal() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }

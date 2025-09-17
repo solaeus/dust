@@ -1,6 +1,5 @@
 use crate::{
-    Address, Chunk, ConstantTable, FunctionType, Instruction, OperandType, Type, compile_main,
-    tests::block_cases,
+    Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main, tests::block_cases,
 };
 use std::sync::Arc;
 
@@ -28,9 +27,6 @@ fn empty_block() {
 fn block_expression() {
     let source = block_cases::BLOCK_EXPRESSION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(42);
 
     assert_eq!(
         chunk,
@@ -42,7 +38,6 @@ fn block_expression() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -52,9 +47,6 @@ fn block_expression() {
 fn block_statement() {
     let source = block_cases::BLOCK_STATEMENT;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(42);
 
     assert_eq!(
         chunk,
@@ -70,7 +62,6 @@ fn block_statement() {
                 ),
                 Instruction::r#return(false, Address::default(), OperandType::NONE),
             ],
-            constants,
             register_count: 1,
             ..Default::default()
         }
@@ -81,10 +72,6 @@ fn block_statement() {
 fn block_statement_and_expression() {
     let source = block_cases::BLOCK_STATEMENT_AND_EXPRESSION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(42);
-    constants.add_integer(1);
 
     assert_eq!(
         chunk,
@@ -106,7 +93,6 @@ fn block_statement_and_expression() {
                 ),
                 Instruction::r#return(true, Address::register(1), OperandType::INTEGER),
             ],
-            constants,
             register_count: 2,
             ..Default::default()
         }
@@ -117,9 +103,6 @@ fn block_statement_and_expression() {
 fn parent_scope_access() {
     let source = block_cases::PARENT_SCOPE_ACCESS;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(42);
 
     assert_eq!(
         chunk,
@@ -131,7 +114,6 @@ fn parent_scope_access() {
                 Address::constant(0),
                 OperandType::INTEGER
             ),],
-            constants,
             register_count: 0,
             ..Default::default()
         }
@@ -142,10 +124,6 @@ fn parent_scope_access() {
 fn nested_parrent_scope_access() {
     let source = block_cases::NESTED_PARRENT_SCOPE_ACCESS;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(41);
-    constants.add_integer(1);
 
     assert_eq!(
         chunk,
@@ -173,7 +151,6 @@ fn nested_parrent_scope_access() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -184,10 +161,6 @@ fn nested_parrent_scope_access() {
 fn scope_shadowing() {
     let source = block_cases::SCOPE_SHADOWING;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(42);
-    constants.add_integer(43);
 
     assert_eq!(
         chunk,
@@ -203,7 +176,6 @@ fn scope_shadowing() {
                 ),
                 Instruction::r#return(true, Address::constant(1), OperandType::INTEGER),
             ],
-            constants,
             register_count: 1,
             ..Default::default()
         }
@@ -214,10 +186,6 @@ fn scope_shadowing() {
 fn scope_deshadowing() {
     let source = block_cases::SCOPE_DESHADOWING;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(42);
-    constants.add_integer(1);
 
     assert_eq!(
         chunk,
@@ -239,7 +207,6 @@ fn scope_deshadowing() {
                 ),
                 Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
             ],
-            constants,
             register_count: 2,
             ..Default::default()
         }

@@ -44,10 +44,6 @@ fn local_byte_addition() {
 fn local_float_addition() {
     let source = local_cases::LOCAL_FLOAT_ADDITION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_float(40.0);
-    constants.add_float(2.0);
 
     assert_eq!(
         chunk,
@@ -75,7 +71,6 @@ fn local_float_addition() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::FLOAT)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -86,10 +81,6 @@ fn local_float_addition() {
 fn local_integer_addition() {
     let source = local_cases::LOCAL_INTEGER_ADDITION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_integer(40);
-    constants.add_integer(2);
 
     assert_eq!(
         chunk,
@@ -117,7 +108,6 @@ fn local_integer_addition() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -128,10 +118,6 @@ fn local_integer_addition() {
 fn local_string_concatenation() {
     let source = local_cases::LOCAL_STRING_CONCATENATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_string("foo");
-    constants.add_string("bar");
 
     assert_eq!(
         chunk,
@@ -159,7 +145,6 @@ fn local_string_concatenation() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::STRING)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -170,10 +155,6 @@ fn local_string_concatenation() {
 fn local_character_concatenation() {
     let source = local_cases::LOCAL_CHARACTER_CONCATENATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_character('q');
-    constants.add_character('q');
 
     assert_eq!(
         chunk,
@@ -201,7 +182,6 @@ fn local_character_concatenation() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::STRING)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -212,10 +192,6 @@ fn local_character_concatenation() {
 fn local_string_character_concatenation() {
     let source = local_cases::LOCAL_STRING_CHARACTER_CONCATENATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_string("foo");
-    constants.add_character('q');
 
     assert_eq!(
         chunk,
@@ -243,7 +219,6 @@ fn local_string_character_concatenation() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::STRING)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -254,10 +229,6 @@ fn local_string_character_concatenation() {
 fn local_character_string_concatenation() {
     let source = local_cases::LOCAL_CHARACTER_STRING_CONCATENATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_character('q');
-    constants.add_string("foo");
 
     assert_eq!(
         chunk,
@@ -285,7 +256,6 @@ fn local_character_string_concatenation() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::STRING)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }

@@ -1,6 +1,5 @@
 use crate::{
-    Address, Chunk, ConstantTable, FunctionType, Instruction, OperandType, Type, compile_main,
-    tests::local_cases,
+    Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main, tests::local_cases,
 };
 use std::sync::Arc;
 
@@ -48,9 +47,6 @@ fn local_byte() {
 fn local_character() {
     let source = local_cases::LOCAL_CHARACTER;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_character('q');
 
     assert_eq!(
         chunk,
@@ -62,7 +58,6 @@ fn local_character() {
                 Address::constant(0),
                 OperandType::CHARACTER
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -72,9 +67,6 @@ fn local_character() {
 fn local_float() {
     let source = local_cases::LOCAL_FLOAT;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_float(42.0);
 
     assert_eq!(
         chunk,
@@ -86,7 +78,6 @@ fn local_float() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -96,9 +87,6 @@ fn local_float() {
 fn local_integer() {
     let source = local_cases::LOCAL_INTEGER;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(42);
 
     assert_eq!(
         chunk,
@@ -110,7 +98,6 @@ fn local_integer() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -120,9 +107,6 @@ fn local_integer() {
 fn local_string() {
     let source = local_cases::LOCAL_STRING;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_string("foobar");
 
     assert_eq!(
         chunk,
@@ -134,7 +118,6 @@ fn local_string() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            constants,
             ..Default::default()
         }
     );

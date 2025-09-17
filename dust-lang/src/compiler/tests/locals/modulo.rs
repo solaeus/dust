@@ -44,10 +44,6 @@ fn local_byte_modulo() {
 fn local_float_modulo() {
     let source = local_cases::LOCAL_FLOAT_MODULO;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_float(84.0);
-    constants.add_float(5.0);
 
     assert_eq!(
         chunk,
@@ -75,7 +71,6 @@ fn local_float_modulo() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::FLOAT)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -86,10 +81,6 @@ fn local_float_modulo() {
 fn local_integer_modulo() {
     let source = local_cases::LOCAL_INTEGER_MODULO;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_integer(84);
-    constants.add_integer(5);
 
     assert_eq!(
         chunk,
@@ -117,7 +108,6 @@ fn local_integer_modulo() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }

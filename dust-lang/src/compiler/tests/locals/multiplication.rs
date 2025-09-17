@@ -44,10 +44,6 @@ fn local_byte_multiplication() {
 fn local_float_multiplication() {
     let source = local_cases::LOCAL_FLOAT_MULTIPLICATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_float(14.0);
-    constants.add_float(3.0);
 
     assert_eq!(
         chunk,
@@ -75,7 +71,6 @@ fn local_float_multiplication() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::FLOAT)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -86,10 +81,6 @@ fn local_float_multiplication() {
 fn local_integer_multiplication() {
     let source = local_cases::LOCAL_INTEGER_MULTIPLICATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_integer(14);
-    constants.add_integer(3);
 
     assert_eq!(
         chunk,
@@ -117,7 +108,6 @@ fn local_integer_multiplication() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }

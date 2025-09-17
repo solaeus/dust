@@ -44,10 +44,6 @@ fn local_byte_subtraction() {
 fn local_float_subtraction() {
     let source = local_cases::LOCAL_FLOAT_SUBTRACTION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_float(44.0);
-    constants.add_float(2.0);
 
     assert_eq!(
         chunk,
@@ -75,7 +71,6 @@ fn local_float_subtraction() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::FLOAT)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }
@@ -86,10 +81,6 @@ fn local_float_subtraction() {
 fn local_integer_subtraction() {
     let source = local_cases::LOCAL_INTEGER_SUBTRACTION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = chunk.constants.clone();
-
-    constants.add_integer(44);
-    constants.add_integer(2);
 
     assert_eq!(
         chunk,
@@ -117,7 +108,6 @@ fn local_integer_subtraction() {
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER)
             ],
-            constants,
             register_count: 3,
             ..Default::default()
         }

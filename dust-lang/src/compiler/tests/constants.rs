@@ -1,5 +1,5 @@
 use crate::{
-    Address, Chunk, ConstantTable, FunctionType, Instruction, OperandType, Type, compile_main,
+    Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main,
     tests::constant_cases,
 };
 use std::sync::Arc;
@@ -48,9 +48,6 @@ fn byte() {
 fn character() {
     let source = constant_cases::CHARACTER;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_character('q');
 
     assert_eq!(
         chunk,
@@ -62,7 +59,6 @@ fn character() {
                 Address::constant(0),
                 OperandType::CHARACTER
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -72,9 +68,6 @@ fn character() {
 fn float() {
     let source = constant_cases::FLOAT;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_float(42.0);
 
     assert_eq!(
         chunk,
@@ -86,7 +79,6 @@ fn float() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -96,9 +88,6 @@ fn float() {
 fn integer() {
     let source = constant_cases::INTEGER;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(42);
 
     assert_eq!(
         chunk,
@@ -110,7 +99,6 @@ fn integer() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -120,10 +108,6 @@ fn integer() {
 fn string() {
     let source = constant_cases::STRING;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_string("foobar");
-    constants.finalize_string_pool();
 
     assert_eq!(
         chunk,
@@ -135,7 +119,6 @@ fn string() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -165,9 +148,6 @@ fn constant_byte_addition() {
 fn constant_float_addition() {
     let source = constant_cases::CONSTANT_FLOAT_ADDITION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_float(42.0);
 
     assert_eq!(
         chunk,
@@ -179,7 +159,6 @@ fn constant_float_addition() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -189,9 +168,6 @@ fn constant_float_addition() {
 fn constant_integer_addition() {
     let source = constant_cases::CONSTANT_INTEGER_ADDITION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(42);
 
     assert_eq!(
         chunk,
@@ -203,7 +179,6 @@ fn constant_integer_addition() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -233,9 +208,6 @@ fn constant_byte_subtraction() {
 fn constant_float_subtraction() {
     let source = constant_cases::CONSTANT_FLOAT_SUBTRACTION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_float(42.0);
 
     assert_eq!(
         chunk,
@@ -247,7 +219,6 @@ fn constant_float_subtraction() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -257,9 +228,6 @@ fn constant_float_subtraction() {
 fn constant_integer_subtraction() {
     let source = constant_cases::CONSTANT_INTEGER_SUBTRACTION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(42);
 
     assert_eq!(
         chunk,
@@ -271,7 +239,6 @@ fn constant_integer_subtraction() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -301,9 +268,6 @@ fn constant_byte_multiplication() {
 fn constant_float_multiplication() {
     let source = constant_cases::CONSTANT_FLOAT_MULTIPLICATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_float(42.0);
 
     assert_eq!(
         chunk,
@@ -315,7 +279,6 @@ fn constant_float_multiplication() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -325,9 +288,6 @@ fn constant_float_multiplication() {
 fn constant_integer_multiplication() {
     let source = constant_cases::CONSTANT_INTEGER_MULTIPLICATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(42);
 
     assert_eq!(
         chunk,
@@ -339,7 +299,6 @@ fn constant_integer_multiplication() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -369,9 +328,6 @@ fn constant_byte_division() {
 fn constant_float_division() {
     let source = constant_cases::CONSTANT_FLOAT_DIVISION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_float(42.0);
 
     assert_eq!(
         chunk,
@@ -383,7 +339,6 @@ fn constant_float_division() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -393,9 +348,6 @@ fn constant_float_division() {
 fn constant_integer_division() {
     let source = constant_cases::CONSTANT_INTEGER_DIVISION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(42);
 
     assert_eq!(
         chunk,
@@ -407,7 +359,6 @@ fn constant_integer_division() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -417,9 +368,6 @@ fn constant_integer_division() {
 fn constant_integer_negation() {
     let source = constant_cases::CONSTANT_INTEGER_NEGATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_integer(-42);
 
     assert_eq!(
         chunk,
@@ -431,7 +379,6 @@ fn constant_integer_negation() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -441,9 +388,6 @@ fn constant_integer_negation() {
 fn constant_float_negation() {
     let source = constant_cases::CONSTANT_FLOAT_NEGATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_float(-42.0);
 
     assert_eq!(
         chunk,
@@ -455,7 +399,6 @@ fn constant_float_negation() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -465,10 +408,6 @@ fn constant_float_negation() {
 fn constant_string_concatenation() {
     let source = constant_cases::CONSTANT_STRING_CONCATENATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_string("foobar");
-    constants.finalize_string_pool();
 
     assert_eq!(
         chunk,
@@ -480,7 +419,6 @@ fn constant_string_concatenation() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -490,10 +428,6 @@ fn constant_string_concatenation() {
 fn constant_character_concatentation() {
     let source = constant_cases::CONSTANT_CHARACTER_CONCATENATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_string("qq");
-    constants.finalize_string_pool();
 
     assert_eq!(
         chunk,
@@ -505,7 +439,6 @@ fn constant_character_concatentation() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -515,10 +448,6 @@ fn constant_character_concatentation() {
 fn constant_string_character_concatenation() {
     let source = constant_cases::CONSTANT_STRING_CHARACTER_CONCATENATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.add_string("fooq");
-    constants.finalize_string_pool();
 
     assert_eq!(
         chunk,
@@ -530,7 +459,6 @@ fn constant_string_character_concatenation() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            constants,
             ..Default::default()
         }
     );
@@ -540,11 +468,6 @@ fn constant_string_character_concatenation() {
 fn constant_character_string_concatenation() {
     let source = constant_cases::CONSTANT_CHARACTER_STRING_CONCATENATION;
     let chunk = compile_main(source).unwrap();
-    let mut constants = ConstantTable::new();
-
-    constants.push_str_to_string_pool("foo");
-    constants.add_string("qfoo");
-    constants.finalize_string_pool();
 
     assert_eq!(
         chunk,
@@ -556,7 +479,6 @@ fn constant_character_string_concatenation() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            constants,
             ..Default::default()
         }
     );
