@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Arc};
+use std::collections::HashMap;
 
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
@@ -23,17 +23,17 @@ pub struct ChunkCompiler<'a> {
     syntax_trees: &'a HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
 
     /// Global context for declaration, scope and type resolution.
-    resolver: Rc<Resolver>,
+    resolver: &'a Resolver,
 
     /// Target source code file for compilation by this chunk compiler.
     source_file: SourceFile,
 
     /// Constant collection that is filled during compilation after constant expression folding is
     /// applied.
-    constants: ConstantTable,
+    constants: &'a mut ConstantTable,
 
     /// Global list of function prototypes that is filled during compilation.
-    prototypes: Rc<RefCell<IndexMap<DeclarationId, Chunk, FxBuildHasher>>>,
+    prototypes: &'a mut IndexMap<DeclarationId, Chunk, FxBuildHasher>,
 
     /// Bytecode instruction collection that is filled during compilation.
     instructions: Vec<Instruction>,
@@ -53,20 +53,17 @@ pub struct ChunkCompiler<'a> {
 
     /// Lowest register index after registers have been allocated for function arguments.
     minimum_register: u16,
-
-    /// Index of the the chunk being compiled in the program's prototype list. For the main function,
-    /// this is 0 as a default but the main chunk is actually the last one in the list.
-    prototype_index: u16,
 }
 
 impl<'a> ChunkCompiler<'a> {
     pub fn new(
         syntax_trees: &'a HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
         syntax_tree: &'a SyntaxTree,
-        resolver: Rc<Resolver>,
+        resolver: &'a Resolver,
+        constants: &'a mut ConstantTable,
         source: &'a Source,
         source_file: SourceFile,
-        prototypes: Rc<RefCell<IndexMap<DeclarationId, Chunk, FxBuildHasher>>>,
+        prototypes: &'a mut IndexMap<DeclarationId, Chunk, FxBuildHasher>,
     ) -> Self {
         Self {
             source_file,
@@ -74,7 +71,7 @@ impl<'a> ChunkCompiler<'a> {
             syntax_trees,
             resolver,
             source,
-            constants: ConstantTable::new(),
+            constants,
             prototypes,
             instructions: Vec::new(),
             call_arguments: Vec::new(),
@@ -82,7 +79,6 @@ impl<'a> ChunkCompiler<'a> {
             return_type: TypeId::NONE,
             locals: HashMap::default(),
             minimum_register: 0,
-            prototype_index: 0,
         }
     }
 
@@ -114,7 +110,6 @@ impl<'a> ChunkCompiler<'a> {
             name: self.source_file.name.clone(),
             r#type: FunctionType::new([], [], return_type),
             instructions: self.instructions,
-            constants: self.constants,
             call_arguments: self.call_arguments,
             drop_lists: self.drop_lists,
             register_count,
@@ -503,20 +498,19 @@ impl<'a> ChunkCompiler<'a> {
                 let function_compiler = ChunkCompiler::new(
                     self.syntax_trees,
                     file_tree,
-                    Rc::clone(&self.resolver),
+                    self.resolver,
+                    self.constants,
                     self.source,
                     source_file,
-                    Rc::clone(&self.prototypes),
+                    self.prototypes,
                 );
 
                 let _ = function_compiler.compile()?;
-                let prototype_index = self
-                    .prototypes
-                    .borrow()
-                    .get_index_of(&import_declaration_id)
-                    .ok_or(CompileError::MissingPrototype {
+                let prototype_index = self.prototypes.get_index_of(&import_declaration_id).ok_or(
+                    CompileError::MissingPrototype {
                         declaration_id: import_declaration_id,
-                    })? as u16;
+                    },
+                )? as u16;
 
                 self.locals.insert(
                     import_declaration_id,
@@ -1489,10 +1483,11 @@ impl<'a> ChunkCompiler<'a> {
         let mut function_compiler = ChunkCompiler::new(
             self.syntax_trees,
             self.syntax_tree,
-            self.resolver.clone(),
+            self.resolver,
+            self.constants,
             self.source,
             self.source_file.clone(),
-            self.prototypes.clone(),
+            self.prototypes,
         );
 
         for syntax_id in value_parameter_nodes {
@@ -1512,14 +1507,9 @@ impl<'a> ChunkCompiler<'a> {
         function_compiler.compile_implicit_return(&body_node)?;
 
         let function_chunk = function_compiler.finish()?;
-        let prototype_index = {
-            let mut prototypes = self.prototypes.borrow_mut();
-            let prototype_index = prototypes.len() as u16;
+        let prototype_index = self.prototypes.len() as u16;
 
-            prototypes.insert(declaration_id, function_chunk);
-
-            prototype_index
-        };
+        self.prototypes.insert(declaration_id, function_chunk);
 
         Ok(Emission::Constant(Constant::Function {
             type_id: function_type_id,

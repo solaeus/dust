@@ -21,16 +21,22 @@ pub struct TuiDisassembler<'a> {
 
 impl<'a> TuiDisassembler<'a> {
     pub fn new(program: &'a Program, source: Source) -> Self {
+        let mut tabs = Vec::with_capacity(source.len() + program.prototypes.len());
+
+        for file in source.files() {
+            tabs.push(file.name.to_string());
+        }
+
+        for chunk in &program.prototypes {
+            tabs.push(chunk.name.to_string());
+        }
+
         Self {
             program,
             source,
             state: TuiState::Run,
             selected_tab: 0,
-            tabs: program
-                .prototypes
-                .iter()
-                .map(|p| p.name.to_string())
-                .collect(),
+            tabs,
         }
     }
 
@@ -117,7 +123,7 @@ impl<'a> TuiDisassembler<'a> {
             Constraint::Length(1),
             Constraint::Length(chunk.instructions.len() as u16 + 3),
             Constraint::Length(1),
-            Constraint::Length(chunk.constants.len() as u16 + 3),
+            Constraint::Length(self.program.constants.len() as u16 + 3),
             Constraint::Length(1),
             Constraint::Length(chunk.call_arguments.len() as u16 + 3),
             Constraint::Fill(1),
@@ -145,7 +151,7 @@ impl<'a> TuiDisassembler<'a> {
         Paragraph::new(format!(
             "{} instructions, {} constants",
             chunk.instructions.len(),
-            chunk.constants.len(),
+            self.program.constants.len(),
         ))
         .centered()
         .wrap(Wrap { trim: true })
@@ -221,7 +227,8 @@ impl<'a> TuiDisassembler<'a> {
                 Layout::horizontal([Constraint::Min(1), Constraint::Min(40), Constraint::Min(1)]);
             let [_, center_area, _] = horizontal_areas.areas(instructions_table_area);
 
-            let instruction_rows = chunk
+            let instruction_rows = self
+                .program
                 .constants
                 .iter()
                 .enumerate()
@@ -333,7 +340,14 @@ impl Widget for &TuiDisassembler<'_> {
             .select(self.selected_tab)
             .render(chunk_tabs_header_area, buffer);
 
-        if let Some(chunk) = self.program.prototypes.get(self.selected_tab) {
+        if self.selected_tab < self.source.len() {
+            let source_file = self.source.get_file(self.selected_tab).unwrap().clone();
+
+            self.draw_source_tab(source_file, tab_content_area, buffer);
+        } else {
+            let chunk_index = self.selected_tab - self.source.len();
+            let chunk = &self.program.prototypes[chunk_index];
+
             self.draw_chunk_tab(chunk, tab_content_area, buffer);
         }
     }

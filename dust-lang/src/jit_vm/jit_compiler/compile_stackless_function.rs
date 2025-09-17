@@ -14,7 +14,7 @@ use smallvec::SmallVec;
 use tracing::info;
 
 use crate::{
-    Address, Chunk, MemoryKind, OperandType, Operation, Type,
+    Address, Chunk, ConstantTable, MemoryKind, OperandType, Operation, Type,
     instruction::{Call, CallNative, Drop, Jump, Load, NewList, Return, SetList},
     jit_vm::{
         JitCompiler, JitError, Register, RegisterTag, call_stack::get_call_frame,
@@ -316,25 +316,25 @@ pub fn compile_stackless_function(
                     OperandType::CHARACTER => get_character(
                         operand,
                         current_frame_base_register_address,
-                        chunk,
+                        &compiler.program.constants,
                         &mut function_builder,
                     )?,
                     OperandType::FLOAT => get_float(
                         operand,
                         current_frame_base_register_address,
-                        chunk,
+                        &compiler.program.constants,
                         &mut function_builder,
                     )?,
                     OperandType::INTEGER => get_integer(
                         operand,
                         current_frame_base_register_address,
-                        chunk,
+                        &compiler.program.constants,
                         &hot_registers,
                         &mut function_builder,
                     )?,
                     OperandType::STRING => get_string(
                         operand,
-                        chunk,
+                        &compiler.program.constants,
                         allocate_string_function,
                         &mut function_builder,
                         thread_context,
@@ -459,7 +459,7 @@ pub fn compile_stackless_function(
                     OperandType::INTEGER => get_integer(
                         item_source,
                         current_frame_base_register_address,
-                        chunk,
+                        &compiler.program.constants,
                         &hot_registers,
                         &mut function_builder,
                     )?,
@@ -476,18 +476,18 @@ pub fn compile_stackless_function(
                     OperandType::CHARACTER => get_character(
                         item_source,
                         current_frame_base_register_address,
-                        chunk,
+                        &compiler.program.constants,
                         &mut function_builder,
                     )?,
                     OperandType::FLOAT => get_float(
                         item_source,
                         current_frame_base_register_address,
-                        chunk,
+                        &compiler.program.constants,
                         &mut function_builder,
                     )?,
                     OperandType::STRING => get_string(
                         item_source,
-                        chunk,
+                        &compiler.program.constants,
                         allocate_string_function,
                         &mut function_builder,
                         thread_context,
@@ -540,14 +540,14 @@ pub fn compile_stackless_function(
                         let left_value = get_integer(
                             left,
                             current_frame_base_register_address,
-                            chunk,
+                            &compiler.program.constants,
                             &hot_registers,
                             &mut function_builder,
                         )?;
                         let right_value = get_integer(
                             right,
                             current_frame_base_register_address,
-                            chunk,
+                            &compiler.program.constants,
                             &hot_registers,
                             &mut function_builder,
                         )?;
@@ -617,14 +617,14 @@ pub fn compile_stackless_function(
                         let left_value = get_integer(
                             left,
                             current_frame_base_register_address,
-                            chunk,
+                            &compiler.program.constants,
                             &hot_registers,
                             &mut function_builder,
                         )?;
                         let right_value = get_integer(
                             right,
                             current_frame_base_register_address,
-                            chunk,
+                            &compiler.program.constants,
                             &hot_registers,
                             &mut function_builder,
                         )?;
@@ -652,13 +652,13 @@ pub fn compile_stackless_function(
                         let left_value = get_float(
                             left,
                             current_frame_base_register_address,
-                            chunk,
+                            &compiler.program.constants,
                             &mut function_builder,
                         )?;
                         let right_value = get_float(
                             right,
                             current_frame_base_register_address,
-                            chunk,
+                            &compiler.program.constants,
                             &mut function_builder,
                         )?;
 
@@ -693,7 +693,7 @@ pub fn compile_stackless_function(
                                 (MemoryKind::REGISTER, MemoryKind::REGISTER) => {
                                     let left_pointer = get_string(
                                         left,
-                                        chunk,
+                                        &compiler.program.constants,
                                         allocate_string_function,
                                         &mut function_builder,
                                         thread_context,
@@ -701,7 +701,7 @@ pub fn compile_stackless_function(
                                     )?;
                                     let right_pointer = get_string(
                                         right,
-                                        chunk,
+                                        &compiler.program.constants,
                                         allocate_string_function,
                                         &mut function_builder,
                                         thread_context,
@@ -716,7 +716,7 @@ pub fn compile_stackless_function(
                                 ) => {
                                     let left_pointer = get_string(
                                         left,
-                                        chunk,
+                                        &compiler.program.constants,
                                         allocate_string_function,
                                         &mut function_builder,
                                         thread_context,
@@ -735,7 +735,7 @@ pub fn compile_stackless_function(
 
                                     let right_pointer = get_string(
                                         right,
-                                        chunk,
+                                        &compiler.program.constants,
                                         allocate_string_function,
                                         &mut function_builder,
                                         thread_context,
@@ -747,7 +747,7 @@ pub fn compile_stackless_function(
                                 (MemoryKind::REGISTER, MemoryKind::CONSTANT) => {
                                     let right_pointer = get_string(
                                         right,
-                                        chunk,
+                                        &compiler.program.constants,
                                         allocate_string_function,
                                         &mut function_builder,
                                         thread_context,
@@ -766,7 +766,7 @@ pub fn compile_stackless_function(
 
                                     let left_pointer = get_string(
                                         left,
-                                        chunk,
+                                        &compiler.program.constants,
                                         allocate_string_function,
                                         &mut function_builder,
                                         thread_context,
@@ -862,7 +862,7 @@ pub fn compile_stackless_function(
                             let integer_value = get_integer(
                                 *address,
                                 current_frame_base_register_address,
-                                chunk,
+                                &compiler.program.constants,
                                 &hot_registers,
                                 &mut function_builder,
                             )?;
@@ -922,7 +922,7 @@ pub fn compile_stackless_function(
                     let argument_value = match *r#type {
                         OperandType::STRING => get_string(
                             *address,
-                            chunk,
+                            &compiler.program.constants,
                             allocate_string_function,
                             &mut function_builder,
                             thread_context,
@@ -1021,7 +1021,7 @@ pub fn compile_stackless_function(
                             let character_value = get_character(
                                 return_value_address,
                                 current_frame_base_register_address,
-                                chunk,
+                                &compiler.program.constants,
                                 &mut function_builder,
                             )?;
                             let character_type = function_builder
@@ -1034,7 +1034,7 @@ pub fn compile_stackless_function(
                             let float_value = get_float(
                                 return_value_address,
                                 current_frame_base_register_address,
-                                chunk,
+                                &compiler.program.constants,
                                 &mut function_builder,
                             )?;
                             let float_type = function_builder
@@ -1047,7 +1047,7 @@ pub fn compile_stackless_function(
                             let integer_value = get_integer(
                                 return_value_address,
                                 current_frame_base_register_address,
-                                chunk,
+                                &compiler.program.constants,
                                 &hot_registers,
                                 &mut function_builder,
                             )?;
@@ -1060,7 +1060,7 @@ pub fn compile_stackless_function(
                         OperandType::STRING => {
                             let string_value = get_string(
                                 return_value_address,
-                                chunk,
+                                &compiler.program.constants,
                                 allocate_string_function,
                                 &mut function_builder,
                                 thread_context,
@@ -1358,7 +1358,7 @@ fn get_byte(
 fn get_character(
     address: Address,
     frame_base_address: CraneliftValue,
-    chunk: &Chunk,
+    constants: &ConstantTable,
     function_builder: &mut FunctionBuilder,
 ) -> Result<CraneliftValue, JitError> {
     let jit_value = match address.memory {
@@ -1374,10 +1374,10 @@ fn get_character(
                 .load(I64, MemFlags::new(), address, 0)
         }
         MemoryKind::CONSTANT => {
-            let character = chunk.constants.get_character(address.index).ok_or(
+            let character = constants.get_character(address.index).ok_or(
                 JitError::ConstantIndexOutOfBounds {
                     constant_index: address.index,
-                    total_constant_count: chunk.constants.len(),
+                    total_constant_count: constants.len(),
                 },
             )?;
 
@@ -1396,7 +1396,7 @@ fn get_character(
 fn get_float(
     address: Address,
     frame_base_address: CraneliftValue,
-    chunk: &Chunk,
+    constants: &ConstantTable,
     function_builder: &mut FunctionBuilder,
 ) -> Result<CraneliftValue, JitError> {
     let jit_value = match address.memory {
@@ -1412,12 +1412,13 @@ fn get_float(
                 .load(I64, MemFlags::new(), address, 0)
         }
         MemoryKind::CONSTANT => {
-            let float = chunk.constants.get_float(address.index).ok_or(
-                JitError::ConstantIndexOutOfBounds {
-                    constant_index: address.index,
-                    total_constant_count: chunk.constants.len(),
-                },
-            )?;
+            let float =
+                constants
+                    .get_float(address.index)
+                    .ok_or(JitError::ConstantIndexOutOfBounds {
+                        constant_index: address.index,
+                        total_constant_count: constants.len(),
+                    })?;
 
             function_builder.ins().iconst(I64, float as i64)
         }
@@ -1434,7 +1435,7 @@ fn get_float(
 fn get_integer(
     address: Address,
     frame_base_address: CraneliftValue,
-    chunk: &Chunk,
+    constants: &ConstantTable,
     hot_registers: &[Variable],
     function_builder: &mut FunctionBuilder,
 ) -> Result<CraneliftValue, JitError> {
@@ -1455,12 +1456,13 @@ fn get_integer(
                 .load(I64, MemFlags::new(), address, 0)
         }
         MemoryKind::CONSTANT => {
-            let integer = chunk.constants.get_integer(address.index).ok_or(
-                JitError::ConstantIndexOutOfBounds {
-                    constant_index: address.index,
-                    total_constant_count: chunk.constants.len(),
-                },
-            )?;
+            let integer =
+                constants
+                    .get_integer(address.index)
+                    .ok_or(JitError::ConstantIndexOutOfBounds {
+                        constant_index: address.index,
+                        total_constant_count: constants.len(),
+                    })?;
 
             function_builder.ins().iconst(I64, integer)
         }
@@ -1476,7 +1478,7 @@ fn get_integer(
 
 fn get_string(
     address: Address,
-    chunk: &Chunk,
+    constants: &ConstantTable,
     allocate_string_function: FuncRef,
     function_builder: &mut FunctionBuilder,
     thread_conxtext_pointer: CraneliftValue,
@@ -1498,12 +1500,13 @@ fn get_string(
                 .load(I64, MemFlags::new(), register_address, 0)
         }
         MemoryKind::CONSTANT => {
-            let (string_pointer, string_length) = chunk.constants.get_string(address.index).ok_or(
-                JitError::ConstantIndexOutOfBounds {
-                    constant_index: address.index,
-                    total_constant_count: chunk.constants.len(),
-                },
-            )?;
+            let (string_pointer, string_length) =
+                constants
+                    .get_string(address.index)
+                    .ok_or(JitError::ConstantIndexOutOfBounds {
+                        constant_index: address.index,
+                        total_constant_count: constants.len(),
+                    })?;
             let string_pointer = function_builder.ins().iconst(I64, string_pointer as i64);
             let string_length = function_builder.ins().iconst(I64, string_length as i64);
             let call_allocate_string_instruction = function_builder.ins().call(

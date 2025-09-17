@@ -9,7 +9,7 @@ use cranelift_module::{FuncId, Module, ModuleError};
 use tracing::info;
 
 use crate::{
-    Address, Chunk, MemoryKind, OperandType, Operation, Type,
+    Address, Chunk, ConstantTable, MemoryKind, OperandType, Operation, Type,
     instruction::{Add, Call, CallNative, Jump, Load, Return},
     jit_vm::{JitCompiler, JitError, jit_compiler::FunctionIds},
 };
@@ -170,9 +170,12 @@ pub fn compile_direct_function(
                 } = Load::from(*current_instruction);
                 let destination_index = destination.index as usize;
                 let value = match r#type {
-                    OperandType::INTEGER => {
-                        self::get_integer(operand, chunk, &ssa_registers, &mut function_builder)?
-                    }
+                    OperandType::INTEGER => self::get_integer(
+                        operand,
+                        &compiler.program.constants,
+                        &ssa_registers,
+                        &mut function_builder,
+                    )?,
                     _ => {
                         return Err(JitError::UnsupportedOperandType {
                             operand_type: r#type,
@@ -207,10 +210,18 @@ pub fn compile_direct_function(
                 };
                 let comparison_result = match r#type {
                     OperandType::INTEGER => {
-                        let left_value =
-                            get_integer(left, chunk, &ssa_registers, &mut function_builder)?;
-                        let right_value =
-                            get_integer(right, chunk, &ssa_registers, &mut function_builder)?;
+                        let left_value = get_integer(
+                            left,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_integer(
+                            right,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
 
                         function_builder
                             .ins()
@@ -243,17 +254,25 @@ pub fn compile_direct_function(
                 let destination_index = destination.index as usize;
                 let sum = match r#type {
                     OperandType::INTEGER => {
-                        let left_value =
-                            get_integer(left, chunk, &ssa_registers, &mut function_builder)?;
-                        let right_value =
-                            get_integer(right, chunk, &ssa_registers, &mut function_builder)?;
+                        let left_value = get_integer(
+                            left,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_integer(
+                            right,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
 
                         function_builder.ins().iadd(left_value, right_value)
                     }
                     OperandType::STRING => {
                         let left_value = get_string(
                             left,
-                            chunk,
+                            &compiler.program.constants,
                             &ssa_registers,
                             &mut function_builder,
                             allocate_string_function,
@@ -261,7 +280,7 @@ pub fn compile_direct_function(
                         )?;
                         let right_value = get_string(
                             right,
-                            chunk,
+                            &compiler.program.constants,
                             &ssa_registers,
                             &mut function_builder,
                             allocate_string_function,
@@ -358,7 +377,7 @@ pub fn compile_direct_function(
                         OperandType::INTEGER => {
                             let integer_value = get_integer(
                                 *address,
-                                chunk,
+                                &compiler.program.constants,
                                 &ssa_registers,
                                 &mut function_builder,
                             )?;
@@ -408,7 +427,7 @@ pub fn compile_direct_function(
                     let argument_value = match *r#type {
                         OperandType::STRING => get_string(
                             *address,
-                            chunk,
+                            &compiler.program.constants,
                             &ssa_registers,
                             &mut function_builder,
                             allocate_string_function,
@@ -473,7 +492,7 @@ pub fn compile_direct_function(
                     let value_to_return = match r#type {
                         OperandType::INTEGER => get_integer(
                             return_value_address,
-                            chunk,
+                            &compiler.program.constants,
                             &ssa_registers,
                             &mut function_builder,
                         )?,
@@ -541,19 +560,20 @@ pub fn compile_direct_function(
 
 fn get_integer(
     address: Address,
-    chunk: &Chunk,
+    constants: &ConstantTable,
     ssa_registers: &[CraneliftValue],
     function_builder: &mut FunctionBuilder,
 ) -> Result<CraneliftValue, JitError> {
     match address.memory {
         MemoryKind::REGISTER => Ok(ssa_registers[address.index as usize]),
         MemoryKind::CONSTANT => {
-            let integer = chunk.constants.get_integer(address.index).ok_or(
-                JitError::ConstantIndexOutOfBounds {
-                    constant_index: address.index,
-                    total_constant_count: chunk.constants.len(),
-                },
-            )?;
+            let integer =
+                constants
+                    .get_integer(address.index)
+                    .ok_or(JitError::ConstantIndexOutOfBounds {
+                        constant_index: address.index,
+                        total_constant_count: constants.len(),
+                    })?;
 
             Ok(function_builder.ins().iconst(I64, integer))
         }
@@ -565,7 +585,7 @@ fn get_integer(
 
 fn get_string(
     address: Address,
-    chunk: &Chunk,
+    constants: &ConstantTable,
     ssa_registers: &[CraneliftValue],
     function_builder: &mut FunctionBuilder,
     allocate_strings_function: FuncRef,
@@ -574,12 +594,13 @@ fn get_string(
     match address.memory {
         MemoryKind::REGISTER => Ok(ssa_registers[address.index as usize]),
         MemoryKind::CONSTANT => {
-            let (string_pointer, string_length) = chunk.constants.get_string(address.index).ok_or(
-                JitError::ConstantIndexOutOfBounds {
-                    constant_index: address.index,
-                    total_constant_count: chunk.constants.len(),
-                },
-            )?;
+            let (string_pointer, string_length) =
+                constants
+                    .get_string(address.index)
+                    .ok_or(JitError::ConstantIndexOutOfBounds {
+                        constant_index: address.index,
+                        total_constant_count: constants.len(),
+                    })?;
             let string_pointer = function_builder.ins().iconst(I64, string_pointer as i64);
             let string_length = function_builder.ins().iconst(I64, string_length as i64);
             let string_object_pointer = function_builder.ins().call(

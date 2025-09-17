@@ -14,7 +14,7 @@ pub use std::{cell::RefCell, rc::Rc};
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{
-    Chunk, Position, Resolver, Source, Span,
+    Chunk, ConstantTable, Position, Resolver, Source, Span,
     dust_crate::Program,
     dust_error::DustError,
     parser::{ParseResult, Parser},
@@ -40,13 +40,16 @@ pub fn compile_main(source_code: &str) -> Result<Chunk, DustError> {
     }
 
     let source_file = source.get_file(0).unwrap().clone();
+    let mut prototypes = IndexMap::default();
+    let mut constants = ConstantTable::new();
     let chunk_compiler = ChunkCompiler::new(
         &syntax_trees,
         syntax_trees.get(&DeclarationId::MAIN).unwrap(),
-        Rc::new(resolver),
+        &resolver,
+        &mut constants,
         &source,
         source_file,
-        Rc::new(RefCell::new(IndexMap::default())),
+        &mut prototypes,
     );
     let compile_result = chunk_compiler.compile();
 
@@ -135,14 +138,15 @@ impl Compiler {
 
         prototypes.insert(DeclarationId::MAIN, Chunk::default());
 
-        let prototypes = Rc::new(RefCell::new(prototypes));
+        let mut constants = ConstantTable::new();
         let chunk_compiler = ChunkCompiler::new(
             &self.file_trees,
             self.file_trees.get(&DeclarationId::MAIN).unwrap(),
-            Rc::new(resolver),
+            &resolver,
+            &mut constants,
             &self.source,
             source_file.clone(),
-            prototypes.clone(),
+            &mut prototypes,
         );
 
         let chunk = match chunk_compiler.compile() {
@@ -152,19 +156,17 @@ impl Compiler {
             }
         };
 
-        prototypes.borrow_mut().insert(DeclarationId::MAIN, chunk);
+        prototypes.insert(DeclarationId::MAIN, chunk);
 
-        let prototypes = Rc::into_inner(prototypes)
-            .expect("Unneccessary borrow of 'prototypes'")
-            .into_inner()
+        let prototypes = prototypes
             .into_iter()
             .map(|(_, chunk)| chunk)
             .collect::<Vec<Chunk>>();
 
         Ok(Program {
             name: program_name,
+            constants,
             prototypes,
-            cell_count: 0,
         })
     }
 }

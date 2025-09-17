@@ -37,7 +37,7 @@ pub mod value;
 #[cfg(test)]
 mod tests;
 
-pub use chunk::{Chunk, Disassembler};
+pub use chunk::Chunk;
 pub use compiler::{ChunkCompiler, CompileError, compile_main};
 pub use constant_table::ConstantTable;
 pub use dust_error::{AnnotatedError, DustError};

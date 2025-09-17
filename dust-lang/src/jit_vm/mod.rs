@@ -66,12 +66,6 @@ impl JitVm {
         minimum_object_heap: usize,
         minimum_object_sweep: usize,
     ) -> Result<Option<Value>, DustError> {
-        let mut cells = Vec::with_capacity(program.cell_count);
-
-        for _ in 0..program.cell_count {
-            cells.push(Cell::default());
-        }
-
         let main_thread = Thread::spawn(program, minimum_object_heap, minimum_object_sweep)
             .map_err(DustError::jit)?;
         let return_result = main_thread

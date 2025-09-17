@@ -7,10 +7,10 @@
 //!
 //! Chunks have a name when they belong to a named function. They also have a type, so the input
 //! parameters and the type of the return value are statically known.
-mod disassembler;
+// mod disassembler;
 mod tui_disassembler;
 
-pub use disassembler::Disassembler;
+// pub use disassembler::Disassembler;
 pub use tui_disassembler::TuiDisassembler;
 
 use std::{
@@ -18,7 +18,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{Address, ConstantTable, FunctionType, Instruction, OperandType};
+use crate::{Address, FunctionType, Instruction, OperandType};
 
 /// Representation of a Dust program or function.
 ///
@@ -29,7 +29,6 @@ pub struct Chunk {
     pub(crate) r#type: FunctionType,
 
     pub(crate) instructions: Vec<Instruction>,
-    pub(crate) constants: ConstantTable,
     pub(crate) call_arguments: Vec<(Address, OperandType)>,
     pub(crate) drop_lists: Vec<u16>,
 

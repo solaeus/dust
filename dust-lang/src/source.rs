@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{slice, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub enum Source {
@@ -41,6 +41,13 @@ impl Source {
                 }
             }
             Source::Files(sources) => sources.get(index),
+        }
+    }
+
+    pub fn files(&self) -> &[SourceFile] {
+        match self {
+            Source::Script(source_file) => slice::from_ref(source_file),
+            Source::Files(sources) => sources.as_slice(),
         }
     }
 }
