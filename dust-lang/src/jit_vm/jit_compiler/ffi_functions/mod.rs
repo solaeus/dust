@@ -16,3 +16,8 @@ pub extern "C" fn log_operation_and_ip(op_code: i8, ip: i64) {
 
     info!("Running {operation} at {ip}");
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn log_integer(value: i64) {
+    info!("Integer: {}", value);
+}

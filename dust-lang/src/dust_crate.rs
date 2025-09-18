@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{Chunk, ConstantTable};
+use crate::{Chunk, ConstantTable, Resolver};
 
 pub enum DustCrate {
     Program(Program),
@@ -11,17 +11,10 @@ pub struct Program {
     pub name: Arc<String>,
     pub prototypes: Vec<Chunk>,
     pub constants: ConstantTable,
+    pub resolver: Resolver,
 }
 
 impl Program {
-    pub fn new(name: Arc<String>, main_chunk: Chunk, constants: ConstantTable) -> Self {
-        Self {
-            name,
-            prototypes: vec![main_chunk],
-            constants,
-        }
-    }
-
     pub fn main_chunk(&self) -> &Chunk {
         self.prototypes
             .first()

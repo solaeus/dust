@@ -12,6 +12,7 @@ use crate::{
     dust_crate::Program,
     instruction::OperandType,
     jit_vm::{ObjectPool, RegisterTag, call_stack::new_call_stack, object::ObjectValue},
+    resolver::{FunctionTypeNode, TypeNode},
 };
 
 use super::{
@@ -146,8 +147,17 @@ fn run(
         | OperandType::LIST_STRING
         | OperandType::LIST_LIST
         | OperandType::LIST_FUNCTION => {
-            let full_type = &program.main_chunk().r#type.return_type;
-            let list = get_list_from_register(return_register, full_type)?;
+            let Some(TypeNode::Function(FunctionTypeNode { return_type, .. })) = program
+                .resolver
+                .get_type_node(program.main_chunk().r#type)
+                .copied()
+            else {
+                unreachable!("Main chunk type must be a function");
+            };
+            let Some(list_type) = program.resolver.resolve_type(return_type) else {
+                unreachable!("Main chunk return type must be resolvable");
+            };
+            let list = get_list_from_register(return_register, &list_type)?;
 
             Ok(Some(Value::List(list)))
         }

@@ -46,11 +46,11 @@ impl Resolver {
         debug_assert_eq!(_main_function_declaration_id, DeclarationId::MAIN);
 
         if with_native_functions {
-            let read_line_type_id = resolver.add_type(TypeNode::Function {
+            let read_line_type_id = resolver.add_type(TypeNode::Function(FunctionTypeNode {
                 type_parameters: (0, 0),
                 value_parameters: (0, 0),
                 return_type: TypeId::STRING,
-            });
+            }));
 
             resolver.add_declaration(
                 DeclarationKind::NativeFunction,
@@ -62,11 +62,11 @@ impl Resolver {
             );
 
             let value_parameters = resolver.push_type_members(&[TypeId::STRING]);
-            let write_line_type_id = resolver.add_type(TypeNode::Function {
+            let write_line_type_id = resolver.add_type(TypeNode::Function(FunctionTypeNode {
                 type_parameters: (0, 0),
                 value_parameters,
                 return_type: TypeId::NONE,
-            });
+            }));
 
             resolver.add_declaration(
                 DeclarationKind::NativeFunction,
@@ -95,6 +95,10 @@ impl Resolver {
         }
 
         resolver
+    }
+
+    pub fn type_count(&self) -> usize {
+        self.types.len()
     }
 
     pub fn mark_file_declaration_as_parsed(&mut self, id: DeclarationId) {
@@ -277,11 +281,11 @@ impl Resolver {
 
                         Some(Type::list(element_type))
                     }
-                    TypeNode::Function {
+                    TypeNode::Function(FunctionTypeNode {
                         type_parameters: (type_args_start, type_args_end),
                         value_parameters: (value_args_start, value_args_end),
                         return_type,
-                    } => {
+                    }) => {
                         let type_arguments = self.type_members
                             [*type_args_start as usize..*type_args_end as usize]
                             .iter()
@@ -299,6 +303,12 @@ impl Resolver {
                 }
             }
         }
+    }
+
+    pub fn resolve_types(&self, start_index: u32, count: u32) -> Option<Vec<Type>> {
+        (start_index..start_index + count)
+            .map(|index| self.resolve_type(TypeId(index)))
+            .collect()
     }
 
     pub fn add_type(&mut self, type_node: TypeNode) -> TypeId {
@@ -452,13 +462,32 @@ impl TypeId {
     }
 }
 
+impl Default for TypeId {
+    fn default() -> Self {
+        TypeId::NONE
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeNode {
     Array(TypeId, u32),
     List(TypeId),
-    Function {
-        type_parameters: (u32, u32),
-        value_parameters: (u32, u32),
-        return_type: TypeId,
-    },
+    Function(FunctionTypeNode),
+}
+
+impl TypeNode {
+    pub fn as_function(&self) -> Option<&FunctionTypeNode> {
+        if let TypeNode::Function(function_type) = self {
+            Some(function_type)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct FunctionTypeNode {
+    pub type_parameters: (u32, u32),
+    pub value_parameters: (u32, u32),
+    pub return_type: TypeId,
 }

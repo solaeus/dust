@@ -12,13 +12,13 @@ while i < 5_000_000 {
 ";
 
 const FUNCTION: &str = r"
-fn addictive_addition() {
+fn() {
     let mut i = 0;
 
     while i < 5_000_000 {
         i += 1;
     }
-}
+};
 ";
 
 fn compile_bench(source: &str) {

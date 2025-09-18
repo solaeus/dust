@@ -135,8 +135,8 @@ pub enum ParseError {
 }
 
 impl AnnotatedError for ParseError {
-    fn file_index(&self) -> usize {
-        (match self {
+    fn file_index(&self) -> u32 {
+        match self {
             ParseError::ExpectedToken { position, .. } => position.file_index,
             ParseError::ExpectedMultipleTokens { position, .. } => position.file_index,
             ParseError::UnexpectedToken { position, .. } => position.file_index,
@@ -167,7 +167,7 @@ impl AnnotatedError for ParseError {
             ParseError::MissingScope { .. } => 0,
             ParseError::MissingDeclaration { .. } => 0,
             ParseError::MissingType { .. } => 0,
-        }) as usize
+        }
     }
 
     fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a> {

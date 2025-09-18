@@ -31,7 +31,7 @@ impl Source {
         }
     }
 
-    pub fn get_file(&self, index: usize) -> Option<&SourceFile> {
+    pub fn get_file(&self, index: u32) -> Option<&SourceFile> {
         match self {
             Source::Script(source_file) => {
                 if index == 0 {
@@ -40,7 +40,7 @@ impl Source {
                     None
                 }
             }
-            Source::Files(sources) => sources.get(index),
+            Source::Files(sources) => sources.get(index as usize),
         }
     }
 

@@ -17,7 +17,10 @@ use crate::{
     Lexer, Position, Resolver, Source, Span, Token, Type,
     dust_error::DustError,
     parser::parse_rule::{ParseRule, Precedence},
-    resolver::{DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind, TypeId, TypeNode},
+    resolver::{
+        DeclarationId, DeclarationKind, FunctionTypeNode, Scope, ScopeId, ScopeKind, TypeId,
+        TypeNode,
+    },
     source::SourceFile,
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
@@ -86,7 +89,7 @@ impl<'a> Parser<'a> {
     /// The parser is consumed and cannot be reused.
     pub fn parse(
         mut self,
-        file_index: usize,
+        file_index: u32,
         declaration_id: DeclarationId,
         scope_id: ScopeId,
     ) -> ParseResult {
@@ -97,7 +100,7 @@ impl<'a> Parser<'a> {
             .source_code
             .as_ref();
         let (token, span) = self.lexer.initialize(source_code, 0);
-        self.current_syntax_tree.file_index = file_index as u32;
+        self.current_syntax_tree.file_index = file_index;
         self.current_scope_id = scope_id;
         self.current_token = token;
         self.current_span = span;
@@ -186,17 +189,11 @@ impl<'a> Parser<'a> {
 
         self.errors.push(error);
 
-        if self.previous_token == Token::Semicolon {
-            warn!("Error recovery is continuing after a semicolon");
-
-            return;
-        }
-
         while !matches!(
             self.current_token,
-            Token::Semicolon | Token::RightCurlyBrace | Token::Eof
+            Token::Semicolon | Token::RightCurlyBrace
         ) {
-            let _ = self.advance().map_err(|error| self.recover(error));
+            let _ = self.advance().map_err(|error| self.errors.push(error));
         }
 
         warn!(
@@ -204,12 +201,7 @@ impl<'a> Parser<'a> {
             self.current_token, self.current_span
         );
 
-        if matches!(
-            self.current_token,
-            Token::Semicolon | Token::RightCurlyBrace
-        ) {
-            let _ = self.advance().map_err(|error| self.recover(error));
-        }
+        let _ = self.advance().map_err(|error| self.recover(error));
     }
 
     fn allow(&mut self, allowed: Token) -> Result<bool, ParseError> {
@@ -524,7 +516,7 @@ impl<'a> Parser<'a> {
                         let ParseResult {
                             syntax_trees,
                             errors,
-                        } = parser.parse(file_index as usize, head_declaration_id, inner_scope_id);
+                        } = parser.parse(file_index, head_declaration_id, inner_scope_id);
 
                         self.syntax_trees.extend(syntax_trees);
                         self.errors.extend(errors);
@@ -693,12 +685,12 @@ impl<'a> Parser<'a> {
             TypeId::NONE
         };
         let end = self.previous_span.1;
-        let function_type = TypeNode::Function {
+        let function_type = FunctionTypeNode {
             type_parameters: (0, 0),
             value_parameters: type_children,
             return_type,
         };
-        let function_type_id = self.resolver.add_type(function_type);
+        let function_type_id = self.resolver.add_type(TypeNode::Function(function_type));
         let node = SyntaxNode {
             kind: SyntaxKind::FunctionSignature,
             span: Span(start, end),
@@ -1458,10 +1450,16 @@ impl<'a> Parser<'a> {
                 id: function_node_id,
             },
         )?;
-        let function_node_type = self.resolver.get_type_node(TypeId(function_node.payload));
         let start = function_node.span.0;
 
-        if !matches!(function_node_type, Some(TypeNode::Function { .. })) {
+        let function_node_type = self
+            .resolver
+            .get_type_node(TypeId(function_node.payload))
+            .ok_or(ParseError::MissingType {
+                id: TypeId(function_node.payload),
+            })?;
+
+        if !matches!(function_node_type, TypeNode::Function { .. }) {
             return Err(ParseError::ExpectedFunction {
                 found: function_node.kind,
                 position: Position::new(self.current_syntax_tree.file_index, function_node.span),
@@ -1522,13 +1520,11 @@ impl<'a> Parser<'a> {
             self.allow(Token::Comma)?;
         }
 
+        let children = self.current_syntax_tree.push_children(&children);
         let call_value_arguments_node = SyntaxNode {
             kind: SyntaxKind::CallValueArguments,
             span: Span(function_node.span.1, self.previous_span.1),
-            children: (
-                self.current_syntax_tree.children.len() as u32,
-                children.len() as u32,
-            ),
+            children,
             payload: 0,
         };
         let function_type_node = self
@@ -1536,14 +1532,12 @@ impl<'a> Parser<'a> {
             .get_type_node(TypeId(function_node.payload))
             .ok_or(ParseError::MissingType {
                 id: TypeId(function_node.payload),
-            })?;
-        let TypeNode::Function { return_type, .. } = function_type_node else {
-            return Err(ParseError::ExpectedFunction {
+            })?
+            .as_function()
+            .ok_or(ParseError::ExpectedFunction {
                 found: function_node.kind,
                 position: Position::new(self.current_syntax_tree.file_index, function_node.span),
-            });
-        };
-
+            })?;
         let call_value_arguments_id = self
             .current_syntax_tree
             .push_node(call_value_arguments_node);
@@ -1552,11 +1546,10 @@ impl<'a> Parser<'a> {
             kind: SyntaxKind::CallExpression,
             span: Span(start, end),
             children: (function_node_id.0, call_value_arguments_id.0),
-            payload: return_type.0,
+            payload: function_type_node.return_type.0,
         };
 
         self.current_syntax_tree.push_node(node);
-        self.current_syntax_tree.children.extend(children);
 
         Ok(())
     }

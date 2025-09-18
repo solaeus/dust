@@ -54,7 +54,6 @@ impl ConstantTable {
             if *tag == OperandType::STRING {
                 let start = (*payload >> 32) as usize;
                 let end = (*payload & 0xFFFFFFFF) as usize;
-
                 let string = match &self.string_pool {
                     StringPool::Building(pool) => &pool[start..end],
                     StringPool::Finalized(pool) => &pool[start..end],
@@ -96,7 +95,7 @@ impl ConstantTable {
     pub fn get_character(&self, index: u16) -> Option<char> {
         let payload = *self.payloads.get_index(index as usize)?.1;
 
-        std::char::from_u32(payload as u32)
+        char::from_u32(payload as u32)
     }
 
     pub fn add_float(&mut self, float: f64) -> u16 {
@@ -108,7 +107,6 @@ impl ConstantTable {
 
             hasher.finish()
         };
-
         let (index, found) = self.payloads.insert_full(hash, payload);
 
         if found.is_none() {
@@ -125,7 +123,6 @@ impl ConstantTable {
     }
 
     pub fn add_integer(&mut self, integer: i64) -> u16 {
-        let payload = integer as u64;
         let hash = {
             let mut hasher = FxHasher::default();
 
@@ -133,7 +130,7 @@ impl ConstantTable {
 
             hasher.finish()
         };
-
+        let payload = u64::from_le_bytes(integer.to_le_bytes());
         let (index, found) = self.payloads.insert_full(hash, payload);
 
         if found.is_none() {
@@ -146,7 +143,9 @@ impl ConstantTable {
     pub fn get_integer(&self, index: u16) -> Option<i64> {
         let payload = *self.payloads.get_index(index as usize)?.1;
 
-        Some(payload as i64)
+        debug_assert!(self.tags[index as usize] == OperandType::INTEGER);
+
+        Some(i64::from_le_bytes(payload.to_le_bytes()))
     }
 
     pub fn add_string(&mut self, string: &str) -> (u32, u32) {

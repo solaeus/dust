@@ -9,7 +9,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph, Row, Table, Tabs, Widget, Wrap},
 };
 
-use crate::{Chunk, Source, dust_crate::Program, source::SourceFile};
+use crate::{Chunk, Source, Type, dust_crate::Program, source::SourceFile};
 
 pub struct TuiDisassembler<'a> {
     program: &'a Program,
@@ -106,7 +106,7 @@ impl<'a> TuiDisassembler<'a> {
         paragraph.render(inner_area, buffer);
     }
 
-    fn draw_chunk_tab(&self, chunk: &Chunk, area: Rect, buffer: &mut Buffer) {
+    fn draw_chunk_tab(&self, index: usize, chunk: &Chunk, area: Rect, buffer: &mut Buffer) {
         let block = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Thick);
@@ -143,7 +143,7 @@ impl<'a> TuiDisassembler<'a> {
             _,
         ] = areas.areas(inner_area);
 
-        Paragraph::new(format!("proto_{}", chunk.prototype_index))
+        Paragraph::new(format!("proto_{}", index))
             .centered()
             .wrap(Wrap { trim: true })
             .render(prototype_area, buffer);
@@ -157,7 +157,13 @@ impl<'a> TuiDisassembler<'a> {
         .wrap(Wrap { trim: true })
         .render(info_area, buffer);
 
-        Paragraph::new(format!("{}", chunk.r#type))
+        let chunk_type = self
+            .program
+            .resolver
+            .resolve_type(chunk.r#type)
+            .unwrap_or(Type::None);
+
+        Paragraph::new(chunk_type.to_string())
             .centered()
             .wrap(Wrap { trim: true })
             .render(type_area, buffer);
@@ -326,9 +332,14 @@ impl Widget for &TuiDisassembler<'_> {
             .wrap(Wrap { trim: true })
             .render(program_name_area, buffer);
 
+        let main_chunk_type = self
+            .program
+            .resolver
+            .resolve_type(main_chunk.r#type)
+            .unwrap_or(Type::None);
+
         Paragraph::new(format!(
-            "main function type: {} ({} other prototypes)",
-            main_chunk.r#type,
+            "main function type: {main_chunk_type} ({} other prototypes)",
             self.program.prototypes.len() - 1,
         ))
         .centered()
@@ -341,14 +352,18 @@ impl Widget for &TuiDisassembler<'_> {
             .render(chunk_tabs_header_area, buffer);
 
         if self.selected_tab < self.source.len() {
-            let source_file = self.source.get_file(self.selected_tab).unwrap().clone();
+            let source_file = self
+                .source
+                .get_file(self.selected_tab as u32)
+                .unwrap()
+                .clone();
 
             self.draw_source_tab(source_file, tab_content_area, buffer);
         } else {
             let chunk_index = self.selected_tab - self.source.len();
             let chunk = &self.program.prototypes[chunk_index];
 
-            self.draw_chunk_tab(chunk, tab_content_area, buffer);
+            self.draw_chunk_tab(chunk_index, chunk, tab_content_area, buffer);
         }
     }
 }

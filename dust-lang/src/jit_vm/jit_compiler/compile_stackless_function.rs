@@ -161,6 +161,18 @@ pub fn compile_stackless_function(
         )?
     };
 
+    let log_integer_function = {
+        let mut log_integer_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        log_integer_signature.params.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "log_integer",
+            log_integer_signature,
+        )?
+    };
+
     let bytecode_instructions = &chunk.instructions;
     let instruction_count = bytecode_instructions.len();
 
@@ -211,6 +223,18 @@ pub fn compile_stackless_function(
         thread_context,
         offset_of!(ThreadContext, register_stack_used_length_pointer) as i32,
     );
+
+    let register_count = function_builder
+        .ins()
+        .iconst(I64, chunk.register_count as i64);
+
+    function_builder.ins().store(
+        MemFlags::new(),
+        register_count,
+        register_stack_used_length_pointer,
+        0,
+    );
+
     let register_stack_used_length =
         function_builder
             .ins()
@@ -829,7 +853,7 @@ pub fn compile_stackless_function(
                 let callee_function_reference = compiler
                     .module
                     .declare_func_in_func(*direct, function_builder.func);
-                let argument_count = compiler
+                let callee_function_type_id = compiler
                     .program
                     .prototypes
                     .get(prototype_index as usize)
@@ -838,23 +862,34 @@ pub fn compile_stackless_function(
                         function_index: prototype_index,
                         total_function_count: compiler.program.prototypes.len(),
                     })?
-                    .r#type
-                    .value_parameters
-                    .len();
+                    .r#type;
+                let callee_function_type = compiler
+                    .program
+                    .resolver
+                    .get_type_node(callee_function_type_id)
+                    .ok_or(JitError::TypeIndexOutOfBounds {
+                        type_id: callee_function_type_id,
+                        total_type_count: compiler.program.resolver.type_count(),
+                    })?
+                    .as_function()
+                    .ok_or(JitError::ExpectedFunctionType {
+                        type_id: callee_function_type_id,
+                    })?;
+                let argument_count = callee_function_type.value_parameters.1 as usize;
+
+                let arguments_index = arguments_index as usize;
                 let arguments_range =
-                    arguments_index as usize..(arguments_index as usize + argument_count);
+                    arguments_index..((arguments_index + argument_count).saturating_sub(1));
 
                 let call_arguments_list = chunk.call_arguments.get(arguments_range).ok_or(
                     JitError::ArgumentsRangeOutOfBounds {
-                        arguments_list_start: arguments_index,
-                        arguments_list_end: arguments_index + argument_count as u16,
+                        arguments_list_start: arguments_index as u16,
+                        arguments_list_end: arguments_index as u16 + argument_count as u16,
                         total_argument_count: chunk.call_arguments.len(),
                     },
                 )?;
                 let mut arguments =
                     SmallVec::<[CraneliftValue; 4]>::with_capacity(call_arguments_list.len() + 1);
-
-                arguments.push(thread_context);
 
                 for (address, r#type) in call_arguments_list {
                     let argument_value = match *r#type {
@@ -876,8 +911,14 @@ pub fn compile_stackless_function(
                         }
                     };
 
+                    function_builder
+                        .ins()
+                        .call(log_integer_function, &[argument_value]);
+
                     arguments.push(argument_value);
                 }
+
+                arguments.push(thread_context);
 
                 let call_instruction = function_builder
                     .ins()

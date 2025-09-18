@@ -25,13 +25,21 @@ pub fn compile_direct_function(
     let mut compilation_context = compiler.module.make_context();
     let pointer_type = compiler.module.target_config().pointer_type();
 
-    compilation_context
-        .func
-        .signature
-        .params
-        .push(AbiParam::new(pointer_type));
+    let chunk_type = compiler
+        .program
+        .resolver
+        .get_type_node(chunk.r#type)
+        .ok_or(JitError::TypeIndexOutOfBounds {
+            type_id: chunk.r#type,
+            total_type_count: compiler.program.resolver.type_count(),
+        })?
+        .as_function()
+        .ok_or(JitError::ExpectedFunctionType {
+            type_id: chunk.r#type,
+        })?;
+    let value_parameter_count = chunk_type.value_parameters.1 as usize;
 
-    for _ in 0..chunk.r#type.value_parameters.len() {
+    for _ in 0..value_parameter_count {
         compilation_context
             .func
             .signature
@@ -39,6 +47,11 @@ pub fn compile_direct_function(
             .push(AbiParam::new(I64));
     }
 
+    compilation_context
+        .func
+        .signature
+        .params
+        .push(AbiParam::new(pointer_type));
     compilation_context
         .func
         .signature
@@ -127,9 +140,10 @@ pub fn compile_direct_function(
     function_builder.switch_to_block(function_entry_block);
     function_builder.append_block_params_for_function_params(function_entry_block);
 
-    let thread_context = function_builder.block_params(function_entry_block)[0];
+    let entry_block_params = function_builder.block_params(function_entry_block);
+    let thread_context = *entry_block_params.last().unwrap();
 
-    let function_arguments = function_builder.block_params(function_entry_block)[1..].to_vec();
+    let function_arguments = entry_block_params[..entry_block_params.len() - 1].to_vec();
     let mut ssa_registers = vec![CraneliftValue::from_u32(0); chunk.register_count as usize];
 
     for (index, argument) in function_arguments.iter().enumerate() {
@@ -348,7 +362,7 @@ pub fn compile_direct_function(
                 let callee_function_reference = compiler
                     .module
                     .declare_func_in_func(*direct, function_builder.func);
-                let arguments_count = compiler
+                let callee_function_type_id = compiler
                     .program
                     .prototypes
                     .get(prototype_index as usize)
@@ -357,9 +371,20 @@ pub fn compile_direct_function(
                         function_index: prototype_index,
                         total_function_count: compiler.program.prototypes.len(),
                     })?
-                    .r#type
-                    .value_parameters
-                    .len();
+                    .r#type;
+                let callee_function_type = compiler
+                    .program
+                    .resolver
+                    .get_type_node(callee_function_type_id)
+                    .ok_or(JitError::TypeIndexOutOfBounds {
+                        type_id: callee_function_type_id,
+                        total_type_count: compiler.program.resolver.type_count(),
+                    })?
+                    .as_function()
+                    .ok_or(JitError::ExpectedFunctionType {
+                        type_id: callee_function_type_id,
+                    })?;
+                let arguments_count = callee_function_type.value_parameters.1 as usize;
                 let arguments_range =
                     arguments_index as usize..(arguments_index as usize + arguments_count);
 
@@ -370,7 +395,7 @@ pub fn compile_direct_function(
                         total_argument_count: chunk.call_arguments.len(),
                     },
                 )?;
-                let mut arguments = Vec::with_capacity(call_arguments_list.len() + 3);
+                let mut arguments = Vec::with_capacity(call_arguments_list.len() + 1);
 
                 for (address, r#type) in call_arguments_list {
                     let argument_value = match *r#type {
@@ -393,6 +418,8 @@ pub fn compile_direct_function(
 
                     arguments.push(argument_value);
                 }
+
+                arguments.push(thread_context);
 
                 let call_instruction = function_builder
                     .ins()

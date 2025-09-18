@@ -30,6 +30,7 @@ use crate::{
         call_stack::{get_frame_function_index, push_call_frame},
         thread::ThreadContext,
     },
+    resolver::TypeNode,
 };
 
 const ERROR_REPLACEMENT_STR: &str = "<dust_vm_error>";
@@ -100,14 +101,21 @@ impl<'a> JitCompiler<'a> {
             let name = &chunk.name;
             let direct_name = format!("{name}_direct");
             let stackless_name = format!("{name}_stackless");
+
+            let Some(TypeNode::Function(chunk_type)) =
+                self.program.resolver.get_type_node(chunk.r#type)
+            else {
+                unreachable!("Chunk's type should always be a function type");
+            };
+            let value_parameters_count = chunk_type.value_parameters.1 as usize;
+
             let mut direct_signature = Signature::new(self.module.isa().default_call_conv());
 
-            direct_signature.params.push(AbiParam::new(pointer_type));
-
-            for _ in 0..chunk.r#type.value_parameters.len() {
+            for _ in 0..value_parameters_count {
                 direct_signature.params.push(AbiParam::new(I64));
             }
 
+            direct_signature.params.push(AbiParam::new(pointer_type));
             direct_signature.returns.push(AbiParam::new(I64));
 
             let direct_function_id = self
@@ -220,7 +228,7 @@ impl<'a> JitCompiler<'a> {
                 offset_of!(ThreadContext, call_stack_buffer_pointer) as i32,
             );
             let call_stack_used_length_pointer = function_builder.ins().load(
-                I64,
+                pointer_type,
                 MemFlags::new(),
                 thread_context,
                 offset_of!(ThreadContext, call_stack_used_length_pointer) as i32,
@@ -485,4 +493,4 @@ enum FunctionIds {
     Other { direct: FuncId, stackless: FuncId },
 }
 
-pub type JitLogic = fn(&mut ThreadContext) -> ThreadResult;
+pub type JitLogic = extern "C" fn(&mut ThreadContext) -> ThreadResult;

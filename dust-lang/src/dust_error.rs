@@ -104,5 +104,5 @@ impl Display for DustError {
 
 pub trait AnnotatedError {
     fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a>;
-    fn file_index(&self) -> usize;
+    fn file_index(&self) -> u32;
 }

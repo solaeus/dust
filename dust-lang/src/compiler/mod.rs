@@ -45,7 +45,7 @@ pub fn compile_main(source_code: &str) -> Result<Chunk, DustError> {
     let chunk_compiler = ChunkCompiler::new(
         &syntax_trees,
         syntax_trees.get(&DeclarationId::MAIN).unwrap(),
-        &resolver,
+        &mut resolver,
         &mut constants,
         &source,
         source_file,
@@ -79,8 +79,7 @@ impl Compiler {
     pub fn compile(mut self, mut resolver: Resolver) -> Result<Program, DustError> {
         let program_name = self.source.program_name();
 
-        for file_index in 1..self.source.len() {
-            let SourceFile { name, .. } = self.source.get_file(file_index).unwrap();
+        for (index, file) in self.source.files().iter().enumerate().skip(1) {
             let file_scope = Scope {
                 kind: ScopeKind::Module,
                 parent: ScopeId::MAIN,
@@ -96,8 +95,8 @@ impl Compiler {
                 ScopeId::MAIN,
                 TypeId::NONE,
                 true,
-                name,
-                Position::new(file_index as u32, Span::default()),
+                &file.name,
+                Position::new(index as u32, Span::default()),
             );
 
             resolver.add_module_to_scope(ScopeId::MAIN, module_id);
@@ -142,7 +141,7 @@ impl Compiler {
         let chunk_compiler = ChunkCompiler::new(
             &self.file_trees,
             self.file_trees.get(&DeclarationId::MAIN).unwrap(),
-            &resolver,
+            &mut resolver,
             &mut constants,
             &self.source,
             source_file.clone(),
@@ -167,6 +166,7 @@ impl Compiler {
             name: program_name,
             constants,
             prototypes,
+            resolver,
         })
     }
 }

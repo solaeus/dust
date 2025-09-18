@@ -2,12 +2,15 @@ use std::collections::HashMap;
 
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
+use smallvec::SmallVec;
 use tracing::{Level, debug, info, span};
 
 use crate::{
-    Address, Chunk, CompileError, ConstantTable, FunctionType, Instruction, NativeFunction,
-    OperandType, Operation, Position, Resolver, Source, Type,
-    resolver::{DeclarationId, DeclarationKind, ScopeId, ScopeKind, TypeId, TypeNode},
+    Address, Chunk, CompileError, ConstantTable, Instruction, NativeFunction, OperandType,
+    Operation, Position, Resolver, Source, Type,
+    resolver::{
+        DeclarationId, DeclarationKind, FunctionTypeNode, ScopeId, ScopeKind, TypeId, TypeNode,
+    },
     source::SourceFile,
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
@@ -23,7 +26,7 @@ pub struct ChunkCompiler<'a> {
     syntax_trees: &'a HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
 
     /// Global context for declaration, scope and type resolution.
-    resolver: &'a Resolver,
+    resolver: &'a mut Resolver,
 
     /// Target source code file for compilation by this chunk compiler.
     source_file: SourceFile,
@@ -44,9 +47,9 @@ pub struct ChunkCompiler<'a> {
     /// Concatenated list of register indexes that are referenced by DROP instructions.
     drop_lists: Vec<u16>,
 
-    /// Apparent return type of the function being compiled. This field is modified during
-    /// compilation to reflect the actual return type of the function.
-    return_type: TypeId,
+    /// Type of the function being compiled. This field is modified when emitting RETURN
+    /// instructions. Subsequent RETURN instructions must match the type of the function.
+    r#type: FunctionTypeNode,
 
     /// Local variables declared in the function being compiled.
     locals: HashMap<DeclarationId, Local, FxBuildHasher>,
@@ -59,7 +62,7 @@ impl<'a> ChunkCompiler<'a> {
     pub fn new(
         syntax_trees: &'a HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
         syntax_tree: &'a SyntaxTree,
-        resolver: &'a Resolver,
+        resolver: &'a mut Resolver,
         constants: &'a mut ConstantTable,
         source: &'a Source,
         source_file: SourceFile,
@@ -76,7 +79,11 @@ impl<'a> ChunkCompiler<'a> {
             instructions: Vec::new(),
             call_arguments: Vec::new(),
             drop_lists: Vec::new(),
-            return_type: TypeId::NONE,
+            r#type: FunctionTypeNode {
+                type_parameters: (0, 0),
+                value_parameters: (0, 0),
+                return_type: TypeId::NONE,
+            },
             locals: HashMap::default(),
             minimum_register: 0,
         }
@@ -92,28 +99,24 @@ impl<'a> ChunkCompiler<'a> {
             .ok_or(CompileError::MissingSyntaxNode { id: SyntaxId(0) })?;
 
         self.compile_item(&root_node)?;
-        self.finish()
+        self.finish((0, 0))
     }
 
-    pub fn finish(mut self) -> Result<Chunk, CompileError> {
-        let return_type =
-            self.resolver
-                .resolve_type(self.return_type)
-                .ok_or(CompileError::MissingType {
-                    type_id: self.return_type,
-                })?;
-        let register_count = self.get_next_register();
-
+    pub fn finish(mut self, value_parameters: (u32, u32)) -> Result<Chunk, CompileError> {
         self.constants.finalize_string_pool();
+
+        self.r#type.value_parameters = value_parameters;
+
+        let r#type = self.resolver.add_type(TypeNode::Function(self.r#type));
+        let register_count = self.get_next_register();
 
         Ok(Chunk {
             name: self.source_file.name.clone(),
-            r#type: FunctionType::new([], [], return_type),
+            r#type,
             instructions: self.instructions,
             call_arguments: self.call_arguments,
             drop_lists: self.drop_lists,
             register_count,
-            prototype_index: 0,
             is_recursive: false,
         })
     }
@@ -490,7 +493,7 @@ impl<'a> ChunkCompiler<'a> {
                 };
                 let source_file = self
                     .source
-                    .get_file(import_declaration.identifier_position.file_index as usize)
+                    .get_file(import_declaration.identifier_position.file_index)
                     .ok_or(CompileError::MissingSourceFile {
                         file_index: file_tree.file_index,
                     })?
@@ -677,6 +680,26 @@ impl<'a> ChunkCompiler<'a> {
                 id: function_expression_id,
             },
         )?;
+
+        if self.locals.contains_key(&declaration_id) {
+            let declaration = self
+                .resolver
+                .get_declaration(declaration_id)
+                .ok_or(CompileError::MissingDeclaration { declaration_id })?;
+            let identifier = &self
+                .source
+                .get_file(declaration.identifier_position.file_index)
+                .ok_or(CompileError::MissingSourceFile {
+                    file_index: declaration.identifier_position.file_index,
+                })?
+                .source_code[declaration.identifier_position.span.as_usize_range()];
+
+            return Err(CompileError::DuplicateFunctionDeclaration {
+                identifier: identifier.to_string(),
+                first_position: declaration.identifier_position,
+                second_position: Position::new(self.syntax_tree.file_index, node.span),
+            });
+        }
 
         let Emission::Constant(Constant::Function {
             prototype_index, ..
@@ -1433,14 +1456,13 @@ impl<'a> ChunkCompiler<'a> {
 
         let function_signature_id = SyntaxId(node.children.0);
         let block_id = SyntaxId(node.children.1);
+        let function_type_id = TypeId(node.payload);
+
         let function_signature_node = *self.syntax_tree.get_node(function_signature_id).ok_or(
             CompileError::MissingSyntaxNode {
                 id: function_signature_id,
             },
         )?;
-
-        debug_assert_eq!(function_signature_node.kind, SyntaxKind::FunctionSignature);
-
         let value_parameters_node_id = function_signature_node.children.0;
         let value_parameters_node = *self
             .syntax_tree
@@ -1458,15 +1480,6 @@ impl<'a> ChunkCompiler<'a> {
             .syntax_tree
             .get_node(block_id)
             .ok_or(CompileError::MissingSyntaxNode { id: block_id })?;
-        let function_type_id = TypeId(node.payload);
-        let Some(TypeNode::Function {
-            value_parameters, ..
-        }) = self.resolver.get_type_node(function_type_id)
-        else {
-            return Err(CompileError::MissingType {
-                type_id: function_type_id,
-            });
-        };
         let Some(value_parameter_nodes) = self
             .syntax_tree
             .get_children(
@@ -1477,7 +1490,7 @@ impl<'a> ChunkCompiler<'a> {
         else {
             return Err(CompileError::MissingChild {
                 parent_kind: function_signature_node.kind,
-                child_index: value_parameters.0,
+                child_index: self.r#type.value_parameters.0,
             });
         };
         let mut function_compiler = ChunkCompiler::new(
@@ -1490,23 +1503,37 @@ impl<'a> ChunkCompiler<'a> {
             self.prototypes,
         );
 
+        let mut value_parameter_types =
+            SmallVec::<[TypeId; 4]>::with_capacity(value_parameter_nodes.len());
+
         for syntax_id in value_parameter_nodes {
             let parameter_node = *self
                 .syntax_tree
                 .get_node(syntax_id)
                 .ok_or(CompileError::MissingSyntaxNode { id: syntax_id })?;
             let parameter_declaration_id = DeclarationId(parameter_node.payload);
+            let r#type = function_compiler
+                .resolver
+                .get_declaration(parameter_declaration_id)
+                .ok_or(CompileError::MissingDeclaration {
+                    declaration_id: parameter_declaration_id,
+                })?
+                .type_id;
             let register = function_compiler.get_next_register();
             function_compiler.minimum_register += 1;
 
             function_compiler
                 .locals
                 .insert(parameter_declaration_id, Local { location: register });
+            value_parameter_types.push(r#type);
         }
 
         function_compiler.compile_implicit_return(&body_node)?;
 
-        let function_chunk = function_compiler.finish()?;
+        let value_parameter_types = function_compiler
+            .resolver
+            .push_type_members(&value_parameter_types);
+        let function_chunk = function_compiler.finish(value_parameter_types)?;
         let prototype_index = self.prototypes.len() as u16;
 
         self.prototypes.insert(declaration_id, function_chunk);
@@ -1522,6 +1549,8 @@ impl<'a> ChunkCompiler<'a> {
             compiler: &mut ChunkCompiler,
             arguments_node: &SyntaxNode,
         ) -> Result<(), CompileError> {
+            debug_assert_eq!(arguments_node.kind, SyntaxKind::CallValueArguments);
+
             let children = compiler
                 .syntax_tree
                 .get_children(arguments_node.children.0, arguments_node.children.1)
@@ -1631,23 +1660,23 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn compile_implicit_return(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
-        if node.kind.is_item() {
+        let (return_instruction, return_type) = if node.kind.is_item() {
             self.compile_item(node)?;
 
-            let return_instruction =
-                Instruction::r#return(false, Address::default(), OperandType::NONE);
-
-            self.instructions.push(return_instruction);
+            (
+                Instruction::r#return(false, Address::default(), OperandType::NONE),
+                TypeId::NONE,
+            )
         } else if node.kind.is_statement() {
             self.compile_statement(node)?;
 
-            let return_instruction =
-                Instruction::r#return(false, Address::default(), OperandType::NONE);
-
-            self.instructions.push(return_instruction);
+            (
+                Instruction::r#return(false, Address::default(), OperandType::NONE),
+                TypeId::NONE,
+            )
         } else {
             let return_emission = self.compile_expression(node)?;
-            let (return_operand, return_type, return_operand_type) = match return_emission {
+            let (return_operand, return_operand_type) = match return_emission {
                 Emission::Instruction(instruction, r#type) => {
                     let operand_type = self
                         .resolver
@@ -1665,7 +1694,7 @@ impl<'a> ChunkCompiler<'a> {
                         self.instructions.pop();
                     }
 
-                    (return_operand, r#type, operand_type)
+                    (return_operand, operand_type)
                 }
                 Emission::Instructions(instructions, r#type) => {
                     let last_instruction = instructions.last().unwrap();
@@ -1677,40 +1706,41 @@ impl<'a> ChunkCompiler<'a> {
 
                     self.instructions.extend(instructions.iter());
 
-                    (last_instruction.destination(), r#type, operand_type)
+                    (last_instruction.destination(), operand_type)
                 }
                 Emission::Constant(constant) => {
-                    let (r#type, operand_type) = match constant {
-                        Constant::Boolean(_) => (TypeId::BOOLEAN, OperandType::BOOLEAN),
-                        Constant::Byte(_) => (TypeId::BYTE, OperandType::BYTE),
-                        Constant::Character(_) => (TypeId::CHARACTER, OperandType::CHARACTER),
-                        Constant::Float(_) => (TypeId::FLOAT, OperandType::FLOAT),
-                        Constant::Integer(_) => (TypeId::INTEGER, OperandType::INTEGER),
-                        Constant::String { .. } => (TypeId::STRING, OperandType::STRING),
-                        Constant::Function { type_id, .. } => (type_id, OperandType::FUNCTION),
-                        Constant::NativeFunction { type_id, .. } => {
-                            (type_id, OperandType::FUNCTION)
-                        }
-                    };
+                    let operand_type = constant.operand_type();
                     let address = self.get_constant_address(constant);
                     let destination = Address::register(self.get_next_register());
                     let instruction = Instruction::load(destination, address, operand_type, false);
                     let return_operand = self.handle_operand(instruction);
 
-                    (return_operand, r#type, operand_type)
+                    (return_operand, operand_type)
                 }
-                Emission::None => (Address::default(), TypeId::NONE, OperandType::NONE),
+                Emission::None => (Address::default(), OperandType::NONE),
             };
 
-            self.return_type = return_type;
-            let return_instruction = Instruction::r#return(
-                return_operand_type != OperandType::NONE,
-                return_operand,
-                return_operand_type,
-            );
+            (
+                Instruction::r#return(
+                    return_operand_type != OperandType::NONE,
+                    return_operand,
+                    return_operand_type,
+                ),
+                TypeId(node.payload),
+            )
+        };
 
-            self.instructions.push(return_instruction);
+        if self
+            .instructions
+            .last()
+            .is_some_and(|instruction| instruction.operation() == Operation::RETURN)
+        {
+            return Ok(());
         }
+
+        self.r#type.return_type = return_type;
+
+        self.instructions.push(return_instruction);
 
         Ok(())
     }

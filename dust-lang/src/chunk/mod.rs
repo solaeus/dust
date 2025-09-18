@@ -13,12 +13,9 @@ mod tui_disassembler;
 // pub use disassembler::Disassembler;
 pub use tui_disassembler::TuiDisassembler;
 
-use std::{
-    fmt::{Debug, Display},
-    sync::Arc,
-};
+use std::{fmt::Debug, sync::Arc};
 
-use crate::{Address, FunctionType, Instruction, OperandType};
+use crate::{Address, Instruction, OperandType, resolver::TypeId};
 
 /// Representation of a Dust program or function.
 ///
@@ -26,19 +23,12 @@ use crate::{Address, FunctionType, Instruction, OperandType};
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Chunk {
     pub(crate) name: Arc<String>,
-    pub(crate) r#type: FunctionType,
+    pub(crate) r#type: TypeId,
 
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) call_arguments: Vec<(Address, OperandType)>,
     pub(crate) drop_lists: Vec<u16>,
 
     pub(crate) register_count: u16,
-    pub(crate) prototype_index: u16,
     pub(crate) is_recursive: bool,
-}
-
-impl Display for Chunk {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.r#type)
-    }
 }

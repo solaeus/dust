@@ -22,6 +22,11 @@ pub enum CompileError {
         node_kind: SyntaxKind,
         position: Position,
     },
+    DuplicateFunctionDeclaration {
+        identifier: String,
+        first_position: Position,
+        second_position: Position,
+    },
     ExpectedItem {
         node_kind: SyntaxKind,
         position: Position,
@@ -80,16 +85,19 @@ pub enum CompileError {
 }
 
 impl AnnotatedError for CompileError {
-    fn file_index(&self) -> usize {
+    fn file_index(&self) -> u32 {
         match self {
-            CompileError::InvalidEncodedConstant { position, .. } => position.file_index as usize,
-            CompileError::InvalidNativeFunction { position, .. } => position.file_index as usize,
-            CompileError::DivisionByZero { position, .. } => position.file_index as usize,
-            CompileError::ExpectedItem { position, .. } => position.file_index as usize,
-            CompileError::ExpectedStatement { position, .. } => position.file_index as usize,
-            CompileError::ExpectedExpression { position, .. } => position.file_index as usize,
-            CompileError::ExpectedFunction { position, .. } => position.file_index as usize,
-            CompileError::ExpectedFunctionBody { position, .. } => position.file_index as usize,
+            CompileError::InvalidEncodedConstant { position, .. } => position.file_index,
+            CompileError::InvalidNativeFunction { position, .. } => position.file_index,
+            CompileError::DivisionByZero { position, .. } => position.file_index,
+            CompileError::DuplicateFunctionDeclaration {
+                second_position, ..
+            } => second_position.file_index,
+            CompileError::ExpectedItem { position, .. } => position.file_index,
+            CompileError::ExpectedStatement { position, .. } => position.file_index,
+            CompileError::ExpectedExpression { position, .. } => position.file_index,
+            CompileError::ExpectedFunction { position, .. } => position.file_index,
+            CompileError::ExpectedFunctionBody { position, .. } => position.file_index,
             CompileError::MissingChild { .. } => 0,
             CompileError::MissingConstant { .. } => 0,
             CompileError::MissingDeclaration { .. } => 0,
@@ -98,7 +106,7 @@ impl AnnotatedError for CompileError {
             CompileError::MissingType { .. } => 0,
             CompileError::MissingScope { .. } => 0,
             CompileError::MissingPrototype { .. } => 0,
-            CompileError::MissingSourceFile { file_index } => *file_index as usize,
+            CompileError::MissingSourceFile { file_index } => *file_index,
             CompileError::MissingSyntaxTree { .. } => 0,
             CompileError::MissingPayloads { .. } => 0,
         }
@@ -147,6 +155,26 @@ impl AnnotatedError for CompileError {
                             .label(format!("Found {node_kind} that divides by zero here")),
                     ),
                 )
+            }
+            CompileError::DuplicateFunctionDeclaration {
+                identifier,
+                first_position,
+                second_position,
+            } => {
+                let title = format!("Duplicate function declaration: {identifier}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).elements(vec![
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(second_position.span.as_usize_range())
+                            .label("Duplicate declaration found here".to_string()),
+                    ),
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Context
+                            .span(first_position.span.as_usize_range())
+                            .label("First declaration found here".to_string()),
+                    ),
+                ])
             }
             CompileError::ExpectedItem {
                 node_kind,

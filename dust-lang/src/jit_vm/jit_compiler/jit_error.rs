@@ -1,14 +1,21 @@
 use annotate_snippets::{Group, Level};
 use cranelift_module::ModuleError;
 
-use crate::{MemoryKind, OperandType, Operation, dust_error::AnnotatedError};
+use crate::{MemoryKind, OperandType, Operation, dust_error::AnnotatedError, resolver::TypeId};
 
 #[derive(Debug)]
 pub enum JitError {
+    // Cranelift errors
     CompilationError {
         message: String,
         cranelift_ir: String,
     },
+    CraneliftModuleError {
+        error: Box<ModuleError>,
+        cranelift_ir: String,
+    },
+
+    // Missing and out-of-bounds errors
     UnsupportedOperandType {
         operand_type: OperandType,
     },
@@ -47,14 +54,17 @@ pub enum JitError {
         register_index: u16,
         total_register_count: usize,
     },
-    CraneliftModuleError {
-        error: Box<ModuleError>,
-        cranelift_ir: String,
+    TypeIndexOutOfBounds {
+        type_id: TypeId,
+        total_type_count: usize,
+    },
+    ExpectedFunctionType {
+        type_id: TypeId,
     },
 }
 
 impl AnnotatedError for JitError {
-    fn file_index(&self) -> usize {
+    fn file_index(&self) -> u32 {
         0
     }
 
@@ -156,6 +166,22 @@ impl AnnotatedError for JitError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
                     .element(Level::INFO.message(cranelift_ir))
+            }
+            JitError::TypeIndexOutOfBounds {
+                type_id,
+                total_type_count,
+            } => {
+                let title = format!(
+                    "Type ID {} out of bounds (total types: {})",
+                    type_id.0, total_type_count
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::ExpectedFunctionType { type_id } => {
+                let title = format!("Expected function type for Type ID {}", type_id.0);
+
+                Group::with_title(Level::ERROR.primary_title(title))
             }
         }
     }
