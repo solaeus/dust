@@ -28,7 +28,7 @@ impl<'a> TuiDisassembler<'a> {
         }
 
         for chunk in &program.prototypes {
-            tabs.push(chunk.name.to_string());
+            tabs.push(chunk.get_name(&program.constants).to_string());
         }
 
         Self {

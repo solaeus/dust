@@ -13,16 +13,16 @@ mod tui_disassembler;
 // pub use disassembler::Disassembler;
 pub use tui_disassembler::TuiDisassembler;
 
-use std::{fmt::Debug, sync::Arc};
+use std::fmt::Debug;
 
-use crate::{Address, Instruction, OperandType, resolver::TypeId};
+use crate::{Address, ConstantTable, Instruction, OperandType, resolver::TypeId};
 
 /// Representation of a Dust program or function.
 ///
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Chunk {
-    pub(crate) name: Arc<String>,
+    pub(crate) name_index: Option<u16>,
     pub(crate) r#type: TypeId,
 
     pub(crate) instructions: Vec<Instruction>,
@@ -31,4 +31,16 @@ pub struct Chunk {
 
     pub(crate) register_count: u16,
     pub(crate) is_recursive: bool,
+}
+
+impl Chunk {
+    pub fn get_name<'a>(&self, constants: &'a ConstantTable) -> &'a str {
+        if let Some(name_index) = self.name_index
+            && let Some(name) = constants.get_string(name_index)
+        {
+            name
+        } else {
+            "anonymous"
+        }
+    }
 }

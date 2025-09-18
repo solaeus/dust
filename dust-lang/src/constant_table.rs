@@ -142,7 +142,7 @@ impl ConstantTable {
         Some(i64::from_le_bytes(payload.to_le_bytes()))
     }
 
-    pub fn add_string(&mut self, string: &str) -> (u32, u32) {
+    pub fn add_string(&mut self, string: &str) -> u16 {
         let hash = {
             let mut hasher = FxHasher::default();
 
@@ -152,11 +152,7 @@ impl ConstantTable {
         };
 
         if let Some(existing_index) = self.payloads.get_index_of(&hash) {
-            let payload = self.payloads[existing_index];
-            let start = (payload >> 32) as u32;
-            let end = (payload & 0xFFFFFFFF) as u32;
-
-            (start, end)
+            existing_index as u16
         } else {
             let start = self.string_pool.len();
 
@@ -164,15 +160,24 @@ impl ConstantTable {
 
             let end = self.string_pool.len();
             let payload = (start as u64) << 32 | (end as u64);
+            let index = self.payloads.len() as u16;
 
             self.payloads.insert(hash, payload);
             self.tags.push(OperandType::STRING);
 
-            (start as u32, end as u32)
+            index
         }
     }
 
-    pub fn get_string(&self, index: u16) -> Option<(*const u8, usize)> {
+    pub fn get_string(&self, index: u16) -> Option<&str> {
+        let payload = *self.payloads.get_index(index as usize)?.1;
+        let start = (payload >> 32) as usize;
+        let end = (payload & 0xFFFFFFFF) as usize;
+
+        Some(self.get_string_pool_range(start..end))
+    }
+
+    pub fn get_string_raw_parts(&self, index: u16) -> Option<(*const u8, usize)> {
         let payload = *self.payloads.get_index(index as usize)?.1;
         let start = (payload >> 32) as usize;
         let end = (payload & 0xFFFFFFFF) as usize;

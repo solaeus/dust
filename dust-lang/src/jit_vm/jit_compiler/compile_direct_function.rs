@@ -19,7 +19,10 @@ pub fn compile_direct_function(
     function_id: FuncId,
     chunk: &Chunk,
 ) -> Result<(), JitError> {
-    info!("Compiling direct function {}", &chunk.name);
+    info!(
+        "Compiling direct function {}",
+        chunk.get_name(&compiler.program.constants)
+    );
 
     let mut function_builder_context = FunctionBuilderContext::new();
     let mut compilation_context = compiler.module.make_context();
@@ -556,7 +559,10 @@ pub fn compile_direct_function(
             }
         })?;
 
-    info!("Finished compiling direct function {}", &chunk.name);
+    info!(
+        "Finished compiling direct function {}",
+        chunk.get_name(&compiler.program.constants)
+    );
 
     compiler.module.clear_context(&mut compilation_context);
 
@@ -599,13 +605,12 @@ fn get_string(
     match address.memory {
         MemoryKind::REGISTER => Ok(ssa_registers[address.index as usize]),
         MemoryKind::CONSTANT => {
-            let (string_pointer, string_length) =
-                constants
-                    .get_string(address.index)
-                    .ok_or(JitError::ConstantIndexOutOfBounds {
-                        constant_index: address.index,
-                        total_constant_count: constants.len(),
-                    })?;
+            let (string_pointer, string_length) = constants
+                .get_string_raw_parts(address.index)
+                .ok_or(JitError::ConstantIndexOutOfBounds {
+                    constant_index: address.index,
+                    total_constant_count: constants.len(),
+                })?;
             let string_pointer = function_builder.ins().iconst(I64, string_pointer as i64);
             let string_length = function_builder.ins().iconst(I64, string_length as i64);
             let string_object_pointer = function_builder.ins().call(

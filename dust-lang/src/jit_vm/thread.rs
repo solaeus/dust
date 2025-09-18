@@ -30,7 +30,10 @@ impl Thread {
         minimum_object_heap: usize,
         minimum_object_sweep: usize,
     ) -> Result<Self, JitError> {
-        let name = program.main_chunk().name.to_string();
+        let name = program
+            .main_chunk()
+            .get_name(&program.constants)
+            .to_string();
 
         info!("Spawning thread {name}");
 

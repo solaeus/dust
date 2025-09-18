@@ -28,7 +28,10 @@ pub fn compile_stackless_function(
     is_main: bool,
     compiler: &mut JitCompiler,
 ) -> Result<(), JitError> {
-    info!("Compiling stackless function {}", &chunk.name);
+    info!(
+        "Compiling stackless function {}",
+        chunk.get_name(&compiler.program.constants)
+    );
 
     let mut function_builder_context = FunctionBuilderContext::new();
     let mut compilation_context = compiler.module.make_context();
@@ -1290,7 +1293,10 @@ pub fn compile_stackless_function(
             }
         })?;
 
-    info!("Finished compiling stackless function {}", &chunk.name);
+    info!(
+        "Finished compiling stackless function {}",
+        chunk.get_name(&compiler.program.constants)
+    );
 
     compiler.module.clear_context(&mut compilation_context);
 
@@ -1502,13 +1508,12 @@ fn get_string(
                 .load(I64, MemFlags::new(), register_address, 0)
         }
         MemoryKind::CONSTANT => {
-            let (string_pointer, string_length) =
-                constants
-                    .get_string(address.index)
-                    .ok_or(JitError::ConstantIndexOutOfBounds {
-                        constant_index: address.index,
-                        total_constant_count: constants.len(),
-                    })?;
+            let (string_pointer, string_length) = constants
+                .get_string_raw_parts(address.index)
+                .ok_or(JitError::ConstantIndexOutOfBounds {
+                    constant_index: address.index,
+                    total_constant_count: constants.len(),
+                })?;
             let string_pointer = function_builder.ins().iconst(I64, string_pointer as i64);
             let string_length = function_builder.ins().iconst(I64, string_length as i64);
             let call_allocate_string_instruction = function_builder.ins().call(

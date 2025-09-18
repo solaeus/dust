@@ -109,9 +109,10 @@ impl<'a> ChunkCompiler<'a> {
 
         let r#type = self.resolver.add_type(TypeNode::Function(self.r#type));
         let register_count = self.get_next_register();
+        let name_index = self.constants.add_string(&self.source_file.name);
 
         Ok(Chunk {
-            name: self.source_file.name.clone(),
+            name_index: Some(name_index),
             r#type,
             instructions: self.instructions,
             call_arguments: self.call_arguments,

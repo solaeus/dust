@@ -84,7 +84,11 @@ impl<'a> JitCompiler<'a> {
             if index == 0 {
                 let stackless_function_id = self
                     .module
-                    .declare_function(&chunk.name, Linkage::Local, &stackless_signature)
+                    .declare_function(
+                        chunk.get_name(&self.program.constants),
+                        Linkage::Local,
+                        &stackless_signature,
+                    )
                     .map_err(|error| JitError::CraneliftModuleError {
                         error: Box::new(error),
                         cranelift_ir: context.func.display().to_string(),
@@ -98,7 +102,7 @@ impl<'a> JitCompiler<'a> {
                 continue;
             }
 
-            let name = &chunk.name;
+            let name = chunk.get_name(&self.program.constants);
             let direct_name = format!("{name}_direct");
             let stackless_name = format!("{name}_stackless");
 
