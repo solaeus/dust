@@ -7,9 +7,9 @@
 //! Bits  | Description
 //! ----- | -----------
 //! 0-4   | Operation
-//! 5-6   | Memory kind (for the A field)
-//! 7-8   | Memory kind (for the B field)
-//! 9-10  | Memory kind (for the C field)
+//! 5-6   | Memory kind (for the A field)  ─┐
+//! 7-8   | Memory kind (for the B field)   ├─ D field (for CALL instructions to list argument count)
+//! 9-10  | Memory kind (for the C field)  ─┘
 //! 11-15 | Operand type info
 //! 16-31 | A field (unsigned 16-bit integer), usually the destination index
 //! 32-47 | B field (unsigned 16-bit integer), usually an operand index
@@ -142,6 +142,12 @@ impl Instruction {
         bits_48_to_63 as u16
     }
 
+    pub fn d_field(&self) -> u16 {
+        let bits_5_to_10 = (self.0 >> 5) & 0x3F;
+
+        bits_5_to_10 as u16
+    }
+
     pub fn set_a_field(&mut self, bits: u16) {
         let mut fields = InstructionFields::from(&*self);
         fields.a_field = bits;
@@ -151,6 +157,12 @@ impl Instruction {
     pub fn set_b_field(&mut self, bits: u16) {
         let mut fields = InstructionFields::from(&*self);
         fields.b_field = bits;
+        *self = fields.build();
+    }
+
+    pub fn set_d_field(&mut self, bits: u16) {
+        let mut fields = InstructionFields::from(&*self);
+        fields.d_field = Some(bits);
         *self = fields.build();
     }
 
@@ -361,15 +373,17 @@ impl Instruction {
     }
 
     pub fn call(
-        destination: Address,
+        destination_index: u16,
         prototype_index: u16,
-        arguments_index: u16,
+        arguments_start: u16,
+        argument_count: u16,
         return_type: OperandType,
     ) -> Instruction {
         Instruction::from(Call {
-            destination,
+            destination_index,
             prototype_index,
-            arguments_index,
+            arguments_start,
+            argument_count,
             return_type,
         })
     }
@@ -485,6 +499,7 @@ pub struct InstructionFields {
     pub a_field: u16,
     pub b_field: u16,
     pub c_field: u16,
+    pub d_field: Option<u16>,
 }
 
 impl InstructionFields {
@@ -492,9 +507,16 @@ impl InstructionFields {
         let mut bits = 0_u64;
 
         bits |= self.operation.0 as u64;
-        bits |= (self.a_memory_kind.0 as u64) << 5;
-        bits |= (self.b_memory_kind.0 as u64) << 7;
-        bits |= (self.c_memory_kind.0 as u64) << 9;
+
+        if let Some(d_field) = self.d_field {
+            // Set bits 5-10 to the d_field value
+            bits |= (d_field as u64) << 5;
+        } else {
+            bits |= (self.a_memory_kind.0 as u64) << 5;
+            bits |= (self.b_memory_kind.0 as u64) << 7;
+            bits |= (self.c_memory_kind.0 as u64) << 9;
+        }
+
         bits |= (self.operand_type.0 as u64) << 11;
         bits |= (self.a_field as u64) << 16;
         bits |= (self.b_field as u64) << 32;
@@ -515,6 +537,11 @@ impl From<&Instruction> for InstructionFields {
             a_field: instruction.a_field(),
             b_field: instruction.b_field(),
             c_field: instruction.c_field(),
+            d_field: if instruction.operation() == Operation::CALL {
+                Some(instruction.d_field())
+            } else {
+                None
+            },
         }
     }
 }

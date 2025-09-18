@@ -329,12 +329,11 @@ impl Resolver {
 
     pub fn push_type_members(&mut self, members: &[TypeId]) -> (u32, u32) {
         let start = self.type_members.len() as u32;
+        let count = members.len() as u32;
 
         self.type_members.extend_from_slice(members);
 
-        let end = self.type_members.len() as u32;
-
-        (start, end)
+        (start, count)
     }
 }
 

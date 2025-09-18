@@ -343,9 +343,10 @@ pub fn compile_direct_function(
             }?,
             Operation::CALL => {
                 let Call {
-                    destination,
+                    destination_index,
                     prototype_index,
-                    arguments_index,
+                    arguments_start,
+                    argument_count,
                     return_type: _,
                 } = Call::from(*current_instruction);
                 let callee_function_ids = compiler
@@ -362,36 +363,13 @@ pub fn compile_direct_function(
                 let callee_function_reference = compiler
                     .module
                     .declare_func_in_func(*direct, function_builder.func);
-                let callee_function_type_id = compiler
-                    .program
-                    .prototypes
-                    .get(prototype_index as usize)
-                    .ok_or(JitError::FunctionIndexOutOfBounds {
-                        ip,
-                        function_index: prototype_index,
-                        total_function_count: compiler.program.prototypes.len(),
-                    })?
-                    .r#type;
-                let callee_function_type = compiler
-                    .program
-                    .resolver
-                    .get_type_node(callee_function_type_id)
-                    .ok_or(JitError::TypeIndexOutOfBounds {
-                        type_id: callee_function_type_id,
-                        total_type_count: compiler.program.resolver.type_count(),
-                    })?
-                    .as_function()
-                    .ok_or(JitError::ExpectedFunctionType {
-                        type_id: callee_function_type_id,
-                    })?;
-                let arguments_count = callee_function_type.value_parameters.1 as usize;
-                let arguments_range =
-                    arguments_index as usize..(arguments_index as usize + arguments_count);
+                let arguments_end = arguments_start + argument_count;
+                let arguments_range = arguments_start as usize..arguments_end as usize;
 
                 let call_arguments_list = chunk.call_arguments.get(arguments_range).ok_or(
                     JitError::ArgumentsRangeOutOfBounds {
-                        arguments_list_start: arguments_index,
-                        arguments_list_end: arguments_index + arguments_count as u16,
+                        arguments_start,
+                        arguments_end,
                         total_argument_count: chunk.call_arguments.len(),
                     },
                 )?;
@@ -426,7 +404,7 @@ pub fn compile_direct_function(
                     .call(callee_function_reference, &arguments);
                 let return_value = function_builder.inst_results(call_instruction)[0];
 
-                ssa_registers[destination.index as usize] = return_value;
+                ssa_registers[destination_index as usize] = return_value;
 
                 function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }
@@ -443,8 +421,8 @@ pub fn compile_direct_function(
                     arguments_index as usize..(arguments_index as usize + argument_count);
                 let call_arguments_list = chunk.call_arguments.get(arguments_range).ok_or(
                     JitError::ArgumentsRangeOutOfBounds {
-                        arguments_list_start: arguments_index,
-                        arguments_list_end: arguments_index + argument_count as u16,
+                        arguments_start: arguments_index,
+                        arguments_end: arguments_index + argument_count as u16,
                         total_argument_count: chunk.call_arguments.len(),
                     },
                 )?;

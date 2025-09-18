@@ -1,5 +1,5 @@
 use crate::{
-    Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main, tests::local_cases,
+    Address, Chunk, Instruction, OperandType, compile_main, resolver::TypeId, tests::local_cases,
 };
 use std::sync::Arc;
 
@@ -12,7 +12,7 @@ fn local_byte_subtraction() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Byte),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -49,7 +49,7 @@ fn local_float_subtraction() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Float),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -86,7 +86,7 @@ fn local_integer_subtraction() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),

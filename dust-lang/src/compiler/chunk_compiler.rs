@@ -1339,7 +1339,6 @@ impl<'a> ChunkCompiler<'a> {
             )?;
 
             return Ok(Emission::Constant(Constant::NativeFunction {
-                type_id: TypeId(node.payload),
                 native_function,
             }));
         }
@@ -1463,6 +1462,9 @@ impl<'a> ChunkCompiler<'a> {
                 id: function_signature_id,
             },
         )?;
+
+        debug_assert_eq!(function_signature_node.kind, SyntaxKind::FunctionSignature);
+
         let value_parameters_node_id = function_signature_node.children.0;
         let value_parameters_node = *self
             .syntax_tree
@@ -1596,6 +1598,8 @@ impl<'a> ChunkCompiler<'a> {
                     child_index: node.children.1,
                 })?;
 
+        debug_assert_eq!(arguments_node.kind, SyntaxKind::CallValueArguments);
+
         let expression_emission = self.compile_expression(&function_node)?;
 
         let Emission::Constant(Constant::Function {
@@ -1634,7 +1638,7 @@ impl<'a> ChunkCompiler<'a> {
 
         handle_call_arguments(self, &arguments_node)?;
 
-        let destination = Address::register(self.get_next_register());
+        let destination_index = self.get_next_register();
         let Type::Function(function_type) = self
             .resolver
             .resolve_type(type_id)
@@ -1646,10 +1650,12 @@ impl<'a> ChunkCompiler<'a> {
             });
         };
         let operand_type = function_type.return_type.as_operand_type();
+        let argument_count = self.call_arguments.len() as u16;
         let call_instruction = Instruction::call(
-            destination,
+            destination_index,
             prototype_index,
             arguments_start_index,
+            argument_count,
             operand_type,
         );
 
@@ -1798,7 +1804,6 @@ pub enum Constant {
         prototype_index: u16,
     },
     NativeFunction {
-        type_id: TypeId,
         native_function: NativeFunction,
     },
 }

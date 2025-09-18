@@ -1,5 +1,5 @@
 use crate::{
-    Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main, tests::local_cases,
+    Address, Chunk, Instruction, OperandType, compile_main, resolver::TypeId, tests::local_cases,
 };
 use std::sync::Arc;
 
@@ -12,7 +12,7 @@ fn local_boolean() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -32,7 +32,7 @@ fn local_byte() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Byte),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(42),
@@ -52,7 +52,7 @@ fn local_character() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Character),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -72,7 +72,7 @@ fn local_float() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Float),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -92,7 +92,7 @@ fn local_integer() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -112,7 +112,7 @@ fn local_string() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::String),
+            r#type: TypeId(0),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),

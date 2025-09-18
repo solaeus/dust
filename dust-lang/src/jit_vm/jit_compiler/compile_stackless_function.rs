@@ -161,18 +161,6 @@ pub fn compile_stackless_function(
         )?
     };
 
-    let log_integer_function = {
-        let mut log_integer_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        log_integer_signature.params.push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "log_integer",
-            log_integer_signature,
-        )?
-    };
-
     let bytecode_instructions = &chunk.instructions;
     let instruction_count = bytecode_instructions.len();
 
@@ -834,9 +822,10 @@ pub fn compile_stackless_function(
             }
             Operation::CALL => {
                 let Call {
-                    destination,
+                    destination_index,
                     prototype_index,
-                    arguments_index,
+                    arguments_start,
+                    argument_count,
                     return_type,
                 } = Call::from(*current_instruction);
                 let callee_function_ids = compiler
@@ -853,41 +842,16 @@ pub fn compile_stackless_function(
                 let callee_function_reference = compiler
                     .module
                     .declare_func_in_func(*direct, function_builder.func);
-                let callee_function_type_id = compiler
-                    .program
-                    .prototypes
-                    .get(prototype_index as usize)
-                    .ok_or(JitError::FunctionIndexOutOfBounds {
-                        ip,
-                        function_index: prototype_index,
-                        total_function_count: compiler.program.prototypes.len(),
-                    })?
-                    .r#type;
-                let callee_function_type = compiler
-                    .program
-                    .resolver
-                    .get_type_node(callee_function_type_id)
-                    .ok_or(JitError::TypeIndexOutOfBounds {
-                        type_id: callee_function_type_id,
-                        total_type_count: compiler.program.resolver.type_count(),
-                    })?
-                    .as_function()
-                    .ok_or(JitError::ExpectedFunctionType {
-                        type_id: callee_function_type_id,
-                    })?;
-                let argument_count = callee_function_type.value_parameters.1 as usize;
-
-                let arguments_index = arguments_index as usize;
                 let arguments_range =
-                    arguments_index..((arguments_index + argument_count).saturating_sub(1));
-
+                    arguments_start as usize..(arguments_start as usize + argument_count as usize);
                 let call_arguments_list = chunk.call_arguments.get(arguments_range).ok_or(
                     JitError::ArgumentsRangeOutOfBounds {
-                        arguments_list_start: arguments_index as u16,
-                        arguments_list_end: arguments_index as u16 + argument_count as u16,
+                        arguments_start,
+                        arguments_end: arguments_start + argument_count,
                         total_argument_count: chunk.call_arguments.len(),
                     },
                 )?;
+
                 let mut arguments =
                     SmallVec::<[CraneliftValue; 4]>::with_capacity(call_arguments_list.len() + 1);
 
@@ -911,10 +875,6 @@ pub fn compile_stackless_function(
                         }
                     };
 
-                    function_builder
-                        .ins()
-                        .call(log_integer_function, &[argument_value]);
-
                     arguments.push(argument_value);
                 }
 
@@ -923,11 +883,12 @@ pub fn compile_stackless_function(
                 let call_instruction = function_builder
                     .ins()
                     .call(callee_function_reference, &arguments);
-                let return_value = function_builder.inst_results(call_instruction)[0];
 
                 if return_type != OperandType::NONE {
+                    let return_value = function_builder.inst_results(call_instruction)[0];
+
                     JitCompiler::set_register(
-                        destination.index,
+                        destination_index,
                         return_value,
                         return_type,
                         current_frame_base_register_address,
@@ -952,8 +913,8 @@ pub fn compile_stackless_function(
                     arguments_index as usize..(arguments_index as usize + argument_count);
                 let call_arguments_list = chunk.call_arguments.get(arguments_range).ok_or(
                     JitError::ArgumentsRangeOutOfBounds {
-                        arguments_list_start: arguments_index,
-                        arguments_list_end: arguments_index + argument_count as u16,
+                        arguments_start: arguments_index,
+                        arguments_end: arguments_index + argument_count as u16,
                         total_argument_count: chunk.call_arguments.len(),
                     },
                 )?;

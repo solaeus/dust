@@ -1,5 +1,5 @@
 use crate::{
-    Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main, tests::local_cases,
+    Address, Chunk, Instruction, OperandType, compile_main, resolver::TypeId, tests::local_cases,
 };
 use std::sync::Arc;
 
@@ -12,7 +12,7 @@ fn local_boolean_not_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -62,7 +62,7 @@ fn local_byte_not_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -112,7 +112,7 @@ fn local_character_not_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -162,7 +162,7 @@ fn local_float_not_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -212,7 +212,7 @@ fn local_integer_not_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -262,7 +262,7 @@ fn local_string_not_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),

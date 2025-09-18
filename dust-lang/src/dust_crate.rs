@@ -1,10 +1,12 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
-use crate::{Chunk, ConstantTable, Resolver};
+use rustc_hash::FxBuildHasher;
+
+use crate::{Chunk, ConstantTable, Resolver, resolver::DeclarationId, syntax_tree::SyntaxTree};
 
 pub enum DustCrate {
-    Program(Program),
-    Library(Module),
+    Program(Box<Program>),
+    Library(Library),
 }
 
 pub struct Program {
@@ -22,4 +24,7 @@ impl Program {
     }
 }
 
-pub struct Module;
+pub struct Library {
+    pub name: Arc<String>,
+    pub file_trees: HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
+}

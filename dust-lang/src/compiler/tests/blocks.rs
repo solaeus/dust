@@ -1,5 +1,5 @@
 use crate::{
-    Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main, tests::block_cases,
+    Address, Chunk, Instruction, OperandType, compile_main, resolver::TypeId, tests::block_cases,
 };
 use std::sync::Arc;
 
@@ -12,7 +12,7 @@ fn empty_block() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::None),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 false,
                 Address::default(),
@@ -32,7 +32,7 @@ fn block_expression() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -52,7 +52,7 @@ fn block_statement() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::None),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -77,7 +77,7 @@ fn block_statement_and_expression() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -108,7 +108,7 @@ fn parent_scope_access() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -129,7 +129,7 @@ fn nested_parrent_scope_access() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -166,7 +166,7 @@ fn scope_shadowing() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -191,7 +191,7 @@ fn scope_deshadowing() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),

@@ -1,6 +1,5 @@
 use crate::{
-    Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main,
-    tests::constant_cases,
+    Address, Chunk, Instruction, OperandType, compile_main, resolver::TypeId, tests::constant_cases,
 };
 use std::sync::Arc;
 
@@ -13,7 +12,7 @@ fn boolean() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -33,7 +32,7 @@ fn byte() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Byte),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(42),
@@ -53,7 +52,7 @@ fn character() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Character),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -73,7 +72,7 @@ fn float() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Float),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -93,7 +92,7 @@ fn integer() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -113,7 +112,7 @@ fn string() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::String),
+            r#type: TypeId(0),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -133,7 +132,7 @@ fn constant_byte_addition() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Byte),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(42),
@@ -153,7 +152,7 @@ fn constant_float_addition() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Float),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -173,7 +172,7 @@ fn constant_integer_addition() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -193,7 +192,7 @@ fn constant_byte_subtraction() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Byte),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(42),
@@ -213,7 +212,7 @@ fn constant_float_subtraction() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Float),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -233,7 +232,7 @@ fn constant_integer_subtraction() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -253,7 +252,7 @@ fn constant_byte_multiplication() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Byte),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(42),
@@ -273,7 +272,7 @@ fn constant_float_multiplication() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Float),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -293,7 +292,7 @@ fn constant_integer_multiplication() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -313,7 +312,7 @@ fn constant_byte_division() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Byte),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(42),
@@ -333,7 +332,7 @@ fn constant_float_division() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Float),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -353,7 +352,7 @@ fn constant_integer_division() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -373,7 +372,7 @@ fn constant_integer_negation() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Integer),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -393,7 +392,7 @@ fn constant_float_negation() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Float),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -413,7 +412,7 @@ fn constant_string_concatenation() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::String),
+            r#type: TypeId(0),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -433,7 +432,7 @@ fn constant_character_concatentation() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::String),
+            r#type: TypeId(0),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -453,7 +452,7 @@ fn constant_string_character_concatenation() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::String),
+            r#type: TypeId(0),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -473,7 +472,7 @@ fn constant_character_string_concatenation() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::String),
+            r#type: TypeId(0),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -493,7 +492,7 @@ fn constant_boolean_and() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(false as u16),
@@ -513,7 +512,7 @@ fn constant_boolean_or() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -533,7 +532,7 @@ fn constant_boolean_not() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(false as u16),
@@ -553,7 +552,7 @@ fn constant_byte_less_than_or_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -573,7 +572,7 @@ fn constant_byte_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -593,7 +592,7 @@ fn constant_byte_not_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -613,7 +612,7 @@ fn constant_character_greater_than() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -633,7 +632,7 @@ fn constant_character_less_than() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -653,7 +652,7 @@ fn constant_character_greater_than_or_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -673,7 +672,7 @@ fn constant_character_less_than_or_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -693,7 +692,7 @@ fn constant_character_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -713,7 +712,7 @@ fn constant_character_not_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -733,7 +732,7 @@ fn constant_float_greater_than() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -753,7 +752,7 @@ fn constant_float_less_than() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -773,7 +772,7 @@ fn constant_float_greater_than_or_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -793,7 +792,7 @@ fn constant_float_less_than_or_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -813,7 +812,7 @@ fn constant_float_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -833,7 +832,7 @@ fn constant_float_not_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -853,7 +852,7 @@ fn constant_integer_greater_than() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -873,7 +872,7 @@ fn constant_integer_less_than() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -893,7 +892,7 @@ fn constant_integer_greater_than_or_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -913,7 +912,7 @@ fn constant_integer_less_than_or_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -933,7 +932,7 @@ fn constant_integer_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -953,7 +952,7 @@ fn constant_integer_not_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -973,7 +972,7 @@ fn constant_string_greater_than() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(false as u16),
@@ -993,7 +992,7 @@ fn constant_string_less_than() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(false as u16),
@@ -1013,7 +1012,7 @@ fn constant_string_greater_than_or_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -1033,7 +1032,7 @@ fn constant_string_less_than_or_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -1053,7 +1052,7 @@ fn constant_string_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -1073,7 +1072,7 @@ fn constant_string_not_equal() {
         chunk,
         Chunk {
             name: Arc::new("main".to_string()),
-            r#type: FunctionType::new([], [], Type::Boolean),
+            r#type: TypeId(2),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),

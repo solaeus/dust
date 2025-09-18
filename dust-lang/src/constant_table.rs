@@ -13,7 +13,7 @@ use crate::{OperandType, Value};
 pub struct ConstantTable {
     payloads: IndexMap<u64, u64, FxBuildHasher>,
     tags: Vec<OperandType>,
-    string_pool: StringPool,
+    string_pool: String,
 }
 
 impl ConstantTable {
@@ -21,7 +21,7 @@ impl ConstantTable {
         Self {
             payloads: IndexMap::default(),
             tags: Vec::new(),
-            string_pool: StringPool::Building(String::new()),
+            string_pool: String::new(),
         }
     }
 
@@ -41,10 +41,7 @@ impl ConstantTable {
     }
 
     pub fn get_string_pool_range(&self, range: Range<usize>) -> &str {
-        match &self.string_pool {
-            StringPool::Building(pool) => &pool[range],
-            StringPool::Finalized(pool) => &pool[range],
-        }
+        self.string_pool.get(range).unwrap_or("")
     }
 
     pub fn finalize_string_pool(&mut self) {
@@ -54,10 +51,7 @@ impl ConstantTable {
             if *tag == OperandType::STRING {
                 let start = (*payload >> 32) as usize;
                 let end = (*payload & 0xFFFFFFFF) as usize;
-                let string = match &self.string_pool {
-                    StringPool::Building(pool) => &pool[start..end],
-                    StringPool::Finalized(pool) => &pool[start..end],
-                };
+                let string = &self.string_pool[start..end];
                 let new_start = new_string_pool.len();
 
                 new_string_pool.push_str(string);
@@ -70,7 +64,7 @@ impl ConstantTable {
 
         new_string_pool.shrink_to_fit();
 
-        self.string_pool = StringPool::Finalized(new_string_pool.into_boxed_str());
+        self.string_pool = new_string_pool;
     }
 
     pub fn add_character(&mut self, character: char) -> u16 {
@@ -166,9 +160,7 @@ impl ConstantTable {
         } else {
             let start = self.string_pool.len();
 
-            if let StringPool::Building(pool) = &mut self.string_pool {
-                pool.push_str(string);
-            }
+            self.string_pool.push_str(string);
 
             let end = self.string_pool.len();
             let payload = (start as u64) << 32 | (end as u64);
@@ -207,9 +199,7 @@ impl ConstantTable {
         } else {
             let start = self.string_pool.len() as u32;
 
-            if let StringPool::Building(pool) = &mut self.string_pool {
-                pool.push_str(string);
-            }
+            self.string_pool.push_str(string);
 
             let end = self.string_pool.len() as u32;
 
@@ -282,26 +272,5 @@ impl PartialEq for ConstantTable {
         self.payloads == other.payloads
             && self.tags == other.tags
             && self.string_pool == other.string_pool
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-enum StringPool {
-    Building(String),
-    Finalized(Box<str>),
-}
-
-impl StringPool {
-    fn len(&self) -> usize {
-        match self {
-            StringPool::Building(s) => s.len(),
-            StringPool::Finalized(s) => s.len(),
-        }
-    }
-}
-
-impl Default for StringPool {
-    fn default() -> Self {
-        Self::Building(String::new())
     }
 }

@@ -1,25 +1,28 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, OperandType, Operation};
+use super::{Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Call {
-    pub destination: Address,
+    pub destination_index: u16,
     pub prototype_index: u16,
-    pub arguments_index: u16,
+    pub arguments_start: u16,
+    pub argument_count: u16,
     pub return_type: OperandType,
 }
 
 impl From<Instruction> for Call {
     fn from(instruction: Instruction) -> Self {
-        let destination = instruction.destination();
+        let destination_index = instruction.a_field();
         let prototype_index = instruction.b_field();
-        let arguments_index = instruction.c_field();
+        let arguments_start = instruction.c_field();
+        let argument_count = instruction.d_field();
         let return_type = instruction.operand_type();
 
         Call {
-            destination,
+            destination_index,
             prototype_index,
-            arguments_index,
+            arguments_start,
+            argument_count,
             return_type,
         }
     }
@@ -28,20 +31,18 @@ impl From<Instruction> for Call {
 impl From<Call> for Instruction {
     fn from(call: Call) -> Self {
         let operation = Operation::CALL;
-        let Address {
-            index: a_field,
-            memory: a_memory_kind,
-        } = call.destination;
+        let a_field = call.destination_index;
         let b_field = call.prototype_index;
-        let c_field = call.arguments_index;
+        let c_field = call.arguments_start;
+        let d_field = Some(call.argument_count);
         let operand_type = call.return_type;
 
         InstructionFields {
             operation,
             a_field,
-            a_memory_kind,
             b_field,
             c_field,
+            d_field,
             operand_type,
             ..Default::default()
         }
@@ -52,21 +53,26 @@ impl From<Call> for Instruction {
 impl Display for Call {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Call {
-            destination,
+            destination_index,
             prototype_index,
-            arguments_index,
+            arguments_start,
+            argument_count,
             return_type,
         } = self;
 
         if *return_type != OperandType::NONE {
-            destination.display(f, *return_type)?;
-            write!(f, " = ")?;
+            write!(f, "reg_{destination_index} = ")?;
         }
 
-        if *arguments_index == u16::MAX {
+        let arguments_end = arguments_start + argument_count;
+
+        if *arguments_start == u16::MAX {
             write!(f, "proto_{prototype_index}()")
         } else {
-            write!(f, "proto_{prototype_index}(args_{arguments_index})")
+            write!(
+                f,
+                "proto_{prototype_index}(args_{arguments_start}..args_{arguments_end})"
+            )
         }
     }
 }

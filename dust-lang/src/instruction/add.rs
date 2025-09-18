@@ -51,6 +51,7 @@ impl From<Add> for Instruction {
             c_field,
             c_memory_kind,
             operand_type,
+            ..Default::default()
         }
         .build()
     }

@@ -787,20 +787,15 @@ impl<'a> Parser<'a> {
             self.allow(Token::Comma)?;
         }
 
-        let first_child = self.current_syntax_tree.children.len() as u32;
-        let child_count = syntax_children.len() as u32;
+        let children = self.current_syntax_tree.push_children(&syntax_children);
         let end = self.previous_span.1;
         let node = SyntaxNode {
             kind: SyntaxKind::FunctionValueParameters,
             span: Span(start, end),
-            children: (first_child, child_count),
+            children,
             payload: 0,
         };
-
         let node_id = self.current_syntax_tree.push_node(node);
-
-        self.current_syntax_tree.children.extend(syntax_children);
-
         let type_children = self.resolver.push_type_members(&type_children);
 
         Ok((node_id, type_children))
@@ -1459,7 +1454,7 @@ impl<'a> Parser<'a> {
                 id: TypeId(function_node.payload),
             })?;
 
-        if !matches!(function_node_type, TypeNode::Function { .. }) {
+        if !matches!(function_node_type, TypeNode::Function(_)) {
             return Err(ParseError::ExpectedFunction {
                 found: function_node.kind,
                 position: Position::new(self.current_syntax_tree.file_index, function_node.span),
@@ -1504,7 +1499,7 @@ impl<'a> Parser<'a> {
             };
         }
 
-        let mut children = Self::new_child_buffer();
+        let mut value_arguments = Self::new_child_buffer();
 
         info!("Parsing call arguments");
 
@@ -1515,18 +1510,22 @@ impl<'a> Parser<'a> {
 
             let argument_id = self.current_syntax_tree.last_node_id();
 
-            children.push(argument_id);
+            value_arguments.push(argument_id);
 
             self.allow(Token::Comma)?;
         }
 
-        let children = self.current_syntax_tree.push_children(&children);
+        let end = self.previous_span.1;
+        let children = self.current_syntax_tree.push_children(&value_arguments);
         let call_value_arguments_node = SyntaxNode {
             kind: SyntaxKind::CallValueArguments,
             span: Span(function_node.span.1, self.previous_span.1),
             children,
             payload: 0,
         };
+        let call_value_arguments_id = self
+            .current_syntax_tree
+            .push_node(call_value_arguments_node);
         let function_type_node = self
             .resolver
             .get_type_node(TypeId(function_node.payload))
@@ -1538,10 +1537,6 @@ impl<'a> Parser<'a> {
                 found: function_node.kind,
                 position: Position::new(self.current_syntax_tree.file_index, function_node.span),
             })?;
-        let call_value_arguments_id = self
-            .current_syntax_tree
-            .push_node(call_value_arguments_node);
-        let end = self.previous_span.1;
         let node = SyntaxNode {
             kind: SyntaxKind::CallExpression,
             span: Span(start, end),
