@@ -30,6 +30,7 @@ smallvec = { version = "1.15.1" }
 rustc-hash = "2.1.1"
 indexmap = { version = "2.11.0", features = ["serde"] }
 bumpalo = { version = "3.19.0", features = ["boxed", "collections"] }
+termtree = "0.5.1"
 
 [dev-dependencies]
 criterion = { version = "0.7", features = ["html_reports"] }

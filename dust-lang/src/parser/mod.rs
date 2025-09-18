@@ -93,6 +93,9 @@ impl<'a> Parser<'a> {
         declaration_id: DeclarationId,
         scope_id: ScopeId,
     ) -> ParseResult {
+        let span = span!(Level::INFO, "parse");
+        let _enter = span.enter();
+
         let source_code = self
             .source
             .get_file(file_index)
@@ -341,8 +344,8 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_main_function_item(&mut self) {
-        let span = span!(Level::INFO, "main");
-        let _enter = span.enter();
+        info!("Parsing main function item");
+
         let placeholder_node = SyntaxNode {
             kind: SyntaxKind::MainFunctionItem,
             span: Span::default(),
@@ -351,7 +354,9 @@ impl<'a> Parser<'a> {
         };
         self.current_scope_id = ScopeId::MAIN;
 
-        self.current_syntax_tree.push_node(placeholder_node);
+        let _main_function_item_id = self.current_syntax_tree.push_node(placeholder_node);
+
+        debug_assert_eq!(_main_function_item_id, SyntaxId(0));
 
         let mut children = Self::new_child_buffer();
 
@@ -376,18 +381,14 @@ impl<'a> Parser<'a> {
         } else {
             TypeId::NONE.0
         };
-
-        let first_child = self.current_syntax_tree.children.len() as u32;
-        let child_count = children.len() as u32;
+        let children = self.current_syntax_tree.push_children(&children);
 
         self.current_syntax_tree.nodes[0] = SyntaxNode {
             kind: SyntaxKind::MainFunctionItem,
             span: Span(0, self.current_span.1),
-            children: (first_child, child_count),
+            children,
             payload: last_node_type,
         };
-
-        self.current_syntax_tree.children.extend(children);
     }
 
     fn parse_module_item(&mut self) -> Result<(), ParseError> {

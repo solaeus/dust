@@ -132,7 +132,7 @@ fn main() {
                     return;
                 }
 
-                println!("{}", syntax_tree.display());
+                println!("{syntax_tree}");
 
                 if let Some(error) = error {
                     eprintln!("{}", error.report());

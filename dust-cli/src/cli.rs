@@ -20,7 +20,7 @@ use tracing::level_filters::LevelFilter;
         .placeholder(AnsiColor::BrightCyan.on_default().bold())
         .valid(AnsiColor::BrightGreen.on_default())
         .invalid(AnsiColor::BrightYellow.on_default())
-        .error(AnsiColor::BrightRed.on_default()),
+        .error(AnsiColor::BrightRed.on_default())
 )]
 pub struct Cli {
     #[command(subcommand)]

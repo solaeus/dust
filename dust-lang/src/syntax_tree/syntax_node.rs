@@ -1,8 +1,8 @@
-use std::fmt::Display;
+use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::Span;
+use crate::{Span, syntax_tree::SyntaxId};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyntaxNode {
@@ -97,6 +97,91 @@ impl SyntaxNode {
         ];
 
         i64::from_le_bytes(integer_bytes)
+    }
+
+    pub fn children(&self) -> Children {
+        match self.kind {
+            SyntaxKind::MainFunctionItem
+            | SyntaxKind::ModuleItem
+            | SyntaxKind::BlockExpression
+            | SyntaxKind::CallValueArguments
+            | SyntaxKind::FunctionValueParameters => {
+                Children::Multiple(self.children.0, self.children.1)
+            }
+            SyntaxKind::FunctionStatement => Children::Single(SyntaxId(self.children.1)),
+            SyntaxKind::ExpressionStatement
+            | SyntaxKind::GroupedExpression
+            | SyntaxKind::FunctionSignature
+            | SyntaxKind::NegationExpression
+            | SyntaxKind::NotExpression => Children::Single(SyntaxId(self.children.0)),
+            SyntaxKind::ReassignStatement
+            | SyntaxKind::FunctionExpression
+            | SyntaxKind::FunctionValueParameter
+            | SyntaxKind::AdditionExpression
+            | SyntaxKind::SubtractionExpression
+            | SyntaxKind::MultiplicationExpression
+            | SyntaxKind::DivisionExpression
+            | SyntaxKind::ModuloExpression
+            | SyntaxKind::AdditionAssignmentExpression
+            | SyntaxKind::SubtractionAssignmentExpression
+            | SyntaxKind::MultiplicationAssignmentExpression
+            | SyntaxKind::DivisionAssignmentExpression
+            | SyntaxKind::ModuloAssignmentExpression
+            | SyntaxKind::AndExpression
+            | SyntaxKind::OrExpression
+            | SyntaxKind::EqualExpression
+            | SyntaxKind::NotEqualExpression
+            | SyntaxKind::LessThanExpression
+            | SyntaxKind::LessThanOrEqualExpression
+            | SyntaxKind::GreaterThanExpression
+            | SyntaxKind::GreaterThanOrEqualExpression
+            | SyntaxKind::WhileExpression
+            | SyntaxKind::CallExpression => {
+                Children::Double(SyntaxId(self.children.0), SyntaxId(self.children.1))
+            }
+            SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
+                Children::MaybeDouble(SyntaxId(self.children.0), SyntaxId(self.children.1))
+            }
+            _ => Children::None,
+        }
+    }
+}
+
+impl Display for SyntaxNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self.kind {
+            SyntaxKind::BooleanExpression => {
+                let boolean = self.children.0 != 0;
+
+                write!(f, "boolean: {boolean}")
+            }
+            SyntaxKind::ByteExpression => {
+                let byte = self.children.0 as u8;
+
+                write!(f, "byte: {byte}")
+            }
+            SyntaxKind::CharacterExpression => {
+                let character = SyntaxNode::decode_character(self.children);
+
+                write!(f, "character: '{character}'")
+            }
+            SyntaxKind::FloatExpression => {
+                let float = SyntaxNode::decode_float(self.children);
+
+                write!(f, "float: {float}")
+            }
+            SyntaxKind::IntegerExpression => {
+                let integer = SyntaxNode::decode_integer(self.children);
+
+                write!(f, "integer: {integer}")
+            }
+            SyntaxKind::StringExpression => {
+                write!(f, "string: <{}>", self.span)
+            }
+            _ => {
+                write!(f, "{}", self.kind)
+            }
+        }
     }
 }
 
@@ -346,4 +431,12 @@ impl Display for SyntaxKind {
             SyntaxKind::Trivia => write!(f, "whitespace or comment"),
         }
     }
+}
+
+pub enum Children {
+    None,
+    Single(SyntaxId),
+    Double(SyntaxId, SyntaxId),
+    MaybeDouble(SyntaxId, SyntaxId),
+    Multiple(u32, u32),
 }
