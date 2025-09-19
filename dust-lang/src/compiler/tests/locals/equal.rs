@@ -1,18 +1,19 @@
 use crate::{
-    Address, Chunk, Instruction, OperandType, compile_main, resolver::TypeId, tests::local_cases,
+    Address, Chunk, Instruction, OperandType, compile_main,
+    resolver::{DeclarationId, TypeId},
+    tests::local_cases,
 };
-use std::sync::Arc;
 
 #[test]
 fn local_boolean_equal() {
-    let source = local_cases::LOCAL_BOOLEAN_EQUAL;
+    let source = local_cases::LOCAL_BOOLEAN_EQUAL.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(2),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -55,14 +56,14 @@ fn local_boolean_equal() {
 
 #[test]
 fn local_byte_equal() {
-    let source = local_cases::LOCAL_BYTE_EQUAL;
+    let source = local_cases::LOCAL_BYTE_EQUAL.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(2),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -105,14 +106,14 @@ fn local_byte_equal() {
 
 #[test]
 fn local_character_equal() {
-    let source = local_cases::LOCAL_CHARACTER_EQUAL;
+    let source = local_cases::LOCAL_CHARACTER_EQUAL.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(2),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -155,14 +156,14 @@ fn local_character_equal() {
 
 #[test]
 fn local_float_equal() {
-    let source = local_cases::LOCAL_FLOAT_EQUAL;
+    let source = local_cases::LOCAL_FLOAT_EQUAL.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(2),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -205,14 +206,14 @@ fn local_float_equal() {
 
 #[test]
 fn local_integer_equal() {
-    let source = local_cases::LOCAL_INTEGER_EQUAL;
+    let source = local_cases::LOCAL_INTEGER_EQUAL.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(2),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -255,14 +256,14 @@ fn local_integer_equal() {
 
 #[test]
 fn local_string_equal() {
-    let source = local_cases::LOCAL_STRING_EQUAL;
+    let source = local_cases::LOCAL_STRING_EQUAL.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(2),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),

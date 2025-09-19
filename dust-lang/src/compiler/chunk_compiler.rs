@@ -1,42 +1,30 @@
 use std::collections::HashMap;
 
-use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 use tracing::{Level, debug, info, span};
 
 use crate::{
-    Address, Chunk, CompileError, ConstantTable, Instruction, NativeFunction, OperandType,
-    Operation, Position, Resolver, Source, Type,
+    Address, Chunk, CompileError, Instruction, NativeFunction, OperandType, Operation, Position,
+    Type,
+    compiler::CompileContext,
     resolver::{
         DeclarationId, DeclarationKind, FunctionTypeNode, ScopeId, ScopeKind, TypeId, TypeNode,
     },
-    source::SourceFile,
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
 #[derive(Debug)]
 pub struct ChunkCompiler<'a> {
-    /// Source code for the program being compiled.
-    source: &'a Source,
+    declaration_id: DeclarationId,
 
-    /// Target syntax tree for compilation.
-    syntax_tree: &'a SyntaxTree,
+    /// Type of the function being compiled. This is only `None` when compiling the main function
+    /// and is filled when the first RETURN instruction is emitted.
+    r#type: Option<FunctionTypeNode>,
 
-    syntax_trees: &'a HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
+    file_index: u32,
 
-    /// Global context for declaration, scope and type resolution.
-    resolver: &'a mut Resolver,
-
-    /// Target source code file for compilation by this chunk compiler.
-    source_file: SourceFile,
-
-    /// Constant collection that is filled during compilation after constant expression folding is
-    /// applied.
-    constants: &'a mut ConstantTable,
-
-    /// Global list of function prototypes that is filled during compilation.
-    prototypes: &'a mut IndexMap<DeclarationId, Chunk, FxBuildHasher>,
+    context: &'a mut CompileContext,
 
     /// Bytecode instruction collection that is filled during compilation.
     instructions: Vec<Instruction>,
@@ -47,10 +35,6 @@ pub struct ChunkCompiler<'a> {
     /// Concatenated list of register indexes that are referenced by DROP instructions.
     drop_lists: Vec<u16>,
 
-    /// Type of the function being compiled. This field is modified when emitting RETURN
-    /// instructions. Subsequent RETURN instructions must match the type of the function.
-    r#type: FunctionTypeNode,
-
     /// Local variables declared in the function being compiled.
     locals: HashMap<DeclarationId, Local, FxBuildHasher>,
 
@@ -60,30 +44,19 @@ pub struct ChunkCompiler<'a> {
 
 impl<'a> ChunkCompiler<'a> {
     pub fn new(
-        syntax_trees: &'a HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
-        syntax_tree: &'a SyntaxTree,
-        resolver: &'a mut Resolver,
-        constants: &'a mut ConstantTable,
-        source: &'a Source,
-        source_file: SourceFile,
-        prototypes: &'a mut IndexMap<DeclarationId, Chunk, FxBuildHasher>,
+        declaration_id: DeclarationId,
+        r#type: Option<FunctionTypeNode>,
+        file_index: u32,
+        context: &'a mut CompileContext,
     ) -> Self {
         Self {
-            source_file,
-            syntax_tree,
-            syntax_trees,
-            resolver,
-            source,
-            constants,
-            prototypes,
+            declaration_id,
+            r#type,
+            file_index,
+            context,
             instructions: Vec::new(),
             call_arguments: Vec::new(),
             drop_lists: Vec::new(),
-            r#type: FunctionTypeNode {
-                type_parameters: (0, 0),
-                value_parameters: (0, 0),
-                return_type: TypeId::NONE,
-            },
             locals: HashMap::default(),
             minimum_register: 0,
         }
@@ -94,32 +67,43 @@ impl<'a> ChunkCompiler<'a> {
         let _enter = span.enter();
 
         let root_node = *self
-            .syntax_tree
+            .syntax_tree()?
             .get_node(SyntaxId(0))
             .ok_or(CompileError::MissingSyntaxNode { id: SyntaxId(0) })?;
 
         self.compile_item(&root_node)?;
-        self.finish((0, 0))
+        self.finish()
     }
 
-    pub fn finish(mut self, value_parameters: (u32, u32)) -> Result<Chunk, CompileError> {
-        self.constants.finalize_string_pool();
+    pub fn finish(mut self) -> Result<Chunk, CompileError> {
+        self.context.constants.finalize_string_pool();
 
-        self.r#type.value_parameters = value_parameters;
+        debug_assert!(self.r#type.is_some());
 
-        let r#type = self.resolver.add_type(TypeNode::Function(self.r#type));
+        let function_type = self.r#type.unwrap_or_default();
+        let r#type = self
+            .context
+            .resolver
+            .add_type(TypeNode::Function(function_type));
         let register_count = self.get_next_register();
-        let name_index = self.constants.add_string(&self.source_file.name);
 
         Ok(Chunk {
-            name_index: Some(name_index),
-            r#type,
+            declaration_id: self.declaration_id,
+            type_id: r#type,
             instructions: self.instructions,
             call_arguments: self.call_arguments,
             drop_lists: self.drop_lists,
             register_count,
             is_recursive: false,
         })
+    }
+
+    fn syntax_tree(&self) -> Result<&SyntaxTree, CompileError> {
+        self.context.file_trees.get(self.file_index as usize).ok_or(
+            CompileError::MissingSyntaxTree {
+                declaration_id: DeclarationId::ANONYMOUS,
+            },
+        )
     }
 
     fn get_next_register(&mut self) -> u16 {
@@ -138,13 +122,16 @@ impl<'a> ChunkCompiler<'a> {
         let index = match constant {
             Constant::Boolean(boolean) => return Address::encoded(boolean as u16),
             Constant::Byte(byte) => return Address::encoded(byte as u16),
-            Constant::Character(character) => self.constants.add_character(character),
-            Constant::Float(float) => self.constants.add_float(float),
-            Constant::Integer(integer) => self.constants.add_integer(integer),
+            Constant::Character(character) => self.context.constants.add_character(character),
+            Constant::Float(float) => self.context.constants.add_float(float),
+            Constant::Integer(integer) => self.context.constants.add_integer(integer),
             Constant::String {
                 pool_start,
                 pool_end,
-            } => self.constants.add_pooled_string(pool_start, pool_end),
+            } => self
+                .context
+                .constants
+                .add_pooled_string(pool_start, pool_end),
             Constant::Function {
                 prototype_index, ..
             } => prototype_index,
@@ -230,7 +217,7 @@ impl<'a> ChunkCompiler<'a> {
                     string.push(left);
                     string.push(right);
 
-                    let combined = self.constants.push_str_to_string_pool(&string);
+                    let combined = self.context.constants.push_str_to_string_pool(&string);
 
                     Constant::String {
                         pool_start: combined.0,
@@ -256,9 +243,11 @@ impl<'a> ChunkCompiler<'a> {
                 },
             ) => {
                 let left = self
+                    .context
                     .constants
                     .get_string_pool_range(left_pool_start as usize..left_pool_end as usize);
                 let right = self
+                    .context
                     .constants
                     .get_string_pool_range(right_pool_start as usize..right_pool_end as usize);
 
@@ -276,7 +265,7 @@ impl<'a> ChunkCompiler<'a> {
                         string.push_str(left);
                         string.push_str(right);
 
-                        let combined = self.constants.push_str_to_string_pool(&string);
+                        let combined = self.context.constants.push_str_to_string_pool(&string);
 
                         Constant::String {
                             pool_start: combined.0,
@@ -300,6 +289,7 @@ impl<'a> ChunkCompiler<'a> {
                 },
             ) => {
                 let right = self
+                    .context
                     .constants
                     .get_string_pool_range(pool_start as usize..pool_end as usize);
                 let mut string = String::with_capacity(1 + right.len());
@@ -309,7 +299,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 let combined = match operation {
                     SyntaxKind::AdditionExpression => {
-                        self.constants.push_str_to_string_pool(&string)
+                        self.context.constants.push_str_to_string_pool(&string)
                     }
                     _ => todo!("Error"),
                 };
@@ -327,6 +317,7 @@ impl<'a> ChunkCompiler<'a> {
                 Constant::Character(right),
             ) => {
                 let left = self
+                    .context
                     .constants
                     .get_string_pool_range(pool_start as usize..pool_end as usize);
                 let mut string = String::with_capacity(left.len() + 1);
@@ -336,7 +327,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 let combined = match operation {
                     SyntaxKind::AdditionExpression => {
-                        self.constants.push_str_to_string_pool(&string)
+                        self.context.constants.push_str_to_string_pool(&string)
                     }
                     _ => todo!("Error"),
                 };
@@ -371,7 +362,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::UseItem => self.compile_use_item(node),
             _ => Err(CompileError::ExpectedItem {
                 node_kind: node.kind,
-                position: Position::new(self.syntax_tree.file_index, node.span),
+                position: Position::new(self.syntax_tree()?.file_index, node.span),
             }),
         }
     }
@@ -387,7 +378,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::SemicolonStatement => todo!("Compile semicolon statement"),
             _ => Err(CompileError::ExpectedStatement {
                 node_kind: node.kind,
-                position: Position::new(self.syntax_tree.file_index, node.span),
+                position: Position::new(self.syntax_tree()?.file_index, node.span),
             }),
         }
     }
@@ -410,14 +401,16 @@ impl<'a> ChunkCompiler<'a> {
         let mut current_child_index = start_children;
 
         while current_child_index < end_children {
-            let child_id = *self.syntax_tree.children.get(current_child_index).ok_or(
-                CompileError::MissingChild {
+            let child_id = *self
+                .syntax_tree()?
+                .children
+                .get(current_child_index)
+                .ok_or(CompileError::MissingChild {
                     parent_kind: node.kind,
                     child_index: current_child_index as u32,
-                },
-            )?;
+                })?;
             let child_node = *self
-                .syntax_tree
+                .syntax_tree()?
                 .get_node(child_id)
                 .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
             current_child_index += 1;
@@ -431,7 +424,7 @@ impl<'a> ChunkCompiler<'a> {
             } else {
                 return Err(CompileError::ExpectedStatement {
                     node_kind: child_node.kind,
-                    position: Position::new(self.syntax_tree.file_index, child_node.span),
+                    position: Position::new(self.syntax_tree()?.file_index, child_node.span),
                 });
             }
         }
@@ -452,14 +445,16 @@ impl<'a> ChunkCompiler<'a> {
         let mut current_child_index = start_children;
 
         while current_child_index < end_children {
-            let child_id = *self.syntax_tree.children.get(current_child_index).ok_or(
-                CompileError::MissingChild {
+            let child_id = *self
+                .syntax_tree()?
+                .children
+                .get(current_child_index)
+                .ok_or(CompileError::MissingChild {
                     parent_kind: node.kind,
                     child_index: current_child_index as u32,
-                },
-            )?;
+                })?;
             let child_node = *self
-                .syntax_tree
+                .syntax_tree()?
                 .get_node(child_id)
                 .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
             current_child_index += 1;
@@ -475,46 +470,68 @@ impl<'a> ChunkCompiler<'a> {
 
         let file_declaration_id = DeclarationId(node.children.0);
         let import_declaration_id = DeclarationId(node.payload);
-        let import_declaration = self.resolver.get_declaration(import_declaration_id).ok_or(
-            CompileError::MissingDeclaration {
+        let import_declaration = self
+            .context
+            .resolver
+            .get_declaration(import_declaration_id)
+            .ok_or(CompileError::MissingDeclaration {
                 declaration_id: import_declaration_id,
-            },
-        )?;
+            })?;
 
         match import_declaration.kind {
             DeclarationKind::Function => {
-                let file_tree = if file_declaration_id == DeclarationId::ANONYMOUS {
-                    self.syntax_tree
-                } else {
-                    self.syntax_trees.get(&file_declaration_id).ok_or(
-                        CompileError::MissingSyntaxTree {
-                            declaration_id: import_declaration_id,
+                if let Some(existing_index) =
+                    self.context.prototypes.get_index_of(&import_declaration_id)
+                {
+                    self.locals.insert(
+                        import_declaration_id,
+                        Local {
+                            location: existing_index as u16,
                         },
-                    )?
+                    );
+
+                    return Ok(());
+                }
+
+                let file_index = if file_declaration_id == DeclarationId::ANONYMOUS {
+                    self.syntax_tree()?.file_index
+                } else {
+                    let file_declaration = self
+                        .context
+                        .resolver
+                        .get_declaration(file_declaration_id)
+                        .ok_or(CompileError::MissingDeclaration {
+                            declaration_id: file_declaration_id,
+                        })?;
+
+                    file_declaration.identifier_position.file_index
                 };
-                let source_file = self
-                    .source
-                    .get_file(import_declaration.identifier_position.file_index)
-                    .ok_or(CompileError::MissingSourceFile {
-                        file_index: file_tree.file_index,
-                    })?
-                    .clone();
+                let import_type = self
+                    .context
+                    .resolver
+                    .get_type_node(import_declaration.type_id)
+                    .ok_or(CompileError::MissingType {
+                        type_id: import_declaration.type_id,
+                    })?;
+                let TypeNode::Function(function_type) = import_type else {
+                    return Err(CompileError::ExpectedFunctionType {
+                        type_node: *import_type,
+                        position: import_declaration.identifier_position,
+                    });
+                };
                 let function_compiler = ChunkCompiler::new(
-                    self.syntax_trees,
-                    file_tree,
-                    self.resolver,
-                    self.constants,
-                    self.source,
-                    source_file,
-                    self.prototypes,
+                    import_declaration_id,
+                    Some(*function_type),
+                    file_index,
+                    self.context,
                 );
 
-                let _ = function_compiler.compile()?;
-                let prototype_index = self.prototypes.get_index_of(&import_declaration_id).ok_or(
-                    CompileError::MissingPrototype {
-                        declaration_id: import_declaration_id,
-                    },
-                )? as u16;
+                let function_chunk = function_compiler.compile()?;
+                let prototype_index = self.context.prototypes.len() as u16;
+
+                self.context
+                    .prototypes
+                    .insert(import_declaration_id, function_chunk);
 
                 self.locals.insert(
                     import_declaration_id,
@@ -534,7 +551,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let expression_id = SyntaxId(node.children.0);
         let expression_node = *self
-            .syntax_tree
+            .syntax_tree()?
             .get_node(expression_id)
             .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
         let expression_emission = self.compile_expression(&expression_node)?;
@@ -566,14 +583,15 @@ impl<'a> ChunkCompiler<'a> {
         let declaration_id = DeclarationId(node.payload);
         let expression_statement_id = SyntaxId(node.children.1);
 
-        let expression_statement_node = self.syntax_tree.get_node(expression_statement_id).ok_or(
-            CompileError::MissingSyntaxNode {
+        let expression_statement_node = self
+            .syntax_tree()?
+            .get_node(expression_statement_id)
+            .ok_or(CompileError::MissingSyntaxNode {
                 id: expression_statement_id,
-            },
-        )?;
+            })?;
         let expression_id = SyntaxId(expression_statement_node.children.0);
         let expression_node = *self
-            .syntax_tree
+            .syntax_tree()?
             .get_node(expression_id)
             .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
         let expression_emission = self.compile_expression(&expression_node)?;
@@ -606,7 +624,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: expression_node.kind,
-                    position: Position::new(self.syntax_tree.file_index, node.span),
+                    position: Position::new(self.syntax_tree()?.file_index, node.span),
                 });
             }
         };
@@ -632,7 +650,7 @@ impl<'a> ChunkCompiler<'a> {
             .get(&declaration_id)
             .ok_or(CompileError::MissingLocal { declaration_id })?;
         let expression_node = *self
-            .syntax_tree
+            .syntax_tree()?
             .get_node(expression_id)
             .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
         let expression_emission = self.compile_expression(&expression_node)?;
@@ -663,7 +681,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: expression_node.kind,
-                    position: Position::new(self.syntax_tree.file_index, expression_node.span),
+                    position: Position::new(self.syntax_tree()?.file_index, expression_node.span),
                 });
             }
         };
@@ -676,29 +694,37 @@ impl<'a> ChunkCompiler<'a> {
 
         let declaration_id = DeclarationId(node.children.0);
         let function_expression_id = SyntaxId(node.children.1);
-        let function_node = *self.syntax_tree.get_node(function_expression_id).ok_or(
+        let function_node = *self.syntax_tree()?.get_node(function_expression_id).ok_or(
             CompileError::MissingSyntaxNode {
                 id: function_expression_id,
             },
         )?;
 
+        if declaration_id == DeclarationId::ANONYMOUS {
+            let _ = self.compile_function_expression(&function_node, declaration_id)?;
+
+            return Ok(());
+        }
+
         if self.locals.contains_key(&declaration_id) {
             let declaration = self
+                .context
                 .resolver
                 .get_declaration(declaration_id)
                 .ok_or(CompileError::MissingDeclaration { declaration_id })?;
+            let file_index = declaration.identifier_position.file_index;
+            let identifier_range = declaration.identifier_position.span.as_usize_range();
             let identifier = &self
+                .context
                 .source
-                .get_file(declaration.identifier_position.file_index)
-                .ok_or(CompileError::MissingSourceFile {
-                    file_index: declaration.identifier_position.file_index,
-                })?
-                .source_code[declaration.identifier_position.span.as_usize_range()];
+                .get_file(file_index)
+                .ok_or(CompileError::MissingSourceFile { file_index })?
+                .source_code[identifier_range];
 
             return Err(CompileError::DuplicateFunctionDeclaration {
                 identifier: identifier.to_string(),
                 first_position: declaration.identifier_position,
-                second_position: Position::new(self.syntax_tree.file_index, node.span),
+                second_position: Position::new(self.syntax_tree()?.file_index, node.span),
             });
         }
 
@@ -708,7 +734,7 @@ impl<'a> ChunkCompiler<'a> {
         else {
             return Err(CompileError::ExpectedFunction {
                 node_kind: function_node.kind,
-                position: Position::new(self.syntax_tree.file_index, function_node.span),
+                position: Position::new(self.syntax_tree()?.file_index, function_node.span),
             });
         };
 
@@ -762,7 +788,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::CallExpression => self.compile_call_expression(node),
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind,
-                position: Position::new(self.syntax_tree.file_index, node.span),
+                position: Position::new(self.syntax_tree()?.file_index, node.span),
             }),
         }
     }
@@ -811,8 +837,15 @@ impl<'a> ChunkCompiler<'a> {
 
         let string_start = node.span.0 + 1;
         let string_end = node.span.1 - 1;
-        let string = &self.source_file.source_code[string_start as usize..string_end as usize];
-        let (pool_start, pool_end) = self.constants.push_str_to_string_pool(string);
+        let source_file = self
+            .context
+            .source
+            .get_file(self.syntax_tree()?.file_index)
+            .ok_or(CompileError::MissingSourceFile {
+                file_index: self.syntax_tree()?.file_index,
+            })?;
+        let string = &source_file.source_code[string_start as usize..string_end as usize];
+        let (pool_start, pool_end) = self.context.constants.push_str_to_string_pool(string);
 
         Ok(Emission::Constant(Constant::String {
             pool_start,
@@ -824,19 +857,21 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling math expression");
 
         let left_index = SyntaxId(node.children.0);
-        let left = *self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
+        let left = *self.syntax_tree()?.nodes.get(left_index.0 as usize).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.0,
             },
         )?;
         let right_index = SyntaxId(node.children.1);
-        let right = *self.syntax_tree.nodes.get(right_index.0 as usize).ok_or(
-            CompileError::MissingChild {
+        let right = *self
+            .syntax_tree()?
+            .nodes
+            .get(right_index.0 as usize)
+            .ok_or(CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.1,
-            },
-        )?;
+            })?;
 
         let left_emission = self.compile_expression(&left)?;
         let right_emission = self.compile_expression(&right)?;
@@ -857,6 +892,7 @@ impl<'a> ChunkCompiler<'a> {
         let instruction = match node.kind {
             SyntaxKind::AdditionExpression => {
                 let operand_type = self
+                    .context
                     .resolver
                     .resolve_type(TypeId(node.payload))
                     .ok_or(CompileError::MissingType {
@@ -868,6 +904,7 @@ impl<'a> ChunkCompiler<'a> {
             }
             SyntaxKind::AdditionAssignmentExpression => {
                 let operand_type = self
+                    .context
                     .resolver
                     .resolve_type(TypeId(left.payload))
                     .ok_or(CompileError::MissingType {
@@ -881,6 +918,7 @@ impl<'a> ChunkCompiler<'a> {
             }
             SyntaxKind::SubtractionExpression => {
                 let operand_type = self
+                    .context
                     .resolver
                     .resolve_type(TypeId(node.payload))
                     .ok_or(CompileError::MissingType {
@@ -892,6 +930,7 @@ impl<'a> ChunkCompiler<'a> {
             }
             SyntaxKind::SubtractionAssignmentExpression => {
                 let operand_type = self
+                    .context
                     .resolver
                     .resolve_type(TypeId(left.payload))
                     .ok_or(CompileError::MissingType {
@@ -905,6 +944,7 @@ impl<'a> ChunkCompiler<'a> {
             }
             SyntaxKind::MultiplicationExpression => {
                 let operand_type = self
+                    .context
                     .resolver
                     .resolve_type(TypeId(node.payload))
                     .ok_or(CompileError::MissingType {
@@ -916,6 +956,7 @@ impl<'a> ChunkCompiler<'a> {
             }
             SyntaxKind::MultiplicationAssignmentExpression => {
                 let operand_type = self
+                    .context
                     .resolver
                     .resolve_type(TypeId(left.payload))
                     .ok_or(CompileError::MissingType {
@@ -929,6 +970,7 @@ impl<'a> ChunkCompiler<'a> {
             }
             SyntaxKind::DivisionExpression => {
                 let operand_type = self
+                    .context
                     .resolver
                     .resolve_type(TypeId(node.payload))
                     .ok_or(CompileError::MissingType {
@@ -940,6 +982,7 @@ impl<'a> ChunkCompiler<'a> {
             }
             SyntaxKind::DivisionAssignmentExpression => {
                 let operand_type = self
+                    .context
                     .resolver
                     .resolve_type(TypeId(left.payload))
                     .ok_or(CompileError::MissingType {
@@ -953,6 +996,7 @@ impl<'a> ChunkCompiler<'a> {
             }
             SyntaxKind::ModuloExpression => {
                 let operand_type = self
+                    .context
                     .resolver
                     .resolve_type(TypeId(node.payload))
                     .ok_or(CompileError::MissingType {
@@ -964,6 +1008,7 @@ impl<'a> ChunkCompiler<'a> {
             }
             SyntaxKind::ModuloAssignmentExpression => {
                 let operand_type = self
+                    .context
                     .resolver
                     .resolve_type(TypeId(left.payload))
                     .ok_or(CompileError::MissingType {
@@ -986,19 +1031,21 @@ impl<'a> ChunkCompiler<'a> {
         node: &SyntaxNode,
     ) -> Result<Emission, CompileError> {
         let left_index = SyntaxId(node.children.0);
-        let left = *self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
+        let left = *self.syntax_tree()?.nodes.get(left_index.0 as usize).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.0,
             },
         )?;
         let right_index = SyntaxId(node.children.1);
-        let right = *self.syntax_tree.nodes.get(right_index.0 as usize).ok_or(
-            CompileError::MissingChild {
+        let right = *self
+            .syntax_tree()?
+            .nodes
+            .get(right_index.0 as usize)
+            .ok_or(CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.1,
-            },
-        )?;
+            })?;
 
         let left_emission = self.compile_expression(&left)?;
         let right_emission = self.compile_expression(&right)?;
@@ -1035,7 +1082,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: left.kind,
-                    position: Position::new(self.syntax_tree.file_index, left.span),
+                    position: Position::new(self.syntax_tree()?.file_index, left.span),
                 });
             }
         };
@@ -1061,7 +1108,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: right.kind,
-                    position: Position::new(self.syntax_tree.file_index, right.span),
+                    position: Position::new(self.syntax_tree()?.file_index, right.span),
                 });
             }
         };
@@ -1121,19 +1168,21 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling logical expression");
 
         let left_index = SyntaxId(node.children.0);
-        let left = *self.syntax_tree.nodes.get(left_index.0 as usize).ok_or(
+        let left = *self.syntax_tree()?.nodes.get(left_index.0 as usize).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.0,
             },
         )?;
         let right_index = SyntaxId(node.children.1);
-        let right = *self.syntax_tree.nodes.get(right_index.0 as usize).ok_or(
-            CompileError::MissingChild {
+        let right = *self
+            .syntax_tree()?
+            .nodes
+            .get(right_index.0 as usize)
+            .ok_or(CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.1,
-            },
-        )?;
+            })?;
 
         let left_emission = self.compile_expression(&left)?;
         let right_emission = self.compile_expression(&right)?;
@@ -1168,7 +1217,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: left.kind,
-                    position: Position::new(self.syntax_tree.file_index, left.span),
+                    position: Position::new(self.syntax_tree()?.file_index, left.span),
                 });
             }
         };
@@ -1199,7 +1248,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: right.kind,
-                    position: Position::new(self.syntax_tree.file_index, right.span),
+                    position: Position::new(self.syntax_tree()?.file_index, right.span),
                 });
             }
         };
@@ -1213,7 +1262,7 @@ impl<'a> ChunkCompiler<'a> {
         let child_id = SyntaxId(node.children.0);
         let child_node =
             *self
-                .syntax_tree
+                .syntax_tree()?
                 .get_node(child_id)
                 .ok_or(CompileError::MissingChild {
                     parent_kind: node.kind,
@@ -1250,7 +1299,7 @@ impl<'a> ChunkCompiler<'a> {
         let child_id = SyntaxId(node.children.0);
         let child_node =
             *self
-                .syntax_tree
+                .syntax_tree()?
                 .get_node(child_id)
                 .ok_or(CompileError::MissingChild {
                     parent_kind: node.kind,
@@ -1273,14 +1322,16 @@ impl<'a> ChunkCompiler<'a> {
         let mut current_child_index = start_children;
 
         while current_child_index < end_children {
-            let child_id = *self.syntax_tree.children.get(current_child_index).ok_or(
-                CompileError::MissingChild {
+            let child_id = *self
+                .syntax_tree()?
+                .children
+                .get(current_child_index)
+                .ok_or(CompileError::MissingChild {
                     parent_kind: node.kind,
                     child_index: current_child_index as u32,
-                },
-            )?;
+                })?;
             let child_node = *self
-                .syntax_tree
+                .syntax_tree()?
                 .get_node(child_id)
                 .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
             current_child_index += 1;
@@ -1290,7 +1341,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let last_child_id =
             *self
-                .syntax_tree
+                .syntax_tree()?
                 .children
                 .get(end_children)
                 .ok_or(CompileError::MissingChild {
@@ -1298,11 +1349,12 @@ impl<'a> ChunkCompiler<'a> {
                     child_index: end_children as u32,
                 })?;
         let last_child_node = *self
-            .syntax_tree
+            .syntax_tree()?
             .get_node(last_child_id)
             .ok_or(CompileError::MissingSyntaxNode { id: last_child_id })?;
         let outer_scope_id = ScopeId(node.payload);
         let outer_scope = self
+            .context
             .resolver
             .get_scope(outer_scope_id)
             .ok_or(CompileError::MissingScope { id: outer_scope_id })?;
@@ -1325,17 +1377,24 @@ impl<'a> ChunkCompiler<'a> {
 
         let declaration_id = DeclarationId(node.children.0);
         let declaration = self
+            .context
             .resolver
             .get_declaration(declaration_id)
             .ok_or(CompileError::MissingDeclaration { declaration_id })?;
 
         if declaration.kind == DeclarationKind::NativeFunction {
-            let identifier =
-                &self.source_file.source_code[node.span.0 as usize..node.span.1 as usize];
+            let source_file = self
+                .context
+                .source
+                .get_file(self.syntax_tree()?.file_index)
+                .ok_or(CompileError::MissingSourceFile {
+                    file_index: self.syntax_tree()?.file_index,
+                })?;
+            let identifier = &source_file.source_code[node.span.0 as usize..node.span.1 as usize];
             let native_function = NativeFunction::from_str(identifier).ok_or(
                 CompileError::InvalidNativeFunction {
                     name: identifier.to_string(),
-                    position: Position::new(self.syntax_tree.file_index, node.span),
+                    position: Position::new(self.syntax_tree()?.file_index, node.span),
                 },
             )?;
 
@@ -1350,6 +1409,7 @@ impl<'a> ChunkCompiler<'a> {
             .ok_or(CompileError::MissingLocal { declaration_id })?
             .location;
         let r#type = self
+            .context
             .resolver
             .resolve_type(TypeId(node.payload))
             .ok_or(CompileError::MissingType {
@@ -1391,19 +1451,20 @@ impl<'a> ChunkCompiler<'a> {
 
         let condition_node =
             *self
-                .syntax_tree
+                .syntax_tree()?
                 .get_node(condition_id)
                 .ok_or(CompileError::MissingChild {
                     parent_kind: node.kind,
                     child_index: node.children.0,
                 })?;
-        let body_node = *self
-            .syntax_tree
-            .get_node(body_id)
-            .ok_or(CompileError::MissingChild {
-                parent_kind: node.kind,
-                child_index: node.children.1,
-            })?;
+        let body_node =
+            *self
+                .syntax_tree()?
+                .get_node(body_id)
+                .ok_or(CompileError::MissingChild {
+                    parent_kind: node.kind,
+                    child_index: node.children.1,
+                })?;
         let condition_emission = self.compile_expression(&condition_node)?;
 
         match condition_emission {
@@ -1426,7 +1487,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: condition_node.kind,
-                    position: Position::new(self.syntax_tree.file_index, condition_node.span),
+                    position: Position::new(self.syntax_tree()?.file_index, condition_node.span),
                 });
             }
         }
@@ -1458,7 +1519,7 @@ impl<'a> ChunkCompiler<'a> {
         let block_id = SyntaxId(node.children.1);
         let function_type_id = TypeId(node.payload);
 
-        let function_signature_node = *self.syntax_tree.get_node(function_signature_id).ok_or(
+        let function_signature_node = *self.syntax_tree()?.get_node(function_signature_id).ok_or(
             CompileError::MissingSyntaxNode {
                 id: function_signature_id,
             },
@@ -1468,7 +1529,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let value_parameters_node_id = function_signature_node.children.0;
         let value_parameters_node = *self
-            .syntax_tree
+            .syntax_tree()?
             .get_node(SyntaxId(value_parameters_node_id))
             .ok_or(CompileError::MissingSyntaxNode {
                 id: SyntaxId(value_parameters_node_id),
@@ -1480,42 +1541,56 @@ impl<'a> ChunkCompiler<'a> {
         );
 
         let body_node = *self
-            .syntax_tree
+            .syntax_tree()?
             .get_node(block_id)
             .ok_or(CompileError::MissingSyntaxNode { id: block_id })?;
         let Some(value_parameter_nodes) = self
-            .syntax_tree
+            .syntax_tree()?
             .get_children(
                 value_parameters_node.children.0,
                 value_parameters_node.children.1,
             )
             .map(|children| children.to_vec())
         else {
-            return Err(CompileError::MissingChild {
+            return Err(CompileError::ChildIndexOutOfBounds {
                 parent_kind: function_signature_node.kind,
-                child_index: self.r#type.value_parameters.0,
+                children_start: value_parameters_node.children.0,
+                child_count: value_parameters_node.children.1,
+            });
+        };
+        let chunk_type = self
+            .context
+            .resolver
+            .get_type_node(function_type_id)
+            .ok_or(CompileError::MissingType {
+                type_id: function_type_id,
+            })?;
+        let function_type = if let Some(function_type) = chunk_type.as_function() {
+            function_type
+        } else {
+            return Err(CompileError::ExpectedFunctionType {
+                type_node: *chunk_type,
+                position: Position::new(self.syntax_tree()?.file_index, node.span),
             });
         };
         let mut function_compiler = ChunkCompiler::new(
-            self.syntax_trees,
-            self.syntax_tree,
-            self.resolver,
-            self.constants,
-            self.source,
-            self.source_file.clone(),
-            self.prototypes,
+            declaration_id,
+            Some(*function_type),
+            self.file_index,
+            self.context,
         );
 
         let mut value_parameter_types =
             SmallVec::<[TypeId; 4]>::with_capacity(value_parameter_nodes.len());
 
         for syntax_id in value_parameter_nodes {
-            let parameter_node = *self
-                .syntax_tree
+            let parameter_node = *function_compiler
+                .syntax_tree()?
                 .get_node(syntax_id)
                 .ok_or(CompileError::MissingSyntaxNode { id: syntax_id })?;
             let parameter_declaration_id = DeclarationId(parameter_node.payload);
             let r#type = function_compiler
+                .context
                 .resolver
                 .get_declaration(parameter_declaration_id)
                 .ok_or(CompileError::MissingDeclaration {
@@ -1533,13 +1608,12 @@ impl<'a> ChunkCompiler<'a> {
 
         function_compiler.compile_implicit_return(&body_node)?;
 
-        let value_parameter_types = function_compiler
-            .resolver
-            .push_type_members(&value_parameter_types);
-        let function_chunk = function_compiler.finish(value_parameter_types)?;
-        let prototype_index = self.prototypes.len() as u16;
+        let function_chunk = function_compiler.finish()?;
+        let prototype_index = self.context.prototypes.len() as u16;
 
-        self.prototypes.insert(declaration_id, function_chunk);
+        self.context
+            .prototypes
+            .insert(declaration_id, function_chunk);
 
         Ok(Emission::Constant(Constant::Function {
             type_id: function_type_id,
@@ -1555,7 +1629,7 @@ impl<'a> ChunkCompiler<'a> {
             debug_assert_eq!(arguments_node.kind, SyntaxKind::CallValueArguments);
 
             let children = compiler
-                .syntax_tree
+                .syntax_tree()?
                 .get_children(arguments_node.children.0, arguments_node.children.1)
                 .ok_or(CompileError::MissingChild {
                     parent_kind: arguments_node.kind,
@@ -1565,7 +1639,7 @@ impl<'a> ChunkCompiler<'a> {
 
             for child_id in children {
                 let child_node = *compiler
-                    .syntax_tree
+                    .syntax_tree()?
                     .get_node(child_id)
                     .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
                 let argument_emission = compiler.compile_expression(&child_node)?;
@@ -1584,7 +1658,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let function_node =
             *self
-                .syntax_tree
+                .syntax_tree()?
                 .get_node(function_node_id)
                 .ok_or(CompileError::MissingChild {
                     parent_kind: node.kind,
@@ -1592,7 +1666,7 @@ impl<'a> ChunkCompiler<'a> {
                 })?;
         let arguments_node =
             *self
-                .syntax_tree
+                .syntax_tree()?
                 .get_node(arguments_node_id)
                 .ok_or(CompileError::MissingChild {
                     parent_kind: node.kind,
@@ -1631,7 +1705,7 @@ impl<'a> ChunkCompiler<'a> {
 
             return Err(CompileError::ExpectedFunction {
                 node_kind: function_node.kind,
-                position: Position::new(self.syntax_tree.file_index, function_node.span),
+                position: Position::new(self.syntax_tree()?.file_index, function_node.span),
             });
         };
 
@@ -1641,13 +1715,14 @@ impl<'a> ChunkCompiler<'a> {
 
         let destination_index = self.get_next_register();
         let Type::Function(function_type) = self
+            .context
             .resolver
             .resolve_type(type_id)
             .ok_or(CompileError::MissingType { type_id })?
         else {
             return Err(CompileError::ExpectedFunction {
                 node_kind: function_node.kind,
-                position: Position::new(self.syntax_tree.file_index, function_node.span),
+                position: Position::new(self.syntax_tree()?.file_index, function_node.span),
             });
         };
         let operand_type = function_type.return_type.as_operand_type();
@@ -1686,6 +1761,7 @@ impl<'a> ChunkCompiler<'a> {
             let (return_operand, return_operand_type) = match return_emission {
                 Emission::Instruction(instruction, r#type) => {
                     let operand_type = self
+                        .context
                         .resolver
                         .resolve_type(r#type)
                         .ok_or(CompileError::MissingType { type_id: r#type })?
@@ -1706,6 +1782,7 @@ impl<'a> ChunkCompiler<'a> {
                 Emission::Instructions(instructions, r#type) => {
                     let last_instruction = instructions.last().unwrap();
                     let operand_type = self
+                        .context
                         .resolver
                         .resolve_type(r#type)
                         .ok_or(CompileError::MissingType { type_id: r#type })?
@@ -1745,7 +1822,18 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(());
         }
 
-        self.r#type.return_type = return_type;
+        match self.r#type {
+            None => {
+                self.r#type = Some(FunctionTypeNode {
+                    type_parameters: (0, 0),
+                    value_parameters: (0, 0),
+                    return_type,
+                });
+            }
+            Some(mut r#type) => {
+                r#type.return_type = return_type;
+            }
+        }
 
         self.instructions.push(return_instruction);
 

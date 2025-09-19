@@ -1,4 +1,4 @@
-use std::{slice, sync::Arc};
+use std::slice;
 
 #[derive(Debug, Clone)]
 pub enum Source {
@@ -18,14 +18,27 @@ impl Source {
         self.len() == 0
     }
 
-    pub fn program_name(&self) -> Arc<String> {
+    pub fn program_name(&self) -> &str {
         match self {
-            Source::Script(source_file) => source_file.name.clone(),
+            Source::Script(source_file) => &source_file.name,
             Source::Files(sources) => {
                 if let Some(source_file) = sources.first().as_ref() {
-                    source_file.name.clone()
+                    &source_file.name
                 } else {
-                    Arc::new("anonymous".to_string())
+                    "anonymous"
+                }
+            }
+        }
+    }
+
+    pub fn into_program_name(self) -> String {
+        match self {
+            Source::Script(source_file) => source_file.name,
+            Source::Files(sources) => {
+                if let Some(source_file) = sources.into_iter().next() {
+                    source_file.name
+                } else {
+                    "anonymous".to_string()
                 }
             }
         }
@@ -54,6 +67,6 @@ impl Source {
 
 #[derive(Debug, Clone)]
 pub struct SourceFile {
-    pub name: Arc<String>,
-    pub source_code: Arc<String>,
+    pub name: String,
+    pub source_code: String,
 }

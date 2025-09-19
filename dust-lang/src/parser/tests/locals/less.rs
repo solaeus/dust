@@ -8,7 +8,7 @@ use crate::{
 
 #[test]
 fn local_boolean_less_than() {
-    let source = local_cases::LOCAL_BOOLEAN_LESS_THAN;
+    let source = local_cases::LOCAL_BOOLEAN_LESS_THAN.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -93,7 +93,7 @@ fn local_boolean_less_than() {
 
 #[test]
 fn local_byte_less_than() {
-    let source = local_cases::LOCAL_BYTE_LESS_THAN;
+    let source = local_cases::LOCAL_BYTE_LESS_THAN.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -178,7 +178,7 @@ fn local_byte_less_than() {
 
 #[test]
 fn local_character_less_than() {
-    let source = local_cases::LOCAL_CHARACTER_LESS_THAN;
+    let source = local_cases::LOCAL_CHARACTER_LESS_THAN.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -263,7 +263,7 @@ fn local_character_less_than() {
 
 #[test]
 fn local_float_less_than() {
-    let source = local_cases::LOCAL_FLOAT_LESS_THAN;
+    let source = local_cases::LOCAL_FLOAT_LESS_THAN.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -348,7 +348,7 @@ fn local_float_less_than() {
 
 #[test]
 fn local_integer_less_than() {
-    let source = local_cases::LOCAL_INTEGER_LESS_THAN;
+    let source = local_cases::LOCAL_INTEGER_LESS_THAN.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -433,7 +433,7 @@ fn local_integer_less_than() {
 
 #[test]
 fn local_string_less_than() {
-    let source = local_cases::LOCAL_STRING_LESS_THAN;
+    let source = local_cases::LOCAL_STRING_LESS_THAN.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");

@@ -7,11 +7,9 @@ mod tests;
 pub use chunk_compiler::ChunkCompiler;
 pub use error::CompileError;
 use indexmap::IndexMap;
-use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 
 pub use std::{cell::RefCell, rc::Rc};
-use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     Chunk, ConstantTable, Position, Resolver, Source, Span,
@@ -23,34 +21,30 @@ use crate::{
     syntax_tree::SyntaxTree,
 };
 
-pub fn compile_main(source_code: &str) -> Result<Chunk, DustError> {
+pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
     let mut resolver = Resolver::new(true);
     let source = Source::Script(SourceFile {
-        name: Arc::new("main".to_string()),
-        source_code: Arc::new(source_code.to_string()),
+        name: "dust_program".into(),
+        source_code,
     });
     let parser = Parser::new(&source, &mut resolver);
     let ParseResult {
         syntax_trees,
         errors,
-    } = parser.parse(0, DeclarationId::MAIN, ScopeId::MAIN);
+    } = parser.parse(0, ScopeId::MAIN);
 
     if !errors.is_empty() {
         return Err(DustError::parse(errors, source));
     }
 
-    let source_file = source.get_file(0).unwrap().clone();
-    let mut prototypes = IndexMap::default();
-    let mut constants = ConstantTable::new();
-    let chunk_compiler = ChunkCompiler::new(
-        &syntax_trees,
-        syntax_trees.get(&DeclarationId::MAIN).unwrap(),
-        &mut resolver,
-        &mut constants,
-        &source,
-        source_file,
-        &mut prototypes,
-    );
+    let mut context = CompileContext {
+        source: source.clone(),
+        resolver,
+        file_trees: syntax_trees,
+        constants: ConstantTable::new(),
+        prototypes: IndexMap::new(),
+    };
+    let chunk_compiler = ChunkCompiler::new(DeclarationId::MAIN, None, 0, &mut context);
     let compile_result = chunk_compiler.compile();
 
     match compile_result {
@@ -60,34 +54,32 @@ pub fn compile_main(source_code: &str) -> Result<Chunk, DustError> {
 }
 
 pub struct Compiler {
-    source: Source,
-    file_trees: HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
+    context: CompileContext,
 }
 
 impl Compiler {
-    pub fn new(source: Source) -> Self {
+    pub fn new(source: Source, resolver: Resolver) -> Self {
         Self {
-            source,
-            file_trees: HashMap::default(),
+            context: CompileContext {
+                source,
+                file_trees: Vec::new(),
+                constants: ConstantTable::new(),
+                resolver,
+                prototypes: IndexMap::default(),
+            },
         }
     }
 
-    pub fn source(&self) -> &Source {
-        &self.source
-    }
-
-    pub fn compile(mut self, mut resolver: Resolver) -> Result<Program, DustError> {
-        let program_name = self.source.program_name();
-
-        for (index, file) in self.source.files().iter().enumerate().skip(1) {
+    pub fn compile(mut self) -> Result<Program, DustError> {
+        for (index, file) in self.context.source.files().iter().enumerate().skip(1) {
             let file_scope = Scope {
                 kind: ScopeKind::Module,
                 parent: ScopeId::MAIN,
                 imports: SmallVec::new(),
                 modules: SmallVec::new(),
             };
-            let file_scope_id = resolver.add_scope(file_scope);
-            let module_id = resolver.add_declaration(
+            let file_scope_id = self.context.resolver.add_scope(file_scope);
+            let module_id = self.context.resolver.add_declaration(
                 DeclarationKind::FileModule {
                     inner_scope_id: file_scope_id,
                     is_parsed: false,
@@ -99,17 +91,19 @@ impl Compiler {
                 Position::new(index as u32, Span::default()),
             );
 
-            resolver.add_module_to_scope(ScopeId::MAIN, module_id);
+            self.context
+                .resolver
+                .add_module_to_scope(ScopeId::MAIN, module_id);
         }
 
-        let source_file = match self.source.get_file(0) {
+        let source_file = match self.context.source.get_file(0) {
             Some(file) => file,
             None => {
                 todo!("Error");
             }
         };
 
-        resolver.add_declaration(
+        self.context.resolver.add_declaration(
             DeclarationKind::FileModule {
                 inner_scope_id: ScopeId::MAIN,
                 is_parsed: true,
@@ -121,52 +115,54 @@ impl Compiler {
             Position::new(0, Span::default()),
         );
 
-        let parser = Parser::new(&self.source, &mut resolver);
+        let parser = Parser::new(&self.context.source, &mut self.context.resolver);
         let ParseResult {
             syntax_trees,
             errors: module_errors,
-        } = parser.parse(0, DeclarationId::MAIN, ScopeId::MAIN);
+        } = parser.parse(0, ScopeId::MAIN);
 
-        self.file_trees.extend(syntax_trees);
+        self.context.file_trees.extend(syntax_trees);
 
         if !module_errors.is_empty() {
-            return Err(DustError::parse(module_errors, self.source));
+            return Err(DustError::parse(module_errors, self.context.source));
         }
 
-        let mut prototypes = IndexMap::default();
+        self.context
+            .prototypes
+            .insert(DeclarationId::MAIN, Chunk::default());
 
-        prototypes.insert(DeclarationId::MAIN, Chunk::default());
-
-        let mut constants = ConstantTable::new();
-        let chunk_compiler = ChunkCompiler::new(
-            &self.file_trees,
-            self.file_trees.get(&DeclarationId::MAIN).unwrap(),
-            &mut resolver,
-            &mut constants,
-            &self.source,
-            source_file.clone(),
-            &mut prototypes,
-        );
+        let chunk_compiler = ChunkCompiler::new(DeclarationId::MAIN, None, 0, &mut self.context);
 
         let chunk = match chunk_compiler.compile() {
             Ok(chunk) => chunk,
             Err(error) => {
-                return Err(DustError::compile(error, self.source));
+                return Err(DustError::compile(error, self.context.source));
             }
         };
 
-        prototypes.insert(DeclarationId::MAIN, chunk);
+        self.context.prototypes.insert(DeclarationId::MAIN, chunk);
 
-        let prototypes = prototypes
+        let prototypes = self
+            .context
+            .prototypes
             .into_iter()
             .map(|(_, chunk)| chunk)
             .collect::<Vec<Chunk>>();
 
         Ok(Program {
-            name: program_name,
-            constants,
+            name: self.context.source.into_program_name(),
+            constants: self.context.constants,
             prototypes,
-            resolver,
+            resolver: self.context.resolver,
         })
     }
+}
+
+#[derive(Debug)]
+pub struct CompileContext {
+    pub source: Source,
+    pub file_trees: Vec<SyntaxTree>,
+    pub constants: ConstantTable,
+    pub resolver: Resolver,
+    pub prototypes: IndexMap<DeclarationId, Chunk>,
 }

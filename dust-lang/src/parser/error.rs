@@ -132,6 +132,10 @@ pub enum ParseError {
     MissingType {
         id: TypeId,
     },
+    MissingPosition {
+        identifier: String,
+        position: Position,
+    },
 }
 
 impl AnnotatedError for ParseError {
@@ -167,6 +171,7 @@ impl AnnotatedError for ParseError {
             ParseError::MissingScope { .. } => 0,
             ParseError::MissingDeclaration { .. } => 0,
             ParseError::MissingType { .. } => 0,
+            ParseError::MissingPosition { position, .. } => position.file_index,
         }
     }
 
@@ -523,6 +528,21 @@ impl AnnotatedError for ParseError {
                 let title = format!("Internal error: Missing type with ID {}", id.0);
 
                 Group::with_title(Level::ERROR.primary_title(title))
+            }
+            ParseError::MissingPosition {
+                identifier,
+                position,
+            } => {
+                let title =
+                    format!("Internal error: Missing position for identifier `{identifier}`");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!("The identifier `{identifier}` is referenced here")),
+                    ),
+                )
             }
         }
     }

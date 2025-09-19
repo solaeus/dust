@@ -8,7 +8,7 @@ use crate::{
 
 #[test]
 fn local_byte_division() {
-    let source = local_cases::LOCAL_BYTE_DIVISION;
+    let source = local_cases::LOCAL_BYTE_DIVISION.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -93,7 +93,7 @@ fn local_byte_division() {
 
 #[test]
 fn local_float_division() {
-    let source = local_cases::LOCAL_FLOAT_DIVISION;
+    let source = local_cases::LOCAL_FLOAT_DIVISION.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -178,7 +178,7 @@ fn local_float_division() {
 
 #[test]
 fn local_integer_division() {
-    let source = local_cases::LOCAL_INTEGER_DIVISION;
+    let source = local_cases::LOCAL_INTEGER_DIVISION.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -263,7 +263,7 @@ fn local_integer_division() {
 
 #[test]
 fn local_mut_byte_division() {
-    let source = local_cases::LOCAL_MUT_BYTE_DIVISION;
+    let source = local_cases::LOCAL_MUT_BYTE_DIVISION.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -336,7 +336,7 @@ fn local_mut_byte_division() {
 
 #[test]
 fn local_mut_float_division() {
-    let source = local_cases::LOCAL_MUT_FLOAT_DIVISION;
+    let source = local_cases::LOCAL_MUT_FLOAT_DIVISION.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -409,7 +409,7 @@ fn local_mut_float_division() {
 
 #[test]
 fn local_mut_integer_division() {
-    let source = local_cases::LOCAL_MUT_INTEGER_DIVISION;
+    let source = local_cases::LOCAL_MUT_INTEGER_DIVISION.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");

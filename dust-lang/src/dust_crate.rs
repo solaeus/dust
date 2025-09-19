@@ -5,12 +5,12 @@ use rustc_hash::FxBuildHasher;
 use crate::{Chunk, ConstantTable, Resolver, resolver::DeclarationId, syntax_tree::SyntaxTree};
 
 pub enum DustCrate {
-    Program(Box<Program>),
+    Program(Arc<Program>),
     Library(Library),
 }
 
 pub struct Program {
-    pub name: Arc<String>,
+    pub name: String,
     pub prototypes: Vec<Chunk>,
     pub constants: ConstantTable,
     pub resolver: Resolver,

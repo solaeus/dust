@@ -3,12 +3,17 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use crate::{
     Position,
     dust_error::AnnotatedError,
-    resolver::{DeclarationId, ScopeId, TypeId},
+    resolver::{DeclarationId, ScopeId, TypeId, TypeNode},
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 
 #[derive(Debug, Clone)]
 pub enum CompileError {
+    ChildIndexOutOfBounds {
+        parent_kind: SyntaxKind,
+        children_start: u32,
+        child_count: u32,
+    },
     InvalidEncodedConstant {
         node_kind: SyntaxKind,
         position: Position,
@@ -47,6 +52,10 @@ pub enum CompileError {
         node_kind: SyntaxKind,
         position: Position,
     },
+    ExpectedFunctionType {
+        type_node: TypeNode,
+        position: Position,
+    },
     MissingChild {
         parent_kind: SyntaxKind,
         child_index: u32,
@@ -82,11 +91,15 @@ pub enum CompileError {
         payload_start: u32,
         payload_count: u32,
     },
+    MissingPosition {
+        declaration_id: DeclarationId,
+    },
 }
 
 impl AnnotatedError for CompileError {
     fn file_index(&self) -> u32 {
         match self {
+            CompileError::ChildIndexOutOfBounds { .. } => 0,
             CompileError::InvalidEncodedConstant { position, .. } => position.file_index,
             CompileError::InvalidNativeFunction { position, .. } => position.file_index,
             CompileError::DivisionByZero { position, .. } => position.file_index,
@@ -98,6 +111,7 @@ impl AnnotatedError for CompileError {
             CompileError::ExpectedExpression { position, .. } => position.file_index,
             CompileError::ExpectedFunction { position, .. } => position.file_index,
             CompileError::ExpectedFunctionBody { position, .. } => position.file_index,
+            CompileError::ExpectedFunctionType { position, .. } => position.file_index,
             CompileError::MissingChild { .. } => 0,
             CompileError::MissingConstant { .. } => 0,
             CompileError::MissingDeclaration { .. } => 0,
@@ -109,11 +123,23 @@ impl AnnotatedError for CompileError {
             CompileError::MissingSourceFile { file_index } => *file_index,
             CompileError::MissingSyntaxTree { .. } => 0,
             CompileError::MissingPayloads { .. } => 0,
+            CompileError::MissingPosition { .. } => 0,
         }
     }
 
     fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a> {
         match self {
+            CompileError::ChildIndexOutOfBounds {
+                parent_kind,
+                children_start,
+                child_count,
+            } => {
+                let title = format!(
+                    "Child index out of bounds on {parent_kind}: has {child_count} children starting at index {children_start}"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
             CompileError::InvalidEncodedConstant {
                 node_kind,
                 position,
@@ -231,6 +257,17 @@ impl AnnotatedError for CompileError {
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
+            CompileError::ExpectedFunctionType {
+                type_node: type_id,
+                position,
+            } => {
+                let title = format!("Expected a function type, found {type_id:?}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
+                )
+            }
             CompileError::MissingChild {
                 parent_kind,
                 child_index,
@@ -309,6 +346,13 @@ impl AnnotatedError for CompileError {
             } => {
                 let title = format!(
                     "Expected {payload_count} payloads starting at {payload_start}, but they were missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingPosition { declaration_id } => {
+                let title = format!(
+                    "Position for declaration id {declaration_id:?} was missing, this is a bug in the parser or compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

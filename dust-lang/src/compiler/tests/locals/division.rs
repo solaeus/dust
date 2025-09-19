@@ -1,18 +1,19 @@
 use crate::{
-    Address, Chunk, Instruction, OperandType, compile_main, resolver::TypeId, tests::local_cases,
+    Address, Chunk, Instruction, OperandType, compile_main,
+    resolver::{DeclarationId, TypeId},
+    tests::local_cases,
 };
-use std::sync::Arc;
 
 #[test]
 fn local_byte_division() {
-    let source = local_cases::LOCAL_BYTE_DIVISION;
+    let source = local_cases::LOCAL_BYTE_DIVISION.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(2),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -42,14 +43,14 @@ fn local_byte_division() {
 
 #[test]
 fn local_float_division() {
-    let source = local_cases::LOCAL_FLOAT_DIVISION;
+    let source = local_cases::LOCAL_FLOAT_DIVISION.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(2),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -79,14 +80,14 @@ fn local_float_division() {
 
 #[test]
 fn local_integer_division() {
-    let source = local_cases::LOCAL_INTEGER_DIVISION;
+    let source = local_cases::LOCAL_INTEGER_DIVISION.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(2),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),

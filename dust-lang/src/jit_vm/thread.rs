@@ -1,4 +1,7 @@
-use std::thread::{Builder as ThreadBuilder, JoinHandle};
+use std::{
+    sync::Arc,
+    thread::{Builder as ThreadBuilder, JoinHandle},
+};
 
 use bumpalo::Bump;
 use cranelift::prelude::{
@@ -26,19 +29,16 @@ pub struct Thread {
 
 impl Thread {
     pub fn spawn(
-        program: Program,
+        thread_name: String,
+        program: Arc<Program>,
+        prototype_index: u16,
         minimum_object_heap: usize,
         minimum_object_sweep: usize,
     ) -> Result<Self, JitError> {
-        let name = program
-            .main_chunk()
-            .get_name(&program.constants)
-            .to_string();
-
-        info!("Spawning thread {name}");
+        info!("Spawning thread for proto_{prototype_index}");
 
         let handle = ThreadBuilder::new()
-            .name(name)
+            .name(thread_name)
             .spawn(move || run(program, minimum_object_sweep, minimum_object_heap))
             .expect("Failed to spawn thread");
 
@@ -47,7 +47,7 @@ impl Thread {
 }
 
 fn run(
-    program: Program,
+    program: Arc<Program>,
     minimum_object_heap: usize,
     minimum_object_sweep: usize,
 ) -> Result<Option<Value>, JitError> {
@@ -152,7 +152,7 @@ fn run(
         | OperandType::LIST_FUNCTION => {
             let Some(TypeNode::Function(FunctionTypeNode { return_type, .. })) = program
                 .resolver
-                .get_type_node(program.main_chunk().r#type)
+                .get_type_node(program.main_chunk().type_id)
                 .copied()
             else {
                 unreachable!("Main chunk type must be a function");

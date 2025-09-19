@@ -8,7 +8,7 @@ use crate::{
 
 #[test]
 fn local_boolean_not() {
-    let source = local_cases::LOCAL_BOOLEAN_NOT;
+    let source = local_cases::LOCAL_BOOLEAN_NOT.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");

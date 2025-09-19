@@ -28,7 +28,12 @@ impl<'a> TuiDisassembler<'a> {
         }
 
         for chunk in &program.prototypes {
-            tabs.push(chunk.get_name(&program.constants).to_string());
+            tabs.push(
+                chunk
+                    .get_name(&program.resolver, &source)
+                    .expect("Failed to get chunk name")
+                    .to_string(),
+            );
         }
 
         Self {
@@ -160,7 +165,7 @@ impl<'a> TuiDisassembler<'a> {
         let chunk_type = self
             .program
             .resolver
-            .resolve_type(chunk.r#type)
+            .resolve_type(chunk.type_id)
             .unwrap_or(Type::None);
 
         Paragraph::new(chunk_type.to_string())
@@ -335,7 +340,7 @@ impl Widget for &TuiDisassembler<'_> {
         let main_chunk_type = self
             .program
             .resolver
-            .resolve_type(main_chunk.r#type)
+            .resolve_type(main_chunk.type_id)
             .unwrap_or(Type::None);
 
         Paragraph::new(format!(

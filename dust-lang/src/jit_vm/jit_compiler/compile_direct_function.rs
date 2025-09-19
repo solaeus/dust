@@ -6,7 +6,7 @@ use cranelift::{
     },
 };
 use cranelift_module::{FuncId, Module, ModuleError};
-use tracing::info;
+use tracing::{Level, info, span};
 
 use crate::{
     Address, Chunk, ConstantTable, MemoryKind, OperandType, Operation, Type,
@@ -19,10 +19,8 @@ pub fn compile_direct_function(
     function_id: FuncId,
     chunk: &Chunk,
 ) -> Result<(), JitError> {
-    info!(
-        "Compiling direct function {}",
-        chunk.get_name(&compiler.program.constants)
-    );
+    let span = span!(Level::INFO, "direct");
+    let _enter = span.enter();
 
     let mut function_builder_context = FunctionBuilderContext::new();
     let mut compilation_context = compiler.module.make_context();
@@ -31,14 +29,14 @@ pub fn compile_direct_function(
     let chunk_type = compiler
         .program
         .resolver
-        .get_type_node(chunk.r#type)
+        .get_type_node(chunk.type_id)
         .ok_or(JitError::TypeIndexOutOfBounds {
-            type_id: chunk.r#type,
+            type_id: chunk.type_id,
             total_type_count: compiler.program.resolver.type_count(),
         })?
         .as_function()
         .ok_or(JitError::ExpectedFunctionType {
-            type_id: chunk.r#type,
+            type_id: chunk.type_id,
         })?;
     let value_parameter_count = chunk_type.value_parameters.1 as usize;
 
@@ -558,11 +556,6 @@ pub fn compile_direct_function(
                 }
             }
         })?;
-
-    info!(
-        "Finished compiling direct function {}",
-        chunk.get_name(&compiler.program.constants)
-    );
 
     compiler.module.clear_context(&mut compilation_context);
 

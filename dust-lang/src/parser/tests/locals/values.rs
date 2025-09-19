@@ -8,7 +8,7 @@ use crate::{
 
 #[test]
 fn local_boolean() {
-    let source = local_cases::LOCAL_BOOLEAN;
+    let source = local_cases::LOCAL_BOOLEAN.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -57,7 +57,7 @@ fn local_boolean() {
 
 #[test]
 fn local_byte() {
-    let source = local_cases::LOCAL_BYTE;
+    let source = local_cases::LOCAL_BYTE.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -106,7 +106,7 @@ fn local_byte() {
 
 #[test]
 fn local_character() {
-    let source = local_cases::LOCAL_CHARACTER;
+    let source = local_cases::LOCAL_CHARACTER.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -155,7 +155,7 @@ fn local_character() {
 
 #[test]
 fn local_float() {
-    let source = local_cases::LOCAL_FLOAT;
+    let source = local_cases::LOCAL_FLOAT.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -204,7 +204,7 @@ fn local_float() {
 
 #[test]
 fn local_integer() {
-    let source = local_cases::LOCAL_INTEGER;
+    let source = local_cases::LOCAL_INTEGER.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -253,7 +253,7 @@ fn local_integer() {
 
 #[test]
 fn local_string() {
-    let source = local_cases::LOCAL_STRING;
+    let source = local_cases::LOCAL_STRING.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");

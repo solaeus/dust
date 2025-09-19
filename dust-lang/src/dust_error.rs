@@ -1,15 +1,12 @@
 //! Top-level error for the Dust language API that can create detailed reports with source code
 //! annotations.
-use std::{
-    fmt::{self, Display, Formatter},
-    sync::Arc,
-};
+use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::{Group, Renderer};
 
 use crate::{CompileError, Source, jit_vm::JitError, parser::ParseError, source::SourceFile};
 
-const SOURCE_NOT_FOUND: &str = "<source not found>";
+const SOURCE_NOT_AVAILABLE: &str = "<source not available>";
 
 /// A top-level error that can occur during the interpretation of Dust code.
 #[derive(Debug)]
@@ -37,8 +34,8 @@ impl DustError {
         DustError {
             error: DustErrorKind::Jit(error),
             source: Source::Script(SourceFile {
-                name: Arc::new(SOURCE_NOT_FOUND.to_string()),
-                source_code: Arc::new(SOURCE_NOT_FOUND.to_string()),
+                name: SOURCE_NOT_AVAILABLE.to_string(),
+                source_code: SOURCE_NOT_AVAILABLE.to_string(),
             }),
         }
     }
@@ -52,7 +49,7 @@ impl DustError {
                     let source_file = self.source.get_file(parse_error.file_index());
                     let source = match source_file {
                         Some(file) => &file.source_code,
-                        None => SOURCE_NOT_FOUND,
+                        None => SOURCE_NOT_AVAILABLE,
                     };
                     let group = parse_error.annotated_error(source);
 
@@ -67,7 +64,7 @@ impl DustError {
                 let source_file = self.source.get_file(compile_error.file_index());
                 let source = match source_file {
                     Some(file) => &file.source_code,
-                    None => SOURCE_NOT_FOUND,
+                    None => SOURCE_NOT_AVAILABLE,
                 };
                 let report = [compile_error.annotated_error(source)];
                 let renderer = Renderer::styled();
@@ -78,7 +75,7 @@ impl DustError {
                 let source_file = self.source.get_file(jit_error.file_index());
                 let source = match source_file {
                     Some(file) => &file.source_code,
-                    None => SOURCE_NOT_FOUND,
+                    None => SOURCE_NOT_AVAILABLE,
                 };
                 let report = [jit_error.annotated_error(source)];
                 let renderer = Renderer::styled();

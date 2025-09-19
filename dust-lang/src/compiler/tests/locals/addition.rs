@@ -1,18 +1,19 @@
 use crate::{
-    Address, Chunk, Instruction, OperandType, compile_main, resolver::TypeId, tests::local_cases,
+    Address, Chunk, Instruction, OperandType, compile_main,
+    resolver::{DeclarationId, TypeId},
+    tests::local_cases,
 };
-use std::sync::Arc;
 
 #[test]
 fn local_byte_addition() {
-    let source = local_cases::LOCAL_BYTE_ADDITION;
+    let source = local_cases::LOCAL_BYTE_ADDITION.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(2),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -42,14 +43,14 @@ fn local_byte_addition() {
 
 #[test]
 fn local_float_addition() {
-    let source = local_cases::LOCAL_FLOAT_ADDITION;
+    let source = local_cases::LOCAL_FLOAT_ADDITION.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(2),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -79,14 +80,14 @@ fn local_float_addition() {
 
 #[test]
 fn local_integer_addition() {
-    let source = local_cases::LOCAL_INTEGER_ADDITION;
+    let source = local_cases::LOCAL_INTEGER_ADDITION.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(2),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(2),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -116,14 +117,14 @@ fn local_integer_addition() {
 
 #[test]
 fn local_string_concatenation() {
-    let source = local_cases::LOCAL_STRING_CONCATENATION;
+    let source = local_cases::LOCAL_STRING_CONCATENATION.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(0),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(0),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -153,14 +154,14 @@ fn local_string_concatenation() {
 
 #[test]
 fn local_character_concatenation() {
-    let source = local_cases::LOCAL_CHARACTER_CONCATENATION;
+    let source = local_cases::LOCAL_CHARACTER_CONCATENATION.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(0),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(0),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -190,14 +191,14 @@ fn local_character_concatenation() {
 
 #[test]
 fn local_string_character_concatenation() {
-    let source = local_cases::LOCAL_STRING_CHARACTER_CONCATENATION;
+    let source = local_cases::LOCAL_STRING_CHARACTER_CONCATENATION.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(0),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(0),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -227,14 +228,14 @@ fn local_string_character_concatenation() {
 
 #[test]
 fn local_character_string_concatenation() {
-    let source = local_cases::LOCAL_CHARACTER_STRING_CONCATENATION;
+    let source = local_cases::LOCAL_CHARACTER_STRING_CONCATENATION.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(
         chunk,
         Chunk {
-            name: Arc::new("main".to_string()),
-            r#type: TypeId(0),
+            declaration_id: DeclarationId::MAIN,
+            type_id: TypeId(0),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),

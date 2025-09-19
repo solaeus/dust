@@ -33,17 +33,20 @@ pub const MINIMUM_OBJECT_SWEEP_DEFAULT: usize = if cfg!(debug_assertions) {
 
 pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 
-pub fn run_main(source: &str) -> Result<Option<Value>, DustError> {
-    let compiler = Compiler::new(Source::Script(SourceFile {
-        name: Arc::new("dust_program".to_string()),
-        source_code: Arc::new(source.to_string()),
-    }));
+pub fn run_main(source_code: String) -> Result<Option<Value>, DustError> {
     let resolver = Resolver::new(true);
-    let program = compiler.compile(resolver)?;
+    let compiler = Compiler::new(
+        Source::Script(SourceFile {
+            name: "dust_program".to_string(),
+            source_code,
+        }),
+        resolver,
+    );
+    let program = compiler.compile()?;
     let vm = JitVm::new();
 
     vm.run(
-        program,
+        Arc::new(program),
         MINIMUM_OBJECT_HEAP_DEFAULT,
         MINIMUM_OBJECT_SWEEP_DEFAULT,
     )
@@ -62,12 +65,18 @@ impl JitVm {
 
     pub fn run(
         self,
-        program: Program,
+        program: Arc<Program>,
         minimum_object_heap: usize,
         minimum_object_sweep: usize,
     ) -> Result<Option<Value>, DustError> {
-        let main_thread = Thread::spawn(program, minimum_object_heap, minimum_object_sweep)
-            .map_err(DustError::jit)?;
+        let main_thread = Thread::spawn(
+            program.name.clone(),
+            program,
+            0,
+            minimum_object_heap,
+            minimum_object_sweep,
+        )
+        .map_err(DustError::jit)?;
         let return_result = main_thread
             .handle
             .join()

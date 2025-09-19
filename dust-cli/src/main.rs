@@ -62,13 +62,13 @@ fn main() {
     }) = mode
     {
         let source = get_source(path, name, stdin, eval);
-        let compiler = Compiler::new(source.clone());
         let resolver = Resolver::new(true);
-        let compile_result = compiler.compile(resolver);
+        let compiler = Compiler::new(source.clone(), resolver);
+        let compile_result = compiler.compile();
         let compile_time = start_time.elapsed();
 
         let program = match compile_result {
-            Ok(program) => program,
+            Ok(program) => Arc::new(program),
             Err(error) => {
                 let report = error.report();
 
@@ -104,7 +104,7 @@ fn main() {
         }
 
         if time && !no_output {
-            print_times(&[(source.program_name().as_str(), compile_time, Some(run_time))]);
+            print_times(&[(source.program_name(), compile_time, Some(run_time))]);
         }
 
         return;
@@ -121,11 +121,8 @@ fn main() {
         let source = get_source(file, name, stdin, eval);
 
         match source {
-            Source::Script(SourceFile {
-                name,
-                source_code: source,
-            }) => {
-                let (syntax_tree, error) = parse_main(&source);
+            Source::Script(SourceFile { name, source_code }) => {
+                let (syntax_tree, error) = parse_main(source_code);
                 let parse_time = start_time.elapsed();
 
                 if no_output {
@@ -158,9 +155,9 @@ fn main() {
     }) = mode
     {
         let source = get_source(path, name, stdin, eval);
-        let compiler = Compiler::new(source.clone());
         let resolver = Resolver::new(true);
-        let compile_result = compiler.compile(resolver);
+        let compiler = Compiler::new(source.clone(), resolver);
+        let compile_result = compiler.compile();
         let compile_time = start_time.elapsed();
 
         match compile_result {
@@ -173,7 +170,7 @@ fn main() {
         }
 
         if time && !no_output {
-            print_times(&[(source.program_name().as_str(), compile_time, None)]);
+            print_times(&[(source.program_name(), compile_time, None)]);
         }
 
         return;
@@ -274,10 +271,10 @@ fn get_source(
     stdin: bool,
     eval: Option<String>,
 ) -> Source {
-    if let Some(source) = eval {
+    if let Some(source_code) = eval {
         return Source::Script(SourceFile {
-            name: Arc::new(name.unwrap_or_else(|| "anonymous".to_string())),
-            source_code: Arc::new(source),
+            name: "CLI Input".to_string(),
+            source_code,
         });
     }
 
@@ -289,24 +286,22 @@ fn get_source(
             .expect("Failed to read from stdin");
 
         return Source::Script(SourceFile {
-            name: Arc::new(name.unwrap_or_else(|| "anonymous".to_string())),
-            source_code: Arc::new(buffer),
+            name: "stdin".to_string(),
+            source_code: buffer,
         });
     }
 
     match path {
         Some(path) if path.is_file() => {
-            let file_name = path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or("unknown")
-                .to_string();
-            let file_content = read_to_string(&path).expect("Failed to read source file");
+            let name = name.unwrap_or_else(|| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("unknown")
+                    .to_string()
+            });
+            let source_code = read_to_string(&path).expect("Failed to read source file");
 
-            Source::Script(SourceFile {
-                name: Arc::new(name.unwrap_or(file_name)),
-                source_code: Arc::new(file_content),
-            })
+            Source::Script(SourceFile { name, source_code })
         }
         Some(project_path) if project_path.is_dir() => {
             let project_path = project_path.canonicalize().expect("Invalid project path");
@@ -341,8 +336,8 @@ fn get_source(
             });
 
             source_files.push(SourceFile {
-                name: Arc::new(project_name),
-                source_code: Arc::new(main_file_content),
+                name: project_name,
+                source_code: main_file_content,
             });
 
             let source_directory = project_path.join("src");
@@ -359,7 +354,7 @@ fn get_source(
                         continue;
                     }
 
-                    let file_name = path
+                    let module_name = path
                         .file_name()
                         .and_then(|name| name.to_str())
                         .unwrap_or("unknown")
@@ -368,8 +363,8 @@ fn get_source(
                     let file_content = read_to_string(&path).expect("Failed to read source file");
 
                     source_files.push(SourceFile {
-                        name: Arc::new(file_name),
-                        source_code: Arc::new(file_content),
+                        name: module_name,
+                        source_code: file_content,
                     });
                 }
             }

@@ -11,7 +11,7 @@ use cranelift::{
 };
 use cranelift_module::{FuncId, Module, ModuleError};
 use smallvec::SmallVec;
-use tracing::info;
+use tracing::{Level, info, span};
 
 use crate::{
     Address, Chunk, ConstantTable, MemoryKind, OperandType, Operation, Type,
@@ -28,10 +28,8 @@ pub fn compile_stackless_function(
     is_main: bool,
     compiler: &mut JitCompiler,
 ) -> Result<(), JitError> {
-    info!(
-        "Compiling stackless function {}",
-        chunk.get_name(&compiler.program.constants)
-    );
+    let span = span!(Level::INFO, "stackless");
+    let _enter = span.enter();
 
     let mut function_builder_context = FunctionBuilderContext::new();
     let mut compilation_context = compiler.module.make_context();
@@ -1292,11 +1290,6 @@ pub fn compile_stackless_function(
                 }
             }
         })?;
-
-    info!(
-        "Finished compiling stackless function {}",
-        chunk.get_name(&compiler.program.constants)
-    );
 
     compiler.module.clear_context(&mut compilation_context);
 

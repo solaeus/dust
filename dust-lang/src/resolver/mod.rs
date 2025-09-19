@@ -282,17 +282,19 @@ impl Resolver {
                         Some(Type::list(element_type))
                     }
                     TypeNode::Function(FunctionTypeNode {
-                        type_parameters: (type_args_start, type_args_end),
-                        value_parameters: (value_args_start, value_args_end),
+                        type_parameters: (type_args_start, type_args_count),
+                        value_parameters: (value_args_start, value_args_count),
                         return_type,
                     }) => {
+                        let type_args_end = type_args_start + type_args_count;
                         let type_arguments = self.type_members
-                            [*type_args_start as usize..*type_args_end as usize]
+                            [*type_args_start as usize..type_args_end as usize]
                             .iter()
                             .map(|id| self.resolve_type(*id))
                             .collect::<Option<Vec<Type>>>()?;
+                        let value_args_end = value_args_start + value_args_count;
                         let value_arguments = self.type_members
-                            [*value_args_start as usize..*value_args_end as usize]
+                            [*value_args_start as usize..value_args_end as usize]
                             .iter()
                             .map(|id| self.resolve_type(*id))
                             .collect::<Option<Vec<Type>>>()?;
@@ -372,6 +374,12 @@ impl DeclarationId {
     pub const MAIN: Self = DeclarationId(0);
     pub const ANONYMOUS: Self = DeclarationId(u32::MAX);
     pub const NATIVE: Self = DeclarationId(u32::MAX - 1);
+}
+
+impl Default for DeclarationId {
+    fn default() -> Self {
+        DeclarationId::ANONYMOUS
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -484,7 +492,7 @@ impl TypeNode {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FunctionTypeNode {
     pub type_parameters: (u32, u32),
     pub value_parameters: (u32, u32),

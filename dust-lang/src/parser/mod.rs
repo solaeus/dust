@@ -5,9 +5,8 @@ mod parse_rule;
 mod tests;
 
 pub use error::ParseError;
-use rustc_hash::FxBuildHasher;
 
-use std::{collections::HashMap, mem::replace, sync::Arc};
+use std::mem::replace;
 
 use lexical_core::{ParseFloatOptions, format::RUST_LITERAL, parse_with_options};
 use smallvec::SmallVec;
@@ -25,28 +24,29 @@ use crate::{
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
-pub fn parse_main(source: &'_ str) -> (SyntaxTree, Option<DustError>) {
-    let name = Arc::new("dust_program".to_string());
-    let source_code = Arc::new(source.to_string());
-    let source = Source::Script(SourceFile { name, source_code });
+pub fn parse_main(source_code: String) -> (SyntaxTree, Option<DustError>) {
+    let source = Source::Script(SourceFile {
+        name: "dust_program".to_string(),
+        source_code,
+    });
     let mut resolver = Resolver::new(true);
     let parser = Parser::new(&source, &mut resolver);
     let ParseResult {
         mut syntax_trees,
         errors,
         ..
-    } = parser.parse(0, DeclarationId::MAIN, ScopeId::MAIN);
+    } = parser.parse(0, ScopeId::MAIN);
     let dust_error = if errors.is_empty() {
         None
     } else {
         Some(DustError::parse(errors, source))
     };
 
-    (syntax_trees.remove(&DeclarationId(0)).unwrap(), dust_error)
+    (syntax_trees.swap_remove(0), dust_error)
 }
 
 pub struct ParseResult {
-    pub syntax_trees: HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
+    pub syntax_trees: Vec<SyntaxTree>,
     pub errors: Vec<ParseError>,
 }
 
@@ -64,7 +64,7 @@ pub struct Parser<'a> {
 
     current_scope_id: ScopeId,
 
-    syntax_trees: HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
+    syntax_trees: Vec<SyntaxTree>,
     errors: Vec<ParseError>,
 }
 
@@ -80,19 +80,14 @@ impl<'a> Parser<'a> {
             previous_token: Token::Eof,
             previous_span: Span::default(),
             current_scope_id: ScopeId(0),
-            syntax_trees: HashMap::default(),
+            syntax_trees: Vec::new(),
             errors: Vec::new(),
         }
     }
 
     /// Parses a source string as a complete file, returning the syntax tree and any parse errors.
     /// The parser is consumed and cannot be reused.
-    pub fn parse(
-        mut self,
-        file_index: u32,
-        declaration_id: DeclarationId,
-        scope_id: ScopeId,
-    ) -> ParseResult {
+    pub fn parse(mut self, file_index: u32, scope_id: ScopeId) -> ParseResult {
         let span = span!(Level::INFO, "parse");
         let _enter = span.enter();
 
@@ -116,8 +111,9 @@ impl<'a> Parser<'a> {
                 .map_err(|error| self.recover(error));
         }
 
-        self.syntax_trees
-            .insert(declaration_id, self.current_syntax_tree);
+        self.current_syntax_tree.file_index = self.syntax_trees.len() as u32;
+
+        self.syntax_trees.push(self.current_syntax_tree);
 
         ParseResult {
             syntax_trees: self.syntax_trees,
@@ -517,7 +513,7 @@ impl<'a> Parser<'a> {
                         let ParseResult {
                             syntax_trees,
                             errors,
-                        } = parser.parse(file_index, head_declaration_id, inner_scope_id);
+                        } = parser.parse(file_index, inner_scope_id);
 
                         self.syntax_trees.extend(syntax_trees);
                         self.errors.extend(errors);

@@ -8,7 +8,7 @@ use crate::{
 
 #[test]
 fn local_boolean_not_equal() {
-    let source = local_cases::LOCAL_BOOLEAN_NOT_EQUAL;
+    let source = local_cases::LOCAL_BOOLEAN_NOT_EQUAL.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -93,7 +93,7 @@ fn local_boolean_not_equal() {
 
 #[test]
 fn local_byte_not_equal() {
-    let source = local_cases::LOCAL_BYTE_NOT_EQUAL;
+    let source = local_cases::LOCAL_BYTE_NOT_EQUAL.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -178,7 +178,7 @@ fn local_byte_not_equal() {
 
 #[test]
 fn local_character_not_equal() {
-    let source = local_cases::LOCAL_CHARACTER_NOT_EQUAL;
+    let source = local_cases::LOCAL_CHARACTER_NOT_EQUAL.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -263,7 +263,7 @@ fn local_character_not_equal() {
 
 #[test]
 fn local_float_not_equal() {
-    let source = local_cases::LOCAL_FLOAT_NOT_EQUAL;
+    let source = local_cases::LOCAL_FLOAT_NOT_EQUAL.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -348,7 +348,7 @@ fn local_float_not_equal() {
 
 #[test]
 fn local_integer_not_equal() {
-    let source = local_cases::LOCAL_INTEGER_NOT_EQUAL;
+    let source = local_cases::LOCAL_INTEGER_NOT_EQUAL.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
@@ -433,7 +433,7 @@ fn local_integer_not_equal() {
 
 #[test]
 fn local_string_not_equal() {
-    let source = local_cases::LOCAL_STRING_NOT_EQUAL;
+    let source = local_cases::LOCAL_STRING_NOT_EQUAL.to_string();
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");

@@ -15,15 +15,18 @@ pub use tui_disassembler::TuiDisassembler;
 
 use std::fmt::Debug;
 
-use crate::{Address, ConstantTable, Instruction, OperandType, resolver::TypeId};
+use crate::{
+    Address, CompileError, Instruction, OperandType, Resolver, Source,
+    resolver::{DeclarationId, TypeId},
+};
 
 /// Representation of a Dust program or function.
 ///
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Chunk {
-    pub(crate) name_index: Option<u16>,
-    pub(crate) r#type: TypeId,
+    pub(crate) declaration_id: DeclarationId,
+    pub(crate) type_id: TypeId,
 
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) call_arguments: Vec<(Address, OperandType)>,
@@ -34,13 +37,28 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn get_name<'a>(&self, constants: &'a ConstantTable) -> &'a str {
-        if let Some(name_index) = self.name_index
-            && let Some(name) = constants.get_string(name_index)
-        {
-            name
-        } else {
-            "anonymous"
+    pub fn get_name<'a>(
+        &self,
+        resolver: &'a Resolver,
+        source: &'a Source,
+    ) -> Result<&'a str, CompileError> {
+        match self.declaration_id {
+            DeclarationId::MAIN => Ok("main"),
+            DeclarationId::ANONYMOUS => Ok("anonymous"),
+            id => {
+                let declaration = resolver
+                    .get_declaration(id)
+                    .ok_or(CompileError::MissingDeclaration { declaration_id: id })?;
+                let file_source = source
+                    .get_file(declaration.identifier_position.file_index)
+                    .ok_or(CompileError::MissingSourceFile {
+                        file_index: declaration.identifier_position.file_index,
+                    })?;
+                let name =
+                    &file_source.source_code[declaration.identifier_position.span.as_usize_range()];
+
+                Ok(name)
+            }
         }
     }
 }
