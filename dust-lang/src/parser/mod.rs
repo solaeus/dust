@@ -17,25 +17,22 @@ use crate::{
     dust_error::DustError,
     parser::parse_rule::{ParseRule, Precedence},
     resolver::{
-        DeclarationId, DeclarationKind, FunctionTypeNode, Scope, ScopeId, ScopeKind, TypeId,
-        TypeNode,
+        Declaration, DeclarationId, DeclarationKind, FunctionTypeNode, Scope, ScopeId, ScopeKind,
+        TypeId, TypeNode,
     },
-    source::SourceFile,
+    source::SourceFileId,
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
 pub fn parse_main(source_code: String) -> (SyntaxTree, Option<DustError>) {
-    let source = Source::Script(SourceFile {
-        name: "dust_program".to_string(),
-        source_code,
-    });
+    let source = Source::script("dust_program".to_string(), source_code);
     let mut resolver = Resolver::new(true);
-    let parser = Parser::new(&source, &mut resolver);
+    let parser = Parser::new(SourceFileId(0), ScopeId::MAIN, &source, &mut resolver);
     let ParseResult {
         mut syntax_trees,
         errors,
         ..
-    } = parser.parse(0, ScopeId::MAIN);
+    } = parser.parse();
     let dust_error = if errors.is_empty() {
         None
     } else {
@@ -55,7 +52,7 @@ pub struct Parser<'a> {
     source: &'a Source,
     resolver: &'a mut Resolver,
 
-    current_syntax_tree: SyntaxTree,
+    syntax_tree: SyntaxTree,
 
     current_token: Token,
     current_span: Span,
@@ -69,17 +66,22 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(source: &'a Source, resolver: &'a mut Resolver) -> Self {
+    pub fn new(
+        file_id: SourceFileId,
+        scope_id: ScopeId,
+        source: &'a Source,
+        resolver: &'a mut Resolver,
+    ) -> Self {
         Self {
             lexer: Lexer::new(),
             source,
             resolver,
-            current_syntax_tree: SyntaxTree::new(0),
+            syntax_tree: SyntaxTree::new(file_id),
             current_token: Token::Eof,
             current_span: Span::default(),
             previous_token: Token::Eof,
             previous_span: Span::default(),
-            current_scope_id: ScopeId(0),
+            current_scope_id: scope_id,
             syntax_trees: Vec::new(),
             errors: Vec::new(),
         }
@@ -87,23 +89,21 @@ impl<'a> Parser<'a> {
 
     /// Parses a source string as a complete file, returning the syntax tree and any parse errors.
     /// The parser is consumed and cannot be reused.
-    pub fn parse(mut self, file_index: u32, scope_id: ScopeId) -> ParseResult {
+    pub fn parse(mut self) -> ParseResult {
         let span = span!(Level::INFO, "parse");
         let _enter = span.enter();
 
         let source_code = self
             .source
-            .get_file(file_index)
+            .get_file(self.syntax_tree.file_id)
             .expect("File index out of bounds")
             .source_code
             .as_ref();
         let (token, span) = self.lexer.initialize(source_code, 0);
-        self.current_syntax_tree.file_index = file_index;
-        self.current_scope_id = scope_id;
         self.current_token = token;
         self.current_span = span;
 
-        if scope_id == ScopeId::MAIN {
+        if self.current_scope_id == ScopeId::MAIN {
             self.parse_main_function_item();
         } else {
             let _ = self
@@ -111,9 +111,7 @@ impl<'a> Parser<'a> {
                 .map_err(|error| self.recover(error));
         }
 
-        self.current_syntax_tree.file_index = self.syntax_trees.len() as u32;
-
-        self.syntax_trees.push(self.current_syntax_tree);
+        self.syntax_trees.push(self.syntax_tree);
 
         ParseResult {
             syntax_trees: self.syntax_trees,
@@ -122,7 +120,7 @@ impl<'a> Parser<'a> {
     }
 
     fn current_position(&self) -> Position {
-        Position::new(self.current_syntax_tree.file_index, self.current_span)
+        Position::new(self.syntax_tree.file_id, self.current_span)
     }
 
     fn new_child_buffer() -> SmallVec<[SyntaxId; 4]> {
@@ -234,9 +232,9 @@ impl<'a> Parser<'a> {
     fn parse_item(&mut self) -> Result<(), ParseError> {
         self.pratt(Precedence::None)?;
 
-        let last_node_id = self.current_syntax_tree.last_node_id();
+        let last_node_id = self.syntax_tree.last_node_id();
 
-        if let Some(node) = self.current_syntax_tree.get_node(last_node_id) {
+        if let Some(node) = self.syntax_tree.get_node(last_node_id) {
             if node.kind.is_item() {
                 return Ok(());
             }
@@ -249,19 +247,19 @@ impl<'a> Parser<'a> {
                     payload: TypeId::NONE.0,
                 };
 
-                self.current_syntax_tree.push_node(item_statement_node);
+                self.syntax_tree.push_node(item_statement_node);
 
                 return Ok(());
             }
 
             Err(ParseError::ExpectedItem {
                 actual: node.kind,
-                position: Position::new(self.current_syntax_tree.file_index, node.span),
+                position: Position::new(self.syntax_tree.file_id, node.span),
             })
         } else {
             Err(ParseError::UnexpectedToken {
                 actual: self.previous_token,
-                position: Position::new(self.current_syntax_tree.file_index, self.previous_span),
+                position: Position::new(self.syntax_tree.file_id, self.previous_span),
             })
         }
     }
@@ -290,12 +288,12 @@ impl<'a> Parser<'a> {
     fn _parse_statement(&mut self) -> Result<(), ParseError> {
         self.pratt(Precedence::None)?;
 
-        if let Some(node) = self.current_syntax_tree.last_node()
+        if let Some(node) = self.syntax_tree.last_node()
             && !node.kind.is_statement()
         {
             Err(ParseError::ExpectedStatement {
                 actual: node.kind,
-                position: Position::new(self.current_syntax_tree.file_index, node.span),
+                position: Position::new(self.syntax_tree.file_id, node.span),
             })
         } else {
             Ok(())
@@ -305,12 +303,12 @@ impl<'a> Parser<'a> {
     fn parse_expression(&mut self) -> Result<(), ParseError> {
         self.pratt(Precedence::None)?;
 
-        if let Some(node) = self.current_syntax_tree.last_node()
+        if let Some(node) = self.syntax_tree.last_node()
             && !node.kind.is_expression()
         {
             Err(ParseError::ExpectedExpression {
                 actual: node.kind,
-                position: Position::new(self.current_syntax_tree.file_index, node.span),
+                position: Position::new(self.syntax_tree.file_id, node.span),
             })
         } else {
             Ok(())
@@ -320,12 +318,12 @@ impl<'a> Parser<'a> {
     fn parse_sub_expression(&mut self, precedence: Precedence) -> Result<(), ParseError> {
         self.pratt(precedence.increment())?;
 
-        if let Some(node) = self.current_syntax_tree.last_node()
+        if let Some(node) = self.syntax_tree.last_node()
             && !node.kind.is_expression()
         {
             Err(ParseError::ExpectedExpression {
                 actual: node.kind,
-                position: Position::new(self.current_syntax_tree.file_index, node.span),
+                position: Position::new(self.syntax_tree.file_id, node.span),
             })
         } else {
             Ok(())
@@ -350,7 +348,7 @@ impl<'a> Parser<'a> {
         };
         self.current_scope_id = ScopeId::MAIN;
 
-        let _main_function_item_id = self.current_syntax_tree.push_node(placeholder_node);
+        let _main_function_item_id = self.syntax_tree.push_node(placeholder_node);
 
         debug_assert_eq!(_main_function_item_id, SyntaxId(0));
 
@@ -360,7 +358,7 @@ impl<'a> Parser<'a> {
             if let Err(error) = self.pratt(Precedence::None) {
                 self.recover(error);
             } else {
-                let child_id = self.current_syntax_tree.last_node_id();
+                let child_id = self.syntax_tree.last_node_id();
 
                 if child_id == SyntaxId(0) {
                     break;
@@ -370,16 +368,16 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let last_node_type = if let Some(last_node) = self.current_syntax_tree.last_node()
+        let last_node_type = if let Some(last_node) = self.syntax_tree.last_node()
             && last_node.kind.is_expression()
         {
             last_node.payload
         } else {
             TypeId::NONE.0
         };
-        let children = self.current_syntax_tree.push_children(&children);
+        let children = self.syntax_tree.push_children(&children);
 
-        self.current_syntax_tree.nodes[0] = SyntaxNode {
+        self.syntax_tree.nodes[0] = SyntaxNode {
             kind: SyntaxKind::MainFunctionItem,
             span: Span(0, self.current_span.1),
             children,
@@ -399,25 +397,27 @@ impl<'a> Parser<'a> {
             children: (0, 0),
             payload: TypeId::NONE.0,
         };
-        let node_index = self.current_syntax_tree.nodes.len();
+        let node_index = self.syntax_tree.nodes.len();
 
-        self.current_syntax_tree.push_node(placeholder_node);
+        self.syntax_tree.push_node(placeholder_node);
 
         // Allows for nested modules and whole file modules
         let (end_token, declaration_id) = if self.current_token == Token::Mod {
             self.advance()?;
 
-            let identifier_text = self.current_source();
             self.current_scope_id = self.new_child_scope(ScopeKind::Module);
+            let identifier_text = self.current_source();
             let declaration_id = self.resolver.add_declaration(
-                DeclarationKind::InlineModule {
-                    inner_scope_id: self.current_scope_id,
-                },
-                starting_scope_id,
-                TypeId::NONE,
-                is_public,
                 identifier_text,
-                Position::new(self.current_syntax_tree.file_index, self.current_span),
+                Declaration {
+                    kind: DeclarationKind::InlineModule {
+                        inner_scope_id: self.current_scope_id,
+                    },
+                    scope_id: starting_scope_id,
+                    type_id: TypeId::NONE,
+                    position: Position::new(self.syntax_tree.file_id, self.current_span),
+                    is_public,
+                },
             );
 
             self.expect(Token::Identifier)?;
@@ -433,13 +433,13 @@ impl<'a> Parser<'a> {
         while !self.allow(end_token)? {
             self.parse_item()?;
 
-            children.push(self.current_syntax_tree.last_node_id());
+            children.push(self.syntax_tree.last_node_id());
         }
 
         let end = self.previous_span.1;
         self.current_scope_id = starting_scope_id;
 
-        let first_child = self.current_syntax_tree.children.len() as u32;
+        let first_child = self.syntax_tree.children.len() as u32;
         let child_count = children.len() as u32;
         let node = SyntaxNode {
             kind: SyntaxKind::ModuleItem,
@@ -448,8 +448,8 @@ impl<'a> Parser<'a> {
             payload: declaration_id.0,
         };
 
-        self.current_syntax_tree.nodes[node_index] = node;
-        self.current_syntax_tree.children.extend(children);
+        self.syntax_tree.nodes[node_index] = node;
+        self.syntax_tree.children.extend(children);
         self.resolver
             .add_module_to_scope(starting_scope_id, declaration_id);
 
@@ -465,16 +465,16 @@ impl<'a> Parser<'a> {
         self.parse_path()?;
         self.allow(Token::Semicolon)?;
 
-        let path_id = self.current_syntax_tree.last_node_id();
+        let path_id = self.syntax_tree.last_node_id();
         let path_node = *self
-            .current_syntax_tree
+            .syntax_tree
             .get_node(path_id)
             .ok_or(ParseError::MissingNode { id: path_id })?;
 
         debug_assert_eq!(path_node.kind, SyntaxKind::Path);
 
         let segments = self
-            .current_syntax_tree
+            .syntax_tree
             .get_children(path_node.children.0, path_node.children.1)
             .ok_or(ParseError::MissingChildren {
                 parent_node: path_id,
@@ -489,7 +489,7 @@ impl<'a> Parser<'a> {
 
         for (index, syntax_id) in segments[..segments.len() - 1].iter().enumerate() {
             let head = self
-                .current_syntax_tree
+                .syntax_tree
                 .get_node(*syntax_id)
                 .ok_or(ParseError::MissingNode { id: segments[0] })?;
             let head_identifier = self.lexer.source().get(head.span.as_usize_range()).unwrap();
@@ -498,7 +498,7 @@ impl<'a> Parser<'a> {
                 .find_declaration_in_scope(head_identifier, search_scope)
                 .ok_or_else(|| ParseError::UndeclaredVariable {
                     identifier: head_identifier.to_string(),
-                    position: Position::new(self.current_syntax_tree.file_index, head.span),
+                    position: Position::new(self.syntax_tree.file_id, head.span),
                 })?;
 
             search_scope = match head_declaration.kind {
@@ -508,12 +508,13 @@ impl<'a> Parser<'a> {
                     is_parsed,
                 } => {
                     if !is_parsed {
-                        let file_index = head_declaration.identifier_position.file_index;
-                        let parser = Parser::new(self.source, self.resolver);
+                        let file_id = head_declaration.position.file_id;
+                        let parser =
+                            Parser::new(file_id, inner_scope_id, self.source, self.resolver);
                         let ParseResult {
                             syntax_trees,
                             errors,
-                        } = parser.parse(file_index, inner_scope_id);
+                        } = parser.parse();
 
                         self.syntax_trees.extend(syntax_trees);
                         self.errors.extend(errors);
@@ -530,7 +531,7 @@ impl<'a> Parser<'a> {
                 _ => {
                     return Err(ParseError::UnexpectedToken {
                         actual: self.current_token,
-                        position: Position::new(self.current_syntax_tree.file_index, head.span),
+                        position: Position::new(self.syntax_tree.file_id, head.span),
                     });
                 }
             };
@@ -538,7 +539,7 @@ impl<'a> Parser<'a> {
 
         let tail_syntax_id = segments[segments.len() - 1];
         let tail_node = self
-            .current_syntax_tree
+            .syntax_tree
             .get_node(tail_syntax_id)
             .ok_or(ParseError::MissingNode { id: tail_syntax_id })?;
         let tail_identifier = self
@@ -551,13 +552,13 @@ impl<'a> Parser<'a> {
             .find_declaration_in_scope(tail_identifier, search_scope)
             .ok_or_else(|| ParseError::UndeclaredVariable {
                 identifier: tail_identifier.to_string(),
-                position: Position::new(self.current_syntax_tree.file_index, tail_node.span),
+                position: Position::new(self.syntax_tree.file_id, tail_node.span),
             })?;
 
         if !tail_declaration.is_public {
             return Err(ParseError::UndeclaredVariable {
                 identifier: tail_identifier.to_string(),
-                position: Position::new(self.current_syntax_tree.file_index, tail_node.span),
+                position: Position::new(self.syntax_tree.file_id, tail_node.span),
             });
         }
 
@@ -565,7 +566,7 @@ impl<'a> Parser<'a> {
             .add_import_to_scope(self.current_scope_id, tail_declaration_id);
 
         let end = self.previous_span.1;
-        self.current_syntax_tree.push_node(SyntaxNode {
+        self.syntax_tree.push_node(SyntaxNode {
             kind: SyntaxKind::UseItem,
             span: Span(start, end),
             children: (file_declaration_id.0, 0),
@@ -586,7 +587,7 @@ impl<'a> Parser<'a> {
                 info!("Parsing function statement");
 
                 let identifier_position =
-                    Position::new(self.current_syntax_tree.file_index, self.current_span);
+                    Position::new(self.syntax_tree.file_id, self.current_span);
                 let identifier_text = self.current_source();
 
                 if let Some((_, existing_declaration)) = self
@@ -595,7 +596,7 @@ impl<'a> Parser<'a> {
                 {
                     return Err(ParseError::DeclarationConflict {
                         identifier: identifier_text.to_string(),
-                        first_declaration: existing_declaration.identifier_position,
+                        first_declaration: existing_declaration.position,
                         second_declaration: identifier_position,
                     });
                 }
@@ -603,17 +604,19 @@ impl<'a> Parser<'a> {
                 self.advance()?;
                 self.parse_function_expression()?;
 
-                let type_id = self.current_syntax_tree.last_node().unwrap().payload;
+                let type_id = self.syntax_tree.last_node().unwrap().payload;
                 let end = self.previous_span.1;
                 let declaration_id = self.resolver.add_declaration(
-                    DeclarationKind::Function,
-                    self.current_scope_id,
-                    TypeId(type_id),
-                    is_public,
                     identifier_text,
-                    identifier_position,
+                    Declaration {
+                        kind: DeclarationKind::Function,
+                        scope_id: self.current_scope_id,
+                        type_id: TypeId(type_id),
+                        position: identifier_position,
+                        is_public,
+                    },
                 );
-                let function_expression_id = self.current_syntax_tree.last_node_id();
+                let function_expression_id = self.syntax_tree.last_node_id();
                 let node = SyntaxNode {
                     kind: SyntaxKind::FunctionStatement,
                     span: Span(start, end),
@@ -621,7 +624,7 @@ impl<'a> Parser<'a> {
                     payload: TypeId::NONE.0,
                 };
 
-                self.current_syntax_tree.push_node(node);
+                self.syntax_tree.push_node(node);
 
                 if is_public {
                     self.resolver
@@ -654,7 +657,7 @@ impl<'a> Parser<'a> {
 
         self.parse_block_expression()?;
 
-        let block_id = self.current_syntax_tree.last_node_id();
+        let block_id = self.syntax_tree.last_node_id();
         let end = self.previous_span.1;
         let node = SyntaxNode {
             kind: SyntaxKind::FunctionExpression,
@@ -663,7 +666,7 @@ impl<'a> Parser<'a> {
             payload: function_type_id.0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         self.current_scope_id = starting_scope_id;
 
@@ -694,7 +697,7 @@ impl<'a> Parser<'a> {
             children: (value_parameter_list_node_id.0, 0),
             payload: 0,
         };
-        let node_id = self.current_syntax_tree.push_node(node);
+        let node_id = self.syntax_tree.push_node(node);
 
         Ok((node_id, function_type_id))
     }
@@ -713,8 +716,7 @@ impl<'a> Parser<'a> {
             info!("Parsing function value parameter");
 
             let parameter_start = self.current_span.0;
-            let identifier_position =
-                Position::new(self.current_syntax_tree.file_index, self.current_span);
+            let identifier_position = Position::new(self.syntax_tree.file_id, self.current_span);
             let identifier_text = if self.current_token == Token::Identifier {
                 let text = self.current_source();
 
@@ -734,7 +736,7 @@ impl<'a> Parser<'a> {
                 children: (0, 0),
                 payload: 0,
             };
-            let parameter_name_node_id = self.current_syntax_tree.push_node(parameter_name_node);
+            let parameter_name_node_id = self.syntax_tree.push_node(parameter_name_node);
 
             self.expect(Token::Colon)?;
 
@@ -749,7 +751,7 @@ impl<'a> Parser<'a> {
                 children: (0, 0),
                 payload: 0,
             };
-            let type_node_id = self.current_syntax_tree.push_node(type_node);
+            let type_node_id = self.syntax_tree.push_node(type_node);
             let parameter_end = self.previous_span.1;
 
             if let Some((_, existing_declaration)) = self
@@ -758,18 +760,20 @@ impl<'a> Parser<'a> {
             {
                 return Err(ParseError::DeclarationConflict {
                     identifier: identifier_text.to_string(),
-                    first_declaration: existing_declaration.identifier_position,
+                    first_declaration: existing_declaration.position,
                     second_declaration: identifier_position,
                 });
             }
 
             let declaration_id = self.resolver.add_declaration(
-                DeclarationKind::Local { shadowed: None },
-                self.current_scope_id,
-                type_id,
-                false,
                 identifier_text,
-                identifier_position,
+                Declaration {
+                    kind: DeclarationKind::Local { shadowed: None },
+                    scope_id: self.current_scope_id,
+                    type_id,
+                    position: identifier_position,
+                    is_public: false,
+                },
             );
             let node = SyntaxNode {
                 kind: SyntaxKind::FunctionValueParameter,
@@ -777,14 +781,14 @@ impl<'a> Parser<'a> {
                 children: (parameter_name_node_id.0, type_node_id.0),
                 payload: declaration_id.0,
             };
-            let node_id = self.current_syntax_tree.push_node(node);
+            let node_id = self.syntax_tree.push_node(node);
 
             syntax_children.push(node_id);
 
             self.allow(Token::Comma)?;
         }
 
-        let children = self.current_syntax_tree.push_children(&syntax_children);
+        let children = self.syntax_tree.push_children(&syntax_children);
         let end = self.previous_span.1;
         let node = SyntaxNode {
             kind: SyntaxKind::FunctionValueParameters,
@@ -792,7 +796,7 @@ impl<'a> Parser<'a> {
             children,
             payload: 0,
         };
-        let node_id = self.current_syntax_tree.push_node(node);
+        let node_id = self.syntax_tree.push_node(node);
         let type_children = self.resolver.push_type_members(&type_children);
 
         Ok((node_id, type_children))
@@ -849,7 +853,7 @@ impl<'a> Parser<'a> {
             payload: 0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(r#type)
     }
@@ -862,8 +866,7 @@ impl<'a> Parser<'a> {
         self.advance()?;
 
         let is_mutable = self.allow(Token::Mut)?;
-        let identifier_position =
-            Position::new(self.current_syntax_tree.file_index, self.current_span);
+        let identifier_position = Position::new(self.syntax_tree.file_id, self.current_span);
         let identifier_text = self.current_source();
 
         self.expect(Token::Identifier)?;
@@ -884,10 +887,7 @@ impl<'a> Parser<'a> {
             )
         };
         let (explicit_type, type_node_id) = if self.allow(Token::Colon)? {
-            (
-                Some(self.parse_type()?),
-                self.current_syntax_tree.last_node_id(),
-            )
+            (Some(self.parse_type()?), self.syntax_tree.last_node_id())
         } else {
             (None, SyntaxId::NONE)
         };
@@ -896,9 +896,9 @@ impl<'a> Parser<'a> {
         self.pratt(Precedence::None)?;
 
         let end = self.previous_span.1;
-        let expression_id = self.current_syntax_tree.last_node_id();
+        let expression_id = self.syntax_tree.last_node_id();
         let expression_node = self
-            .current_syntax_tree
+            .syntax_tree
             .get_node(expression_id)
             .ok_or(ParseError::MissingNode { id: expression_id })?;
         let expression_type = expression_node.payload;
@@ -918,12 +918,14 @@ impl<'a> Parser<'a> {
         }
 
         let declaration_id = self.resolver.add_declaration(
-            declaration_kind,
-            self.current_scope_id,
-            TypeId(expression_type),
-            false,
             identifier_text,
-            identifier_position,
+            Declaration {
+                kind: declaration_kind,
+                scope_id: self.current_scope_id,
+                type_id: TypeId(expression_type),
+                position: identifier_position,
+                is_public: false,
+            },
         );
         let node = SyntaxNode {
             kind: syntax_kind,
@@ -932,7 +934,7 @@ impl<'a> Parser<'a> {
             payload: declaration_id.0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -943,9 +945,9 @@ impl<'a> Parser<'a> {
         let operator = self.current_token;
         let operator_precedence = ParseRule::from(operator).precedence;
 
-        let path_node_id = self.current_syntax_tree.last_node_id();
+        let path_node_id = self.syntax_tree.last_node_id();
         let path_node = *self
-            .current_syntax_tree
+            .syntax_tree
             .get_node(path_node_id)
             .ok_or(ParseError::MissingNode { id: path_node_id })?;
         let declaration_id = DeclarationId(path_node.children.0);
@@ -954,7 +956,7 @@ impl<'a> Parser<'a> {
         if path_node.kind != SyntaxKind::PathExpression {
             return Err(ParseError::InvalidAssignmentTarget {
                 found: path_node.kind,
-                position: Position::new(self.current_syntax_tree.file_index, path_node.span),
+                position: Position::new(self.syntax_tree.file_id, path_node.span),
             });
         }
 
@@ -966,16 +968,16 @@ impl<'a> Parser<'a> {
         if !matches!(declaration.kind, DeclarationKind::LocalMutable { .. }) {
             return Err(ParseError::AssignmentToImmutable {
                 found: declaration.kind,
-                position: Position::new(self.current_syntax_tree.file_index, path_node.span),
+                position: Position::new(self.syntax_tree.file_id, path_node.span),
             });
         }
 
         self.expect(Token::Equal)?;
         self.parse_sub_expression(operator_precedence)?;
 
-        let expression_id = self.current_syntax_tree.last_node_id();
+        let expression_id = self.syntax_tree.last_node_id();
         let expression_node = self
-            .current_syntax_tree
+            .syntax_tree
             .get_node(expression_id)
             .ok_or(ParseError::MissingNode { id: expression_id })?;
         let expression_type = expression_node.payload;
@@ -996,7 +998,7 @@ impl<'a> Parser<'a> {
             payload: declaration_id.0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1023,7 +1025,7 @@ impl<'a> Parser<'a> {
         };
 
         self.advance()?;
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1044,7 +1046,7 @@ impl<'a> Parser<'a> {
             payload: TypeId::BYTE.0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1066,7 +1068,7 @@ impl<'a> Parser<'a> {
             payload: TypeId::CHARACTER.0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1093,7 +1095,7 @@ impl<'a> Parser<'a> {
             payload: TypeId::FLOAT.0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1116,7 +1118,7 @@ impl<'a> Parser<'a> {
             payload: TypeId::INTEGER.0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1161,7 +1163,7 @@ impl<'a> Parser<'a> {
         };
 
         self.advance()?;
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1187,9 +1189,9 @@ impl<'a> Parser<'a> {
         self.advance()?;
         self.parse_sub_expression(operator_precedence)?;
 
-        let operand = self.current_syntax_tree.last_node_id();
+        let operand = self.syntax_tree.last_node_id();
         let operand_node = self
-            .current_syntax_tree
+            .syntax_tree
             .get_node(operand)
             .ok_or(ParseError::MissingNode { id: operand })?;
         let end = self.previous_span.1;
@@ -1207,13 +1209,10 @@ impl<'a> Parser<'a> {
                     return Err(ParseError::NegationTypeMismatch {
                         operand_type,
                         operand_position: Position::new(
-                            self.current_syntax_tree.file_index,
+                            self.syntax_tree.file_id,
                             operand_node.span,
                         ),
-                        position: Position::new(
-                            self.current_syntax_tree.file_index,
-                            Span(start, end),
-                        ),
+                        position: Position::new(self.syntax_tree.file_id, Span(start, end)),
                     });
                 }
             },
@@ -1228,13 +1227,10 @@ impl<'a> Parser<'a> {
                     return Err(ParseError::NotTypeMismatch {
                         operand_type,
                         operand_position: Position::new(
-                            self.current_syntax_tree.file_index,
+                            self.syntax_tree.file_id,
                             operand_node.span,
                         ),
-                        position: Position::new(
-                            self.current_syntax_tree.file_index,
-                            Span(start, end),
-                        ),
+                        position: Position::new(self.syntax_tree.file_id, Span(start, end)),
                     });
                 }
             },
@@ -1248,7 +1244,7 @@ impl<'a> Parser<'a> {
             payload: r#type.0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1256,9 +1252,9 @@ impl<'a> Parser<'a> {
     fn parse_binary_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing math binary expression");
 
-        let left = self.current_syntax_tree.last_node_id();
+        let left = self.syntax_tree.last_node_id();
         let left_node = *self
-            .current_syntax_tree
+            .syntax_tree
             .get_node(left)
             .ok_or(ParseError::MissingNode { id: left })?;
         let start = left_node.span.0;
@@ -1314,14 +1310,14 @@ impl<'a> Parser<'a> {
             } else {
                 return Err(ParseError::InvalidAssignmentTarget {
                     found: left_node.kind,
-                    position: Position::new(self.current_syntax_tree.file_index, left_node.span),
+                    position: Position::new(self.syntax_tree.file_id, left_node.span),
                 });
             };
 
             if !matches!(declaration.kind, DeclarationKind::LocalMutable { .. }) {
                 return Err(ParseError::AssignmentToImmutable {
                     found: declaration.kind,
-                    position: Position::new(self.current_syntax_tree.file_index, left_node.span),
+                    position: Position::new(self.syntax_tree.file_id, left_node.span),
                 });
             }
         }
@@ -1331,9 +1327,9 @@ impl<'a> Parser<'a> {
         self.advance()?;
         self.parse_sub_expression(operator_precedence)?;
 
-        let right = self.current_syntax_tree.last_node_id();
+        let right = self.syntax_tree.last_node_id();
         let right_node = self
-            .current_syntax_tree
+            .syntax_tree
             .get_node(right)
             .ok_or(ParseError::MissingNode { id: right })?;
         let end = self.previous_span.1;
@@ -1355,19 +1351,13 @@ impl<'a> Parser<'a> {
                     if left_type != right_type {
                         return Err(ParseError::AdditionTypeMismatch {
                             left_type,
-                            left_position: Position::new(
-                                self.current_syntax_tree.file_index,
-                                left_node.span,
-                            ),
+                            left_position: Position::new(self.syntax_tree.file_id, left_node.span),
                             right_type,
                             right_position: Position::new(
-                                self.current_syntax_tree.file_index,
+                                self.syntax_tree.file_id,
                                 right_node.span,
                             ),
-                            position: Position::new(
-                                self.current_syntax_tree.file_index,
-                                Span(start, end),
-                            ),
+                            position: Position::new(self.syntax_tree.file_id, Span(start, end)),
                         });
                     }
 
@@ -1399,19 +1389,10 @@ impl<'a> Parser<'a> {
                     return Err(ParseError::BinaryOperandTypeMismatch {
                         operator,
                         left_type,
-                        left_position: Position::new(
-                            self.current_syntax_tree.file_index,
-                            left_node.span,
-                        ),
+                        left_position: Position::new(self.syntax_tree.file_id, left_node.span),
                         right_type,
-                        right_position: Position::new(
-                            self.current_syntax_tree.file_index,
-                            right_node.span,
-                        ),
-                        position: Position::new(
-                            self.current_syntax_tree.file_index,
-                            Span(start, end),
-                        ),
+                        right_position: Position::new(self.syntax_tree.file_id, right_node.span),
+                        position: Position::new(self.syntax_tree.file_id, Span(start, end)),
                     });
                 }
 
@@ -1426,7 +1407,7 @@ impl<'a> Parser<'a> {
             payload: r#type.0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1436,12 +1417,14 @@ impl<'a> Parser<'a> {
 
         self.advance()?;
 
-        let function_node_id = self.current_syntax_tree.last_node_id();
-        let function_node = *self.current_syntax_tree.get_node(function_node_id).ok_or(
-            ParseError::MissingNode {
-                id: function_node_id,
-            },
-        )?;
+        let function_node_id = self.syntax_tree.last_node_id();
+        let function_node =
+            *self
+                .syntax_tree
+                .get_node(function_node_id)
+                .ok_or(ParseError::MissingNode {
+                    id: function_node_id,
+                })?;
         let start = function_node.span.0;
 
         let function_node_type = self
@@ -1454,7 +1437,7 @@ impl<'a> Parser<'a> {
         if !matches!(function_node_type, TypeNode::Function(_)) {
             return Err(ParseError::ExpectedFunction {
                 found: function_node.kind,
-                position: Position::new(self.current_syntax_tree.file_index, function_node.span),
+                position: Position::new(self.syntax_tree.file_id, function_node.span),
             });
         };
 
@@ -1475,23 +1458,17 @@ impl<'a> Parser<'a> {
                     (*declaration_id, *declaration)
                 } else {
                     return Err(ParseError::OutOfScopeVariable {
-                        position: Position::new(
-                            self.current_syntax_tree.file_index,
-                            function_node.span,
-                        ),
+                        position: Position::new(self.syntax_tree.file_id, function_node.span),
                         declaration_positions: declarations
                             .iter()
-                            .map(|(_, delcaration)| delcaration.identifier_position)
+                            .map(|(_, delcaration)| delcaration.position)
                             .collect(),
                     });
                 }
             } else {
                 return Err(ParseError::UndeclaredVariable {
                     identifier: identifier_text.to_string(),
-                    position: Position::new(
-                        self.current_syntax_tree.file_index,
-                        function_node.span,
-                    ),
+                    position: Position::new(self.syntax_tree.file_id, function_node.span),
                 });
             };
         }
@@ -1505,7 +1482,7 @@ impl<'a> Parser<'a> {
 
             self.parse_expression()?;
 
-            let argument_id = self.current_syntax_tree.last_node_id();
+            let argument_id = self.syntax_tree.last_node_id();
 
             value_arguments.push(argument_id);
 
@@ -1513,16 +1490,14 @@ impl<'a> Parser<'a> {
         }
 
         let end = self.previous_span.1;
-        let children = self.current_syntax_tree.push_children(&value_arguments);
+        let children = self.syntax_tree.push_children(&value_arguments);
         let call_value_arguments_node = SyntaxNode {
             kind: SyntaxKind::CallValueArguments,
             span: Span(function_node.span.1, self.previous_span.1),
             children,
             payload: 0,
         };
-        let call_value_arguments_id = self
-            .current_syntax_tree
-            .push_node(call_value_arguments_node);
+        let call_value_arguments_id = self.syntax_tree.push_node(call_value_arguments_node);
         let function_type_node = self
             .resolver
             .get_type_node(TypeId(function_node.payload))
@@ -1532,7 +1507,7 @@ impl<'a> Parser<'a> {
             .as_function()
             .ok_or(ParseError::ExpectedFunction {
                 found: function_node.kind,
-                position: Position::new(self.current_syntax_tree.file_index, function_node.span),
+                position: Position::new(self.syntax_tree.file_id, function_node.span),
             })?;
         let node = SyntaxNode {
             kind: SyntaxKind::CallExpression,
@@ -1541,7 +1516,7 @@ impl<'a> Parser<'a> {
             payload: function_type_node.return_type.0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1556,9 +1531,9 @@ impl<'a> Parser<'a> {
         self.expect(Token::RightParenthesis)?;
 
         let end = self.previous_span.1;
-        let expression_id = self.current_syntax_tree.last_node_id();
+        let expression_id = self.syntax_tree.last_node_id();
         let r#type = self
-            .current_syntax_tree
+            .syntax_tree
             .get_node(expression_id)
             .map(|node| node.payload)
             .ok_or(ParseError::MissingNode { id: expression_id })?;
@@ -1569,7 +1544,7 @@ impl<'a> Parser<'a> {
             payload: r#type,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1589,7 +1564,7 @@ impl<'a> Parser<'a> {
             if let Err(error) = self.pratt(Precedence::None) {
                 self.recover(error);
             } else {
-                let child_id = self.current_syntax_tree.last_node_id();
+                let child_id = self.syntax_tree.last_node_id();
 
                 if child_id == SyntaxId(0) {
                     break;
@@ -1599,11 +1574,11 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let first_child = self.current_syntax_tree.children.len() as u32;
+        let first_child = self.syntax_tree.children.len() as u32;
         let child_count = children.len() as u32;
         self.current_scope_id = starting_scope_id;
 
-        if let Some(last_node) = self.current_syntax_tree.last_node()
+        if let Some(last_node) = self.syntax_tree.last_node()
             && last_node.kind.is_expression()
             && last_node.payload != TypeId::NONE.0
         {
@@ -1614,8 +1589,8 @@ impl<'a> Parser<'a> {
                 payload: starting_scope_id.0,
             };
 
-            self.current_syntax_tree.push_node(block_node);
-            self.current_syntax_tree.children.extend(children);
+            self.syntax_tree.push_node(block_node);
+            self.syntax_tree.children.extend(children);
         } else {
             let block_node = SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
@@ -1623,9 +1598,9 @@ impl<'a> Parser<'a> {
                 children: (first_child, child_count),
                 payload: starting_scope_id.0,
             };
-            let block_node_id = self.current_syntax_tree.push_node(block_node);
+            let block_node_id = self.syntax_tree.push_node(block_node);
 
-            self.current_syntax_tree.children.extend(children);
+            self.syntax_tree.children.extend(children);
 
             let expression_statement_node = SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
@@ -1634,8 +1609,7 @@ impl<'a> Parser<'a> {
                 payload: TypeId::NONE.0,
             };
 
-            self.current_syntax_tree
-                .push_node(expression_statement_node);
+            self.syntax_tree.push_node(expression_statement_node);
         }
 
         Ok(())
@@ -1653,9 +1627,9 @@ impl<'a> Parser<'a> {
         self.advance()?;
         self.parse_expression()?;
 
-        let condition_id = self.current_syntax_tree.last_node_id();
+        let condition_id = self.syntax_tree.last_node_id();
         let condition_node = self
-            .current_syntax_tree
+            .syntax_tree
             .get_node(condition_id)
             .ok_or(ParseError::MissingNode { id: condition_id })?;
         let condition_type = TypeId(condition_node.payload);
@@ -1668,16 +1642,13 @@ impl<'a> Parser<'a> {
 
             return Err(ParseError::ExpectedBooleanCondition {
                 condition_type,
-                condition_position: Position::new(
-                    self.current_syntax_tree.file_index,
-                    condition_node.span,
-                ),
+                condition_position: Position::new(self.syntax_tree.file_id, condition_node.span),
             });
         }
 
         self.parse_block_expression()?;
 
-        let body_id = self.current_syntax_tree.last_node_id();
+        let body_id = self.syntax_tree.last_node_id();
         let end = self.previous_span.1;
         let while_node = SyntaxNode {
             kind: SyntaxKind::WhileExpression,
@@ -1685,7 +1656,7 @@ impl<'a> Parser<'a> {
             children: (condition_id.0, body_id.0),
             payload: TypeId::NONE.0,
         };
-        let while_node_id = self.current_syntax_tree.push_node(while_node);
+        let while_node_id = self.syntax_tree.push_node(while_node);
         let expression_statement_node = SyntaxNode {
             kind: SyntaxKind::ExpressionStatement,
             span: while_node.span,
@@ -1693,8 +1664,7 @@ impl<'a> Parser<'a> {
             payload: TypeId::NONE.0,
         };
 
-        self.current_syntax_tree
-            .push_node(expression_statement_node);
+        self.syntax_tree.push_node(expression_statement_node);
 
         Ok(())
     }
@@ -1715,7 +1685,7 @@ impl<'a> Parser<'a> {
             payload: TypeId::NONE.0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1749,17 +1719,17 @@ impl<'a> Parser<'a> {
                 (*declaration_id, *declaration)
             } else {
                 return Err(ParseError::OutOfScopeVariable {
-                    position: Position::new(self.current_syntax_tree.file_index, identifier_span),
+                    position: Position::new(self.syntax_tree.file_id, identifier_span),
                     declaration_positions: declarations
                         .iter()
-                        .map(|(_, delcaration)| delcaration.identifier_position)
+                        .map(|(_, delcaration)| delcaration.position)
                         .collect(),
                 });
             }
         } else {
             return Err(ParseError::UndeclaredVariable {
                 identifier: identifier_text.to_string(),
-                position: Position::new(self.current_syntax_tree.file_index, identifier_span),
+                position: Position::new(self.syntax_tree.file_id, identifier_span),
             });
         };
         let node = SyntaxNode {
@@ -1769,7 +1739,7 @@ impl<'a> Parser<'a> {
             payload: declaration.type_id.0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1784,7 +1754,7 @@ impl<'a> Parser<'a> {
         self.advance()?;
 
         let end = self.previous_span.1;
-        let Some(last_node) = self.current_syntax_tree.last_node() else {
+        let Some(last_node) = self.syntax_tree.last_node() else {
             return Err(ParseError::UnexpectedToken {
                 actual: self.current_token,
                 position: self.current_position(),
@@ -1805,7 +1775,7 @@ impl<'a> Parser<'a> {
             info!("Parsing expression statement");
 
             let span = Span(last_node.span.0, end);
-            let expression_id = self.current_syntax_tree.last_node_id();
+            let expression_id = self.syntax_tree.last_node_id();
 
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
@@ -1815,7 +1785,7 @@ impl<'a> Parser<'a> {
             }
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }
@@ -1835,16 +1805,17 @@ impl<'a> Parser<'a> {
                 payload: 0,
             };
 
-            self.current_syntax_tree.push_node(segment_node)
+            self.syntax_tree.push_node(segment_node)
         } else {
-            self.current_syntax_tree.last_node_id()
+            self.syntax_tree.last_node_id()
         };
-        let first_identifier_node = *self
-            .current_syntax_tree
-            .get_node(first_identifier_id)
-            .ok_or(ParseError::MissingNode {
-                id: first_identifier_id,
-            })?;
+        let first_identifier_node =
+            *self
+                .syntax_tree
+                .get_node(first_identifier_id)
+                .ok_or(ParseError::MissingNode {
+                    id: first_identifier_id,
+                })?;
         let start = first_identifier_node.span.0;
 
         let mut children = Self::new_child_buffer();
@@ -1862,7 +1833,7 @@ impl<'a> Parser<'a> {
                 children: (0, 0),
                 payload: 0,
             };
-            let segment_id = self.current_syntax_tree.push_node(segment_node);
+            let segment_id = self.syntax_tree.push_node(segment_node);
 
             children.push(segment_id);
         }
@@ -1871,11 +1842,11 @@ impl<'a> Parser<'a> {
         let node = SyntaxNode {
             kind: SyntaxKind::Path,
             span: Span(start, end),
-            children: self.current_syntax_tree.push_children(&children),
+            children: self.syntax_tree.push_children(&children),
             payload: 0,
         };
 
-        self.current_syntax_tree.push_node(node);
+        self.syntax_tree.push_node(node);
 
         Ok(())
     }

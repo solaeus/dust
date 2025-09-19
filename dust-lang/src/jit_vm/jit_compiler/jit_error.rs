@@ -1,7 +1,10 @@
 use annotate_snippets::{Group, Level};
 use cranelift_module::ModuleError;
 
-use crate::{MemoryKind, OperandType, Operation, dust_error::AnnotatedError, resolver::TypeId};
+use crate::{
+    MemoryKind, OperandType, Operation, dust_error::AnnotatedError, resolver::TypeId,
+    source::SourceFileId,
+};
 
 #[derive(Debug)]
 pub enum JitError {
@@ -64,8 +67,8 @@ pub enum JitError {
 }
 
 impl AnnotatedError for JitError {
-    fn file_index(&self) -> u32 {
-        0
+    fn file_id(&self) -> SourceFileId {
+        SourceFileId::default()
     }
 
     fn annotated_error<'a>(&'a self, _source: &'a str) -> Group<'a> {

@@ -25,7 +25,7 @@ fn local_boolean_greater_than() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 20),
-                payload: 256,
+                payload: 3,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
@@ -49,7 +49,7 @@ fn local_boolean_greater_than() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 span: Span(21, 41),
-                payload: 257,
+                payload: 4,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
@@ -71,7 +71,7 @@ fn local_boolean_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(42, 43),
                 payload: TypeId::BOOLEAN.0,
             },
@@ -83,7 +83,7 @@ fn local_boolean_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (257, 0),
+                children: (4, 0),
                 span: Span(46, 47),
                 payload: TypeId::BOOLEAN.0,
             },
@@ -110,7 +110,7 @@ fn local_byte_greater_than() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 20),
-                payload: 256,
+                payload: 3,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -134,7 +134,7 @@ fn local_byte_greater_than() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 span: Span(21, 40),
-                payload: 257,
+                payload: 4,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -156,7 +156,7 @@ fn local_byte_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(41, 42),
                 payload: TypeId::BYTE.0,
             },
@@ -168,7 +168,7 @@ fn local_byte_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (257, 0),
+                children: (4, 0),
                 span: Span(45, 46),
                 payload: TypeId::BYTE.0,
             },
@@ -195,7 +195,7 @@ fn local_character_greater_than() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 19),
-                payload: 256
+                payload: 3
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterType,
@@ -219,7 +219,7 @@ fn local_character_greater_than() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 span: Span(20, 38),
-                payload: 257
+                payload: 4
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterType,
@@ -241,7 +241,7 @@ fn local_character_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(39, 40),
                 payload: TypeId::CHARACTER.0
             },
@@ -253,7 +253,7 @@ fn local_character_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (257, 0),
+                children: (4, 0),
                 span: Span(43, 44),
                 payload: TypeId::CHARACTER.0
             },
@@ -280,7 +280,7 @@ fn local_float_greater_than() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 21),
-                payload: 256,
+                payload: 3,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -304,7 +304,7 @@ fn local_float_greater_than() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 span: Span(22, 42),
-                payload: 257,
+                payload: 4,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -326,7 +326,7 @@ fn local_float_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(43, 44),
                 payload: TypeId::FLOAT.0,
             },
@@ -338,7 +338,7 @@ fn local_float_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (257, 0),
+                children: (4, 0),
                 span: Span(47, 48),
                 payload: TypeId::FLOAT.0,
             },
@@ -365,7 +365,7 @@ fn local_integer_greater_than() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 17),
-                payload: 256
+                payload: 3
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -389,7 +389,7 @@ fn local_integer_greater_than() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 span: Span(18, 34),
-                payload: 257
+                payload: 4
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -411,7 +411,7 @@ fn local_integer_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(35, 36),
                 payload: TypeId::INTEGER.0
             },
@@ -423,7 +423,7 @@ fn local_integer_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (257, 0),
+                children: (4, 0),
                 span: Span(39, 40),
                 payload: TypeId::INTEGER.0
             },
@@ -450,7 +450,7 @@ fn local_string_greater_than() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 20),
-                payload: 256
+                payload: 3
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
@@ -474,7 +474,7 @@ fn local_string_greater_than() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 span: Span(21, 40),
-                payload: 257
+                payload: 4
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
@@ -496,7 +496,7 @@ fn local_string_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(41, 42),
                 payload: TypeId::STRING.0
             },
@@ -508,7 +508,7 @@ fn local_string_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (257, 0),
+                children: (4, 0),
                 span: Span(45, 46),
                 payload: TypeId::STRING.0
             },

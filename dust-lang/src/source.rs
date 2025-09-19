@@ -7,6 +7,40 @@ pub enum Source {
 }
 
 impl Source {
+    pub fn script(name: String, source_code: String) -> Self {
+        Source::Script(SourceFile { name, source_code })
+    }
+
+    pub fn files(capacity: usize) -> Self {
+        Source::Files(Vec::with_capacity(capacity))
+    }
+
+    pub fn add_file(&mut self, name: String, source_code: String) -> SourceFileId {
+        let id = SourceFileId(self.len() as u32);
+
+        match self {
+            Source::Files(sources) => {
+                sources.push(SourceFile { name, source_code });
+            }
+            Source::Script(_) => {}
+        }
+
+        id
+    }
+
+    pub fn get_file(&self, file_id: SourceFileId) -> Option<&SourceFile> {
+        match self {
+            Source::Script(source_file) => {
+                if file_id.0 == 0 {
+                    Some(source_file)
+                } else {
+                    None
+                }
+            }
+            Source::Files(sources) => sources.get(file_id.0 as usize),
+        }
+    }
+
     pub fn len(&self) -> usize {
         match self {
             Source::Script(_) => 1,
@@ -44,26 +78,16 @@ impl Source {
         }
     }
 
-    pub fn get_file(&self, index: u32) -> Option<&SourceFile> {
-        match self {
-            Source::Script(source_file) => {
-                if index == 0 {
-                    Some(source_file)
-                } else {
-                    None
-                }
-            }
-            Source::Files(sources) => sources.get(index as usize),
-        }
-    }
-
-    pub fn files(&self) -> &[SourceFile] {
+    pub fn get_files(&self) -> &[SourceFile] {
         match self {
             Source::Script(source_file) => slice::from_ref(source_file),
             Source::Files(sources) => sources.as_slice(),
         }
     }
 }
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct SourceFileId(pub u32);
 
 #[derive(Debug, Clone)]
 pub struct SourceFile {

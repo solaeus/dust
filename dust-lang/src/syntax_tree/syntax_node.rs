@@ -1,10 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
-use serde::{Deserialize, Serialize};
-
 use crate::{Span, syntax_tree::SyntaxId};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SyntaxNode {
     pub kind: SyntaxKind,
     pub children: (u32, u32),
@@ -185,7 +183,7 @@ impl Display for SyntaxNode {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SyntaxKind {
     // Items
     MainFunctionItem,

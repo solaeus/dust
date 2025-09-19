@@ -33,7 +33,6 @@ pub struct Chunk {
     pub(crate) drop_lists: Vec<u16>,
 
     pub(crate) register_count: u16,
-    pub(crate) is_recursive: bool,
 }
 
 impl Chunk {
@@ -49,13 +48,12 @@ impl Chunk {
                 let declaration = resolver
                     .get_declaration(id)
                     .ok_or(CompileError::MissingDeclaration { declaration_id: id })?;
-                let file_source = source
-                    .get_file(declaration.identifier_position.file_index)
-                    .ok_or(CompileError::MissingSourceFile {
-                        file_index: declaration.identifier_position.file_index,
-                    })?;
-                let name =
-                    &file_source.source_code[declaration.identifier_position.span.as_usize_range()];
+                let file_source = source.get_file(declaration.position.file_id).ok_or(
+                    CompileError::MissingSourceFile {
+                        file_id: declaration.position.file_id,
+                    },
+                )?;
+                let name = &file_source.source_code[declaration.position.span.as_usize_range()];
 
                 Ok(name)
             }

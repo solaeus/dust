@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::{Group, Renderer};
 
-use crate::{CompileError, Source, jit_vm::JitError, parser::ParseError, source::SourceFile};
+use crate::{CompileError, Source, jit_vm::JitError, parser::ParseError, source::SourceFileId};
 
 const SOURCE_NOT_AVAILABLE: &str = "<source not available>";
 
@@ -33,10 +33,10 @@ impl DustError {
     pub fn jit(error: JitError) -> Self {
         DustError {
             error: DustErrorKind::Jit(error),
-            source: Source::Script(SourceFile {
-                name: SOURCE_NOT_AVAILABLE.to_string(),
-                source_code: SOURCE_NOT_AVAILABLE.to_string(),
-            }),
+            source: Source::script(
+                SOURCE_NOT_AVAILABLE.to_string(),
+                SOURCE_NOT_AVAILABLE.to_string(),
+            ),
         }
     }
 
@@ -46,7 +46,7 @@ impl DustError {
                 let mut report = Vec::new();
 
                 for parse_error in parse_errors {
-                    let source_file = self.source.get_file(parse_error.file_index());
+                    let source_file = self.source.get_file(parse_error.file_id());
                     let source = match source_file {
                         Some(file) => &file.source_code,
                         None => SOURCE_NOT_AVAILABLE,
@@ -61,7 +61,7 @@ impl DustError {
                 renderer.render(&report)
             }
             DustErrorKind::Compile(compile_error) => {
-                let source_file = self.source.get_file(compile_error.file_index());
+                let source_file = self.source.get_file(compile_error.file_id());
                 let source = match source_file {
                     Some(file) => &file.source_code,
                     None => SOURCE_NOT_AVAILABLE,
@@ -72,7 +72,7 @@ impl DustError {
                 renderer.render(&report)
             }
             DustErrorKind::Jit(jit_error) => {
-                let source_file = self.source.get_file(jit_error.file_index());
+                let source_file = self.source.get_file(jit_error.file_id());
                 let source = match source_file {
                     Some(file) => &file.source_code,
                     None => SOURCE_NOT_AVAILABLE,
@@ -101,5 +101,5 @@ impl Display for DustError {
 
 pub trait AnnotatedError {
     fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a>;
-    fn file_index(&self) -> u32;
+    fn file_id(&self) -> SourceFileId;
 }

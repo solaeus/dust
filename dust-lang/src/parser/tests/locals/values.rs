@@ -25,7 +25,7 @@ fn local_boolean() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 20),
-                payload: 256,
+                payload: 3,
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
@@ -47,7 +47,7 @@ fn local_boolean() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(21, 22),
                 payload: TypeId::BOOLEAN.0,
             },
@@ -74,7 +74,7 @@ fn local_byte() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 20),
-                payload: 256,
+                payload: 3,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -96,7 +96,7 @@ fn local_byte() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(21, 22),
                 payload: TypeId::BYTE.0,
             },
@@ -123,7 +123,7 @@ fn local_character() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 19),
-                payload: 256,
+                payload: 3,
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterType,
@@ -145,7 +145,7 @@ fn local_character() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(20, 21),
                 payload: TypeId::CHARACTER.0,
             },
@@ -172,7 +172,7 @@ fn local_float() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 21),
-                payload: 256,
+                payload: 3,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -194,7 +194,7 @@ fn local_float() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(22, 23),
                 payload: TypeId::FLOAT.0,
             },
@@ -221,7 +221,7 @@ fn local_integer() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 17),
-                payload: 256,
+                payload: 3,
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -243,7 +243,7 @@ fn local_integer() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(18, 19),
                 payload: TypeId::INTEGER.0,
             },
@@ -270,7 +270,7 @@ fn local_string() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 23),
-                payload: 256,
+                payload: 3,
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
@@ -292,7 +292,7 @@ fn local_string() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(24, 25),
                 payload: TypeId::STRING.0,
             },

@@ -5,17 +5,17 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+use crate::source::SourceFileId;
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Position {
-    pub file_index: u32,
+    pub file_id: SourceFileId,
     pub span: Span,
 }
 
 impl Position {
-    pub fn new(file_index: u32, span: Span) -> Self {
-        Self { file_index, span }
+    pub fn new(file_id: SourceFileId, span: Span) -> Self {
+        Self { file_id, span }
     }
 }
 

@@ -9,7 +9,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph, Row, Table, Tabs, Widget, Wrap},
 };
 
-use crate::{Chunk, Source, Type, dust_crate::Program, source::SourceFile};
+use crate::{Chunk, Source, Type, dust_crate::Program};
 
 pub struct TuiDisassembler<'a> {
     program: &'a Program,
@@ -23,7 +23,7 @@ impl<'a> TuiDisassembler<'a> {
     pub fn new(program: &'a Program, source: Source) -> Self {
         let mut tabs = Vec::with_capacity(source.len() + program.prototypes.len());
 
-        for file in source.files() {
+        for file in source.get_files() {
             tabs.push(file.name.to_string());
         }
 
@@ -91,20 +91,23 @@ impl<'a> TuiDisassembler<'a> {
         Ok(())
     }
 
-    fn draw_source_tab(&self, source_file: SourceFile, area: Rect, buffer: &mut Buffer) {
+    fn draw_source_tab(
+        &self,
+        file_name: &str,
+        source_code: String,
+        area: Rect,
+        buffer: &mut Buffer,
+    ) {
         let block = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Thick)
-            .title(Span::styled(
-                source_file.name.as_str(),
-                Style::default().bold(),
-            ))
+            .title(Span::styled(file_name, Style::default().bold()))
             .title_alignment(Alignment::Center);
         let inner_area = block.inner(area);
 
         block.render(area, buffer);
 
-        let paragraph = Paragraph::new(source_file.source_code.to_string())
+        let paragraph = Paragraph::new(source_code)
             .wrap(Wrap { trim: false })
             .scroll((0, 0));
 
@@ -357,13 +360,14 @@ impl Widget for &TuiDisassembler<'_> {
             .render(chunk_tabs_header_area, buffer);
 
         if self.selected_tab < self.source.len() {
-            let source_file = self
-                .source
-                .get_file(self.selected_tab as u32)
-                .unwrap()
-                .clone();
+            let source_file = self.source.get_files().get(self.selected_tab).unwrap();
 
-            self.draw_source_tab(source_file, tab_content_area, buffer);
+            self.draw_source_tab(
+                &source_file.name,
+                source_file.source_code.clone(),
+                tab_content_area,
+                buffer,
+            );
         } else {
             let chunk_index = self.selected_tab - self.source.len();
             let chunk = &self.program.prototypes[chunk_index];

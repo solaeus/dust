@@ -4,6 +4,7 @@ use crate::{
     Position,
     dust_error::AnnotatedError,
     resolver::{DeclarationId, ScopeId, TypeId, TypeNode},
+    source::SourceFileId,
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 
@@ -82,7 +83,7 @@ pub enum CompileError {
         declaration_id: DeclarationId,
     },
     MissingSourceFile {
-        file_index: u32,
+        file_id: SourceFileId,
     },
     MissingSyntaxTree {
         declaration_id: DeclarationId,
@@ -97,33 +98,33 @@ pub enum CompileError {
 }
 
 impl AnnotatedError for CompileError {
-    fn file_index(&self) -> u32 {
+    fn file_id(&self) -> SourceFileId {
         match self {
-            CompileError::ChildIndexOutOfBounds { .. } => 0,
-            CompileError::InvalidEncodedConstant { position, .. } => position.file_index,
-            CompileError::InvalidNativeFunction { position, .. } => position.file_index,
-            CompileError::DivisionByZero { position, .. } => position.file_index,
+            CompileError::ChildIndexOutOfBounds { .. } => SourceFileId::default(),
+            CompileError::InvalidEncodedConstant { position, .. } => position.file_id,
+            CompileError::InvalidNativeFunction { position, .. } => position.file_id,
+            CompileError::DivisionByZero { position, .. } => position.file_id,
             CompileError::DuplicateFunctionDeclaration {
                 second_position, ..
-            } => second_position.file_index,
-            CompileError::ExpectedItem { position, .. } => position.file_index,
-            CompileError::ExpectedStatement { position, .. } => position.file_index,
-            CompileError::ExpectedExpression { position, .. } => position.file_index,
-            CompileError::ExpectedFunction { position, .. } => position.file_index,
-            CompileError::ExpectedFunctionBody { position, .. } => position.file_index,
-            CompileError::ExpectedFunctionType { position, .. } => position.file_index,
-            CompileError::MissingChild { .. } => 0,
-            CompileError::MissingConstant { .. } => 0,
-            CompileError::MissingDeclaration { .. } => 0,
-            CompileError::MissingLocal { .. } => 0,
-            CompileError::MissingSyntaxNode { .. } => 0,
-            CompileError::MissingType { .. } => 0,
-            CompileError::MissingScope { .. } => 0,
-            CompileError::MissingPrototype { .. } => 0,
-            CompileError::MissingSourceFile { file_index } => *file_index,
-            CompileError::MissingSyntaxTree { .. } => 0,
-            CompileError::MissingPayloads { .. } => 0,
-            CompileError::MissingPosition { .. } => 0,
+            } => second_position.file_id,
+            CompileError::ExpectedItem { position, .. } => position.file_id,
+            CompileError::ExpectedStatement { position, .. } => position.file_id,
+            CompileError::ExpectedExpression { position, .. } => position.file_id,
+            CompileError::ExpectedFunction { position, .. } => position.file_id,
+            CompileError::ExpectedFunctionBody { position, .. } => position.file_id,
+            CompileError::ExpectedFunctionType { position, .. } => position.file_id,
+            CompileError::MissingChild { .. } => SourceFileId::default(),
+            CompileError::MissingConstant { .. } => SourceFileId::default(),
+            CompileError::MissingDeclaration { .. } => SourceFileId::default(),
+            CompileError::MissingLocal { .. } => SourceFileId::default(),
+            CompileError::MissingSyntaxNode { .. } => SourceFileId::default(),
+            CompileError::MissingType { .. } => SourceFileId::default(),
+            CompileError::MissingScope { .. } => SourceFileId::default(),
+            CompileError::MissingPrototype { .. } => SourceFileId::default(),
+            CompileError::MissingSourceFile { file_id } => *file_id,
+            CompileError::MissingSyntaxTree { .. } => SourceFileId::default(),
+            CompileError::MissingPayloads { .. } => SourceFileId::default(),
+            CompileError::MissingPosition { .. } => SourceFileId::default(),
         }
     }
 
@@ -326,9 +327,9 @@ impl AnnotatedError for CompileError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
-            CompileError::MissingSourceFile { file_index } => {
+            CompileError::MissingSourceFile { file_id } => {
                 let title = format!(
-                    "Source file with index {file_index} was missing, this is a bug in the parser or compiler"
+                    "Source file with id {file_id:?} was missing, this is a bug in the parser or compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

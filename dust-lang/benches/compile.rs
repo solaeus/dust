@@ -21,7 +21,7 @@ fn() {
 };
 ";
 
-fn compile_bench(source: &str) {
+fn compile_bench(source: String) {
     compile_main(source).unwrap();
 }
 
@@ -38,7 +38,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     }
 
     group.bench_function("compile 1,000 loops", |b| {
-        b.iter(|| compile_bench(black_box(&source)))
+        b.iter(|| compile_bench(black_box(source.clone())))
     });
 
     for _ in 0..4000 {
@@ -47,7 +47,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     }
 
     group.bench_function("compile 5,000 loops", |b| {
-        b.iter(|| compile_bench(black_box(&source)))
+        b.iter(|| compile_bench(black_box(source.clone())))
     });
 
     source.clear();
@@ -58,7 +58,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     }
 
     group.bench_function("compile 1,000 functions", |b| {
-        b.iter(|| compile_bench(black_box(&source)))
+        b.iter(|| compile_bench(black_box(source.clone())))
     });
 
     for _ in 0..9000 {
@@ -67,7 +67,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     }
 
     group.bench_function("compile 10,000 functions", |b| {
-        b.iter(|| compile_bench(black_box(&source)))
+        b.iter(|| compile_bench(black_box(source.clone())))
     });
 }
 

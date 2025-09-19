@@ -16,8 +16,8 @@ use crate::{
     dust_crate::Program,
     dust_error::DustError,
     parser::{ParseResult, Parser},
-    resolver::{DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind, TypeId},
-    source::SourceFile,
+    resolver::{Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind, TypeId},
+    source::{SourceFile, SourceFileId},
     syntax_tree::SyntaxTree,
 };
 
@@ -27,11 +27,11 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
         name: "dust_program".into(),
         source_code,
     });
-    let parser = Parser::new(&source, &mut resolver);
+    let parser = Parser::new(SourceFileId(0), ScopeId::MAIN, &source, &mut resolver);
     let ParseResult {
         syntax_trees,
         errors,
-    } = parser.parse(0, ScopeId::MAIN);
+    } = parser.parse();
 
     if !errors.is_empty() {
         return Err(DustError::parse(errors, source));
@@ -44,7 +44,8 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
         constants: ConstantTable::new(),
         prototypes: IndexMap::new(),
     };
-    let chunk_compiler = ChunkCompiler::new(DeclarationId::MAIN, None, 0, &mut context);
+    let chunk_compiler =
+        ChunkCompiler::new(DeclarationId::MAIN, None, SourceFileId(0), &mut context);
     let compile_result = chunk_compiler.compile();
 
     match compile_result {
@@ -71,7 +72,7 @@ impl Compiler {
     }
 
     pub fn compile(mut self) -> Result<Program, DustError> {
-        for (index, file) in self.context.source.files().iter().enumerate().skip(1) {
+        for (index, file) in self.context.source.get_files().iter().enumerate().skip(1) {
             let file_scope = Scope {
                 kind: ScopeKind::Module,
                 parent: ScopeId::MAIN,
@@ -80,15 +81,17 @@ impl Compiler {
             };
             let file_scope_id = self.context.resolver.add_scope(file_scope);
             let module_id = self.context.resolver.add_declaration(
-                DeclarationKind::FileModule {
-                    inner_scope_id: file_scope_id,
-                    is_parsed: false,
-                },
-                ScopeId::MAIN,
-                TypeId::NONE,
-                true,
                 &file.name,
-                Position::new(index as u32, Span::default()),
+                Declaration {
+                    kind: DeclarationKind::FileModule {
+                        inner_scope_id: file_scope_id,
+                        is_parsed: false,
+                    },
+                    scope_id: ScopeId::MAIN,
+                    type_id: TypeId::NONE,
+                    position: Position::new(SourceFileId(index as u32), Span::default()),
+                    is_public: true,
+                },
             );
 
             self.context
@@ -96,30 +99,16 @@ impl Compiler {
                 .add_module_to_scope(ScopeId::MAIN, module_id);
         }
 
-        let source_file = match self.context.source.get_file(0) {
-            Some(file) => file,
-            None => {
-                todo!("Error");
-            }
-        };
-
-        self.context.resolver.add_declaration(
-            DeclarationKind::FileModule {
-                inner_scope_id: ScopeId::MAIN,
-                is_parsed: true,
-            },
+        let parser = Parser::new(
+            SourceFileId(0),
             ScopeId::MAIN,
-            TypeId::NONE,
-            true,
-            &source_file.name,
-            Position::new(0, Span::default()),
+            &self.context.source,
+            &mut self.context.resolver,
         );
-
-        let parser = Parser::new(&self.context.source, &mut self.context.resolver);
         let ParseResult {
             syntax_trees,
             errors: module_errors,
-        } = parser.parse(0, ScopeId::MAIN);
+        } = parser.parse();
 
         self.context.file_trees.extend(syntax_trees);
 
@@ -131,7 +120,12 @@ impl Compiler {
             .prototypes
             .insert(DeclarationId::MAIN, Chunk::default());
 
-        let chunk_compiler = ChunkCompiler::new(DeclarationId::MAIN, None, 0, &mut self.context);
+        let chunk_compiler = ChunkCompiler::new(
+            DeclarationId::MAIN,
+            None,
+            SourceFileId(0),
+            &mut self.context,
+        );
 
         let chunk = match chunk_compiler.compile() {
             Ok(chunk) => chunk,

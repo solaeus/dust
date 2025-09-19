@@ -11,7 +11,7 @@ while i < 10_000_000 {
 }
 ";
 
-fn addictive_addition(source: &str) {
+fn addictive_addition(source: String) {
     run_main(source).unwrap();
 }
 
@@ -20,7 +20,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     group.measurement_time(Duration::from_secs(15));
     group.bench_function("addictive_addition", |b| {
-        b.iter(|| addictive_addition(black_box(SOURCE)))
+        b.iter(|| addictive_addition(black_box(SOURCE.to_string())))
     });
     group.finish();
 }

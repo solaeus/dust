@@ -5,7 +5,7 @@ use std::fmt::{self, Display, Formatter};
 pub use syntax_node::{SyntaxKind, SyntaxNode};
 use termtree::Tree;
 
-use crate::syntax_tree::syntax_node::Children;
+use crate::{source::SourceFileId, syntax_tree::syntax_node::Children};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SyntaxId(pub u32);
@@ -24,7 +24,7 @@ pub struct SyntaxTree {
     /// Identifies the source file this syntax tree represents.
     ///
     /// **WARNING**: This index is only valid *after* parsing.
-    pub file_index: u32,
+    pub file_id: SourceFileId,
 
     /// List of nodes in the tree in the order they were parsed according to the Pratt algorithm
     /// used by the parser.
@@ -36,9 +36,9 @@ pub struct SyntaxTree {
 }
 
 impl SyntaxTree {
-    pub fn new(file_index: u32) -> Self {
+    pub fn new(file_id: SourceFileId) -> Self {
         Self {
-            file_index,
+            file_id,
             nodes: Vec::new(),
             children: Vec::new(),
         }

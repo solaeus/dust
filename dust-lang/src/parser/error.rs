@@ -5,6 +5,7 @@ use crate::{
     Position, Token, Type,
     dust_error::AnnotatedError,
     resolver::{DeclarationId, DeclarationKind, ScopeId, TypeId},
+    source::SourceFileId,
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 
@@ -139,39 +140,39 @@ pub enum ParseError {
 }
 
 impl AnnotatedError for ParseError {
-    fn file_index(&self) -> u32 {
+    fn file_id(&self) -> SourceFileId {
         match self {
-            ParseError::ExpectedToken { position, .. } => position.file_index,
-            ParseError::ExpectedMultipleTokens { position, .. } => position.file_index,
-            ParseError::UnexpectedToken { position, .. } => position.file_index,
-            ParseError::ExpectedItem { position, .. } => position.file_index,
-            ParseError::ExpectedStatement { position, .. } => position.file_index,
-            ParseError::ExpectedExpression { position, .. } => position.file_index,
-            ParseError::ExpectedFunction { position, .. } => position.file_index,
-            ParseError::ExpectedModule { position, .. } => position.file_index,
-            ParseError::PrivateImport { position, .. } => position.file_index,
-            ParseError::AdditionTypeMismatch { position, .. } => position.file_index,
-            ParseError::AssignmentToImmutable { position, .. } => position.file_index,
-            ParseError::BinaryOperandTypeMismatch { position, .. } => position.file_index,
+            ParseError::ExpectedToken { position, .. } => position.file_id,
+            ParseError::ExpectedMultipleTokens { position, .. } => position.file_id,
+            ParseError::UnexpectedToken { position, .. } => position.file_id,
+            ParseError::ExpectedItem { position, .. } => position.file_id,
+            ParseError::ExpectedStatement { position, .. } => position.file_id,
+            ParseError::ExpectedExpression { position, .. } => position.file_id,
+            ParseError::ExpectedFunction { position, .. } => position.file_id,
+            ParseError::ExpectedModule { position, .. } => position.file_id,
+            ParseError::PrivateImport { position, .. } => position.file_id,
+            ParseError::AdditionTypeMismatch { position, .. } => position.file_id,
+            ParseError::AssignmentToImmutable { position, .. } => position.file_id,
+            ParseError::BinaryOperandTypeMismatch { position, .. } => position.file_id,
             ParseError::ExpectedBooleanCondition {
                 condition_position, ..
-            } => condition_position.file_index,
-            ParseError::InvalidAssignmentTarget { position, .. } => position.file_index,
-            ParseError::NegationTypeMismatch { position, .. } => position.file_index,
-            ParseError::NotTypeMismatch { position, .. } => position.file_index,
-            ParseError::UndeclaredType { position, .. } => position.file_index,
+            } => condition_position.file_id,
+            ParseError::InvalidAssignmentTarget { position, .. } => position.file_id,
+            ParseError::NegationTypeMismatch { position, .. } => position.file_id,
+            ParseError::NotTypeMismatch { position, .. } => position.file_id,
+            ParseError::UndeclaredType { position, .. } => position.file_id,
             ParseError::DeclarationConflict {
                 second_declaration, ..
-            } => second_declaration.file_index,
-            ParseError::OutOfScopeVariable { position, .. } => position.file_index,
-            ParseError::UndeclaredVariable { position, .. } => position.file_index,
-            ParseError::UndeclaredModule { position, .. } => position.file_index,
-            ParseError::MissingNode { .. } => 0,
-            ParseError::MissingChildren { .. } => 0,
-            ParseError::MissingScope { .. } => 0,
-            ParseError::MissingDeclaration { .. } => 0,
-            ParseError::MissingType { .. } => 0,
-            ParseError::MissingPosition { position, .. } => position.file_index,
+            } => second_declaration.file_id,
+            ParseError::OutOfScopeVariable { position, .. } => position.file_id,
+            ParseError::UndeclaredVariable { position, .. } => position.file_id,
+            ParseError::UndeclaredModule { position, .. } => position.file_id,
+            ParseError::MissingNode { .. } => SourceFileId::default(),
+            ParseError::MissingChildren { .. } => SourceFileId::default(),
+            ParseError::MissingScope { .. } => SourceFileId::default(),
+            ParseError::MissingDeclaration { .. } => SourceFileId::default(),
+            ParseError::MissingType { .. } => SourceFileId::default(),
+            ParseError::MissingPosition { position, .. } => position.file_id,
         }
     }
 

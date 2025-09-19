@@ -34,13 +34,27 @@ impl Resolver {
             type_members: Vec::new(),
         };
 
+        let _global_scope_id = resolver.add_scope(Scope {
+            kind: ScopeKind::Module,
+            parent: ScopeId::GLOBAL,
+            imports: SmallVec::new(),
+            modules: SmallVec::new(),
+        });
+        let _main_scope_id = resolver.add_scope(Scope {
+            kind: ScopeKind::Function,
+            parent: ScopeId::GLOBAL,
+            imports: SmallVec::new(),
+            modules: SmallVec::new(),
+        });
         let _main_function_declaration_id = resolver.add_declaration(
-            DeclarationKind::Function,
-            ScopeId::MAIN,
-            TypeId::NONE,
-            true,
             "main",
-            Position::default(),
+            Declaration {
+                kind: DeclarationKind::Function,
+                scope_id: ScopeId::MAIN,
+                type_id: TypeId::NONE,
+                position: Position::default(),
+                is_public: true,
+            },
         );
 
         debug_assert_eq!(_main_function_declaration_id, DeclarationId::MAIN);
@@ -53,12 +67,14 @@ impl Resolver {
             }));
 
             resolver.add_declaration(
-                DeclarationKind::NativeFunction,
-                ScopeId::GLOBAL,
-                read_line_type_id,
-                false,
                 NativeFunction { index: 1 }.name(),
-                Position::default(),
+                Declaration {
+                    kind: DeclarationKind::NativeFunction,
+                    scope_id: ScopeId::GLOBAL,
+                    type_id: read_line_type_id,
+                    position: Position::default(),
+                    is_public: true,
+                },
             );
 
             let value_parameters = resolver.push_type_members(&[TypeId::STRING]);
@@ -69,29 +85,15 @@ impl Resolver {
             }));
 
             resolver.add_declaration(
-                DeclarationKind::NativeFunction,
-                ScopeId::GLOBAL,
-                write_line_type_id,
-                false,
                 NativeFunction { index: 2 }.name(),
-                Position::default(),
+                Declaration {
+                    kind: DeclarationKind::NativeFunction,
+                    scope_id: ScopeId::GLOBAL,
+                    type_id: write_line_type_id,
+                    position: Position::default(),
+                    is_public: true,
+                },
             );
-        }
-
-        #[cfg(test)]
-        {
-            while resolver.declarations.len() < 256 {
-                let identifier = format!("__reserved_{}__", resolver.declarations.len());
-
-                resolver.add_declaration(
-                    DeclarationKind::NativeFunction,
-                    ScopeId::GLOBAL,
-                    TypeId::NONE,
-                    false,
-                    &identifier,
-                    Position::default(),
-                );
-            }
         }
 
         resolver
@@ -142,15 +144,7 @@ impl Resolver {
             .map(|(_, declaration)| declaration)
     }
 
-    pub fn add_declaration(
-        &mut self,
-        kind: DeclarationKind,
-        scope_id: ScopeId,
-        type_id: TypeId,
-        is_public: bool,
-        identifier: &str,
-        identifier_position: Position,
-    ) -> DeclarationId {
+    pub fn add_declaration(&mut self, identifier: &str, declaration: Declaration) -> DeclarationId {
         let symbol = {
             let mut hasher = FxHasher::default();
 
@@ -161,15 +155,8 @@ impl Resolver {
             }
         };
 
-        let declaration = Declaration {
-            kind,
-            scope_id,
-            type_id,
-            identifier_position,
-            is_public,
-        };
         let declaration_id = DeclarationId(self.declarations.len() as u32);
-        let key = DeclarationKey(symbol, scope_id);
+        let key = DeclarationKey(symbol, declaration.scope_id);
 
         self.declarations.insert(key, declaration);
 
@@ -245,6 +232,12 @@ impl Resolver {
                 if self.declarations.contains_key(&key) {
                     return Some((*module_id, *module_declaration));
                 }
+            }
+
+            let global_key = DeclarationKey(symbol, ScopeId::GLOBAL);
+
+            if let Some((index, _, declaration)) = self.declarations.get_full(&global_key) {
+                return Some((DeclarationId(index as u32), *declaration));
             }
 
             if current_scope.kind != ScopeKind::Block || current_scope_id == ScopeId(0) {
@@ -348,8 +341,8 @@ pub struct Symbol {
 pub struct ScopeId(pub u32);
 
 impl ScopeId {
-    pub const MAIN: Self = ScopeId(0);
-    pub const GLOBAL: Self = ScopeId(u32::MAX);
+    pub const GLOBAL: Self = ScopeId(0);
+    pub const MAIN: Self = ScopeId(1);
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -390,7 +383,7 @@ pub struct Declaration {
     pub kind: DeclarationKind,
     pub scope_id: ScopeId,
     pub type_id: TypeId,
-    pub identifier_position: Position,
+    pub position: Position,
     pub is_public: bool,
 }
 

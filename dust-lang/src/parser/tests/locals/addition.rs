@@ -25,7 +25,7 @@ fn local_byte_addition() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 20),
-                payload: 256,
+                payload: 3,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -49,7 +49,7 @@ fn local_byte_addition() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 span: Span(21, 40),
-                payload: 257,
+                payload: 4,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -71,7 +71,7 @@ fn local_byte_addition() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(41, 42),
                 payload: TypeId::BYTE.0,
             },
@@ -83,7 +83,7 @@ fn local_byte_addition() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (257, 0),
+                children: (4, 0),
                 span: Span(45, 46),
                 payload: TypeId::BYTE.0,
             },
@@ -110,7 +110,7 @@ fn local_float_addition() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 21),
-                payload: 256,
+                payload: 3,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -134,7 +134,7 @@ fn local_float_addition() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 span: Span(22, 41),
-                payload: 257,
+                payload: 4,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -156,7 +156,7 @@ fn local_float_addition() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(42, 43),
                 payload: TypeId::FLOAT.0,
             },
@@ -168,7 +168,7 @@ fn local_float_addition() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (257, 0),
+                children: (4, 0),
                 span: Span(46, 47),
                 payload: TypeId::FLOAT.0,
             },
@@ -195,7 +195,7 @@ fn local_integer_addition() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 17),
-                payload: 256
+                payload: 3
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -219,7 +219,7 @@ fn local_integer_addition() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 span: Span(18, 33),
-                payload: 257
+                payload: 4
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -241,7 +241,7 @@ fn local_integer_addition() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(34, 35),
                 payload: TypeId::INTEGER.0
             },
@@ -253,7 +253,7 @@ fn local_integer_addition() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (257, 0),
+                children: (4, 0),
                 span: Span(38, 39),
                 payload: TypeId::INTEGER.0
             },
@@ -280,7 +280,7 @@ fn local_string_concatenation() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 20),
-                payload: 256
+                payload: 3
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
@@ -304,7 +304,7 @@ fn local_string_concatenation() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 span: Span(21, 40),
-                payload: 257
+                payload: 4
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
@@ -326,7 +326,7 @@ fn local_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(41, 42),
                 payload: TypeId::STRING.0
             },
@@ -338,7 +338,7 @@ fn local_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (257, 0),
+                children: (4, 0),
                 span: Span(45, 46),
                 payload: TypeId::STRING.0
             },
@@ -365,7 +365,7 @@ fn local_character_concatenation() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 19),
-                payload: 256
+                payload: 3
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterType,
@@ -389,7 +389,7 @@ fn local_character_concatenation() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 span: Span(20, 38),
-                payload: 257
+                payload: 4
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterType,
@@ -411,7 +411,7 @@ fn local_character_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(39, 40),
                 payload: TypeId::CHARACTER.0
             },
@@ -423,7 +423,7 @@ fn local_character_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (257, 0),
+                children: (4, 0),
                 span: Span(43, 44),
                 payload: TypeId::CHARACTER.0
             },
@@ -450,7 +450,7 @@ fn local_string_character_concatenation() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 20),
-                payload: 256
+                payload: 3
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
@@ -474,7 +474,7 @@ fn local_string_character_concatenation() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 span: Span(21, 39),
-                payload: 257
+                payload: 4
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterType,
@@ -496,7 +496,7 @@ fn local_string_character_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(40, 41),
                 payload: TypeId::STRING.0
             },
@@ -508,7 +508,7 @@ fn local_string_character_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (257, 0),
+                children: (4, 0),
                 span: Span(44, 45),
                 payload: TypeId::CHARACTER.0
             },
@@ -535,7 +535,7 @@ fn local_character_string_concatenation() {
                 kind: SyntaxKind::LetStatement,
                 children: (1, 3),
                 span: Span(1, 19),
-                payload: 256
+                payload: 3
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterType,
@@ -559,7 +559,7 @@ fn local_character_string_concatenation() {
                 kind: SyntaxKind::LetStatement,
                 children: (5, 7),
                 span: Span(20, 39),
-                payload: 257
+                payload: 4
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
@@ -581,7 +581,7 @@ fn local_character_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(40, 41),
                 payload: TypeId::CHARACTER.0
             },
@@ -593,7 +593,7 @@ fn local_character_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (257, 0),
+                children: (4, 0),
                 span: Span(44, 45),
                 payload: TypeId::STRING.0
             },
@@ -620,7 +620,7 @@ fn local_mut_byte_addition() {
                 kind: SyntaxKind::LetMutStatement,
                 children: (1, 3),
                 span: Span(1, 24),
-                payload: 256,
+                payload: 3,
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -642,7 +642,7 @@ fn local_mut_byte_addition() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(25, 26),
                 payload: TypeId::BYTE.0,
             },
@@ -666,7 +666,7 @@ fn local_mut_byte_addition() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(36, 37),
                 payload: TypeId::BYTE.0,
             },
@@ -693,7 +693,7 @@ fn local_mut_float_addition() {
                 kind: SyntaxKind::LetMutStatement,
                 children: (1, 3),
                 span: Span(1, 25),
-                payload: 256,
+                payload: 3,
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -715,7 +715,7 @@ fn local_mut_float_addition() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(26, 27),
                 payload: TypeId::FLOAT.0,
             },
@@ -739,7 +739,7 @@ fn local_mut_float_addition() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(36, 37),
                 payload: TypeId::FLOAT.0,
             },
@@ -766,7 +766,7 @@ fn local_mut_integer_addition() {
                 kind: SyntaxKind::LetMutStatement,
                 children: (1, 3),
                 span: Span(1, 21),
-                payload: 256
+                payload: 3
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -788,7 +788,7 @@ fn local_mut_integer_addition() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(22, 23),
                 payload: TypeId::INTEGER.0
             },
@@ -812,7 +812,7 @@ fn local_mut_integer_addition() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(30, 31),
                 payload: TypeId::INTEGER.0
             },
@@ -839,7 +839,7 @@ fn local_mut_string_concatenation() {
                 kind: SyntaxKind::LetMutStatement,
                 children: (1, 3),
                 span: Span(1, 24),
-                payload: 256
+                payload: 3
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
@@ -861,7 +861,7 @@ fn local_mut_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(25, 26),
                 payload: TypeId::STRING.0
             },
@@ -885,7 +885,7 @@ fn local_mut_string_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(37, 38),
                 payload: TypeId::STRING.0
             },
@@ -912,7 +912,7 @@ fn local_mut_string_character_concatenation() {
                 kind: SyntaxKind::LetMutStatement,
                 children: (1, 3),
                 span: Span(1, 24),
-                payload: 256
+                payload: 3
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
@@ -934,7 +934,7 @@ fn local_mut_string_character_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(25, 26),
                 payload: TypeId::STRING.0
             },
@@ -958,7 +958,7 @@ fn local_mut_string_character_concatenation() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (256, 0),
+                children: (3, 0),
                 span: Span(35, 36),
                 payload: TypeId::STRING.0
             },
