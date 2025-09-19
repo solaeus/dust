@@ -17,15 +17,21 @@ use crate::{
 
 #[derive(Debug)]
 pub struct ChunkCompiler<'a> {
-    declaration_id: DeclarationId,
-
-    /// Type of the function being compiled. This is only `None` when compiling the main function
-    /// and is filled when the first RETURN instruction is emitted.
-    r#type: Option<FunctionTypeNode>,
-
     file_id: SourceFileId,
 
+    r#type: FunctionTypeNode,
+
     context: &'a mut CompileContext,
+
+    /// Local variables declared in the function being compiled.
+    locals: HashMap<DeclarationId, Local, FxBuildHasher>,
+
+    /// Lowest register index after registers have been allocated for function arguments.
+    minimum_register: u16,
+
+    /// Represents the name, scopes, types and position of the function being compiled. For
+    /// anonymous functions this is `DeclarationId::ANONYMOUS`.
+    declaration_id: DeclarationId,
 
     /// Bytecode instruction collection that is filled during compilation.
     instructions: Vec<Instruction>,
@@ -35,18 +41,12 @@ pub struct ChunkCompiler<'a> {
 
     /// Concatenated list of register indexes that are referenced by DROP instructions.
     drop_lists: Vec<u16>,
-
-    /// Local variables declared in the function being compiled.
-    locals: HashMap<DeclarationId, Local, FxBuildHasher>,
-
-    /// Lowest register index after registers have been allocated for function arguments.
-    minimum_register: u16,
 }
 
 impl<'a> ChunkCompiler<'a> {
     pub fn new(
         declaration_id: DeclarationId,
-        r#type: Option<FunctionTypeNode>,
+        r#type: FunctionTypeNode,
         file_id: SourceFileId,
         context: &'a mut CompileContext,
     ) -> Self {
@@ -63,8 +63,8 @@ impl<'a> ChunkCompiler<'a> {
         }
     }
 
-    pub fn compile(mut self) -> Result<Chunk, CompileError> {
-        let span = span!(Level::INFO, "Compiling");
+    pub fn compile_main(mut self) -> Result<Chunk, CompileError> {
+        let span = span!(Level::INFO, "main");
         let _enter = span.enter();
 
         let root_node = *self
@@ -79,18 +79,34 @@ impl<'a> ChunkCompiler<'a> {
     pub fn finish(mut self) -> Result<Chunk, CompileError> {
         self.context.constants.finalize_string_pool();
 
-        debug_assert!(self.r#type.is_some());
+        let name_position = if matches!(
+            self.declaration_id,
+            DeclarationId::MAIN | DeclarationId::ANONYMOUS
+        ) {
+            None
+        } else {
+            let declaration = self
+                .context
+                .resolver
+                .get_declaration(self.declaration_id)
+                .ok_or(CompileError::MissingDeclaration {
+                    declaration_id: self.declaration_id,
+                })?;
 
-        let function_type = self.r#type.unwrap_or_default();
+            Some(declaration.position)
+        };
         let r#type = self
             .context
             .resolver
-            .add_type(TypeNode::Function(function_type));
+            .resolve_function_type(&self.r#type)
+            .ok_or(CompileError::UnresolvedFunctionType {
+                function_type: self.r#type,
+            })?;
         let register_count = self.get_next_register();
 
         Ok(Chunk {
-            declaration_id: self.declaration_id,
-            type_id: r#type,
+            name_position,
+            r#type,
             instructions: self.instructions,
             call_arguments: self.call_arguments,
             drop_lists: self.drop_lists,
@@ -493,40 +509,34 @@ impl<'a> ChunkCompiler<'a> {
                     return Ok(());
                 }
 
-                let file_id = if file_declaration_id == DeclarationId::ANONYMOUS {
-                    self.syntax_tree()?.file_id
-                } else {
-                    let file_declaration = self
-                        .context
-                        .resolver
-                        .get_declaration(file_declaration_id)
-                        .ok_or(CompileError::MissingDeclaration {
-                            declaration_id: file_declaration_id,
-                        })?;
-
-                    file_declaration.position.file_id
-                };
+                let file_declaration = self
+                    .context
+                    .resolver
+                    .get_declaration(file_declaration_id)
+                    .ok_or(CompileError::MissingDeclaration {
+                    declaration_id: file_declaration_id,
+                })?;
+                let file_id = file_declaration.position.file_id;
                 let import_type = self
                     .context
                     .resolver
                     .get_type_node(import_declaration.type_id)
-                    .ok_or(CompileError::MissingType {
+                    .ok_or(CompileError::MissingTypeNode {
                         type_id: import_declaration.type_id,
                     })?;
                 let TypeNode::Function(function_type) = import_type else {
                     return Err(CompileError::ExpectedFunctionType {
-                        type_node: *import_type,
-                        position: import_declaration.position,
+                        type_id: import_declaration.type_id,
                     });
                 };
                 let function_compiler = ChunkCompiler::new(
                     import_declaration_id,
-                    Some(*function_type),
+                    *function_type,
                     file_id,
                     self.context,
                 );
 
-                let function_chunk = function_compiler.compile()?;
+                let function_chunk = function_compiler.compile_main()?;
                 let prototype_index = self.context.prototypes.len() as u16;
 
                 self.context
@@ -895,7 +905,7 @@ impl<'a> ChunkCompiler<'a> {
                     .context
                     .resolver
                     .resolve_type(TypeId(node.payload))
-                    .ok_or(CompileError::MissingType {
+                    .ok_or(CompileError::MissingTypeNode {
                         type_id: TypeId(node.payload),
                     })?
                     .as_operand_type();
@@ -907,7 +917,7 @@ impl<'a> ChunkCompiler<'a> {
                     .context
                     .resolver
                     .resolve_type(TypeId(left.payload))
-                    .ok_or(CompileError::MissingType {
+                    .ok_or(CompileError::MissingTypeNode {
                         type_id: TypeId(node.payload),
                     })?
                     .as_operand_type();
@@ -921,7 +931,7 @@ impl<'a> ChunkCompiler<'a> {
                     .context
                     .resolver
                     .resolve_type(TypeId(node.payload))
-                    .ok_or(CompileError::MissingType {
+                    .ok_or(CompileError::MissingTypeNode {
                         type_id: TypeId(node.payload),
                     })?
                     .as_operand_type();
@@ -933,7 +943,7 @@ impl<'a> ChunkCompiler<'a> {
                     .context
                     .resolver
                     .resolve_type(TypeId(left.payload))
-                    .ok_or(CompileError::MissingType {
+                    .ok_or(CompileError::MissingTypeNode {
                         type_id: TypeId(node.payload),
                     })?
                     .as_operand_type();
@@ -947,7 +957,7 @@ impl<'a> ChunkCompiler<'a> {
                     .context
                     .resolver
                     .resolve_type(TypeId(node.payload))
-                    .ok_or(CompileError::MissingType {
+                    .ok_or(CompileError::MissingTypeNode {
                         type_id: TypeId(node.payload),
                     })?
                     .as_operand_type();
@@ -959,7 +969,7 @@ impl<'a> ChunkCompiler<'a> {
                     .context
                     .resolver
                     .resolve_type(TypeId(left.payload))
-                    .ok_or(CompileError::MissingType {
+                    .ok_or(CompileError::MissingTypeNode {
                         type_id: TypeId(node.payload),
                     })?
                     .as_operand_type();
@@ -973,7 +983,7 @@ impl<'a> ChunkCompiler<'a> {
                     .context
                     .resolver
                     .resolve_type(TypeId(node.payload))
-                    .ok_or(CompileError::MissingType {
+                    .ok_or(CompileError::MissingTypeNode {
                         type_id: TypeId(node.payload),
                     })?
                     .as_operand_type();
@@ -985,7 +995,7 @@ impl<'a> ChunkCompiler<'a> {
                     .context
                     .resolver
                     .resolve_type(TypeId(left.payload))
-                    .ok_or(CompileError::MissingType {
+                    .ok_or(CompileError::MissingTypeNode {
                         type_id: TypeId(node.payload),
                     })?
                     .as_operand_type();
@@ -999,7 +1009,7 @@ impl<'a> ChunkCompiler<'a> {
                     .context
                     .resolver
                     .resolve_type(TypeId(node.payload))
-                    .ok_or(CompileError::MissingType {
+                    .ok_or(CompileError::MissingTypeNode {
                         type_id: TypeId(node.payload),
                     })?
                     .as_operand_type();
@@ -1011,7 +1021,7 @@ impl<'a> ChunkCompiler<'a> {
                     .context
                     .resolver
                     .resolve_type(TypeId(left.payload))
-                    .ok_or(CompileError::MissingType {
+                    .ok_or(CompileError::MissingTypeNode {
                         type_id: TypeId(node.payload),
                     })?
                     .as_operand_type();
@@ -1412,7 +1422,7 @@ impl<'a> ChunkCompiler<'a> {
             .context
             .resolver
             .resolve_type(TypeId(node.payload))
-            .ok_or(CompileError::MissingType {
+            .ok_or(CompileError::MissingTypeNode {
                 type_id: TypeId(node.payload),
             })?
             .as_operand_type();
@@ -1558,27 +1568,20 @@ impl<'a> ChunkCompiler<'a> {
                 child_count: value_parameters_node.children.1,
             });
         };
-        let chunk_type = self
+        let function_type = self
             .context
             .resolver
             .get_type_node(function_type_id)
-            .ok_or(CompileError::MissingType {
+            .ok_or(CompileError::MissingTypeNode {
+                type_id: function_type_id,
+            })?
+            .into_function_type()
+            .ok_or(CompileError::ExpectedFunctionType {
                 type_id: function_type_id,
             })?;
-        let function_type = if let Some(function_type) = chunk_type.as_function() {
-            function_type
-        } else {
-            return Err(CompileError::ExpectedFunctionType {
-                type_node: *chunk_type,
-                position: Position::new(self.syntax_tree()?.file_id, node.span),
-            });
-        };
-        let mut function_compiler = ChunkCompiler::new(
-            declaration_id,
-            Some(*function_type),
-            self.file_id,
-            self.context,
-        );
+
+        let mut function_compiler =
+            ChunkCompiler::new(declaration_id, function_type, self.file_id, self.context);
 
         let mut value_parameter_types =
             SmallVec::<[TypeId; 4]>::with_capacity(value_parameter_nodes.len());
@@ -1605,6 +1608,9 @@ impl<'a> ChunkCompiler<'a> {
                 .insert(parameter_declaration_id, Local { location: register });
             value_parameter_types.push(r#type);
         }
+
+        let span = span!(Level::INFO, "function");
+        let _enter = span.enter();
 
         function_compiler.compile_implicit_return(&body_node)?;
 
@@ -1718,7 +1724,7 @@ impl<'a> ChunkCompiler<'a> {
             .context
             .resolver
             .resolve_type(type_id)
-            .ok_or(CompileError::MissingType { type_id })?
+            .ok_or(CompileError::MissingTypeNode { type_id })?
         else {
             return Err(CompileError::ExpectedFunction {
                 node_kind: function_node.kind,
@@ -1742,20 +1748,14 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn compile_implicit_return(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
-        let (return_instruction, return_type) = if node.kind.is_item() {
+        let return_instruction = if node.kind.is_item() {
             self.compile_item(node)?;
 
-            (
-                Instruction::r#return(false, Address::default(), OperandType::NONE),
-                TypeId::NONE,
-            )
+            Instruction::r#return(false, Address::default(), OperandType::NONE)
         } else if node.kind.is_statement() {
             self.compile_statement(node)?;
 
-            (
-                Instruction::r#return(false, Address::default(), OperandType::NONE),
-                TypeId::NONE,
-            )
+            Instruction::r#return(false, Address::default(), OperandType::NONE)
         } else {
             let return_emission = self.compile_expression(node)?;
             let (return_operand, return_operand_type) = match return_emission {
@@ -1764,7 +1764,7 @@ impl<'a> ChunkCompiler<'a> {
                         .context
                         .resolver
                         .resolve_type(r#type)
-                        .ok_or(CompileError::MissingType { type_id: r#type })?
+                        .ok_or(CompileError::MissingTypeNode { type_id: r#type })?
                         .as_operand_type();
                     let mut return_operand = self.handle_operand(instruction);
 
@@ -1785,7 +1785,7 @@ impl<'a> ChunkCompiler<'a> {
                         .context
                         .resolver
                         .resolve_type(r#type)
-                        .ok_or(CompileError::MissingType { type_id: r#type })?
+                        .ok_or(CompileError::MissingTypeNode { type_id: r#type })?
                         .as_operand_type();
 
                     self.instructions.extend(instructions.iter());
@@ -1804,13 +1804,10 @@ impl<'a> ChunkCompiler<'a> {
                 Emission::None => (Address::default(), OperandType::NONE),
             };
 
-            (
-                Instruction::r#return(
-                    return_operand_type != OperandType::NONE,
-                    return_operand,
-                    return_operand_type,
-                ),
-                TypeId(node.payload),
+            Instruction::r#return(
+                return_operand_type != OperandType::NONE,
+                return_operand,
+                return_operand_type,
             )
         };
 
@@ -1820,19 +1817,6 @@ impl<'a> ChunkCompiler<'a> {
             .is_some_and(|instruction| instruction.operation() == Operation::RETURN)
         {
             return Ok(());
-        }
-
-        match self.r#type {
-            None => {
-                self.r#type = Some(FunctionTypeNode {
-                    type_parameters: (0, 0),
-                    value_parameters: (0, 0),
-                    return_type,
-                });
-            }
-            Some(mut r#type) => {
-                r#type.return_type = return_type;
-            }
         }
 
         self.instructions.push(return_instruction);

@@ -9,7 +9,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph, Row, Table, Tabs, Widget, Wrap},
 };
 
-use crate::{Chunk, Source, Type, dust_crate::Program};
+use crate::{Chunk, Source, dust_crate::Program};
 
 pub struct TuiDisassembler<'a> {
     program: &'a Program,
@@ -24,16 +24,11 @@ impl<'a> TuiDisassembler<'a> {
         let mut tabs = Vec::with_capacity(source.len() + program.prototypes.len());
 
         for file in source.get_files() {
-            tabs.push(file.name.to_string());
+            tabs.push(format!("{}.ds", file.name));
         }
 
         for chunk in &program.prototypes {
-            tabs.push(
-                chunk
-                    .get_name(&program.resolver, &source)
-                    .expect("Failed to get chunk name")
-                    .to_string(),
-            );
+            tabs.push(chunk.get_name(&source).unwrap().to_string());
         }
 
         Self {
@@ -165,13 +160,7 @@ impl<'a> TuiDisassembler<'a> {
         .wrap(Wrap { trim: true })
         .render(info_area, buffer);
 
-        let chunk_type = self
-            .program
-            .resolver
-            .resolve_type(chunk.type_id)
-            .unwrap_or(Type::None);
-
-        Paragraph::new(chunk_type.to_string())
+        Paragraph::new(chunk.r#type.to_string())
             .centered()
             .wrap(Wrap { trim: true })
             .render(type_area, buffer);
@@ -340,14 +329,9 @@ impl Widget for &TuiDisassembler<'_> {
             .wrap(Wrap { trim: true })
             .render(program_name_area, buffer);
 
-        let main_chunk_type = self
-            .program
-            .resolver
-            .resolve_type(main_chunk.type_id)
-            .unwrap_or(Type::None);
-
         Paragraph::new(format!(
-            "main function type: {main_chunk_type} ({} other prototypes)",
+            "main function type: {} ({} other prototypes)",
+            main_chunk.r#type,
             self.program.prototypes.len() - 1,
         ))
         .centered()

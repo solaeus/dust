@@ -1,17 +1,17 @@
-use crate::{Span, Token};
+use tracing::{info, trace};
 
-pub fn tokenize(source: &str) -> Vec<(Token, Span)> {
-    let mut lexer = Lexer::with_source(source);
+use crate::{Span, TokenKind, token::Token};
+
+pub fn tokenize(source: &str) -> Vec<Token> {
+    let mut lexer = Lexer::new();
     let mut tokens = Vec::new();
 
-    loop {
-        let (token, span) = lexer.next_token();
+    lexer.initialize(source);
 
-        tokens.push((token, span));
+    while !lexer.is_at_eof() {
+        let token = lexer.next_token();
 
-        if token == Token::Eof {
-            break;
-        }
+        tokens.push(token);
     }
 
     tokens
@@ -19,155 +19,180 @@ pub fn tokenize(source: &str) -> Vec<(Token, Span)> {
 
 #[derive(Debug, Default)]
 pub struct Lexer<'src> {
-    source: &'src str,
-    position: usize,
-    line_breaks: Vec<u32>,
+    source: &'src [u8],
+    current_index: usize,
 }
 
 impl<'src> Lexer<'src> {
     pub fn new() -> Self {
         Lexer {
-            source: "",
-            position: 0,
-            line_breaks: Vec::new(),
+            source: &[],
+            current_index: 0,
         }
     }
 
-    pub fn with_source(source: &'src str) -> Self {
-        Lexer {
-            source,
-            position: 0,
-            line_breaks: Vec::new(),
-        }
+    #[inline]
+    pub fn initialize(&mut self, source: &'src str) {
+        self.source = source.as_bytes();
+        self.current_index = 0;
     }
 
-    pub fn into_line_breaks(self) -> Vec<u32> {
-        self.line_breaks
-    }
-
-    pub fn initialize(&mut self, source: &'src str, offset: usize) -> (Token, Span) {
-        self.source = source;
-        self.position = offset;
-
-        self.line_breaks.clear();
-        self.next_token()
-    }
-
-    pub fn source(&self) -> &'src str {
+    #[inline]
+    pub fn source(&self) -> &'src [u8] {
         self.source
     }
 
+    #[inline]
+    pub fn is_at_eof(&self) -> bool {
+        self.current_index >= self.source.len()
+    }
+
     /// Produce the next token.
-    pub fn next_token(&mut self) -> (Token, Span) {
-        let Some(character) = self.peek_char() else {
-            return (Token::Eof, Span::new(self.position, self.position));
-        };
+    #[inline]
+    pub fn next_token(&mut self) -> Token {
+        if self.is_at_eof() {
+            return Token {
+                kind: TokenKind::Eof,
+                span: Span::new(self.current_index, self.current_index),
+            };
+        }
 
-        let (token, span) = match character {
-            '0'..='9' => self.lex_numeric(),
-            'a'..='z' | 'A'..='Z' | '_' => self.lex_keyword_or_identifier(),
-            '"' => self.lex_string(),
-            '\'' => self.lex_character(),
-            '+' => self.lex_plus(),
-            '-' => self.lex_minus(),
-            '*' => self.lex_asterisk(),
-            '/' => self.lex_slash(),
-            '%' => self.lex_percent(),
-            '!' => self.lex_exclamation_mark(),
-            '=' => self.lex_equal(),
-            '<' => self.lex_less_than(),
-            '>' => self.lex_greater_than(),
-            '&' => self.lex_ampersand(),
-            '|' => self.lex_pipe(),
-            '.' => self.lex_dot(),
-            ':' => self.lex_colon(),
-            '(' => self.emit(Token::LeftParenthesis),
-            ')' => self.emit(Token::RightParenthesis),
-            '[' => self.emit(Token::LeftSquareBracket),
-            ']' => self.emit(Token::RightSquareBracket),
-            '{' => self.emit(Token::LeftCurlyBrace),
-            '}' => self.emit(Token::RightCurlyBrace),
-            ';' => self.emit(Token::Semicolon),
-            ',' => self.emit(Token::Comma),
-            ' ' => self.emit(Token::Space),
-            '\t' => self.emit(Token::Tab),
-            '\r' => self.lex_carriage_return(),
-            '\n' => {
-                let (token, position) = self.emit(Token::Newline);
+        match self.current_byte() {
+            b'0'..=b'9' => self.lex_numeric(),
+            b'a'..=b'z' | b'A'..=b'Z' | b'_' => self.lex_keyword_or_identifier(),
+            b'"' => self.lex_string(),
+            b'\'' => self.lex_character(),
+            b'+' => self.lex_plus(),
+            b'-' => self.lex_minus(),
+            b'*' => self.lex_asterisk(),
+            b'/' => self.lex_slash(),
+            b'%' => self.lex_percent(),
+            b'!' => self.lex_exclamation_mark(),
+            b'=' => self.lex_equal(),
+            b'<' => self.lex_less_than(),
+            b'>' => self.lex_greater_than(),
+            b'&' => self.lex_ampersand(),
+            b'|' => self.lex_pipe(),
+            b'.' => self.lex_dot(),
+            b':' => self.lex_colon(),
+            b'(' => self.lex_byte(TokenKind::LeftParenthesis),
+            b')' => self.lex_byte(TokenKind::RightParenthesis),
+            b'[' => self.lex_byte(TokenKind::LeftSquareBracket),
+            b']' => self.lex_byte(TokenKind::RightSquareBracket),
+            b'{' => self.lex_byte(TokenKind::LeftCurlyBrace),
+            b'}' => self.lex_byte(TokenKind::RightCurlyBrace),
+            b';' => self.lex_byte(TokenKind::Semicolon),
+            b',' => self.lex_byte(TokenKind::Comma),
+            b' ' => self.lex_byte(TokenKind::Space),
+            b'\t' => self.lex_byte(TokenKind::Tab),
+            b'\r' => self.lex_carriage_return(),
+            b'\n' => self.lex_byte(TokenKind::Newline),
+            _ => {
+                self.advance();
 
-                self.line_breaks.push(position.1);
-
-                (token, position)
+                self.lex_byte(TokenKind::Unknown)
             }
-            _ => self.emit(Token::Unknown),
-        };
+        }
+    }
 
-        (token, span)
+    /// Emit a token for a one-byte character.
+    #[inline]
+    fn lex_byte(&mut self, kind: TokenKind) -> Token {
+        info!("Emitting token: {}", kind);
+
+        let start = self.current_index;
+
+        self.advance();
+
+        Token {
+            kind,
+            span: Span::new(start, self.current_index),
+        }
     }
 
     /// Progress to the next character.
+    #[inline]
     fn advance(&mut self) {
-        if let Some(c) = self.source[self.position..].chars().next() {
-            self.position += c.len_utf8();
+        let next_position = self.current_index + 1;
+
+        if next_position <= self.source.len() {
+            self.current_index = next_position;
         }
     }
 
     /// Peek at the next character without consuming it.
-    fn peek_char(&self) -> Option<char> {
-        self.source[self.position..].chars().next()
+    #[inline]
+    fn current_byte(&self) -> u8 {
+        if self.current_index < self.source.len() {
+            self.source[self.current_index]
+        } else {
+            0
+        }
     }
 
     /// Peek at the second-to-next character without consuming it.
-    fn peek_second_char(&self) -> Option<char> {
-        self.source[self.position..].chars().nth(1)
+    #[inline]
+    fn next_byte(&self) -> Option<u8> {
+        let next_position = self.current_index + 1;
+
+        if next_position < self.source.len() {
+            Some(self.source[next_position])
+        } else {
+            None
+        }
     }
 
     /// Peek the next `n` characters without consuming them.
-    fn peek_chars(&self, n: usize) -> impl Iterator<Item = char> + 'src {
-        self.source[self.position..].chars().take(n)
+    #[inline]
+    fn peek_bytes(&self, n: usize) -> &'src [u8] {
+        let end_position = (self.current_index + n).min(self.source.len());
+
+        &self.source[self.current_index..end_position]
     }
 
     #[inline]
-    fn emit(&mut self, token: Token) -> (Token, Span) {
-        let start = self.position;
+    fn lex_numeric(&mut self) -> Token {
+        trace!("Lexing numeric");
 
-        self.advance();
-
-        (token, Span::new(start, self.position))
-    }
-
-    fn lex_numeric(&mut self) -> (Token, Span) {
-        let start = self.position;
+        let start = self.current_index;
         let mut is_float = false;
-        let peek_char = self.peek_char();
+        let byte = self.current_byte();
 
-        if peek_char == Some('-') {
+        if byte == b'-' {
             self.advance();
         }
 
-        if peek_char == Some('0') {
+        if byte == b'0' {
             self.advance();
 
-            if self.peek_char() == Some('x') {
+            if self.current_byte() == b'x' {
                 self.advance();
 
-                for character in self.peek_chars(2) {
-                    if character.is_ascii_hexdigit() {
+                for byte in self.peek_bytes(2) {
+                    if byte.is_ascii_hexdigit() {
                         self.advance();
                     } else {
-                        return (Token::Unknown, Span::new(start, self.position));
+                        return Token {
+                            kind: TokenKind::Unknown,
+                            span: Span::new(start, self.current_index),
+                        };
                     }
                 }
 
-                return (Token::ByteValue, Span::new(start, self.position));
+                return Token {
+                    kind: TokenKind::ByteValue,
+                    span: Span::new(start, self.current_index),
+                };
             }
         }
 
-        while let Some(c) = self.peek_char() {
-            if c == '.' {
+        loop {
+            let byte = self.current_byte();
+
+            if byte == b'.' {
                 if matches!(
-                    self.peek_second_char(),
-                    Some('0'..='9' | 'e' | 'E' | '+' | '-' | '_')
+                    self.next_byte(),
+                    Some(b'0'..=b'9' | b'e' | b'E' | b'+' | b'-' | b'_')
                 ) {
                     if !is_float {
                         self.advance(); // Consume the dot
@@ -180,23 +205,25 @@ impl<'src> Lexer<'src> {
                     break;
                 }
 
-                while let Some(peek_char) = self.peek_char() {
-                    if peek_char.is_ascii_digit() || peek_char == '_' {
+                loop {
+                    let byte = self.current_byte();
+
+                    if byte.is_ascii_digit() || byte == b'_' {
                         self.advance();
 
                         continue;
                     }
 
-                    let peek_second_char = self.peek_second_char();
+                    let next_byte = self.next_byte();
 
-                    match (peek_char, peek_second_char) {
-                        ('e' | 'E', Some('0'..='9')) => {
+                    match (byte, next_byte) {
+                        (b'e' | b'E', Some(b'0'..=b'9')) => {
                             self.advance();
                             self.advance();
 
                             continue;
                         }
-                        ('e' | 'E', Some('+' | '-')) => {
+                        (b'e' | b'E', Some(b'+' | b'-')) => {
                             self.advance();
                             self.advance();
 
@@ -207,7 +234,7 @@ impl<'src> Lexer<'src> {
                 }
             }
 
-            if c.is_ascii_digit() || c == '_' {
+            if byte.is_ascii_digit() || byte == b'_' {
                 self.advance();
             } else {
                 break;
@@ -215,326 +242,450 @@ impl<'src> Lexer<'src> {
         }
 
         if is_float {
-            (Token::FloatValue, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::FloatValue,
+                span: Span::new(start, self.current_index),
+            }
         } else {
-            (Token::IntegerValue, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::IntegerValue,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_keyword_or_identifier(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_keyword_or_identifier(&mut self) -> Token {
+        let start = self.current_index;
 
-        while let Some(char) = self.peek_char() {
-            if char.is_ascii_alphanumeric() || char == '_' {
+        loop {
+            let byte = self.current_byte();
+
+            if byte.is_ascii_alphanumeric() || byte == b'_' {
                 self.advance();
             } else {
                 break;
             }
         }
 
-        let token = match &self.source[start..self.position] {
-            "Infinity" => Token::FloatValue,
-            "NaN" => Token::FloatValue,
-            "any" => Token::Any,
-            "async" => Token::Async,
-            "bool" => Token::Bool,
-            "break" => Token::Break,
-            "byte" => Token::Byte,
-            "cell" => Token::Cell,
-            "char" => Token::Char,
-            "const" => Token::Const,
-            "else" => Token::Else,
-            "false" => Token::FalseValue,
-            "float" => Token::Float,
-            "fn" => Token::Fn,
-            "if" => Token::If,
-            "int" => Token::Int,
-            "let" => Token::Let,
-            "list" => Token::List,
-            "loop" => Token::Loop,
-            "map" => Token::Map,
-            "mod" => Token::Mod,
-            "mut" => Token::Mut,
-            "pub" => Token::Pub,
-            "return" => Token::Return,
-            "str" => Token::Str,
-            "struct" => Token::Struct,
-            "true" => Token::TrueValue,
-            "use" => Token::Use,
-            "while" => Token::While,
-            _ => Token::Identifier,
+        let kind = match &self.source[start..self.current_index] {
+            b"Infinity" => TokenKind::FloatValue,
+            b"NaN" => TokenKind::FloatValue,
+            b"any" => TokenKind::Any,
+            b"async" => TokenKind::Async,
+            b"bool" => TokenKind::Bool,
+            b"break" => TokenKind::Break,
+            b"byte" => TokenKind::Byte,
+            b"cell" => TokenKind::Cell,
+            b"char" => TokenKind::Char,
+            b"const" => TokenKind::Const,
+            b"else" => TokenKind::Else,
+            b"false" => TokenKind::FalseValue,
+            b"float" => TokenKind::Float,
+            b"fn" => TokenKind::Fn,
+            b"if" => TokenKind::If,
+            b"int" => TokenKind::Int,
+            b"let" => TokenKind::Let,
+            b"list" => TokenKind::List,
+            b"loop" => TokenKind::Loop,
+            b"map" => TokenKind::Map,
+            b"mod" => TokenKind::Mod,
+            b"mut" => TokenKind::Mut,
+            b"pub" => TokenKind::Pub,
+            b"return" => TokenKind::Return,
+            b"str" => TokenKind::Str,
+            b"struct" => TokenKind::Struct,
+            b"true" => TokenKind::TrueValue,
+            b"use" => TokenKind::Use,
+            b"while" => TokenKind::While,
+            _ => TokenKind::Identifier,
         };
 
-        (token, Span::new(start, self.position))
+        Token {
+            kind,
+            span: Span::new(start, self.current_index),
+        }
     }
 
     #[inline]
-    fn lex_string(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_string(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        while let Some(c) = self.peek_char()
-            && c != '"'
-        {
+        while self.current_byte() != b'"' && !self.is_at_eof() {
             self.advance();
         }
 
         self.advance();
 
-        let end = self.position;
-
-        (Token::StringValue, Span::new(start, end))
+        Token {
+            kind: TokenKind::StringValue,
+            span: Span::new(start, self.current_index),
+        }
     }
 
     #[inline]
-    fn lex_character(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_character(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
-        self.advance();
 
-        if self.peek_char() == Some('\'') {
+        if self.current_byte() < 128 {
             self.advance();
-
-            (Token::CharacterValue, Span::new(start, self.position))
         } else {
-            (Token::Unknown, Span::new(start, self.position))
+            let character_start = self.current_index;
+
+            while self.current_byte() >= 128 {
+                self.advance();
+
+                if self.current_index - character_start > 4 {
+                    return Token {
+                        kind: TokenKind::Unknown,
+                        span: Span::new(start, self.current_index),
+                    };
+                }
+            }
+
+            let character_bytes = &self.source[character_start..self.current_index];
+
+            match str::from_utf8(character_bytes) {
+                Ok(_) => {}
+                Err(_) => {
+                    return Token {
+                        kind: TokenKind::Unknown,
+                        span: Span::new(start, self.current_index),
+                    };
+                }
+            }
+        }
+
+        if self.current_byte() == b'\'' {
+            self.advance();
+
+            Token {
+                kind: TokenKind::CharacterValue,
+                span: Span::new(start, self.current_index),
+            }
+        } else {
+            Token {
+                kind: TokenKind::Unknown,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_plus(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_plus(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        if self.peek_char() == Some('=') {
+        if self.current_byte() == b'=' {
             self.advance();
 
-            (Token::PlusEqual, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::PlusEqual,
+                span: Span::new(start, self.current_index),
+            }
         } else {
-            (Token::Plus, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::Plus,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_minus(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_minus(&mut self) -> Token {
+        let start = self.current_index;
 
-        if self
-            .peek_second_char()
-            .is_some_and(|char| char.is_ascii_digit())
-        {
+        if self.next_byte().is_some_and(|char| char.is_ascii_digit()) {
             return self.lex_numeric();
         }
 
         self.advance();
 
-        match self.peek_char() {
-            Some('=') => {
+        match self.current_byte() {
+            b'=' => {
                 self.advance();
 
-                return (Token::MinusEqual, Span::new(start, self.position));
+                return Token {
+                    kind: TokenKind::MinusEqual,
+                    span: Span::new(start, self.current_index),
+                };
             }
-            Some('>') => {
+            b'>' => {
                 self.advance();
 
-                return (Token::ArrowThin, Span::new(start, self.position));
+                return Token {
+                    kind: TokenKind::ArrowThin,
+                    span: Span::new(start, self.current_index),
+                };
             }
             _ => {}
         }
 
-        if self.peek_chars(8).eq("Infinity".chars()) {
-            self.position += 8;
+        if self.peek_bytes(8) == b"Infinity" {
+            self.current_index += 8;
 
-            return (Token::FloatValue, Span::new(start, self.position));
+            return Token {
+                kind: TokenKind::FloatValue,
+                span: Span::new(start, self.current_index),
+            };
         }
 
-        (Token::Minus, Span::new(start, self.position))
+        Token {
+            kind: TokenKind::Minus,
+            span: Span::new(start, self.current_index),
+        }
     }
 
     #[inline]
-    fn lex_asterisk(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_asterisk(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        if self.peek_char() == Some('=') {
+        if self.current_byte() == b'=' {
             self.advance();
 
-            (Token::AsteriskEqual, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::AsteriskEqual,
+                span: Span::new(start, self.current_index),
+            }
         } else {
-            (Token::Asterisk, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::Asterisk,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_slash(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_slash(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        if self.peek_char() == Some('=') {
+        if self.current_byte() == b'=' {
             self.advance();
 
-            (Token::SlashEqual, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::SlashEqual,
+                span: Span::new(start, self.current_index),
+            }
         } else {
-            (Token::Slash, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::Slash,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_percent(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_percent(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        if self.peek_char() == Some('=') {
+        if self.current_byte() == b'=' {
             self.advance();
 
-            (Token::PercentEqual, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::PercentEqual,
+                span: Span::new(start, self.current_index),
+            }
         } else {
-            (Token::Percent, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::Percent,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_exclamation_mark(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_exclamation_mark(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        if self.peek_char() == Some('=') {
+        if self.current_byte() == b'=' {
             self.advance();
 
-            (Token::BangEqual, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::BangEqual,
+                span: Span::new(start, self.current_index),
+            }
         } else {
-            (Token::Bang, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::Bang,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_equal(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_equal(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        if self.peek_char() == Some('=') {
+        if self.current_byte() == b'=' {
             self.advance();
 
-            (Token::DoubleEqual, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::DoubleEqual,
+                span: Span::new(start, self.current_index),
+            }
         } else {
-            (Token::Equal, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::Equal,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_less_than(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_less_than(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        if self.peek_char() == Some('=') {
+        if self.current_byte() == b'=' {
             self.advance();
 
-            (Token::LessEqual, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::LessEqual,
+                span: Span::new(start, self.current_index),
+            }
         } else {
-            (Token::Less, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::Less,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_greater_than(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_greater_than(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        if self.peek_char() == Some('=') {
+        if self.current_byte() == b'=' {
             self.advance();
 
-            (Token::GreaterEqual, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::GreaterEqual,
+                span: Span::new(start, self.current_index),
+            }
         } else {
-            (Token::Greater, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::Greater,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_ampersand(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_ampersand(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        if self.peek_char() == Some('&') {
+        if self.current_byte() == b'&' {
             self.advance();
 
-            (Token::DoubleAmpersand, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::DoubleAmpersand,
+                span: Span::new(start, self.current_index),
+            }
         } else {
-            (Token::Unknown, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::Unknown,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_pipe(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_pipe(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        let peek_char = self.peek_char();
-
-        if let Some('|') = peek_char {
+        if self.current_byte() == b'|' {
             self.advance();
 
-            (Token::DoublePipe, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::DoublePipe,
+                span: Span::new(start, self.current_index),
+            }
         } else {
-            (Token::Unknown, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::Unknown,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_dot(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_dot(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        if self.peek_char() == Some('.') {
+        if self.current_byte() == b'.' {
             self.advance();
 
-            (Token::DoubleDot, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::DoubleDot,
+                span: Span::new(start, self.current_index),
+            }
         } else {
-            (Token::Dot, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::Dot,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_colon(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_colon(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        if self.peek_char() == Some(':') {
+        if self.current_byte() == b':' {
             self.advance();
 
-            (Token::DoubleColon, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::DoubleColon,
+                span: Span::new(start, self.current_index),
+            }
         } else {
-            (Token::Colon, Span::new(start, self.position))
+            Token {
+                kind: TokenKind::Colon,
+                span: Span::new(start, self.current_index),
+            }
         }
     }
 
     #[inline]
-    fn lex_carriage_return(&mut self) -> (Token, Span) {
-        let start = self.position;
+    fn lex_carriage_return(&mut self) -> Token {
+        let start = self.current_index;
 
         self.advance();
 
-        if self.peek_char() == Some('\n') {
+        if self.current_byte() == b'\n' {
             self.advance();
         }
 
-        self.line_breaks.push(self.position as u32);
-
-        (Token::Newline, Span::new(start, self.position))
+        Token {
+            kind: TokenKind::Newline,
+            span: Span::new(start, self.current_index),
+        }
     }
 }
 

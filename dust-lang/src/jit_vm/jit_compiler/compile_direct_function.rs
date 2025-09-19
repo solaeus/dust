@@ -25,20 +25,7 @@ pub fn compile_direct_function(
     let mut function_builder_context = FunctionBuilderContext::new();
     let mut compilation_context = compiler.module.make_context();
     let pointer_type = compiler.module.target_config().pointer_type();
-
-    let chunk_type = compiler
-        .program
-        .resolver
-        .get_type_node(chunk.type_id)
-        .ok_or(JitError::TypeIndexOutOfBounds {
-            type_id: chunk.type_id,
-            total_type_count: compiler.program.resolver.type_count(),
-        })?
-        .as_function()
-        .ok_or(JitError::ExpectedFunctionType {
-            type_id: chunk.type_id,
-        })?;
-    let value_parameter_count = chunk_type.value_parameters.1 as usize;
+    let value_parameter_count = chunk.r#type.value_parameters.len() as usize;
 
     for _ in 0..value_parameter_count {
         compilation_context

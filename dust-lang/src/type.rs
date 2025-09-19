@@ -45,6 +45,13 @@ impl Type {
         }))
     }
 
+    pub fn into_function_type(self) -> Option<FunctionType> {
+        match self {
+            Type::Function(function_type) => Some(*function_type),
+            _ => None,
+        }
+    }
+
     pub fn as_operand_type(&self) -> OperandType {
         match self {
             Type::None => OperandType::NONE,
@@ -86,45 +93,6 @@ impl Type {
             Type::Function(_) | Type::FunctionSelf => OperandType::FUNCTION,
         }
     }
-
-    /// Checks that the type is compatible with another type.
-    pub fn check(&self, other: &Type) -> Result<(), TypeConflict> {
-        match (self, other) {
-            (Type::Boolean, Type::Boolean)
-            | (Type::Byte, Type::Byte)
-            | (Type::Character, Type::Character)
-            | (Type::Float, Type::Float)
-            | (Type::Integer, Type::Integer)
-            | (Type::None, Type::None)
-            | (Type::String, Type::String) => return Ok(()),
-            (Type::List(left_type), Type::List(right_type)) => {
-                if left_type != right_type {
-                    return Err(TypeConflict {
-                        actual: other.clone(),
-                        expected: self.clone(),
-                    });
-                }
-
-                return Ok(());
-            }
-            (Type::Function(left_function_type), Type::Function(right_function_type)) => {
-                if left_function_type != right_function_type {
-                    return Err(TypeConflict {
-                        actual: other.clone(),
-                        expected: self.clone(),
-                    });
-                }
-
-                return Ok(());
-            }
-            _ => {}
-        }
-
-        Err(TypeConflict {
-            actual: other.clone(),
-            expected: self.clone(),
-        })
-    }
 }
 
 impl Display for Type {
@@ -146,7 +114,7 @@ impl Display for Type {
     }
 }
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct FunctionType {
     pub type_parameters: Vec<Type>,
     pub value_parameters: Vec<Type>,
@@ -163,16 +131,6 @@ impl FunctionType {
             type_parameters: type_parameters.into(),
             value_parameters: value_parameters.into(),
             return_type,
-        }
-    }
-}
-
-impl Default for FunctionType {
-    fn default() -> Self {
-        FunctionType {
-            type_parameters: Vec::new(),
-            value_parameters: Vec::new(),
-            return_type: Type::None,
         }
     }
 }

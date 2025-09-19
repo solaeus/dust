@@ -22,6 +22,7 @@ use dust_lang::{
     source::SourceFile,
     tokenize,
 };
+use memmap2::MmapOptions;
 use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -29,37 +30,32 @@ use tracing_subscriber::{
     registry::LookupSpan,
 };
 
-use crate::cli::{
-    Cli, CompileOptions, InitOptions, InputOptions, Mode, OutputOptions, ParseOptions, RunOptions,
-};
+use crate::cli::{Cli, InputOptions, Mode, OutputOptions};
 
 fn main() {
     let start_time = Instant::now();
     let Cli {
         mode,
-        run_options,
+        input: InputOptions { eval, stdin, path },
         log,
         time,
         no_output,
         no_std: _,
         name,
-        output: output_format,
     } = Cli::parse();
-    let mode = mode.unwrap_or(Mode::Run(RunOptions {
-        input: run_options.input,
-        min_heap: run_options.min_heap,
-        min_sweep: run_options.min_sweep,
-    }));
+    let mode = mode.unwrap_or(Mode::Run {
+        min_heap: None,
+        min_sweep: None,
+    });
 
     if let Some(log_level) = log {
         start_logging(log_level, start_time);
     }
 
-    if let Mode::Run(RunOptions {
-        input: InputOptions { eval, stdin, path },
+    if let Mode::Run {
         min_heap,
         min_sweep,
-    }) = mode
+    } = mode
     {
         let source = get_source(path, name, stdin, eval);
         let resolver = Resolver::new(true);
@@ -110,15 +106,8 @@ fn main() {
         return;
     }
 
-    if let Mode::Parse(ParseOptions {
-        input: InputOptions {
-            eval,
-            stdin,
-            path: file,
-        },
-    }) = mode
-    {
-        let source = get_source(file, name, stdin, eval);
+    if mode == Mode::Parse {
+        let source = get_source(path, name, stdin, eval);
 
         match source {
             Source::Script(SourceFile { name, source_code }) => {
@@ -141,19 +130,11 @@ fn main() {
 
                 return;
             }
-            Source::Files(source_files) => todo!(),
+            Source::Files(_source_files) => todo!(),
         }
     }
 
-    if let Mode::Compile(CompileOptions {
-        time,
-        no_output,
-        no_std: _,
-        name,
-        input: InputOptions { eval, stdin, path },
-        style: _,
-    }) = mode
-    {
+    if mode == Mode::Compile {
         let source = get_source(path, name, stdin, eval);
         let resolver = Resolver::new(true);
         let compiler = Compiler::new(source.clone(), resolver);
@@ -176,13 +157,8 @@ fn main() {
         return;
     }
 
-    if let Mode::Tokenize(InputOptions {
-        eval,
-        stdin,
-        path: file,
-    }) = mode
-    {
-        let source = match get_source(file, name, stdin, eval) {
+    if let Mode::Tokenize { output } = mode {
+        let source = match get_source(path, name, stdin, eval) {
             Source::Files(_) => {
                 eprintln!("Tokenizing multiple files is not supported");
 
@@ -192,11 +168,20 @@ fn main() {
         };
 
         let tokens = tokenize(&source);
+        let tokenize_time = start_time.elapsed();
 
-        match output_format {
+        if time {
+            print_times(&[("Tokenization", tokenize_time, None)]);
+        }
+
+        if no_output {
+            return;
+        }
+
+        match output {
             OutputOptions::Dust => {
-                for (token, span) in tokens {
-                    println!("{token} at {span}");
+                for token in tokens {
+                    println!("{token}");
                 }
             }
             OutputOptions::Json => {
@@ -229,7 +214,7 @@ fn main() {
         return;
     }
 
-    if let Mode::Init(InitOptions { project_path }) = mode {
+    if let Mode::Init { project_path } = mode {
         if !project_path.exists() {
             create_dir_all(&project_path).expect("Failed to create project directory");
         } else if project_path.read_dir().unwrap().next().is_some() {
@@ -299,7 +284,10 @@ fn get_source(
                     .unwrap_or("unknown")
                     .to_string()
             });
-            let source_code = read_to_string(&path).expect("Failed to read source file");
+            let file = File::open(&path).expect("Failed to open source file");
+            let mmap =
+                unsafe { MmapOptions::new().map(&file) }.expect("Failed to memory map source file");
+            let source_code = String::from_utf8_lossy(&mmap).to_string();
 
             Source::Script(SourceFile { name, source_code })
         }
@@ -324,7 +312,18 @@ fn get_source(
             } = toml::from_str(&project_config_content)
                 .expect("Failed to parse project config file");
 
-            let mut source_files = Vec::new();
+            let source_directory = project_path.join("src");
+
+            if !source_directory.is_dir() {
+                panic!("`{}` is not a directory", source_directory.display());
+            }
+
+            let file_count = source_directory
+                .read_dir()
+                .expect("Failed to read src directory")
+                .count()
+                .max(1);
+            let mut source_files = Source::files(file_count);
             let main_file_path = program
                 .map(|program| project_path.join(program.path))
                 .unwrap_or_else(|| project_path.join(DEFAULT_PROGRAM_PATH));
@@ -335,12 +334,7 @@ fn get_source(
                 )
             });
 
-            source_files.push(SourceFile {
-                name: project_name,
-                source_code: main_file_content,
-            });
-
-            let source_directory = project_path.join("src");
+            source_files.add_file(project_name, main_file_content);
 
             if source_directory.is_dir() {
                 for entry in source_directory
@@ -362,10 +356,7 @@ fn get_source(
                         .to_string();
                     let file_content = read_to_string(&path).expect("Failed to read source file");
 
-                    source_files.push(SourceFile {
-                        name: module_name,
-                        source_code: file_content,
-                    });
+                    source_files.add_file(module_name, file_content);
                 }
             }
 
@@ -373,7 +364,7 @@ fn get_source(
                 panic!("No source files found");
             }
 
-            Source::Files(source_files)
+            source_files
         }
         _ => {
             panic!("No readable input source provided");

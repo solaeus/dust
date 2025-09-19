@@ -3,7 +3,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use crate::{
     Position,
     dust_error::AnnotatedError,
-    resolver::{DeclarationId, ScopeId, TypeId, TypeNode},
+    resolver::{DeclarationId, FunctionTypeNode, ScopeId, TypeId},
     source::SourceFileId,
     syntax_tree::{SyntaxId, SyntaxKind},
 };
@@ -54,8 +54,7 @@ pub enum CompileError {
         position: Position,
     },
     ExpectedFunctionType {
-        type_node: TypeNode,
-        position: Position,
+        type_id: TypeId,
     },
     MissingChild {
         parent_kind: SyntaxKind,
@@ -73,7 +72,7 @@ pub enum CompileError {
     MissingSyntaxNode {
         id: SyntaxId,
     },
-    MissingType {
+    MissingTypeNode {
         type_id: TypeId,
     },
     MissingScope {
@@ -95,6 +94,9 @@ pub enum CompileError {
     MissingPosition {
         declaration_id: DeclarationId,
     },
+    UnresolvedFunctionType {
+        function_type: FunctionTypeNode,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -112,19 +114,20 @@ impl AnnotatedError for CompileError {
             CompileError::ExpectedExpression { position, .. } => position.file_id,
             CompileError::ExpectedFunction { position, .. } => position.file_id,
             CompileError::ExpectedFunctionBody { position, .. } => position.file_id,
-            CompileError::ExpectedFunctionType { position, .. } => position.file_id,
+            CompileError::ExpectedFunctionType { .. } => SourceFileId::default(),
             CompileError::MissingChild { .. } => SourceFileId::default(),
             CompileError::MissingConstant { .. } => SourceFileId::default(),
             CompileError::MissingDeclaration { .. } => SourceFileId::default(),
             CompileError::MissingLocal { .. } => SourceFileId::default(),
             CompileError::MissingSyntaxNode { .. } => SourceFileId::default(),
-            CompileError::MissingType { .. } => SourceFileId::default(),
+            CompileError::MissingTypeNode { .. } => SourceFileId::default(),
             CompileError::MissingScope { .. } => SourceFileId::default(),
             CompileError::MissingPrototype { .. } => SourceFileId::default(),
             CompileError::MissingSourceFile { file_id } => *file_id,
             CompileError::MissingSyntaxTree { .. } => SourceFileId::default(),
             CompileError::MissingPayloads { .. } => SourceFileId::default(),
             CompileError::MissingPosition { .. } => SourceFileId::default(),
+            CompileError::UnresolvedFunctionType { .. } => SourceFileId::default(),
         }
     }
 
@@ -258,16 +261,10 @@ impl AnnotatedError for CompileError {
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
-            CompileError::ExpectedFunctionType {
-                type_node: type_id,
-                position,
-            } => {
+            CompileError::ExpectedFunctionType { type_id } => {
                 let title = format!("Expected a function type, found {type_id:?}");
 
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
-                )
+                Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingChild {
                 parent_kind,
@@ -306,9 +303,9 @@ impl AnnotatedError for CompileError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
-            CompileError::MissingType { type_id } => {
+            CompileError::MissingTypeNode { type_id } => {
                 let title = format!(
-                    "Type with id {type_id:?} was missing, this is a bug in the parser or compiler"
+                    "Type node with id {type_id:?} was missing, this is a bug in the parser or compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
@@ -354,6 +351,13 @@ impl AnnotatedError for CompileError {
             CompileError::MissingPosition { declaration_id } => {
                 let title = format!(
                     "Position for declaration id {declaration_id:?} was missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::UnresolvedFunctionType { function_type } => {
+                let title = format!(
+                    "Function type {function_type:?} could not be resolved, this is a bug in the parser or compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

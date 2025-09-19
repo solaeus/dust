@@ -27,10 +27,10 @@ pub struct Cli {
     pub mode: Option<Mode>,
 
     #[command(flatten)]
-    pub run_options: RunOptions,
+    pub input: InputOptions,
 
     /// Set the log level
-    #[arg(short, long, value_name = "LEVEL")]
+    #[arg(short, long, value_name = "LEVEL", env = "DUST_LOG")]
     pub log: Option<LevelFilter>,
 
     /// Display the time taken for each operation
@@ -48,119 +48,67 @@ pub struct Cli {
     /// Custom program name, overrides the file name
     #[arg(short, long)]
     pub name: Option<String>,
-
-    /// Format for the output, defaults to a simple text format
-    #[arg(short, long, default_value = "dust", value_name = "FORMAT")]
-    pub output: OutputOptions,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Eq, PartialEq)]
 pub enum Mode {
-    #[command(alias = "p")]
     /// Parse the source code and print the syntax tree
-    Parse(ParseOptions),
+    #[command(alias = "p")]
+    Parse,
 
     /// Parse, compile and run the program (default)
     #[command(alias = "r")]
-    Run(RunOptions),
+    Run {
+        /// Minimum heap size at which garbage collection is triggered
+        #[arg(long, value_name = "BYTES", requires = "min_sweep")]
+        min_heap: Option<usize>,
+
+        /// Minimum bytes allocated between garbage collections
+        #[arg(long, value_name = "BYTES", requires = "min_heap")]
+        min_sweep: Option<usize>,
+    },
 
     /// Compile and output the compiled program
     #[command(alias = "c")]
-    Compile(CompileOptions),
+    Compile,
 
     /// Lex the source code and print the tokens
     #[command(alias = "t")]
-    Tokenize(InputOptions),
+    Tokenize {
+        /// Format for the output, defaults to a simple text format
+        #[arg(short, long, default_value = "dust", value_name = "FORMAT")]
+        output: OutputOptions,
+    },
 
     #[command(alias = "i")]
-    Init(InitOptions),
+    Init {
+        /// Directory to create the project in, defaults to the current directory
+        #[arg(value_hint = ValueHint::DirPath, value_name = "PATH")]
+        project_path: PathBuf,
+    },
 }
 
 #[derive(Args)]
-pub struct ParseOptions {
-    #[command(flatten)]
-    pub input: InputOptions,
-}
-
-#[derive(Args)]
-pub struct RunOptions {
-    #[command(flatten)]
-    pub input: InputOptions,
-
-    /// Minimum heap size garbage collection is triggered
-    #[arg(long, value_name = "BYTES", requires = "min_sweep")]
-    pub min_heap: Option<usize>,
-
-    /// Minimum bytes allocated between garbage collections
-    #[arg(long, value_name = "BYTES", requires = "min_heap")]
-    pub min_sweep: Option<usize>,
-}
-
-#[derive(Args)]
-pub struct CompileOptions {
-    /// Print the time taken for compilation and execution, defaults to false
-    #[arg(short, long)]
-    pub time: bool,
-
-    /// Disable printing, defaults to false
-    #[arg(long)]
-    pub no_output: bool,
-
-    /// Disable the standard library, defaults to false
-    #[arg(long)]
-    pub no_std: bool,
-
-    /// Custom program name, overrides the file name
-    #[arg(short, long)]
-    pub name: Option<String>,
-
-    #[command(flatten)]
-    pub input: InputOptions,
-
-    /// Style disassembly output, defaults to true
-    #[arg(short, long, default_value = "true")]
-    pub style: bool,
-}
-
-#[derive(Args)]
+#[group(required = true, multiple = false)]
 pub struct InputOptions {
     /// Source code to run instead of a file
-    #[arg(
-        short,
-        long,
-        value_name = "INPUT",
-        value_hint = ValueHint::Other,
-        conflicts_with = "stdin",
-        conflicts_with = "path"
-    )]
+    #[arg(short, long, value_name = "INPUT", value_hint = ValueHint::Other)]
     pub eval: Option<String>,
 
     /// Read source code from stdin
-    #[arg(long, conflicts_with = "eval", conflicts_with = "path")]
+    #[arg(long)]
     pub stdin: bool,
 
     /// Path to a source code file
-    #[arg(
-        value_name = "PATH",
-        value_hint = ValueHint::FilePath,
-        conflicts_with = "eval",
-        conflicts_with = "stdin"
-    )]
+    #[arg(value_name = "PATH", value_hint = ValueHint::FilePath)]
     pub path: Option<PathBuf>,
 }
 
-#[derive(ValueEnum, Clone, Copy, PartialEq)]
+#[derive(ValueEnum, Clone, Copy, Eq, PartialEq)]
 pub enum OutputOptions {
     Dust,
     Json,
     Ron,
     Postcard,
     Yaml,
-}
-
-#[derive(Args)]
-pub struct InitOptions {
-    /// Directory to create the project in, defaults to the current directory
-    #[arg(value_hint = ValueHint::DirPath, value_name = "PATH")]
-    pub project_path: PathBuf,
 }

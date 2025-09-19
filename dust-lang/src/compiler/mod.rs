@@ -8,6 +8,7 @@ pub use chunk_compiler::ChunkCompiler;
 pub use error::CompileError;
 use indexmap::IndexMap;
 use smallvec::SmallVec;
+use tracing::{Level, span};
 
 pub use std::{cell::RefCell, rc::Rc};
 
@@ -16,7 +17,10 @@ use crate::{
     dust_crate::Program,
     dust_error::DustError,
     parser::{ParseResult, Parser},
-    resolver::{Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind, TypeId},
+    resolver::{
+        Declaration, DeclarationId, DeclarationKind, FunctionTypeNode, Scope, ScopeId, ScopeKind,
+        TypeId,
+    },
     source::{SourceFile, SourceFileId},
     syntax_tree::SyntaxTree,
 };
@@ -44,9 +48,13 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
         constants: ConstantTable::new(),
         prototypes: IndexMap::new(),
     };
-    let chunk_compiler =
-        ChunkCompiler::new(DeclarationId::MAIN, None, SourceFileId(0), &mut context);
-    let compile_result = chunk_compiler.compile();
+    let chunk_compiler = ChunkCompiler::new(
+        DeclarationId::MAIN,
+        FunctionTypeNode::default(),
+        SourceFileId(0),
+        &mut context,
+    );
+    let compile_result = chunk_compiler.compile_main();
 
     match compile_result {
         Ok(chunk) => Ok(chunk),
@@ -72,6 +80,9 @@ impl Compiler {
     }
 
     pub fn compile(mut self) -> Result<Program, DustError> {
+        let span = span!(Level::INFO, "compile");
+        let _enter = span.enter();
+
         for (index, file) in self.context.source.get_files().iter().enumerate().skip(1) {
             let file_scope = Scope {
                 kind: ScopeKind::Module,
@@ -118,23 +129,23 @@ impl Compiler {
 
         self.context
             .prototypes
-            .insert(DeclarationId::MAIN, Chunk::default());
+            .insert(DeclarationId::MAIN, Chunk::default()); // Insert a placeholder
 
         let chunk_compiler = ChunkCompiler::new(
             DeclarationId::MAIN,
-            None,
+            FunctionTypeNode::default(),
             SourceFileId(0),
             &mut self.context,
         );
 
-        let chunk = match chunk_compiler.compile() {
+        let chunk = match chunk_compiler.compile_main() {
             Ok(chunk) => chunk,
             Err(error) => {
                 return Err(DustError::compile(error, self.context.source));
             }
         };
 
-        self.context.prototypes.insert(DeclarationId::MAIN, chunk);
+        self.context.prototypes[0] = chunk;
 
         let prototypes = self
             .context
@@ -147,7 +158,6 @@ impl Compiler {
             name: self.context.source.into_program_name(),
             constants: self.context.constants,
             prototypes,
-            resolver: self.context.resolver,
         })
     }
 }

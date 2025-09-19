@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use rustc_hash::FxBuildHasher;
 
-use crate::{Chunk, ConstantTable, Resolver, resolver::DeclarationId, syntax_tree::SyntaxTree};
+use crate::{Chunk, ConstantTable, resolver::DeclarationId, syntax_tree::SyntaxTree};
 
 pub enum DustCrate {
     Program(Arc<Program>),
@@ -13,7 +13,6 @@ pub struct Program {
     pub name: String,
     pub prototypes: Vec<Chunk>,
     pub constants: ConstantTable,
-    pub resolver: Resolver,
 }
 
 impl Program {

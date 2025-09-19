@@ -13,6 +13,7 @@
     once_cell_get_mut,
     pattern,
     pointer_try_cast_aligned,
+    portable_simd,
     result_option_map_or_default
 )]
 
@@ -63,7 +64,7 @@ pub use lexer::{Lexer, tokenize};
 pub use native_function::NativeFunction;
 pub use position::{Position, Span};
 pub use resolver::Resolver;
-pub use token::Token;
+pub use token::TokenKind;
 pub use r#type::{FunctionType, Type};
 pub use value::{List, Value};
 

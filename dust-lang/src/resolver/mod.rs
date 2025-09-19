@@ -7,7 +7,7 @@ use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
 use smallvec::SmallVec;
 
-use crate::{NativeFunction, OperandType, Position, Type};
+use crate::{FunctionType, NativeFunction, OperandType, Position, Type};
 
 #[derive(Debug)]
 pub struct Resolver {
@@ -279,18 +279,12 @@ impl Resolver {
                         value_parameters: (value_args_start, value_args_count),
                         return_type,
                     }) => {
-                        let type_args_end = type_args_start + type_args_count;
-                        let type_arguments = self.type_members
-                            [*type_args_start as usize..type_args_end as usize]
-                            .iter()
-                            .map(|id| self.resolve_type(*id))
-                            .collect::<Option<Vec<Type>>>()?;
-                        let value_args_end = value_args_start + value_args_count;
-                        let value_arguments = self.type_members
-                            [*value_args_start as usize..value_args_end as usize]
-                            .iter()
-                            .map(|id| self.resolve_type(*id))
-                            .collect::<Option<Vec<Type>>>()?;
+                        let type_arguments = self
+                            .resolve_types(*type_args_start, *type_args_count)
+                            .try_collect::<Vec<Type>>()?;
+                        let value_arguments = self
+                            .resolve_types(*value_args_start, *value_args_count)
+                            .try_collect::<Vec<Type>>()?;
                         let return_type = self.resolve_type(*return_type)?;
 
                         Some(Type::function(type_arguments, value_arguments, return_type))
@@ -300,10 +294,26 @@ impl Resolver {
         }
     }
 
-    pub fn resolve_types(&self, start_index: u32, count: u32) -> Option<Vec<Type>> {
-        (start_index..start_index + count)
-            .map(|index| self.resolve_type(TypeId(index)))
-            .collect()
+    pub fn resolve_function_type(&self, function_type: &FunctionTypeNode) -> Option<FunctionType> {
+        let type_parameters = self
+            .resolve_types(
+                function_type.type_parameters.0,
+                function_type.type_parameters.1,
+            )
+            .try_collect::<Vec<Type>>()?;
+        let value_parameters = self
+            .resolve_types(
+                function_type.value_parameters.0,
+                function_type.value_parameters.1,
+            )
+            .try_collect::<Vec<Type>>()?;
+        let return_type = self.resolve_type(function_type.return_type)?;
+
+        Some(FunctionType {
+            type_parameters,
+            value_parameters,
+            return_type,
+        })
     }
 
     pub fn add_type(&mut self, type_node: TypeNode) -> TypeId {
@@ -329,6 +339,10 @@ impl Resolver {
         self.type_members.extend_from_slice(members);
 
         (start, count)
+    }
+
+    fn resolve_types(&self, start_index: u32, count: u32) -> impl Iterator<Item = Option<Type>> {
+        (start_index..start_index + count).map(|index| self.resolve_type(TypeId(index)))
     }
 }
 
@@ -476,7 +490,7 @@ pub enum TypeNode {
 }
 
 impl TypeNode {
-    pub fn as_function(&self) -> Option<&FunctionTypeNode> {
+    pub fn into_function_type(self) -> Option<FunctionTypeNode> {
         if let TypeNode::Function(function_type) = self {
             Some(function_type)
         } else {

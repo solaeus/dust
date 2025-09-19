@@ -30,7 +30,6 @@ use crate::{
         call_stack::{get_frame_function_index, push_call_frame},
         thread::ThreadContext,
     },
-    resolver::TypeNode,
 };
 
 const ERROR_REPLACEMENT_STR: &str = "<dust_vm_error>";
@@ -100,13 +99,7 @@ impl<'a> JitCompiler<'a> {
 
             let direct_name = format!("proto_{index}_direct");
             let stackless_name = format!("proto_{index}_stackless");
-
-            let Some(TypeNode::Function(chunk_type)) =
-                self.program.resolver.get_type_node(chunk.type_id)
-            else {
-                unreachable!("Chunk's type should always be a function type");
-            };
-            let value_parameters_count = chunk_type.value_parameters.1 as usize;
+            let value_parameters_count = chunk.r#type.value_parameters.len();
 
             let mut direct_signature = Signature::new(self.module.isa().default_call_conv());
 

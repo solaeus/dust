@@ -2,7 +2,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use smallvec::SmallVec;
 
 use crate::{
-    Position, Token, Type,
+    Position, TokenKind, Type,
     dust_error::AnnotatedError,
     resolver::{DeclarationId, DeclarationKind, ScopeId, TypeId},
     source::SourceFileId,
@@ -13,17 +13,17 @@ use crate::{
 pub enum ParseError {
     // Syntax Errors
     ExpectedToken {
-        actual: Token,
-        expected: Token,
+        actual: TokenKind,
+        expected: TokenKind,
         position: Position,
     },
     ExpectedMultipleTokens {
-        actual: Token,
-        expected: &'static [Token],
+        actual: TokenKind,
+        expected: &'static [TokenKind],
         position: Position,
     },
     UnexpectedToken {
-        actual: Token,
+        actual: TokenKind,
         position: Position,
     },
 
@@ -66,7 +66,7 @@ pub enum ParseError {
         position: Position,
     },
     BinaryOperandTypeMismatch {
-        operator: Token,
+        operator: TokenKind,
         left_type: Type,
         left_position: Position,
         right_type: Type,
@@ -137,6 +137,9 @@ pub enum ParseError {
         identifier: String,
         position: Position,
     },
+    MissingSourceFile {
+        file_id: SourceFileId,
+    },
 }
 
 impl AnnotatedError for ParseError {
@@ -173,6 +176,7 @@ impl AnnotatedError for ParseError {
             ParseError::MissingDeclaration { .. } => SourceFileId::default(),
             ParseError::MissingType { .. } => SourceFileId::default(),
             ParseError::MissingPosition { position, .. } => position.file_id,
+            ParseError::MissingSourceFile { .. } => SourceFileId::default(),
         }
     }
 
@@ -544,6 +548,11 @@ impl AnnotatedError for ParseError {
                             .label(format!("The identifier `{identifier}` is referenced here")),
                     ),
                 )
+            }
+            ParseError::MissingSourceFile { file_id } => {
+                let title = format!("Internal error: Missing source file with ID {}", file_id.0);
+
+                Group::with_title(Level::ERROR.primary_title(title))
             }
         }
     }

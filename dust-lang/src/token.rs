@@ -2,8 +2,22 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
+use crate::Span;
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum Token {
+pub struct Token {
+    pub kind: TokenKind,
+    pub span: Span,
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{} ({})", self.kind, self.span)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum TokenKind {
     // End of file
     Eof,
 
@@ -90,86 +104,86 @@ pub enum Token {
     Tab,
 }
 
-impl Token {
+impl TokenKind {
     pub fn is_whitespace(&self) -> bool {
-        matches!(self, Token::Newline | Token::Space | Token::Tab)
+        matches!(self, TokenKind::Newline | TokenKind::Space | TokenKind::Tab)
     }
 }
 
-impl Display for Token {
+impl Display for TokenKind {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Token::Eof => write!(f, "end of file"),
-            Token::Unknown => write!(f, "unknown token"),
-            Token::TrueValue => write!(f, "true"),
-            Token::FalseValue => write!(f, "false"),
-            Token::ByteValue => write!(f, "byte value"),
-            Token::CharacterValue => write!(f, "character value"),
-            Token::FloatValue => write!(f, "float value"),
-            Token::IntegerValue => write!(f, "integer value"),
-            Token::StringValue => write!(f, "string value"),
-            Token::Identifier => write!(f, "identifier"),
-            Token::Any => write!(f, "'any' keyword"),
-            Token::Async => write!(f, "'async' keyword"),
-            Token::Bool => write!(f, "'bool' keyword"),
-            Token::Break => write!(f, "'break' keyword"),
-            Token::Byte => write!(f, "'byte' keyword"),
-            Token::Cell => write!(f, "'cell' keyword"),
-            Token::Char => write!(f, "'char' keyword"),
-            Token::Const => write!(f, "'const' keyword"),
-            Token::Else => write!(f, "'else' keyword"),
-            Token::Float => write!(f, "'float' keyword"),
-            Token::Fn => write!(f, "'fn' keyword"),
-            Token::If => write!(f, "'if' keyword"),
-            Token::Int => write!(f, "'int' keyword"),
-            Token::Let => write!(f, "'let' keyword"),
-            Token::List => write!(f, "'list' keyword"),
-            Token::Loop => write!(f, "'loop' keyword"),
-            Token::Map => write!(f, "'map' keyword"),
-            Token::Mod => write!(f, "'mod' keyword"),
-            Token::Mut => write!(f, "'mut' keyword"),
-            Token::Pub => write!(f, "'pub' keyword"),
-            Token::Return => write!(f, "'return' keyword"),
-            Token::Str => write!(f, "'str' keyword"),
-            Token::Struct => write!(f, "'struct' keyword"),
-            Token::Use => write!(f, "'use' keyword"),
-            Token::While => write!(f, "'while' keyword"),
-            Token::ArrowThin => write!(f, "-> symbol"),
-            Token::Asterisk => write!(f, "* symbol"),
-            Token::AsteriskEqual => write!(f, "*= symbol"),
-            Token::BangEqual => write!(f, "!= symbol"),
-            Token::Bang => write!(f, "! symbol"),
-            Token::Colon => write!(f, ": symbol"),
-            Token::Comma => write!(f, ", symbol"),
-            Token::Dot => write!(f, ". symbol"),
-            Token::DoubleAmpersand => write!(f, "&& symbol"),
-            Token::DoubleColon => write!(f, ":: symbol"),
-            Token::DoubleDot => write!(f, ".. symbol"),
-            Token::DoubleEqual => write!(f, "== symbol"),
-            Token::DoublePipe => write!(f, "|| symbol"),
-            Token::Equal => write!(f, "= symbol"),
-            Token::Greater => write!(f, "> symbol"),
-            Token::GreaterEqual => write!(f, ">= symbol"),
-            Token::LeftCurlyBrace => write!(f, "{{ symbol"),
-            Token::LeftSquareBracket => write!(f, "[ symbol"),
-            Token::LeftParenthesis => write!(f, "( symbol"),
-            Token::Less => write!(f, "< symbol"),
-            Token::LessEqual => write!(f, "<= symbol"),
-            Token::Minus => write!(f, "- symbol"),
-            Token::MinusEqual => write!(f, "-= symbol"),
-            Token::Percent => write!(f, "% symbol"),
-            Token::PercentEqual => write!(f, "%= symbol"),
-            Token::Plus => write!(f, "+ symbol"),
-            Token::PlusEqual => write!(f, "+= symbol"),
-            Token::RightCurlyBrace => write!(f, "}} symbol"),
-            Token::RightSquareBracket => write!(f, "] symbol"),
-            Token::RightParenthesis => write!(f, ") symbol"),
-            Token::Semicolon => write!(f, "; symbol"),
-            Token::Slash => write!(f, "/ symbol"),
-            Token::SlashEqual => write!(f, "/= symbol"),
-            Token::Newline => write!(f, "newline"),
-            Token::Space => write!(f, "space"),
-            Token::Tab => write!(f, "tab"),
+            TokenKind::Eof => write!(f, "end of file"),
+            TokenKind::Unknown => write!(f, "unknown token"),
+            TokenKind::TrueValue => write!(f, "true"),
+            TokenKind::FalseValue => write!(f, "false"),
+            TokenKind::ByteValue => write!(f, "byte value"),
+            TokenKind::CharacterValue => write!(f, "character value"),
+            TokenKind::FloatValue => write!(f, "float value"),
+            TokenKind::IntegerValue => write!(f, "integer value"),
+            TokenKind::StringValue => write!(f, "string value"),
+            TokenKind::Identifier => write!(f, "identifier"),
+            TokenKind::Any => write!(f, "'any' keyword"),
+            TokenKind::Async => write!(f, "'async' keyword"),
+            TokenKind::Bool => write!(f, "'bool' keyword"),
+            TokenKind::Break => write!(f, "'break' keyword"),
+            TokenKind::Byte => write!(f, "'byte' keyword"),
+            TokenKind::Cell => write!(f, "'cell' keyword"),
+            TokenKind::Char => write!(f, "'char' keyword"),
+            TokenKind::Const => write!(f, "'const' keyword"),
+            TokenKind::Else => write!(f, "'else' keyword"),
+            TokenKind::Float => write!(f, "'float' keyword"),
+            TokenKind::Fn => write!(f, "'fn' keyword"),
+            TokenKind::If => write!(f, "'if' keyword"),
+            TokenKind::Int => write!(f, "'int' keyword"),
+            TokenKind::Let => write!(f, "'let' keyword"),
+            TokenKind::List => write!(f, "'list' keyword"),
+            TokenKind::Loop => write!(f, "'loop' keyword"),
+            TokenKind::Map => write!(f, "'map' keyword"),
+            TokenKind::Mod => write!(f, "'mod' keyword"),
+            TokenKind::Mut => write!(f, "'mut' keyword"),
+            TokenKind::Pub => write!(f, "'pub' keyword"),
+            TokenKind::Return => write!(f, "'return' keyword"),
+            TokenKind::Str => write!(f, "'str' keyword"),
+            TokenKind::Struct => write!(f, "'struct' keyword"),
+            TokenKind::Use => write!(f, "'use' keyword"),
+            TokenKind::While => write!(f, "'while' keyword"),
+            TokenKind::ArrowThin => write!(f, "-> symbol"),
+            TokenKind::Asterisk => write!(f, "* symbol"),
+            TokenKind::AsteriskEqual => write!(f, "*= symbol"),
+            TokenKind::BangEqual => write!(f, "!= symbol"),
+            TokenKind::Bang => write!(f, "! symbol"),
+            TokenKind::Colon => write!(f, ": symbol"),
+            TokenKind::Comma => write!(f, ", symbol"),
+            TokenKind::Dot => write!(f, ". symbol"),
+            TokenKind::DoubleAmpersand => write!(f, "&& symbol"),
+            TokenKind::DoubleColon => write!(f, ":: symbol"),
+            TokenKind::DoubleDot => write!(f, ".. symbol"),
+            TokenKind::DoubleEqual => write!(f, "== symbol"),
+            TokenKind::DoublePipe => write!(f, "|| symbol"),
+            TokenKind::Equal => write!(f, "= symbol"),
+            TokenKind::Greater => write!(f, "> symbol"),
+            TokenKind::GreaterEqual => write!(f, ">= symbol"),
+            TokenKind::LeftCurlyBrace => write!(f, "{{ symbol"),
+            TokenKind::LeftSquareBracket => write!(f, "[ symbol"),
+            TokenKind::LeftParenthesis => write!(f, "( symbol"),
+            TokenKind::Less => write!(f, "< symbol"),
+            TokenKind::LessEqual => write!(f, "<= symbol"),
+            TokenKind::Minus => write!(f, "- symbol"),
+            TokenKind::MinusEqual => write!(f, "-= symbol"),
+            TokenKind::Percent => write!(f, "% symbol"),
+            TokenKind::PercentEqual => write!(f, "%= symbol"),
+            TokenKind::Plus => write!(f, "+ symbol"),
+            TokenKind::PlusEqual => write!(f, "+= symbol"),
+            TokenKind::RightCurlyBrace => write!(f, "}} symbol"),
+            TokenKind::RightSquareBracket => write!(f, "] symbol"),
+            TokenKind::RightParenthesis => write!(f, ") symbol"),
+            TokenKind::Semicolon => write!(f, "; symbol"),
+            TokenKind::Slash => write!(f, "/ symbol"),
+            TokenKind::SlashEqual => write!(f, "/= symbol"),
+            TokenKind::Newline => write!(f, "newline"),
+            TokenKind::Space => write!(f, "space"),
+            TokenKind::Tab => write!(f, "tab"),
         }
     }
 }

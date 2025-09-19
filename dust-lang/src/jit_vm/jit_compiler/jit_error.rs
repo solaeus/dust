@@ -64,6 +64,9 @@ pub enum JitError {
     ExpectedFunctionType {
         type_id: TypeId,
     },
+    MissingDeclaration {
+        declaration_id: crate::resolver::DeclarationId,
+    },
 }
 
 impl AnnotatedError for JitError {
@@ -183,6 +186,14 @@ impl AnnotatedError for JitError {
             }
             JitError::ExpectedFunctionType { type_id } => {
                 let title = format!("Expected function type for Type ID {}", type_id.0);
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::MissingDeclaration { declaration_id } => {
+                let title = format!(
+                    "Missing declaration for Declaration ID {}",
+                    declaration_id.0
+                );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }

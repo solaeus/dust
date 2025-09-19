@@ -11,8 +11,8 @@ impl Source {
         Source::Script(SourceFile { name, source_code })
     }
 
-    pub fn files(capacity: usize) -> Self {
-        Source::Files(Vec::with_capacity(capacity))
+    pub fn files(file_count: usize) -> Self {
+        Source::Files(Vec::with_capacity(file_count))
     }
 
     pub fn add_file(&mut self, name: String, source_code: String) -> SourceFileId {
@@ -88,6 +88,10 @@ impl Source {
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct SourceFileId(pub u32);
+
+impl SourceFileId {
+    const MAIN: Self = SourceFileId(0);
+}
 
 #[derive(Debug, Clone)]
 pub struct SourceFile {
