@@ -79,7 +79,7 @@ impl<'a> JitCompiler<'a> {
 
         stackless_signature.params.push(AbiParam::new(pointer_type));
 
-        for (index, chunk) in self.program.prototypes.iter().enumerate() {
+        for (index, (_, chunk)) in self.program.prototypes.iter().enumerate() {
             if index == 0 {
                 let stackless_function_id = self
                     .module

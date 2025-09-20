@@ -13,14 +13,13 @@ use std::{
 
 use clap::Parser;
 use dust_lang::{
-    Resolver, Source,
+    Lexer, Resolver, Source,
     chunk::TuiDisassembler,
     compiler::Compiler,
     jit_vm::{JitVm, MINIMUM_OBJECT_HEAP_DEFAULT, MINIMUM_OBJECT_SWEEP_DEFAULT},
     parser::parse_main,
     project::{DEFAULT_PROGRAM_PATH, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
     source::SourceFile,
-    tokenize,
 };
 use memmap2::MmapOptions;
 use ron::ser::PrettyConfig;
@@ -138,36 +137,66 @@ fn main() {
         let source = get_source(path, name, stdin, eval);
         let resolver = Resolver::new(true);
         let compiler = Compiler::new(source.clone(), resolver);
-        let compile_result = compiler.compile();
+        let compile_result = compiler.compile_with_extras();
         let compile_time = start_time.elapsed();
+        let program_name = source.program_name().to_string();
 
         match compile_result {
-            Ok(program) => {
-                let disassembler = TuiDisassembler::new(&program, source.clone());
+            Ok((program, source, file_trees, resolver)) => {
+                let disassembler = TuiDisassembler::new(&program, &source, &file_trees, &resolver);
 
                 disassembler.disassemble().unwrap();
             }
-            Err(error) => eprintln!("{}", error.report()),
+            Err(error) => {
+                if !no_output {
+                    eprintln!("{}", error.report())
+                }
+            }
         }
 
-        if time && !no_output {
-            print_times(&[(source.program_name(), compile_time, None)]);
+        if time {
+            print_times(&[(&program_name, compile_time, None)]);
         }
 
         return;
     }
 
     if let Mode::Tokenize { output } = mode {
-        let source = match get_source(path, name, stdin, eval) {
-            Source::Files(_) => {
-                eprintln!("Tokenizing multiple files is not supported");
+        let mut lexer = Lexer::new();
+        let mut tokens = Vec::new();
 
-                return;
+        if let Some(path) = path {
+            let file = File::open(&path).expect("Failed to open source file");
+            let mmap =
+                unsafe { MmapOptions::new().map(&file) }.expect("Failed to memory map source file");
+
+            lexer.initialize(&mmap);
+
+            while let Some(token) = lexer.next_token() {
+                tokens.push(token);
             }
-            Source::Script(source_file) => source_file.source_code.clone(),
+        } else if stdin {
+            let mut buffer = Vec::new();
+
+            io::stdin()
+                .read_to_end(&mut buffer)
+                .expect("Failed to read from stdin");
+
+            lexer.initialize(&buffer);
+
+            while let Some(token) = lexer.next_token() {
+                tokens.push(token);
+            }
+        } else if let Some(eval) = eval {
+            lexer.initialize(eval.as_bytes());
+
+            while let Some(token) = lexer.next_token() {
+                tokens.push(token);
+            }
+        } else {
+            panic!("No readable input source provided");
         };
 
-        let tokens = tokenize(&source);
         let tokenize_time = start_time.elapsed();
 
         if time {
@@ -354,9 +383,12 @@ fn get_source(
                         .unwrap_or("unknown")
                         .trim_end_matches(".ds")
                         .to_string();
-                    let file_content = read_to_string(&path).expect("Failed to read source file");
+                    let file = File::open(&path).expect("Failed to open source file");
+                    let mmap = unsafe { MmapOptions::new().map(&file) }
+                        .expect("Failed to memory map source file");
+                    let source_code = String::from_utf8_lossy(&mmap).to_string();
 
-                    source_files.add_file(module_name, file_content);
+                    source_files.add_file(module_name, source_code);
                 }
             }
 

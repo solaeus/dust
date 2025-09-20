@@ -9,34 +9,44 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph, Row, Table, Tabs, Widget, Wrap},
 };
 
-use crate::{Chunk, Source, dust_crate::Program};
+use crate::{Chunk, Resolver, Source, dust_crate::Program, syntax_tree::SyntaxTree};
 
 pub struct TuiDisassembler<'a> {
     program: &'a Program,
-    source: Source,
+    source: &'a Source,
+    file_trees: &'a [SyntaxTree],
+    _resolver: &'a Resolver,
+
     state: TuiState,
     selected_tab: usize,
     tabs: Vec<String>,
 }
 
 impl<'a> TuiDisassembler<'a> {
-    pub fn new(program: &'a Program, source: Source) -> Self {
+    pub fn new(
+        program: &'a Program,
+        source: &'a Source,
+        file_trees: &'a [SyntaxTree],
+        resolver: &'a Resolver,
+    ) -> Self {
         let mut tabs = Vec::with_capacity(source.len() + program.prototypes.len());
 
         for file in source.get_files() {
             tabs.push(format!("{}.ds", file.name));
         }
 
-        for chunk in &program.prototypes {
-            tabs.push(chunk.get_name(&source).unwrap().to_string());
+        for (_, chunk) in &program.prototypes {
+            tabs.push(chunk.get_name(source).unwrap().to_string());
         }
 
         Self {
+            selected_tab: source.len(),
             program,
             source,
-            state: TuiState::Run,
-            selected_tab: 0,
+            file_trees,
+            _resolver: resolver,
             tabs,
+            state: TuiState::Run,
         }
     }
 
@@ -90,6 +100,7 @@ impl<'a> TuiDisassembler<'a> {
         &self,
         file_name: &str,
         source_code: String,
+        syntax_tree: &SyntaxTree,
         area: Rect,
         buffer: &mut Buffer,
     ) {
@@ -102,11 +113,20 @@ impl<'a> TuiDisassembler<'a> {
 
         block.render(area, buffer);
 
+        let columns = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]);
+        let [source_area, syntax_area] = columns.areas(inner_area);
+
         let paragraph = Paragraph::new(source_code)
             .wrap(Wrap { trim: false })
             .scroll((0, 0));
 
-        paragraph.render(inner_area, buffer);
+        paragraph.render(source_area, buffer);
+
+        let paragraph = Paragraph::new(syntax_tree.to_string())
+            .wrap(Wrap { trim: false })
+            .scroll((0, 0));
+
+        paragraph.render(syntax_area, buffer);
     }
 
     fn draw_chunk_tab(&self, index: usize, chunk: &Chunk, area: Rect, buffer: &mut Buffer) {
@@ -349,6 +369,7 @@ impl Widget for &TuiDisassembler<'_> {
             self.draw_source_tab(
                 &source_file.name,
                 source_file.source_code.clone(),
+                &self.file_trees[self.selected_tab],
                 tab_content_area,
                 buffer,
             );

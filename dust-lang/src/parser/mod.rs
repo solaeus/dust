@@ -105,7 +105,15 @@ impl<'a> Parser<'a> {
 
         self.lexer.initialize(source_code);
 
-        self.current_token = self.lexer.next_token();
+        self.current_token = match self.lexer.next_token() {
+            Some(token) => token,
+            None => {
+                return ParseResult {
+                    syntax_trees: self.syntax_trees,
+                    errors: self.errors,
+                };
+            }
+        };
 
         if self.current_scope_id == ScopeId::MAIN {
             self.parse_main_function_item();
@@ -176,7 +184,10 @@ impl<'a> Parser<'a> {
     }
 
     fn advance(&mut self) -> Result<(), ParseError> {
-        let next_token = self.lexer.next_token();
+        let next_token = self.lexer.next_token().unwrap_or(Token {
+            kind: TokenKind::Eof,
+            span: Span(self.current_token.span.1, self.current_token.span.1),
+        });
 
         if next_token.kind.is_whitespace() {
             return self.advance();
@@ -812,9 +823,9 @@ impl<'a> Parser<'a> {
             payload: 0,
         };
         let node_id = self.syntax_tree.push_node(node);
-        let type_children = self.resolver.push_type_members(&type_children);
+        let type_member_info = self.resolver.push_type_members(&type_children);
 
-        Ok((node_id, type_children))
+        Ok((node_id, type_member_info))
     }
 
     fn parse_type(&mut self) -> Result<TypeId, ParseError> {
@@ -1599,15 +1610,19 @@ impl<'a> Parser<'a> {
         let child_count = children.len() as u32;
         self.current_scope_id = starting_scope_id;
 
-        if let Some(last_node) = self.syntax_tree.last_node()
-            && last_node.kind.is_expression()
-            && last_node.payload != TypeId::NONE.0
-        {
+        let last_node = self
+            .syntax_tree
+            .last_node()
+            .ok_or(ParseError::MissingNode {
+                id: self.syntax_tree.last_node_id(),
+            })?;
+
+        if last_node.kind.is_expression() {
             let block_node = SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
                 span: Span(start, self.previous_token.span.1),
                 children: (first_child, child_count),
-                payload: starting_scope_id.0,
+                payload: last_node.payload,
             };
 
             self.syntax_tree.push_node(block_node);
@@ -1617,7 +1632,7 @@ impl<'a> Parser<'a> {
                 kind: SyntaxKind::BlockExpression,
                 span: Span(start, self.previous_token.span.1),
                 children: (first_child, child_count),
-                payload: starting_scope_id.0,
+                payload: last_node.payload,
             };
             let block_node_id = self.syntax_tree.push_node(block_node);
 

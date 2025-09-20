@@ -1,7 +1,5 @@
 use crate::{
-    Address, Chunk, Instruction, OperandType, compile_main,
-    resolver::{DeclarationId, TypeId},
-    tests::local_cases,
+    Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main, tests::local_cases,
 };
 
 #[test]
@@ -12,8 +10,7 @@ fn local_boolean() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -32,8 +29,7 @@ fn local_byte() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(42),
@@ -52,8 +48,7 @@ fn local_character() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Character),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -72,8 +67,7 @@ fn local_float() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -92,8 +86,7 @@ fn local_integer() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -112,8 +105,7 @@ fn local_string() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(0),
+            r#type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),

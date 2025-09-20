@@ -25,7 +25,7 @@ pub fn compile_direct_function(
     let mut function_builder_context = FunctionBuilderContext::new();
     let mut compilation_context = compiler.module.make_context();
     let pointer_type = compiler.module.target_config().pointer_type();
-    let value_parameter_count = chunk.r#type.value_parameters.len() as usize;
+    let value_parameter_count = chunk.r#type.value_parameters.len();
 
     for _ in 0..value_parameter_count {
         compilation_context

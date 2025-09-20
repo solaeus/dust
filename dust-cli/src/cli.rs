@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{ffi::OsString, path::PathBuf};
 
 use clap::{
     Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint,

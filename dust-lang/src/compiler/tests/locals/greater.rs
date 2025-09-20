@@ -1,7 +1,5 @@
 use crate::{
-    Address, Chunk, Instruction, OperandType, compile_main,
-    resolver::{DeclarationId, TypeId},
-    tests::local_cases,
+    Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main, tests::local_cases,
 };
 
 #[test]
@@ -12,8 +10,7 @@ fn local_boolean_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -62,8 +59,7 @@ fn local_byte_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -112,8 +108,7 @@ fn local_character_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -162,8 +157,7 @@ fn local_float_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -212,8 +206,7 @@ fn local_integer_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -262,8 +255,7 @@ fn local_string_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),

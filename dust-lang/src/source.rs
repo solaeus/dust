@@ -15,6 +15,17 @@ impl Source {
         Source::Files(Vec::with_capacity(file_count))
     }
 
+    pub fn len(&self) -> usize {
+        match self {
+            Source::Script(_) => 1,
+            Source::Files(sources) => sources.len(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn add_file(&mut self, name: String, source_code: String) -> SourceFileId {
         let id = SourceFileId(self.len() as u32);
 
@@ -41,15 +52,11 @@ impl Source {
         }
     }
 
-    pub fn len(&self) -> usize {
+    pub fn get_files(&self) -> &[SourceFile] {
         match self {
-            Source::Script(_) => 1,
-            Source::Files(sources) => sources.len(),
+            Source::Script(source_file) => slice::from_ref(source_file),
+            Source::Files(sources) => sources.as_slice(),
         }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
     }
 
     pub fn program_name(&self) -> &str {
@@ -77,20 +84,13 @@ impl Source {
             }
         }
     }
-
-    pub fn get_files(&self) -> &[SourceFile] {
-        match self {
-            Source::Script(source_file) => slice::from_ref(source_file),
-            Source::Files(sources) => sources.as_slice(),
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct SourceFileId(pub u32);
 
 impl SourceFileId {
-    const MAIN: Self = SourceFileId(0);
+    pub const MAIN: Self = SourceFileId(0);
 }
 
 #[derive(Debug, Clone)]

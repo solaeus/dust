@@ -8,9 +8,7 @@ use crate::{
     Address, Chunk, CompileError, Instruction, NativeFunction, OperandType, Operation, Position,
     Type,
     compiler::CompileContext,
-    resolver::{
-        DeclarationId, DeclarationKind, FunctionTypeNode, ScopeId, ScopeKind, TypeId, TypeNode,
-    },
+    resolver::{DeclarationId, DeclarationKind, FunctionTypeNode, TypeId, TypeNode},
     source::SourceFileId,
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
@@ -1322,7 +1320,9 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_block_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling block expression");
 
-        let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
+        let start_children = node.children.0 as usize;
+        let child_count = node.children.1 as usize;
+        let _type_id = TypeId(node.payload);
 
         if child_count == 0 {
             return Ok(Emission::None);
@@ -1362,23 +1362,13 @@ impl<'a> ChunkCompiler<'a> {
             .syntax_tree()?
             .get_node(last_child_id)
             .ok_or(CompileError::MissingSyntaxNode { id: last_child_id })?;
-        let outer_scope_id = ScopeId(node.payload);
-        let outer_scope = self
-            .context
-            .resolver
-            .get_scope(outer_scope_id)
-            .ok_or(CompileError::MissingScope { id: outer_scope_id })?;
 
-        if last_child_node.kind.is_statement() {
+        if last_child_node.kind.is_expression() {
+            self.compile_expression(&last_child_node)
+        } else {
             self.compile_statement(&last_child_node)?;
 
             Ok(Emission::None)
-        } else if outer_scope.kind == ScopeKind::Function && outer_scope_id != ScopeId::MAIN {
-            self.compile_implicit_return(&last_child_node)?;
-
-            Ok(Emission::None)
-        } else {
-            self.compile_expression(&last_child_node)
         }
     }
 
@@ -1758,13 +1748,13 @@ impl<'a> ChunkCompiler<'a> {
             Instruction::r#return(false, Address::default(), OperandType::NONE)
         } else {
             let return_emission = self.compile_expression(node)?;
-            let (return_operand, return_operand_type) = match return_emission {
-                Emission::Instruction(instruction, r#type) => {
+            let (return_operand, return_operand_type, return_type_id) = match return_emission {
+                Emission::Instruction(instruction, type_id) => {
                     let operand_type = self
                         .context
                         .resolver
-                        .resolve_type(r#type)
-                        .ok_or(CompileError::MissingTypeNode { type_id: r#type })?
+                        .resolve_type(type_id)
+                        .ok_or(CompileError::MissingTypeNode { type_id })?
                         .as_operand_type();
                     let mut return_operand = self.handle_operand(instruction);
 
@@ -1777,20 +1767,20 @@ impl<'a> ChunkCompiler<'a> {
                         self.instructions.pop();
                     }
 
-                    (return_operand, operand_type)
+                    (return_operand, operand_type, type_id)
                 }
-                Emission::Instructions(instructions, r#type) => {
+                Emission::Instructions(instructions, type_id) => {
                     let last_instruction = instructions.last().unwrap();
                     let operand_type = self
                         .context
                         .resolver
-                        .resolve_type(r#type)
-                        .ok_or(CompileError::MissingTypeNode { type_id: r#type })?
+                        .resolve_type(type_id)
+                        .ok_or(CompileError::MissingTypeNode { type_id })?
                         .as_operand_type();
 
                     self.instructions.extend(instructions.iter());
 
-                    (last_instruction.destination(), operand_type)
+                    (last_instruction.destination(), operand_type, type_id)
                 }
                 Emission::Constant(constant) => {
                     let operand_type = constant.operand_type();
@@ -1799,10 +1789,12 @@ impl<'a> ChunkCompiler<'a> {
                     let instruction = Instruction::load(destination, address, operand_type, false);
                     let return_operand = self.handle_operand(instruction);
 
-                    (return_operand, operand_type)
+                    (return_operand, operand_type, TypeId(node.payload))
                 }
-                Emission::None => (Address::default(), OperandType::NONE),
+                Emission::None => (Address::default(), OperandType::NONE, TypeId::NONE),
             };
+
+            self.r#type.return_type = return_type_id;
 
             Instruction::r#return(
                 return_operand_type != OperandType::NONE,

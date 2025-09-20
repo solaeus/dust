@@ -7,6 +7,7 @@ mod tests;
 pub use chunk_compiler::ChunkCompiler;
 pub use error::CompileError;
 use indexmap::IndexMap;
+use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 use tracing::{Level, span};
 
@@ -31,7 +32,7 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
         name: "dust_program".into(),
         source_code,
     });
-    let parser = Parser::new(SourceFileId(0), ScopeId::MAIN, &source, &mut resolver);
+    let parser = Parser::new(SourceFileId::MAIN, ScopeId::MAIN, &source, &mut resolver);
     let ParseResult {
         syntax_trees,
         errors,
@@ -46,12 +47,12 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
         resolver,
         file_trees: syntax_trees,
         constants: ConstantTable::new(),
-        prototypes: IndexMap::new(),
+        prototypes: IndexMap::default(),
     };
     let chunk_compiler = ChunkCompiler::new(
         DeclarationId::MAIN,
         FunctionTypeNode::default(),
-        SourceFileId(0),
+        SourceFileId::MAIN,
         &mut context,
     );
     let compile_result = chunk_compiler.compile_main();
@@ -79,7 +80,34 @@ impl Compiler {
         }
     }
 
-    pub fn compile(mut self) -> Result<Program, DustError> {
+    pub fn compile(self) -> Result<Program, DustError> {
+        let context = self.compile_inner()?;
+
+        Ok(Program {
+            name: context.source.into_program_name(),
+            constants: context.constants,
+            prototypes: context.prototypes,
+        })
+    }
+
+    pub fn compile_with_extras(
+        self,
+    ) -> Result<(Program, Source, Vec<SyntaxTree>, Resolver), DustError> {
+        let context = self.compile_inner()?;
+
+        Ok((
+            Program {
+                name: context.source.program_name().to_string(),
+                constants: context.constants,
+                prototypes: context.prototypes,
+            },
+            context.source,
+            context.file_trees,
+            context.resolver,
+        ))
+    }
+
+    fn compile_inner(mut self) -> Result<CompileContext, DustError> {
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
 
@@ -111,7 +139,7 @@ impl Compiler {
         }
 
         let parser = Parser::new(
-            SourceFileId(0),
+            SourceFileId::MAIN,
             ScopeId::MAIN,
             &self.context.source,
             &mut self.context.resolver,
@@ -134,7 +162,7 @@ impl Compiler {
         let chunk_compiler = ChunkCompiler::new(
             DeclarationId::MAIN,
             FunctionTypeNode::default(),
-            SourceFileId(0),
+            SourceFileId::MAIN,
             &mut self.context,
         );
 
@@ -147,18 +175,7 @@ impl Compiler {
 
         self.context.prototypes[0] = chunk;
 
-        let prototypes = self
-            .context
-            .prototypes
-            .into_iter()
-            .map(|(_, chunk)| chunk)
-            .collect::<Vec<Chunk>>();
-
-        Ok(Program {
-            name: self.context.source.into_program_name(),
-            constants: self.context.constants,
-            prototypes,
-        })
+        Ok(self.context)
     }
 }
 
@@ -168,5 +185,5 @@ pub struct CompileContext {
     pub file_trees: Vec<SyntaxTree>,
     pub constants: ConstantTable,
     pub resolver: Resolver,
-    pub prototypes: IndexMap<DeclarationId, Chunk>,
+    pub prototypes: IndexMap<DeclarationId, Chunk, FxBuildHasher>,
 }

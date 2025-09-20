@@ -1,7 +1,5 @@
 use crate::{
-    Address, Chunk, Instruction, OperandType, compile_main,
-    resolver::{DeclarationId, TypeId},
-    tests::block_cases,
+    Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main, tests::block_cases,
 };
 
 #[test]
@@ -12,8 +10,7 @@ fn empty_block() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::None),
             instructions: vec![Instruction::r#return(
                 false,
                 Address::default(),
@@ -32,8 +29,7 @@ fn block_expression() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -52,8 +48,7 @@ fn block_statement() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -77,8 +72,7 @@ fn block_statement_and_expression() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -108,8 +102,7 @@ fn parent_scope_access() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -129,8 +122,7 @@ fn nested_parrent_scope_access() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -166,8 +158,7 @@ fn scope_shadowing() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),
@@ -191,8 +182,7 @@ fn scope_deshadowing() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::load(
                     Address::register(0),

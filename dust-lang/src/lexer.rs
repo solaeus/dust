@@ -2,15 +2,13 @@ use tracing::{info, trace};
 
 use crate::{Span, TokenKind, token::Token};
 
-pub fn tokenize(source: &str) -> Vec<Token> {
+pub fn tokenize(source: &[u8]) -> Vec<Token> {
     let mut lexer = Lexer::new();
     let mut tokens = Vec::new();
 
     lexer.initialize(source);
 
-    while !lexer.is_at_eof() {
-        let token = lexer.next_token();
-
+    while let Some(token) = lexer.next_token() {
         tokens.push(token);
     }
 
@@ -32,8 +30,8 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline]
-    pub fn initialize(&mut self, source: &'src str) {
-        self.source = source.as_bytes();
+    pub fn initialize(&mut self, source: &'src [u8]) {
+        self.source = source;
         self.current_index = 0;
     }
 
@@ -49,15 +47,12 @@ impl<'src> Lexer<'src> {
 
     /// Produce the next token.
     #[inline]
-    pub fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Option<Token> {
         if self.is_at_eof() {
-            return Token {
-                kind: TokenKind::Eof,
-                span: Span::new(self.current_index, self.current_index),
-            };
+            return None;
         }
 
-        match self.current_byte() {
+        let next = match self.current_byte() {
             b'0'..=b'9' => self.lex_numeric(),
             b'a'..=b'z' | b'A'..=b'Z' | b'_' => self.lex_keyword_or_identifier(),
             b'"' => self.lex_string(),
@@ -92,7 +87,9 @@ impl<'src> Lexer<'src> {
 
                 self.lex_byte(TokenKind::Unknown)
             }
-        }
+        };
+
+        Some(next)
     }
 
     /// Emit a token for a one-byte character.

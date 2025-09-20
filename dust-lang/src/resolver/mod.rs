@@ -274,20 +274,10 @@ impl Resolver {
 
                         Some(Type::list(element_type))
                     }
-                    TypeNode::Function(FunctionTypeNode {
-                        type_parameters: (type_args_start, type_args_count),
-                        value_parameters: (value_args_start, value_args_count),
-                        return_type,
-                    }) => {
-                        let type_arguments = self
-                            .resolve_types(*type_args_start, *type_args_count)
-                            .try_collect::<Vec<Type>>()?;
-                        let value_arguments = self
-                            .resolve_types(*value_args_start, *value_args_count)
-                            .try_collect::<Vec<Type>>()?;
-                        let return_type = self.resolve_type(*return_type)?;
+                    TypeNode::Function(function_type_node) => {
+                        let function_type = self.resolve_function_type(function_type_node)?;
 
-                        Some(Type::function(type_arguments, value_arguments, return_type))
+                        Some(Type::Function(Box::new(function_type)))
                     }
                 }
             }
@@ -296,13 +286,13 @@ impl Resolver {
 
     pub fn resolve_function_type(&self, function_type: &FunctionTypeNode) -> Option<FunctionType> {
         let type_parameters = self
-            .resolve_types(
+            .resolve_type_members(
                 function_type.type_parameters.0,
                 function_type.type_parameters.1,
             )
             .try_collect::<Vec<Type>>()?;
         let value_parameters = self
-            .resolve_types(
+            .resolve_type_members(
                 function_type.value_parameters.0,
                 function_type.value_parameters.1,
             )
@@ -341,8 +331,16 @@ impl Resolver {
         (start, count)
     }
 
-    fn resolve_types(&self, start_index: u32, count: u32) -> impl Iterator<Item = Option<Type>> {
-        (start_index..start_index + count).map(|index| self.resolve_type(TypeId(index)))
+    fn resolve_type_members(
+        &self,
+        start_index: u32,
+        count: u32,
+    ) -> impl Iterator<Item = Option<Type>> {
+        let range = start_index as usize..(start_index + count) as usize;
+
+        self.type_members[range]
+            .iter()
+            .map(|type_id| self.resolve_type(*type_id))
     }
 }
 

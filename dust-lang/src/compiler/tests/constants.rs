@@ -1,6 +1,5 @@
 use crate::{
-    Address, Chunk, Instruction, OperandType, compile_main,
-    resolver::{DeclarationId, TypeId},
+    Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main,
     tests::constant_cases,
 };
 
@@ -12,8 +11,7 @@ fn boolean() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -32,8 +30,7 @@ fn byte() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(42),
@@ -52,8 +49,7 @@ fn character() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Character),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -72,8 +68,7 @@ fn float() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -92,8 +87,7 @@ fn integer() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -112,8 +106,7 @@ fn string() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(0),
+            r#type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -132,8 +125,7 @@ fn constant_byte_addition() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(42),
@@ -152,8 +144,7 @@ fn constant_float_addition() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -172,8 +163,7 @@ fn constant_integer_addition() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -192,8 +182,7 @@ fn constant_byte_subtraction() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(42),
@@ -212,8 +201,7 @@ fn constant_float_subtraction() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -232,8 +220,7 @@ fn constant_integer_subtraction() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -252,8 +239,7 @@ fn constant_byte_multiplication() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(42),
@@ -272,8 +258,7 @@ fn constant_float_multiplication() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -292,8 +277,7 @@ fn constant_integer_multiplication() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -312,8 +296,7 @@ fn constant_byte_division() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(42),
@@ -332,8 +315,7 @@ fn constant_float_division() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -352,8 +334,7 @@ fn constant_integer_division() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -372,8 +353,7 @@ fn constant_integer_negation() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -392,8 +372,7 @@ fn constant_float_negation() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -412,8 +391,7 @@ fn constant_string_concatenation() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(0),
+            r#type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -432,8 +410,7 @@ fn constant_character_concatentation() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(0),
+            r#type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -452,8 +429,7 @@ fn constant_string_character_concatenation() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(0),
+            r#type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -472,8 +448,7 @@ fn constant_character_string_concatenation() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(0),
+            r#type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -492,8 +467,7 @@ fn constant_boolean_and() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(false as u16),
@@ -512,8 +486,7 @@ fn constant_boolean_or() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -532,8 +505,7 @@ fn constant_boolean_not() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(false as u16),
@@ -552,8 +524,7 @@ fn constant_byte_less_than_or_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -572,8 +543,7 @@ fn constant_byte_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -592,8 +562,7 @@ fn constant_byte_not_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -612,8 +581,7 @@ fn constant_character_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -632,8 +600,7 @@ fn constant_character_less_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -652,8 +619,7 @@ fn constant_character_greater_than_or_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -672,8 +638,7 @@ fn constant_character_less_than_or_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -692,8 +657,7 @@ fn constant_character_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -712,8 +676,7 @@ fn constant_character_not_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -732,8 +695,7 @@ fn constant_float_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -752,8 +714,7 @@ fn constant_float_less_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -772,8 +733,7 @@ fn constant_float_greater_than_or_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -792,8 +752,7 @@ fn constant_float_less_than_or_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -812,8 +771,7 @@ fn constant_float_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -832,8 +790,7 @@ fn constant_float_not_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -852,8 +809,7 @@ fn constant_integer_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -872,8 +828,7 @@ fn constant_integer_less_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -892,8 +847,7 @@ fn constant_integer_greater_than_or_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -912,8 +866,7 @@ fn constant_integer_less_than_or_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -932,8 +885,7 @@ fn constant_integer_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -952,8 +904,7 @@ fn constant_integer_not_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -972,8 +923,7 @@ fn constant_string_greater_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(false as u16),
@@ -992,8 +942,7 @@ fn constant_string_less_than() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(false as u16),
@@ -1012,8 +961,7 @@ fn constant_string_greater_than_or_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -1032,8 +980,7 @@ fn constant_string_less_than_or_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -1052,8 +999,7 @@ fn constant_string_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
@@ -1072,8 +1018,7 @@ fn constant_string_not_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            declaration_id: DeclarationId::MAIN,
-            type_id: TypeId(2),
+            r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::encoded(true as u16),
