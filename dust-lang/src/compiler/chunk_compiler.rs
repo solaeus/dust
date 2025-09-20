@@ -483,7 +483,6 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling use item");
 
         let file_declaration_id = DeclarationId(node.children.0);
-        let import_declaration_id = DeclarationId(node.payload);
         let import_declaration = self
             .context
             .resolver

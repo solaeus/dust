@@ -7,7 +7,7 @@ pub enum Source {
 }
 
 impl Source {
-    pub fn script(name: String, source_code: String) -> Self {
+    pub fn script(name: String, source_code: Vec<u8>) -> Self {
         Source::Script(SourceFile { name, source_code })
     }
 
@@ -26,7 +26,7 @@ impl Source {
         self.len() == 0
     }
 
-    pub fn add_file(&mut self, name: String, source_code: String) -> SourceFileId {
+    pub fn add_file(&mut self, name: String, source_code: Vec<u8>) -> SourceFileId {
         let id = SourceFileId(self.len() as u32);
 
         match self {
@@ -96,5 +96,5 @@ impl SourceFileId {
 #[derive(Debug, Clone)]
 pub struct SourceFile {
     pub name: String,
-    pub source_code: String,
+    pub source_code: Vec<u8>,
 }

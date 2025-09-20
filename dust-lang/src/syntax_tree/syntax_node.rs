@@ -7,7 +7,6 @@ pub struct SyntaxNode {
     pub kind: SyntaxKind,
     pub children: (u32, u32),
     pub span: Span,
-    pub payload: u32,
 }
 
 impl SyntaxNode {

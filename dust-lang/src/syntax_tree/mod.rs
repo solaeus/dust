@@ -22,8 +22,6 @@ impl SyntaxId {
 #[derive(Debug)]
 pub struct SyntaxTree {
     /// Identifies the source file this syntax tree represents.
-    ///
-    /// **WARNING**: This index is only valid *after* parsing.
     pub file_id: SourceFileId,
 
     /// List of nodes in the tree in the order they were parsed according to the Pratt algorithm
@@ -89,7 +87,7 @@ impl SyntaxTree {
         self.children.get(start_index..start_index + count)
     }
 
-    pub fn push_children(&mut self, children: &[SyntaxId]) -> (u32, u32) {
+    pub fn add_children(&mut self, children: &[SyntaxId]) -> (u32, u32) {
         let start_index = self.children.len() as u32;
         let count = children.len() as u32;
 

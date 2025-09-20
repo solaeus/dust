@@ -21,7 +21,7 @@ pub enum TokenKind {
     // End of file
     Eof,
 
-    // Represents characrers that cannot be used in Dust source code
+    // Characters that cannot be used in Dust source code
     Unknown,
 
     // Hard-coded values
@@ -33,7 +33,7 @@ pub enum TokenKind {
     IntegerValue,
     StringValue,
 
-    // Paths to declared items or variables
+    // Names for variables, functions, types and modules
     Identifier,
 
     // Keywords
@@ -63,7 +63,7 @@ pub enum TokenKind {
     Use,
     While,
 
-    // Symbols (operators and punctuation)
+    // Operators and punctuation
     ArrowThin,
     Asterisk,
     AsteriskEqual,
@@ -102,11 +102,31 @@ pub enum TokenKind {
     Newline,
     Space,
     Tab,
+
+    // Comments
+    LineComment,
+    BlockComment,
+    InnerLineDocComment,
+    OuterLineDocComment,
+    InnerBlockDocComment,
+    OuterBlockDocComment,
 }
 
 impl TokenKind {
     pub fn is_whitespace(&self) -> bool {
         matches!(self, TokenKind::Newline | TokenKind::Space | TokenKind::Tab)
+    }
+
+    pub fn is_comment(&self) -> bool {
+        matches!(
+            self,
+            TokenKind::LineComment
+                | TokenKind::BlockComment
+                | TokenKind::InnerLineDocComment
+                | TokenKind::OuterLineDocComment
+                | TokenKind::InnerBlockDocComment
+                | TokenKind::OuterBlockDocComment
+        )
     }
 }
 
@@ -184,6 +204,12 @@ impl Display for TokenKind {
             TokenKind::Newline => write!(f, "newline"),
             TokenKind::Space => write!(f, "space"),
             TokenKind::Tab => write!(f, "tab"),
+            TokenKind::LineComment => write!(f, "line comment"),
+            TokenKind::BlockComment => write!(f, "block comment"),
+            TokenKind::InnerLineDocComment => write!(f, "inner line doc comment"),
+            TokenKind::OuterLineDocComment => write!(f, "outer line doc comment"),
+            TokenKind::InnerBlockDocComment => write!(f, "inner block doc comment"),
+            TokenKind::OuterBlockDocComment => write!(f, "outer block doc comment"),
         }
     }
 }

@@ -17,16 +17,16 @@
     result_option_map_or_default
 )]
 
-pub mod chunk;
-pub mod compiler;
+// pub mod chunk;
+// pub mod compiler;
 pub mod constant_table;
-pub mod dust_crate;
-pub mod dust_error;
+// pub mod dust_crate;
+// pub mod dust_error;
 pub mod instruction;
-pub mod jit_vm;
+// pub mod jit_vm;
 pub mod lexer;
 pub mod native_function;
-pub mod parser;
+// pub mod parser;
 pub mod position;
 pub mod project;
 pub mod resolver;
@@ -39,10 +39,10 @@ pub mod value;
 #[cfg(test)]
 mod tests;
 
-pub use chunk::Chunk;
-pub use compiler::{ChunkCompiler, CompileError, compile_main};
+// pub use chunk::Chunk;
+// pub use compiler::{ChunkCompiler, CompileError, compile_main};
 pub use constant_table::ConstantTable;
-pub use dust_error::{AnnotatedError, DustError};
+// pub use dust_error::{AnnotatedError, DustError};
 pub use instruction::{
     Address, Instruction, InstructionFields, MemoryKind, OperandType, Operation,
 };

@@ -14,7 +14,7 @@ use tracing::{Level, span};
 pub use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    Chunk, ConstantTable, Position, Resolver, Source, Span,
+    Chunk, ConstantTable, Lexer, Position, Resolver, Source, Span,
     dust_crate::Program,
     dust_error::DustError,
     parser::{ParseResult, Parser},
@@ -26,17 +26,17 @@ use crate::{
     syntax_tree::SyntaxTree,
 };
 
-pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
-    let mut resolver = Resolver::new(true);
-    let source = Source::Script(SourceFile {
-        name: "dust_program".into(),
-        source_code,
-    });
-    let parser = Parser::new(SourceFileId::MAIN, ScopeId::MAIN, &source, &mut resolver);
+pub fn compile_main(source_code: Vec<u8>) -> Result<Chunk, DustError> {
+    let lexer = Lexer::new(&source_code);
+    let parser = Parser::new(SourceFileId::MAIN, lexer);
     let ParseResult {
         syntax_trees,
         errors,
     } = parser.parse();
+    let source = Source::Script(SourceFile {
+        name: "dust_program".into(),
+        source_code,
+    });
 
     if !errors.is_empty() {
         return Err(DustError::parse(errors, source));
@@ -44,7 +44,7 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
 
     let mut context = CompileContext {
         source: source.clone(),
-        resolver,
+        resolver: Resolver::new(true),
         file_trees: syntax_trees,
         constants: ConstantTable::new(),
         prototypes: IndexMap::default(),
@@ -138,12 +138,14 @@ impl Compiler {
                 .add_module_to_scope(ScopeId::MAIN, module_id);
         }
 
-        let parser = Parser::new(
-            SourceFileId::MAIN,
-            ScopeId::MAIN,
-            &self.context.source,
-            &mut self.context.resolver,
-        );
+        let main_source_code = &self
+            .context
+            .source
+            .get_file(SourceFileId::MAIN)
+            .unwrap()
+            .source_code;
+        let lexer = Lexer::new(main_source_code);
+        let parser = Parser::new(SourceFileId::MAIN, lexer);
         let ParseResult {
             syntax_trees,
             errors: module_errors,

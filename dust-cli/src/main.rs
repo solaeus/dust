@@ -98,7 +98,7 @@ fn main() {
             println!("{return_value}");
         }
 
-        if time && !no_output {
+        if time {
             print_times(&[(source.program_name(), compile_time, Some(run_time))]);
         }
 
@@ -113,13 +113,9 @@ fn main() {
                 let (syntax_tree, error) = parse_main(source_code);
                 let parse_time = start_time.elapsed();
 
-                if no_output {
-                    return;
-                }
-
                 println!("{syntax_tree}");
 
-                if let Some(error) = error {
+                if !no_output && let Some(error) = error {
                     eprintln!("{}", error.report());
                 }
 
