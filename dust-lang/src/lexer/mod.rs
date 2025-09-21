@@ -1,5 +1,7 @@
 mod validate_utf8;
 
+pub use validate_utf8::validate_utf8;
+
 use std::simd::{
     Mask, Simd,
     cmp::{SimdPartialEq, SimdPartialOrd},

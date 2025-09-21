@@ -17,7 +17,7 @@ colored = "3.0.0"
 rand = "0.9.2"
 serde = { version = "1.0.219", features = ["derive", "rc"] }
 serde_json = "1.0.143"
-getrandom = "0.3"                                            # Indirect dependency, for WASM builds
+getrandom = "0.3" # Indirect dependency, for WASM builds
 tracing = "0.1.41"
 crossbeam-channel = "0.5.15"
 cranelift = "0.123"
@@ -40,16 +40,20 @@ criterion = { version = "0.7", features = ["html_reports"] }
 name = "tokenize"
 harness = false
 
-[[bench]]
-name = "addictive_addition"
-harness = false
+# [[bench]]
+# name = "addictive_addition"
+# harness = false
+
+# [[bench]]
+# name = "addictive_calling"
+# harness = false
+
+# [[bench]]
+# name = "compile"
+# harness = false
 
 [[bench]]
-name = "addictive_calling"
-harness = false
-
-[[bench]]
-name = "compile"
+name = "validate_utf8"
 harness = false
 
 # [[bench]]

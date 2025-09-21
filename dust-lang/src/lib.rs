@@ -14,7 +14,8 @@
     pattern,
     pointer_try_cast_aligned,
     portable_simd,
-    result_option_map_or_default
+    result_option_map_or_default,
+    trim_prefix_suffix
 )]
 
 // pub mod chunk;
@@ -60,7 +61,7 @@ pub use source::Source;
 //     ThreadResult,
 //     // run,
 // };
-pub use lexer::{Lexer, tokenize};
+pub use lexer::{Lexer, tokenize, validate_utf8};
 pub use native_function::NativeFunction;
 pub use position::{Position, Span};
 pub use resolver::Resolver;
