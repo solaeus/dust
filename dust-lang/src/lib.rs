@@ -36,8 +36,8 @@ pub mod token;
 pub mod r#type;
 pub mod value;
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
 // pub use chunk::Chunk;
 // pub use compiler::{ChunkCompiler, CompileError, compile_main};

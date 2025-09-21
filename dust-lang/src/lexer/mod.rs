@@ -1,11 +1,11 @@
+mod validate_utf8;
+
 use std::simd::{
     Mask, Simd,
     cmp::{SimdPartialEq, SimdPartialOrd},
 };
 
-use tracing::{info, trace};
-
-use crate::{Span, TokenKind, token::Token};
+use crate::token::Token;
 
 const SIMD_LANES: usize = {
     if cfg!(target_arch = "x86_64") {
@@ -65,26 +65,33 @@ impl<'src> Lexer<'src> {
 
     #[inline(always)]
     fn load_window(&mut self) -> bool {
-        if self.next_byte_index + SIMD_LANES > self.source.len() {
+        if self.next_byte_index >= self.source.len() {
             return false;
         }
-
+        let take = (self.source.len() - self.next_byte_index).min(SIMD_LANES);
         let window = {
             let mut window_bytes = [0u8; SIMD_LANES];
-            let source_bytes =
-                &self.source[self.next_byte_index..self.next_byte_index + SIMD_LANES];
+            let end = self.next_byte_index + take;
+            let source_bytes = &self.source[self.next_byte_index..end];
 
-            window_bytes.copy_from_slice(source_bytes);
+            window_bytes[..take].copy_from_slice(source_bytes);
 
             Simd::<u8, SIMD_LANES>::from_array(window_bytes)
         };
+        let tail_mask: u64 = if take < SIMD_LANES {
+            ((1u64 << take) - 1) & BITLIST_LIMIT
+        } else {
+            BITLIST_LIMIT
+        };
+        self.alphanumeric_bitlist = alphanumeric_bitlist(window) & tail_mask;
+        self.blackspace_bitlist = {
+            let whitespace = whitespace_bitlist(window) & tail_mask;
 
-        self.alphanumeric_bitlist = alphanumeric_bitlist(window);
-        self.blackspace_bitlist = !whitespace_bitlist(window) & BITLIST_LIMIT;
-        self.control_bitlist = control_bitlist(window);
+            (!whitespace) & tail_mask
+        };
+        self.control_bitlist = control_bitlist(window) & tail_mask;
         self.window_start = self.next_byte_index;
-        self.next_emission_index += SIMD_LANES;
-
+        self.next_byte_index += take;
         true
     }
 }
