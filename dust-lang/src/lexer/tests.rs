@@ -7,10 +7,16 @@ fn single_identifier() {
 
     assert_eq!(
         tokens,
-        vec![Token {
-            kind: TokenKind::Identifier,
-            span: Span(0, 3)
-        }]
+        vec![
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span(0, 3)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(3, 3)
+            }
+        ]
     );
 }
 
@@ -21,10 +27,16 @@ fn identifier_with_digits_and_underscores() {
 
     assert_eq!(
         tokens,
-        vec![Token {
-            kind: TokenKind::Identifier,
-            span: Span(0, 5)
-        }]
+        vec![
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span(0, 5)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(5, 5)
+            }
+        ]
     );
 }
 
@@ -48,6 +60,10 @@ fn multiple_identifiers() {
                 kind: TokenKind::Identifier,
                 span: Span(12, 18)
             },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(18, 18)
+            }
         ]
     );
 }
@@ -68,6 +84,10 @@ fn booleans() {
                 kind: TokenKind::FalseValue,
                 span: Span(5, 10)
             },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(10, 10)
+            }
         ]
     );
 }
@@ -88,6 +108,10 @@ fn bytes() {
                 kind: TokenKind::ByteValue,
                 span: Span(5, 9)
             },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(9, 9)
+            }
         ]
     );
 }
@@ -112,6 +136,10 @@ fn characters() {
                 kind: TokenKind::CharacterValue,
                 span: Span(8, 11)
             },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(11, 11)
+            }
         ]
     );
 }
@@ -136,6 +164,10 @@ fn floats() {
                 kind: TokenKind::FloatValue,
                 span: Span(11, 15)
             },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(15, 15)
+            }
         ]
     );
 }
@@ -160,6 +192,10 @@ fn integers() {
                 kind: TokenKind::IntegerValue,
                 span: Span(6, 12)
             },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(12, 12)
+            }
         ]
     );
 }
@@ -180,6 +216,10 @@ fn strings() {
                 kind: TokenKind::StringValue,
                 span: Span(8, 15)
             },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(15, 15)
+            }
         ]
     );
 }
@@ -216,7 +256,7 @@ fn keywords() {
 
     let source = keywords
         .iter()
-        .map(|(s, _)| *s)
+        .map(|(str, _)| *str)
         .collect::<Vec<_>>()
         .join(" ");
     let expected = keywords.iter().map(|(_, kind)| *kind).collect::<Vec<_>>();
@@ -225,7 +265,7 @@ fn keywords() {
         .map(|token| token.kind)
         .collect::<Vec<_>>();
 
-    assert_eq!(actual, expected);
+    assert_eq!(actual[..actual.len() - 1], expected);
 }
 
 #[test]
@@ -268,7 +308,7 @@ fn operators_and_punctuation() {
 
     let source = symbols
         .iter()
-        .map(|(s, _)| *s)
+        .map(|(str, _)| *str)
         .collect::<Vec<_>>()
         .join(" ");
     let expected = symbols.iter().map(|(_, kind)| *kind).collect::<Vec<_>>();
@@ -277,5 +317,5 @@ fn operators_and_punctuation() {
         .map(|token| token.kind)
         .collect::<Vec<_>>();
 
-    assert_eq!(actual, expected);
+    assert_eq!(actual[..actual.len() - 1], expected);
 }

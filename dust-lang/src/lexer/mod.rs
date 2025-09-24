@@ -17,6 +17,9 @@ pub struct Lexer<'src> {
 
     /// Locations of the start of each token in the source.
     token_starts: Vec<usize>,
+
+    /// Whether we've reached the end of the file.
+    is_eof: bool,
 }
 
 impl<'src> Lexer<'src> {
@@ -28,6 +31,7 @@ impl<'src> Lexer<'src> {
                 source,
                 next_token_start: 0,
                 token_starts,
+                is_eof: false,
             })
         } else {
             None
@@ -43,6 +47,18 @@ impl Iterator for Lexer<'_> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.is_eof {
+            return None;
+        } else if self.next_token_start >= self.token_starts.len() {
+            self.is_eof = true;
+            let length = self.source.len() as u32;
+
+            return Some(Token {
+                kind: TokenKind::Eof,
+                span: Span(length, length),
+            });
+        }
+
         let start_index = *self.token_starts.get(self.next_token_start)?;
 
         self.next_token_start += 1;
@@ -119,6 +135,8 @@ impl Iterator for Lexer<'_> {
             // Literals
             b"true" => TokenKind::TrueValue,
             b"false" => TokenKind::FalseValue,
+            b"Infinity" => TokenKind::FloatValue,
+            b"-Infinity" => TokenKind::FloatValue,
             _ if word[0].is_ascii_alphabetic() || word[0] == b'_' => {
                 if word.iter().all(|b| b.is_ascii_alphanumeric() || *b == b'_') {
                     TokenKind::Identifier
@@ -133,44 +151,34 @@ impl Iterator for Lexer<'_> {
                 TokenKind::ByteValue
             }
             _ if word[0].is_ascii_digit() => {
-                let mut is_float = false;
-                let mut has_exponent = false;
-                let mut has_suffix = false;
                 let mut chars = word.iter().peekable();
+                let mut has_decimal = false;
+                let mut has_exponent = false;
 
                 while let Some(&b) = chars.peek() {
                     match b {
                         b'0'..=b'9' => {
                             chars.next();
                         }
-                        b'.' if !is_float => {
-                            is_float = true;
+                        b'.' if !has_decimal => {
+                            has_decimal = true;
                             chars.next();
                         }
-                        b'e' | b'E' if let Some(&&next_b) = chars.peek() => {
-                            if next_b == b'+' || next_b == b'-' {
-                                chars.next();
-                            }
-                        }
                         b'e' | b'E' => {
-                            if !has_exponent {
+                            if !has_exponent && has_decimal {
                                 has_exponent = true;
-                                is_float = true;
+                                has_decimal = true;
                                 chars.next();
                             } else {
                                 break;
                             }
-                        }
-                        b'a'..=b'z' | b'A'..=b'Z' if !has_suffix => {
-                            has_suffix = true;
-                            chars.next();
                         }
                         _ => break,
                     }
                 }
 
                 if chars.next().is_none() {
-                    if is_float {
+                    if has_decimal {
                         TokenKind::FloatValue
                     } else {
                         TokenKind::IntegerValue

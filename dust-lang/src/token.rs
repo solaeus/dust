@@ -22,6 +22,8 @@ pub enum TokenKind {
     #[default]
     Unknown,
 
+    Eof,
+
     // Literals
     TrueValue,
     FalseValue,
@@ -123,6 +125,7 @@ impl Display for TokenKind {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             TokenKind::Unknown => write!(f, "unknown token"),
+            TokenKind::Eof => write!(f, "end of file"),
             TokenKind::TrueValue => write!(f, "true"),
             TokenKind::FalseValue => write!(f, "false"),
             TokenKind::ByteValue => write!(f, "byte value"),

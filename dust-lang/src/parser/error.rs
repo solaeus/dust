@@ -180,7 +180,9 @@ impl AnnotatedError for ParseError {
         }
     }
 
-    fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a> {
+    fn annotated_error<'a>(&'a self, source: &'a [u8]) -> Group<'a> {
+        let source = unsafe { str::from_utf8_unchecked(source) };
+
         match self {
             ParseError::ExpectedToken {
                 actual,

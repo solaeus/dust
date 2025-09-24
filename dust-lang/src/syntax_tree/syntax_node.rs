@@ -105,7 +105,7 @@ impl SyntaxNode {
             | SyntaxKind::FunctionValueParameters => {
                 Children::Multiple(self.children.0, self.children.1)
             }
-            SyntaxKind::FunctionStatement => Children::Single(SyntaxId(self.children.1)),
+            SyntaxKind::FunctionItem => Children::Single(SyntaxId(self.children.1)),
             SyntaxKind::ExpressionStatement
             | SyntaxKind::GroupedExpression
             | SyntaxKind::FunctionSignature
@@ -187,12 +187,13 @@ pub enum SyntaxKind {
     // Items
     MainFunctionItem,
     ModuleItem,
+    PublicModuleItem,
     UseItem,
+    FunctionItem,
+    PublicFunctionItem,
 
     // Statements
-    ItemStatement,
     ExpressionStatement,
-    FunctionStatement,
     LetStatement,
     LetMutStatement,
     ReassignStatement,
@@ -282,16 +283,14 @@ impl SyntaxKind {
             SyntaxKind::MainFunctionItem
                 | SyntaxKind::ModuleItem
                 | SyntaxKind::UseItem
-                | SyntaxKind::FunctionStatement
+                | SyntaxKind::FunctionItem
         )
     }
 
     pub fn is_statement(&self) -> bool {
         matches!(
             self,
-            SyntaxKind::MainFunctionItem
-                | SyntaxKind::ExpressionStatement
-                | SyntaxKind::FunctionStatement
+            SyntaxKind::ExpressionStatement
                 | SyntaxKind::LetStatement
                 | SyntaxKind::LetMutStatement
                 | SyntaxKind::ReassignStatement
@@ -350,9 +349,10 @@ impl Display for SyntaxKind {
         match self {
             SyntaxKind::MainFunctionItem => write!(f, "main function item"),
             SyntaxKind::ModuleItem => write!(f, "module item"),
-            SyntaxKind::ItemStatement => write!(f, "item statement"),
+            SyntaxKind::PublicModuleItem => write!(f, "public module item"),
+            SyntaxKind::FunctionItem => write!(f, "function item"),
+            SyntaxKind::PublicFunctionItem => write!(f, "public function item"),
             SyntaxKind::ExpressionStatement => write!(f, "expression statement"),
-            SyntaxKind::FunctionStatement => write!(f, "function statement"),
             SyntaxKind::LetStatement => write!(f, "let statement"),
             SyntaxKind::LetMutStatement => write!(f, "let mut statement"),
             SyntaxKind::ReassignStatement => write!(f, "reassign statement"),

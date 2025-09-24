@@ -60,6 +60,11 @@ impl From<TokenKind> for ParseRule<'_> {
                 infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Comparison,
             },
+            TokenKind::BlockComment => ParseRule {
+                prefix: Some(Parser::parse_unexpected),
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::Bool => ParseRule {
                 prefix: Some(Parser::parse_unexpected),
                 infix: None,
@@ -176,7 +181,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             TokenKind::Fn => ParseRule {
-                prefix: Some(Parser::parse_function_statement_or_expression),
+                prefix: Some(Parser::parse_function_item_or_expression),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -197,6 +202,16 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::If => ParseRule {
                 prefix: Some(Parser::parse_if),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenKind::InnerBlockDocComment => ParseRule {
+                prefix: Some(Parser::parse_unexpected),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenKind::InnerLineDocComment => ParseRule {
+                prefix: Some(Parser::parse_unexpected),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -240,6 +255,11 @@ impl From<TokenKind> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::Assignment,
             },
+            TokenKind::LineComment => ParseRule {
+                prefix: Some(Parser::parse_unexpected),
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::List => ParseRule {
                 prefix: Some(Parser::parse_list),
                 infix: None,
@@ -275,8 +295,13 @@ impl From<TokenKind> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Newline => ParseRule {
-                prefix: None,
+            TokenKind::OuterBlockDocComment => ParseRule {
+                prefix: Some(Parser::parse_unexpected),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenKind::OuterLineDocComment => ParseRule {
+                prefix: Some(Parser::parse_unexpected),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -340,11 +365,6 @@ impl From<TokenKind> for ParseRule<'_> {
                 infix: Some(Parser::parse_binary_expression),
                 precedence: Precedence::Assignment,
             },
-            TokenKind::Space => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-            },
             TokenKind::Str => ParseRule {
                 prefix: Some(Parser::parse_str),
                 infix: None,
@@ -357,11 +377,6 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Struct => ParseRule {
                 prefix: Some(Parser::parse_unexpected),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenKind::Tab => ParseRule {
-                prefix: None,
                 infix: None,
                 precedence: Precedence::None,
             },

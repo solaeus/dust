@@ -23,12 +23,12 @@
 // pub mod compiler;
 pub mod constant_table;
 // pub mod dust_crate;
-// pub mod dust_error;
+pub mod dust_error;
 pub mod instruction;
 // pub mod jit_vm;
 pub mod lexer;
 pub mod native_function;
-// pub mod parser;
+pub mod parser;
 pub mod position;
 pub mod project;
 pub mod resolver;
@@ -38,8 +38,8 @@ pub mod token;
 pub mod r#type;
 pub mod value;
 
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
 
 // pub use chunk::Chunk;
 // pub use compiler::{ChunkCompiler, CompileError, compile_main};
