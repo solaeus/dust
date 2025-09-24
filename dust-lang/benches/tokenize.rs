@@ -1,10 +1,10 @@
 use std::{hint::black_box, time::Duration};
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use dust_lang::tokenize;
+use dust_lang::{Lexer, token::Token};
 
-fn tokenize_bench(source: &[u8]) {
-    tokenize(source);
+fn tokenize(source: &[u8]) {
+    let _ = Lexer::new(source).unwrap().collect::<Vec<Token>>();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -14,7 +14,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     group.measurement_time(Duration::from_secs(15));
     group.bench_function("10,000,000 tokens", |b| {
-        b.iter(|| tokenize_bench(black_box(&ten_million_tokens)))
+        b.iter(|| tokenize(black_box(&ten_million_tokens)))
     });
     group.finish();
 }

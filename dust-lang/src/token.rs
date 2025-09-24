@@ -16,15 +16,13 @@ impl Display for Token {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum TokenKind {
-    // End of file
-    Eof,
-
     // Characters that cannot be used in Dust source code
+    #[default]
     Unknown,
 
-    // Hard-coded values
+    // Literals
     TrueValue,
     FalseValue,
     ByteValue,
@@ -98,11 +96,6 @@ pub enum TokenKind {
     Slash,
     SlashEqual,
 
-    // Whitespace
-    Newline,
-    Space,
-    Tab,
-
     // Comments
     LineComment,
     BlockComment,
@@ -113,10 +106,6 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
-    pub fn is_whitespace(&self) -> bool {
-        matches!(self, TokenKind::Newline | TokenKind::Space | TokenKind::Tab)
-    }
-
     pub fn is_comment(&self) -> bool {
         matches!(
             self,
@@ -133,7 +122,6 @@ impl TokenKind {
 impl Display for TokenKind {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            TokenKind::Eof => write!(f, "end of file"),
             TokenKind::Unknown => write!(f, "unknown token"),
             TokenKind::TrueValue => write!(f, "true"),
             TokenKind::FalseValue => write!(f, "false"),
@@ -201,9 +189,6 @@ impl Display for TokenKind {
             TokenKind::Semicolon => write!(f, "; symbol"),
             TokenKind::Slash => write!(f, "/ symbol"),
             TokenKind::SlashEqual => write!(f, "/= symbol"),
-            TokenKind::Newline => write!(f, "newline"),
-            TokenKind::Space => write!(f, "space"),
-            TokenKind::Tab => write!(f, "tab"),
             TokenKind::LineComment => write!(f, "line comment"),
             TokenKind::BlockComment => write!(f, "block comment"),
             TokenKind::InnerLineDocComment => write!(f, "inner line doc comment"),

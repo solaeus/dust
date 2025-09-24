@@ -3,6 +3,7 @@
     allocator_api,
     formatting_options,
     hash_set_entry,
+    if_let_guard,
     int_from_ascii,
     iter_intersperse,
     iterator_try_collect,
@@ -61,7 +62,7 @@ pub use source::Source;
 //     ThreadResult,
 //     // run,
 // };
-pub use lexer::{Lexer, tokenize, validate_utf8};
+pub use lexer::{Lexer, validate_utf8_and_find_token_starts};
 pub use native_function::NativeFunction;
 pub use position::{Position, Span};
 pub use resolver::Resolver;

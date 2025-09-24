@@ -13,6 +13,7 @@ name = "dust"
 path = "src/main.rs"
 
 [features]
+default = ["global-mimalloc"]
 global-mimalloc = ["dust-lang/global-mimalloc"]
 
 [dependencies]

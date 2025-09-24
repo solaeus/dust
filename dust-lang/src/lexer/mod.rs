@@ -1,100 +1,41 @@
 mod validate_utf8;
 
-pub use validate_utf8::validate_utf8;
+#[cfg(test)]
+mod tests;
 
-use std::simd::{
-    Mask, Simd,
-    cmp::{SimdPartialEq, SimdPartialOrd},
-};
+pub use validate_utf8::validate_utf8_and_find_token_starts;
 
-use crate::token::Token;
-
-const SIMD_LANES: usize = {
-    if cfg!(target_arch = "x86_64") {
-        if cfg!(target_feature = "avx512f") {
-            64
-        } else if cfg!(target_feature = "avx2") {
-            32
-        } else {
-            16
-        }
-    } else {
-        16
-    }
-};
-
-const BITLIST_LIMIT: u64 = if SIMD_LANES == 64 {
-    u64::MAX
-} else {
-    (1 << SIMD_LANES) - 1
-};
-
-pub fn tokenize(source: &[u8]) -> Vec<Token> {
-    let mut lexer = Lexer::new(source);
-
-    lexer.collect()
-}
+use crate::{Span, TokenKind, token::Token};
 
 #[derive(Debug, Default)]
 pub struct Lexer<'src> {
+    /// Dust source code as utf-8 bytes.
     source: &'src [u8],
 
-    next_emission_index: usize,
-    next_byte_index: usize,
-    window_start: usize,
+    /// Index into `token_starts`.
+    next_token_start: usize,
 
-    alphanumeric_bitlist: u64,
-    blackspace_bitlist: u64, // inverse of whitespace bitlist
-    control_bitlist: u64,
+    /// Locations of the start of each token in the source.
+    token_starts: Vec<usize>,
 }
 
 impl<'src> Lexer<'src> {
-    pub fn new(source: &'src [u8]) -> Self {
-        Lexer {
-            source,
-            next_emission_index: 0,
-            next_byte_index: 0,
-            window_start: 0,
-            alphanumeric_bitlist: 0,
-            blackspace_bitlist: 0,
-            control_bitlist: 0,
+    pub fn new(source: &'src [u8]) -> Option<Self> {
+        let (is_valid_utf8, token_starts) = validate_utf8_and_find_token_starts(source);
+
+        if is_valid_utf8 {
+            Some(Lexer {
+                source,
+                next_token_start: 0,
+                token_starts,
+            })
+        } else {
+            None
         }
     }
 
     pub fn source(&self) -> &'src [u8] {
         self.source
-    }
-
-    #[inline(always)]
-    fn load_window(&mut self) -> bool {
-        if self.next_byte_index >= self.source.len() {
-            return false;
-        }
-        let take = (self.source.len() - self.next_byte_index).min(SIMD_LANES);
-        let window = {
-            let mut window_bytes = [0u8; SIMD_LANES];
-            let end = self.next_byte_index + take;
-            let source_bytes = &self.source[self.next_byte_index..end];
-
-            window_bytes[..take].copy_from_slice(source_bytes);
-
-            Simd::<u8, SIMD_LANES>::from_array(window_bytes)
-        };
-        let tail_mask: u64 = if take < SIMD_LANES {
-            ((1u64 << take) - 1) & BITLIST_LIMIT
-        } else {
-            BITLIST_LIMIT
-        };
-        self.alphanumeric_bitlist = alphanumeric_bitlist(window) & tail_mask;
-        self.blackspace_bitlist = {
-            let whitespace = whitespace_bitlist(window) & tail_mask;
-
-            (!whitespace) & tail_mask
-        };
-        self.control_bitlist = control_bitlist(window) & tail_mask;
-        self.window_start = self.next_byte_index;
-        self.next_byte_index += take;
-        true
     }
 }
 
@@ -102,41 +43,154 @@ impl Iterator for Lexer<'_> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        None
+        let start_index = *self.token_starts.get(self.next_token_start)?;
+
+        self.next_token_start += 1;
+
+        let end_index = self
+            .token_starts
+            .get(self.next_token_start)
+            .map(|i| i.saturating_sub(1))
+            .unwrap_or(self.source.len());
+        let word = self.source.get(start_index..end_index)?;
+        let token_kind = match word {
+            // Keywords
+            b"any" => TokenKind::Any,
+            b"async" => TokenKind::Async,
+            b"bool" => TokenKind::Bool,
+            b"break" => TokenKind::Break,
+            b"byte" => TokenKind::Byte,
+            b"cell" => TokenKind::Cell,
+            b"char" => TokenKind::Char,
+            b"const" => TokenKind::Const,
+            b"else" => TokenKind::Else,
+            b"float" => TokenKind::Float,
+            b"fn" => TokenKind::Fn,
+            b"if" => TokenKind::If,
+            b"int" => TokenKind::Int,
+            b"let" => TokenKind::Let,
+            b"list" => TokenKind::List,
+            b"loop" => TokenKind::Loop,
+            b"map" => TokenKind::Map,
+            b"mod" => TokenKind::Mod,
+            b"mut" => TokenKind::Mut,
+            b"pub" => TokenKind::Pub,
+            b"return" => TokenKind::Return,
+            b"str" => TokenKind::Str,
+            b"struct" => TokenKind::Struct,
+            b"use" => TokenKind::Use,
+            b"while" => TokenKind::While,
+
+            // Operators and punctuation
+            b"->" => TokenKind::ArrowThin,
+            b"*" => TokenKind::Asterisk,
+            b"*=" => TokenKind::AsteriskEqual,
+            b"!=" => TokenKind::BangEqual,
+            b"!" => TokenKind::Bang,
+            b":" => TokenKind::Colon,
+            b"," => TokenKind::Comma,
+            b"." => TokenKind::Dot,
+            b"&&" => TokenKind::DoubleAmpersand,
+            b"::" => TokenKind::DoubleColon,
+            b".." => TokenKind::DoubleDot,
+            b"==" => TokenKind::DoubleEqual,
+            b"||" => TokenKind::DoublePipe,
+            b"=" => TokenKind::Equal,
+            b">" => TokenKind::Greater,
+            b">=" => TokenKind::GreaterEqual,
+            b"{" => TokenKind::LeftCurlyBrace,
+            b"[" => TokenKind::LeftSquareBracket,
+            b"(" => TokenKind::LeftParenthesis,
+            b"<" => TokenKind::Less,
+            b"<=" => TokenKind::LessEqual,
+            b"-" => TokenKind::Minus,
+            b"-=" => TokenKind::MinusEqual,
+            b"%" => TokenKind::Percent,
+            b"%=" => TokenKind::PercentEqual,
+            b"+" => TokenKind::Plus,
+            b"+=" => TokenKind::PlusEqual,
+            b"}" => TokenKind::RightCurlyBrace,
+            b"]" => TokenKind::RightSquareBracket,
+            b")" => TokenKind::RightParenthesis,
+            b";" => TokenKind::Semicolon,
+            b"/" => TokenKind::Slash,
+            b"/=" => TokenKind::SlashEqual,
+
+            // Literals
+            b"true" => TokenKind::TrueValue,
+            b"false" => TokenKind::FalseValue,
+            _ if word[0].is_ascii_alphabetic() || word[0] == b'_' => {
+                if word.iter().all(|b| b.is_ascii_alphanumeric() || *b == b'_') {
+                    TokenKind::Identifier
+                } else {
+                    TokenKind::Unknown
+                }
+            }
+            _ if word.starts_with(b"0x")
+                && word.len() > 2
+                && word[2..].iter().all(|b| b.is_ascii_hexdigit()) =>
+            {
+                TokenKind::ByteValue
+            }
+            _ if word[0].is_ascii_digit() => {
+                let mut is_float = false;
+                let mut has_exponent = false;
+                let mut has_suffix = false;
+                let mut chars = word.iter().peekable();
+
+                while let Some(&b) = chars.peek() {
+                    match b {
+                        b'0'..=b'9' => {
+                            chars.next();
+                        }
+                        b'.' if !is_float => {
+                            is_float = true;
+                            chars.next();
+                        }
+                        b'e' | b'E' if let Some(&&next_b) = chars.peek() => {
+                            if next_b == b'+' || next_b == b'-' {
+                                chars.next();
+                            }
+                        }
+                        b'e' | b'E' => {
+                            if !has_exponent {
+                                has_exponent = true;
+                                is_float = true;
+                                chars.next();
+                            } else {
+                                break;
+                            }
+                        }
+                        b'a'..=b'z' | b'A'..=b'Z' if !has_suffix => {
+                            has_suffix = true;
+                            chars.next();
+                        }
+                        _ => break,
+                    }
+                }
+
+                if chars.next().is_none() {
+                    if is_float {
+                        TokenKind::FloatValue
+                    } else {
+                        TokenKind::IntegerValue
+                    }
+                } else {
+                    TokenKind::Unknown
+                }
+            }
+            _ if word.starts_with(b"\"") && word.ends_with(b"\"") && word.len() >= 2 => {
+                TokenKind::StringValue
+            }
+            _ if word.starts_with(b"'") && word.ends_with(b"'") && word.len() == 3 => {
+                TokenKind::CharacterValue
+            }
+            _ => TokenKind::Unknown,
+        };
+
+        Some(Token {
+            kind: token_kind,
+            span: Span(start_index as u32, end_index as u32),
+        })
     }
-}
-
-#[inline(always)]
-fn alphanumeric_bitlist(window: Simd<u8, SIMD_LANES>) -> u64 {
-    let is_uppercase = window.simd_ge(Simd::splat(b'A')) & window.simd_le(Simd::splat(b'Z'));
-    let is_lowercase = window.simd_ge(Simd::splat(b'a')) & window.simd_le(Simd::splat(b'z'));
-    let is_digit = window.simd_ge(Simd::splat(b'0')) & window.simd_le(Simd::splat(b'9'));
-    let is_underscore = window.simd_eq(Simd::splat(b'_'));
-
-    (is_uppercase | is_lowercase | is_digit | is_underscore).to_bitmask()
-}
-
-#[inline(always)]
-fn whitespace_bitlist(window: Simd<u8, SIMD_LANES>) -> u64 {
-    let is_space = window.simd_eq(Simd::splat(b' '));
-    let is_tab = window.simd_eq(Simd::splat(b'\t'));
-    let is_newline = window.simd_eq(Simd::splat(b'\n')) | window.simd_eq(Simd::splat(b'\r'));
-
-    (is_space | is_tab | is_newline).to_bitmask()
-}
-
-#[inline(always)]
-fn control_bitlist(window: Simd<u8, SIMD_LANES>) -> u64 {
-    let control_bytes = [
-        b'(', b')', b'[', b']', b'{', b'}', b';', b',', b'.', b':', b'+', b'-', b'*', b'/', b'%',
-        b'!', b'=', b'<', b'>', b'&', b'|',
-    ];
-
-    let mut mask = Mask::splat(false);
-
-    for &byte in &control_bytes {
-        mask |= window.simd_eq(Simd::splat(byte));
-    }
-
-    mask.to_bitmask()
 }

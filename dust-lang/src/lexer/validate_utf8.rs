@@ -4,7 +4,7 @@ use std::simd::{
     num::SimdUint,
 };
 
-const LANE_COUNT: usize = {
+const SIMD_LANE_COUNT: usize = {
     if cfg!(target_arch = "x86_64") {
         if cfg!(target_feature = "avx512f") {
             64
@@ -18,39 +18,64 @@ const LANE_COUNT: usize = {
     }
 };
 
-pub fn validate_utf8(input_bytes: &[u8]) -> bool {
-    let input_length = input_bytes.len();
-    let mut window_start_index = 0usize;
+const BITLIST_LIMIT: u64 = if SIMD_LANE_COUNT == 64 {
+    u64::MAX
+} else {
+    (1 << SIMD_LANE_COUNT) - 1
+};
+
+pub fn validate_utf8_and_find_token_starts(input: &[u8]) -> (bool, Vec<usize>) {
+    let mut token_start_indices = Vec::new();
+    let mut window_start_index = 0;
     let mut is_invalid = false;
+    let mut previous_was_whitespace = true as u64; // Initialized to true for start-of-input
 
-    while window_start_index < input_length && !is_invalid {
-        let input_vector = load_window(input_bytes, window_start_index);
+    while window_start_index < input.len() && !is_invalid {
+        let input_vector = load_window(input, window_start_index);
+        let window_length = (input.len() - window_start_index).min(SIMD_LANE_COUNT);
 
-        // ASCII hot path: if this window is all ASCII, try to skip as many consecutive
-        // ASCII windows as possible in one pass.
-        let high_bits = input_vector & Simd::splat(0x80);
-        if high_bits.simd_eq(Simd::splat(0)).all() {
-            let mut ascii_scan_index = window_start_index + LANE_COUNT;
+        fill_significant_start_indices(
+            input_vector,
+            window_start_index,
+            window_length,
+            &mut token_start_indices,
+            &mut previous_was_whitespace,
+        );
 
-            while ascii_scan_index < input_length {
-                let candidate_window = load_window(input_bytes, ascii_scan_index);
-                // If any MSB is set, we found a non-ASCII window and must stop.
-                let candidate_high_bits = candidate_window & Simd::splat(0x80);
-                if candidate_high_bits.simd_ne(Simd::splat(0)).any() {
+        let non_ascii = input_vector & Simd::splat(0x80);
+
+        // Fast path for all-ASCII windows
+        if non_ascii.simd_eq(Simd::splat(0)).all() {
+            let mut ascii_scan_index = window_start_index + SIMD_LANE_COUNT;
+
+            while ascii_scan_index < input.len() {
+                let candidate_window = load_window(input, ascii_scan_index);
+                let window_length = (input.len() - ascii_scan_index).min(SIMD_LANE_COUNT);
+
+                fill_significant_start_indices(
+                    candidate_window,
+                    ascii_scan_index,
+                    window_length,
+                    &mut token_start_indices,
+                    &mut previous_was_whitespace,
+                );
+
+                let non_ascii = candidate_window & Simd::splat(0x80);
+
+                if !non_ascii.simd_eq(Simd::splat(0)).all() {
                     break;
                 }
 
-                ascii_scan_index += LANE_COUNT;
+                ascii_scan_index += SIMD_LANE_COUNT;
             }
 
             window_start_index = ascii_scan_index;
+
             continue;
         }
 
-        // Slow path: we have non-ASCII in this window, so load the next SIMD window
-        // for neighbor checks and class lookahead.
         let lookahead_vector =
-            load_window(input_bytes, window_start_index.saturating_add(LANE_COUNT));
+            load_window(input, window_start_index.saturating_add(SIMD_LANE_COUNT));
 
         // 1) Bound check: bytes must be <= 0xF4
         let bytes_greater_than_f4_mask = input_vector
@@ -81,7 +106,7 @@ pub fn validate_utf8(input_bytes: &[u8]) -> bool {
         let utf8_class_vector = classify_high_nibbles_to_utf8_classes(input_vector);
         let utf8_class_vector_next = classify_high_nibbles_to_utf8_classes(lookahead_vector);
         let previous_window =
-            load_window(input_bytes, window_start_index.saturating_sub(LANE_COUNT));
+            load_window(input, window_start_index.saturating_sub(SIMD_LANE_COUNT));
         let utf8_class_vector_prev = classify_high_nibbles_to_utf8_classes(previous_window);
 
         // 4) Sequence validity via shift/sub/add (look-behind using right shifts)
@@ -132,8 +157,8 @@ pub fn validate_utf8(input_bytes: &[u8]) -> bool {
         error_mask_for_window |= missing_after_2 | missing_after_3 | missing_after_4;
 
         // 5) EOF incomplete sequence check over last up-to-4 real lanes (backward-consistent)
-        if window_start_index + LANE_COUNT >= input_length {
-            let number_of_valid_lanes = (input_length - window_start_index).min(LANE_COUNT);
+        if window_start_index + SIMD_LANE_COUNT >= input.len() {
+            let number_of_valid_lanes = (input.len() - window_start_index).min(SIMD_LANE_COUNT);
             let utf8_class_array = utf8_class_vector.to_array();
 
             // Count trailing continuation bytes (class == 0), up to 3
@@ -165,18 +190,18 @@ pub fn validate_utf8(input_bytes: &[u8]) -> bool {
         }
 
         is_invalid |= error_mask_for_window.any();
-        window_start_index += LANE_COUNT;
+        window_start_index += SIMD_LANE_COUNT;
     }
 
-    !is_invalid
+    (!is_invalid, token_start_indices)
 }
 
 #[inline(always)]
-fn load_window(input_bytes: &[u8], start_index: usize) -> Simd<u8, LANE_COUNT> {
-    let mut window_bytes = [0u8; LANE_COUNT];
+fn load_window(input_bytes: &[u8], start_index: usize) -> Simd<u8, SIMD_LANE_COUNT> {
+    let mut window_bytes = [0u8; SIMD_LANE_COUNT];
 
     if start_index < input_bytes.len() {
-        let copy_count = (input_bytes.len() - start_index).min(LANE_COUNT);
+        let copy_count = (input_bytes.len() - start_index).min(SIMD_LANE_COUNT);
         let input_slice = &input_bytes[start_index..start_index + copy_count];
 
         window_bytes[..copy_count].copy_from_slice(input_slice);
@@ -187,21 +212,24 @@ fn load_window(input_bytes: &[u8], start_index: usize) -> Simd<u8, LANE_COUNT> {
 
 #[inline(always)]
 fn shift_left_by_one_with_lookahead(
-    current_window: Simd<u8, LANE_COUNT>,
-    lookahead_window: Simd<u8, LANE_COUNT>,
-) -> Simd<u8, LANE_COUNT> {
+    current_window: Simd<u8, SIMD_LANE_COUNT>,
+    lookahead_window: Simd<u8, SIMD_LANE_COUNT>,
+) -> Simd<u8, SIMD_LANE_COUNT> {
     let mut shifted = current_window.rotate_elements_left::<1>();
+
     let lookahead_first_lane = lookahead_window.as_array()[0];
-    let last_lane_mask = Mask::from_bitmask(1 << (LANE_COUNT - 1));
+    let last_lane_mask = Mask::from_bitmask(1 << (SIMD_LANE_COUNT - 1));
     let injected_value = Simd::splat(lookahead_first_lane);
+
     shifted = last_lane_mask.select(injected_value, shifted);
+
     shifted
 }
 
 #[inline(always)]
 fn classify_high_nibbles_to_utf8_classes(
-    byte_vector: Simd<u8, LANE_COUNT>,
-) -> Simd<u8, LANE_COUNT> {
+    byte_vector: Simd<u8, SIMD_LANE_COUNT>,
+) -> Simd<u8, SIMD_LANE_COUNT> {
     let high_nibbles = byte_vector >> Simd::splat(4u8);
     let mut utf8_class_vector = Simd::splat(1u8);
 
@@ -224,98 +252,155 @@ fn classify_high_nibbles_to_utf8_classes(
 
 #[inline(always)]
 fn shift_right_utf8_classes_by_one(
-    class_vector: Simd<u8, LANE_COUNT>,
-    previous_class_vector: Simd<u8, LANE_COUNT>,
-) -> Simd<u8, LANE_COUNT> {
+    class_vector: Simd<u8, SIMD_LANE_COUNT>,
+    previous_class_vector: Simd<u8, SIMD_LANE_COUNT>,
+) -> Simd<u8, SIMD_LANE_COUNT> {
     let mut shifted = class_vector.rotate_elements_right::<1>();
-    let previous_last_lane = previous_class_vector.as_array()[LANE_COUNT - 1];
+
+    let previous_last_lane = previous_class_vector.as_array()[SIMD_LANE_COUNT - 1];
     let first_lane_mask = Mask::from_bitmask(1);
     let injected_value = Simd::splat(previous_last_lane);
+
     shifted = first_lane_mask.select(injected_value, shifted);
+
     shifted
 }
 
 #[inline(always)]
 fn shift_right_utf8_classes_by_two(
-    class_vector: Simd<u8, LANE_COUNT>,
-    previous_class_vector: Simd<u8, LANE_COUNT>,
-) -> Simd<u8, LANE_COUNT> {
+    class_vector: Simd<u8, SIMD_LANE_COUNT>,
+    previous_class_vector: Simd<u8, SIMD_LANE_COUNT>,
+) -> Simd<u8, SIMD_LANE_COUNT> {
     let mut shifted = class_vector.rotate_elements_right::<2>();
+
     let previous_class_array = previous_class_vector.as_array();
     let first_lane_mask = Mask::from_bitmask(1);
     let second_lane_mask = Mask::from_bitmask(1 << 1);
-    let injected_first_value = Simd::splat(previous_class_array[LANE_COUNT - 2]);
-    let injected_second_value = Simd::splat(previous_class_array[LANE_COUNT - 1]);
+    let injected_first_value = Simd::splat(previous_class_array[SIMD_LANE_COUNT - 2]);
+    let injected_second_value = Simd::splat(previous_class_array[SIMD_LANE_COUNT - 1]);
+
     shifted = first_lane_mask.select(injected_first_value, shifted);
     shifted = second_lane_mask.select(injected_second_value, shifted);
+
     shifted
 }
 
 #[inline(always)]
 fn shift_left_utf8_classes_by_one(
-    class_vector: Simd<u8, LANE_COUNT>,
-    next_class_vector: Simd<u8, LANE_COUNT>,
-) -> Simd<u8, LANE_COUNT> {
+    class_vector: Simd<u8, SIMD_LANE_COUNT>,
+    next_class_vector: Simd<u8, SIMD_LANE_COUNT>,
+) -> Simd<u8, SIMD_LANE_COUNT> {
     let mut shifted = class_vector.rotate_elements_left::<1>();
+
     let next_first_lane = next_class_vector.as_array()[0];
-    let last_lane_mask = Mask::from_bitmask(1 << (LANE_COUNT - 1));
+    let last_lane_mask = Mask::from_bitmask(1 << (SIMD_LANE_COUNT - 1));
     let injected_value = Simd::splat(next_first_lane);
+
     shifted = last_lane_mask.select(injected_value, shifted);
+
     shifted
 }
 
 #[inline(always)]
 fn shift_left_utf8_classes_by_two(
-    class_vector: Simd<u8, LANE_COUNT>,
-    next_class_vector: Simd<u8, LANE_COUNT>,
-) -> Simd<u8, LANE_COUNT> {
+    class_vector: Simd<u8, SIMD_LANE_COUNT>,
+    next_class_vector: Simd<u8, SIMD_LANE_COUNT>,
+) -> Simd<u8, SIMD_LANE_COUNT> {
     let mut shifted = class_vector.rotate_elements_left::<2>();
+
     let next_class_array = next_class_vector.as_array();
-    let second_to_last_lane_mask = Mask::from_bitmask(1 << (LANE_COUNT - 2));
-    let last_lane_mask = Mask::from_bitmask(1 << (LANE_COUNT - 1));
+    let second_to_last_lane_mask = Mask::from_bitmask(1 << (SIMD_LANE_COUNT - 2));
+    let last_lane_mask = Mask::from_bitmask(1 << (SIMD_LANE_COUNT - 1));
     let injected_second_to_last_value = Simd::splat(next_class_array[0]);
     let injected_last_value = Simd::splat(next_class_array[1]);
+
     shifted = second_to_last_lane_mask.select(injected_second_to_last_value, shifted);
     shifted = last_lane_mask.select(injected_last_value, shifted);
+
     shifted
 }
 
 #[inline(always)]
 fn shift_left_utf8_classes_by_three(
-    class_vector: Simd<u8, LANE_COUNT>,
-    next_class_vector: Simd<u8, LANE_COUNT>,
-) -> Simd<u8, LANE_COUNT> {
+    class_vector: Simd<u8, SIMD_LANE_COUNT>,
+    next_class_vector: Simd<u8, SIMD_LANE_COUNT>,
+) -> Simd<u8, SIMD_LANE_COUNT> {
     let mut shifted = class_vector.rotate_elements_left::<3>();
+
     let next_class_array = next_class_vector.as_array();
-    let third_to_last_lane_mask = Mask::from_bitmask(1 << (LANE_COUNT - 3));
-    let second_to_last_lane_mask = Mask::from_bitmask(1 << (LANE_COUNT - 2));
-    let last_lane_mask = Mask::from_bitmask(1 << (LANE_COUNT - 1));
+    let third_to_last_lane_mask = Mask::from_bitmask(1 << (SIMD_LANE_COUNT - 3));
+    let second_to_last_lane_mask = Mask::from_bitmask(1 << (SIMD_LANE_COUNT - 2));
+    let last_lane_mask = Mask::from_bitmask(1 << (SIMD_LANE_COUNT - 1));
     let injected_third_to_last_value = Simd::splat(next_class_array[0]);
     let injected_second_to_last_value = Simd::splat(next_class_array[1]);
     let injected_last_value = Simd::splat(next_class_array[2]);
+
     shifted = third_to_last_lane_mask.select(injected_third_to_last_value, shifted);
     shifted = second_to_last_lane_mask.select(injected_second_to_last_value, shifted);
     shifted = last_lane_mask.select(injected_last_value, shifted);
+
     shifted
 }
 
 #[inline(always)]
 fn shift_right_utf8_classes_by_three(
-    class_vector: Simd<u8, LANE_COUNT>,
-    previous_class_vector: Simd<u8, LANE_COUNT>,
-) -> Simd<u8, LANE_COUNT> {
+    class_vector: Simd<u8, SIMD_LANE_COUNT>,
+    previous_class_vector: Simd<u8, SIMD_LANE_COUNT>,
+) -> Simd<u8, SIMD_LANE_COUNT> {
     let mut shifted = class_vector.rotate_elements_right::<3>();
+
     let previous_class_array = previous_class_vector.as_array();
     let first_lane_mask = Mask::from_bitmask(1);
     let second_lane_mask = Mask::from_bitmask(1 << 1);
     let third_lane_mask = Mask::from_bitmask(1 << 2);
-    let injected_first_value = Simd::splat(previous_class_array[LANE_COUNT - 3]);
-    let injected_second_value = Simd::splat(previous_class_array[LANE_COUNT - 2]);
-    let injected_third_value = Simd::splat(previous_class_array[LANE_COUNT - 1]);
+    let injected_first_value = Simd::splat(previous_class_array[SIMD_LANE_COUNT - 3]);
+    let injected_second_value = Simd::splat(previous_class_array[SIMD_LANE_COUNT - 2]);
+    let injected_third_value = Simd::splat(previous_class_array[SIMD_LANE_COUNT - 1]);
+
     shifted = first_lane_mask.select(injected_first_value, shifted);
     shifted = second_lane_mask.select(injected_second_value, shifted);
     shifted = third_lane_mask.select(injected_third_value, shifted);
+
     shifted
+}
+
+#[inline(always)]
+fn fill_significant_start_indices(
+    input_vector: Simd<u8, SIMD_LANE_COUNT>,
+    window_start_index: usize,
+    window_length: usize,
+    significant_start_indices: &mut Vec<usize>,
+    previous_was_whitespace: &mut u64,
+) {
+    let tail_mask: u64 = if window_length == SIMD_LANE_COUNT {
+        BITLIST_LIMIT
+    } else {
+        (1u64 << window_length) - 1
+    };
+
+    let space = input_vector.simd_eq(Simd::splat(b' ')).to_bitmask();
+    let tab = input_vector.simd_eq(Simd::splat(b'\t')).to_bitmask();
+    let newline = input_vector.simd_eq(Simd::splat(b'\n')).to_bitmask();
+    let carriage_return = input_vector.simd_eq(Simd::splat(b'\r')).to_bitmask();
+
+    let whitespace_bits = (space | tab | newline | carriage_return) & tail_mask;
+    let non_whitespace_bits = !whitespace_bits;
+
+    let prev_ws_bit = *previous_was_whitespace & 1;
+    let shifted_ws = ((whitespace_bits << 1) | prev_ws_bit) & tail_mask;
+    let mut start_bits = non_whitespace_bits & shifted_ws;
+
+    while start_bits != 0 {
+        let lane = start_bits.trailing_zeros() as usize;
+
+        significant_start_indices.push(window_start_index + lane);
+
+        start_bits &= start_bits - 1;
+    }
+
+    if window_length == SIMD_LANE_COUNT {
+        *previous_was_whitespace = (whitespace_bits >> (window_length - 1)) & 1;
+    }
 }
 
 #[cfg(test)]
@@ -334,24 +419,40 @@ mod tests {
                 continue;
             }
 
-            let character = std::char::from_u32(codepoint).unwrap();
+            let character = char::from_u32(codepoint).unwrap();
 
             character.encode_utf8(&mut bytes);
             all_valid_utf8.extend_from_slice(&bytes[..character.len_utf8()]);
         }
 
-        assert!(validate_utf8(&all_valid_utf8));
+        assert!(validate_utf8_and_find_token_starts(&all_valid_utf8).0);
+    }
+
+    #[test]
+    fn test_token_start_indices() {
+        let input = b"Hello, \nWorld!\tThis is a test.\r\n";
+        let (_, indices) = validate_utf8_and_find_token_starts(input);
+        let expected_indices = vec![
+            0,  // 'H'
+            8,  // 'W'
+            15, // 'T'
+            20, // 'i'
+            23, // 'a'
+            25, // 't'
+        ];
+
+        assert_eq!(indices, expected_indices);
     }
 }
 
 // https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
 #[cfg(test)]
 mod kuhn_tests {
-    use super::validate_utf8;
+    use super::validate_utf8_and_find_token_starts;
 
     fn assert_valid(bytes: &[u8]) {
         assert!(
-            validate_utf8(bytes),
+            validate_utf8_and_find_token_starts(bytes).0,
             "Expected valid, got invalid: {:x?}",
             bytes
         );
@@ -359,7 +460,7 @@ mod kuhn_tests {
 
     fn assert_invalid(bytes: &[u8]) {
         assert!(
-            !validate_utf8(bytes),
+            !validate_utf8_and_find_token_starts(bytes).0,
             "Expected invalid, got valid: {:x?}",
             bytes
         );

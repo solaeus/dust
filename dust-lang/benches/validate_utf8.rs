@@ -1,7 +1,7 @@
 use std::{hint::black_box, time::Duration};
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use dust_lang::validate_utf8;
+use dust_lang::validate_utf8_and_find_token_starts;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("validate_utf8");
@@ -25,20 +25,20 @@ fn criterion_benchmark(c: &mut Criterion) {
     }
 
     group.bench_function("all_valid_utf8", |b| {
-        b.iter(|| validate_utf8(black_box(&all_valid_utf8)))
+        b.iter(|| validate_utf8_and_find_token_starts(black_box(&all_valid_utf8)))
     });
 
     let all_ascii = Vec::from_iter(0u8..=127);
     let big_ascii = all_ascii.repeat(1_000_000);
 
     group.bench_function("big_ascii", |b| {
-        b.iter(|| validate_utf8(black_box(&big_ascii)))
+        b.iter(|| validate_utf8_and_find_token_starts(black_box(&big_ascii)))
     });
 
     let bigger_ascii = all_ascii.repeat(10_000_000);
 
     group.bench_function("bigger_ascii", |b| {
-        b.iter(|| validate_utf8(black_box(&bigger_ascii)))
+        b.iter(|| validate_utf8_and_find_token_starts(black_box(&bigger_ascii)))
     });
     group.finish();
 }
