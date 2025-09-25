@@ -2,11 +2,12 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use smallvec::SmallVec;
 
 use crate::{
-    Position, TokenKind, Type,
+    Position, Type,
     dust_error::AnnotatedError,
     resolver::{DeclarationId, DeclarationKind, ScopeId, TypeId},
     source::SourceFileId,
     syntax_tree::{SyntaxId, SyntaxKind},
+    token::TokenKind,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]

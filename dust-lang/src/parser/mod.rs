@@ -15,12 +15,12 @@ use smallvec::SmallVec;
 use tracing::{Level, debug, error, info, span, warn};
 
 use crate::{
-    Lexer, Position, Source, Span, TokenKind,
+    Lexer, Position, Source, Span,
     dust_error::DustError,
     parser::parse_rule::{ParseRule, Precedence},
     source::SourceFileId,
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
-    token::Token,
+    token::{Token, TokenKind},
 };
 
 pub fn parse_main(source_code: String) -> (SyntaxTree, Option<DustError>) {

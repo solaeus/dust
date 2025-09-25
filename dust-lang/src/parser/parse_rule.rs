@@ -1,8 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
 use crate::{
-    TokenKind,
     parser::{ParseError, Parser},
+    token::TokenKind,
 };
 
 pub type ParseLogic<'a> = fn(&mut Parser<'a>) -> Result<(), ParseError>;

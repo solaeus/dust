@@ -5,7 +5,10 @@ mod tests;
 
 pub use validate_utf8::validate_utf8_and_find_token_spans;
 
-use crate::{Span, TokenKind, token::Token};
+use crate::{
+    Span,
+    token::{Token, TokenKind},
+};
 
 #[derive(Debug, Default)]
 pub struct Lexer<'src> {
@@ -26,16 +29,18 @@ impl<'src> Lexer<'src> {
     pub fn new(source: &'src [u8]) -> Option<Self> {
         let (is_valid_utf8, token_spans) = validate_utf8_and_find_token_spans(source);
 
-        if is_valid_utf8 {
-            Some(Lexer {
-                source,
-                next_token_start: 0,
-                token_spans,
-                is_eof: false,
-            })
-        } else {
-            None
-        }
+        todo!();
+
+        // if is_valid_utf8 {
+        //     Some(Lexer {
+        //         source,
+        //         next_token_start: 0,
+        //         token_spans,
+        //         is_eof: false,
+        //     })
+        // } else {
+        //     None
+        // }
     }
 
     pub fn source(&self) -> &'src [u8] {

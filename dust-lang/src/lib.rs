@@ -67,7 +67,6 @@ pub use lexer::{Lexer, validate_utf8_and_find_token_spans};
 pub use native_function::NativeFunction;
 pub use position::{Position, Span};
 pub use resolver::Resolver;
-pub use token::TokenKind;
 pub use r#type::{FunctionType, Type};
 pub use value::{List, Value};
 

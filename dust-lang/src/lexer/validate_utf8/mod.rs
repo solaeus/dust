@@ -8,9 +8,12 @@ use std::simd::{
 
 use simd_vectors::*;
 
-use crate::Span;
+use crate::{
+    Span,
+    token::{Token, TokenKind},
+};
 
-pub fn validate_utf8_and_find_token_spans(input: &[u8]) -> (bool, Vec<Span>) {
+pub fn validate_utf8_and_find_token_spans(input: &[u8]) -> (bool, Vec<Token>) {
     if cfg!(target_feature = "avx512bw") {
         validate_utf8_64_lanes(input)
     } else if cfg!(target_feature = "avx2") {
@@ -20,99 +23,172 @@ pub fn validate_utf8_and_find_token_spans(input: &[u8]) -> (bool, Vec<Span>) {
     }
 }
 
-fn validate_utf8_inner<const LANE_COUNT: usize>(input: &[u8]) -> (bool, Vec<Span>)
+fn validate_utf8_inner<const LANE_COUNT: usize>(input: &[u8]) -> (bool, Vec<Token>)
 where
     LaneCount<LANE_COUNT>: SupportedLaneCount,
 {
-    let mut token_spans = Vec::new();
+    let mut tokens = Vec::new();
     let mut index = 0;
+    let mut token_start: Option<usize> = None;
 
     loop {
-        index = scan_ascii(input, index, &mut token_spans);
+        index = scan_ascii(input, index, &mut tokens, &mut token_start);
 
         if index >= input.len() {
-            return (true, token_spans);
+            if let Some(current_word_start) = token_start.take() {
+                let span = Span(current_word_start as u32, index as u32);
+                let kind = classify_token_bytes(&input[current_word_start..index]);
+
+                tokens.push(Token { kind, span });
+            }
+
+            return (true, tokens);
+        }
+
+        if token_start.is_none() {
+            token_start = Some(index);
         }
 
         if scan_non_ascii_simd::<LANE_COUNT>(input, &mut index) {
-            return (false, token_spans);
+            return (false, tokens);
         }
     }
 }
 
-fn validate_utf8_64_lanes(input: &[u8]) -> (bool, Vec<Span>) {
+fn validate_utf8_64_lanes(input: &[u8]) -> (bool, Vec<Token>) {
     validate_utf8_inner::<64>(input)
 }
 
-fn validate_utf8_32_lanes(input: &[u8]) -> (bool, Vec<Span>) {
+fn validate_utf8_32_lanes(input: &[u8]) -> (bool, Vec<Token>) {
     validate_utf8_inner::<32>(input)
 }
 
-fn validate_utf8_scalar(input: &[u8]) -> (bool, Vec<Span>) {
-    let mut token_spans = Vec::new();
+fn validate_utf8_scalar(input: &[u8]) -> (bool, Vec<Token>) {
+    let mut tokens = Vec::new();
     let mut index = 0;
+    let mut current_word_start_index: Option<usize> = None;
 
     loop {
-        index = scan_ascii(input, index, &mut token_spans);
+        index = scan_ascii(input, index, &mut tokens, &mut current_word_start_index);
 
         if index >= input.len() {
-            return (true, token_spans);
+            if let Some(current_word_start) = current_word_start_index.take() {
+                let span = Span(current_word_start as u32, index as u32);
+                let kind = classify_token_bytes(&input[current_word_start..index]);
+
+                tokens.push(Token { kind, span });
+            }
+
+            return (true, tokens);
+        }
+
+        if current_word_start_index.is_none() {
+            current_word_start_index = Some(index);
         }
 
         if scan_non_ascii_scalar(input, &mut index) {
-            return (false, token_spans);
+            return (false, tokens);
         }
     }
 }
 
 #[inline(always)]
-fn scan_ascii(input: &[u8], mut index: usize, token_spans: &mut Vec<Span>) -> usize {
-    let usize_bytes = core::mem::size_of::<usize>();
-    let ascii_block_size = 2 * usize_bytes;
-    let blocks_end = if input.len() >= ascii_block_size {
-        input.len() - ascii_block_size + 1
-    } else {
-        0
-    };
-    let alignment = input.as_ptr().align_offset(usize_bytes);
+fn scan_ascii(
+    input: &[u8],
+    mut index: usize,
+    tokens: &mut Vec<Token>,
+    current_word_start_index: &mut Option<usize>,
+) -> usize {
+    unsafe {
+        let input_pointer = input.as_ptr();
+        let input_length = input.len();
+        let mut byte_index = index;
 
-    if alignment != usize::MAX && alignment.wrapping_sub(index).is_multiple_of(usize_bytes) {
-        let pointer = input.as_ptr();
+        while byte_index < input_length {
+            let byte = *input_pointer.add(byte_index);
 
-        while index < blocks_end {
-            unsafe {
-                let block_pointer = pointer.add(index) as *const usize;
-                let first_word_has_non_ascii = (*block_pointer & NON_ASCII_MASK) != 0;
-                let second_word_has_non_ascii = (*block_pointer.add(1) & NON_ASCII_MASK) != 0;
+            if byte >= 128 {
+                break;
+            }
 
-                if first_word_has_non_ascii || second_word_has_non_ascii {
-                    break;
+            if is_ascii_whitespace(byte) {
+                if let Some(current_word_start) = current_word_start_index.take() {
+                    let span = Span(current_word_start as u32, byte_index as u32);
+                    let kind = classify_token_bytes(&input[current_word_start..byte_index]);
+                    tokens.push(Token { kind, span });
+                }
+
+                byte_index += 1;
+
+                continue;
+            }
+
+            // Treat '.' as part of a number if the current token started with a digit and the next byte is also a digit
+            if byte == b'.'
+                && let Some(current_word_start) = *current_word_start_index
+            {
+                let token_first_byte = *input_pointer.add(current_word_start);
+                let next_is_digit = (byte_index + 1) < input_length
+                    && (*input_pointer.add(byte_index + 1)).is_ascii_digit();
+
+                if token_first_byte.is_ascii_digit() && next_is_digit {
+                    byte_index += 1;
+
+                    continue;
                 }
             }
-            index += ascii_block_size;
-        }
 
-        unsafe {
-            let mut byte_pointer = input.as_ptr().add(index);
-            let end_pointer = input.as_ptr().add(input.len());
+            if is_operator_or_punctuation(byte) {
+                if let Some(current_word_start) = current_word_start_index.take() {
+                    let span = Span(current_word_start as u32, byte_index as u32);
+                    let kind = classify_token_bytes(&input[current_word_start..byte_index]);
+                    tokens.push(Token { kind, span });
+                }
 
-            while byte_pointer < end_pointer && *byte_pointer < 128 {
-                byte_pointer = byte_pointer.add(1);
+                // Special case: -Infinity as a single token
+                if byte == b'-' && byte_index + 9 <= input_length {
+                    let slice = core::slice::from_raw_parts(input_pointer.add(byte_index), 9);
+                    if slice == b"-Infinity" {
+                        let span = Span(byte_index as u32, (byte_index + 9) as u32);
+                        let kind = classify_token_bytes(&input[byte_index..byte_index + 9]);
+                        tokens.push(Token { kind, span });
+                        byte_index += 9;
+                        continue;
+                    }
+                }
+
+                // Greedy two-character operator match
+                if byte_index + 1 < input_length {
+                    let two_kind = classify_token_bytes(&input[byte_index..byte_index + 2]);
+                    if two_kind != TokenKind::Unknown {
+                        let span = Span(byte_index as u32, (byte_index + 2) as u32);
+                        tokens.push(Token {
+                            kind: two_kind,
+                            span,
+                        });
+                        byte_index += 2;
+                        continue;
+                    }
+                }
+
+                // Fallback single-character operator
+                let span = Span(byte_index as u32, (byte_index + 1) as u32);
+                let kind = classify_token_bytes(&input[byte_index..byte_index + 1]);
+                tokens.push(Token { kind, span });
+
+                byte_index += 1;
+
+                continue;
             }
 
-            index = byte_pointer as usize - input.as_ptr() as usize;
-        }
-    } else {
-        unsafe {
-            let mut byte_pointer = input.as_ptr().add(index);
-            let end_pointer = input.as_ptr().add(input.len());
-
-            while byte_pointer < end_pointer && *byte_pointer < 128 {
-                byte_pointer = byte_pointer.add(1);
+            if current_word_start_index.is_none() {
+                *current_word_start_index = Some(byte_index);
             }
 
-            index = byte_pointer as usize - input.as_ptr() as usize;
+            byte_index += 1;
         }
+
+        index = byte_index;
     }
 
     index
@@ -278,16 +354,9 @@ where
 
         // Stop at the first ASCII byte
         unsafe {
-            let mut p = input.as_ptr().add(window_start_index);
+            let p = input.as_ptr().add(window_start_index);
             let end = input.as_ptr().add(input.len());
-            while p < end && *p < 128 {
-                p = p.add(1);
-            }
-            let next_index = p as usize - input.as_ptr() as usize;
-
-            if next_index > window_start_index {
-                window_start_index = next_index;
-
+            if p < end && *p < 128 {
                 break;
             }
         }
@@ -364,6 +433,179 @@ fn scan_non_ascii_scalar(input: &[u8], index: &mut usize) -> bool {
     }
 
     false
+}
+
+#[inline(always)]
+fn is_ascii_whitespace(byte: u8) -> bool {
+    matches!(byte, b' ' | b'\n' | b'\r' | b'\t')
+}
+
+#[inline(always)]
+fn is_operator_or_punctuation(byte: u8) -> bool {
+    matches!(
+        byte,
+        b'!' | b'"'
+            | b'#'
+            | b'$'
+            | b'%'
+            | b'&'
+            | b'\''
+            | b'('
+            | b')'
+            | b'*'
+            | b'+'
+            | b','
+            | b'-'
+            | b'.'
+            | b'/'
+            | b':'
+            | b';'
+            | b'<'
+            | b'='
+            | b'>'
+            | b'?'
+            | b'@'
+            | b'['
+            | b'\\'
+            | b']'
+            | b'^'
+            | b'_'
+            | b'`'
+            | b'{'
+            | b'|'
+            | b'}'
+            | b'~'
+    )
+}
+
+fn classify_token_bytes(word: &[u8]) -> TokenKind {
+    match word {
+        // Keywords
+        b"any" => TokenKind::Any,
+        b"async" => TokenKind::Async,
+        b"bool" => TokenKind::Bool,
+        b"break" => TokenKind::Break,
+        b"byte" => TokenKind::Byte,
+        b"cell" => TokenKind::Cell,
+        b"char" => TokenKind::Char,
+        b"const" => TokenKind::Const,
+        b"else" => TokenKind::Else,
+        b"float" => TokenKind::Float,
+        b"fn" => TokenKind::Fn,
+        b"if" => TokenKind::If,
+        b"int" => TokenKind::Int,
+        b"let" => TokenKind::Let,
+        b"list" => TokenKind::List,
+        b"loop" => TokenKind::Loop,
+        b"map" => TokenKind::Map,
+        b"mod" => TokenKind::Mod,
+        b"mut" => TokenKind::Mut,
+        b"pub" => TokenKind::Pub,
+        b"return" => TokenKind::Return,
+        b"str" => TokenKind::Str,
+        b"struct" => TokenKind::Struct,
+        b"use" => TokenKind::Use,
+        b"while" => TokenKind::While,
+
+        // Operators and punctuation
+        b"->" => TokenKind::ArrowThin,
+        b"*" => TokenKind::Asterisk,
+        b"*=" => TokenKind::AsteriskEqual,
+        b"!=" => TokenKind::BangEqual,
+        b"!" => TokenKind::Bang,
+        b":" => TokenKind::Colon,
+        b"," => TokenKind::Comma,
+        b"." => TokenKind::Dot,
+        b"&&" => TokenKind::DoubleAmpersand,
+        b"::" => TokenKind::DoubleColon,
+        b".." => TokenKind::DoubleDot,
+        b"==" => TokenKind::DoubleEqual,
+        b"||" => TokenKind::DoublePipe,
+        b"=" => TokenKind::Equal,
+        b">" => TokenKind::Greater,
+        b">=" => TokenKind::GreaterEqual,
+        b"{" => TokenKind::LeftCurlyBrace,
+        b"[" => TokenKind::LeftSquareBracket,
+        b"(" => TokenKind::LeftParenthesis,
+        b"<" => TokenKind::Less,
+        b"<=" => TokenKind::LessEqual,
+        b"-" => TokenKind::Minus,
+        b"-=" => TokenKind::MinusEqual,
+        b"%" => TokenKind::Percent,
+        b"%=" => TokenKind::PercentEqual,
+        b"+" => TokenKind::Plus,
+        b"+=" => TokenKind::PlusEqual,
+        b"}" => TokenKind::RightCurlyBrace,
+        b"]" => TokenKind::RightSquareBracket,
+        b")" => TokenKind::RightParenthesis,
+        b";" => TokenKind::Semicolon,
+        b"/" => TokenKind::Slash,
+        b"/=" => TokenKind::SlashEqual,
+
+        // Literals
+        b"true" => TokenKind::TrueValue,
+        b"false" => TokenKind::FalseValue,
+        b"Infinity" => TokenKind::FloatValue,
+        b"-Infinity" => TokenKind::FloatValue,
+        word if !word.is_empty() && (word[0].is_ascii_alphabetic() || word[0] == b'_') => {
+            if word.iter().all(|b| b.is_ascii_alphanumeric() || *b == b'_') {
+                TokenKind::Identifier
+            } else {
+                TokenKind::Unknown
+            }
+        }
+        word if word.len() > 2
+            && word[0] == b'0'
+            && word[1] == b'x'
+            && word[2..].iter().all(|b| b.is_ascii_hexdigit()) =>
+        {
+            TokenKind::ByteValue
+        }
+        word if !word.is_empty() && word[0].is_ascii_digit() => {
+            let mut iterator = word.iter().peekable();
+            let mut has_decimal = false;
+            let mut has_exponent = false;
+
+            while let Some(&byte) = iterator.peek() {
+                match byte {
+                    b'0'..=b'9' => {
+                        iterator.next();
+                    }
+                    b'.' if !has_decimal => {
+                        has_decimal = true;
+                        iterator.next();
+                    }
+                    b'e' | b'E' => {
+                        if !has_exponent && has_decimal {
+                            has_exponent = true;
+                            has_decimal = true;
+                            iterator.next();
+                        } else {
+                            break;
+                        }
+                    }
+                    _ => break,
+                }
+            }
+
+            if iterator.next().is_none() {
+                if has_decimal {
+                    TokenKind::FloatValue
+                } else {
+                    TokenKind::IntegerValue
+                }
+            } else {
+                TokenKind::Unknown
+            }
+        }
+        word if word.len() >= 2 && word[0] == b'"' && word[word.len() - 1] == b'"' => {
+            TokenKind::StringValue
+        }
+        word if word.len() == 3 && word[0] == b'\'' && word[2] == b'\'' => {
+            TokenKind::CharacterValue
+        }
+        _ => TokenKind::Unknown,
+    }
 }
 
 #[inline(always)]
@@ -566,8 +808,6 @@ where
     shifted
 }
 
-const NON_ASCII_MASK: usize = usize::MAX / 0xFF * 0x80;
-
 // https://tools.ietf.org/html/rfc3629
 const UTF8_CHAR_WIDTH: &[u8; 256] = &[
     // 1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
@@ -599,6 +839,75 @@ const fn utf8_char_width(b: u8) -> usize {
 mod tests {
     use super::*;
 
+    #[test]
+    fn token_spans() {
+        let input = b"let a:int=42;\nlet b:int=666;";
+        let (_, tokens) = validate_utf8_and_find_token_spans(input);
+        let expected_tokens = vec![
+            Token {
+                kind: TokenKind::Let,
+                span: Span(0, 3),
+            },
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span(4, 5),
+            },
+            Token {
+                kind: TokenKind::Colon,
+                span: Span(5, 6),
+            },
+            Token {
+                kind: TokenKind::Int,
+                span: Span(6, 9),
+            },
+            Token {
+                kind: TokenKind::Equal,
+                span: Span(9, 10),
+            },
+            Token {
+                kind: TokenKind::IntegerValue,
+                span: Span(10, 12),
+            },
+            Token {
+                kind: TokenKind::Semicolon,
+                span: Span(12, 13),
+            },
+            Token {
+                kind: TokenKind::Let,
+                span: Span(14, 17),
+            },
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span(18, 19),
+            },
+            Token {
+                kind: TokenKind::Colon,
+                span: Span(19, 20),
+            },
+            Token {
+                kind: TokenKind::Int,
+                span: Span(20, 23),
+            },
+            Token {
+                kind: TokenKind::Equal,
+                span: Span(23, 24),
+            },
+            Token {
+                kind: TokenKind::IntegerValue,
+                span: Span(24, 27),
+            },
+            Token {
+                kind: TokenKind::Semicolon,
+                span: Span(27, 28),
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(28, 28),
+            },
+        ];
+
+        assert_eq!(tokens, expected_tokens);
+    }
     #[test]
     fn all_ascii() {
         let all_ascii: Vec<u8> = (0..=0x7F).collect();

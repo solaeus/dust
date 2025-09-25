@@ -1,4 +1,7 @@
-use crate::{Lexer, Span, TokenKind, token::Token};
+use crate::{
+    Lexer, Span,
+    token::{Token, TokenKind},
+};
 
 #[test]
 fn single_identifier() {
