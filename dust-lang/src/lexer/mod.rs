@@ -6,6 +6,20 @@ use crate::{
     token::{Token, TokenKind},
 };
 
+const CLASS_WHITESPACE: u8 = 1 << 0;
+const CLASS_PUNCTUATION: u8 = 1 << 1;
+const CLASS_DIGIT: u8 = 1 << 2;
+const CLASS_ALPHA: u8 = 1 << 3;
+const CLASS_UNDERSCORE: u8 = 1 << 4;
+
+const ASCII_CLASS: [u8; 128] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 2, 2, 2, 2, 2, 2,
+    2, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 2, 2, 2, 2,
+    16, 2, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 2, 2, 2,
+    2, 0,
+];
+
 #[derive(Debug)]
 pub struct Lexer<'src> {
     source: &'src [u8],
@@ -268,7 +282,7 @@ impl Iterator for Lexer<'_> {
                 }));
             }
 
-            let byte = self.source[self.index];
+            let byte = unsafe { *self.source.as_ptr().add(self.index) };
 
             if byte < 0x80 {
                 if is_ascii_whitespace(byte) {
@@ -332,7 +346,7 @@ impl Iterator for Lexer<'_> {
 
                     if token_first.is_ascii_digit() && next_is_digit {
                         self.index += 1;
-                        self.token_flags.length += 1;
+                        self.token_flags.len += 1;
                         self.token_flags.has_decimal = true;
 
                         continue;
@@ -340,8 +354,8 @@ impl Iterator for Lexer<'_> {
                 }
 
                 if is_operator_or_punctuation(byte) {
-                    if let Some(token) = self.finish_token() {
-                        return Some(Ok(token));
+                    if let Some(tok) = self.finish_token() {
+                        return Some(Ok(tok));
                     }
 
                     if byte == b'-' && self.index + 9 <= self.len() {
@@ -357,10 +371,14 @@ impl Iterator for Lexer<'_> {
                     }
 
                     if self.index + 1 < self.len() {
-                        let first_byte = self.source[self.index];
-                        let second_byte = self.source[self.index + 1];
+                        let op = unsafe {
+                            u16::from_le_bytes([
+                                *self.source.as_ptr().add(self.index),
+                                *self.source.as_ptr().add(self.index + 1),
+                            ])
+                        };
 
-                        if let Some(two_kind) = classify_two_operator(first_byte, second_byte) {
+                        if let Some(two_kind) = classify_two_operator_u16(op) {
                             let span = Span(self.index as u32, (self.index + 2) as u32);
 
                             self.index += 2;
@@ -373,7 +391,8 @@ impl Iterator for Lexer<'_> {
                     }
 
                     let span = Span(self.index as u32, (self.index + 1) as u32);
-                    let kind = classify_single_operator(self.source[self.index]);
+                    let kind =
+                        classify_single_operator(unsafe { *self.source.as_ptr().add(self.index) });
                     self.index += 1;
 
                     return Some(Ok(Token { kind, span }));
@@ -383,7 +402,13 @@ impl Iterator for Lexer<'_> {
                     self.token_start = Some(self.index);
                     self.token_flags = TokenFlags::start(byte);
                 } else if self.token_flags.starts_with_digit {
-                    let next = self.source.get(self.index + 1).copied();
+                    let next = unsafe {
+                        if self.index + 1 < self.len() {
+                            Some(*self.source.as_ptr().add(self.index + 1))
+                        } else {
+                            None
+                        }
+                    };
 
                     self.token_flags.push(byte, next);
                 }
@@ -406,7 +431,7 @@ impl Iterator for Lexer<'_> {
                         self.token_flags.unknown = true;
                     }
 
-                    self.token_flags.length = self.token_flags.length.saturating_add(width);
+                    self.token_flags.len = self.token_flags.len.saturating_add(width);
                     self.index += width;
 
                     continue;
@@ -421,51 +446,14 @@ impl Iterator for Lexer<'_> {
     }
 }
 
-const WS_MASK: u128 = (1u128 << (b' ' as u32))
-    | (1u128 << (b'\n' as u32))
-    | (1u128 << (b'\r' as u32))
-    | (1u128 << (b'\t' as u32));
-
-const PUNCT_MASK: u128 = (1u128 << (b'!' as u32))
-    | (1u128 << (b'"' as u32))
-    | (1u128 << (b'#' as u32))
-    | (1u128 << (b'$' as u32))
-    | (1u128 << (b'%' as u32))
-    | (1u128 << (b'&' as u32))
-    | (1u128 << (b'\'' as u32))
-    | (1u128 << (b'(' as u32))
-    | (1u128 << (b')' as u32))
-    | (1u128 << (b'*' as u32))
-    | (1u128 << (b'+' as u32))
-    | (1u128 << (b',' as u32))
-    | (1u128 << (b'-' as u32))
-    | (1u128 << (b'.' as u32))
-    | (1u128 << (b'/' as u32))
-    | (1u128 << (b':' as u32))
-    | (1u128 << (b';' as u32))
-    | (1u128 << (b'<' as u32))
-    | (1u128 << (b'=' as u32))
-    | (1u128 << (b'>' as u32))
-    | (1u128 << (b'?' as u32))
-    | (1u128 << (b'@' as u32))
-    | (1u128 << (b'[' as u32))
-    | (1u128 << (b'\\' as u32))
-    | (1u128 << (b']' as u32))
-    | (1u128 << (b'^' as u32))
-    | (1u128 << (b'`' as u32))
-    | (1u128 << (b'{' as u32))
-    | (1u128 << (b'|' as u32))
-    | (1u128 << (b'}' as u32))
-    | (1u128 << (b'~' as u32));
-
 #[inline(always)]
 fn is_ascii_whitespace(byte: u8) -> bool {
-    byte < 128 && ((WS_MASK >> (byte as u32)) & 1) != 0
+    byte < 128 && (ASCII_CLASS[byte as usize] & CLASS_WHITESPACE) != 0
 }
 
 #[inline(always)]
 fn is_operator_or_punctuation(byte: u8) -> bool {
-    byte < 128 && ((PUNCT_MASK >> (byte as u32)) & 1) != 0
+    byte < 128 && (ASCII_CLASS[byte as usize] & CLASS_PUNCTUATION) != 0
 }
 
 #[inline(always)]
@@ -522,22 +510,22 @@ fn keyword_kind(word: &[u8]) -> Option<TokenKind> {
 }
 
 #[inline(always)]
-fn classify_two_operator(b1: u8, b2: u8) -> Option<TokenKind> {
-    Some(match (b1, b2) {
-        (b'-', b'>') => TokenKind::ArrowThin,
-        (b'*', b'=') => TokenKind::AsteriskEqual,
-        (b'!', b'=') => TokenKind::BangEqual,
-        (b'&', b'&') => TokenKind::DoubleAmpersand,
-        (b':', b':') => TokenKind::DoubleColon,
-        (b'.', b'.') => TokenKind::DoubleDot,
-        (b'=', b'=') => TokenKind::DoubleEqual,
-        (b'|', b'|') => TokenKind::DoublePipe,
-        (b'>', b'=') => TokenKind::GreaterEqual,
-        (b'<', b'=') => TokenKind::LessEqual,
-        (b'-', b'=') => TokenKind::MinusEqual,
-        (b'%', b'=') => TokenKind::PercentEqual,
-        (b'+', b'=') => TokenKind::PlusEqual,
-        (b'/', b'=') => TokenKind::SlashEqual,
+fn classify_two_operator_u16(op: u16) -> Option<TokenKind> {
+    Some(match op {
+        0x3E2D => TokenKind::ArrowThin,
+        0x3D2A => TokenKind::AsteriskEqual,
+        0x3D21 => TokenKind::BangEqual,
+        0x2626 => TokenKind::DoubleAmpersand,
+        0x3A3A => TokenKind::DoubleColon,
+        0x2E2E => TokenKind::DoubleDot,
+        0x3D3D => TokenKind::DoubleEqual,
+        0x7C7C => TokenKind::DoublePipe,
+        0x3D3E => TokenKind::GreaterEqual,
+        0x3D3C => TokenKind::LessEqual,
+        0x3D2D => TokenKind::MinusEqual,
+        0x3D25 => TokenKind::PercentEqual,
+        0x3D2B => TokenKind::PlusEqual,
+        0x3D2F => TokenKind::SlashEqual,
         _ => return None,
     })
 }
@@ -589,7 +577,7 @@ struct TokenFlags {
     has_exponent: bool,
     unknown: bool,
     saw_non_ascii: bool,
-    length: usize,
+    len: usize,
     first_byte: u8,
 }
 
@@ -604,55 +592,71 @@ impl TokenFlags {
             has_exponent: false,
             unknown: false,
             saw_non_ascii: false,
-            length: 1,
+            len: 1,
             first_byte: first,
         }
     }
 
     #[inline(always)]
     fn push(&mut self, b: u8, next: Option<u8>) {
-        self.length += 1;
+        self.len += 1;
 
         if self.in_hexadecimal {
             if b.is_ascii_hexdigit() {
                 self.hex_digits += 1;
-            } else if b == b'_' {
-                // Allow underscores
-            } else {
-                self.unknown = true;
+                return;
             }
+            if b == b'_' {
+                return;
+            }
+            self.unknown = true;
             return;
         }
 
         if self.starts_with_digit {
-            if self.length == 2 && self.first_byte == b'0' && b == b'x' {
+            if self.len == 2 && self.first_byte == b'0' && b == b'x' {
                 self.in_hexadecimal = true;
                 return;
             }
 
+            let class = if b < 128 { ASCII_CLASS[b as usize] } else { 0 };
+
             if b == b'.' {
                 if !self.has_decimal
                     && next
-                        .map(|n| n.is_ascii_digit() || n == b'_')
+                        .map(|n| {
+                            if n < 128 {
+                                let c = ASCII_CLASS[n as usize];
+                                (c & CLASS_DIGIT) != 0 || (c & CLASS_UNDERSCORE) != 0
+                            } else {
+                                false
+                            }
+                        })
                         .unwrap_or(true)
                 {
                     self.has_decimal = true;
+                    return;
                 } else {
                     self.unknown = true;
+                    return;
                 }
-            } else if b == b'e' || b == b'E' {
+            }
+
+            if b == b'e' || b == b'E' {
                 if self.has_decimal && !self.has_exponent {
                     self.has_exponent = true;
+                    return;
                 } else {
                     self.unknown = true;
+                    return;
                 }
-            } else if b.is_ascii_digit() {
-                // Allow digits
-            } else if b == b'_' {
-                // Allow underscores
-            } else {
-                self.unknown = true;
             }
+
+            if (class & CLASS_DIGIT) != 0 || (class & CLASS_UNDERSCORE) != 0 {
+                return;
+            }
+
+            self.unknown = true;
         }
     }
 }
