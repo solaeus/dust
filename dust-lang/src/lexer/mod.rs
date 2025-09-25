@@ -3,7 +3,7 @@ mod validate_utf8;
 #[cfg(test)]
 mod tests;
 
-pub use validate_utf8::validate_utf8_and_find_token_starts;
+pub use validate_utf8::validate_utf8_and_find_token_spans;
 
 use crate::{Span, TokenKind, token::Token};
 
@@ -16,7 +16,7 @@ pub struct Lexer<'src> {
     next_token_start: usize,
 
     /// Locations of the start of each token in the source.
-    token_starts: Vec<usize>,
+    token_spans: Vec<Span>,
 
     /// Whether we've reached the end of the file.
     is_eof: bool,
@@ -24,13 +24,13 @@ pub struct Lexer<'src> {
 
 impl<'src> Lexer<'src> {
     pub fn new(source: &'src [u8]) -> Option<Self> {
-        let (is_valid_utf8, token_starts) = validate_utf8_and_find_token_starts(source);
+        let (is_valid_utf8, token_spans) = validate_utf8_and_find_token_spans(source);
 
         if is_valid_utf8 {
             Some(Lexer {
                 source,
                 next_token_start: 0,
-                token_starts,
+                token_spans,
                 is_eof: false,
             })
         } else {
@@ -49,7 +49,7 @@ impl Iterator for Lexer<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.is_eof {
             return None;
-        } else if self.next_token_start >= self.token_starts.len() {
+        } else if self.next_token_start >= self.token_spans.len() {
             self.is_eof = true;
             let length = self.source.len() as u32;
 
@@ -59,16 +59,10 @@ impl Iterator for Lexer<'_> {
             });
         }
 
-        let start_index = *self.token_starts.get(self.next_token_start)?;
-
+        let span = *self.token_spans.get(self.next_token_start)?;
         self.next_token_start += 1;
 
-        let end_index = self
-            .token_starts
-            .get(self.next_token_start)
-            .map(|i| i.saturating_sub(1))
-            .unwrap_or(self.source.len());
-        let word = self.source.get(start_index..end_index)?;
+        let word = self.source.get(span.as_usize_range())?;
         let token_kind = match word {
             // Keywords
             b"any" => TokenKind::Any,
@@ -198,7 +192,7 @@ impl Iterator for Lexer<'_> {
 
         Some(Token {
             kind: token_kind,
-            span: Span(start_index as u32, end_index as u32),
+            span,
         })
     }
 }

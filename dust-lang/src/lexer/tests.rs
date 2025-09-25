@@ -319,3 +319,47 @@ fn operators_and_punctuation() {
 
     assert_eq!(actual[..actual.len() - 1], expected);
 }
+
+#[test]
+fn adjacent_tokens() {
+    let source = b"let x:int=42;";
+    let tokens = Lexer::new(source).unwrap().collect::<Vec<Token>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Let,
+                span: Span(0, 3)
+            },
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span(4, 5)
+            },
+            Token {
+                kind: TokenKind::Colon,
+                span: Span(5, 6)
+            },
+            Token {
+                kind: TokenKind::Int,
+                span: Span(6, 9)
+            },
+            Token {
+                kind: TokenKind::Equal,
+                span: Span(9, 10)
+            },
+            Token {
+                kind: TokenKind::IntegerValue,
+                span: Span(10, 12)
+            },
+            Token {
+                kind: TokenKind::Semicolon,
+                span: Span(12, 13)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(13, 13)
+            }
+        ]
+    );
+}
