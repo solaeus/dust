@@ -12,6 +12,10 @@ use crate::{
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParseError {
+    InvalidUtf8 {
+        position: Position,
+    },
+
     // Syntax Errors
     ExpectedToken {
         actual: TokenKind,
@@ -146,6 +150,7 @@ pub enum ParseError {
 impl AnnotatedError for ParseError {
     fn file_id(&self) -> SourceFileId {
         match self {
+            ParseError::InvalidUtf8 { position } => position.file_id,
             ParseError::ExpectedToken { position, .. } => position.file_id,
             ParseError::ExpectedMultipleTokens { position, .. } => position.file_id,
             ParseError::UnexpectedToken { position, .. } => position.file_id,
@@ -185,6 +190,17 @@ impl AnnotatedError for ParseError {
         let source = unsafe { str::from_utf8_unchecked(source) };
 
         match self {
+            ParseError::InvalidUtf8 { position } => {
+                let title = "Invalid UTF-8 sequence".to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label("This is not valid UTF-8"),
+                    ),
+                )
+            }
             ParseError::ExpectedToken {
                 actual,
                 expected,

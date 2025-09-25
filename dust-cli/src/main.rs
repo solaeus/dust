@@ -1,4 +1,9 @@
-#![feature(duration_millis_float, formatting_options, iter_intersperse)]
+#![feature(
+    duration_millis_float,
+    formatting_options,
+    iter_intersperse,
+    iterator_try_collect
+)]
 
 mod cli;
 
@@ -7,19 +12,14 @@ use std::{
     fs::{File, create_dir, create_dir_all, read_to_string},
     io::{self, Read, Write},
     path::PathBuf,
-    sync::Arc,
     time::{Duration, Instant},
 };
 
 use clap::Parser;
 use dust_lang::{
-    Lexer, Resolver, Source,
-    chunk::TuiDisassembler,
-    compiler::Compiler,
-    jit_vm::{JitVm, MINIMUM_OBJECT_HEAP_DEFAULT, MINIMUM_OBJECT_SWEEP_DEFAULT},
-    parser::parse_main,
+    Lexer, Source,
     project::{DEFAULT_PROGRAM_PATH, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
-    source::SourceFile,
+    token::Token,
 };
 use memmap2::MmapOptions;
 use ron::ser::PrettyConfig;
@@ -40,7 +40,7 @@ fn main() {
         time,
         no_output,
         no_std: _,
-        name,
+        name: _,
     } = Cli::parse();
     let mode = mode.unwrap_or(Mode::Run {
         min_heap: None,
@@ -51,126 +51,182 @@ fn main() {
         start_logging(log_level, start_time);
     }
 
-    if let Mode::Run {
-        min_heap,
-        min_sweep,
-    } = mode
-    {
-        let source = get_source(path, name, stdin, eval);
-        let resolver = Resolver::new(true);
-        let compiler = Compiler::new(source.clone(), resolver);
-        let compile_result = compiler.compile();
-        let compile_time = start_time.elapsed();
+    // if let Mode::Run {
+    //     min_heap,
+    //     min_sweep,
+    // } = mode
+    // {
+    //     let source = get_source(path, name, stdin, eval);
+    //     let resolver = Resolver::new(true);
+    //     let compiler = Compiler::new(source.clone(), resolver);
+    //     let compile_result = compiler.compile();
+    //     let compile_time = start_time.elapsed();
 
-        let program = match compile_result {
-            Ok(program) => Arc::new(program),
-            Err(error) => {
-                let report = error.report();
+    //     let program = match compile_result {
+    //         Ok(program) => Arc::new(program),
+    //         Err(error) => {
+    //             let report = error.report();
 
-                if !no_output {
-                    eprintln!("{report}");
-                }
+    //             if !no_output {
+    //                 eprintln!("{report}");
+    //             }
 
-                return;
-            }
-        };
+    //             return;
+    //         }
+    //     };
 
-        let vm = JitVm::new();
-        let min_heap = min_heap.unwrap_or(MINIMUM_OBJECT_HEAP_DEFAULT);
-        let min_sweep = min_sweep.unwrap_or(MINIMUM_OBJECT_SWEEP_DEFAULT);
-        let run_result = vm.run(program, min_heap, min_sweep);
-        let run_time = start_time.elapsed() - compile_time;
+    //     let vm = JitVm::new();
+    //     let min_heap = min_heap.unwrap_or(MINIMUM_OBJECT_HEAP_DEFAULT);
+    //     let min_sweep = min_sweep.unwrap_or(MINIMUM_OBJECT_SWEEP_DEFAULT);
+    //     let run_result = vm.run(program, min_heap, min_sweep);
+    //     let run_time = start_time.elapsed() - compile_time;
 
-        let return_value = match run_result {
-            Ok(value) => value,
-            Err(dust_error) => {
-                let report = dust_error.report();
+    //     let return_value = match run_result {
+    //         Ok(value) => value,
+    //         Err(dust_error) => {
+    //             let report = dust_error.report();
 
-                if !no_output {
-                    eprintln!("{report}");
-                }
+    //             if !no_output {
+    //                 eprintln!("{report}");
+    //             }
 
-                return;
-            }
-        };
+    //             return;
+    //         }
+    //     };
 
-        if !no_output && let Some(return_value) = return_value {
-            println!("{return_value}");
-        }
+    //     if !no_output && let Some(return_value) = return_value {
+    //         println!("{return_value}");
+    //     }
 
-        if time {
-            print_times(&[(source.program_name(), compile_time, Some(run_time))]);
-        }
+    //     if time {
+    //         print_times(&[(source.program_name(), compile_time, Some(run_time))]);
+    //     }
 
-        return;
-    }
+    //     return;
+    // }
 
-    if mode == Mode::Parse {
-        let source = get_source(path, name, stdin, eval);
+    // if mode == Mode::Parse {
+    //     let source = get_source(path, name, stdin, eval);
 
-        match source {
-            Source::Script(SourceFile { name, source_code }) => {
-                let (syntax_tree, error) = parse_main(source_code);
-                let parse_time = start_time.elapsed();
+    //     match source {
+    //         Source::Script(SourceFile { name, source_code }) => {
+    //             let (syntax_tree, error) = parse_main(source_code);
+    //             let parse_time = start_time.elapsed();
 
-                println!("{syntax_tree}");
+    //             println!("{syntax_tree}");
 
-                if !no_output && let Some(error) = error {
-                    eprintln!("{}", error.report());
-                }
+    //             if !no_output && let Some(error) = error {
+    //                 eprintln!("{}", error.report());
+    //             }
 
-                if time {
-                    print_times(&[(&name, parse_time, None)]);
-                }
+    //             if time {
+    //                 print_times(&[(&name, parse_time, None)]);
+    //             }
 
-                return;
-            }
-            Source::Files(_source_files) => todo!(),
-        }
-    }
+    //             return;
+    //         }
+    //         Source::Files(_source_files) => todo!(),
+    //     }
+    // }
 
-    if mode == Mode::Compile {
-        let source = get_source(path, name, stdin, eval);
-        let resolver = Resolver::new(true);
-        let compiler = Compiler::new(source.clone(), resolver);
-        let compile_result = compiler.compile_with_extras();
-        let compile_time = start_time.elapsed();
-        let program_name = source.program_name().to_string();
+    // if mode == Mode::Compile {
+    //     let source = get_source(path, name, stdin, eval);
+    //     let resolver = Resolver::new(true);
+    //     let compiler = Compiler::new(source.clone(), resolver);
+    //     let compile_result = compiler.compile_with_extras();
+    //     let compile_time = start_time.elapsed();
+    //     let program_name = source.program_name().to_string();
 
-        match compile_result {
-            Ok((program, source, file_trees, resolver)) => {
-                let disassembler = TuiDisassembler::new(&program, &source, &file_trees, &resolver);
+    //     match compile_result {
+    //         Ok((program, source, file_trees, resolver)) => {
+    //             let disassembler = TuiDisassembler::new(&program, &source, &file_trees, &resolver);
 
-                disassembler.disassemble().unwrap();
-            }
-            Err(error) => {
-                if !no_output {
-                    eprintln!("{}", error.report())
-                }
-            }
-        }
+    //             disassembler.disassemble().unwrap();
+    //         }
+    //         Err(error) => {
+    //             if !no_output {
+    //                 eprintln!("{}", error.report())
+    //             }
+    //         }
+    //     }
 
-        if time {
-            print_times(&[(&program_name, compile_time, None)]);
-        }
+    //     if time {
+    //         print_times(&[(&program_name, compile_time, None)]);
+    //     }
 
-        return;
-    }
+    //     return;
+    // }
 
     if let Mode::Tokenize { output } = mode {
-        let mut lexer = Lexer::new();
-        let mut tokens = Vec::new();
+        let tokenize = |source: &[u8]| {
+            let mut lexer = Lexer::new(source);
+            let tokenize_time = start_time.elapsed();
+
+            if time {
+                print_times(&[("Tokenization", tokenize_time, None)]);
+            }
+
+            if no_output {
+                lexer.take_while(|_| true).for_each(drop);
+
+                return;
+            }
+
+            match output {
+                OutputOptions::Dust => {
+                    for result in lexer {
+                        let token = result.expect("Failed to tokenize source code");
+
+                        println!("{token}");
+                    }
+                }
+                OutputOptions::Json => {
+                    let tokens = lexer
+                        .try_collect::<Vec<Token>>()
+                        .expect("Failed to tokenize source code");
+                    let json = serde_json::to_string_pretty(&tokens)
+                        .expect("Failed to serialize tokens to JSON");
+
+                    println!("{json}");
+                }
+                OutputOptions::Postcard => {
+                    let tokens = lexer
+                        .try_collect::<Vec<Token>>()
+                        .expect("Failed to tokenize source code");
+                    let mut buffer = Vec::new();
+
+                    postcard::to_slice_cobs(&tokens, &mut buffer)
+                        .expect("Failed to serialize tokens to Postcard");
+
+                    println!("{buffer:?}");
+                }
+                OutputOptions::Ron => {
+                    let tokens = lexer
+                        .try_collect::<Vec<Token>>()
+                        .expect("Failed to tokenize source code");
+                    let ron = ron::ser::to_string_pretty(&tokens, PrettyConfig::new())
+                        .expect("Failed to serialize tokens to RON");
+
+                    println!("{ron}");
+                }
+                OutputOptions::Yaml => {
+                    let tokens = lexer
+                        .try_collect::<Vec<Token>>()
+                        .expect("Failed to tokenize source code");
+                    let yaml =
+                        serde_yaml::to_string(&tokens).expect("Failed to serialize tokens to YAML");
+
+                    println!("{yaml}");
+                }
+            }
+        };
 
         if let Some(path) = path {
             let file = File::open(&path).expect("Failed to open source file");
             let mmap =
                 unsafe { MmapOptions::new().map(&file) }.expect("Failed to memory map source file");
 
-            lexer.initialize(&mmap);
-
-            while let Some(token) = lexer.next_token() {
-                tokens.push(token);
-            }
+            tokenize(&mmap);
         } else if stdin {
             let mut buffer = Vec::new();
 
@@ -178,65 +234,12 @@ fn main() {
                 .read_to_end(&mut buffer)
                 .expect("Failed to read from stdin");
 
-            lexer.initialize(&buffer);
-
-            while let Some(token) = lexer.next_token() {
-                tokens.push(token);
-            }
+            tokenize(&buffer);
         } else if let Some(eval) = eval {
-            lexer.initialize(eval.as_bytes());
-
-            while let Some(token) = lexer.next_token() {
-                tokens.push(token);
-            }
+            tokenize(&eval);
         } else {
             panic!("No readable input source provided");
         };
-
-        let tokenize_time = start_time.elapsed();
-
-        if time {
-            print_times(&[("Tokenization", tokenize_time, None)]);
-        }
-
-        if no_output {
-            return;
-        }
-
-        match output {
-            OutputOptions::Dust => {
-                for token in tokens {
-                    println!("{token}");
-                }
-            }
-            OutputOptions::Json => {
-                let json = serde_json::to_string_pretty(&tokens)
-                    .expect("Failed to serialize tokens to JSON");
-
-                println!("{json}");
-            }
-            OutputOptions::Postcard => {
-                let mut buffer = Vec::new();
-                postcard::to_slice_cobs(&tokens, &mut buffer)
-                    .expect("Failed to serialize tokens to Postcard");
-
-                println!("{buffer:?}");
-            }
-            OutputOptions::Ron => {
-                let ron = ron::ser::to_string_pretty(&tokens, PrettyConfig::new())
-                    .expect("Failed to serialize tokens to RON");
-
-                println!("{ron}");
-            }
-            OutputOptions::Yaml => {
-                let yaml =
-                    serde_yaml::to_string(&tokens).expect("Failed to serialize tokens to YAML");
-
-                println!("{yaml}");
-            }
-        }
-
-        return;
     }
 
     if let Mode::Init { project_path } = mode {
@@ -279,26 +282,26 @@ fn get_source(
     path: Option<PathBuf>,
     name: Option<String>,
     stdin: bool,
-    eval: Option<String>,
+    eval: Option<Vec<u8>>,
 ) -> Source {
-    if let Some(source_code) = eval {
-        return Source::Script(SourceFile {
+    if let Some(source) = eval {
+        return Source::Script {
             name: "CLI Input".to_string(),
-            source_code,
-        });
+            source,
+        };
     }
 
     if stdin {
-        let mut buffer = String::new();
+        let mut buffer = Vec::new();
 
         io::stdin()
-            .read_to_string(&mut buffer)
+            .read_to_end(&mut buffer)
             .expect("Failed to read from stdin");
 
-        return Source::Script(SourceFile {
+        return Source::Script {
             name: "stdin".to_string(),
-            source_code: buffer,
-        });
+            source: buffer,
+        };
     }
 
     match path {
@@ -312,9 +315,11 @@ fn get_source(
             let file = File::open(&path).expect("Failed to open source file");
             let mmap =
                 unsafe { MmapOptions::new().map(&file) }.expect("Failed to memory map source file");
-            let source_code = String::from_utf8_lossy(&mmap).to_string();
+            let mut source = Source::files(1);
 
-            Source::Script(SourceFile { name, source_code })
+            source.add_file(name, mmap);
+
+            source
         }
         Some(project_path) if project_path.is_dir() => {
             let project_path = project_path.canonicalize().expect("Invalid project path");
@@ -352,12 +357,17 @@ fn get_source(
             let main_file_path = program
                 .map(|program| project_path.join(program.path))
                 .unwrap_or_else(|| project_path.join(DEFAULT_PROGRAM_PATH));
-            let main_file_content = read_to_string(&main_file_path).unwrap_or_else(|_| {
+            let main_file = File::open(&main_file_path).unwrap_or_else(|_| {
                 panic!(
-                    "Failed to read main source file at `{}`",
+                    "Failed to open main source file at `{}`",
                     main_file_path.display()
                 )
             });
+            let main_file_content = unsafe {
+                MmapOptions::new()
+                    .map(&main_file)
+                    .expect("Failed to memory map main source file")
+            };
 
             source_files.add_file(project_name, main_file_content);
 
@@ -380,11 +390,10 @@ fn get_source(
                         .trim_end_matches(".ds")
                         .to_string();
                     let file = File::open(&path).expect("Failed to open source file");
-                    let mmap = unsafe { MmapOptions::new().map(&file) }
+                    let file_content = unsafe { MmapOptions::new().map(&file) }
                         .expect("Failed to memory map source file");
-                    let source_code = String::from_utf8_lossy(&mmap).to_string();
 
-                    source_files.add_file(module_name, source_code);
+                    source_files.add_file(module_name, file_content);
                 }
             }
 

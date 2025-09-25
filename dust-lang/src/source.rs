@@ -1,14 +1,14 @@
-use std::slice;
+use memmap2::Mmap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Source {
-    Script(SourceFile),
+    Script { name: String, source: Vec<u8> },
     Files(Vec<SourceFile>),
 }
 
 impl Source {
-    pub fn script(name: String, source_code: Vec<u8>) -> Self {
-        Source::Script(SourceFile { name, source_code })
+    pub fn script(name: String, source: Vec<u8>) -> Self {
+        Source::Script { name, source }
     }
 
     pub fn files(file_count: usize) -> Self {
@@ -17,7 +17,7 @@ impl Source {
 
     pub fn len(&self) -> usize {
         match self {
-            Source::Script(_) => 1,
+            Source::Script { .. } => 1,
             Source::Files(sources) => sources.len(),
         }
     }
@@ -26,42 +26,22 @@ impl Source {
         self.len() == 0
     }
 
-    pub fn add_file(&mut self, name: String, source_code: Vec<u8>) -> SourceFileId {
+    pub fn add_file(&mut self, name: String, source_code: Mmap) -> SourceFileId {
         let id = SourceFileId(self.len() as u32);
 
         match self {
             Source::Files(sources) => {
                 sources.push(SourceFile { name, source_code });
             }
-            Source::Script(_) => {}
+            Source::Script { .. } => {}
         }
 
         id
     }
 
-    pub fn get_file(&self, file_id: SourceFileId) -> Option<&SourceFile> {
-        match self {
-            Source::Script(source_file) => {
-                if file_id.0 == 0 {
-                    Some(source_file)
-                } else {
-                    None
-                }
-            }
-            Source::Files(sources) => sources.get(file_id.0 as usize),
-        }
-    }
-
-    pub fn get_files(&self) -> &[SourceFile] {
-        match self {
-            Source::Script(source_file) => slice::from_ref(source_file),
-            Source::Files(sources) => sources.as_slice(),
-        }
-    }
-
     pub fn program_name(&self) -> &str {
         match self {
-            Source::Script(source_file) => &source_file.name,
+            Source::Script { name, .. } => name,
             Source::Files(sources) => {
                 if let Some(source_file) = sources.first().as_ref() {
                     &source_file.name
@@ -74,7 +54,7 @@ impl Source {
 
     pub fn into_program_name(self) -> String {
         match self {
-            Source::Script(source_file) => source_file.name,
+            Source::Script { name, .. } => name,
             Source::Files(sources) => {
                 if let Some(source_file) = sources.into_iter().next() {
                     source_file.name
@@ -93,8 +73,8 @@ impl SourceFileId {
     pub const MAIN: Self = SourceFileId(0);
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SourceFile {
     pub name: String,
-    pub source_code: Vec<u8>,
+    pub source_code: Mmap,
 }

@@ -24,7 +24,7 @@ use crate::{
 };
 
 pub fn parse_main(source_code: String) -> (SyntaxTree, Option<DustError>) {
-    let lexer = Lexer::new(source_code.as_bytes()).expect("Invalid UTF-8 in source.");
+    let lexer = Lexer::new(source_code.as_bytes());
     let parser = Parser::new(SourceFileId::MAIN, lexer);
     let ParseResult {
         syntax_tree,
@@ -81,13 +81,27 @@ impl<'src> Parser<'src> {
         let span = span!(Level::INFO, "parse");
         let _enter = span.enter();
 
-        self.current_token = if let Some(token) = self.lexer.next() {
-            token
-        } else {
-            return ParseResult {
-                syntax_tree: self.syntax_tree,
-                errors: self.errors,
-            };
+        self.current_token = match self.lexer.next() {
+            Some(Ok(token)) => token,
+            Some(Err(index)) => {
+                let error = ParseError::InvalidUtf8 {
+                    position: Position::new(
+                        self.syntax_tree.file_id,
+                        Span(index as u32, index as u32 + 1),
+                    ),
+                };
+
+                self.recover(error);
+
+                return ParseResult {
+                    syntax_tree: self.syntax_tree,
+                    errors: self.errors,
+                };
+            }
+            None => Token {
+                kind: TokenKind::Eof,
+                span: Span(0, 0),
+            },
         };
 
         self.parse_main_function_item()
@@ -146,10 +160,26 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn advance(&mut self) {
-        if let Some(next_token) = self.lexer.next() {
-            self.previous_token = replace(&mut self.current_token, next_token);
-        }
+    fn advance(&mut self) -> Result<(), ParseError> {
+        let next_token = match self.lexer.next() {
+            Some(Ok(token)) => token,
+            Some(Err(index)) => {
+                return Err(ParseError::InvalidUtf8 {
+                    position: Position::new(
+                        self.syntax_tree.file_id,
+                        Span(index as u32, index as u32 + 1),
+                    ),
+                });
+            }
+            None => Token {
+                kind: TokenKind::Eof,
+                span: Span(0, 0),
+            },
+        };
+
+        self.previous_token = replace(&mut self.current_token, next_token);
+
+        Ok(())
     }
 
     fn recover(&mut self, error: ParseError) {

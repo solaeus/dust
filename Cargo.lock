@@ -621,6 +621,7 @@ dependencies = [
  "getrandom",
  "indexmap",
  "lexical-core",
+ "memmap2",
  "mimalloc",
  "rand",
  "ratatui",

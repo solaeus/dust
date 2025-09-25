@@ -2,7 +2,6 @@
 #![feature(
     allocator_api,
     formatting_options,
-    generic_const_items,
     hash_set_entry,
     if_let_guard,
     int_from_ascii,
@@ -63,7 +62,7 @@ pub use source::Source;
 //     ThreadResult,
 //     // run,
 // };
-pub use lexer::{Lexer, validate_utf8_and_find_token_spans};
+pub use lexer::Lexer;
 pub use native_function::NativeFunction;
 pub use position::{Position, Span};
 pub use resolver::Resolver;

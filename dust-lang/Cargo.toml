@@ -32,6 +32,7 @@ indexmap = { version = "2.11.0", features = ["serde"] }
 bumpalo = { version = "3.19.0", features = ["boxed", "collections"] }
 termtree = "0.5.1"
 clap = { version = "4.5.47", features = ["env"] }
+memmap2 = "0.9.8"
 
 [dev-dependencies]
 criterion = { version = "0.7", features = ["html_reports"] }
@@ -52,9 +53,6 @@ harness = false
 # name = "compile"
 # harness = false
 
-[[bench]]
-name = "validate_utf8"
-harness = false
 
 # [[bench]]
 # name = "fibonacci"

@@ -46,9 +46,28 @@ impl DustError {
                 let mut report = Vec::new();
 
                 for parse_error in parse_errors {
-                    let source_file = self.source.get_file(parse_error.file_id());
+                    match &self.source {
+                        Source::Script { .. } => {
+                            if parse_error.file_id() != SourceFileId::MAIN {
+                                continue;
+                            }
+                        }
+                        Source::Files { .. } => {}
+                    }
+                    let source_file = match &self.source {
+                        Source::Script { source, .. } => {
+                            if parse_error.file_id() == SourceFileId::MAIN {
+                                Some(source.as_slice())
+                            } else {
+                                None
+                            }
+                        }
+                        Source::Files(files) => files
+                            .get(parse_error.file_id().0 as usize)
+                            .map(|file| file.source_code.as_ref()),
+                    };
                     let source = match source_file {
-                        Some(file) => &file.source_code,
+                        Some(file) => file,
                         None => SOURCE_NOT_AVAILABLE.as_bytes(),
                     };
                     let group = parse_error.annotated_error(source);

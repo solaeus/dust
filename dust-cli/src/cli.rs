@@ -93,7 +93,7 @@ pub enum Mode {
 pub struct InputOptions {
     /// Source code to run instead of a file
     #[arg(short, long, value_name = "INPUT", value_hint = ValueHint::Other)]
-    pub eval: Option<String>,
+    pub eval: Option<Vec<u8>>,
 
     /// Read source code from stdin
     #[arg(long)]
