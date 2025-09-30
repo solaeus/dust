@@ -1,6 +1,7 @@
 //! The Dust programming language library.
 #![feature(
     allocator_api,
+    cold_path,
     formatting_options,
     hash_set_entry,
     if_let_guard,

@@ -631,6 +631,7 @@ dependencies = [
  "smallvec",
  "termtree",
  "tracing",
+ "unicode-ident",
 ]
 
 [[package]]

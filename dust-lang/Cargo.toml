@@ -33,6 +33,7 @@ bumpalo = { version = "3.19.0", features = ["boxed", "collections"] }
 termtree = "0.5.1"
 clap = { version = "4.5.47", features = ["env"] }
 memmap2 = "0.9.8"
+unicode-ident = "1.0.12"
 
 [dev-dependencies]
 criterion = { version = "0.7", features = ["html_reports"] }
