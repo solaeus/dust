@@ -12,7 +12,7 @@ use lexical_core::{
     ParseFloatOptions, ParseIntegerOptions, format::RUST_LITERAL, parse_with_options,
 };
 use smallvec::SmallVec;
-use tracing::{Level, debug, error, info, span, warn};
+use tracing::{Level, error, info, span, warn};
 
 use crate::{
     Lexer, Position, Source, Span,
@@ -129,29 +129,21 @@ impl<'src> Parser<'src> {
         SmallVec::<[SyntaxId; 4]>::new()
     }
 
-    fn pratt(&mut self, precedence: Precedence) -> Result<(), ParseError> {
+    fn pratt(&mut self, minimum_precedence: Precedence) -> Result<(), ParseError> {
         let prefix_rule = ParseRule::from(self.current_token.kind);
+        let prefix_parser = prefix_rule.prefix.ok_or(ParseError::UnexpectedToken {
+            actual: self.current_token.kind,
+            position: self.current_position(),
+        })?;
 
-        if let Some(prefix_parser) = prefix_rule.prefix {
-            debug!(
-                "{} at {} is prefix",
-                self.current_token, self.current_token.span,
-            );
-
-            prefix_parser(self)?;
-        }
+        prefix_parser(self)?;
 
         let mut infix_rule = ParseRule::from(self.current_token.kind);
 
-        while precedence <= infix_rule.precedence
+        while minimum_precedence <= infix_rule.precedence
             && let Some(infix_parser) = infix_rule.infix
             && self.previous_token.kind != TokenKind::Semicolon
         {
-            debug!(
-                "{} at {} as infix {}",
-                self.current_token, self.current_token.span, infix_rule.precedence,
-            );
-
             infix_parser(self)?;
 
             infix_rule = ParseRule::from(self.current_token.kind);
@@ -620,15 +612,17 @@ impl<'src> Parser<'src> {
 
         let is_mutable = self.allow(TokenKind::Mut)?;
 
-        self.expect(TokenKind::Identifier)?;
+        self.parse_path()?;
 
+        let path_id = self.syntax_tree.last_node_id();
         let kind = if is_mutable {
             SyntaxKind::LetMutStatement
         } else {
             SyntaxKind::LetStatement
         };
-        let type_node_id = if self.allow(TokenKind::Colon)? {
-            self.syntax_tree.last_node_id()
+
+        if self.allow(TokenKind::Colon)? {
+            self.parse_type()?
         } else {
             SyntaxId::NONE
         };
@@ -654,7 +648,7 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind,
             span: Span(start, end),
-            children: (type_node_id.0, expression_id.0),
+            children: (path_id.0, expression_id.0),
         };
 
         self.syntax_tree.push_node(node);

@@ -114,6 +114,10 @@ impl SyntaxTree {
             current_child_id: SyntaxId,
             syntax_tree: &SyntaxTree,
         ) {
+            if current_child_id == SyntaxId::NONE {
+                return;
+            }
+
             let current_child = &syntax_tree.nodes[current_child_id.0 as usize];
             let mut leaf = Tree::new(*current_child);
 
@@ -124,13 +128,6 @@ impl SyntaxTree {
                 }
                 Children::Double(left, right) => {
                     build_tree(&mut leaf, left, syntax_tree);
-                    build_tree(&mut leaf, right, syntax_tree);
-                }
-                Children::MaybeDouble(left, right) => {
-                    if left != SyntaxId::NONE {
-                        build_tree(&mut leaf, left, syntax_tree);
-                    }
-
                     build_tree(&mut leaf, right, syntax_tree);
                 }
                 Children::Multiple(start, count) => {

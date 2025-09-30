@@ -15,10 +15,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-use clap::Parser;
+use clap::Parser as CliParser;
 use dust_lang::{
     Lexer, Source,
+    dust_error::DustError,
+    parser::{ParseResult, Parser},
     project::{DEFAULT_PROGRAM_PATH, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
+    source::SourceFileId,
     token::Token,
 };
 use memmap2::MmapOptions;
@@ -40,11 +43,9 @@ fn main() {
         no_output,
         no_std: _,
         name: _,
+        min_heap: _,
+        min_sweep: _,
     } = Cli::parse();
-    let mode = mode.unwrap_or(Mode::Run {
-        min_heap: None,
-        min_sweep: None,
-    });
 
     if let Some(log_level) = log {
         start_logging(log_level, start_time);
@@ -104,29 +105,84 @@ fn main() {
     //     return;
     // }
 
-    // if mode == Mode::Parse {
-    //     let source = get_source(path, name, stdin, eval);
+    if mode == Mode::Parse {
+        let parse_bytes = |source: &[u8], source_name: &str| {
+            let lexer = Lexer::new(source);
+            let parser = Parser::new(SourceFileId::MAIN, lexer);
+            let ParseResult {
+                syntax_tree,
+                errors,
+            } = parser.parse();
+            let parse_time = start_time.elapsed();
 
-    //     match source {
-    //         Source::Script(SourceFile { name, source_code }) => {
-    //             let (syntax_tree, error) = parse_main(source_code);
-    //             let parse_time = start_time.elapsed();
+            if time {
+                print_times(&[(source_name, parse_time, None)]);
+            }
 
-    //             println!("{syntax_tree}");
+            if !errors.is_empty() {
+                let source = get_source(path.clone(), None, stdin, eval.clone());
+                let dust_error = DustError::parse(errors, source);
 
-    //             if !no_output && let Some(error) = error {
-    //                 eprintln!("{}", error.report());
-    //             }
+                eprintln!("{}", dust_error.report());
 
-    //             if time {
-    //                 print_times(&[(&name, parse_time, None)]);
-    //             }
+                return;
+            }
 
-    //             return;
-    //         }
-    //         Source::Files(_source_files) => todo!(),
-    //     }
-    // }
+            if !no_output {
+                println!("{syntax_tree}");
+            }
+        };
+
+        if let Some(path) = &path {
+            let file = File::open(path).expect("Failed to open source file");
+            let mmap =
+                unsafe { MmapOptions::new().map(&file) }.expect("Failed to memory map source file");
+
+            let source_name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("unknown");
+
+            parse_bytes(&mmap, source_name);
+        } else if stdin {
+            let mut buffer = Vec::new();
+
+            io::stdin()
+                .read_to_end(&mut buffer)
+                .expect("Failed to read from stdin");
+
+            parse_bytes(&buffer, "stdin");
+        } else if let Some(eval) = &eval {
+            let lexer = Lexer::from_str(eval);
+            let parser = Parser::new(SourceFileId::MAIN, lexer);
+            let ParseResult {
+                syntax_tree,
+                errors,
+            } = parser.parse();
+            let parse_time = start_time.elapsed();
+
+            if !errors.is_empty() {
+                let source = get_source(path.clone(), None, stdin, Some(eval.clone()));
+                let dust_error = DustError::parse(errors, source);
+
+                eprintln!("{}", dust_error.report());
+
+                return;
+            }
+
+            if !no_output {
+                println!("{syntax_tree}");
+            }
+
+            if time {
+                print_times(&[("CLI Input", parse_time, None)]);
+            }
+        } else {
+            panic!("No readable input source provided");
+        };
+
+        return;
+    }
 
     // if mode == Mode::Compile {
     //     let source = get_source(path, name, stdin, eval);
@@ -156,7 +212,7 @@ fn main() {
     //     return;
     // }
 
-    if let Mode::Tokenize = mode {
+    if mode == Mode::Tokenize {
         let tokenize_bytes = |source: &[u8]| {
             let mut lexer = Lexer::new(source);
             let tokens = lexer
@@ -208,18 +264,22 @@ fn main() {
         } else {
             panic!("No readable input source provided");
         };
+
+        return;
     }
 
-    if let Mode::Init { project_path } = mode {
-        if !project_path.exists() {
-            create_dir_all(&project_path).expect("Failed to create project directory");
-        } else if project_path.read_dir().unwrap().next().is_some() {
-            eprintln!("The directory `{}` is not empty", project_path.display());
+    if mode == Mode::Init {
+        let path = path.unwrap_or_else(|| PathBuf::from("."));
+
+        if !path.exists() {
+            create_dir_all(&path).expect("Failed to create project directory");
+        } else if path.read_dir().unwrap().next().is_some() {
+            eprintln!("The directory `{}` is not empty", path.display());
 
             return;
         }
 
-        let example_config_path = project_path.join(PROJECT_CONFIG_PATH);
+        let example_config_path = path.join(PROJECT_CONFIG_PATH);
         let example_project_config = toml::to_string_pretty(&ProjectConfig::example())
             .expect("Failed to serialize example project config to TOML");
 
@@ -228,7 +288,7 @@ fn main() {
             .write_all(example_project_config.as_bytes())
             .expect("Failed to write to project config file");
 
-        let src_path = project_path.join("src");
+        let src_path = path.join("src");
 
         create_dir(&src_path).expect("Failed to create `src` directory");
 
@@ -239,10 +299,7 @@ fn main() {
             .write_all(EXAMPLE_PROGRAM.as_bytes())
             .expect("Failed to write to example program file");
 
-        println!(
-            "Initialized a new Dust project at `{}`",
-            project_path.display()
-        );
+        println!("Initialized a new Dust project at `{}`", path.display());
     }
 }
 
@@ -250,12 +307,12 @@ fn get_source(
     path: Option<PathBuf>,
     name: Option<String>,
     stdin: bool,
-    eval: Option<Vec<u8>>,
+    eval: Option<String>,
 ) -> Source {
     if let Some(source) = eval {
         return Source::Script {
             name: "CLI Input".to_string(),
-            source,
+            source: source.into_bytes(),
         };
     }
 

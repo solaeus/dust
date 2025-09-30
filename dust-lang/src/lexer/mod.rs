@@ -107,7 +107,9 @@ impl<'src> Lexer<'src> {
                 } else {
                     TokenKind::Unknown
                 };
+
                 self.token_flags = TokenFlags::default();
+
                 return Some(Token { kind, span });
             }
         }

@@ -24,7 +24,7 @@ use tracing::level_filters::LevelFilter;
 )]
 pub struct Cli {
     #[command(subcommand)]
-    pub mode: Option<Mode>,
+    pub mode: Mode,
 
     #[command(flatten)]
     pub input: InputOptions,
@@ -48,6 +48,14 @@ pub struct Cli {
     /// Custom program name, overrides the file name
     #[arg(short, long)]
     pub name: Option<String>,
+
+    /// Minimum heap size at which garbage collection is triggered
+    #[arg(long, value_name = "BYTES", requires = "min_sweep")]
+    pub min_heap: Option<usize>,
+
+    /// Minimum bytes allocated between garbage collections
+    #[arg(long, value_name = "BYTES", requires = "min_heap")]
+    pub min_sweep: Option<usize>,
 }
 
 #[derive(Subcommand, Eq, PartialEq)]
@@ -56,17 +64,9 @@ pub enum Mode {
     #[command(alias = "p")]
     Parse,
 
-    /// Parse, compile and run the program (default)
+    /// Run a program (default)
     #[command(alias = "r")]
-    Run {
-        /// Minimum heap size at which garbage collection is triggered
-        #[arg(long, value_name = "BYTES", requires = "min_sweep")]
-        min_heap: Option<usize>,
-
-        /// Minimum bytes allocated between garbage collections
-        #[arg(long, value_name = "BYTES", requires = "min_heap")]
-        min_sweep: Option<usize>,
-    },
+    Run,
 
     /// Compile and output the compiled program
     #[command(alias = "c")]
@@ -76,12 +76,9 @@ pub enum Mode {
     #[command(alias = "t")]
     Tokenize,
 
+    /// Initialize a new Dust project
     #[command(alias = "i")]
-    Init {
-        /// Directory to create the project in, defaults to the current directory
-        #[arg(value_hint = ValueHint::DirPath, value_name = "PATH")]
-        project_path: PathBuf,
-    },
+    Init,
 }
 
 #[derive(Args)]

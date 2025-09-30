@@ -112,6 +112,8 @@ impl SyntaxNode {
             | SyntaxKind::NegationExpression
             | SyntaxKind::NotExpression => Children::Single(SyntaxId(self.children.0)),
             SyntaxKind::ReassignStatement
+            | SyntaxKind::LetStatement
+            | SyntaxKind::LetMutStatement
             | SyntaxKind::FunctionExpression
             | SyntaxKind::FunctionValueParameter
             | SyntaxKind::AdditionExpression
@@ -135,9 +137,6 @@ impl SyntaxNode {
             | SyntaxKind::WhileExpression
             | SyntaxKind::CallExpression => {
                 Children::Double(SyntaxId(self.children.0), SyntaxId(self.children.1))
-            }
-            SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
-                Children::MaybeDouble(SyntaxId(self.children.0), SyntaxId(self.children.1))
             }
             _ => Children::None,
         }
@@ -434,6 +433,5 @@ pub enum Children {
     None,
     Single(SyntaxId),
     Double(SyntaxId, SyntaxId),
-    MaybeDouble(SyntaxId, SyntaxId),
     Multiple(u32, u32),
 }
