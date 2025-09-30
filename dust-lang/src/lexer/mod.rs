@@ -16,6 +16,7 @@ pub struct Lexer<'src> {
     token_start: Option<usize>,
     token_flags: TokenFlags,
     is_eof_or_error: bool,
+    utf8_validated: bool,
 }
 
 impl<'src> Lexer<'src> {
@@ -26,6 +27,19 @@ impl<'src> Lexer<'src> {
             token_start: None,
             token_flags: TokenFlags::default(),
             is_eof_or_error: false,
+            utf8_validated: false,
+        }
+    }
+
+    #[expect(clippy::should_implement_trait)]
+    pub fn from_str(source: &'src str) -> Self {
+        Self {
+            source: source.as_bytes(),
+            index: 0,
+            token_start: None,
+            token_flags: TokenFlags::default(),
+            is_eof_or_error: false,
+            utf8_validated: true,
         }
     }
 
@@ -110,6 +124,13 @@ impl<'src> Lexer<'src> {
         }
 
         let width = utf8_char_width(first);
+
+        if self.utf8_validated {
+            if width == 0 || start + width > input.len() {
+                return Err(start);
+            }
+            return Ok(width);
+        }
 
         if width == 0 || start + width > input.len() {
             return Err(start);
@@ -264,7 +285,7 @@ impl<'src> Lexer<'src> {
 impl Iterator for Lexer<'_> {
     type Item = Result<Token, usize>;
 
-    #[inline(always)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if self.is_eof_or_error {
@@ -286,7 +307,7 @@ impl Iterator for Lexer<'_> {
                 }));
             }
 
-            let byte = unsafe { *self.source.as_ptr().add(self.index) };
+            let byte = self.source[self.index];
 
             // ASCII
             if byte < 0x80 {
@@ -298,10 +319,10 @@ impl Iterator for Lexer<'_> {
 
                     let mut index = self.index + 1;
                     let end = self.len();
-                    let source_poiner = self.source.as_ptr();
+                    let source_poiner = &self.source;
 
                     while index < end {
-                        let byte = unsafe { *source_poiner.add(index) };
+                        let byte = source_poiner[index];
 
                         if byte >= 128 {
                             break;
@@ -387,7 +408,7 @@ impl Iterator for Lexer<'_> {
                     }
 
                     if byte == b'-' && self.index + 9 <= self.len() {
-                        let next = unsafe { *self.source.as_ptr().add(self.index + 1) };
+                        let next = self.source[self.index + 1];
 
                         if next == b'I' {
                             let slice = &self.source[self.index..self.index + 9];
@@ -403,12 +424,10 @@ impl Iterator for Lexer<'_> {
                     }
 
                     if self.index + 1 < self.len() {
-                        let operator_u16 = unsafe {
-                            u16::from_le_bytes([
-                                *self.source.as_ptr().add(self.index),
-                                *self.source.as_ptr().add(self.index + 1),
-                            ])
-                        };
+                        let operator_u16 = u16::from_le_bytes([
+                            self.source[self.index],
+                            self.source[self.index + 1],
+                        ]);
 
                         if let Some(two_kind) = classify_two_operator_u16(operator_u16) {
                             let span = Span(self.index as u32, (self.index + 2) as u32);
@@ -423,8 +442,7 @@ impl Iterator for Lexer<'_> {
                     }
 
                     let span = Span(self.index as u32, (self.index + 1) as u32);
-                    let kind =
-                        classify_single_operator(unsafe { *self.source.as_ptr().add(self.index) });
+                    let kind = classify_single_operator(self.source[self.index]);
                     self.index += 1;
 
                     return Some(Ok(Token { kind, span }));
@@ -434,23 +452,13 @@ impl Iterator for Lexer<'_> {
                     self.token_start = Some(self.index);
                     self.token_flags = TokenFlags::start(byte);
 
-                    if self.token_flags.starts_with_digit {
-                        let next = unsafe {
-                            if self.index + 1 < self.len() {
-                                Some(*self.source.as_ptr().add(self.index + 1))
-                            } else {
-                                None
-                            }
-                        };
-
-                        self.token_flags.push(byte, next);
-                    } else {
+                    if !self.token_flags.starts_with_digit {
                         let mut index = self.index + 1;
                         let end = self.len();
-                        let pointer = self.source.as_ptr();
+                        let pointer = &self.source;
 
                         while index < end {
-                            let byte = unsafe { *pointer.add(index) };
+                            let byte = pointer[index];
 
                             if byte >= 128 {
                                 break;
@@ -471,6 +479,19 @@ impl Iterator for Lexer<'_> {
                     }
                 }
 
+                if self.token_flags.starts_with_digit
+                    && let Some(start) = self.token_start
+                    && self.index > start
+                {
+                    let next = if self.index + 1 < self.len() {
+                        Some(self.source[self.index + 1])
+                    } else {
+                        None
+                    };
+
+                    self.token_flags.push(byte, next);
+                }
+
                 self.index += 1;
 
                 continue;
@@ -480,7 +501,7 @@ impl Iterator for Lexer<'_> {
 
             match self.scan_utf8_sequence(self.index) {
                 Ok(width) => {
-                    let first = unsafe { *self.source.as_ptr().add(self.index) };
+                    let first = self.source[self.index];
                     let next_slice_start = self.index + 1;
                     let code_point = decode_utf8_code_point(
                         first,
@@ -873,19 +894,19 @@ fn decode_utf8_code_point(first: u8, tail: &[u8]) -> char {
     }
     if first & 0xE0 == 0xC0 {
         let u = ((first as u32 & 0x1F) << 6) | (tail[0] as u32 & 0x3F);
-        return unsafe { char::from_u32_unchecked(u) };
+        return char::from_u32(u).unwrap();
     }
     if first & 0xF0 == 0xE0 {
         let u = ((first as u32 & 0x0F) << 12)
             | ((tail[0] as u32 & 0x3F) << 6)
             | (tail[1] as u32 & 0x3F);
-        return unsafe { char::from_u32_unchecked(u) };
+        return char::from_u32(u).unwrap();
     }
     let u = ((first as u32 & 0x07) << 18)
         | ((tail[0] as u32 & 0x3F) << 12)
         | ((tail[1] as u32 & 0x3F) << 6)
         | (tail[2] as u32 & 0x3F);
-    unsafe { char::from_u32_unchecked(u) }
+    char::from_u32(u).unwrap()
 }
 
 // https://tools.ietf.org/html/rfc3629

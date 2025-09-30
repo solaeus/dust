@@ -10,7 +10,6 @@
     iterator_try_collect,
     never_type,
     new_range_api,
-    new_zeroed_alloc,
     offset_of_enum,
     once_cell_get_mut,
     pattern,

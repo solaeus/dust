@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{
-    Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint,
+    Args, ColorChoice, Parser, Subcommand, ValueHint,
     builder::{Styles, styling::AnsiColor},
     crate_authors, crate_description, crate_version,
 };
@@ -74,11 +74,7 @@ pub enum Mode {
 
     /// Lex the source code and print the tokens
     #[command(alias = "t")]
-    Tokenize {
-        /// Format for the output, defaults to a simple text format
-        #[arg(short, long, default_value = "dust", value_name = "FORMAT")]
-        output: OutputOptions,
-    },
+    Tokenize,
 
     #[command(alias = "i")]
     Init {
@@ -92,8 +88,8 @@ pub enum Mode {
 #[group(required = true, multiple = false)]
 pub struct InputOptions {
     /// Source code to run instead of a file
-    #[arg(short, long, value_name = "INPUT", value_hint = ValueHint)]
-    pub eval: Option<Vec<u8>>,
+    #[arg(short, long, value_name = "INPUT", value_hint = ValueHint::Other)]
+    pub eval: Option<String>,
 
     /// Read source code from stdin
     #[arg(long)]
@@ -102,13 +98,4 @@ pub struct InputOptions {
     /// Path to a source code file
     #[arg(value_name = "PATH", value_hint = ValueHint::FilePath)]
     pub path: Option<PathBuf>,
-}
-
-#[derive(ValueEnum, Clone, Copy, Eq, PartialEq)]
-pub enum OutputOptions {
-    Dust,
-    Json,
-    Ron,
-    Postcard,
-    Yaml,
 }

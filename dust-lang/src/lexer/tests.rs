@@ -366,3 +366,54 @@ fn adjacent_tokens() {
         ]
     );
 }
+
+#[test]
+fn adjacent_tokens_from_str() {
+    let source = "let x:int=42;";
+    let tokens = Lexer::from_str(source).try_collect::<Vec<Token>>().unwrap();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Let,
+                span: Span(0, 3)
+            },
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span(4, 5)
+            },
+            Token {
+                kind: TokenKind::Colon,
+                span: Span(5, 6)
+            },
+            Token {
+                kind: TokenKind::Int,
+                span: Span(6, 9)
+            },
+            Token {
+                kind: TokenKind::Equal,
+                span: Span(9, 10)
+            },
+            Token {
+                kind: TokenKind::IntegerValue,
+                span: Span(10, 12)
+            },
+            Token {
+                kind: TokenKind::Semicolon,
+                span: Span(12, 13)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(13, 13)
+            }
+        ]
+    );
+}
+
+#[test]
+fn invalid_utf8_in_bytes_errors() {
+    let source = b"abc\xFFdef";
+    let err = Lexer::new(source).try_collect::<Vec<Token>>().unwrap_err();
+    assert_eq!(err, 3);
+}

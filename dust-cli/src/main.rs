@@ -22,14 +22,13 @@ use dust_lang::{
     token::Token,
 };
 use memmap2::MmapOptions;
-use ron::ser::PrettyConfig;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
     fmt::{FmtContext, FormatEvent, FormatFields, format::Writer},
     registry::LookupSpan,
 };
 
-use crate::cli::{Cli, InputOptions, Mode, OutputOptions};
+use crate::cli::{Cli, InputOptions, Mode};
 
 fn main() {
     let start_time = Instant::now();
@@ -157,67 +156,22 @@ fn main() {
     //     return;
     // }
 
-    if let Mode::Tokenize { output } = mode {
-        let tokenize = |source: &[u8]| {
+    if let Mode::Tokenize = mode {
+        let tokenize_bytes = |source: &[u8]| {
             let mut lexer = Lexer::new(source);
+            let tokens = lexer
+                .try_collect::<Vec<Token>>()
+                .expect("Failed to tokenize source");
             let tokenize_time = start_time.elapsed();
+
+            if !no_output {
+                for token in &tokens {
+                    println!("{token}");
+                }
+            }
 
             if time {
                 print_times(&[("Tokenization", tokenize_time, None)]);
-            }
-
-            if no_output {
-                lexer.take_while(|_| true).for_each(drop);
-
-                return;
-            }
-
-            match output {
-                OutputOptions::Dust => {
-                    for result in lexer {
-                        let token = result.expect("Failed to tokenize source code");
-
-                        println!("{token}");
-                    }
-                }
-                OutputOptions::Json => {
-                    let tokens = lexer
-                        .try_collect::<Vec<Token>>()
-                        .expect("Failed to tokenize source code");
-                    let json = serde_json::to_string_pretty(&tokens)
-                        .expect("Failed to serialize tokens to JSON");
-
-                    println!("{json}");
-                }
-                OutputOptions::Postcard => {
-                    let tokens = lexer
-                        .try_collect::<Vec<Token>>()
-                        .expect("Failed to tokenize source code");
-                    let mut buffer = Vec::new();
-
-                    postcard::to_slice_cobs(&tokens, &mut buffer)
-                        .expect("Failed to serialize tokens to Postcard");
-
-                    println!("{buffer:?}");
-                }
-                OutputOptions::Ron => {
-                    let tokens = lexer
-                        .try_collect::<Vec<Token>>()
-                        .expect("Failed to tokenize source code");
-                    let ron = ron::ser::to_string_pretty(&tokens, PrettyConfig::new())
-                        .expect("Failed to serialize tokens to RON");
-
-                    println!("{ron}");
-                }
-                OutputOptions::Yaml => {
-                    let tokens = lexer
-                        .try_collect::<Vec<Token>>()
-                        .expect("Failed to tokenize source code");
-                    let yaml =
-                        serde_yaml::to_string(&tokens).expect("Failed to serialize tokens to YAML");
-
-                    println!("{yaml}");
-                }
             }
         };
 
@@ -226,7 +180,7 @@ fn main() {
             let mmap =
                 unsafe { MmapOptions::new().map(&file) }.expect("Failed to memory map source file");
 
-            tokenize(&mmap);
+            tokenize_bytes(&mmap);
         } else if stdin {
             let mut buffer = Vec::new();
 
@@ -234,9 +188,23 @@ fn main() {
                 .read_to_end(&mut buffer)
                 .expect("Failed to read from stdin");
 
-            tokenize(&buffer);
+            tokenize_bytes(&buffer);
         } else if let Some(eval) = eval {
-            tokenize(&eval);
+            let mut lexer = Lexer::from_str(&eval);
+            let tokens = lexer
+                .try_collect::<Vec<Token>>()
+                .expect("Failed to tokenize source");
+            let tokenize_time = start_time.elapsed();
+
+            if !no_output {
+                for token in &tokens {
+                    println!("{token}");
+                }
+            }
+
+            if time {
+                print_times(&[("Tokenization", tokenize_time, None)]);
+            }
         } else {
             panic!("No readable input source provided");
         };
