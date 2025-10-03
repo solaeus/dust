@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Address, Instruction, InstructionFields, OperandType};
+use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct SetList {
     pub destination_list: Address,
@@ -27,7 +27,7 @@ impl From<Instruction> for SetList {
 
 impl From<SetList> for Instruction {
     fn from(set_list: SetList) -> Self {
-        let operation = crate::Operation::SET_LIST;
+        let operation = Operation::SET_LIST;
         let Address {
             index: a_field,
             memory: a_memory_kind,

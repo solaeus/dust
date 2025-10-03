@@ -9,7 +9,14 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph, Row, Table, Tabs, Widget, Wrap},
 };
 
-use crate::{Chunk, Resolver, Source, dust_crate::Program, syntax_tree::SyntaxTree};
+use crate::{
+    chunk::Chunk,
+    dust_crate::Program,
+    instruction::{Address, Instruction, OperandType},
+    resolver::Resolver,
+    source::Source,
+    syntax_tree::SyntaxTree,
+};
 
 pub struct TuiDisassembler<'a> {
     program: &'a Program,
@@ -29,18 +36,26 @@ impl<'a> TuiDisassembler<'a> {
         file_trees: &'a [SyntaxTree],
         resolver: &'a Resolver,
     ) -> Self {
-        let mut tabs = Vec::with_capacity(source.len() + program.prototypes.len());
+        let files = source.read_files();
+        let mut tabs = Vec::with_capacity(files.len() + program.prototypes.len());
 
-        for file in source.get_files() {
+        for file in files.iter() {
             tabs.push(format!("{}.ds", file.name));
         }
 
         for (_, chunk) in &program.prototypes {
-            tabs.push(chunk.get_name(source).unwrap().to_string());
+            let chunk_name_position = chunk.name_position.unwrap();
+            let chunk_name = files
+                .get(chunk_name_position.file_id.0 as usize)
+                .unwrap()
+                .name
+                .clone();
+
+            tabs.push(chunk_name);
         }
 
         Self {
-            selected_tab: source.len(),
+            selected_tab: files.len(),
             program,
             source,
             file_trees,
@@ -209,7 +224,7 @@ impl<'a> TuiDisassembler<'a> {
                 .instructions
                 .iter()
                 .enumerate()
-                .map(|(ip, instruction)| {
+                .map(|(ip, instruction): (usize, &Instruction)| {
                     Row::new(vec![
                         ip.to_string(),
                         instruction.operation().to_string(),
@@ -290,13 +305,15 @@ impl<'a> TuiDisassembler<'a> {
                 .call_arguments
                 .iter()
                 .enumerate()
-                .map(|(index, (address, r#type))| {
-                    Row::new(vec![
-                        index.to_string(),
-                        address.to_string(*r#type),
-                        r#type.to_string(),
-                    ])
-                })
+                .map(
+                    |(index, (address, r#type)): (usize, &(Address, OperandType))| {
+                        Row::new(vec![
+                            index.to_string(),
+                            address.to_string(*r#type),
+                            r#type.to_string(),
+                        ])
+                    },
+                )
                 .collect::<Vec<_>>();
             let widths = [
                 Constraint::Length(5),
@@ -343,8 +360,14 @@ impl Widget for &TuiDisassembler<'_> {
             .render(title_area, buffer);
 
         let main_chunk = &self.program.main_chunk();
+        let files = self.source.read_files();
+        let main_chunk_name = main_chunk
+            .name_position
+            .and_then(|pos| files.get(pos.file_id.0 as usize))
+            .map(|file| file.name.as_str())
+            .unwrap_or("unknown");
 
-        Paragraph::new(format!("program: {}", self.program.name))
+        Paragraph::new(format!("program: {main_chunk_name}",))
             .centered()
             .wrap(Wrap { trim: true })
             .render(program_name_area, buffer);
@@ -363,18 +386,18 @@ impl Widget for &TuiDisassembler<'_> {
             .select(self.selected_tab)
             .render(chunk_tabs_header_area, buffer);
 
-        if self.selected_tab < self.source.len() {
-            let source_file = self.source.get_files().get(self.selected_tab).unwrap();
+        if self.selected_tab < files.len() {
+            let source_file = files.get(self.selected_tab as usize).unwrap();
 
             self.draw_source_tab(
                 &source_file.name,
-                source_file.source_code.clone(),
+                source_file.source_code.to_string(),
                 &self.file_trees[self.selected_tab],
                 tab_content_area,
                 buffer,
             );
         } else {
-            let chunk_index = self.selected_tab - self.source.len();
+            let chunk_index = self.selected_tab - files.len();
             let chunk = &self.program.prototypes[chunk_index];
 
             self.draw_chunk_tab(chunk_index, chunk, tab_content_area, buffer);

@@ -7,7 +7,7 @@ use std::{
 
 pub use list::List;
 
-use crate::OperandType;
+use crate::instruction::OperandType;
 
 #[derive(Clone, Debug)]
 pub enum Value {

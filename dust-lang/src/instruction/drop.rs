@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Instruction, InstructionFields};
+use super::{Instruction, InstructionFields, Operation};
 
 pub struct Drop {
     pub drop_list_start: u16,
@@ -21,7 +21,7 @@ impl From<Instruction> for Drop {
 
 impl From<Drop> for Instruction {
     fn from(safepoint: Drop) -> Self {
-        let operation = crate::Operation::DROP;
+        let operation = Operation::DROP;
         let a_field = safepoint.drop_list_start;
         let b_field = safepoint.drop_list_end;
 

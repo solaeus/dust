@@ -1,29 +1,28 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Span, syntax_tree::SyntaxId};
+use crate::{instruction::OperandType, source::Span, syntax_tree::SyntaxId};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SyntaxNode {
     pub kind: SyntaxKind,
     pub children: (u32, u32),
     pub span: Span,
+    pub r#type: OperandType,
 }
 
 impl SyntaxNode {
     pub fn encode_character(character: char) -> (u32, u32) {
         let char_bytes = (character as u32).to_le_bytes();
-        let left_payload = u32::from_le_bytes([char_bytes[0], char_bytes[1], char_bytes[2], 0]);
-        let right_payload = u32::from_le_bytes([char_bytes[3], 0, 0, 0]);
+        let left_payload =
+            u32::from_le_bytes([char_bytes[0], char_bytes[1], char_bytes[2], char_bytes[3]]);
 
-        (left_payload, right_payload)
+        (left_payload, 0)
     }
 
     pub fn decode_character(payload: (u32, u32)) -> char {
         let left_bytes = payload.0.to_le_bytes();
-        let right_bytes = payload.1.to_le_bytes();
-        let char_bytes = [left_bytes[0], left_bytes[1], left_bytes[2], right_bytes[0]];
 
-        char::from_u32(u32::from_le_bytes(char_bytes)).unwrap_or_default()
+        char::from_u32(u32::from_le_bytes(left_bytes)).unwrap_or_default()
     }
 
     pub fn encode_float(float: f64) -> (u32, u32) {
@@ -101,12 +100,14 @@ impl SyntaxNode {
             SyntaxKind::MainFunctionItem
             | SyntaxKind::ModuleItem
             | SyntaxKind::BlockExpression
+            | SyntaxKind::Path
             | SyntaxKind::CallValueArguments
             | SyntaxKind::FunctionValueParameters => {
                 Children::Multiple(self.children.0, self.children.1)
             }
             SyntaxKind::FunctionItem => Children::Single(SyntaxId(self.children.1)),
             SyntaxKind::ExpressionStatement
+            | SyntaxKind::PathExpression
             | SyntaxKind::GroupedExpression
             | SyntaxKind::FunctionSignature
             | SyntaxKind::NegationExpression

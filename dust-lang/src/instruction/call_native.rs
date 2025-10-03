@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::NativeFunction;
+use crate::native_function::NativeFunction;
 
 use super::{Address, Instruction, InstructionFields, Operation};
 

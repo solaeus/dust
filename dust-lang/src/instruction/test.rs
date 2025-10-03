@@ -1,8 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Instruction, Operation};
-
-use super::{Address, InstructionFields};
+use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct Test {
     pub comparator: bool,

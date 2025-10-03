@@ -1,17 +1,19 @@
-use std::collections::HashMap;
+use std::{any::Any, collections::HashMap};
 
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 use tracing::{Level, debug, info, span};
 
 use crate::{
-    Address, Chunk, CompileError, Instruction, NativeFunction, OperandType, Operation, Position,
-    Type,
+    chunk::Chunk,
     compiler::CompileContext,
+    instruction::{Address, Instruction, OperandType, Operation},
     resolver::{DeclarationId, DeclarationKind, FunctionTypeNode, TypeId, TypeNode},
-    source::SourceFileId,
+    source::{Position, SourceFileId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
+
+use super::CompileError;
 
 #[derive(Debug)]
 pub struct ChunkCompiler<'a> {
@@ -358,13 +360,12 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn handle_operand(&mut self, instruction: Instruction) -> Address {
-        match instruction.operation() {
-            Operation::LOAD => instruction.b_address(),
-            _ => {
-                self.instructions.push(instruction);
+        if let Operation::LOAD = instruction.operation() {
+            instruction.b_address()
+        } else {
+            self.instructions.push(instruction);
 
-                instruction.destination()
-            }
+            instruction.destination()
         }
     }
 
@@ -372,7 +373,7 @@ impl<'a> ChunkCompiler<'a> {
         match node.kind {
             SyntaxKind::MainFunctionItem => self.compile_main_function_statement(node),
             SyntaxKind::ModuleItem => self.compile_module_item(node),
-            SyntaxKind::FunctionStatement => self.compile_function_statement(node),
+            SyntaxKind::FunctionItem => self.compile_function_item(node),
             SyntaxKind::UseItem => self.compile_use_item(node),
             _ => Err(CompileError::ExpectedItem {
                 node_kind: node.kind,
@@ -383,7 +384,6 @@ impl<'a> ChunkCompiler<'a> {
 
     fn compile_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         match node.kind {
-            SyntaxKind::FunctionStatement => self.compile_function_statement(node),
             SyntaxKind::ExpressionStatement => self.compile_expression_statement(node),
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
                 self.compile_let_statement(node)
@@ -482,104 +482,11 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_use_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling use item");
 
-        let file_declaration_id = DeclarationId(node.children.0);
-        let import_declaration = self
-            .context
-            .resolver
-            .get_declaration(import_declaration_id)
-            .ok_or(CompileError::MissingDeclaration {
-                declaration_id: import_declaration_id,
-            })?;
-
-        match import_declaration.kind {
-            DeclarationKind::Function => {
-                if let Some(existing_index) =
-                    self.context.prototypes.get_index_of(&import_declaration_id)
-                {
-                    self.locals.insert(
-                        import_declaration_id,
-                        Local {
-                            location: existing_index as u16,
-                        },
-                    );
-
-                    return Ok(());
-                }
-
-                let file_declaration = self
-                    .context
-                    .resolver
-                    .get_declaration(file_declaration_id)
-                    .ok_or(CompileError::MissingDeclaration {
-                    declaration_id: file_declaration_id,
-                })?;
-                let file_id = file_declaration.position.file_id;
-                let import_type = self
-                    .context
-                    .resolver
-                    .get_type_node(import_declaration.type_id)
-                    .ok_or(CompileError::MissingTypeNode {
-                        type_id: import_declaration.type_id,
-                    })?;
-                let TypeNode::Function(function_type) = import_type else {
-                    return Err(CompileError::ExpectedFunctionType {
-                        type_id: import_declaration.type_id,
-                    });
-                };
-                let function_compiler = ChunkCompiler::new(
-                    import_declaration_id,
-                    *function_type,
-                    file_id,
-                    self.context,
-                );
-
-                let function_chunk = function_compiler.compile_main()?;
-                let prototype_index = self.context.prototypes.len() as u16;
-
-                self.context
-                    .prototypes
-                    .insert(import_declaration_id, function_chunk);
-
-                self.locals.insert(
-                    import_declaration_id,
-                    Local {
-                        location: prototype_index,
-                    },
-                );
-            }
-            _ => todo!(),
-        }
-
         Ok(())
     }
 
     fn compile_expression_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling expression statement");
-
-        let expression_id = SyntaxId(node.children.0);
-        let expression_node = *self
-            .syntax_tree()?
-            .get_node(expression_id)
-            .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
-        let expression_emission = self.compile_expression(&expression_node)?;
-
-        match expression_emission {
-            Emission::Instruction(instruction, _) => {
-                self.instructions.push(instruction);
-            }
-            Emission::Instructions(instructions, _) => {
-                self.instructions.extend(instructions.iter());
-            }
-            Emission::Constant(constant) => {
-                let r#type = constant.operand_type();
-                let address = self.get_constant_address(constant);
-                let destination = Address::register(self.get_next_register());
-                let load_instruction = Instruction::load(destination, address, r#type, false);
-
-                self.instructions.push(load_instruction);
-            }
-            Emission::None => {}
-        }
 
         Ok(())
     }
@@ -587,170 +494,17 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_let_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling let statement");
 
-        let declaration_id = DeclarationId(node.payload);
-        let expression_statement_id = SyntaxId(node.children.1);
-
-        let expression_statement_node = self
-            .syntax_tree()?
-            .get_node(expression_statement_id)
-            .ok_or(CompileError::MissingSyntaxNode {
-                id: expression_statement_id,
-            })?;
-        let expression_id = SyntaxId(expression_statement_node.children.0);
-        let expression_node = *self
-            .syntax_tree()?
-            .get_node(expression_id)
-            .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
-        let expression_emission = self.compile_expression(&expression_node)?;
-        let destination_register = match expression_emission {
-            Emission::Instruction(instruction, _) => {
-                let destination_register = instruction.destination().index;
-
-                self.instructions.push(instruction);
-
-                destination_register
-            }
-            Emission::Instructions(instructions, _) => {
-                let first_instruction = instructions[0];
-                let destination_register = first_instruction.destination().index;
-
-                self.instructions.extend(instructions.iter());
-
-                destination_register
-            }
-            Emission::Constant(constant) => {
-                let r#type = constant.operand_type();
-                let address = self.get_constant_address(constant);
-                let destination = Address::register(self.get_next_register());
-                let instruction = Instruction::load(destination, address, r#type, false);
-
-                self.instructions.push(instruction);
-
-                destination.index
-            }
-            Emission::None => {
-                return Err(CompileError::ExpectedExpression {
-                    node_kind: expression_node.kind,
-                    position: Position::new(self.syntax_tree()?.file_id, node.span),
-                });
-            }
-        };
-
-        self.locals.insert(
-            declaration_id,
-            Local {
-                location: destination_register,
-            },
-        );
-
         Ok(())
     }
 
     fn compile_reassign_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling reassign statement");
 
-        let declaration_id = DeclarationId(node.payload);
-        let expression_id = SyntaxId(node.children.1);
-
-        let local = *self
-            .locals
-            .get(&declaration_id)
-            .ok_or(CompileError::MissingLocal { declaration_id })?;
-        let expression_node = *self
-            .syntax_tree()?
-            .get_node(expression_id)
-            .ok_or(CompileError::MissingSyntaxNode { id: expression_id })?;
-        let expression_emission = self.compile_expression(&expression_node)?;
-        let destination_register = local.location;
-        match expression_emission {
-            Emission::Instruction(instruction, _) => {
-                let mut instruction = instruction;
-
-                instruction.set_destination(Address::register(destination_register));
-
-                self.instructions.push(instruction);
-            }
-            Emission::Instructions(instructions, _) => {
-                for mut instruction in instructions {
-                    instruction.set_destination(Address::register(destination_register));
-
-                    self.instructions.push(instruction);
-                }
-            }
-            Emission::Constant(constant) => {
-                let r#type = constant.operand_type();
-                let address = self.get_constant_address(constant);
-                let destination = Address::register(destination_register);
-                let load_instruction = Instruction::load(destination, address, r#type, false);
-
-                self.instructions.push(load_instruction);
-            }
-            Emission::None => {
-                return Err(CompileError::ExpectedExpression {
-                    node_kind: expression_node.kind,
-                    position: Position::new(self.syntax_tree()?.file_id, expression_node.span),
-                });
-            }
-        };
-
         Ok(())
     }
 
-    fn compile_function_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
+    fn compile_function_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling function statement");
-
-        let declaration_id = DeclarationId(node.children.0);
-        let function_expression_id = SyntaxId(node.children.1);
-        let function_node = *self.syntax_tree()?.get_node(function_expression_id).ok_or(
-            CompileError::MissingSyntaxNode {
-                id: function_expression_id,
-            },
-        )?;
-
-        if declaration_id == DeclarationId::ANONYMOUS {
-            let _ = self.compile_function_expression(&function_node, declaration_id)?;
-
-            return Ok(());
-        }
-
-        if self.locals.contains_key(&declaration_id) {
-            let declaration = self
-                .context
-                .resolver
-                .get_declaration(declaration_id)
-                .ok_or(CompileError::MissingDeclaration { declaration_id })?;
-            let file_id = declaration.position.file_id;
-            let identifier_range = declaration.position.span.as_usize_range();
-            let identifier = &self
-                .context
-                .source
-                .get_file(file_id)
-                .ok_or(CompileError::MissingSourceFile { file_id })?
-                .source_code[identifier_range];
-
-            return Err(CompileError::DuplicateFunctionDeclaration {
-                identifier: identifier.to_string(),
-                first_position: declaration.position,
-                second_position: Position::new(self.syntax_tree()?.file_id, node.span),
-            });
-        }
-
-        let Emission::Constant(Constant::Function {
-            prototype_index, ..
-        }) = self.compile_function_expression(&function_node, declaration_id)?
-        else {
-            return Err(CompileError::ExpectedFunction {
-                node_kind: function_node.kind,
-                position: Position::new(self.syntax_tree()?.file_id, function_node.span),
-            });
-        };
-
-        self.locals.insert(
-            declaration_id,
-            Local {
-                location: prototype_index,
-            },
-        );
 
         Ok(())
     }
@@ -844,13 +598,12 @@ impl<'a> ChunkCompiler<'a> {
 
         let string_start = node.span.0 + 1;
         let string_end = node.span.1 - 1;
-        let source_file = self
-            .context
-            .source
-            .get_file(self.syntax_tree()?.file_id)
-            .ok_or(CompileError::MissingSourceFile {
+        let files = self.context.source.read_files();
+        let source_file = files.get(self.syntax_tree()?.file_id.0 as usize).ok_or(
+            CompileError::MissingSourceFile {
                 file_id: self.syntax_tree()?.file_id,
-            })?;
+            },
+        )?;
         let string = &source_file.source_code[string_start as usize..string_end as usize];
         let (pool_start, pool_end) = self.context.constants.push_str_to_string_pool(string);
 
@@ -901,7 +654,7 @@ impl<'a> ChunkCompiler<'a> {
                 let operand_type = self
                     .context
                     .resolver
-                    .resolve_type(TypeId(node.payload))
+                    .resolve_type(node.type())
                     .ok_or(CompileError::MissingTypeNode {
                         type_id: TypeId(node.payload),
                     })?

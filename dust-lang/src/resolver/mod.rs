@@ -7,7 +7,12 @@ use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
 use smallvec::SmallVec;
 
-use crate::{FunctionType, NativeFunction, OperandType, Position, Type};
+use crate::{
+    instruction::OperandType,
+    native_function::NativeFunction,
+    source::Position,
+    r#type::{FunctionType, Type},
+};
 
 #[derive(Debug)]
 pub struct Resolver {

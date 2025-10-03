@@ -1,5 +1,6 @@
 use crate::{
-    Lexer, Span,
+    lexer::Lexer,
+    source::Span,
     token::{Token, TokenKind},
 };
 

@@ -1,80 +1,99 @@
-use memmap2::Mmap;
+use std::{
+    fmt::{self, Display, Formatter},
+    ops::Range,
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 
-#[derive(Debug)]
-pub enum Source {
-    Script { name: String, source: Vec<u8> },
-    Files(Vec<SourceFile>),
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone)]
+pub struct Source {
+    files: Arc<RwLock<Vec<SourceFile>>>,
 }
 
 impl Source {
-    pub fn script(name: String, source: Vec<u8>) -> Self {
-        Source::Script { name, source }
-    }
-
-    pub fn files(file_count: usize) -> Self {
-        Source::Files(Vec::with_capacity(file_count))
-    }
-
-    pub fn len(&self) -> usize {
-        match self {
-            Source::Script { .. } => 1,
-            Source::Files(sources) => sources.len(),
+    pub fn new() -> Self {
+        Self {
+            files: Arc::new(RwLock::new(Vec::new())),
         }
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
+    pub fn read_files(&self) -> RwLockReadGuard<'_, Vec<SourceFile>> {
+        self.files
+            .read()
+            .expect("Failed to acquire read lock on source files")
     }
 
-    pub fn add_file(&mut self, name: String, source_code: Mmap) -> SourceFileId {
-        let id = SourceFileId(self.len() as u32);
+    pub fn write_files(&self) -> RwLockWriteGuard<'_, Vec<SourceFile>> {
+        self.files
+            .write()
+            .expect("Failed to acquire write lock on source files")
+    }
 
-        match self {
-            Source::Files(sources) => {
-                sources.push(SourceFile { name, source_code });
-            }
-            Source::Script { .. } => {}
-        }
+    pub fn add_file(&self, file: SourceFile) -> SourceFileId {
+        let mut files = self.write_files();
+        let id = SourceFileId(files.len() as u32);
+
+        files.push(file);
 
         id
-    }
-
-    pub fn program_name(&self) -> &str {
-        match self {
-            Source::Script { name, .. } => name,
-            Source::Files(sources) => {
-                if let Some(source_file) = sources.first().as_ref() {
-                    &source_file.name
-                } else {
-                    "anonymous"
-                }
-            }
-        }
-    }
-
-    pub fn into_program_name(self) -> String {
-        match self {
-            Source::Script { name, .. } => name,
-            Source::Files(sources) => {
-                if let Some(source_file) = sources.into_iter().next() {
-                    source_file.name
-                } else {
-                    "anonymous".to_string()
-                }
-            }
-        }
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct SourceFileId(pub u32);
 
-impl SourceFileId {
-    pub const MAIN: Self = SourceFileId(0);
-}
-
 #[derive(Debug)]
 pub struct SourceFile {
     pub name: String,
-    pub source_code: Mmap,
+    pub source_code: String,
+}
+
+impl SourceFile {
+    pub fn source_code_bytes(&self) -> &[u8] {
+        self.source_code.as_bytes()
+    }
+
+    pub fn source_code_str(&self) -> &str {
+        self.source_code.as_str()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct Position {
+    pub file_id: SourceFileId,
+    pub span: Span,
+}
+
+impl Position {
+    pub fn new(file_id: SourceFileId, span: Span) -> Self {
+        Self { file_id, span }
+    }
+}
+
+#[derive(
+    Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
+pub struct Span(pub u32, pub u32);
+
+impl Span {
+    pub fn new<T: TryInto<u32>>(start: T, end: T) -> Self {
+        Self(
+            start.try_into().unwrap_or_default(),
+            end.try_into().unwrap_or_default(),
+        )
+    }
+
+    pub fn as_usize_range(&self) -> Range<usize> {
+        Range {
+            start: self.0 as usize,
+            end: self.1 as usize,
+        }
+    }
+}
+
+impl Display for Span {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}..{}", self.0, self.1)
+    }
 }

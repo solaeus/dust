@@ -1,5 +1,9 @@
 use crate::{
-    Address, Chunk, FunctionType, Instruction, OperandType, Type, compile_main, tests::local_cases,
+    chunk::Chunk,
+    compiler::compile_main,
+    instruction::{Address, Instruction, OperandType},
+    tests::local_cases,
+    r#type::{FunctionType, Type},
 };
 
 #[test]

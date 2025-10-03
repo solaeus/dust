@@ -1,10 +1,9 @@
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
-    Position,
     dust_error::AnnotatedError,
     resolver::{DeclarationId, FunctionTypeNode, ScopeId, TypeId},
-    source::SourceFileId,
+    source::{Position, SourceFileId},
     syntax_tree::{SyntaxId, SyntaxKind},
 };
 

@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::OperandType;
+use crate::instruction::OperandType;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[repr(C)]

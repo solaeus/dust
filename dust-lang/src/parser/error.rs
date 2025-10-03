@@ -2,12 +2,12 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use smallvec::SmallVec;
 
 use crate::{
-    Position, Type,
     dust_error::AnnotatedError,
     resolver::{DeclarationId, DeclarationKind, ScopeId, TypeId},
-    source::SourceFileId,
+    source::{Position, SourceFileId},
     syntax_tree::{SyntaxId, SyntaxKind},
     token::TokenKind,
+    r#type::Type,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -186,9 +186,7 @@ impl AnnotatedError for ParseError {
         }
     }
 
-    fn annotated_error<'a>(&'a self, source: &'a [u8]) -> Group<'a> {
-        let source = unsafe { str::from_utf8_unchecked(source) };
-
+    fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a> {
         match self {
             ParseError::InvalidUtf8 { position } => {
                 let title = "Invalid UTF-8 sequence".to_string();

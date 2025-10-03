@@ -11,7 +11,11 @@ pub use tui_disassembler::TuiDisassembler;
 
 use std::fmt::Debug;
 
-use crate::{Address, FunctionType, Instruction, OperandType, Position, Source};
+use crate::{
+    instruction::{Address, Instruction, OperandType},
+    source::Position,
+    r#type::FunctionType,
+};
 
 /// Representation of a Dust program or function.
 ///
@@ -26,15 +30,4 @@ pub struct Chunk {
     pub(crate) drop_lists: Vec<u16>,
 
     pub(crate) register_count: u16,
-}
-
-impl Chunk {
-    pub fn get_name<'a>(&self, source: &'a Source) -> Option<&'a str> {
-        let Some(position) = self.name_position else {
-            return Some("<anonymous>");
-        };
-        let file = source.get_file(position.file_id)?;
-
-        file.source_code.get(position.span.as_usize_range())
-    }
 }

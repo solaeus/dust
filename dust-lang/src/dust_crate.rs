@@ -1,17 +1,16 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 
-use crate::{Chunk, ConstantTable, resolver::DeclarationId, syntax_tree::SyntaxTree};
+use crate::{chunk::Chunk, constant_table::ConstantTable, resolver::DeclarationId, source::Source};
 
 pub enum DustCrate {
     Program(Arc<Program>),
-    Library(Library),
 }
 
 pub struct Program {
-    pub name: String,
+    pub source: Source,
     pub constants: ConstantTable,
     pub prototypes: IndexMap<DeclarationId, Chunk, FxBuildHasher>,
 }
@@ -23,9 +22,4 @@ impl Program {
             .next()
             .expect("Program should always have a main chunk")
     }
-}
-
-pub struct Library {
-    pub name: Arc<String>,
-    pub file_trees: HashMap<DeclarationId, SyntaxTree, FxBuildHasher>,
 }

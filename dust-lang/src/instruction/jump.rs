@@ -1,8 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Instruction, Operation};
-
-use super::InstructionFields;
+use super::{Instruction, InstructionFields, Operation};
 
 pub struct Jump {
     pub offset: u16,

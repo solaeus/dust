@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{FunctionType, Type};
+use crate::r#type::{FunctionType, Type};
 
 macro_rules! define_native_function {
     ($(($index: literal, $name:expr, $type:expr)),*) => {

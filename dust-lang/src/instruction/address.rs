@@ -2,9 +2,7 @@ use std::fmt::{self, Formatter, FormattingOptions};
 
 use serde::{Deserialize, Serialize};
 
-use crate::OperandType;
-
-use super::MemoryKind;
+use super::{MemoryKind, OperandType};
 
 #[derive(
     Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,

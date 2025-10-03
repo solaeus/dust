@@ -63,7 +63,7 @@ pub use test::Test;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::NativeFunction;
+use crate::native_function::NativeFunction;
 
 /// An instruction for the Dust virtual machine.
 ///

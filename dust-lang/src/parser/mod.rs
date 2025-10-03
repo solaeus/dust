@@ -15,26 +15,37 @@ use smallvec::SmallVec;
 use tracing::{Level, error, info, span, warn};
 
 use crate::{
-    Lexer, Position, Source, Span,
     dust_error::DustError,
+    instruction::OperandType,
+    lexer::Lexer,
     parser::parse_rule::{ParseRule, Precedence},
-    source::SourceFileId,
+    source::{Position, Source, SourceFile, SourceFileId, Span},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
     token::{Token, TokenKind},
 };
 
-pub fn parse_main(source_code: String) -> (SyntaxTree, Option<DustError>) {
-    let lexer = Lexer::new(source_code.as_bytes());
-    let parser = Parser::new(SourceFileId::MAIN, lexer);
+pub fn parse_main<'a>(source_code: String) -> (SyntaxTree, Option<DustError>) {
+    let source = Source::new();
+    let mut files = source.write_files();
+    let file = SourceFile {
+        name: "main".to_string(),
+        source_code,
+    };
+
+    files.push(file);
+
+    let file = files.first().unwrap();
+    let lexer = Lexer::new(file.source_code_bytes());
+    let parser = Parser::new(SourceFileId(0), lexer, source.clone());
     let ParseResult {
         syntax_tree,
         errors,
-        ..
     } = parser.parse();
+
     let dust_error = if errors.is_empty() {
         None
     } else {
-        let source = Source::script("dust program".to_string(), source_code.into_bytes());
+        drop(files);
 
         Some(DustError::parse(errors, source))
     };
@@ -48,7 +59,9 @@ pub struct ParseResult {
 }
 
 pub struct Parser<'src> {
+    file_id: SourceFileId,
     lexer: Lexer<'src>,
+    source: Source,
 
     syntax_tree: SyntaxTree,
 
@@ -59,9 +72,11 @@ pub struct Parser<'src> {
 }
 
 impl<'src> Parser<'src> {
-    pub fn new(file_id: SourceFileId, lexer: Lexer<'src>) -> Self {
+    pub fn new(file_id: SourceFileId, lexer: Lexer<'src>, source: Source) -> Self {
         Self {
+            file_id,
             lexer,
+            source,
             syntax_tree: SyntaxTree::new(file_id),
             current_token: Token {
                 kind: TokenKind::Unknown,
@@ -320,6 +335,7 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::MainFunctionItem,
             span: Span::default(),
             children: (0, 0),
+            r#type: OperandType::NONE,
         };
 
         let _main_function_item_id = self.syntax_tree.push_node(placeholder_node);
@@ -342,12 +358,22 @@ impl<'src> Parser<'src> {
             }
         }
 
-        let children = self.syntax_tree.add_children(&children);
+        let main_type = children
+            .last()
+            .and_then(|&id| self.syntax_tree.get_node(id))
+            .map_or(OperandType::NONE, |node| {
+                if node.kind.is_expression() {
+                    node.r#type
+                } else {
+                    OperandType::NONE
+                }
+            });
 
         self.syntax_tree.nodes[0] = SyntaxNode {
             kind: SyntaxKind::MainFunctionItem,
             span: Span(0, self.current_token.span.1),
-            children,
+            children: self.syntax_tree.add_children(&children),
+            r#type: main_type,
         };
 
         Ok(())
@@ -366,6 +392,7 @@ impl<'src> Parser<'src> {
             kind,
             span: Span::default(),
             children: (0, 0),
+            r#type: OperandType::NONE,
         };
         let node_index = self.syntax_tree.nodes.len();
 
@@ -399,6 +426,7 @@ impl<'src> Parser<'src> {
             kind,
             span: Span(start, end),
             children: (first_child, child_count),
+            r#type: OperandType::NONE,
         };
 
         self.syntax_tree.nodes[node_index] = node;
@@ -423,6 +451,7 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::UseItem,
             span: Span(start, end),
             children: (path_id.0, 0),
+            r#type: OperandType::NONE,
         });
 
         Ok(())
@@ -451,6 +480,7 @@ impl<'src> Parser<'src> {
                     kind,
                     span: Span(start, end),
                     children: (function_expression_id.0, 0),
+                    r#type: OperandType::NONE,
                 };
 
                 self.syntax_tree.push_node(node);
@@ -484,6 +514,7 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::FunctionExpression,
             span: Span(start, end),
             children: (function_signature_id.0, block_id.0),
+            r#type: OperandType::FUNCTION,
         };
 
         self.syntax_tree.push_node(node);
@@ -504,6 +535,7 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::FunctionSignature,
             span: Span(start, end),
             children: (value_parameter_list_node_id.0, 0),
+            r#type: OperandType::NONE,
         };
         let node_id = self.syntax_tree.push_node(node);
 
@@ -529,6 +561,7 @@ impl<'src> Parser<'src> {
                 kind: SyntaxKind::FunctionValueParameterName,
                 span: identifier_position.span,
                 children: (0, 0),
+                r#type: OperandType::NONE,
             };
             let parameter_name_node_id = self.syntax_tree.push_node(parameter_name_node);
 
@@ -540,6 +573,7 @@ impl<'src> Parser<'src> {
                 kind: SyntaxKind::FunctionValueParameter,
                 span: Span(parameter_start, parameter_end),
                 children: (parameter_name_node_id.0, type_node_id.0),
+                r#type: OperandType::NONE,
             };
             let node_id = self.syntax_tree.push_node(node);
 
@@ -554,6 +588,7 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::FunctionValueParameters,
             span: Span(start, end),
             children,
+            r#type: OperandType::NONE,
         };
         let node_id = self.syntax_tree.push_node(node);
 
@@ -597,6 +632,7 @@ impl<'src> Parser<'src> {
             kind: node_kind,
             span: Span(start, end),
             children: (0, 0),
+            r#type: OperandType::NONE,
         };
         let node_id = self.syntax_tree.push_node(node);
 
@@ -649,6 +685,7 @@ impl<'src> Parser<'src> {
             kind,
             span: Span(start, end),
             children: (path_id.0, expression_id.0),
+            r#type: OperandType::NONE,
         };
 
         self.syntax_tree.push_node(node);
@@ -694,6 +731,7 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::ReassignStatement,
             span: Span(start, end),
             children: (path_node_id.0, expression_id.0),
+            r#type: OperandType::NONE,
         };
 
         self.syntax_tree.push_node(node);
@@ -720,6 +758,8 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::BooleanExpression,
             span,
             children: (boolean_payload, 0),
+
+            r#type: OperandType::BOOLEAN,
         };
 
         self.advance()?;
@@ -738,6 +778,7 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::ByteExpression,
             span,
             children: (byte_payload, 0),
+            r#type: OperandType::BYTE,
         };
 
         self.syntax_tree.push_node(node);
@@ -750,23 +791,24 @@ impl<'src> Parser<'src> {
         info!("Parsing character expression");
 
         let span = self.current_token.span;
-        let character_text = self.current_source();
+        let character_bytes = &self.current_source()[1..self.current_source().len() - 1];
 
-        debug_assert!(character_text.len() >= 3);
+        debug_assert!(character_bytes.len() <= 4);
 
-        let character_payload = unsafe {
-            str::from_utf8_unchecked(&character_text[..character_text.len() - 1])
-                .chars()
-                .next()
-                .unwrap_unchecked() as u32
-        };
+        let character_payload = (
+            character_bytes.first().copied().unwrap_or_default() as u32
+                | (character_bytes.get(1).copied().unwrap_or_default() as u32) << 8,
+            (character_bytes.get(2).copied().unwrap_or_default() as u32)
+                | (character_bytes.get(3).copied().unwrap_or_default() as u32) << 8,
+        );
 
         self.advance()?;
 
         let node = SyntaxNode {
             kind: SyntaxKind::CharacterExpression,
             span,
-            children: (character_payload, 0),
+            children: character_payload,
+            r#type: OperandType::CHARACTER,
         };
         self.syntax_tree.push_node(node);
 
@@ -789,6 +831,7 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::FloatExpression,
             span,
             children: payload,
+            r#type: OperandType::FLOAT,
         };
         self.syntax_tree.push_node(node);
 
@@ -811,6 +854,7 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::IntegerExpression,
             span,
             children: (left_payload, right_payload),
+            r#type: OperandType::INTEGER,
         };
         self.syntax_tree.push_node(node);
 
@@ -824,6 +868,7 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::StringExpression,
             span: self.current_token.span,
             children: (0, 0),
+            r#type: OperandType::STRING,
         };
 
         self.advance()?;
@@ -854,11 +899,17 @@ impl<'src> Parser<'src> {
         self.parse_sub_expression(operator_precedence)?;
 
         let operand_id = self.syntax_tree.last_node_id();
+        let operand_node = self
+            .syntax_tree
+            .get_node(operand_id)
+            .ok_or(ParseError::MissingNode { id: operand_id })?;
+
         let end = self.previous_token.span.1;
         let node = SyntaxNode {
             kind: node_kind,
             span: Span(start, end),
             children: (operand_id.0, 0),
+            r#type: operand_node.r#type,
         };
 
         self.syntax_tree.push_node(node);
@@ -916,11 +967,17 @@ impl<'src> Parser<'src> {
         self.parse_sub_expression(operator_precedence)?;
 
         let right_id = self.syntax_tree.last_node_id();
+        let r#type = if left_node.r#type == OperandType::CHARACTER {
+            OperandType::STRING
+        } else {
+            left_node.r#type
+        };
         let end = self.previous_token.span.1;
         let node = SyntaxNode {
             kind: node_kind,
             span: Span(start, end),
             children: (left_id.0, right_id.0),
+            r#type,
         };
 
         self.syntax_tree.push_node(node);
@@ -964,12 +1021,14 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::CallValueArguments,
             span: Span(function_node.span.1, self.previous_token.span.1),
             children,
+            r#type: OperandType::NONE,
         };
         let call_value_arguments_id = self.syntax_tree.push_node(call_value_arguments_node);
         let node = SyntaxNode {
             kind: SyntaxKind::CallExpression,
             span: Span(start, end),
             children: (function_node_id.0, call_value_arguments_id.0),
+            r#type: function_node.r#type,
         };
 
         self.syntax_tree.push_node(node);
@@ -1129,14 +1188,15 @@ impl<'src> Parser<'src> {
     fn parse_path_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing path expression");
 
-        let identifier_span = self.current_token.span;
+        let span = self.current_token.span;
 
-        self.advance()?;
+        self.parse_path()?;
 
+        let path_id = self.syntax_tree.last_node_id();
         let node = SyntaxNode {
             kind: SyntaxKind::PathExpression,
-            span: identifier_span,
-            children: (0, 0),
+            span,
+            children: (path_id.0, 0),
         };
 
         self.syntax_tree.push_node(node);

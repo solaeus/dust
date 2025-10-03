@@ -7,7 +7,7 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::{OperandType, Value};
+use crate::{instruction::OperandType, value::Value};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ConstantTable {
