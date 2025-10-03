@@ -1,13 +1,12 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{instruction::OperandType, source::Span, syntax_tree::SyntaxId};
+use crate::{source::Span, syntax_tree::SyntaxId};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SyntaxNode {
     pub kind: SyntaxKind,
     pub children: (u32, u32),
     pub span: Span,
-    pub r#type: OperandType,
 }
 
 impl SyntaxNode {

@@ -2,7 +2,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     dust_error::AnnotatedError,
-    resolver::{DeclarationId, FunctionTypeNode, ScopeId, TypeId},
+    resolver::{DeclarationId, ScopeId, TypeId},
     source::{Position, SourceFileId},
     syntax_tree::{SyntaxId, SyntaxKind},
 };
@@ -94,7 +94,7 @@ pub enum CompileError {
         declaration_id: DeclarationId,
     },
     UnresolvedFunctionType {
-        function_type: FunctionTypeNode,
+        function_type: TypeId,
     },
 }
 

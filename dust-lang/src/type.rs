@@ -18,10 +18,8 @@ pub enum Type {
     String,
     Array(Box<Type>, usize),
     List(Box<Type>),
-    Map,
 
     Function(Box<FunctionType>),
-    FunctionSelf,
 }
 
 impl Type {
@@ -68,8 +66,7 @@ impl Type {
                 Type::Float => OperandType::ARRAY_FLOAT,
                 Type::Integer => OperandType::ARRAY_INTEGER,
                 Type::String => OperandType::ARRAY_STRING,
-                Type::Map => OperandType::ARRAY_MAP,
-                Type::Function(_) | Type::FunctionSelf => OperandType::ARRAY_FUNCTION,
+                Type::Function(_) => OperandType::ARRAY_FUNCTION,
                 Type::Array(_, _) => OperandType::ARRAY_ARRAY,
                 Type::List(_) => OperandType::ARRAY_LIST,
                 Type::None => {
@@ -83,14 +80,12 @@ impl Type {
                 Type::Float => OperandType::LIST_FLOAT,
                 Type::Integer => OperandType::LIST_INTEGER,
                 Type::String => OperandType::LIST_STRING,
-                Type::Map => OperandType::LIST_MAP,
-                Type::Function(_) | Type::FunctionSelf => OperandType::LIST_FUNCTION,
+                Type::Function(_) => OperandType::LIST_FUNCTION,
                 Type::Array(_, _) => OperandType::LIST_ARRAY,
                 Type::List(_) => OperandType::LIST_LIST,
                 Type::None => panic!("A list's item type must be known, even if it is empty"),
             },
-            Type::Map => OperandType::MAP,
-            Type::Function(_) | Type::FunctionSelf => OperandType::FUNCTION,
+            Type::Function(_) => OperandType::FUNCTION,
         }
     }
 }
@@ -105,9 +100,7 @@ impl Display for Type {
             Type::Function(function_type) => write!(f, "{function_type}"),
             Type::Integer => write!(f, "int"),
             Type::List(item_type) => write!(f, "List<{item_type}>"),
-            Type::Map => write!(f, "map"),
             Type::None => write!(f, "none"),
-            Type::FunctionSelf => write!(f, "self"),
             Type::String => write!(f, "str"),
             Type::Array(item_type, length) => write!(f, "[{item_type}; {length}]"),
         }

@@ -3,7 +3,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
 use smallvec::SmallVec;
 
@@ -20,7 +20,7 @@ pub struct Resolver {
 
     scopes: Vec<Scope>,
 
-    types: IndexSet<TypeNode, FxBuildHasher>,
+    types: IndexMap<TypeKey, TypeNode, FxBuildHasher>,
 
     type_members: Vec<TypeId>,
 }
@@ -35,7 +35,7 @@ impl Resolver {
                 imports: SmallVec::new(),
                 modules: SmallVec::new(),
             }],
-            types: IndexSet::default(),
+            types: IndexMap::default(),
             type_members: Vec::new(),
         };
 
@@ -65,14 +65,11 @@ impl Resolver {
         debug_assert_eq!(_main_function_declaration_id, DeclarationId::MAIN);
 
         if with_native_functions {
-            let read_line_type_id = resolver.add_type(TypeNode::Function(FunctionTypeNode {
-                type_parameters: (0, 0),
-                value_parameters: (0, 0),
-                return_type: TypeId::STRING,
-            }));
+            let read_line_functon = NativeFunction { index: 1 };
+            let read_line_type_id = resolver.register_function_type(&read_line_functon.r#type());
 
             resolver.add_declaration(
-                NativeFunction { index: 1 }.name(),
+                read_line_functon.name(),
                 Declaration {
                     kind: DeclarationKind::NativeFunction,
                     scope_id: ScopeId::GLOBAL,
@@ -82,15 +79,11 @@ impl Resolver {
                 },
             );
 
-            let value_parameters = resolver.push_type_members(&[TypeId::STRING]);
-            let write_line_type_id = resolver.add_type(TypeNode::Function(FunctionTypeNode {
-                type_parameters: (0, 0),
-                value_parameters,
-                return_type: TypeId::NONE,
-            }));
+            let write_line_function = NativeFunction { index: 2 };
+            let write_line_type_id = resolver.register_function_type(&write_line_function.r#type());
 
             resolver.add_declaration(
-                NativeFunction { index: 2 }.name(),
+                write_line_function.name(),
                 Declaration {
                     kind: DeclarationKind::NativeFunction,
                     scope_id: ScopeId::GLOBAL,
@@ -256,6 +249,99 @@ impl Resolver {
         None
     }
 
+    pub fn register_type(&mut self, new_type: &Type) -> TypeId {
+        let type_key = {
+            let mut hasher = FxHasher::default();
+
+            new_type.hash(&mut hasher);
+
+            TypeKey {
+                hash: hasher.finish(),
+            }
+        };
+
+        if let Some(existing) = self.types.get_index_of(&type_key) {
+            return TypeId(existing as u32);
+        }
+
+        match new_type {
+            Type::None => TypeId::NONE,
+            Type::Boolean => TypeId::BOOLEAN,
+            Type::Byte => TypeId::BYTE,
+            Type::Character => TypeId::CHARACTER,
+            Type::Float => TypeId::FLOAT,
+            Type::Integer => TypeId::INTEGER,
+            Type::String => TypeId::STRING,
+            Type::Array(element_type, size) => {
+                let element_type_id = self.register_type(element_type);
+                let type_node = TypeNode::Array(element_type_id, *size as u32);
+                let type_id = TypeId(self.types.len() as u32);
+
+                self.types.insert(type_key, type_node);
+
+                type_id
+            }
+            Type::List(element_type) => {
+                let element_type_id = self.register_type(element_type);
+                let type_node = TypeNode::List(element_type_id);
+                let type_id = TypeId(self.types.len() as u32);
+
+                self.types.insert(type_key, type_node);
+
+                type_id
+            }
+            Type::Function(function_type) => self.register_function_type(function_type),
+        }
+    }
+
+    pub fn register_function_type(&mut self, function_type: &FunctionType) -> TypeId {
+        let mut type_parameters = Vec::with_capacity(function_type.type_parameters.len());
+
+        for type_parameter in &function_type.type_parameters {
+            let type_parameter_id = self.register_type(type_parameter);
+
+            type_parameters.push(type_parameter_id);
+        }
+
+        let mut value_parameters = Vec::with_capacity(function_type.value_parameters.len());
+
+        for value_parameter in &function_type.value_parameters {
+            let value_parameter_id = self.register_type(value_parameter);
+
+            value_parameters.push(value_parameter_id);
+        }
+
+        let type_parameters = self.push_type_members(&type_parameters);
+        let value_parameters = self.push_type_members(&value_parameters);
+
+        let return_type_id = self.register_type(&function_type.return_type);
+        let function_type_node = FunctionTypeNode {
+            type_parameters,
+            value_parameters,
+            return_type: return_type_id,
+        };
+        let type_node = TypeNode::Function(function_type_node);
+        let type_key = {
+            let mut hasher = FxHasher::default();
+
+            type_node.hash(&mut hasher);
+
+            TypeKey {
+                hash: hasher.finish(),
+            }
+        };
+
+        if let Some(existing) = self.types.get_index_of(&type_key) {
+            return TypeId(existing as u32);
+        }
+
+        let type_id = TypeId(self.types.len() as u32);
+
+        self.types.insert(type_key, type_node);
+
+        type_id
+    }
+
     pub fn resolve_type(&self, id: TypeId) -> Option<Type> {
         match id {
             TypeId::NONE => Some(Type::None),
@@ -266,7 +352,7 @@ impl Resolver {
             TypeId::INTEGER => Some(Type::Integer),
             TypeId::STRING => Some(Type::String),
             TypeId(index) => {
-                let type_node = self.types.get_index(index as usize)?;
+                let (_, type_node) = self.types.get_index(index as usize)?;
 
                 match type_node {
                     TypeNode::Array(element_type_id, size) => {
@@ -311,20 +397,10 @@ impl Resolver {
         })
     }
 
-    pub fn add_type(&mut self, type_node: TypeNode) -> TypeId {
-        if let Some(existing) = self.types.get_index_of(&type_node) {
-            TypeId(existing as u32)
-        } else {
-            let id = TypeId(self.types.len() as u32);
-
-            self.types.insert(type_node);
-
-            id
-        }
-    }
-
     pub fn get_type_node(&self, id: TypeId) -> Option<&TypeNode> {
-        self.types.get_index(id.0 as usize)
+        self.types
+            .get_index(id.0 as usize)
+            .map(|(_, type_node)| type_node)
     }
 
     pub fn push_type_members(&mut self, members: &[TypeId]) -> (u32, u32) {
@@ -483,6 +559,11 @@ impl Default for TypeId {
     fn default() -> Self {
         TypeId::NONE
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TypeKey {
+    hash: u64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

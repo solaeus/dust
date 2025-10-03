@@ -59,12 +59,8 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
         constants: ConstantTable::new(),
         prototypes: IndexMap::default(),
     };
-    let chunk_compiler = ChunkCompiler::new(
-        DeclarationId::MAIN,
-        FunctionTypeNode::default(),
-        file_id,
-        &mut context,
-    );
+    let chunk_compiler =
+        ChunkCompiler::new(DeclarationId::MAIN, TypeId::NONE, file_id, &mut context);
     let compile_result = chunk_compiler.compile_main();
 
     match compile_result {
@@ -168,7 +164,7 @@ impl Compiler {
 
         let chunk_compiler = ChunkCompiler::new(
             DeclarationId::MAIN,
-            FunctionTypeNode::default(),
+            TypeId::NONE,
             SourceFileId(0),
             &mut self.context,
         );
