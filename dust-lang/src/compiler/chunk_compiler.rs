@@ -746,8 +746,15 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(Emission::Constant(combined, combined_type));
         }
 
+        let left_type = left_emission.r#type();
+        let _right_type = right_emission.r#type();
+
         let instructions_count_before = self.instructions.len();
-        let r#type = left_emission.r#type().clone();
+        let r#type = if left_type == &Type::Character {
+            Type::String
+        } else {
+            left_type.clone()
+        };
         let left_address = left_emission.handle_as_operand(self);
         let right_address = right_emission.handle_as_operand(self);
         let destination = Address::register(self.get_next_register());
@@ -825,18 +832,13 @@ impl<'a> ChunkCompiler<'a> {
         let right_emission = self.compile_expression(&right)?;
 
         if let (
-            Emission::Constant(left_value, left_type),
+            Emission::Constant(left_value, _left_type),
             Emission::Constant(right_value, _right_type),
         ) = (&left_emission, &right_emission)
         {
             let combined = self.combine_constants(*left_value, *right_value, node.kind)?;
-            let combined_type = if left_type == &Type::Character {
-                Type::String
-            } else {
-                left_type.clone()
-            };
 
-            return Ok(Emission::Constant(combined, combined_type));
+            return Ok(Emission::Constant(combined, Type::Boolean));
         }
 
         let destination = Address::register(self.get_next_register());
