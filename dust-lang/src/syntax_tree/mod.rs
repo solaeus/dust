@@ -5,7 +5,7 @@ use std::fmt::{self, Display, Formatter};
 pub use syntax_node::{SyntaxKind, SyntaxNode};
 use termtree::Tree;
 
-use crate::{source::SourceFileId, syntax_tree::syntax_node::Children};
+use crate::syntax_tree::syntax_node::Children;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SyntaxId(pub u32);
@@ -21,9 +21,6 @@ impl SyntaxId {
 /// Lossless abstract syntax tree representing a Dust source code file.
 #[derive(Debug)]
 pub struct SyntaxTree {
-    /// Identifies the source file this syntax tree represents.
-    pub file_id: SourceFileId,
-
     /// List of nodes in the tree in the order they were parsed according to the Pratt algorithm
     /// used by the parser.
     pub nodes: Vec<SyntaxNode>,
@@ -34,9 +31,8 @@ pub struct SyntaxTree {
 }
 
 impl SyntaxTree {
-    pub fn new(file_id: SourceFileId) -> Self {
+    pub fn new() -> Self {
         Self {
-            file_id,
             nodes: Vec::new(),
             children: Vec::new(),
         }
@@ -153,6 +149,12 @@ impl SyntaxTree {
 
         build_tree(&mut root, SyntaxId(0), self);
         root.to_string()
+    }
+}
+
+impl Default for SyntaxTree {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

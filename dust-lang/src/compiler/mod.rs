@@ -21,11 +21,11 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     resolver::{
-        Declaration, DeclarationId, DeclarationKind, FunctionTypeNode, Resolver, Scope, ScopeId,
-        ScopeKind, TypeId,
+        Declaration, DeclarationId, DeclarationKind, Resolver, Scope, ScopeId, ScopeKind, TypeId,
     },
-    source::{Position, Source, SourceFile, SourceFileId, Span},
+    source::{Position, Source, SourceCode, SourceFile, SourceFileId, Span},
     syntax_tree::SyntaxTree,
+    r#type::{FunctionType, Type},
 };
 
 pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
@@ -33,14 +33,14 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
     let files = source.write_files();
     let file = SourceFile {
         name: "main".to_string(),
-        source_code,
+        source_code: SourceCode::String(source_code),
     };
 
     let file_id = source.add_file(file);
     let file = files.get(file_id.0 as usize).unwrap();
 
-    let lexer = Lexer::new(file.source_code_bytes());
-    let parser = Parser::new(file_id, lexer, source.clone());
+    let lexer = Lexer::new(file.source_code.as_ref());
+    let parser = Parser::new(file_id, lexer);
     let ParseResult {
         syntax_tree,
         errors,
@@ -59,8 +59,12 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
         constants: ConstantTable::new(),
         prototypes: IndexMap::default(),
     };
-    let chunk_compiler =
-        ChunkCompiler::new(DeclarationId::MAIN, TypeId::NONE, file_id, &mut context);
+    let chunk_compiler = ChunkCompiler::new(
+        DeclarationId::MAIN,
+        file_id,
+        FunctionType::new([], [], Type::None),
+        &mut context,
+    );
     let compile_result = chunk_compiler.compile_main();
 
     match compile_result {
@@ -74,26 +78,33 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn new(source: Source, resolver: Resolver) -> Self {
+    pub fn new(source: Source) -> Self {
         Self {
             context: CompileContext {
                 source,
                 file_trees: Vec::new(),
                 constants: ConstantTable::new(),
-                resolver,
+                resolver: Resolver::new(true),
                 prototypes: IndexMap::default(),
             },
         }
     }
 
-    pub fn compile(self) -> Result<Program, DustError> {
+    pub fn resolver(&self) -> &Resolver {
+        &self.context.resolver
+    }
+
+    pub fn compile(self) -> Result<(Program, Resolver), DustError> {
         let context = self.compile_inner()?;
 
-        Ok(Program {
-            source: context.source,
-            constants: context.constants,
-            prototypes: context.prototypes,
-        })
+        Ok((
+            Program {
+                source: context.source,
+                constants: context.constants,
+                prototypes: context.prototypes,
+            },
+            context.resolver,
+        ))
     }
 
     pub fn compile_with_extras(self) -> Result<(Program, Vec<SyntaxTree>, Resolver), DustError> {
@@ -144,9 +155,9 @@ impl Compiler {
                 .add_module_to_scope(ScopeId::MAIN, module_id);
         }
 
-        let main_source_code = files.get(0).unwrap().source_code.as_str();
-        let lexer = Lexer::new(main_source_code.as_bytes());
-        let parser = Parser::new(SourceFileId(0), lexer, self.context.source.clone());
+        let main_source_code = files.first().unwrap().source_code.as_ref();
+        let lexer = Lexer::new(main_source_code);
+        let parser = Parser::new(SourceFileId(0), lexer);
         let ParseResult {
             syntax_tree,
             errors: module_errors,
@@ -164,8 +175,8 @@ impl Compiler {
 
         let chunk_compiler = ChunkCompiler::new(
             DeclarationId::MAIN,
-            TypeId::NONE,
             SourceFileId(0),
+            FunctionType::new([], [], Type::None),
             &mut self.context,
         );
 

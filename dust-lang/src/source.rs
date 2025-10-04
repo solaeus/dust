@@ -4,6 +4,7 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
+use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
@@ -40,22 +41,35 @@ impl Source {
     }
 }
 
+impl Default for Source {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct SourceFileId(pub u32);
 
 #[derive(Debug)]
 pub struct SourceFile {
     pub name: String,
-    pub source_code: String,
+    pub source_code: SourceCode,
 }
 
-impl SourceFile {
-    pub fn source_code_bytes(&self) -> &[u8] {
-        self.source_code.as_bytes()
-    }
+#[derive(Debug)]
+pub enum SourceCode {
+    Bytes(Vec<u8>),
+    String(String),
+    Mmap(Mmap),
+}
 
-    pub fn source_code_str(&self) -> &str {
-        self.source_code.as_str()
+impl AsRef<[u8]> for SourceCode {
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            SourceCode::Bytes(bytes) => bytes.as_ref(),
+            SourceCode::String(string) => string.as_bytes(),
+            SourceCode::Mmap(mmap) => mmap.as_ref(),
+        }
     }
 }
 

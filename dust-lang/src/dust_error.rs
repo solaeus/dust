@@ -52,10 +52,12 @@ impl DustError {
                 let mut report = Vec::new();
 
                 for parse_error in parse_errors {
-                    let source_file = source_files
+                    let source = source_files
                         .get(parse_error.file_id().0 as usize)
-                        .map_or(SOURCE_NOT_AVAILABLE, |file| file.source_code.as_str());
-                    let group = parse_error.annotated_error(source_file);
+                        .map_or(SOURCE_NOT_AVAILABLE, |file| unsafe {
+                            str::from_utf8_unchecked(file.source_code.as_ref())
+                        });
+                    let group = parse_error.annotated_error(source);
 
                     report.push(group);
                 }
@@ -65,11 +67,11 @@ impl DustError {
                 renderer.render(&report)
             }
             DustErrorKind::Compile(compile_error) => {
-                let source_file = source_files.get(compile_error.file_id().0 as usize);
-                let source = match source_file {
-                    Some(file) => &file.source_code,
-                    None => SOURCE_NOT_AVAILABLE,
-                };
+                let source = source_files
+                    .get(compile_error.file_id().0 as usize)
+                    .map_or(SOURCE_NOT_AVAILABLE, |file| unsafe {
+                        str::from_utf8_unchecked(file.source_code.as_ref())
+                    });
                 let report = [compile_error.annotated_error(source)];
                 let renderer = Renderer::styled();
 

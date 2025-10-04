@@ -13,7 +13,7 @@ use crate::{instruction::OperandType, value::Value};
 pub struct ConstantTable {
     payloads: IndexMap<u64, u64, FxBuildHasher>,
     tags: Vec<OperandType>,
-    string_pool: String,
+    string_pool: Vec<u8>,
 }
 
 impl ConstantTable {
@@ -21,7 +21,7 @@ impl ConstantTable {
         Self {
             payloads: IndexMap::default(),
             tags: Vec::new(),
-            string_pool: String::new(),
+            string_pool: Vec::new(),
         }
     }
 
@@ -41,20 +41,19 @@ impl ConstantTable {
     }
 
     pub fn get_string_pool_range(&self, range: Range<usize>) -> &str {
-        self.string_pool.get(range).unwrap_or("")
+        unsafe { str::from_utf8_unchecked(self.string_pool.get(range).unwrap_or_default()) }
     }
 
     pub fn finalize_string_pool(&mut self) {
-        let mut new_string_pool = String::with_capacity(self.string_pool.len());
+        let mut new_string_pool = Vec::with_capacity(self.string_pool.len());
 
         for (payload, tag) in self.payloads.values_mut().zip(self.tags.iter()) {
             if *tag == OperandType::STRING {
                 let start = (*payload >> 32) as usize;
                 let end = (*payload & 0xFFFFFFFF) as usize;
-                let string = &self.string_pool[start..end];
                 let new_start = new_string_pool.len();
 
-                new_string_pool.push_str(string);
+                new_string_pool.extend_from_slice(&self.string_pool[start..end]);
 
                 let new_end = new_string_pool.len();
 
@@ -142,11 +141,11 @@ impl ConstantTable {
         Some(i64::from_le_bytes(payload.to_le_bytes()))
     }
 
-    pub fn add_string(&mut self, string: &str) -> u16 {
+    pub fn add_string(&mut self, bytes: &[u8]) -> u16 {
         let hash = {
             let mut hasher = FxHasher::default();
 
-            string.hash(&mut hasher);
+            bytes.hash(&mut hasher);
 
             hasher.finish()
         };
@@ -156,7 +155,7 @@ impl ConstantTable {
         } else {
             let start = self.string_pool.len();
 
-            self.string_pool.push_str(string);
+            self.string_pool.extend_from_slice(bytes);
 
             let end = self.string_pool.len();
             let payload = (start as u64) << 32 | (end as u64);
@@ -186,11 +185,11 @@ impl ConstantTable {
         Some((string.as_ptr(), string.len()))
     }
 
-    pub fn push_str_to_string_pool(&mut self, string: &str) -> (u32, u32) {
+    pub fn push_str_to_string_pool(&mut self, bytes: &[u8]) -> (u32, u32) {
         let hash = {
             let mut hasher = FxHasher::default();
 
-            string.hash(&mut hasher);
+            bytes.hash(&mut hasher);
 
             hasher.finish()
         };
@@ -204,7 +203,7 @@ impl ConstantTable {
         } else {
             let start = self.string_pool.len() as u32;
 
-            self.string_pool.push_str(string);
+            self.string_pool.extend_from_slice(bytes);
 
             let end = self.string_pool.len() as u32;
 

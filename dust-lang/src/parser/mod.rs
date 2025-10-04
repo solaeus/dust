@@ -18,29 +18,28 @@ use crate::{
     dust_error::DustError,
     lexer::Lexer,
     parser::parse_rule::{ParseRule, Precedence},
-    source::{Position, Source, SourceFile, SourceFileId, Span},
+    source::{Position, Source, SourceCode, SourceFile, SourceFileId, Span},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
     token::{Token, TokenKind},
 };
 
-pub fn parse_main<'a>(source_code: String) -> (SyntaxTree, Option<DustError>) {
+pub fn parse_main(source_code: String) -> (SyntaxTree, Option<DustError>) {
     let source = Source::new();
     let mut files = source.write_files();
     let file = SourceFile {
-        name: "main".to_string(),
-        source_code,
+        name: "eval".to_string(),
+        source_code: SourceCode::String(source_code),
     };
 
     files.push(file);
 
     let file = files.first().unwrap();
-    let lexer = Lexer::new(file.source_code_bytes());
-    let parser = Parser::new(SourceFileId(0), lexer, source.clone());
+    let lexer = Lexer::new(file.source_code.as_ref());
+    let parser = Parser::new(SourceFileId(0), lexer);
     let ParseResult {
         syntax_tree,
         errors,
     } = parser.parse();
-
     let dust_error = if errors.is_empty() {
         None
     } else {
@@ -59,8 +58,8 @@ pub struct ParseResult {
 
 pub struct Parser<'src> {
     file_id: SourceFileId,
+
     lexer: Lexer<'src>,
-    source: Source,
 
     syntax_tree: SyntaxTree,
 
@@ -71,12 +70,11 @@ pub struct Parser<'src> {
 }
 
 impl<'src> Parser<'src> {
-    pub fn new(file_id: SourceFileId, lexer: Lexer<'src>, source: Source) -> Self {
+    pub fn new(file_id: SourceFileId, lexer: Lexer<'src>) -> Self {
         Self {
             file_id,
             lexer,
-            source,
-            syntax_tree: SyntaxTree::new(file_id),
+            syntax_tree: SyntaxTree::new(),
             current_token: Token {
                 kind: TokenKind::Unknown,
                 span: Span::default(),
@@ -99,10 +97,7 @@ impl<'src> Parser<'src> {
             Some(Ok(token)) => token,
             Some(Err(index)) => {
                 let error = ParseError::InvalidUtf8 {
-                    position: Position::new(
-                        self.syntax_tree.file_id,
-                        Span(index as u32, index as u32 + 1),
-                    ),
+                    position: Position::new(self.file_id, Span(index as u32, index as u32 + 1)),
                 };
 
                 self.recover(error);
@@ -132,7 +127,7 @@ impl<'src> Parser<'src> {
     }
 
     fn current_position(&self) -> Position {
-        Position::new(self.syntax_tree.file_id, self.current_token.span)
+        Position::new(self.file_id, self.current_token.span)
     }
 
     fn current_source(&self) -> &[u8] {
@@ -171,10 +166,7 @@ impl<'src> Parser<'src> {
             Some(Ok(token)) => token,
             Some(Err(index)) => {
                 return Err(ParseError::InvalidUtf8 {
-                    position: Position::new(
-                        self.syntax_tree.file_id,
-                        Span(index as u32, index as u32 + 1),
-                    ),
+                    position: Position::new(self.file_id, Span(index as u32, index as u32 + 1)),
                 });
             }
             None => Token {
@@ -244,12 +236,12 @@ impl<'src> Parser<'src> {
 
             Err(ParseError::ExpectedItem {
                 actual: node.kind,
-                position: Position::new(self.syntax_tree.file_id, node.span),
+                position: Position::new(self.file_id, node.span),
             })
         } else {
             Err(ParseError::UnexpectedToken {
                 actual: self.previous_token.kind,
-                position: Position::new(self.syntax_tree.file_id, self.previous_token.span),
+                position: Position::new(self.file_id, self.previous_token.span),
             })
         }
     }
@@ -283,7 +275,7 @@ impl<'src> Parser<'src> {
         {
             Err(ParseError::ExpectedStatement {
                 actual: node.kind,
-                position: Position::new(self.syntax_tree.file_id, node.span),
+                position: Position::new(self.file_id, node.span),
             })
         } else {
             Ok(())
@@ -298,7 +290,7 @@ impl<'src> Parser<'src> {
         {
             Err(ParseError::ExpectedExpression {
                 actual: node.kind,
-                position: Position::new(self.syntax_tree.file_id, node.span),
+                position: Position::new(self.file_id, node.span),
             })
         } else {
             Ok(())
@@ -313,7 +305,7 @@ impl<'src> Parser<'src> {
         {
             Err(ParseError::ExpectedExpression {
                 actual: node.kind,
-                position: Position::new(self.syntax_tree.file_id, node.span),
+                position: Position::new(self.file_id, node.span),
             })
         } else {
             Ok(())
@@ -535,8 +527,7 @@ impl<'src> Parser<'src> {
             info!("Parsing function value parameter");
 
             let parameter_start = self.current_token.span.0;
-            let identifier_position =
-                Position::new(self.syntax_tree.file_id, self.current_token.span);
+            let identifier_position = Position::new(self.file_id, self.current_token.span);
             let parameter_name_node = SyntaxNode {
                 kind: SyntaxKind::FunctionValueParameterName,
                 span: identifier_position.span,
@@ -684,7 +675,7 @@ impl<'src> Parser<'src> {
         if path_node.kind != SyntaxKind::PathExpression {
             return Err(ParseError::InvalidAssignmentTarget {
                 found: path_node.kind,
-                position: Position::new(self.syntax_tree.file_id, path_node.span),
+                position: Position::new(self.file_id, path_node.span),
             });
         }
 

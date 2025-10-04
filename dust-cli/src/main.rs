@@ -6,10 +6,12 @@
 )]
 
 mod cli;
+mod compile;
+mod parse;
 
 use std::{
     fmt::{self},
-    fs::{File, create_dir, create_dir_all, read_to_string},
+    fs::{File, create_dir, create_dir_all},
     io::{self, Read, Write},
     path::PathBuf,
     time::{Duration, Instant},
@@ -17,11 +19,8 @@ use std::{
 
 use clap::Parser as CliParser;
 use dust_lang::{
-    Lexer, Source,
-    dust_error::DustError,
-    parser::{ParseResult, Parser},
-    project::{DEFAULT_PROGRAM_PATH, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
-    source::SourceFileId,
+    lexer::Lexer,
+    project::{EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
     token::Token,
 };
 use memmap2::MmapOptions;
@@ -31,7 +30,11 @@ use tracing_subscriber::{
     registry::LookupSpan,
 };
 
-use crate::cli::{Cli, InputOptions, Mode};
+use crate::{
+    cli::{Cli, InputOptions, Mode},
+    compile::handle_compile_command,
+    parse::handle_parse_command,
+};
 
 fn main() {
     let start_time = Instant::now();
@@ -106,111 +109,16 @@ fn main() {
     // }
 
     if mode == Mode::Parse {
-        let parse_bytes = |source: &[u8], source_name: &str| {
-            let lexer = Lexer::new(source);
-            let parser = Parser::new(SourceFileId::MAIN, lexer);
-            let ParseResult {
-                syntax_tree,
-                errors,
-            } = parser.parse();
-            let parse_time = start_time.elapsed();
-
-            if time {
-                print_times(&[(source_name, parse_time, None)]);
-            }
-
-            if !errors.is_empty() {
-                let source = get_source(path.clone(), None, stdin, eval.clone());
-                let dust_error = DustError::parse(errors, source);
-
-                eprintln!("{}", dust_error.report());
-
-                return;
-            }
-
-            if !no_output {
-                println!("{syntax_tree}");
-            }
-        };
-
-        if let Some(path) = &path {
-            let file = File::open(path).expect("Failed to open source file");
-            let mmap =
-                unsafe { MmapOptions::new().map(&file) }.expect("Failed to memory map source file");
-
-            let source_name = path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or("unknown");
-
-            parse_bytes(&mmap, source_name);
-        } else if stdin {
-            let mut buffer = Vec::new();
-
-            io::stdin()
-                .read_to_end(&mut buffer)
-                .expect("Failed to read from stdin");
-
-            parse_bytes(&buffer, "stdin");
-        } else if let Some(eval) = &eval {
-            let lexer = Lexer::from_str(eval);
-            let parser = Parser::new(SourceFileId::MAIN, lexer);
-            let ParseResult {
-                syntax_tree,
-                errors,
-            } = parser.parse();
-            let parse_time = start_time.elapsed();
-
-            if !errors.is_empty() {
-                let source = get_source(path.clone(), None, stdin, Some(eval.clone()));
-                let dust_error = DustError::parse(errors, source);
-
-                eprintln!("{}", dust_error.report());
-
-                return;
-            }
-
-            if !no_output {
-                println!("{syntax_tree}");
-            }
-
-            if time {
-                print_times(&[("CLI Input", parse_time, None)]);
-            }
-        } else {
-            panic!("No readable input source provided");
-        };
+        handle_parse_command(eval, no_output, time, start_time);
 
         return;
     }
 
-    // if mode == Mode::Compile {
-    //     let source = get_source(path, name, stdin, eval);
-    //     let resolver = Resolver::new(true);
-    //     let compiler = Compiler::new(source.clone(), resolver);
-    //     let compile_result = compiler.compile_with_extras();
-    //     let compile_time = start_time.elapsed();
-    //     let program_name = source.program_name().to_string();
+    if mode == Mode::Compile {
+        handle_compile_command(eval, no_output, time, start_time);
 
-    //     match compile_result {
-    //         Ok((program, source, file_trees, resolver)) => {
-    //             let disassembler = TuiDisassembler::new(&program, &source, &file_trees, &resolver);
-
-    //             disassembler.disassemble().unwrap();
-    //         }
-    //         Err(error) => {
-    //             if !no_output {
-    //                 eprintln!("{}", error.report())
-    //             }
-    //         }
-    //     }
-
-    //     if time {
-    //         print_times(&[(&program_name, compile_time, None)]);
-    //     }
-
-    //     return;
-    // }
+        return;
+    }
 
     if mode == Mode::Tokenize {
         let tokenize_bytes = |source: &[u8]| {
@@ -303,137 +211,6 @@ fn main() {
     }
 }
 
-fn get_source(
-    path: Option<PathBuf>,
-    name: Option<String>,
-    stdin: bool,
-    eval: Option<String>,
-) -> Source {
-    if let Some(source) = eval {
-        return Source::Script {
-            name: "CLI Input".to_string(),
-            source: source.into_bytes(),
-        };
-    }
-
-    if stdin {
-        let mut buffer = Vec::new();
-
-        io::stdin()
-            .read_to_end(&mut buffer)
-            .expect("Failed to read from stdin");
-
-        return Source::Script {
-            name: "stdin".to_string(),
-            source: buffer,
-        };
-    }
-
-    match path {
-        Some(path) if path.is_file() => {
-            let name = name.unwrap_or_else(|| {
-                path.file_name()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or("unknown")
-                    .to_string()
-            });
-            let file = File::open(&path).expect("Failed to open source file");
-            let mmap =
-                unsafe { MmapOptions::new().map(&file) }.expect("Failed to memory map source file");
-            let mut source = Source::files(1);
-
-            source.add_file(name, mmap);
-
-            source
-        }
-        Some(project_path) if project_path.is_dir() => {
-            let project_path = project_path.canonicalize().expect("Invalid project path");
-            let project_config_path = project_path.join(PROJECT_CONFIG_PATH);
-
-            if !project_config_path.is_file() {
-                panic!(
-                    "No project config file found at `{}`",
-                    project_config_path.display()
-                );
-            }
-
-            let project_config_content =
-                read_to_string(&project_config_path).expect("Failed to read project config file");
-            let ProjectConfig {
-                name: project_name,
-                version: _,
-                authors: _,
-                program,
-            } = toml::from_str(&project_config_content)
-                .expect("Failed to parse project config file");
-
-            let source_directory = project_path.join("src");
-
-            if !source_directory.is_dir() {
-                panic!("`{}` is not a directory", source_directory.display());
-            }
-
-            let file_count = source_directory
-                .read_dir()
-                .expect("Failed to read src directory")
-                .count()
-                .max(1);
-            let mut source_files = Source::files(file_count);
-            let main_file_path = program
-                .map(|program| project_path.join(program.path))
-                .unwrap_or_else(|| project_path.join(DEFAULT_PROGRAM_PATH));
-            let main_file = File::open(&main_file_path).unwrap_or_else(|_| {
-                panic!(
-                    "Failed to open main source file at `{}`",
-                    main_file_path.display()
-                )
-            });
-            let main_file_content = unsafe {
-                MmapOptions::new()
-                    .map(&main_file)
-                    .expect("Failed to memory map main source file")
-            };
-
-            source_files.add_file(project_name, main_file_content);
-
-            if source_directory.is_dir() {
-                for entry in source_directory
-                    .read_dir()
-                    .expect("Failed to read src directory")
-                {
-                    let entry = entry.expect("Failed to read directory entry");
-                    let path = entry.path();
-
-                    if path == main_file_path {
-                        continue;
-                    }
-
-                    let module_name = path
-                        .file_name()
-                        .and_then(|name| name.to_str())
-                        .unwrap_or("unknown")
-                        .trim_end_matches(".ds")
-                        .to_string();
-                    let file = File::open(&path).expect("Failed to open source file");
-                    let file_content = unsafe { MmapOptions::new().map(&file) }
-                        .expect("Failed to memory map source file");
-
-                    source_files.add_file(module_name, file_content);
-                }
-            }
-
-            if source_files.is_empty() {
-                panic!("No source files found");
-            }
-
-            source_files
-        }
-        _ => {
-            panic!("No readable input source provided");
-        }
-    }
-}
-
 fn start_logging(level: LevelFilter, start_time: Instant) {
     tracing_subscriber::fmt()
         .with_env_filter(format!("none,dust_lang={level}"))
@@ -495,7 +272,7 @@ where
     }
 }
 
-fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
+pub fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
     for (source_name, compile_time, run_time) in times {
         let total_time = run_time
             .map(|run_time| run_time + *compile_time)

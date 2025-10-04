@@ -44,12 +44,15 @@ impl<'a> TuiDisassembler<'a> {
         }
 
         for (_, chunk) in &program.prototypes {
-            let chunk_name_position = chunk.name_position.unwrap();
-            let chunk_name = files
-                .get(chunk_name_position.file_id.0 as usize)
-                .unwrap()
-                .name
-                .clone();
+            let chunk_name = if let Some(name_position) = chunk.name_position {
+                files
+                    .get(name_position.file_id.0 as usize)
+                    .map(|file| file.name.as_str())
+                    .unwrap_or("anonymous")
+                    .to_string()
+            } else {
+                "anonymous".to_string()
+            };
 
             tabs.push(chunk_name);
         }
@@ -114,7 +117,7 @@ impl<'a> TuiDisassembler<'a> {
     fn draw_source_tab(
         &self,
         file_name: &str,
-        source_code: String,
+        source_code: &str,
         syntax_tree: &SyntaxTree,
         area: Rect,
         buffer: &mut Buffer,
@@ -391,7 +394,7 @@ impl Widget for &TuiDisassembler<'_> {
 
             self.draw_source_tab(
                 &source_file.name,
-                source_file.source_code.to_string(),
+                unsafe { str::from_utf8_unchecked(source_file.source_code.as_ref()) },
                 &self.file_trees[self.selected_tab],
                 tab_content_area,
                 buffer,

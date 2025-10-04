@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap};
+use std::collections::HashMap;
 
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
@@ -9,10 +9,10 @@ use crate::{
     compiler::CompileContext,
     instruction::{Address, Instruction, OperandType, Operation},
     native_function::NativeFunction,
-    resolver::{DeclarationId, DeclarationKind, FunctionTypeNode, TypeId, TypeNode},
+    resolver::{DeclarationId, TypeId},
     source::{Position, SourceFileId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
-    r#type::Type,
+    r#type::{FunctionType, Type},
 };
 
 use super::CompileError;
@@ -20,8 +20,9 @@ use super::CompileError;
 #[derive(Debug)]
 pub struct ChunkCompiler<'a> {
     declaration_id: DeclarationId,
-    type_id: TypeId,
     file_id: SourceFileId,
+
+    function_type: FunctionType,
 
     context: &'a mut CompileContext,
 
@@ -44,14 +45,14 @@ pub struct ChunkCompiler<'a> {
 impl<'a> ChunkCompiler<'a> {
     pub fn new(
         declaration_id: DeclarationId,
-        type_id: TypeId,
         file_id: SourceFileId,
+        function_type: FunctionType,
         context: &'a mut CompileContext,
     ) -> Self {
         Self {
             declaration_id,
-            type_id,
             file_id,
+            function_type,
             context,
             instructions: Vec::new(),
             call_arguments: Vec::new(),
@@ -93,22 +94,11 @@ impl<'a> ChunkCompiler<'a> {
 
             Some(declaration.position)
         };
-        let r#type = self
-            .context
-            .resolver
-            .resolve_type(self.type_id)
-            .ok_or(CompileError::UnresolvedFunctionType {
-                function_type: self.type_id,
-            })?
-            .into_function_type()
-            .ok_or(CompileError::ExpectedFunctionType {
-                type_id: self.type_id,
-            })?;
         let register_count = self.get_next_register();
 
         Ok(Chunk {
             name_position,
-            r#type,
+            r#type: self.function_type,
             instructions: self.instructions,
             call_arguments: self.call_arguments,
             drop_lists: self.drop_lists,
@@ -235,7 +225,10 @@ impl<'a> ChunkCompiler<'a> {
                     string.push(left);
                     string.push(right);
 
-                    let combined = self.context.constants.push_str_to_string_pool(&string);
+                    let combined = self
+                        .context
+                        .constants
+                        .push_str_to_string_pool(string.as_bytes());
 
                     Constant::String {
                         pool_start: combined.0,
@@ -283,7 +276,10 @@ impl<'a> ChunkCompiler<'a> {
                         string.push_str(left);
                         string.push_str(right);
 
-                        let combined = self.context.constants.push_str_to_string_pool(&string);
+                        let combined = self
+                            .context
+                            .constants
+                            .push_str_to_string_pool(string.as_bytes());
 
                         Constant::String {
                             pool_start: combined.0,
@@ -316,9 +312,10 @@ impl<'a> ChunkCompiler<'a> {
                 string.push_str(right);
 
                 let combined = match operation {
-                    SyntaxKind::AdditionExpression => {
-                        self.context.constants.push_str_to_string_pool(&string)
-                    }
+                    SyntaxKind::AdditionExpression => self
+                        .context
+                        .constants
+                        .push_str_to_string_pool(string.as_bytes()),
                     _ => todo!("Error"),
                 };
 
@@ -344,9 +341,10 @@ impl<'a> ChunkCompiler<'a> {
                 string.push(right);
 
                 let combined = match operation {
-                    SyntaxKind::AdditionExpression => {
-                        self.context.constants.push_str_to_string_pool(&string)
-                    }
+                    SyntaxKind::AdditionExpression => self
+                        .context
+                        .constants
+                        .push_str_to_string_pool(string.as_bytes()),
                     _ => todo!("Error"),
                 };
 
@@ -379,7 +377,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::UseItem => self.compile_use_item(node),
             _ => Err(CompileError::ExpectedItem {
                 node_kind: node.kind,
-                position: Position::new(self.syntax_tree()?.file_id, node.span),
+                position: Position::new(self.file_id, node.span),
             }),
         }
     }
@@ -394,7 +392,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::SemicolonStatement => todo!("Compile semicolon statement"),
             _ => Err(CompileError::ExpectedStatement {
                 node_kind: node.kind,
-                position: Position::new(self.syntax_tree()?.file_id, node.span),
+                position: Position::new(self.file_id, node.span),
             }),
         }
     }
@@ -440,7 +438,7 @@ impl<'a> ChunkCompiler<'a> {
             } else {
                 return Err(CompileError::ExpectedStatement {
                     node_kind: child_node.kind,
-                    position: Position::new(self.syntax_tree()?.file_id, child_node.span),
+                    position: Position::new(self.file_id, child_node.span),
                 });
             }
         }
@@ -551,7 +549,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::CallExpression => self.compile_call_expression(node),
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind,
-                position: Position::new(self.syntax_tree()?.file_id, node.span),
+                position: Position::new(self.file_id, node.span),
             }),
         }
     }
@@ -561,7 +559,7 @@ impl<'a> ChunkCompiler<'a> {
 
         Ok(Emission::Constant(
             Constant::Boolean(node.children.0 != 0),
-            TypeId::BOOLEAN,
+            Type::Boolean,
         ))
     }
 
@@ -570,7 +568,7 @@ impl<'a> ChunkCompiler<'a> {
 
         Ok(Emission::Constant(
             Constant::Byte(node.children.0 as u8),
-            TypeId::BYTE,
+            Type::Byte,
         ))
     }
 
@@ -584,7 +582,7 @@ impl<'a> ChunkCompiler<'a> {
 
         Ok(Emission::Constant(
             Constant::Character(character),
-            TypeId::CHARACTER,
+            Type::Character,
         ))
     }
 
@@ -593,7 +591,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let float = SyntaxNode::decode_float(node.children);
 
-        Ok(Emission::Constant(Constant::Float(float), TypeId::FLOAT))
+        Ok(Emission::Constant(Constant::Float(float), Type::Float))
     }
 
     fn compile_integer_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -603,7 +601,7 @@ impl<'a> ChunkCompiler<'a> {
 
         Ok(Emission::Constant(
             Constant::Integer(integer),
-            TypeId::INTEGER,
+            Type::Integer,
         ))
     }
 
@@ -613,12 +611,13 @@ impl<'a> ChunkCompiler<'a> {
         let string_start = node.span.0 + 1;
         let string_end = node.span.1 - 1;
         let files = self.context.source.read_files();
-        let source_file = files.get(self.syntax_tree()?.file_id.0 as usize).ok_or(
-            CompileError::MissingSourceFile {
-                file_id: self.syntax_tree()?.file_id,
-            },
-        )?;
-        let string = &source_file.source_code[string_start as usize..string_end as usize];
+        let source_file =
+            files
+                .get(self.file_id.0 as usize)
+                .ok_or(CompileError::MissingSourceFile {
+                    file_id: self.file_id,
+                })?;
+        let string = &source_file.source_code.as_ref()[string_start as usize..string_end as usize];
         let (pool_start, pool_end) = self.context.constants.push_str_to_string_pool(string);
 
         Ok(Emission::Constant(
@@ -626,7 +625,7 @@ impl<'a> ChunkCompiler<'a> {
                 pool_start,
                 pool_end,
             },
-            TypeId::STRING,
+            Type::String,
         ))
     }
 
@@ -659,17 +658,17 @@ impl<'a> ChunkCompiler<'a> {
         ) = (&left_emission, &right_emission)
         {
             let combined = self.combine_constants(*left_value, *right_value, node.kind)?;
-            let combined_type = if left_type == &TypeId::CHARACTER {
-                TypeId::STRING
+            let combined_type = if left_type == &Type::Character {
+                Type::String
             } else {
-                *left_type
+                left_type.clone()
             };
 
             return Ok(Emission::Constant(combined, combined_type));
         }
 
         let instructions_count_before = self.instructions.len();
-        let type_id = left_emission.type_id();
+        let type_id = left_emission.clone_type();
         let left_address = left_emission.handle_as_operand(self);
         let right_address = right_emission.handle_as_operand(self);
         let destination = Address::register(self.get_next_register());
@@ -752,10 +751,10 @@ impl<'a> ChunkCompiler<'a> {
         ) = (&left_emission, &right_emission)
         {
             let combined = self.combine_constants(*left_value, *right_value, node.kind)?;
-            let combined_type = if left_type == &TypeId::CHARACTER {
-                TypeId::STRING
+            let combined_type = if left_type == &Type::Character {
+                Type::String
             } else {
-                *left_type
+                left_type.clone()
             };
 
             return Ok(Emission::Constant(combined, combined_type));
@@ -785,7 +784,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: left.kind,
-                    position: Position::new(self.syntax_tree()?.file_id, left.span),
+                    position: Position::new(self.file_id, left.span),
                 });
             }
         };
@@ -811,7 +810,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: right.kind,
-                    position: Position::new(self.syntax_tree()?.file_id, right.span),
+                    position: Position::new(self.file_id, right.span),
                 });
             }
         };
@@ -863,7 +862,7 @@ impl<'a> ChunkCompiler<'a> {
                 load_true_instruction,
                 load_false_instruction,
             ],
-            TypeId::BOOLEAN,
+            Type::Boolean,
         ))
     }
 
@@ -892,12 +891,12 @@ impl<'a> ChunkCompiler<'a> {
 
         if let (
             Emission::Constant(left_value, left_type),
-            Emission::Constant(right_value, right_type),
+            Emission::Constant(right_value, _right_type),
         ) = (&left_emission, &right_emission)
         {
             let combined = self.combine_constants(*left_value, *right_value, node.kind)?;
 
-            return Ok(Emission::Constant(combined, *left_type));
+            return Ok(Emission::Constant(combined, left_type.clone()));
         }
 
         let left_address = match &left_emission {
@@ -922,7 +921,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: left.kind,
-                    position: Position::new(self.syntax_tree()?.file_id, left.span),
+                    position: Position::new(self.file_id, left.span),
                 });
             }
         };
@@ -944,7 +943,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 instruction.set_destination(left_address);
 
-                Emission::Instruction(instruction, TypeId::BOOLEAN)
+                Emission::Instruction(instruction, Type::Boolean)
             }
             Emission::Instructions(instructions, r#type) => {
                 Emission::Instructions(instructions, r#type)
@@ -953,7 +952,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: right.kind,
-                    position: Position::new(self.syntax_tree()?.file_id, right.span),
+                    position: Position::new(self.file_id, right.span),
                 });
             }
         };
@@ -985,10 +984,10 @@ impl<'a> ChunkCompiler<'a> {
                 _ => todo!("Error"),
             };
 
-            return Ok(Emission::Constant(evaluated, *child_type));
+            return Ok(Emission::Constant(evaluated, child_type.clone()));
         }
 
-        let type_id = child_emission.type_id();
+        let type_id = child_emission.clone_type();
         let child_address = child_emission.handle_as_operand(self);
         let destination = Address::register(self.get_next_register());
         let negate_instruction =
@@ -1070,67 +1069,7 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_path_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling path expression");
 
-        let declaration_id = DeclarationId(node.children.0);
-        let declaration = self
-            .context
-            .resolver
-            .get_declaration(declaration_id)
-            .ok_or(CompileError::MissingDeclaration { declaration_id })?;
-        let type_id = declaration.type_id;
-
-        if declaration.kind == DeclarationKind::NativeFunction {
-            let files = self.context.source.read_files();
-
-            let source_file = files.get(self.syntax_tree()?.file_id.0 as usize).ok_or(
-                CompileError::MissingSourceFile {
-                    file_id: self.syntax_tree()?.file_id,
-                },
-            )?;
-            let identifier = &source_file.source_code[node.span.0 as usize..node.span.1 as usize];
-            let native_function = NativeFunction::from_str(identifier).ok_or(
-                CompileError::InvalidNativeFunction {
-                    name: identifier.to_string(),
-                    position: Position::new(self.syntax_tree()?.file_id, node.span),
-                },
-            )?;
-
-            return Ok(Emission::Constant(
-                Constant::NativeFunction { native_function },
-                type_id,
-            ));
-        }
-
-        let operand_register = self
-            .locals
-            .get(&declaration_id)
-            .ok_or(CompileError::MissingLocal { declaration_id })?
-            .location;
-
-        if matches!(
-            declaration.kind,
-            DeclarationKind::Function | DeclarationKind::NativeFunction
-        ) {
-            let prototype_index = self
-                .locals
-                .get(&declaration_id)
-                .ok_or(CompileError::MissingLocal { declaration_id })?
-                .location;
-
-            return Ok(Emission::Constant(
-                Constant::Function { prototype_index },
-                type_id,
-            ));
-        }
-
-        let destination = Address::register(self.get_next_register());
-        let load_instruction = Instruction::load(
-            destination,
-            Address::register(operand_register),
-            type_id.as_operand_type(),
-            false,
-        );
-
-        Ok(Emission::Instruction(load_instruction, type_id))
+        todo!()
     }
 
     fn compile_while_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -1177,7 +1116,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: condition_node.kind,
-                    position: Position::new(self.syntax_tree()?.file_id, condition_node.span),
+                    position: Position::new(self.file_id, condition_node.span),
                 });
             }
         }
@@ -1257,7 +1196,7 @@ impl<'a> ChunkCompiler<'a> {
         let _enter = span.enter();
 
         let mut function_compiler =
-            ChunkCompiler::new(declaration_id, function_type, self.file_id, self.context);
+            ChunkCompiler::new(declaration_id, self.file_id, function_type, self.context);
 
         function_compiler.compile_implicit_return(&body_node)?;
 
@@ -1270,7 +1209,7 @@ impl<'a> ChunkCompiler<'a> {
 
         Ok(Emission::Constant(
             Constant::Function { prototype_index },
-            function_type,
+            Type::Function(Box::new(function_type)),
         ))
     }
 
@@ -1296,7 +1235,7 @@ impl<'a> ChunkCompiler<'a> {
                     .get_node(child_id)
                     .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
                 let argument_emission = compiler.compile_expression(&child_node)?;
-                let operand_type = argument_emission.type_id().as_operand_type();
+                let operand_type = argument_emission.clone_type().as_operand_type();
                 let argument_address = argument_emission.handle_as_operand(compiler);
 
                 compiler
@@ -1333,10 +1272,10 @@ impl<'a> ChunkCompiler<'a> {
 
         let expression_emission = self.compile_expression(&function_node)?;
 
-        let Emission::Constant(Constant::Function { prototype_index }, type_id) =
+        let Emission::Constant(Constant::Function { prototype_index }, r#type) =
             expression_emission
         else {
-            if let Emission::Constant(Constant::NativeFunction { native_function }, _) =
+            if let Emission::Constant(Constant::NativeFunction { native_function }, r#type) =
                 expression_emission
             {
                 let destination = Address::register(self.get_next_register());
@@ -1349,17 +1288,13 @@ impl<'a> ChunkCompiler<'a> {
                     native_function,
                     call_arguments_start_index,
                 );
-                let type_id = self
-                    .context
-                    .resolver
-                    .register_function_type(&native_function.r#type());
 
-                return Ok(Emission::Instruction(call_native_instruction, type_id));
+                return Ok(Emission::Instruction(call_native_instruction, r#type));
             }
 
             return Err(CompileError::ExpectedFunction {
                 node_kind: function_node.kind,
-                position: Position::new(self.syntax_tree()?.file_id, function_node.span),
+                position: Position::new(self.file_id, function_node.span),
             });
         };
 
@@ -1368,32 +1303,23 @@ impl<'a> ChunkCompiler<'a> {
         handle_call_arguments(self, &arguments_node)?;
 
         let destination_index = self.get_next_register();
-        let Type::Function(function_type) = self
-            .context
-            .resolver
-            .resolve_type(type_id)
-            .ok_or(CompileError::MissingTypeNode { type_id })?
-        else {
+        let Type::Function(function_type) = r#type else {
             return Err(CompileError::ExpectedFunction {
                 node_kind: function_node.kind,
-                position: Position::new(self.syntax_tree()?.file_id, function_node.span),
+                position: Position::new(self.file_id, function_node.span),
             });
         };
-        let type_id = self
-            .context
-            .resolver
-            .register_type(&function_type.return_type);
-        let operand_type = type_id.as_operand_type();
+        let r#type = function_type.return_type.clone();
         let argument_count = self.call_arguments.len() as u16;
         let call_instruction = Instruction::call(
             destination_index,
             prototype_index,
             arguments_start_index,
             argument_count,
-            operand_type,
+            r#type.as_operand_type(),
         );
 
-        Ok(Emission::Instruction(call_instruction, type_id))
+        Ok(Emission::Instruction(call_instruction, r#type))
     }
 
     fn compile_implicit_return(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
@@ -1407,14 +1333,8 @@ impl<'a> ChunkCompiler<'a> {
             Instruction::r#return(false, Address::default(), OperandType::NONE)
         } else {
             let return_emission = self.compile_expression(node)?;
-            let (return_operand, return_operand_type, return_type_id) = match return_emission {
-                Emission::Instruction(instruction, type_id) => {
-                    let operand_type = self
-                        .context
-                        .resolver
-                        .resolve_type(type_id)
-                        .ok_or(CompileError::MissingTypeNode { type_id })?
-                        .as_operand_type();
+            let (return_operand, return_type) = match return_emission {
+                Emission::Instruction(instruction, r#type) => {
                     let mut return_operand = self.handle_operand(instruction);
 
                     if let Some(last_instruction) = self.instructions.last()
@@ -1426,34 +1346,29 @@ impl<'a> ChunkCompiler<'a> {
                         self.instructions.pop();
                     }
 
-                    (return_operand, operand_type, type_id)
+                    (return_operand, r#type)
                 }
-                Emission::Instructions(instructions, type_id) => {
+                Emission::Instructions(instructions, r#type) => {
                     let last_instruction = instructions.last().unwrap();
-                    let operand_type = self
-                        .context
-                        .resolver
-                        .resolve_type(type_id)
-                        .ok_or(CompileError::MissingTypeNode { type_id })?
-                        .as_operand_type();
 
                     self.instructions.extend(instructions.iter());
 
-                    (last_instruction.destination(), operand_type, type_id)
+                    (last_instruction.destination(), r#type)
                 }
-                Emission::Constant(constant, type_id) => {
-                    let operand_type = type_id.as_operand_type();
+                Emission::Constant(constant, r#type) => {
+                    let operand_type = r#type.as_operand_type();
                     let address = self.get_constant_address(constant);
                     let destination = Address::register(self.get_next_register());
                     let instruction = Instruction::load(destination, address, operand_type, false);
                     let return_operand = self.handle_operand(instruction);
 
-                    (return_operand, operand_type, type_id)
+                    (return_operand, r#type)
                 }
-                Emission::None => (Address::default(), OperandType::NONE, TypeId::NONE),
+                Emission::None => (Address::default(), Type::None),
             };
 
-            self.type_id = return_type_id;
+            self.function_type.return_type = return_type.clone();
+            let return_operand_type = return_type.as_operand_type();
 
             Instruction::r#return(
                 return_operand_type != OperandType::NONE,
@@ -1478,9 +1393,9 @@ impl<'a> ChunkCompiler<'a> {
 
 #[derive(Clone, Debug)]
 pub enum Emission {
-    Instruction(Instruction, TypeId),
-    Instructions(Vec<Instruction>, TypeId),
-    Constant(Constant, TypeId),
+    Instruction(Instruction, Type),
+    Instructions(Vec<Instruction>, Type),
+    Constant(Constant, Type),
     None,
 }
 
@@ -1508,12 +1423,12 @@ impl Emission {
         }
     }
 
-    fn type_id(&self) -> TypeId {
+    fn clone_type(&self) -> Type {
         match self {
-            Emission::Instruction(_, type_id) => *type_id,
-            Emission::Instructions(_, type_id) => *type_id,
-            Emission::Constant(_, type_id) => *type_id,
-            Emission::None => TypeId::NONE,
+            Emission::Instruction(_, r#type) => r#type.clone(),
+            Emission::Instructions(_, r#type) => r#type.clone(),
+            Emission::Constant(_, r#type) => r#type.clone(),
+            Emission::None => Type::None,
         }
     }
 }
