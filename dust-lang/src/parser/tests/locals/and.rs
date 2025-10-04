@@ -16,13 +16,23 @@ fn local_boolean_and() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 3),
+                children: (4, 3),
                 span: Span(0, 49),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 20),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
@@ -36,13 +46,23 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(15, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (5, 7),
+                children: (8, 11),
                 span: Span(21, 41),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(25, 26),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
@@ -56,22 +76,42 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (6, 0),
+                children: (10, 0),
                 span: Span(35, 41),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(42, 43),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(42, 43),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (14, 0),
                 span: Span(42, 43),
             },
             SyntaxNode {
                 kind: SyntaxKind::AndExpression,
-                children: (9, 10),
+                children: (15, 18),
                 span: Span(42, 48),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(47, 48),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (3, 1),
+                span: Span(47, 48),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (4, 0),
+                children: (17, 0),
                 span: Span(47, 48),
             },
         ]

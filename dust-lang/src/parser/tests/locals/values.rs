@@ -16,13 +16,23 @@ fn local_boolean() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 2),
+                children: (2, 2),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 20),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
@@ -36,12 +46,22 @@ fn local_boolean() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(15, 20),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(21, 22),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(21, 22),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (8, 0),
                 span: Span(21, 22),
             },
         ]
@@ -59,13 +79,23 @@ fn local_byte() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 2),
+                children: (2, 2),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 20),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -79,12 +109,22 @@ fn local_byte() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(15, 20),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(21, 22),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(21, 22),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (8, 0),
                 span: Span(21, 22),
             },
         ]
@@ -102,13 +142,23 @@ fn local_character() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 2),
+                children: (2, 2),
                 span: Span(0, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 19),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterType,
@@ -122,12 +172,22 @@ fn local_character() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(15, 19),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(20, 21),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(20, 21),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (8, 0),
                 span: Span(20, 21),
             },
         ]
@@ -145,13 +205,23 @@ fn local_float() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 2),
+                children: (2, 2),
                 span: Span(0, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 21),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -165,12 +235,22 @@ fn local_float() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(16, 21),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(22, 23),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(22, 23),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (8, 0),
                 span: Span(22, 23),
             },
         ]
@@ -188,13 +268,23 @@ fn local_integer() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 2),
+                children: (2, 2),
                 span: Span(0, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 17),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -208,12 +298,22 @@ fn local_integer() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(14, 17),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(18, 19),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(18, 19),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (8, 0),
                 span: Span(18, 19),
             },
         ]
@@ -231,13 +331,23 @@ fn local_string() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 2),
+                children: (2, 2),
                 span: Span(0, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 23),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
@@ -251,12 +361,22 @@ fn local_string() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(14, 23),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(24, 25),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(24, 25),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (8, 0),
                 span: Span(24, 25),
             },
         ]

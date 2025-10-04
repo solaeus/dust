@@ -40,7 +40,7 @@ impl<'a> TuiDisassembler<'a> {
         let mut tabs = Vec::with_capacity(files.len() + program.prototypes.len());
 
         for file in files.iter() {
-            tabs.push(format!("{}.ds", file.name));
+            tabs.push(file.name.clone());
         }
 
         for (_, chunk) in &program.prototypes {
@@ -390,7 +390,7 @@ impl Widget for &TuiDisassembler<'_> {
             .render(chunk_tabs_header_area, buffer);
 
         if self.selected_tab < files.len() {
-            let source_file = files.get(self.selected_tab as usize).unwrap();
+            let source_file = files.get(self.selected_tab).unwrap();
 
             self.draw_source_tab(
                 &source_file.name,

@@ -500,14 +500,17 @@ impl<'src> Parser<'src> {
 
         let start = self.current_token.span.0;
         let value_parameter_list_node_id = self.parse_function_value_parameters()?;
-
-        self.parse_type()?;
+        let type_node_id = if self.allow(TokenKind::ArrowThin)? {
+            self.parse_type()?
+        } else {
+            SyntaxId::NONE
+        };
 
         let end = self.previous_token.span.1;
         let node = SyntaxNode {
             kind: SyntaxKind::FunctionSignature,
             span: Span(start, end),
-            children: (value_parameter_list_node_id.0, 0),
+            children: (value_parameter_list_node_id.0, type_node_id.0),
         };
         let node_id = self.syntax_tree.push_node(node);
 
@@ -634,13 +637,15 @@ impl<'src> Parser<'src> {
         self.pratt(Precedence::None)?;
 
         let end = self.previous_token.span.1;
-        let expression_id = self.syntax_tree.last_node_id();
-        let expression_node = self
-            .syntax_tree
-            .get_node(expression_id)
-            .ok_or(ParseError::MissingNode { id: expression_id })?;
+        let expression_statement_id = self.syntax_tree.last_node_id();
+        let expression_statement_node =
+            self.syntax_tree
+                .get_node(expression_statement_id)
+                .ok_or(ParseError::MissingNode {
+                    id: expression_statement_id,
+                })?;
 
-        if expression_node.kind != SyntaxKind::ExpressionStatement {
+        if expression_statement_node.kind != SyntaxKind::ExpressionStatement {
             return Err(ParseError::ExpectedToken {
                 actual: self.current_token.kind,
                 expected: TokenKind::Semicolon,
@@ -651,7 +656,7 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind,
             span: Span(start, end),
-            children: (path_id.0, expression_id.0),
+            children: (path_id.0, expression_statement_id.0),
         };
 
         self.syntax_tree.push_node(node);

@@ -16,13 +16,23 @@ fn local_boolean_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 3),
+                children: (4, 3),
                 span: Span(0, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 20),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
@@ -36,13 +46,23 @@ fn local_boolean_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(15, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (5, 7),
+                children: (8, 11),
                 span: Span(21, 40),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(25, 26),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
@@ -56,22 +76,42 @@ fn local_boolean_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (6, 0),
+                children: (10, 0),
                 span: Span(35, 40),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(41, 42),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(41, 42),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (14, 0),
                 span: Span(41, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                children: (9, 10),
+                children: (15, 18),
                 span: Span(41, 47),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(46, 47),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (3, 1),
+                span: Span(46, 47),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (4, 0),
+                children: (17, 0),
                 span: Span(46, 47),
             },
         ]
@@ -89,13 +129,23 @@ fn local_byte_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 3),
+                children: (4, 3),
                 span: Span(0, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 20),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -109,13 +159,23 @@ fn local_byte_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(15, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (5, 7),
+                children: (8, 11),
                 span: Span(21, 40),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(25, 26),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -129,22 +189,42 @@ fn local_byte_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (6, 0),
+                children: (10, 0),
                 span: Span(35, 40),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(41, 42),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(41, 42),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (14, 0),
                 span: Span(41, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                children: (9, 10),
+                children: (15, 18),
                 span: Span(41, 47),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(46, 47),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (3, 1),
+                span: Span(46, 47),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (4, 0),
+                children: (17, 0),
                 span: Span(46, 47),
             },
         ]
@@ -162,13 +242,23 @@ fn local_character_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 3),
+                children: (4, 3),
                 span: Span(0, 46),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 19),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterType,
@@ -182,13 +272,23 @@ fn local_character_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(15, 19),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (5, 7),
+                children: (8, 11),
                 span: Span(20, 38),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(24, 25),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(24, 25),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterType,
@@ -202,22 +302,42 @@ fn local_character_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (6, 0),
+                children: (10, 0),
                 span: Span(34, 38),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(39, 40),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(39, 40),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (14, 0),
                 span: Span(39, 40),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                children: (9, 10),
+                children: (15, 18),
                 span: Span(39, 45),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(44, 45),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (3, 1),
+                span: Span(44, 45),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (4, 0),
+                children: (17, 0),
                 span: Span(44, 45),
             },
         ]
@@ -235,13 +355,23 @@ fn local_float_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 3),
+                children: (4, 3),
                 span: Span(0, 50),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 21),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -255,13 +385,23 @@ fn local_float_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(16, 21),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (5, 7),
+                children: (8, 11),
                 span: Span(22, 42),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(26, 27),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(26, 27),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -275,22 +415,42 @@ fn local_float_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (6, 0),
+                children: (10, 0),
                 span: Span(37, 42),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(43, 44),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(43, 44),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (14, 0),
                 span: Span(43, 44),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                children: (9, 10),
+                children: (15, 18),
                 span: Span(43, 49),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(48, 49),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (3, 1),
+                span: Span(48, 49),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (4, 0),
+                children: (17, 0),
                 span: Span(48, 49),
             },
         ]
@@ -303,18 +463,29 @@ fn local_integer_less_than_or_equal() {
     let (syntax_tree, error) = parse_main(source);
 
     assert!(error.is_none(), "{error:?}");
+
     assert_eq!(
         syntax_tree.sorted_nodes(),
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 3),
+                children: (4, 3),
                 span: Span(0, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 17),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -328,13 +499,23 @@ fn local_integer_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(14, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (5, 7),
+                children: (8, 11),
                 span: Span(18, 34),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(22, 23),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(22, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -348,22 +529,42 @@ fn local_integer_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (6, 0),
+                children: (10, 0),
                 span: Span(31, 34),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(35, 36),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(35, 36),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (14, 0),
                 span: Span(35, 36),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                children: (9, 10),
+                children: (15, 18),
                 span: Span(35, 41),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(40, 41),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (3, 1),
+                span: Span(40, 41),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (4, 0),
+                children: (17, 0),
                 span: Span(40, 41),
             },
         ]
@@ -381,13 +582,23 @@ fn local_string_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 3),
+                children: (4, 3),
                 span: Span(0, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 20),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
@@ -401,13 +612,23 @@ fn local_string_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(14, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (5, 7),
+                children: (8, 11),
                 span: Span(21, 40),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(25, 26),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringType,
@@ -421,22 +642,42 @@ fn local_string_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (6, 0),
+                children: (10, 0),
                 span: Span(34, 40),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(41, 42),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(41, 42),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (14, 0),
                 span: Span(41, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                children: (9, 10),
+                children: (15, 18),
                 span: Span(41, 47),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(46, 47),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (3, 1),
+                span: Span(46, 47),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (4, 0),
+                children: (17, 0),
                 span: Span(46, 47),
             },
         ]

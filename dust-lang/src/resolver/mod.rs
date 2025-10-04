@@ -52,7 +52,7 @@ impl Resolver {
             modules: SmallVec::new(),
         });
         let _main_function_declaration_id = resolver.add_declaration(
-            "main",
+            b"main",
             Declaration {
                 kind: DeclarationKind::Function,
                 scope_id: ScopeId::MAIN,
@@ -69,7 +69,7 @@ impl Resolver {
             let read_line_type_id = resolver.register_function_type(&read_line_functon.r#type());
 
             resolver.add_declaration(
-                read_line_functon.name(),
+                read_line_functon.name().as_bytes(),
                 Declaration {
                     kind: DeclarationKind::NativeFunction,
                     scope_id: ScopeId::GLOBAL,
@@ -83,7 +83,7 @@ impl Resolver {
             let write_line_type_id = resolver.register_function_type(&write_line_function.r#type());
 
             resolver.add_declaration(
-                write_line_function.name(),
+                write_line_function.name().as_bytes(),
                 Declaration {
                     kind: DeclarationKind::NativeFunction,
                     scope_id: ScopeId::GLOBAL,
@@ -142,7 +142,11 @@ impl Resolver {
             .map(|(_, declaration)| declaration)
     }
 
-    pub fn add_declaration(&mut self, identifier: &str, declaration: Declaration) -> DeclarationId {
+    pub fn add_declaration(
+        &mut self,
+        identifier: &[u8],
+        declaration: Declaration,
+    ) -> DeclarationId {
         let symbol = {
             let mut hasher = FxHasher::default();
 
@@ -163,7 +167,7 @@ impl Resolver {
 
     pub fn find_declarations(
         &self,
-        identifier: &str,
+        identifier: &[u8],
     ) -> Option<SmallVec<[(DeclarationId, Declaration); 4]>> {
         let symbol = {
             let mut hasher = FxHasher::default();
@@ -191,7 +195,7 @@ impl Resolver {
 
     pub fn find_declaration_in_scope(
         &self,
-        identifier: &str,
+        identifier: &[u8],
         target_scope_id: ScopeId,
     ) -> Option<(DeclarationId, Declaration)> {
         let symbol = {

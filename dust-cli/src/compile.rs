@@ -3,10 +3,7 @@ use std::time::Instant;
 use dust_lang::{
     chunk::TuiDisassembler,
     compiler::Compiler,
-    dust_error::DustError,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
-    source::{Source, SourceCode, SourceFile, SourceFileId},
+    source::{Source, SourceCode, SourceFile},
 };
 
 use crate::print_times;
@@ -29,31 +26,14 @@ pub fn handle_compile_command(
 
     files.push(file);
 
-    let file = files.first().unwrap();
-    let lexer = Lexer::new(file.source_code.as_ref());
-    let parser = Parser::new(SourceFileId(0), lexer);
-    let ParseResult {
-        syntax_tree,
-        errors,
-    } = parser.parse();
-    let parse_time = start_time.elapsed();
-
     drop(files);
-
-    if !errors.is_empty() {
-        let dust_error = DustError::parse(errors, source);
-
-        eprintln!("{}", dust_error.report());
-
-        return;
-    }
 
     let compiler = Compiler::new(source.clone());
     let compile_result = compiler.compile();
-    let compile_time = start_time.elapsed() - parse_time;
+    let compile_time = start_time.elapsed();
 
-    let (program, resolver) = match compile_result {
-        Ok((program, resolver)) => (program, resolver),
+    let (program, resolver, syntax_trees) = match compile_result {
+        Ok((program, resolver, syntax_trees)) => (program, resolver, syntax_trees),
         Err(dust_error) => {
             if !no_output {
                 eprintln!("{}", dust_error.report())
@@ -62,7 +42,6 @@ pub fn handle_compile_command(
             return;
         }
     };
-    let syntax_trees = vec![syntax_tree];
 
     if !no_output {
         let disassembler = TuiDisassembler::new(&program, &source, &syntax_trees, &resolver);

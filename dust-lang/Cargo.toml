@@ -42,6 +42,10 @@ criterion = { version = "0.7", features = ["html_reports"] }
 name = "tokenize"
 harness = false
 
+[[bench]]
+name = "parse"
+harness = false
+
 # [[bench]]
 # name = "addictive_addition"
 # harness = false

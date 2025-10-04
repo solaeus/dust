@@ -108,7 +108,6 @@ impl SyntaxNode {
             SyntaxKind::ExpressionStatement
             | SyntaxKind::PathExpression
             | SyntaxKind::GroupedExpression
-            | SyntaxKind::FunctionSignature
             | SyntaxKind::NegationExpression
             | SyntaxKind::NotExpression => Children::Single(SyntaxId(self.children.0)),
             SyntaxKind::ReassignStatement
@@ -116,6 +115,7 @@ impl SyntaxNode {
             | SyntaxKind::LetMutStatement
             | SyntaxKind::FunctionExpression
             | SyntaxKind::FunctionValueParameter
+            | SyntaxKind::FunctionSignature
             | SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression

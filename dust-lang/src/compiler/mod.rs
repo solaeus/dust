@@ -30,17 +30,17 @@ use crate::{
 
 pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
     let source = Source::new();
-    let files = source.write_files();
+    let mut files = source.write_files();
     let file = SourceFile {
-        name: "main".to_string(),
+        name: "eval".to_string(),
         source_code: SourceCode::String(source_code),
     };
 
-    let file_id = source.add_file(file);
-    let file = files.get(file_id.0 as usize).unwrap();
+    files.push(file);
 
+    let file = files.first().unwrap();
     let lexer = Lexer::new(file.source_code.as_ref());
-    let parser = Parser::new(file_id, lexer);
+    let parser = Parser::new(SourceFileId(0), lexer);
     let ParseResult {
         syntax_tree,
         errors,
@@ -61,7 +61,7 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
     };
     let chunk_compiler = ChunkCompiler::new(
         DeclarationId::MAIN,
-        file_id,
+        SourceFileId(0),
         FunctionType::new([], [], Type::None),
         &mut context,
     );
@@ -94,7 +94,7 @@ impl Compiler {
         &self.context.resolver
     }
 
-    pub fn compile(self) -> Result<(Program, Resolver), DustError> {
+    pub fn compile(self) -> Result<(Program, Resolver, Vec<SyntaxTree>), DustError> {
         let context = self.compile_inner()?;
 
         Ok((
@@ -104,6 +104,7 @@ impl Compiler {
                 prototypes: context.prototypes,
             },
             context.resolver,
+            context.file_trees,
         ))
     }
 
@@ -137,7 +138,7 @@ impl Compiler {
             };
             let file_scope_id = self.context.resolver.add_scope(file_scope);
             let module_id = self.context.resolver.add_declaration(
-                &file.name,
+                file.name.as_bytes(),
                 Declaration {
                     kind: DeclarationKind::FileModule {
                         inner_scope_id: file_scope_id,

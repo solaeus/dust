@@ -93,6 +93,10 @@ pub enum CompileError {
     MissingPosition {
         declaration_id: DeclarationId,
     },
+    UndeclaredVariable {
+        name: String,
+        position: Position,
+    },
     UnresolvedFunctionType {
         function_type: TypeId,
     },
@@ -126,6 +130,7 @@ impl AnnotatedError for CompileError {
             CompileError::MissingSyntaxTree { .. } => SourceFileId::default(),
             CompileError::MissingPayloads { .. } => SourceFileId::default(),
             CompileError::MissingPosition { .. } => SourceFileId::default(),
+            CompileError::UndeclaredVariable { position, .. } => position.file_id,
             CompileError::UnresolvedFunctionType { .. } => SourceFileId::default(),
         }
     }
@@ -353,6 +358,17 @@ impl AnnotatedError for CompileError {
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::UndeclaredVariable { name, position } => {
+                let title = format!("Undeclared variable: {name}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!("Use of undeclared variable {name} here")),
+                    ),
+                )
             }
             CompileError::UnresolvedFunctionType { function_type } => {
                 let title = format!(

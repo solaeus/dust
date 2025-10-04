@@ -9,7 +9,7 @@ use crate::{
     compiler::CompileContext,
     instruction::{Address, Instruction, OperandType, Operation},
     native_function::NativeFunction,
-    resolver::{DeclarationId, TypeId},
+    resolver::{Declaration, DeclarationId, DeclarationKind, ScopeId, TypeId},
     source::{Position, SourceFileId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
     r#type::{FunctionType, Type},
@@ -124,6 +124,18 @@ impl<'a> ChunkCompiler<'a> {
                     acc
                 }
             })
+    }
+
+    fn current_scope_id(&self) -> Result<ScopeId, CompileError> {
+        let declaration = self
+            .context
+            .resolver
+            .get_declaration(self.declaration_id)
+            .ok_or(CompileError::MissingDeclaration {
+                declaration_id: self.declaration_id,
+            })?;
+
+        Ok(declaration.scope_id)
     }
 
     fn get_constant_address(&mut self, constant: Constant) -> Address {
@@ -482,17 +494,84 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_use_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling use item");
 
-        Ok(())
+        todo!()
     }
 
     fn compile_expression_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling expression statement");
 
-        Ok(())
+        todo!()
     }
 
     fn compile_let_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling let statement");
+
+        let path_id = SyntaxId(node.children.0);
+        let expression_statement_id = SyntaxId(node.children.1);
+        let load_destination = Address::register(self.get_next_register());
+
+        let expression_statement = *self
+            .syntax_tree()?
+            .get_node(expression_statement_id)
+            .ok_or(CompileError::MissingSyntaxNode {
+                id: expression_statement_id,
+            })?;
+        let expression = *self
+            .syntax_tree()?
+            .get_node(SyntaxId(expression_statement.children.0))
+            .ok_or(CompileError::MissingSyntaxNode {
+                id: SyntaxId(expression_statement.children.0),
+            })?;
+        let expression_emission = self.compile_expression(&expression)?;
+        let expression_type = expression_emission.r#type().clone();
+        let type_id = self.context.resolver.register_type(&expression_type);
+        let local_address = expression_emission.handle_as_operand(self);
+
+        let path = *self
+            .syntax_tree()?
+            .get_node(path_id)
+            .ok_or(CompileError::MissingSyntaxNode { id: path_id })?;
+        let files = self.context.source.read_files();
+        let source_file =
+            files
+                .get(self.file_id.0 as usize)
+                .ok_or(CompileError::MissingSourceFile {
+                    file_id: self.file_id,
+                })?;
+        let variable_name_bytes =
+            &source_file.source_code.as_ref()[path.span.0 as usize..path.span.1 as usize];
+
+        let declaration_kind = if node.kind == SyntaxKind::LetStatement {
+            DeclarationKind::Local { shadowed: None }
+        } else {
+            DeclarationKind::LocalMutable { shadowed: None }
+        };
+        let declaration_id = self.context.resolver.add_declaration(
+            variable_name_bytes,
+            Declaration {
+                kind: declaration_kind,
+                scope_id: self.current_scope_id()?,
+                type_id,
+                position: Position::new(self.file_id, node.span),
+                is_public: false,
+            },
+        );
+
+        let load_instruction = Instruction::load(
+            load_destination,
+            local_address,
+            expression_type.as_operand_type(),
+            false,
+        );
+
+        self.instructions.push(load_instruction);
+        self.locals.insert(
+            declaration_id,
+            Local {
+                r#type: expression_type.clone(),
+                address: load_destination,
+            },
+        );
 
         Ok(())
     }
@@ -500,13 +579,13 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_reassign_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling reassign statement");
 
-        Ok(())
+        todo!()
     }
 
     fn compile_function_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling function statement");
 
-        Ok(())
+        todo!()
     }
 
     fn compile_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -668,11 +747,11 @@ impl<'a> ChunkCompiler<'a> {
         }
 
         let instructions_count_before = self.instructions.len();
-        let type_id = left_emission.clone_type();
+        let r#type = left_emission.r#type().clone();
         let left_address = left_emission.handle_as_operand(self);
         let right_address = right_emission.handle_as_operand(self);
         let destination = Address::register(self.get_next_register());
-        let operand_type = type_id.as_operand_type();
+        let operand_type = r#type.as_operand_type();
 
         let instruction = match node.kind {
             SyntaxKind::AdditionExpression => {
@@ -718,7 +797,7 @@ impl<'a> ChunkCompiler<'a> {
             _ => unreachable!("Expected binary expression, found {}", node.kind),
         };
 
-        Ok(Emission::Instruction(instruction, type_id))
+        Ok(Emission::Instruction(instruction, r#type))
     }
 
     fn compile_comparison_expression(
@@ -987,13 +1066,13 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(Emission::Constant(evaluated, child_type.clone()));
         }
 
-        let type_id = child_emission.clone_type();
+        let r#type = child_emission.r#type().clone();
         let child_address = child_emission.handle_as_operand(self);
         let destination = Address::register(self.get_next_register());
         let negate_instruction =
-            Instruction::negate(destination, child_address, type_id.as_operand_type());
+            Instruction::negate(destination, child_address, r#type.as_operand_type());
 
-        Ok(Emission::Instruction(negate_instruction, type_id))
+        Ok(Emission::Instruction(negate_instruction, r#type))
     }
 
     fn compile_grouped_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -1069,7 +1148,42 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_path_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling path expression");
 
-        todo!()
+        let files = self.context.source.read_files();
+        let source_file =
+            files
+                .get(self.file_id.0 as usize)
+                .ok_or(CompileError::MissingSourceFile {
+                    file_id: self.file_id,
+                })?;
+        let variable_name_bytes =
+            &source_file.source_code.as_ref()[node.span.0 as usize..node.span.1 as usize];
+        let (declaration_id, declaration) = self
+            .context
+            .resolver
+            .find_declaration_in_scope(variable_name_bytes, self.current_scope_id()?)
+            .ok_or(CompileError::UndeclaredVariable {
+                name: unsafe { String::from_utf8_unchecked(variable_name_bytes.to_vec()) },
+                position: Position::new(self.file_id, node.span),
+            })?;
+        let local =
+            self.locals
+                .get(&declaration_id)
+                .cloned()
+                .ok_or(CompileError::UndeclaredVariable {
+                    name: unsafe { String::from_utf8_unchecked(variable_name_bytes.to_vec()) },
+                    position: Position::new(self.file_id, node.span),
+                })?;
+
+        drop(files);
+
+        let load_instruction = Instruction::load(
+            Address::register(self.get_next_register()),
+            local.address,
+            declaration.type_id.as_operand_type(),
+            false,
+        );
+
+        Ok(Emission::Instruction(load_instruction, local.r#type))
     }
 
     fn compile_while_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -1235,7 +1349,7 @@ impl<'a> ChunkCompiler<'a> {
                     .get_node(child_id)
                     .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
                 let argument_emission = compiler.compile_expression(&child_node)?;
-                let operand_type = argument_emission.clone_type().as_operand_type();
+                let operand_type = argument_emission.r#type().as_operand_type();
                 let argument_address = argument_emission.handle_as_operand(compiler);
 
                 compiler
@@ -1423,12 +1537,12 @@ impl Emission {
         }
     }
 
-    fn clone_type(&self) -> Type {
+    fn r#type(&self) -> &Type {
         match self {
-            Emission::Instruction(_, r#type) => r#type.clone(),
-            Emission::Instructions(_, r#type) => r#type.clone(),
-            Emission::Constant(_, r#type) => r#type.clone(),
-            Emission::None => Type::None,
+            Emission::Instruction(_, r#type) => r#type,
+            Emission::Instructions(_, r#type) => r#type,
+            Emission::Constant(_, r#type) => r#type,
+            Emission::None => &Type::None,
         }
     }
 }
@@ -1445,7 +1559,8 @@ pub enum Constant {
     NativeFunction { native_function: NativeFunction },
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 struct Local {
-    location: u16,
+    address: Address,
+    r#type: Type,
 }

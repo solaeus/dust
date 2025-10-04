@@ -16,13 +16,23 @@ fn local_byte_division() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 3),
+                children: (4, 3),
                 span: Span(0, 47),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 20),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -36,13 +46,23 @@ fn local_byte_division() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(15, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (5, 7),
+                children: (8, 11),
                 span: Span(21, 40),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(25, 26),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -56,22 +76,42 @@ fn local_byte_division() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (6, 0),
+                children: (10, 0),
                 span: Span(35, 40),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(41, 42),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(41, 42),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (14, 0),
                 span: Span(41, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::DivisionExpression,
-                children: (9, 10),
+                children: (15, 18),
                 span: Span(41, 46),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(45, 46),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (3, 1),
+                span: Span(45, 46),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (4, 0),
+                children: (17, 0),
                 span: Span(45, 46),
             },
         ]
@@ -89,13 +129,23 @@ fn local_float_division() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 3),
+                children: (4, 3),
                 span: Span(0, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 21),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -109,13 +159,23 @@ fn local_float_division() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(16, 21),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (5, 7),
+                children: (8, 11),
                 span: Span(22, 41),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(26, 27),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(26, 27),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -129,22 +189,42 @@ fn local_float_division() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (6, 0),
+                children: (10, 0),
                 span: Span(37, 41),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(42, 43),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(42, 43),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (14, 0),
                 span: Span(42, 43),
             },
             SyntaxNode {
                 kind: SyntaxKind::DivisionExpression,
-                children: (9, 10),
+                children: (15, 18),
                 span: Span(42, 47),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(46, 47),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (3, 1),
+                span: Span(46, 47),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (4, 0),
+                children: (17, 0),
                 span: Span(46, 47),
             },
         ]
@@ -162,13 +242,23 @@ fn local_integer_division() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 3),
+                children: (4, 3),
                 span: Span(0, 40),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 17),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -182,13 +272,23 @@ fn local_integer_division() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(14, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (5, 7),
+                children: (8, 11),
                 span: Span(18, 33),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(22, 23),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(22, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -202,22 +302,42 @@ fn local_integer_division() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (6, 0),
+                children: (10, 0),
                 span: Span(31, 33),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(34, 35),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(34, 35),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (14, 0),
                 span: Span(34, 35),
             },
             SyntaxNode {
                 kind: SyntaxKind::DivisionExpression,
-                children: (9, 10),
+                children: (15, 18),
                 span: Span(34, 39),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(38, 39),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (3, 1),
+                span: Span(38, 39),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (4, 0),
+                children: (17, 0),
                 span: Span(38, 39),
             },
         ]
@@ -235,13 +355,23 @@ fn local_mut_byte_division() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 3),
+                children: (3, 3),
                 span: Span(0, 38),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 24),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(9, 10),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(9, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteType,
@@ -255,22 +385,32 @@ fn local_mut_byte_division() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(19, 24),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(25, 26),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(25, 26),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (8, 0),
                 span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::DivisionAssignmentExpression,
-                children: (5, 6),
+                children: (9, 10),
                 span: Span(25, 34),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (7, 0),
+                children: (11, 0),
                 span: Span(25, 35),
             },
             SyntaxNode {
@@ -279,8 +419,18 @@ fn local_mut_byte_division() {
                 span: Span(30, 34),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(36, 37),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(36, 37),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (14, 0),
                 span: Span(36, 37),
             },
         ]
@@ -298,13 +448,23 @@ fn local_mut_float_division() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 3),
+                children: (3, 3),
                 span: Span(0, 38),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 25),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(9, 10),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(9, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatType,
@@ -318,22 +478,32 @@ fn local_mut_float_division() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(20, 25),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(26, 27),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(26, 27),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (8, 0),
                 span: Span(26, 27),
             },
             SyntaxNode {
                 kind: SyntaxKind::DivisionAssignmentExpression,
-                children: (5, 6),
+                children: (9, 10),
                 span: Span(26, 34),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (7, 0),
+                children: (11, 0),
                 span: Span(26, 35),
             },
             SyntaxNode {
@@ -342,8 +512,18 @@ fn local_mut_float_division() {
                 span: Span(31, 34),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(36, 37),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(36, 37),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (14, 0),
                 span: Span(36, 37),
             },
         ]
@@ -361,13 +541,23 @@ fn local_mut_integer_division() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 3),
+                children: (3, 3),
                 span: Span(0, 32),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
-                children: (1, 3),
+                children: (2, 5),
                 span: Span(1, 21),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(9, 10),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(9, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
@@ -381,22 +571,32 @@ fn local_mut_integer_division() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (2, 0),
+                children: (4, 0),
                 span: Span(18, 21),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(22, 23),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(22, 23),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (8, 0),
                 span: Span(22, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::DivisionAssignmentExpression,
-                children: (5, 6),
+                children: (9, 10),
                 span: Span(22, 28),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (7, 0),
+                children: (11, 0),
                 span: Span(22, 29),
             },
             SyntaxNode {
@@ -405,8 +605,18 @@ fn local_mut_integer_division() {
                 span: Span(27, 28),
             },
             SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(30, 31),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(30, 31),
+            },
+            SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (3, 0),
+                children: (14, 0),
                 span: Span(30, 31),
             },
         ]
