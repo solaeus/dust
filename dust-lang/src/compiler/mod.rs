@@ -64,6 +64,7 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
         SourceFileId(0),
         FunctionType::new([], [], Type::None),
         &mut context,
+        ScopeId::MAIN,
     );
     let compile_result = chunk_compiler.compile_main();
 
@@ -179,6 +180,7 @@ impl Compiler {
             SourceFileId(0),
             FunctionType::new([], [], Type::None),
             &mut self.context,
+            ScopeId::MAIN,
         );
 
         let chunk = match chunk_compiler.compile_main() {

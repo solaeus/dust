@@ -9,7 +9,7 @@ use crate::{
     compiler::CompileContext,
     instruction::{Address, Instruction, OperandType, Operation},
     native_function::NativeFunction,
-    resolver::{Declaration, DeclarationId, DeclarationKind, ScopeId, TypeId},
+    resolver::{Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind, TypeId},
     source::{Position, SourceFileId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
     r#type::{FunctionType, Type},
@@ -40,6 +40,8 @@ pub struct ChunkCompiler<'a> {
 
     /// Concatenated list of register indexes that are referenced by DROP instructions.
     drop_lists: Vec<u16>,
+
+    current_scope_id: ScopeId,
 }
 
 impl<'a> ChunkCompiler<'a> {
@@ -48,6 +50,7 @@ impl<'a> ChunkCompiler<'a> {
         file_id: SourceFileId,
         function_type: FunctionType,
         context: &'a mut CompileContext,
+        starting_scope_id: ScopeId,
     ) -> Self {
         Self {
             declaration_id,
@@ -59,6 +62,7 @@ impl<'a> ChunkCompiler<'a> {
             drop_lists: Vec::new(),
             locals: HashMap::default(),
             minimum_register: 0,
+            current_scope_id: starting_scope_id,
         }
     }
 
@@ -124,18 +128,6 @@ impl<'a> ChunkCompiler<'a> {
                     acc
                 }
             })
-    }
-
-    fn current_scope_id(&self) -> Result<ScopeId, CompileError> {
-        let declaration = self
-            .context
-            .resolver
-            .get_declaration(self.declaration_id)
-            .ok_or(CompileError::MissingDeclaration {
-                declaration_id: self.declaration_id,
-            })?;
-
-        Ok(declaration.scope_id)
     }
 
     fn get_constant_address(&mut self, constant: Constant) -> Address {
@@ -549,16 +541,21 @@ impl<'a> ChunkCompiler<'a> {
         let variable_name_bytes =
             &source_file.source_code.as_ref()[path.span.0 as usize..path.span.1 as usize];
 
+        let shadowed = self
+            .context
+            .resolver
+            .find_declaration_in_scope(variable_name_bytes, self.current_scope_id)
+            .map(|(id, _)| id);
         let declaration_kind = if node.kind == SyntaxKind::LetStatement {
-            DeclarationKind::Local { shadowed: None }
+            DeclarationKind::Local { shadowed }
         } else {
-            DeclarationKind::LocalMutable { shadowed: None }
+            DeclarationKind::LocalMutable { shadowed }
         };
         let declaration_id = self.context.resolver.add_declaration(
             variable_name_bytes,
             Declaration {
                 kind: declaration_kind,
-                scope_id: self.current_scope_id()?,
+                scope_id: self.current_scope_id,
                 type_id,
                 position: Position::new(self.file_id, node.span),
                 is_public: false,
@@ -1111,6 +1108,15 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(Emission::None);
         }
 
+        let start_scope_id = self.current_scope_id;
+        let new_scope_id = self.context.resolver.add_scope(Scope {
+            kind: ScopeKind::Block,
+            parent: start_scope_id,
+            imports: SmallVec::new(),
+            modules: SmallVec::new(),
+        });
+        self.current_scope_id = new_scope_id;
+
         let end_children = start_children + child_count - 1;
         let mut current_child_index = start_children;
 
@@ -1146,13 +1152,17 @@ impl<'a> ChunkCompiler<'a> {
             .get_node(last_child_id)
             .ok_or(CompileError::MissingSyntaxNode { id: last_child_id })?;
 
-        if last_child_node.kind.is_expression() {
+        let emission = if last_child_node.kind.is_expression() {
             self.compile_expression(&last_child_node)
         } else {
             self.compile_statement(&last_child_node)?;
 
             Ok(Emission::None)
-        }
+        };
+
+        self.current_scope_id = start_scope_id;
+
+        emission
     }
 
     fn compile_path_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -1195,7 +1205,7 @@ impl<'a> ChunkCompiler<'a> {
         let (declaration_id, declaration) = self
             .context
             .resolver
-            .find_declaration_in_scope(variable_name_bytes, self.current_scope_id()?)
+            .find_declaration_in_scope(variable_name_bytes, self.current_scope_id)
             .ok_or(CompileError::UndeclaredVariable {
                 name: unsafe { String::from_utf8_unchecked(variable_name_bytes.to_vec()) },
                 position: Position::new(self.file_id, node.span),
@@ -1339,27 +1349,7 @@ impl<'a> ChunkCompiler<'a> {
         let mut value_parameter_types =
             SmallVec::<[TypeId; 4]>::with_capacity(value_parameter_nodes.len());
 
-        let function_type = todo!();
-
-        let span = span!(Level::INFO, "function");
-        let _enter = span.enter();
-
-        let mut function_compiler =
-            ChunkCompiler::new(declaration_id, self.file_id, function_type, self.context);
-
-        function_compiler.compile_implicit_return(&body_node)?;
-
-        let function_chunk = function_compiler.finish()?;
-        let prototype_index = self.context.prototypes.len() as u16;
-
-        self.context
-            .prototypes
-            .insert(declaration_id, function_chunk);
-
-        Ok(Emission::Constant(
-            Constant::Function { prototype_index },
-            Type::Function(Box::new(function_type)),
-        ))
+        todo!();
     }
 
     fn compile_call_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
