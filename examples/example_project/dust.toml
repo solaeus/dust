@@ -1,3 +1,7 @@
 name = "example_dust_project"
 authors = []
 version = "0.1.0"
+
+[program]
+name = "example_program"
+path = "src/main.ds"

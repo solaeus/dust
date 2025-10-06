@@ -1,3 +1,6 @@
-use lib::say_hello;
+write_line("Welcome to Dust!");
+write_line("What is your name?");
 
-say_hello();
+let name = read_line();
+
+write_line("Hello, " + name + "!");

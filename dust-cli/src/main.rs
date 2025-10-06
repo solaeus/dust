@@ -21,6 +21,7 @@ use clap::Parser as CliParser;
 use dust_lang::{
     lexer::Lexer,
     project::{EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
+    source::{Source, SourceCode, SourceFile},
     token::Token,
 };
 use memmap2::MmapOptions;
@@ -115,7 +116,7 @@ fn main() {
     }
 
     if mode == Mode::Compile {
-        handle_compile_command(eval, no_output, time, start_time);
+        handle_compile_command(eval, path, no_output, time, start_time);
 
         return;
     }
@@ -278,15 +279,89 @@ pub fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
             .map(|run_time| run_time + *compile_time)
             .unwrap_or(*compile_time);
         let compile_time_display = format!("{}ms", compile_time.as_millis_f64());
-        let run_time_display = run_time
-            .map(|run_time| format!("{}ms", run_time.as_millis_f64()))
-            .unwrap_or("none".to_string());
         let total_time_display = format!("{}ms", total_time.as_millis_f64());
 
-        println!(
-            "{source_name}: Compile time = {compile_time_display} Run time = {run_time_display} Total = {total_time_display}"
-        );
+        println!("{source_name}: {compile_time_display}, {total_time_display} total");
     }
+}
+
+fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> Source {
+    let source = Source::new();
+    let mut files = source.write_files();
+
+    if let Some(code) = eval {
+        let file = SourceFile {
+            name: "eval".to_string(),
+            source_code: SourceCode::String(code),
+        };
+
+        files.push(file);
+    } else if let Some(path) = path {
+        if path.is_dir() {
+            let config_path = path.join(PROJECT_CONFIG_PATH);
+            let config = if config_path.exists() {
+                let mut config_file =
+                    File::open(&config_path).expect("Failed to open project config file");
+                let mut config_contents = String::new();
+
+                config_file
+                    .read_to_string(&mut config_contents)
+                    .expect("Failed to read project config file");
+
+                toml::from_str::<ProjectConfig>(&config_contents)
+                    .expect("Failed to parse project config file")
+            } else {
+                panic!(
+                    "No project config file found at `{}`",
+                    config_path.display()
+                );
+            };
+            let main_file_path = if let Some(program) = config.program {
+                path.join(program.path)
+            } else {
+                path.join("src").join("main.ds")
+            };
+            let main_file = File::open(&main_file_path)
+                .expect("Failed to open main source file from project config");
+            let mmap = unsafe { MmapOptions::new().map(&main_file) }
+                .expect("Failed to memory map main source file");
+            let source_code = SourceCode::Mmap(mmap);
+            let name = main_file_path
+                .file_name()
+                .unwrap_or_else(|| "main.ds".as_ref())
+                .to_string_lossy()
+                .to_string();
+            let file = SourceFile { name, source_code };
+
+            files.push(file);
+        } else {
+            let name = path.to_string_lossy().to_string();
+            let file = File::open(&path).expect("Failed to open file");
+            let mmap = unsafe { MmapOptions::new().map(&file).expect("Failed to map file") };
+            let source_code = SourceCode::Mmap(mmap);
+            let file = SourceFile { name, source_code };
+
+            files.push(file);
+        }
+    } else if stdin {
+        let mut buffer = Vec::new();
+
+        io::stdin()
+            .read_to_end(&mut buffer)
+            .expect("Failed to read from stdin");
+        let file = SourceFile {
+            name: "stdin".to_string(),
+            source_code: SourceCode::Bytes(buffer),
+        };
+
+        files.push(file);
+    } else {
+        panic!("No source code provided")
+    };
+
+    drop(files);
+
+    source
 }
 
 // fn handle_compile_error(error: CompileError, source: &str) {

@@ -32,7 +32,7 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
     let source = Source::new();
     let mut files = source.write_files();
     let file = SourceFile {
-        name: "eval".to_string(),
+        name: "main".to_string(),
         source_code: SourceCode::String(source_code),
     };
 
@@ -54,7 +54,7 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
 
     let mut context = CompileContext {
         source: source.clone(),
-        resolver: Resolver::new(true),
+        resolver: Resolver::new(),
         file_trees: vec![syntax_tree],
         constants: ConstantTable::new(),
         prototypes: IndexMap::default(),
@@ -84,7 +84,7 @@ impl Compiler {
                 source,
                 file_trees: Vec::new(),
                 constants: ConstantTable::new(),
-                resolver: Resolver::new(true),
+                resolver: Resolver::new(),
                 prototypes: IndexMap::default(),
             },
         }

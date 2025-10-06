@@ -9,7 +9,6 @@ use smallvec::SmallVec;
 
 use crate::{
     instruction::OperandType,
-    native_function::NativeFunction,
     source::Position,
     r#type::{FunctionType, Type},
 };
@@ -26,28 +25,17 @@ pub struct Resolver {
 }
 
 impl Resolver {
-    pub fn new(with_native_functions: bool) -> Self {
+    pub fn new() -> Self {
         let mut resolver = Self {
             declarations: IndexMap::default(),
-            scopes: vec![Scope {
-                kind: ScopeKind::Module,
-                parent: ScopeId::MAIN,
-                imports: SmallVec::new(),
-                modules: SmallVec::new(),
-            }],
+            scopes: vec![],
             types: IndexMap::default(),
             type_members: Vec::new(),
         };
 
-        let _global_scope_id = resolver.add_scope(Scope {
-            kind: ScopeKind::Module,
-            parent: ScopeId::GLOBAL,
-            imports: SmallVec::new(),
-            modules: SmallVec::new(),
-        });
         let _main_scope_id = resolver.add_scope(Scope {
             kind: ScopeKind::Function,
-            parent: ScopeId::GLOBAL,
+            parent: ScopeId::MAIN,
             imports: SmallVec::new(),
             modules: SmallVec::new(),
         });
@@ -63,36 +51,6 @@ impl Resolver {
         );
 
         debug_assert_eq!(_main_function_declaration_id, DeclarationId::MAIN);
-
-        if with_native_functions {
-            let read_line_functon = NativeFunction { index: 1 };
-            let read_line_type_id = resolver.register_function_type(&read_line_functon.r#type());
-
-            resolver.add_declaration(
-                read_line_functon.name().as_bytes(),
-                Declaration {
-                    kind: DeclarationKind::NativeFunction,
-                    scope_id: ScopeId::GLOBAL,
-                    type_id: read_line_type_id,
-                    position: Position::default(),
-                    is_public: true,
-                },
-            );
-
-            let write_line_function = NativeFunction { index: 2 };
-            let write_line_type_id = resolver.register_function_type(&write_line_function.r#type());
-
-            resolver.add_declaration(
-                write_line_function.name().as_bytes(),
-                Declaration {
-                    kind: DeclarationKind::NativeFunction,
-                    scope_id: ScopeId::GLOBAL,
-                    type_id: write_line_type_id,
-                    position: Position::default(),
-                    is_public: true,
-                },
-            );
-        }
 
         resolver
     }
@@ -234,12 +192,6 @@ impl Resolver {
                 if self.declarations.contains_key(&key) {
                     return Some((*module_id, *module_declaration));
                 }
-            }
-
-            let global_key = DeclarationKey(symbol, ScopeId::GLOBAL);
-
-            if let Some((index, _, declaration)) = self.declarations.get_full(&global_key) {
-                return Some((DeclarationId(index as u32), *declaration));
             }
 
             if current_scope.kind != ScopeKind::Block || current_scope_id == ScopeId(0) {
@@ -429,6 +381,12 @@ impl Resolver {
     }
 }
 
+impl Default for Resolver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Symbol {
     hash: u64,
@@ -438,8 +396,7 @@ pub struct Symbol {
 pub struct ScopeId(pub u32);
 
 impl ScopeId {
-    pub const GLOBAL: Self = ScopeId(0);
-    pub const MAIN: Self = ScopeId(1);
+    pub const MAIN: Self = ScopeId(0);
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

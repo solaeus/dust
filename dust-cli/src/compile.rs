@@ -1,37 +1,20 @@
-use std::time::Instant;
+use std::{path::PathBuf, time::Instant};
 
-use dust_lang::{
-    chunk::TuiDisassembler,
-    compiler::Compiler,
-    source::{Source, SourceCode, SourceFile},
-};
+use dust_lang::{chunk::TuiDisassembler, compiler::Compiler};
 
-use crate::print_times;
+use crate::{handle_source, print_times};
 
 pub fn handle_compile_command(
     eval: Option<String>,
+    path: Option<PathBuf>,
     no_output: bool,
     time: bool,
     start_time: Instant,
 ) {
-    let source = Source::new();
-    let mut files = source.write_files();
-    let file = match eval {
-        Some(code) => SourceFile {
-            name: "eval".to_string(),
-            source_code: SourceCode::String(code),
-        },
-        _ => panic!("No source code provided"),
-    };
-
-    files.push(file);
-
-    drop(files);
-
+    let source = handle_source(eval, path, false);
     let compiler = Compiler::new(source.clone());
     let compile_result = compiler.compile();
     let compile_time = start_time.elapsed();
-
     let (program, resolver, syntax_trees) = match compile_result {
         Ok((program, resolver, syntax_trees)) => (program, resolver, syntax_trees),
         Err(dust_error) => {

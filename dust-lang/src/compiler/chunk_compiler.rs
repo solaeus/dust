@@ -76,7 +76,7 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     pub fn finish(mut self) -> Result<Chunk, CompileError> {
-        self.context.constants.finalize_string_pool();
+        // self.context.constants.finalize_string_pool();
 
         let name_position = if matches!(
             self.declaration_id,
@@ -500,7 +500,15 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_expression_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling expression statement");
 
-        todo!()
+        let exression_id = SyntaxId(node.children.0);
+        let expression_node = *self
+            .syntax_tree()?
+            .get_node(exression_id)
+            .ok_or(CompileError::MissingSyntaxNode { id: exression_id })?;
+
+        let _expression_emission = self.compile_expression(&expression_node)?;
+
+        Ok(())
     }
 
     fn compile_let_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
@@ -1159,6 +1167,31 @@ impl<'a> ChunkCompiler<'a> {
                 })?;
         let variable_name_bytes =
             &source_file.source_code.as_ref()[node.span.0 as usize..node.span.1 as usize];
+
+        match variable_name_bytes {
+            b"read_line" => {
+                let read_line_function = NativeFunction::from_str("read_line").unwrap();
+
+                return Ok(Emission::Constant(
+                    Constant::NativeFunction {
+                        native_function: read_line_function,
+                    },
+                    Type::Function(Box::new(read_line_function.r#type())),
+                ));
+            }
+            b"write_line" => {
+                let write_line_function = NativeFunction::from_str("write_line").unwrap();
+
+                return Ok(Emission::Constant(
+                    Constant::NativeFunction {
+                        native_function: write_line_function,
+                    },
+                    Type::Function(Box::new(write_line_function.r#type())),
+                ));
+            }
+            _ => {}
+        }
+
         let (declaration_id, declaration) = self
             .context
             .resolver
