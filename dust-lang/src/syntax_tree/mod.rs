@@ -2,10 +2,8 @@ mod syntax_node;
 
 use std::fmt::{self, Display, Formatter};
 
-pub use syntax_node::{SyntaxKind, SyntaxNode};
+pub use syntax_node::{SyntaxKind, SyntaxNode, SyntaxNodeChildren};
 use termtree::Tree;
-
-use crate::syntax_tree::syntax_node::Children;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SyntaxId(pub u32);
@@ -118,15 +116,15 @@ impl SyntaxTree {
             let mut leaf = Tree::new(*current_child);
 
             match current_child.children() {
-                Children::None => {}
-                Children::Single(syntax_id) => {
+                SyntaxNodeChildren::None => {}
+                SyntaxNodeChildren::Single(syntax_id) => {
                     build_tree(&mut leaf, syntax_id, syntax_tree);
                 }
-                Children::Double(left, right) => {
+                SyntaxNodeChildren::Double(left, right) => {
                     build_tree(&mut leaf, left, syntax_tree);
                     build_tree(&mut leaf, right, syntax_tree);
                 }
-                Children::Multiple(start, count) => {
+                SyntaxNodeChildren::Multiple(start, count) => {
                     for child_id in syntax_tree.get_children(start, count).unwrap_or(&[]) {
                         build_tree(&mut leaf, *child_id, syntax_tree);
                     }

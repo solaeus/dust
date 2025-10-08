@@ -59,6 +59,11 @@ pub enum CompileError {
         parent_kind: SyntaxKind,
         child_index: u32,
     },
+    MissingChildren {
+        parent_kind: SyntaxKind,
+        start_index: u32,
+        count: u32,
+    },
     MissingConstant {
         constant_index: u16,
     },
@@ -69,13 +74,13 @@ pub enum CompileError {
         declaration_id: DeclarationId,
     },
     MissingSyntaxNode {
-        id: SyntaxId,
+        syntax_id: SyntaxId,
     },
-    MissingTypeNode {
+    MissingType {
         type_id: TypeId,
     },
     MissingScope {
-        id: ScopeId,
+        scope_id: ScopeId,
     },
     MissingPrototype {
         declaration_id: DeclarationId,
@@ -119,11 +124,12 @@ impl AnnotatedError for CompileError {
             CompileError::ExpectedFunctionBody { position, .. } => position.file_id,
             CompileError::ExpectedFunctionType { .. } => SourceFileId::default(),
             CompileError::MissingChild { .. } => SourceFileId::default(),
+            CompileError::MissingChildren { .. } => SourceFileId::default(),
             CompileError::MissingConstant { .. } => SourceFileId::default(),
             CompileError::MissingDeclaration { .. } => SourceFileId::default(),
             CompileError::MissingLocal { .. } => SourceFileId::default(),
             CompileError::MissingSyntaxNode { .. } => SourceFileId::default(),
-            CompileError::MissingTypeNode { .. } => SourceFileId::default(),
+            CompileError::MissingType { .. } => SourceFileId::default(),
             CompileError::MissingScope { .. } => SourceFileId::default(),
             CompileError::MissingPrototype { .. } => SourceFileId::default(),
             CompileError::MissingSourceFile { file_id } => *file_id,
@@ -280,6 +286,17 @@ impl AnnotatedError for CompileError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
+            CompileError::MissingChildren {
+                parent_kind,
+                start_index,
+                count,
+            } => {
+                let title = format!(
+                    "Expected {count} children starting at {start_index} on {parent_kind}, but they were missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
             CompileError::MissingConstant { constant_index: _ } => {
                 let title =
                     "A constant was missing, this is a bug in the parser or compiler".to_string();
@@ -300,21 +317,21 @@ impl AnnotatedError for CompileError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
-            CompileError::MissingSyntaxNode { id } => {
+            CompileError::MissingSyntaxNode { syntax_id: id } => {
                 let title = format!(
                     "Syntax node with id {id:?} was missing, this is a bug in the parser or compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
-            CompileError::MissingTypeNode { type_id } => {
+            CompileError::MissingType { type_id } => {
                 let title = format!(
                     "Type node with id {type_id:?} was missing, this is a bug in the parser or compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
-            CompileError::MissingScope { id } => {
+            CompileError::MissingScope { scope_id: id } => {
                 let title = format!(
                     "Scope with id {id:?} was missing, this is a bug in the parser or compiler"
                 );

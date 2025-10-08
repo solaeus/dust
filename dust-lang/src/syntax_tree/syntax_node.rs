@@ -94,7 +94,7 @@ impl SyntaxNode {
         i64::from_le_bytes(integer_bytes)
     }
 
-    pub fn children(&self) -> Children {
+    pub fn children(&self) -> SyntaxNodeChildren {
         match self.kind {
             SyntaxKind::MainFunctionItem
             | SyntaxKind::ModuleItem
@@ -102,14 +102,14 @@ impl SyntaxNode {
             | SyntaxKind::Path
             | SyntaxKind::CallValueArguments
             | SyntaxKind::FunctionValueParameters => {
-                Children::Multiple(self.children.0, self.children.1)
+                SyntaxNodeChildren::Multiple(self.children.0, self.children.1)
             }
-            SyntaxKind::FunctionItem => Children::Single(SyntaxId(self.children.1)),
+            SyntaxKind::FunctionItem => SyntaxNodeChildren::Single(SyntaxId(self.children.1)),
             SyntaxKind::ExpressionStatement
             | SyntaxKind::PathExpression
             | SyntaxKind::GroupedExpression
             | SyntaxKind::NegationExpression
-            | SyntaxKind::NotExpression => Children::Single(SyntaxId(self.children.0)),
+            | SyntaxKind::NotExpression => SyntaxNodeChildren::Single(SyntaxId(self.children.0)),
             SyntaxKind::ReassignStatement
             | SyntaxKind::LetStatement
             | SyntaxKind::LetMutStatement
@@ -136,9 +136,9 @@ impl SyntaxNode {
             | SyntaxKind::GreaterThanOrEqualExpression
             | SyntaxKind::WhileExpression
             | SyntaxKind::CallExpression => {
-                Children::Double(SyntaxId(self.children.0), SyntaxId(self.children.1))
+                SyntaxNodeChildren::Double(SyntaxId(self.children.0), SyntaxId(self.children.1))
             }
-            _ => Children::None,
+            _ => SyntaxNodeChildren::None,
         }
     }
 }
@@ -429,7 +429,7 @@ impl Display for SyntaxKind {
     }
 }
 
-pub enum Children {
+pub enum SyntaxNodeChildren {
     None,
     Single(SyntaxId),
     Double(SyntaxId, SyntaxId),

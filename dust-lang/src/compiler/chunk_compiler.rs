@@ -2,14 +2,17 @@ use std::collections::HashMap;
 
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
-use tracing::{Level, debug, info, span};
+use tracing::{debug, info};
 
 use crate::{
     chunk::Chunk,
     compiler::CompileContext,
     instruction::{Address, Instruction, OperandType, Operation},
     native_function::NativeFunction,
-    resolver::{Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind, TypeId},
+    resolver::{
+        Declaration, DeclarationId, DeclarationKind, FunctionTypeNode, Scope, ScopeId, ScopeKind,
+        TypeId, TypeNode,
+    },
     source::{Position, SourceFileId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
     r#type::{FunctionType, Type},
@@ -67,13 +70,13 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     pub fn compile_main(mut self) -> Result<Chunk, CompileError> {
-        let span = span!(Level::INFO, "main");
-        let _enter = span.enter();
-
-        let root_node = *self
-            .syntax_tree()?
-            .get_node(SyntaxId(0))
-            .ok_or(CompileError::MissingSyntaxNode { id: SyntaxId(0) })?;
+        let root_node =
+            *self
+                .syntax_tree()?
+                .get_node(SyntaxId(0))
+                .ok_or(CompileError::MissingSyntaxNode {
+                    syntax_id: SyntaxId(0),
+                })?;
 
         self.compile_item(&root_node)?;
         self.finish()
@@ -375,7 +378,7 @@ impl<'a> ChunkCompiler<'a> {
 
     fn compile_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         match node.kind {
-            SyntaxKind::MainFunctionItem => self.compile_main_function_statement(node),
+            SyntaxKind::MainFunctionItem => self.compile_main_function_item(node),
             SyntaxKind::ModuleItem => self.compile_module_item(node),
             SyntaxKind::FunctionItem => self.compile_function_item(node),
             SyntaxKind::UseItem => self.compile_use_item(node),
@@ -401,7 +404,7 @@ impl<'a> ChunkCompiler<'a> {
         }
     }
 
-    fn compile_main_function_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
+    fn compile_main_function_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling main function");
 
         let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
@@ -427,10 +430,13 @@ impl<'a> ChunkCompiler<'a> {
                     parent_kind: node.kind,
                     child_index: current_child_index as u32,
                 })?;
-            let child_node = *self
-                .syntax_tree()?
-                .get_node(child_id)
-                .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
+            let child_node =
+                *self
+                    .syntax_tree()?
+                    .get_node(child_id)
+                    .ok_or(CompileError::MissingSyntaxNode {
+                        syntax_id: child_id,
+                    })?;
             current_child_index += 1;
 
             if current_child_index == end_children {
@@ -471,10 +477,13 @@ impl<'a> ChunkCompiler<'a> {
                     parent_kind: node.kind,
                     child_index: current_child_index as u32,
                 })?;
-            let child_node = *self
-                .syntax_tree()?
-                .get_node(child_id)
-                .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
+            let child_node =
+                *self
+                    .syntax_tree()?
+                    .get_node(child_id)
+                    .ok_or(CompileError::MissingSyntaxNode {
+                        syntax_id: child_id,
+                    })?;
             current_child_index += 1;
 
             self.compile_item(&child_node)?;
@@ -486,17 +495,118 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_use_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling use item");
 
-        todo!()
+        let syntax_tree = self.syntax_tree()?;
+
+        let path_id = SyntaxId(node.children.0);
+        let path_node = syntax_tree
+            .get_node(path_id)
+            .ok_or(CompileError::MissingSyntaxNode { syntax_id: path_id })?;
+        let path_segments_node_ids = syntax_tree
+            .get_children(path_node.children.0, path_node.children.1)
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: path_node.kind,
+                start_index: path_node.children.0,
+                count: path_node.children.1,
+            })?;
+        let path_segments_nodes: SmallVec<[_; 4]> = path_segments_node_ids
+            .iter()
+            .map(|id| {
+                syntax_tree
+                    .get_node(*id)
+                    .ok_or(CompileError::MissingSyntaxNode { syntax_id: *id })
+            })
+            .collect::<Result<_, _>>()?;
+
+        let files = self.context.source.read_files();
+
+        let mut current_segment_index = 0;
+        let mut current_scope_id = self.current_scope_id;
+
+        println!(
+            "All declarations: {:#?}",
+            self.context.resolver.declarations()
+        );
+
+        loop {
+            let segment_node = if current_segment_index < path_segments_nodes.len() {
+                path_segments_nodes[current_segment_index]
+            } else {
+                break;
+            };
+            current_segment_index += 1;
+
+            let segment_name_bytes = &files
+                .get(self.file_id.0 as usize)
+                .ok_or(CompileError::MissingSourceFile {
+                    file_id: self.file_id,
+                })?
+                .source_code
+                .as_ref()[segment_node.span.0 as usize..segment_node.span.1 as usize];
+            let segment_name = unsafe { str::from_utf8_unchecked(segment_name_bytes) };
+
+            let declarations = self
+                .context
+                .resolver
+                .find_declarations(segment_name)
+                .ok_or(CompileError::UndeclaredVariable {
+                    name: segment_name.to_string(),
+                    position: Position::new(self.file_id, segment_node.span),
+                })?;
+            let referenced_declaration_info = declarations
+                .iter()
+                .find(|(_, declaration)| declaration.scope_id == current_scope_id);
+
+            let (declaration_id, declaration) = match referenced_declaration_info {
+                Some((id, declaration)) => {
+                    if let DeclarationKind::Module { inner_scope_id, .. } = &declaration.kind {
+                        current_scope_id = *inner_scope_id;
+                    }
+
+                    (id, declaration)
+                }
+                None => {
+                    return Err(CompileError::UndeclaredVariable {
+                        name: segment_node.to_string(),
+                        position: Position::new(self.file_id, path_node.span),
+                    });
+                }
+            };
+
+            let r#type = self
+                .context
+                .resolver
+                .resolve_type(declaration.type_id)
+                .ok_or(CompileError::MissingType {
+                    type_id: declaration.type_id,
+                })?;
+
+            if current_segment_index == path_segments_nodes.len() - 1 {
+                drop(path_segments_nodes);
+                drop(files);
+
+                let address = Address::register(self.get_next_register());
+
+                self.locals
+                    .insert(*declaration_id, Local { address, r#type });
+
+                break;
+            }
+        }
+
+        Ok(())
     }
 
     fn compile_expression_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling expression statement");
 
         let exression_id = SyntaxId(node.children.0);
-        let expression_node = *self
-            .syntax_tree()?
-            .get_node(exression_id)
-            .ok_or(CompileError::MissingSyntaxNode { id: exression_id })?;
+        let expression_node =
+            *self
+                .syntax_tree()?
+                .get_node(exression_id)
+                .ok_or(CompileError::MissingSyntaxNode {
+                    syntax_id: exression_id,
+                })?;
 
         let _expression_emission = self.compile_expression(&expression_node)?;
 
@@ -514,23 +624,23 @@ impl<'a> ChunkCompiler<'a> {
             .syntax_tree()?
             .get_node(expression_statement_id)
             .ok_or(CompileError::MissingSyntaxNode {
-                id: expression_statement_id,
+                syntax_id: expression_statement_id,
             })?;
         let expression = *self
             .syntax_tree()?
             .get_node(SyntaxId(expression_statement.children.0))
             .ok_or(CompileError::MissingSyntaxNode {
-                id: SyntaxId(expression_statement.children.0),
+                syntax_id: SyntaxId(expression_statement.children.0),
             })?;
         let expression_emission = self.compile_expression(&expression)?;
         let expression_type = expression_emission.r#type().clone();
-        let type_id = self.context.resolver.register_type(&expression_type);
+        let type_id = self.context.resolver.add_type(&expression_type);
         let local_address = expression_emission.handle_as_operand(self);
 
-        let path = *self
+        let path_node = *self
             .syntax_tree()?
             .get_node(path_id)
-            .ok_or(CompileError::MissingSyntaxNode { id: path_id })?;
+            .ok_or(CompileError::MissingSyntaxNode { syntax_id: path_id })?;
         let files = self.context.source.read_files();
         let source_file =
             files
@@ -539,7 +649,8 @@ impl<'a> ChunkCompiler<'a> {
                     file_id: self.file_id,
                 })?;
         let variable_name_bytes =
-            &source_file.source_code.as_ref()[path.span.0 as usize..path.span.1 as usize];
+            &source_file.source_code.as_ref()[path_node.span.0 as usize..path_node.span.1 as usize];
+        let variable_name = unsafe { str::from_utf8_unchecked(variable_name_bytes) };
 
         let shadowed = self
             .context
@@ -552,7 +663,7 @@ impl<'a> ChunkCompiler<'a> {
             DeclarationKind::LocalMutable { shadowed }
         };
         let declaration_id = self.context.resolver.add_declaration(
-            variable_name_bytes,
+            variable_name,
             Declaration {
                 kind: declaration_kind,
                 scope_id: self.current_scope_id,
@@ -573,7 +684,7 @@ impl<'a> ChunkCompiler<'a> {
         self.locals.insert(
             declaration_id,
             Local {
-                r#type: expression_type.clone(),
+                r#type: expression_type,
                 address: load_destination,
             },
         );
@@ -588,7 +699,7 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn compile_function_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
-        info!("Compiling function statement");
+        info!("Compiling function item");
 
         todo!()
     }
@@ -1129,10 +1240,13 @@ impl<'a> ChunkCompiler<'a> {
                     parent_kind: node.kind,
                     child_index: current_child_index as u32,
                 })?;
-            let child_node = *self
-                .syntax_tree()?
-                .get_node(child_id)
-                .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
+            let child_node =
+                *self
+                    .syntax_tree()?
+                    .get_node(child_id)
+                    .ok_or(CompileError::MissingSyntaxNode {
+                        syntax_id: child_id,
+                    })?;
             current_child_index += 1;
 
             self.compile_statement(&child_node)?;
@@ -1147,10 +1261,11 @@ impl<'a> ChunkCompiler<'a> {
                     parent_kind: node.kind,
                     child_index: end_children as u32,
                 })?;
-        let last_child_node = *self
-            .syntax_tree()?
-            .get_node(last_child_id)
-            .ok_or(CompileError::MissingSyntaxNode { id: last_child_id })?;
+        let last_child_node = *self.syntax_tree()?.get_node(last_child_id).ok_or(
+            CompileError::MissingSyntaxNode {
+                syntax_id: last_child_id,
+            },
+        )?;
 
         let emission = if last_child_node.kind.is_expression() {
             self.compile_expression(&last_child_node)
@@ -1308,7 +1423,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let function_signature_node = *self.syntax_tree()?.get_node(function_signature_id).ok_or(
             CompileError::MissingSyntaxNode {
-                id: function_signature_id,
+                syntax_id: function_signature_id,
             },
         )?;
 
@@ -1319,7 +1434,7 @@ impl<'a> ChunkCompiler<'a> {
             .syntax_tree()?
             .get_node(SyntaxId(value_parameters_node_id))
             .ok_or(CompileError::MissingSyntaxNode {
-                id: SyntaxId(value_parameters_node_id),
+                syntax_id: SyntaxId(value_parameters_node_id),
             })?;
 
         debug_assert_eq!(
@@ -1327,10 +1442,13 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::FunctionValueParameters
         );
 
-        let body_node = *self
-            .syntax_tree()?
-            .get_node(block_id)
-            .ok_or(CompileError::MissingSyntaxNode { id: block_id })?;
+        let body_node =
+            *self
+                .syntax_tree()?
+                .get_node(block_id)
+                .ok_or(CompileError::MissingSyntaxNode {
+                    syntax_id: block_id,
+                })?;
         let Some(value_parameter_nodes) = self
             .syntax_tree()?
             .get_children(
@@ -1369,10 +1487,11 @@ impl<'a> ChunkCompiler<'a> {
                 .to_vec();
 
             for child_id in children {
-                let child_node = *compiler
-                    .syntax_tree()?
-                    .get_node(child_id)
-                    .ok_or(CompileError::MissingSyntaxNode { id: child_id })?;
+                let child_node = *compiler.syntax_tree()?.get_node(child_id).ok_or(
+                    CompileError::MissingSyntaxNode {
+                        syntax_id: child_id,
+                    },
+                )?;
                 let argument_emission = compiler.compile_expression(&child_node)?;
                 let operand_type = argument_emission.r#type().as_operand_type();
                 let argument_address = argument_emission.handle_as_operand(compiler);
@@ -1550,11 +1669,11 @@ impl Emission {
 
                 destination
             }
-            Emission::Constant(constant, type_id) => {
+            Emission::Constant(constant, type_node) => {
                 let address = compiler.get_constant_address(constant);
                 let destination = Address::register(compiler.get_next_register());
                 let load_instruction =
-                    Instruction::load(destination, address, type_id.as_operand_type(), false);
+                    Instruction::load(destination, address, type_node.as_operand_type(), false);
 
                 compiler.handle_operand(load_instruction)
             }

@@ -446,7 +446,10 @@ impl<'src> Parser<'src> {
             TokenKind::Identifier => {
                 info!("Parsing function statement");
 
-                self.advance()?;
+                self.parse_path()?;
+
+                let path_id = self.syntax_tree.last_node_id();
+
                 self.parse_function_expression()?;
 
                 let end = self.previous_token.span.1;
@@ -454,7 +457,7 @@ impl<'src> Parser<'src> {
                 let node = SyntaxNode {
                     kind,
                     span: Span(start, end),
-                    children: (function_expression_id.0, 0),
+                    children: (path_id.0, function_expression_id.0),
                 };
 
                 self.syntax_tree.push_node(node);
@@ -500,7 +503,7 @@ impl<'src> Parser<'src> {
 
         let start = self.current_token.span.0;
         let value_parameter_list_node_id = self.parse_function_value_parameters()?;
-        let type_node_id = if self.allow(TokenKind::ArrowThin)? {
+        let return_type_node_id = if self.allow(TokenKind::ArrowThin)? {
             self.parse_type()?
         } else {
             SyntaxId::NONE
@@ -510,7 +513,7 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::FunctionSignature,
             span: Span(start, end),
-            children: (value_parameter_list_node_id.0, type_node_id.0),
+            children: (value_parameter_list_node_id.0, return_type_node_id.0),
         };
         let node_id = self.syntax_tree.push_node(node);
 

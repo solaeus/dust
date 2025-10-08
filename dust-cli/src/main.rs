@@ -20,7 +20,7 @@ use std::{
 use clap::Parser as CliParser;
 use dust_lang::{
     lexer::Lexer,
-    project::{EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
+    project::{EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
     source::{Source, SourceCode, SourceFile},
     token::Token,
 };
@@ -208,6 +208,13 @@ fn main() {
             .write_all(EXAMPLE_PROGRAM.as_bytes())
             .expect("Failed to write to example program file");
 
+        let example_lib_path = src_path.join("lib.ds");
+
+        File::create(&example_lib_path)
+            .expect("Failed to create example library file")
+            .write_all(EXAMPLE_LIBRARY.as_bytes())
+            .expect("Failed to write to example library file");
+
         println!("Initialized a new Dust project at `{}`", path.display());
     }
 }
@@ -334,6 +341,24 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
             let file = SourceFile { name, source_code };
 
             files.push(file);
+
+            let lib_file_path = path.join("src").join("lib.ds");
+
+            if lib_file_path.exists() {
+                let lib_file = File::open(&lib_file_path)
+                    .expect("Failed to open library source file from project config");
+                let mmap = unsafe { MmapOptions::new().map(&lib_file) }
+                    .expect("Failed to memory map library source file");
+                let source_code = SourceCode::Mmap(mmap);
+                let name = lib_file_path
+                    .file_name()
+                    .unwrap_or_else(|| "lib.ds".as_ref())
+                    .to_string_lossy()
+                    .to_string();
+                let file = SourceFile { name, source_code };
+
+                files.push(file);
+            }
         } else {
             let name = path.to_string_lossy().to_string();
             let file = File::open(&path).expect("Failed to open file");

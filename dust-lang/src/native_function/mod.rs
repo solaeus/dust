@@ -18,7 +18,6 @@ macro_rules! define_native_function {
         }
 
         impl NativeFunction {
-
             pub fn from_index(index: u16) -> Self {
                 NativeFunction {
                     index,
@@ -95,13 +94,15 @@ define_native_function! {
         FunctionType::new([], [Type::String], Type::None)
     ),
     (
-        3,
-        "int_to_str",
-        FunctionType::new([], [Type::Integer], Type::String)
-    ),
-    (
         4,
         "spawn",
         FunctionType::new([], [ Type::function([], [], Type::None)], Type::None)
     )
+}
+
+impl NativeFunction {
+    pub const NO_OP: NativeFunction = NativeFunction { index: 0 };
+    pub const READ_LINE: NativeFunction = NativeFunction { index: 1 };
+    pub const WRITE_LINE: NativeFunction = NativeFunction { index: 2 };
+    pub const SPAWN: NativeFunction = NativeFunction { index: 4 };
 }

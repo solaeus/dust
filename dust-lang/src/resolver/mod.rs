@@ -40,9 +40,11 @@ impl Resolver {
             modules: SmallVec::new(),
         });
         let _main_function_declaration_id = resolver.add_declaration(
-            b"main",
+            "main",
             Declaration {
-                kind: DeclarationKind::Function,
+                kind: DeclarationKind::Function {
+                    inner_scope_id: ScopeId::MAIN,
+                },
                 scope_id: ScopeId::MAIN,
                 type_id: TypeId::NONE,
                 position: Position::default(),
@@ -55,31 +57,12 @@ impl Resolver {
         resolver
     }
 
+    pub fn declarations(&self) -> &IndexMap<DeclarationKey, Declaration, FxBuildHasher> {
+        &self.declarations
+    }
+
     pub fn type_count(&self) -> usize {
         self.types.len()
-    }
-
-    pub fn mark_file_declaration_as_parsed(&mut self, id: DeclarationId) {
-        if let Some(declaration) = self.declarations.get_index_mut(id.0 as usize)
-            && let DeclarationKind::FileModule {
-                inner_scope_id: _,
-                is_parsed,
-            } = &mut declaration.1.kind
-        {
-            *is_parsed = true;
-        }
-    }
-
-    pub fn add_import_to_scope(&mut self, parent: ScopeId, child: DeclarationId) {
-        if let Some(scope) = self.scopes.get_mut(parent.0 as usize) {
-            scope.imports.push(child);
-        }
-    }
-
-    pub fn add_module_to_scope(&mut self, parent: ScopeId, child: DeclarationId) {
-        if let Some(scope) = self.scopes.get_mut(parent.0 as usize) {
-            scope.modules.push(child);
-        }
     }
 
     pub fn add_scope(&mut self, scope: Scope) -> ScopeId {
@@ -94,17 +77,17 @@ impl Resolver {
         self.scopes.get(id.0 as usize)
     }
 
+    pub fn get_scope_mut(&mut self, id: ScopeId) -> Option<&mut Scope> {
+        self.scopes.get_mut(id.0 as usize)
+    }
+
     pub fn get_declaration(&self, id: DeclarationId) -> Option<&Declaration> {
         self.declarations
             .get_index(id.0 as usize)
             .map(|(_, declaration)| declaration)
     }
 
-    pub fn add_declaration(
-        &mut self,
-        identifier: &[u8],
-        declaration: Declaration,
-    ) -> DeclarationId {
+    pub fn add_declaration(&mut self, identifier: &str, declaration: Declaration) -> DeclarationId {
         let symbol = {
             let mut hasher = FxHasher::default();
 
@@ -125,7 +108,7 @@ impl Resolver {
 
     pub fn find_declarations(
         &self,
-        identifier: &[u8],
+        identifier: &str,
     ) -> Option<SmallVec<[(DeclarationId, Declaration); 4]>> {
         let symbol = {
             let mut hasher = FxHasher::default();
@@ -205,7 +188,7 @@ impl Resolver {
         None
     }
 
-    pub fn register_type(&mut self, new_type: &Type) -> TypeId {
+    pub fn add_type(&mut self, new_type: &Type) -> TypeId {
         let type_key = {
             let mut hasher = FxHasher::default();
 
@@ -229,7 +212,7 @@ impl Resolver {
             Type::Integer => TypeId::INTEGER,
             Type::String => TypeId::STRING,
             Type::Array(element_type, size) => {
-                let element_type_id = self.register_type(element_type);
+                let element_type_id = self.add_type(element_type);
                 let type_node = TypeNode::Array(element_type_id, *size as u32);
                 let type_id = TypeId(self.types.len() as u32);
 
@@ -238,7 +221,7 @@ impl Resolver {
                 type_id
             }
             Type::List(element_type) => {
-                let element_type_id = self.register_type(element_type);
+                let element_type_id = self.add_type(element_type);
                 let type_node = TypeNode::List(element_type_id);
                 let type_id = TypeId(self.types.len() as u32);
 
@@ -246,37 +229,43 @@ impl Resolver {
 
                 type_id
             }
-            Type::Function(function_type) => self.register_function_type(function_type),
+            Type::Function(function_type) => self.add_function_type(function_type),
         }
     }
 
-    pub fn register_function_type(&mut self, function_type: &FunctionType) -> TypeId {
-        let mut type_parameters = Vec::with_capacity(function_type.type_parameters.len());
+    pub fn add_function_type(&mut self, function_type: &FunctionType) -> TypeId {
+        let mut type_parameters: SmallVec<[TypeId; 4]> =
+            SmallVec::with_capacity(function_type.type_parameters.len());
 
         for type_parameter in &function_type.type_parameters {
-            let type_parameter_id = self.register_type(type_parameter);
+            let type_parameter_id = self.add_type(type_parameter);
 
             type_parameters.push(type_parameter_id);
         }
 
-        let mut value_parameters = Vec::with_capacity(function_type.value_parameters.len());
+        let mut value_parameters: SmallVec<[TypeId; 4]> =
+            SmallVec::with_capacity(function_type.value_parameters.len());
 
         for value_parameter in &function_type.value_parameters {
-            let value_parameter_id = self.register_type(value_parameter);
+            let value_parameter_id = self.add_type(value_parameter);
 
             value_parameters.push(value_parameter_id);
         }
 
-        let type_parameters = self.push_type_members(&type_parameters);
-        let value_parameters = self.push_type_members(&value_parameters);
-
-        let return_type_id = self.register_type(&function_type.return_type);
+        let type_parameters = self.add_type_members(&type_parameters);
+        let value_parameters = self.add_type_members(&value_parameters);
+        let return_type_id = self.add_type(&function_type.return_type);
         let function_type_node = FunctionTypeNode {
             type_parameters,
             value_parameters,
             return_type: return_type_id,
         };
         let type_node = TypeNode::Function(function_type_node);
+
+        self.add_type_node(type_node)
+    }
+
+    pub fn add_type_node(&mut self, type_node: TypeNode) -> TypeId {
         let type_key = {
             let mut hasher = FxHasher::default();
 
@@ -359,7 +348,7 @@ impl Resolver {
             .map(|(_, type_node)| type_node)
     }
 
-    pub fn push_type_members(&mut self, members: &[TypeId]) -> (u32, u32) {
+    pub fn add_type_members(&mut self, members: &[TypeId]) -> (u32, u32) {
         let start = self.type_members.len() as u32;
         let count = members.len() as u32;
 
@@ -430,7 +419,7 @@ impl Default for DeclarationId {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct DeclarationKey(Symbol, ScopeId);
+pub struct DeclarationKey(Symbol, ScopeId);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Declaration {
@@ -443,7 +432,9 @@ pub struct Declaration {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DeclarationKind {
-    Function,
+    Function {
+        inner_scope_id: ScopeId,
+    },
     NativeFunction,
     Local {
         shadowed: Option<DeclarationId>,
@@ -451,12 +442,9 @@ pub enum DeclarationKind {
     LocalMutable {
         shadowed: Option<DeclarationId>,
     },
-    InlineModule {
+    Module {
+        kind: ModuleKind,
         inner_scope_id: ScopeId,
-    },
-    FileModule {
-        inner_scope_id: ScopeId,
-        is_parsed: bool,
     },
     Type,
 }
@@ -468,27 +456,25 @@ impl DeclarationKind {
             DeclarationKind::Local { .. } | DeclarationKind::LocalMutable { .. }
         )
     }
-
-    pub fn is_module(&self) -> bool {
-        matches!(
-            self,
-            DeclarationKind::InlineModule { .. } | DeclarationKind::FileModule { .. }
-        )
-    }
 }
 
 impl Display for DeclarationKind {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            DeclarationKind::Function => write!(f, "function"),
+            DeclarationKind::Function { .. } => write!(f, "function"),
             DeclarationKind::NativeFunction => write!(f, "native function"),
             DeclarationKind::Local { .. } => write!(f, "local variable"),
             DeclarationKind::LocalMutable { .. } => write!(f, "mutable local variable"),
-            DeclarationKind::InlineModule { .. } => write!(f, "inline module"),
-            DeclarationKind::FileModule { .. } => write!(f, "file module"),
+            DeclarationKind::Module { .. } => write!(f, "module"),
             DeclarationKind::Type => write!(f, "type"),
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ModuleKind {
+    File,
+    Inline,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -532,16 +518,6 @@ pub enum TypeNode {
     Array(TypeId, u32),
     List(TypeId),
     Function(FunctionTypeNode),
-}
-
-impl TypeNode {
-    pub fn into_function_type(self) -> Option<FunctionTypeNode> {
-        if let TypeNode::Function(function_type) = self {
-            Some(function_type)
-        } else {
-            None
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -1,3 +1,4 @@
+mod binder;
 mod chunk_compiler;
 mod error;
 
@@ -15,13 +16,15 @@ pub use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     chunk::Chunk,
+    compiler::binder::Binder,
     constant_table::ConstantTable,
     dust_crate::Program,
     dust_error::DustError,
     lexer::Lexer,
     parser::{ParseResult, Parser},
     resolver::{
-        Declaration, DeclarationId, DeclarationKind, Resolver, Scope, ScopeId, ScopeKind, TypeId,
+        Declaration, DeclarationId, DeclarationKind, ModuleKind, Resolver, Scope, ScopeId,
+        ScopeKind, TypeId,
     },
     source::{Position, Source, SourceCode, SourceFile, SourceFileId, Span},
     syntax_tree::SyntaxTree,
@@ -52,10 +55,24 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
         return Err(DustError::parse(errors, source));
     }
 
+    let mut resolver = Resolver::new();
+    let file_trees = vec![syntax_tree];
+    let binder = Binder::new(
+        SourceFileId(0),
+        source.clone(),
+        &mut resolver,
+        &file_trees[0],
+        ScopeId::MAIN,
+    );
+
+    binder
+        .bind_main()
+        .map_err(|compile_error| DustError::compile(compile_error, source.clone()))?;
+
     let mut context = CompileContext {
         source: source.clone(),
-        resolver: Resolver::new(),
-        file_trees: vec![syntax_tree],
+        resolver,
+        file_trees,
         constants: ConstantTable::new(),
         prototypes: IndexMap::default(),
     };
@@ -129,8 +146,9 @@ impl Compiler {
 
         let source = self.context.source.clone();
         let files = source.read_files();
+        let mut errors = Vec::new();
 
-        for (index, file) in files.iter().enumerate().skip(1) {
+        for (index, file) in files.iter().enumerate() {
             let file_scope = Scope {
                 kind: ScopeKind::Module,
                 parent: ScopeId::MAIN,
@@ -138,12 +156,13 @@ impl Compiler {
                 modules: SmallVec::new(),
             };
             let file_scope_id = self.context.resolver.add_scope(file_scope);
+            let file_module_name = file.name.trim_end_matches(".ds");
             let module_id = self.context.resolver.add_declaration(
-                file.name.as_bytes(),
+                file_module_name,
                 Declaration {
-                    kind: DeclarationKind::FileModule {
+                    kind: DeclarationKind::Module {
+                        kind: ModuleKind::File,
                         inner_scope_id: file_scope_id,
-                        is_parsed: false,
                     },
                     scope_id: ScopeId::MAIN,
                     type_id: TypeId::NONE,
@@ -152,23 +171,42 @@ impl Compiler {
                 },
             );
 
+            let file_id = SourceFileId(index as u32);
+            let parser = Parser::new(file_id, Lexer::new(file.source_code.as_ref()));
+            let ParseResult {
+                syntax_tree,
+                errors: file_errors,
+            } = parser.parse();
+
+            errors.extend(file_errors);
+
+            if !errors.is_empty() {
+                continue;
+            }
+
+            let binder = Binder::new(
+                file_id,
+                self.context.source.clone(),
+                &mut self.context.resolver,
+                &syntax_tree,
+                file_scope_id,
+            );
+
+            binder.bind_main().map_err(|compile_error| {
+                DustError::compile(compile_error, self.context.source.clone())
+            })?;
+
+            self.context.file_trees.push(syntax_tree);
             self.context
                 .resolver
-                .add_module_to_scope(ScopeId::MAIN, module_id);
+                .get_scope_mut(ScopeId::MAIN)
+                .unwrap()
+                .modules
+                .push(module_id);
         }
 
-        let main_source_code = files.first().unwrap().source_code.as_ref();
-        let lexer = Lexer::new(main_source_code);
-        let parser = Parser::new(SourceFileId(0), lexer);
-        let ParseResult {
-            syntax_tree,
-            errors: module_errors,
-        } = parser.parse();
-
-        self.context.file_trees.push(syntax_tree);
-
-        if !module_errors.is_empty() {
-            return Err(DustError::parse(module_errors, self.context.source));
+        if !errors.is_empty() {
+            return Err(DustError::parse(errors, self.context.source));
         }
 
         self.context
