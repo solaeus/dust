@@ -10,6 +10,7 @@ use smallvec::SmallVec;
 use crate::{
     instruction::OperandType,
     source::Position,
+    syntax_tree::SyntaxId,
     r#type::{FunctionType, Type},
 };
 
@@ -44,6 +45,7 @@ impl Resolver {
             Declaration {
                 kind: DeclarationKind::Function {
                     inner_scope_id: ScopeId::MAIN,
+                    syntax_id: SyntaxId(0),
                 },
                 scope_id: ScopeId::MAIN,
                 type_id: TypeId::NONE,
@@ -136,7 +138,7 @@ impl Resolver {
 
     pub fn find_declaration_in_scope(
         &self,
-        identifier: &[u8],
+        identifier: &str,
         target_scope_id: ScopeId,
     ) -> Option<(DeclarationId, Declaration)> {
         let symbol = {
@@ -434,6 +436,7 @@ pub struct Declaration {
 pub enum DeclarationKind {
     Function {
         inner_scope_id: ScopeId,
+        syntax_id: SyntaxId,
     },
     NativeFunction,
     Local {

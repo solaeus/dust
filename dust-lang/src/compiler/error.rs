@@ -105,6 +105,13 @@ pub enum CompileError {
     UnresolvedFunctionType {
         function_type: TypeId,
     },
+    MissingDeclarations {
+        name: String,
+    },
+    CannotImport {
+        name: String,
+        position: Position,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -127,6 +134,7 @@ impl AnnotatedError for CompileError {
             CompileError::MissingChildren { .. } => SourceFileId::default(),
             CompileError::MissingConstant { .. } => SourceFileId::default(),
             CompileError::MissingDeclaration { .. } => SourceFileId::default(),
+            CompileError::MissingDeclarations { .. } => SourceFileId::default(),
             CompileError::MissingLocal { .. } => SourceFileId::default(),
             CompileError::MissingSyntaxNode { .. } => SourceFileId::default(),
             CompileError::MissingType { .. } => SourceFileId::default(),
@@ -138,6 +146,7 @@ impl AnnotatedError for CompileError {
             CompileError::MissingPosition { .. } => SourceFileId::default(),
             CompileError::UndeclaredVariable { position, .. } => position.file_id,
             CompileError::UnresolvedFunctionType { .. } => SourceFileId::default(),
+            CompileError::CannotImport { position, .. } => position.file_id,
         }
     }
 
@@ -310,6 +319,13 @@ impl AnnotatedError for CompileError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
+            CompileError::MissingDeclarations { name } => {
+                let title = format!(
+                    "Declarations with name {name} were missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
             CompileError::MissingLocal { declaration_id } => {
                 let title = format!(
                     "Local for declaration id {declaration_id:?} was missing, this is a bug in the parser or compiler"
@@ -393,6 +409,18 @@ impl AnnotatedError for CompileError {
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::CannotImport { name, position } => {
+                let title =
+                    format!("Cannot import: {name}, only modules and functions can be imported");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!("Cannot import {name}")),
+                    ),
+                )
             }
         }
     }

@@ -6,13 +6,10 @@ use tracing::{debug, info};
 
 use crate::{
     chunk::Chunk,
-    compiler::CompileContext,
+    compiler::{CompileContext, binder::Binder},
     instruction::{Address, Instruction, OperandType, Operation},
     native_function::NativeFunction,
-    resolver::{
-        Declaration, DeclarationId, DeclarationKind, FunctionTypeNode, Scope, ScopeId, ScopeKind,
-        TypeId, TypeNode,
-    },
+    resolver::{Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind, TypeId},
     source::{Position, SourceFileId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
     r#type::{FunctionType, Type},
@@ -23,6 +20,7 @@ use super::CompileError;
 #[derive(Debug)]
 pub struct ChunkCompiler<'a> {
     declaration_id: DeclarationId,
+
     file_id: SourceFileId,
 
     function_type: FunctionType,
@@ -147,12 +145,6 @@ impl<'a> ChunkCompiler<'a> {
                 .context
                 .constants
                 .add_pooled_string(pool_start, pool_end),
-            Constant::Function {
-                prototype_index, ..
-            } => prototype_index,
-            Constant::NativeFunction {
-                native_function, ..
-            } => native_function.index,
         };
 
         Address::constant(index)
@@ -518,79 +510,117 @@ impl<'a> ChunkCompiler<'a> {
             .collect::<Result<_, _>>()?;
 
         let files = self.context.source.read_files();
+        let file = files
+            .get(self.file_id.0 as usize)
+            .ok_or(CompileError::MissingSourceFile {
+                file_id: self.file_id,
+            })?;
 
-        let mut current_segment_index = 0;
-        let mut current_scope_id = self.current_scope_id;
+        let module_name_node = path_segments_nodes.first().unwrap();
+        let module_name_bytes = &file.source_code.as_ref()
+            [module_name_node.span.0 as usize..module_name_node.span.1 as usize];
+        let module_name = unsafe { std::str::from_utf8_unchecked(module_name_bytes) };
+        let (module_import_id, module_import) = self
+            .context
+            .resolver
+            .find_declarations(module_name)
+            .ok_or(CompileError::MissingDeclarations {
+                name: module_name.to_string(),
+            })?
+            .into_iter()
+            .find(|(_id, declaration)| matches!(declaration.kind, DeclarationKind::Module { .. }))
+            .ok_or(CompileError::UndeclaredVariable {
+                name: module_name.to_string(),
+                position: Position::new(self.file_id, module_name_node.span),
+            })?;
 
-        println!(
-            "All declarations: {:#?}",
-            self.context.resolver.declarations()
-        );
+        let (final_declaration_id, final_declaration) = if path_segments_nodes.len() > 1 {
+            let mut current_scope_id =
+                if let DeclarationKind::Module { inner_scope_id, .. } = &module_import.kind {
+                    *inner_scope_id
+                } else {
+                    unreachable!("Expected module declaration");
+                };
+            let mut current_declaration_id = module_import_id;
+            let mut current_declaration = module_import;
 
-        loop {
-            let segment_node = if current_segment_index < path_segments_nodes.len() {
-                path_segments_nodes[current_segment_index]
-            } else {
-                break;
-            };
-            current_segment_index += 1;
+            for segment_node in path_segments_nodes.iter().skip(1) {
+                let segment_bytes = &file.source_code.as_ref()
+                    [segment_node.span.0 as usize..segment_node.span.1 as usize];
+                let segment_name = unsafe { std::str::from_utf8_unchecked(segment_bytes) };
+                let (declaration_id, declaration) = self
+                    .context
+                    .resolver
+                    .find_declaration_in_scope(segment_name, current_scope_id)
+                    .ok_or(CompileError::UndeclaredVariable {
+                        name: segment_name.to_string(),
+                        position: Position::new(self.file_id, segment_node.span),
+                    })?;
 
-            let segment_name_bytes = &files
-                .get(self.file_id.0 as usize)
-                .ok_or(CompileError::MissingSourceFile {
-                    file_id: self.file_id,
-                })?
-                .source_code
-                .as_ref()[segment_node.span.0 as usize..segment_node.span.1 as usize];
-            let segment_name = unsafe { str::from_utf8_unchecked(segment_name_bytes) };
-
-            let declarations = self
-                .context
-                .resolver
-                .find_declarations(segment_name)
-                .ok_or(CompileError::UndeclaredVariable {
-                    name: segment_name.to_string(),
-                    position: Position::new(self.file_id, segment_node.span),
-                })?;
-            let referenced_declaration_info = declarations
-                .iter()
-                .find(|(_, declaration)| declaration.scope_id == current_scope_id);
-
-            let (declaration_id, declaration) = match referenced_declaration_info {
-                Some((id, declaration)) => {
-                    if let DeclarationKind::Module { inner_scope_id, .. } = &declaration.kind {
-                        current_scope_id = *inner_scope_id;
+                current_scope_id = match &declaration.kind {
+                    DeclarationKind::Module { inner_scope_id, .. } => *inner_scope_id,
+                    DeclarationKind::Function { inner_scope_id, .. } => *inner_scope_id,
+                    _ => {
+                        return Err(CompileError::CannotImport {
+                            name: segment_name.to_string(),
+                            position: Position::new(self.file_id, segment_node.span),
+                        });
                     }
+                };
+                current_declaration_id = declaration_id;
+                current_declaration = declaration;
+            }
 
-                    (id, declaration)
-                }
-                None => {
-                    return Err(CompileError::UndeclaredVariable {
-                        name: segment_node.to_string(),
-                        position: Position::new(self.file_id, path_node.span),
-                    });
-                }
-            };
+            (current_declaration_id, current_declaration)
+        } else {
+            (module_import_id, module_import)
+        };
 
-            let r#type = self
+        drop(path_segments_nodes);
+
+        if let DeclarationKind::Function {
+            inner_scope_id,
+            syntax_id,
+        } = final_declaration.kind
+        {
+            let function_type = self
                 .context
                 .resolver
-                .resolve_type(declaration.type_id)
+                .resolve_type(final_declaration.type_id)
                 .ok_or(CompileError::MissingType {
-                    type_id: declaration.type_id,
+                    type_id: final_declaration.type_id,
+                })?
+                .into_function_type()
+                .ok_or(CompileError::ExpectedFunctionType {
+                    type_id: final_declaration.type_id,
                 })?;
 
-            if current_segment_index == path_segments_nodes.len() - 1 {
-                drop(path_segments_nodes);
-                drop(files);
+            drop(files);
 
-                let address = Address::register(self.get_next_register());
+            let function_node = *self
+                .context
+                .file_trees
+                .get(final_declaration.position.file_id.0 as usize)
+                .ok_or(CompileError::MissingSyntaxTree {
+                    declaration_id: final_declaration_id,
+                })?
+                .get_node(syntax_id)
+                .ok_or(CompileError::MissingSyntaxNode { syntax_id })?;
+            let mut chunk_compiler = ChunkCompiler::new(
+                final_declaration_id,
+                final_declaration.position.file_id,
+                function_type,
+                self.context,
+                inner_scope_id,
+            );
 
-                self.locals
-                    .insert(*declaration_id, Local { address, r#type });
+            chunk_compiler.compile_function_item(&function_node)?;
 
-                break;
-            }
+            let chunk = chunk_compiler.finish()?;
+
+            self.context.prototypes.insert(final_declaration_id, chunk);
+        } else {
+            todo!()
         }
 
         Ok(())
@@ -655,7 +685,7 @@ impl<'a> ChunkCompiler<'a> {
         let shadowed = self
             .context
             .resolver
-            .find_declaration_in_scope(variable_name_bytes, self.current_scope_id)
+            .find_declaration_in_scope(variable_name, self.current_scope_id)
             .map(|(id, _)| id);
         let declaration_kind = if node.kind == SyntaxKind::LetStatement {
             DeclarationKind::Local { shadowed }
@@ -978,6 +1008,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 (self.handle_operand(load_instruction), operand_type)
             }
+            Emission::Local(Local { address, r#type }) => (*address, r#type.as_operand_type()),
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: left.kind,
@@ -1004,6 +1035,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 (self.handle_operand(load_instruction), r#type)
             }
+            Emission::Local(Local { address, r#type }) => (address, r#type.as_operand_type()),
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: right.kind,
@@ -1115,6 +1147,7 @@ impl<'a> ChunkCompiler<'a> {
 
                 self.handle_operand(load_instruction)
             }
+            Emission::Local(Local { address, .. }) => *address,
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: left.kind,
@@ -1145,6 +1178,10 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Instructions(instructions, r#type) => {
                 Emission::Instructions(instructions, r#type)
             }
+            Emission::Local(Local { r#type, .. }) => Emission::Local(Local {
+                r#type,
+                address: left_address,
+            }),
             Emission::Constant(constant, type_id) => Emission::Constant(constant, type_id),
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
@@ -1292,49 +1329,47 @@ impl<'a> ChunkCompiler<'a> {
                 })?;
         let variable_name_bytes =
             &source_file.source_code.as_ref()[node.span.0 as usize..node.span.1 as usize];
+        let variable_name = unsafe { str::from_utf8_unchecked(variable_name_bytes) };
 
-        match variable_name_bytes {
-            b"read_line" => {
-                let read_line_function = NativeFunction::from_str("read_line").unwrap();
+        let current_scope = self
+            .context
+            .resolver
+            .get_scope(self.current_scope_id)
+            .ok_or(CompileError::MissingScope {
+                scope_id: self.current_scope_id,
+            })?;
 
-                return Ok(Emission::Constant(
-                    Constant::NativeFunction {
-                        native_function: read_line_function,
-                    },
-                    Type::Function(Box::new(read_line_function.r#type())),
-                ));
-            }
-            b"write_line" => {
-                let write_line_function = NativeFunction::from_str("write_line").unwrap();
-
-                return Ok(Emission::Constant(
-                    Constant::NativeFunction {
-                        native_function: write_line_function,
-                    },
-                    Type::Function(Box::new(write_line_function.r#type())),
-                ));
-            }
-            _ => {}
-        }
+        println!("Current scope: {current_scope:#?}");
 
         let (declaration_id, declaration) = self
             .context
             .resolver
-            .find_declaration_in_scope(variable_name_bytes, self.current_scope_id)
+            .find_declaration_in_scope(variable_name, self.current_scope_id)
             .ok_or(CompileError::UndeclaredVariable {
                 name: unsafe { String::from_utf8_unchecked(variable_name_bytes.to_vec()) },
                 position: Position::new(self.file_id, node.span),
             })?;
-        let local =
-            self.locals
-                .get(&declaration_id)
-                .cloned()
-                .ok_or(CompileError::UndeclaredVariable {
-                    name: unsafe { String::from_utf8_unchecked(variable_name_bytes.to_vec()) },
-                    position: Position::new(self.file_id, node.span),
-                })?;
 
         drop(files);
+
+        let local = if let Some(local) = self.locals.get(&declaration_id) {
+            local.clone()
+        } else {
+            let r#type = self
+                .context
+                .resolver
+                .resolve_type(declaration.type_id)
+                .ok_or(CompileError::MissingType {
+                    type_id: declaration.type_id,
+                })?
+                .clone();
+            let address = Address::register(self.get_next_register());
+            let local = Local { r#type, address };
+
+            self.locals.insert(declaration_id, local.clone());
+
+            local
+        };
 
         let load_instruction = Instruction::load(
             Address::register(self.get_next_register()),
@@ -1386,6 +1421,11 @@ impl<'a> ChunkCompiler<'a> {
                 let load_instruction = Instruction::load(destination, address, operand_type, false);
 
                 self.handle_operand(load_instruction);
+            }
+            Emission::Local(Local { address, .. }) => {
+                let test_instruction = Instruction::test(address, true);
+
+                self.instructions.push(test_instruction);
             }
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
@@ -1530,26 +1570,11 @@ impl<'a> ChunkCompiler<'a> {
 
         let expression_emission = self.compile_expression(&function_node)?;
 
-        let Emission::Constant(Constant::Function { prototype_index }, r#type) =
-            expression_emission
-        else {
-            if let Emission::Constant(Constant::NativeFunction { native_function }, r#type) =
-                expression_emission
-            {
-                let destination = Address::register(self.get_next_register());
-                let call_arguments_start_index = self.call_arguments.len() as u16;
-
-                handle_call_arguments(self, &arguments_node)?;
-
-                let call_native_instruction = Instruction::call_native(
-                    destination,
-                    native_function,
-                    call_arguments_start_index,
-                );
-
-                return Ok(Emission::Instruction(call_native_instruction, r#type));
-            }
-
+        let local = if let Emission::Local(local) = expression_emission
+            && matches!(local.r#type, Type::Function(_))
+        {
+            local
+        } else {
             return Err(CompileError::ExpectedFunction {
                 node_kind: function_node.kind,
                 position: Position::new(self.file_id, function_node.span),
@@ -1561,7 +1586,7 @@ impl<'a> ChunkCompiler<'a> {
         handle_call_arguments(self, &arguments_node)?;
 
         let destination_index = self.get_next_register();
-        let Type::Function(function_type) = r#type else {
+        let Type::Function(function_type) = local.r#type else {
             return Err(CompileError::ExpectedFunction {
                 node_kind: function_node.kind,
                 position: Position::new(self.file_id, function_node.span),
@@ -1571,7 +1596,7 @@ impl<'a> ChunkCompiler<'a> {
         let argument_count = self.call_arguments.len() as u16;
         let call_instruction = Instruction::call(
             destination_index,
-            prototype_index,
+            local.address.index,
             arguments_start_index,
             argument_count,
             r#type.as_operand_type(),
@@ -1622,6 +1647,7 @@ impl<'a> ChunkCompiler<'a> {
 
                     (return_operand, r#type)
                 }
+                Emission::Local(Local { address, r#type }) => (address, r#type),
                 Emission::None => (Address::default(), Type::None),
             };
 
@@ -1653,6 +1679,7 @@ impl<'a> ChunkCompiler<'a> {
 pub enum Emission {
     Instruction(Instruction, Type),
     Instructions(Vec<Instruction>, Type),
+    Local(Local),
     Constant(Constant, Type),
     None,
 }
@@ -1677,6 +1704,7 @@ impl Emission {
 
                 compiler.handle_operand(load_instruction)
             }
+            Emission::Local(Local { address, .. }) => address,
             Emission::None => Address::default(),
         }
     }
@@ -1686,6 +1714,7 @@ impl Emission {
             Emission::Instruction(_, r#type) => r#type,
             Emission::Instructions(_, r#type) => r#type,
             Emission::Constant(_, r#type) => r#type,
+            Emission::Local(Local { r#type, .. }) => r#type,
             Emission::None => &Type::None,
         }
     }
@@ -1699,8 +1728,6 @@ pub enum Constant {
     Float(f64),
     Integer(i64),
     String { pool_start: u32, pool_end: u32 },
-    Function { prototype_index: u16 },
-    NativeFunction { native_function: NativeFunction },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]

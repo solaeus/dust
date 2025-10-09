@@ -25,7 +25,7 @@ fn parse_bench(source: &[u8]) {
     let lexer = Lexer::new(source);
     let parser = Parser::new(SourceFileId(0), lexer);
 
-    parser.parse();
+    parser.parse_main();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

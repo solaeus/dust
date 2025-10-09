@@ -39,7 +39,7 @@ pub fn parse_main(source_code: String) -> (SyntaxTree, Option<DustError>) {
     let ParseResult {
         syntax_tree,
         errors,
-    } = parser.parse();
+    } = parser.parse_main();
     let dust_error = if errors.is_empty() {
         None
     } else {
@@ -89,8 +89,8 @@ impl<'src> Parser<'src> {
 
     /// Parses a source string as a complete file, returning the syntax tree and any parse errors.
     /// The parser is consumed and cannot be reused.
-    pub fn parse(mut self) -> ParseResult {
-        let span = span!(Level::INFO, "parse");
+    pub fn parse_main(mut self) -> ParseResult {
+        let span = span!(Level::INFO, "parse_main");
         let _enter = span.enter();
 
         self.current_token = match self.lexer.next() {
@@ -114,6 +114,39 @@ impl<'src> Parser<'src> {
         };
 
         self.parse_main_function_item()
+            .unwrap_or_else(|error| self.recover(error));
+
+        ParseResult {
+            syntax_tree: self.syntax_tree,
+            errors: self.errors,
+        }
+    }
+
+    pub fn parse_file_module(mut self) -> ParseResult {
+        let span = span!(Level::INFO, "parse_module");
+        let _enter = span.enter();
+
+        self.current_token = match self.lexer.next() {
+            Some(Ok(token)) => token,
+            Some(Err(index)) => {
+                let error = ParseError::InvalidUtf8 {
+                    position: Position::new(self.file_id, Span(index as u32, index as u32 + 1)),
+                };
+
+                self.recover(error);
+
+                return ParseResult {
+                    syntax_tree: self.syntax_tree,
+                    errors: self.errors,
+                };
+            }
+            None => Token {
+                kind: TokenKind::Eof,
+                span: Span(0, 0),
+            },
+        };
+
+        self.parse_module_item()
             .unwrap_or_else(|error| self.recover(error));
 
         ParseResult {
@@ -1175,16 +1208,12 @@ impl<'src> Parser<'src> {
         let is_optional = last_node.kind.has_block();
 
         let node = if is_optional {
-            info!("Parsing semicolon statement");
-
             SyntaxNode {
                 kind: SyntaxKind::SemicolonStatement,
                 span: Span(start, end),
                 children: (is_optional as u32, 0),
             }
         } else {
-            info!("Parsing expression statement");
-
             let span = Span(last_node.span.0, end);
             let expression_id = self.syntax_tree.last_node_id();
 

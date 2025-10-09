@@ -33,7 +33,7 @@ pub fn handle_parse_command(
     let ParseResult {
         syntax_tree,
         errors,
-    } = parser.parse();
+    } = parser.parse_main();
     let parse_time = start_time.elapsed();
 
     drop(files);

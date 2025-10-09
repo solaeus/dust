@@ -47,7 +47,7 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
     let ParseResult {
         syntax_tree,
         errors,
-    } = parser.parse();
+    } = parser.parse_main();
 
     drop(files);
 
@@ -148,7 +148,18 @@ impl Compiler {
         let files = source.read_files();
         let mut errors = Vec::new();
 
-        for (index, file) in files.iter().enumerate() {
+        let main_file = files.first().unwrap();
+        let lexer = Lexer::new(main_file.source_code.as_ref());
+        let parser = Parser::new(SourceFileId(0), lexer);
+        let ParseResult {
+            syntax_tree,
+            errors: main_errors,
+        } = parser.parse_main();
+
+        self.context.file_trees.push(syntax_tree);
+        errors.extend(main_errors);
+
+        for (index, file) in files.iter().enumerate().skip(1) {
             let file_scope = Scope {
                 kind: ScopeKind::Module,
                 parent: ScopeId::MAIN,
@@ -172,11 +183,12 @@ impl Compiler {
             );
 
             let file_id = SourceFileId(index as u32);
-            let parser = Parser::new(file_id, Lexer::new(file.source_code.as_ref()));
+            let lexer = Lexer::new(file.source_code.as_ref());
+            let parser = Parser::new(file_id, lexer);
             let ParseResult {
                 syntax_tree,
                 errors: file_errors,
-            } = parser.parse();
+            } = parser.parse_file_module();
 
             errors.extend(file_errors);
 
@@ -192,10 +204,11 @@ impl Compiler {
                 file_scope_id,
             );
 
-            binder.bind_main().map_err(|compile_error| {
-                DustError::compile(compile_error, self.context.source.clone())
-            })?;
-
+            binder
+                .bind_file_module(file_module_name)
+                .map_err(|compile_error| {
+                    DustError::compile(compile_error, self.context.source.clone())
+                })?;
             self.context.file_trees.push(syntax_tree);
             self.context
                 .resolver
@@ -204,6 +217,18 @@ impl Compiler {
                 .modules
                 .push(module_id);
         }
+
+        let main_binder = Binder::new(
+            SourceFileId(0),
+            self.context.source.clone(),
+            &mut self.context.resolver,
+            &self.context.file_trees[0],
+            ScopeId::MAIN,
+        );
+
+        main_binder.bind_main().map_err(|compile_error| {
+            DustError::compile(compile_error, self.context.source.clone())
+        })?;
 
         if !errors.is_empty() {
             return Err(DustError::parse(errors, self.context.source));

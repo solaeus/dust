@@ -188,6 +188,7 @@ pub enum SyntaxKind {
     ModuleItem,
     PublicModuleItem,
     UseItem,
+    PublicUseItem,
     FunctionItem,
     PublicFunctionItem,
 
@@ -281,8 +282,11 @@ impl SyntaxKind {
             self,
             SyntaxKind::MainFunctionItem
                 | SyntaxKind::ModuleItem
+                | SyntaxKind::PublicModuleItem
                 | SyntaxKind::UseItem
+                | SyntaxKind::PublicUseItem
                 | SyntaxKind::FunctionItem
+                | SyntaxKind::PublicFunctionItem
         )
     }
 
@@ -424,6 +428,7 @@ impl Display for SyntaxKind {
             SyntaxKind::StringType => write!(f, "string type"),
             SyntaxKind::TypePath => write!(f, "type path"),
             SyntaxKind::UseItem => write!(f, "use item"),
+            SyntaxKind::PublicUseItem => write!(f, "public use item"),
             SyntaxKind::Trivia => write!(f, "whitespace or comment"),
         }
     }
