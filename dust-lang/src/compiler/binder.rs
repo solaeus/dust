@@ -3,7 +3,6 @@ use tracing::{Level, info, span};
 
 use crate::{
     compiler::CompileError,
-    native_function::NativeFunction,
     resolver::{
         Declaration, DeclarationId, DeclarationKind, ModuleKind, Resolver, Scope, ScopeId,
         ScopeKind, TypeId,

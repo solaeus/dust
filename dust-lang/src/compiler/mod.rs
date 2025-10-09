@@ -7,8 +7,6 @@ mod tests;
 
 pub use chunk_compiler::ChunkCompiler;
 pub use error::CompileError;
-use indexmap::{IndexMap, IndexSet};
-use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 use tracing::{Level, span};
 
@@ -23,8 +21,7 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     resolver::{
-        Declaration, DeclarationId, DeclarationKind, ModuleKind, Resolver, Scope, ScopeId,
-        ScopeKind, TypeId,
+        Declaration, DeclarationKind, ModuleKind, Resolver, Scope, ScopeId, ScopeKind, TypeId,
     },
     source::{Position, Source, SourceCode, SourceFile, SourceFileId, Span},
     syntax_tree::SyntaxTree,

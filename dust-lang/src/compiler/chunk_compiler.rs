@@ -9,7 +9,7 @@ use crate::{
     compiler::{CompileContext, binder::Binder},
     instruction::{Address, Instruction, OperandType, Operation},
     native_function::NativeFunction,
-    resolver::{Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind, TypeId},
+    resolver::{Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind},
     source::{Position, SourceFileId},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
     r#type::{FunctionType, Type},
@@ -700,16 +700,22 @@ impl<'a> ChunkCompiler<'a> {
         let expression_emission = self.compile_expression(&expression)?;
         let expression_type = expression_emission.clone_type();
         let type_id = self.context.resolver.add_type(&expression_type);
-        let should_emit_load = match expression_emission {
-            Emission::Function(_, _) => false,
-            Emission::Instruction(instruction, _)
-                if instruction.operation() == Operation::CALL_NATIVE =>
-            {
-                false
+        let local_address = match expression_emission {
+            Emission::Instruction(instruction, _) => {
+                let address = instruction.destination();
+                self.instructions.push(instruction);
+                address
             }
-            _ => true,
+            Emission::Instructions(instructions, _) => {
+                let address = instructions.last().unwrap().destination();
+                self.instructions.extend(instructions);
+                address
+            }
+            Emission::Constant(constant, _) => self.get_constant_address(constant),
+            Emission::Local(Local { address, .. }) => address,
+            Emission::Function(address, _) => address,
+            Emission::None => Address::default(),
         };
-        let local_address = expression_emission.handle_as_operand(self);
 
         let path_node = *self
             .syntax_tree()?
@@ -747,28 +753,26 @@ impl<'a> ChunkCompiler<'a> {
             },
         );
 
-        if should_emit_load {
-            let load_instruction = Instruction::load(
-                load_destination,
-                local_address,
-                expression_type.as_operand_type(),
-                false,
-            );
+        let load_instruction = Instruction::load(
+            load_destination,
+            local_address,
+            expression_type.as_operand_type(),
+            false,
+        );
 
-            self.instructions.push(load_instruction);
-            self.locals.insert(
-                declaration_id,
-                Local {
-                    r#type: expression_type,
-                    address: load_destination,
-                },
-            );
-        }
+        self.instructions.push(load_instruction);
+        self.locals.insert(
+            declaration_id,
+            Local {
+                r#type: expression_type,
+                address: load_destination,
+            },
+        );
 
         Ok(())
     }
 
-    fn compile_reassign_statement(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
+    fn compile_reassign_statement(&mut self, _node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling reassign statement");
 
         todo!()
@@ -1263,27 +1267,28 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::OrExpression => false,
             _ => unreachable!("Expected logical expression, found {}", node.kind),
         };
-        let test_instruction = Instruction::test(left_address, comparator);
+        let left_copy_destination = Address::register(self.get_next_register());
+        let load_instruction = Instruction::load(
+            left_copy_destination,
+            left_address,
+            OperandType::BOOLEAN,
+            false,
+        );
+        let test_instruction = Instruction::test(left_copy_destination, comparator);
         let jump_instruction = Instruction::jump(1, true);
 
+        self.instructions.push(load_instruction);
         self.instructions.push(test_instruction);
         self.instructions.push(jump_instruction);
 
         let emission = match right_emission {
             Emission::Instruction(instruction, _) => {
-                let mut instruction = instruction;
-
-                instruction.set_destination(left_address);
-
                 Emission::Instruction(instruction, Type::Boolean)
             }
             Emission::Instructions(instructions, r#type) => {
                 Emission::Instructions(instructions, r#type)
             }
-            Emission::Local(Local { r#type, .. }) => Emission::Local(Local {
-                r#type,
-                address: left_address,
-            }),
+            Emission::Local(local) => Emission::Local(local),
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: right.kind,
@@ -1900,18 +1905,27 @@ impl<'a> ChunkCompiler<'a> {
                     (last_instruction.destination(), r#type)
                 }
                 Emission::Constant(constant, r#type) => {
-                    let operand_type = r#type.as_operand_type();
                     let address = self.get_constant_address(constant);
-                    let destination = Address::register(self.get_next_register());
-                    let instruction = Instruction::load(destination, address, operand_type, false);
-                    let return_operand = self.handle_operand(instruction);
 
-                    (return_operand, r#type)
+                    (address, r#type)
                 }
                 Emission::Function(address, function_type) => {
                     (address, Type::Function(Box::new(function_type)))
                 }
-                Emission::Local(Local { address, r#type }) => (address, r#type),
+                Emission::Local(Local { address, r#type }) => {
+                    let mut return_address = address;
+
+                    if let Some(last_instruction) = self.instructions.last()
+                        && last_instruction.operation() == Operation::LOAD
+                        && last_instruction.destination() == return_address
+                    {
+                        return_address = last_instruction.b_address();
+
+                        self.instructions.pop();
+                    }
+
+                    (return_address, r#type)
+                }
                 Emission::None => (Address::default(), Type::None),
             };
 
@@ -1969,15 +1983,7 @@ impl Emission {
 
                 compiler.handle_operand(load_instruction)
             }
-            Emission::Local(Local { address, r#type }) => {
-                let destination = Address::register(compiler.get_next_register());
-                let operand_type = r#type.as_operand_type();
-                let load_instruction = Instruction::load(destination, address, operand_type, false);
-
-                compiler.instructions.push(load_instruction);
-
-                destination
-            }
+            Emission::Local(Local { address, .. }) => address,
             Emission::Function(address, _) => address,
             Emission::None => Address::default(),
         }
