@@ -43,7 +43,7 @@ impl<'a> TuiDisassembler<'a> {
             tabs.push(file.name.clone());
         }
 
-        for (_, chunk) in &program.prototypes {
+        for chunk in &program.prototypes {
             let chunk_name = if let Some(name_position) = chunk.name_position {
                 files
                     .get(name_position.file_id.0 as usize)

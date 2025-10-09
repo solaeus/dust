@@ -410,14 +410,7 @@ pub struct DeclarationId(pub u32);
 
 impl DeclarationId {
     pub const MAIN: Self = DeclarationId(0);
-    pub const ANONYMOUS: Self = DeclarationId(u32::MAX);
     pub const NATIVE: Self = DeclarationId(u32::MAX - 1);
-}
-
-impl Default for DeclarationId {
-    fn default() -> Self {
-        DeclarationId::ANONYMOUS
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

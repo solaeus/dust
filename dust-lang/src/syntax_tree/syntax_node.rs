@@ -104,7 +104,9 @@ impl SyntaxNode {
             | SyntaxKind::FunctionValueParameters => {
                 SyntaxNodeChildren::Multiple(self.children.0, self.children.1)
             }
-            SyntaxKind::FunctionItem => SyntaxNodeChildren::Single(SyntaxId(self.children.1)),
+            SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem => {
+                SyntaxNodeChildren::Single(SyntaxId(self.children.1))
+            }
             SyntaxKind::ExpressionStatement
             | SyntaxKind::PathExpression
             | SyntaxKind::GroupedExpression

@@ -89,7 +89,7 @@ pub enum CompileError {
         file_id: SourceFileId,
     },
     MissingSyntaxTree {
-        declaration_id: DeclarationId,
+        file_id: SourceFileId,
     },
     MissingPayloads {
         payload_start: u32,
@@ -368,9 +368,9 @@ impl AnnotatedError for CompileError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
-            CompileError::MissingSyntaxTree { declaration_id } => {
+            CompileError::MissingSyntaxTree { file_id } => {
                 let title = format!(
-                    "Syntax tree for declaration id {declaration_id:?} was missing, this is a bug in the parser or compiler"
+                    "Syntax tree for file id {file_id:?} was missing, this is a bug in the parser or compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

@@ -22,7 +22,7 @@ pub struct Binder<'a> {
 
     syntax_tree: &'a SyntaxTree,
 
-    current_scope: ScopeId,
+    current_scope_id: ScopeId,
 }
 
 impl<'a> Binder<'a> {
@@ -31,47 +31,15 @@ impl<'a> Binder<'a> {
         source: Source,
         resolver: &'a mut Resolver,
         syntax_tree: &'a SyntaxTree,
-        current_scope: ScopeId,
+        current_scope_id: ScopeId,
     ) -> Self {
         Self {
             file_id,
             source,
             resolver,
             syntax_tree,
-            current_scope,
+            current_scope_id,
         }
-    }
-
-    pub fn bind_native_functions(&mut self) -> Result<(), CompileError> {
-        let span = span!(Level::INFO, "bind_native_functions");
-        let _enter = span.enter();
-
-        let read_line = NativeFunction::READ_LINE;
-        let read_line_type_id = self.resolver.add_function_type(&read_line.r#type());
-        let read_line_declaration = Declaration {
-            kind: DeclarationKind::NativeFunction,
-            scope_id: ScopeId::MAIN,
-            type_id: read_line_type_id,
-            position: Position::new(self.file_id, Span(0, 0)),
-            is_public: true,
-        };
-
-        let write_line = NativeFunction::WRITE_LINE;
-        let write_line_type_id = self.resolver.add_function_type(&write_line.r#type());
-        let write_line_declaration = Declaration {
-            kind: DeclarationKind::NativeFunction,
-            scope_id: ScopeId::MAIN,
-            type_id: write_line_type_id,
-            position: Position::new(self.file_id, Span(0, 0)),
-            is_public: true,
-        };
-
-        self.resolver
-            .add_declaration("read_line", read_line_declaration);
-        self.resolver
-            .add_declaration("write_line", write_line_declaration);
-
-        Ok(())
     }
 
     pub fn bind_main(mut self) -> Result<(), CompileError> {
@@ -98,7 +66,7 @@ impl<'a> Binder<'a> {
         let declaration = Declaration {
             kind: DeclarationKind::Module {
                 kind: ModuleKind::File,
-                inner_scope_id: self.current_scope,
+                inner_scope_id: self.current_scope_id,
             },
             scope_id: ScopeId::MAIN,
             type_id: TypeId::NONE,
@@ -217,7 +185,7 @@ impl<'a> Binder<'a> {
         Ok(())
     }
 
-    fn bind_function_item(
+    pub fn bind_function_item(
         &mut self,
         node_id: SyntaxId,
         node: &SyntaxNode,
@@ -228,14 +196,6 @@ impl<'a> Binder<'a> {
             node.kind,
             SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem
         ));
-
-        let path_id = SyntaxId(node.children.0);
-        let path_node = *self
-            .syntax_tree
-            .get_node(path_id)
-            .ok_or(CompileError::MissingSyntaxNode { syntax_id: path_id })?;
-
-        debug_assert_eq!(path_node.kind, SyntaxKind::Path);
 
         let function_expression_id = SyntaxId(node.children.1);
         let function_expression_node = *self.syntax_tree.get_node(function_expression_id).ok_or(
@@ -299,7 +259,7 @@ impl<'a> Binder<'a> {
 
         let function_scope = self.resolver.add_scope(Scope {
             kind: ScopeKind::Function,
-            parent: self.current_scope,
+            parent: self.current_scope_id,
             imports: SmallVec::new(),
             modules: SmallVec::new(),
         });
@@ -375,6 +335,14 @@ impl<'a> Binder<'a> {
         };
         let function_type_id = self.resolver.add_function_type(&function_type);
 
+        let path_id = SyntaxId(node.children.0);
+        let path_node = *self
+            .syntax_tree
+            .get_node(path_id)
+            .ok_or(CompileError::MissingSyntaxNode { syntax_id: path_id })?;
+
+        debug_assert_eq!(path_node.kind, SyntaxKind::Path);
+
         let path_bytes = &files
             .get(self.file_id.0 as usize)
             .ok_or(CompileError::MissingSourceFile {
@@ -388,18 +356,13 @@ impl<'a> Binder<'a> {
                 inner_scope_id: function_scope,
                 syntax_id: node_id,
             },
-            scope_id: self.current_scope,
+            scope_id: self.current_scope_id,
             type_id: function_type_id,
             position: Position::new(self.file_id, node.span),
             is_public: true,
         };
 
-        let declaration_id = self.resolver.add_declaration(path_str, declaration);
-
-        println!(
-            "Adding function declaration: {} with declaration ID {:?}",
-            path_str, declaration_id
-        );
+        self.resolver.add_declaration(path_str, declaration);
 
         Ok(())
     }
@@ -433,7 +396,7 @@ impl<'a> Binder<'a> {
         let files = &self.source.read_files();
 
         let mut current_segment_index = 0;
-        let mut current_scope_id = self.current_scope;
+        let mut current_scope_id = self.current_scope_id;
         let mut current_declaration_id = DeclarationId(0);
 
         loop {
@@ -473,16 +436,16 @@ impl<'a> Binder<'a> {
         }
 
         self.resolver
-            .get_scope_mut(self.current_scope)
+            .get_scope_mut(self.current_scope_id)
             .ok_or(CompileError::MissingScope {
-                scope_id: self.current_scope,
+                scope_id: self.current_scope_id,
             })?
             .imports
             .push(current_declaration_id);
 
         println!(
             "Importing module declaration ID {:?} into scope ID {:?}",
-            current_declaration_id, self.current_scope
+            current_declaration_id, self.current_scope_id
         );
 
         Ok(())

@@ -7,7 +7,7 @@ mod tests;
 
 pub use chunk_compiler::ChunkCompiler;
 pub use error::CompileError;
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 use tracing::{Level, span};
@@ -74,10 +74,10 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
         resolver,
         file_trees,
         constants: ConstantTable::new(),
-        prototypes: IndexMap::default(),
+        prototypes: Vec::new(),
     };
     let chunk_compiler = ChunkCompiler::new(
-        DeclarationId::MAIN,
+        None,
         SourceFileId(0),
         FunctionType::new([], [], Type::None),
         &mut context,
@@ -103,7 +103,7 @@ impl Compiler {
                 file_trees: Vec::new(),
                 constants: ConstantTable::new(),
                 resolver: Resolver::new(),
-                prototypes: IndexMap::default(),
+                prototypes: Vec::new(),
             },
         }
     }
@@ -234,12 +234,10 @@ impl Compiler {
             return Err(DustError::parse(errors, self.context.source));
         }
 
-        self.context
-            .prototypes
-            .insert(DeclarationId::MAIN, Chunk::default()); // Insert a placeholder
+        self.context.prototypes.push(Chunk::default()); // Insert a placeholder
 
         let chunk_compiler = ChunkCompiler::new(
-            DeclarationId::MAIN,
+            None,
             SourceFileId(0),
             FunctionType::new([], [], Type::None),
             &mut self.context,
@@ -265,5 +263,5 @@ pub struct CompileContext {
     pub file_trees: Vec<SyntaxTree>,
     pub constants: ConstantTable,
     pub resolver: Resolver,
-    pub prototypes: IndexMap<DeclarationId, Chunk, FxBuildHasher>,
+    pub prototypes: Vec<Chunk>,
 }
