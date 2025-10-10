@@ -7,7 +7,7 @@ use tracing::{debug, info, span};
 use crate::{
     chunk::Chunk,
     compiler::{CompileContext, binder::Binder},
-    instruction::{Address, Instruction, OperandType, Operation},
+    instruction::{Address, Instruction, MemoryKind, OperandType, Operation},
     native_function::NativeFunction,
     resolver::{Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind},
     source::{Position, SourceFileId},
@@ -683,8 +683,6 @@ impl<'a> ChunkCompiler<'a> {
 
         let path_id = SyntaxId(node.children.0);
         let expression_statement_id = SyntaxId(node.children.1);
-        let load_destination = Address::register(self.get_next_register());
-
         let expression_statement = *self
             .syntax_tree()?
             .get_node(expression_statement_id)
@@ -753,21 +751,34 @@ impl<'a> ChunkCompiler<'a> {
             },
         );
 
-        let load_instruction = Instruction::load(
-            load_destination,
-            local_address,
-            expression_type.as_operand_type(),
-            false,
-        );
+        drop(files);
 
-        self.instructions.push(load_instruction);
-        self.locals.insert(
-            declaration_id,
-            Local {
-                r#type: expression_type,
-                address: load_destination,
-            },
-        );
+        if local_address.memory == MemoryKind::REGISTER {
+            self.locals.insert(
+                declaration_id,
+                Local {
+                    r#type: expression_type,
+                    address: local_address,
+                },
+            );
+        } else {
+            let destination = Address::register(self.get_next_register());
+            let load_instruction = Instruction::load(
+                destination,
+                local_address,
+                expression_type.as_operand_type(),
+                false,
+            );
+
+            self.instructions.push(load_instruction);
+            self.locals.insert(
+                declaration_id,
+                Local {
+                    r#type: expression_type,
+                    address: destination,
+                },
+            );
+        }
 
         Ok(())
     }

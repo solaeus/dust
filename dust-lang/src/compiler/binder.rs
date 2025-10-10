@@ -356,7 +356,7 @@ impl<'a> Binder<'a> {
             },
             scope_id: self.current_scope_id,
             type_id: function_type_id,
-            position: Position::new(self.file_id, node.span),
+            position: Position::new(self.file_id, path_node.span),
             is_public: true,
         };
 

@@ -43,17 +43,23 @@ impl<'a> TuiDisassembler<'a> {
             tabs.push(file.name.clone());
         }
 
-        for chunk in &program.prototypes {
-            let chunk_name = if let Some(name_position) = chunk.name_position {
+        for (index, chunk) in program.prototypes.iter().enumerate() {
+            let chunk_name = if index == 0 {
+                "main".to_string()
+            } else if let Some(name_position) = chunk.name_position {
                 files
                     .get(name_position.file_id.0 as usize)
-                    .map(|file| file.name.as_str())
+                    .and_then(|file| {
+                        file.source_code
+                            .as_ref()
+                            .get(name_position.span.as_usize_range())
+                            .map(|bytes| unsafe { str::from_utf8_unchecked(bytes) })
+                    })
                     .unwrap_or("anonymous")
                     .to_string()
             } else {
                 "anonymous".to_string()
             };
-
             tabs.push(chunk_name);
         }
 
