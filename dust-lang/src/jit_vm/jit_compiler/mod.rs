@@ -501,16 +501,16 @@ enum FunctionIds {
 pub type JitLogic = extern "C" fn(&mut ThreadContext) -> ThreadResult;
 
 pub fn compute_compile_order(program: &Program) -> Vec<usize> {
-    let n = program.prototypes.len();
-    let mut edges: Vec<HashSet<usize>> = vec![HashSet::new(); n];
-    let mut indegree = vec![0usize; n];
+    let prototype_count = program.prototypes.len();
+    let mut edges: Vec<HashSet<usize>> = vec![HashSet::new(); prototype_count];
+    let mut indegree = vec![0usize; prototype_count];
 
     for (caller, chunk) in program.prototypes.iter().enumerate() {
         for instr in &chunk.instructions {
             if instr.operation() == Operation::CALL {
                 // b_field is the callee prototype index
                 let callee = instr.b_field() as usize;
-                if callee < n && edges[caller].insert(callee) {
+                if callee < prototype_count && edges[caller].insert(callee) {
                     indegree[callee] += 1;
                 }
             }
@@ -519,15 +519,16 @@ pub fn compute_compile_order(program: &Program) -> Vec<usize> {
 
     // Kahn's algorithm: enqueue nodes (indices) with indegree == 0
     let mut queue = VecDeque::new();
-    for i in 0..n {
-        if indegree[i] == 0 {
+    for &i in &indegree {
+        if i == 0 {
             queue.push_back(i);
         }
     }
 
-    let mut topo = Vec::with_capacity(n);
+    let mut order = Vec::with_capacity(prototype_count);
+
     while let Some(u) = queue.pop_front() {
-        topo.push(u);
+        order.push(u);
         for &v in &edges[u] {
             // indegree[v] > 0 must hold here
             indegree[v] -= 1;
@@ -537,17 +538,15 @@ pub fn compute_compile_order(program: &Program) -> Vec<usize> {
         }
     }
 
-    // If cycles exist (mutual recursion), fall back by appending the rest.
-    if topo.len() != n {
-        let in_topo: HashSet<_> = topo.iter().copied().collect();
-        for i in 0..n {
+    if order.len() != prototype_count {
+        let in_topo: HashSet<_> = order.iter().copied().collect();
+        for i in 0..prototype_count {
             if !in_topo.contains(&i) {
-                topo.push(i);
+                order.push(i);
             }
         }
     }
 
-    // Compile callees before callers
-    topo.reverse();
-    topo
+    order.reverse();
+    order
 }
