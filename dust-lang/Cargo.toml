@@ -46,16 +46,16 @@ harness = false
 name = "parse"
 harness = false
 
+[[bench]]
+name = "compile"
+harness = false
+
 # [[bench]]
 # name = "addictive_addition"
 # harness = false
 
 # [[bench]]
 # name = "addictive_calling"
-# harness = false
-
-# [[bench]]
-# name = "compile"
 # harness = false
 
 # [[bench]]

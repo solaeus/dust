@@ -4,8 +4,7 @@ use tracing::{Level, info, span};
 use crate::{
     compiler::CompileError,
     resolver::{
-        Declaration, DeclarationId, DeclarationKind, ModuleKind, Resolver, Scope, ScopeId,
-        ScopeKind, TypeId,
+        Declaration, DeclarationKind, ModuleKind, Resolver, Scope, ScopeId, ScopeKind, TypeId,
     },
     source::{Position, Source, SourceFileId, Span},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
@@ -396,7 +395,7 @@ impl<'a> Binder<'a> {
 
         let mut current_segment_index = 0;
         let mut current_scope_id = self.current_scope_id;
-        let mut current_declaration_id = DeclarationId(0);
+        let mut current_declaration_id;
 
         loop {
             let segment_node = path_segment_nodes[current_segment_index];
