@@ -2,7 +2,9 @@ use annotate_snippets::{Group, Level};
 use cranelift_module::ModuleError;
 
 use crate::{
-    MemoryKind, OperandType, Operation, dust_error::AnnotatedError, resolver::TypeId,
+    dust_error::AnnotatedError,
+    instruction::{MemoryKind, OperandType, Operation},
+    resolver::TypeId,
     source::SourceFileId,
 };
 

@@ -3,7 +3,10 @@ mod compile_stackless_function;
 mod ffi_functions;
 mod jit_error;
 
-use std::mem::{offset_of, transmute};
+use std::{
+    collections::{HashSet, VecDeque},
+    mem::{offset_of, transmute},
+};
 
 use compile_direct_function::compile_direct_function;
 use compile_stackless_function::compile_stackless_function;
@@ -23,8 +26,8 @@ use cranelift_module::{FuncId, Linkage, Module};
 use tracing::Level;
 
 use crate::{
-    OperandType,
     dust_crate::Program,
+    instruction::{OperandType, Operation},
     jit_vm::{
         Register, RegisterTag, ThreadResult,
         call_stack::{get_frame_function_index, push_call_frame},
@@ -79,7 +82,16 @@ impl<'a> JitCompiler<'a> {
 
         stackless_signature.params.push(AbiParam::new(pointer_type));
 
-        for (index, (_, chunk)) in self.program.prototypes.iter().enumerate() {
+        while self.function_ids.len() < self.program.prototypes.len() {
+            self.function_ids.push(FunctionIds::Other {
+                direct: FuncId::from_u32(0),
+                stackless: FuncId::from_u32(0),
+            });
+        }
+
+        let compile_order = compute_compile_order(self.program);
+
+        for index in compile_order {
             if index == 0 {
                 let stackless_function_id = self
                     .module
@@ -92,11 +104,12 @@ impl<'a> JitCompiler<'a> {
                     stackless: stackless_function_id,
                 };
 
-                self.function_ids.push(main_function_ids);
+                self.function_ids[index] = main_function_ids;
 
                 continue;
             }
 
+            let chunk = &self.program.prototypes[index];
             let direct_name = format!("proto_{index}_direct");
             let stackless_name = format!("proto_{index}_stackless");
             let value_parameters_count = chunk.r#type.value_parameters.len();
@@ -125,18 +138,18 @@ impl<'a> JitCompiler<'a> {
                     cranelift_ir: context.func.display().to_string(),
                 })?;
 
-            self.function_ids.push(FunctionIds::Other {
+            self.function_ids[index] = FunctionIds::Other {
                 direct: direct_function_id,
                 stackless: stackless_function_id,
-            });
+            };
         }
 
         let main_chunk = &self.program.prototypes[0];
         let function_references = {
             let mut references = Vec::with_capacity(self.program.prototypes.len());
 
-            for (index, function_ids) in self.function_ids.clone().into_iter().enumerate() {
-                match function_ids {
+            for index in 0..self.program.prototypes.len() {
+                match self.function_ids[index] {
                     FunctionIds::Main { stackless } => {
                         let main_reference = self
                             .module
@@ -486,3 +499,55 @@ enum FunctionIds {
 }
 
 pub type JitLogic = extern "C" fn(&mut ThreadContext) -> ThreadResult;
+
+pub fn compute_compile_order(program: &Program) -> Vec<usize> {
+    let n = program.prototypes.len();
+    let mut edges: Vec<HashSet<usize>> = vec![HashSet::new(); n];
+    let mut indegree = vec![0usize; n];
+
+    for (caller, chunk) in program.prototypes.iter().enumerate() {
+        for instr in &chunk.instructions {
+            if instr.operation() == Operation::CALL {
+                // b_field is the callee prototype index
+                let callee = instr.b_field() as usize;
+                if callee < n && edges[caller].insert(callee) {
+                    indegree[callee] += 1;
+                }
+            }
+        }
+    }
+
+    // Kahn's algorithm: enqueue nodes (indices) with indegree == 0
+    let mut queue = VecDeque::new();
+    for i in 0..n {
+        if indegree[i] == 0 {
+            queue.push_back(i);
+        }
+    }
+
+    let mut topo = Vec::with_capacity(n);
+    while let Some(u) = queue.pop_front() {
+        topo.push(u);
+        for &v in &edges[u] {
+            // indegree[v] > 0 must hold here
+            indegree[v] -= 1;
+            if indegree[v] == 0 {
+                queue.push_back(v);
+            }
+        }
+    }
+
+    // If cycles exist (mutual recursion), fall back by appending the rest.
+    if topo.len() != n {
+        let in_topo: HashSet<_> = topo.iter().copied().collect();
+        for i in 0..n {
+            if !in_topo.contains(&i) {
+                topo.push(i);
+            }
+        }
+    }
+
+    // Compile callees before callers
+    topo.reverse();
+    topo
+}

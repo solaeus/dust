@@ -24,7 +24,7 @@ use tracing::level_filters::LevelFilter;
 )]
 pub struct Cli {
     #[command(subcommand)]
-    pub mode: Mode,
+    pub mode: Option<Mode>,
 
     #[command(flatten)]
     pub input: InputOptions,

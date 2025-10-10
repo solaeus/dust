@@ -1,5 +1,5 @@
 use crate::{
-    OperandType,
+    instruction::OperandType,
     jit_vm::{Object, object::ObjectValue, thread::ThreadContext},
 };
 

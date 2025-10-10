@@ -841,11 +841,23 @@ impl<'a> ChunkCompiler<'a> {
 
         drop(files);
 
-        self.compile_function_expression(
+        let Emission::Function(address, function_type) = self.compile_function_expression(
             &function_expression_node,
             Some((declaration_id, declaration)),
             Some(function_type),
-        )?;
+        )?
+        else {
+            return Err(CompileError::ExpectedFunction {
+                node_kind: function_expression_node.kind,
+                position: Position::new(self.file_id, function_expression_node.span),
+            });
+        };
+        let local = Local {
+            address,
+            r#type: Type::Function(Box::new(function_type)),
+        };
+
+        self.locals.insert(declaration_id, local);
 
         Ok(())
     }
@@ -1471,7 +1483,20 @@ impl<'a> ChunkCompiler<'a> {
                     type_id: declaration.type_id,
                 })?
                 .clone();
-            let address = Address::register(self.get_next_register());
+            let address = if matches!(declaration.kind, DeclarationKind::Function { .. }) {
+                if let Some(index) = self
+                    .context
+                    .prototypes
+                    .iter()
+                    .position(|chunk| chunk.name_position == Some(declaration.position))
+                {
+                    Address::constant(index as u16)
+                } else {
+                    Address::register(self.get_next_register())
+                }
+            } else {
+                Address::register(self.get_next_register())
+            };
             let local = Local { r#type, address };
 
             self.locals.insert(declaration_id, local.clone());
@@ -1817,41 +1842,39 @@ impl<'a> ChunkCompiler<'a> {
 
         if function_node.kind == SyntaxKind::PathExpression {
             let destination = Address::register(self.get_next_register());
-            let files = self.context.source.read_files();
-            let source_file =
-                files
-                    .get(self.file_id.0 as usize)
-                    .ok_or(CompileError::MissingSourceFile {
-                        file_id: self.file_id,
-                    })?;
-            let variable_name_bytes = &source_file.source_code.as_ref()
-                [function_node.span.0 as usize..function_node.span.1 as usize];
-            let variable_name = unsafe { str::from_utf8_unchecked(variable_name_bytes) };
+            let native_function = {
+                let files = self.context.source.read_files();
+                let source_file =
+                    files
+                        .get(self.file_id.0 as usize)
+                        .ok_or(CompileError::MissingSourceFile {
+                            file_id: self.file_id,
+                        })?;
+                let name_bytes = &source_file.source_code.as_ref()
+                    [function_node.span.0 as usize..function_node.span.1 as usize];
 
-            match variable_name {
-                "write_line" => {
-                    let write_line_function = NativeFunction::WRITE_LINE;
-                    let call_native_instruction =
-                        Instruction::call_native(destination, write_line_function, 0);
-                    let function_type = write_line_function.r#type();
-
-                    return Ok(Emission::Instruction(
-                        call_native_instruction,
-                        Type::Function(Box::new(function_type)),
-                    ));
+                if name_bytes == b"write_line" {
+                    Some(NativeFunction::WRITE_LINE)
+                } else if name_bytes == b"read_line" {
+                    Some(NativeFunction::READ_LINE)
+                } else {
+                    None
                 }
-                "read_line" => {
-                    let read_line_function = NativeFunction::READ_LINE;
-                    let call_native_instruction =
-                        Instruction::call_native(destination, read_line_function, 0);
-                    let function_type = read_line_function.r#type();
+            };
 
-                    return Ok(Emission::Instruction(
-                        call_native_instruction,
-                        Type::Function(Box::new(function_type)),
-                    ));
-                }
-                _ => {}
+            if let Some(native_function) = native_function {
+                let arguments_start_index = self.call_arguments.len() as u16;
+
+                handle_call_arguments(self, &arguments_node)?;
+
+                let call_native_instruction =
+                    Instruction::call_native(destination, native_function, arguments_start_index);
+                let function_type = native_function.r#type();
+
+                return Ok(Emission::Instruction(
+                    call_native_instruction,
+                    function_type.return_type,
+                ));
             }
         }
 
@@ -1870,7 +1893,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let destination_index = self.get_next_register();
         let r#type = function_type.return_type.clone();
-        let argument_count = self.call_arguments.len() as u16;
+        let argument_count = self.call_arguments.len() as u16 - arguments_start_index;
         let call_instruction = Instruction::call(
             destination_index,
             address.index,

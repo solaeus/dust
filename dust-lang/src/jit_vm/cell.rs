@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use crate::{Chunk, List};
+use crate::{chunk::Chunk, value::List};
 
 #[derive(Debug, Default)]
 pub struct Cell {

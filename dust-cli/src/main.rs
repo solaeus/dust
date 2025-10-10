@@ -8,6 +8,7 @@
 mod cli;
 mod compile;
 mod parse;
+mod run;
 
 use std::{
     fmt::{self},
@@ -35,6 +36,7 @@ use crate::{
     cli::{Cli, InputOptions, Mode},
     compile::handle_compile_command,
     parse::handle_parse_command,
+    run::handle_run_command,
 };
 
 fn main() {
@@ -50,64 +52,17 @@ fn main() {
         min_heap: _,
         min_sweep: _,
     } = Cli::parse();
+    let mode = mode.unwrap_or(Mode::Run);
 
     if let Some(log_level) = log {
         start_logging(log_level, start_time);
     }
 
-    // if let Mode::Run {
-    //     min_heap,
-    //     min_sweep,
-    // } = mode
-    // {
-    //     let source = get_source(path, name, stdin, eval);
-    //     let resolver = Resolver::new(true);
-    //     let compiler = Compiler::new(source.clone(), resolver);
-    //     let compile_result = compiler.compile();
-    //     let compile_time = start_time.elapsed();
+    if let Mode::Run = mode {
+        handle_run_command(eval, path, no_output, time, start_time);
 
-    //     let program = match compile_result {
-    //         Ok(program) => Arc::new(program),
-    //         Err(error) => {
-    //             let report = error.report();
-
-    //             if !no_output {
-    //                 eprintln!("{report}");
-    //             }
-
-    //             return;
-    //         }
-    //     };
-
-    //     let vm = JitVm::new();
-    //     let min_heap = min_heap.unwrap_or(MINIMUM_OBJECT_HEAP_DEFAULT);
-    //     let min_sweep = min_sweep.unwrap_or(MINIMUM_OBJECT_SWEEP_DEFAULT);
-    //     let run_result = vm.run(program, min_heap, min_sweep);
-    //     let run_time = start_time.elapsed() - compile_time;
-
-    //     let return_value = match run_result {
-    //         Ok(value) => value,
-    //         Err(dust_error) => {
-    //             let report = dust_error.report();
-
-    //             if !no_output {
-    //                 eprintln!("{report}");
-    //             }
-
-    //             return;
-    //         }
-    //     };
-
-    //     if !no_output && let Some(return_value) = return_value {
-    //         println!("{return_value}");
-    //     }
-
-    //     if time {
-    //         print_times(&[(source.program_name(), compile_time, Some(run_time))]);
-    //     }
-
-    //     return;
-    // }
+        return;
+    }
 
     if mode == Mode::Parse {
         handle_parse_command(eval, no_output, time, start_time);

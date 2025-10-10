@@ -13,9 +13,9 @@ pub fn handle_compile_command(
 ) {
     let source = handle_source(eval, path, false);
     let compiler = Compiler::new(source.clone());
-    let compile_result = compiler.compile();
+    let compile_result = compiler.compile_with_extras(None);
     let compile_time = start_time.elapsed();
-    let (program, resolver, syntax_trees) = match compile_result {
+    let (program, syntax_trees, resolver) = match compile_result {
         Ok((program, resolver, syntax_trees)) => (program, resolver, syntax_trees),
         Err(dust_error) => {
             if !no_output {

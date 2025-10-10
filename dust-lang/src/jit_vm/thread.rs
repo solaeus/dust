@@ -11,10 +11,11 @@ use cranelift::prelude::{
 use tracing::{Level, debug, info, span};
 
 use crate::{
-    List, Type, Value,
     dust_crate::Program,
     instruction::OperandType,
     jit_vm::{ObjectPool, RegisterTag, call_stack::new_call_stack, object::ObjectValue},
+    r#type::Type,
+    value::{List, Value},
 };
 
 use super::{

@@ -9,9 +9,13 @@ use cranelift_module::{FuncId, Module, ModuleError};
 use tracing::{Level, info, span};
 
 use crate::{
-    Address, Chunk, ConstantTable, MemoryKind, OperandType, Operation, Type,
-    instruction::{Add, Call, CallNative, Jump, Load, Return},
+    chunk::Chunk,
+    constant_table::ConstantTable,
+    instruction::{
+        Add, Address, Call, CallNative, Jump, Load, MemoryKind, OperandType, Operation, Return,
+    },
     jit_vm::{JitCompiler, JitError, jit_compiler::FunctionIds},
+    r#type::Type,
 };
 
 pub fn compile_direct_function(

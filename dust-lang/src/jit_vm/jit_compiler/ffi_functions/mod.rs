@@ -8,7 +8,7 @@ pub use strings::*;
 
 use tracing::info;
 
-use crate::Operation;
+use crate::instruction::Operation;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn log_operation_and_ip(op_code: i8, ip: i64) {

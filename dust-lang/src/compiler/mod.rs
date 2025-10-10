@@ -109,25 +109,26 @@ impl Compiler {
         &self.context.resolver
     }
 
-    pub fn compile(self) -> Result<(Program, Resolver, Vec<SyntaxTree>), DustError> {
+    pub fn compile(self, name: Option<String>) -> Result<Program, DustError> {
         let context = self.compile_inner()?;
 
-        Ok((
-            Program {
-                source: context.source,
-                constants: context.constants,
-                prototypes: context.prototypes,
-            },
-            context.resolver,
-            context.file_trees,
-        ))
+        Ok(Program {
+            name: name.unwrap_or_else(|| "anonymous".to_string()),
+            source: context.source,
+            constants: context.constants,
+            prototypes: context.prototypes,
+        })
     }
 
-    pub fn compile_with_extras(self) -> Result<(Program, Vec<SyntaxTree>, Resolver), DustError> {
+    pub fn compile_with_extras(
+        self,
+        name: Option<String>,
+    ) -> Result<(Program, Vec<SyntaxTree>, Resolver), DustError> {
         let context = self.compile_inner()?;
 
         Ok((
             Program {
+                name: name.unwrap_or_else(|| "anonymous".to_string()),
                 source: context.source,
                 constants: context.constants,
                 prototypes: context.prototypes,

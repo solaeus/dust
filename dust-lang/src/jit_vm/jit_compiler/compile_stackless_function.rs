@@ -14,12 +14,17 @@ use smallvec::SmallVec;
 use tracing::{Level, info, span};
 
 use crate::{
-    Address, Chunk, ConstantTable, MemoryKind, OperandType, Operation, Type,
-    instruction::{Call, CallNative, Drop, Jump, Load, NewList, Return, SetList},
+    chunk::Chunk,
+    constant_table::ConstantTable,
+    instruction::{
+        Address, Call, CallNative, Drop, Jump, Load, MemoryKind, NewList, OperandType, Operation,
+        Return, SetList,
+    },
     jit_vm::{
         JitCompiler, JitError, Register, RegisterTag, call_stack::get_call_frame,
         jit_compiler::FunctionIds, thread::ThreadContext,
     },
+    r#type::Type,
 };
 
 pub fn compile_stackless_function(

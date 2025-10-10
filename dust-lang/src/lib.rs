@@ -14,7 +14,7 @@ pub mod constant_table;
 pub mod dust_crate;
 pub mod dust_error;
 pub mod instruction;
-// pub mod jit_vm;
+pub mod jit_vm;
 pub mod lexer;
 pub mod native_function;
 pub mod parser;

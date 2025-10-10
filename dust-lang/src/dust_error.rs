@@ -6,8 +6,9 @@ use annotate_snippets::{Group, Renderer};
 
 use crate::{
     compiler::CompileError,
+    jit_vm::JitError,
     parser::ParseError,
-    source::{Source, SourceFileId},
+    source::{Source, SourceCode, SourceFileId},
 };
 
 const SOURCE_NOT_AVAILABLE: &str = "<source not available>";
@@ -34,15 +35,19 @@ impl DustError {
         }
     }
 
-    // pub fn jit(error: JitError) -> Self {
-    //     DustError {
-    //         error: DustErrorKind::Jit(error),
-    //         source: Source::script(
-    //             SOURCE_NOT_AVAILABLE.to_string(),
-    //             SOURCE_NOT_AVAILABLE.to_string().into_bytes(),
-    //         ),
-    //     }
-    // }
+    pub fn jit(error: JitError) -> Self {
+        let source = Source::new();
+
+        source.add_file(crate::source::SourceFile {
+            name: SOURCE_NOT_AVAILABLE.to_string(),
+            source_code: SourceCode::String(SOURCE_NOT_AVAILABLE.to_string()),
+        });
+
+        DustError {
+            error: DustErrorKind::Jit(error),
+            source,
+        }
+    }
 
     pub fn report(&self) -> String {
         let source_files = &self.source.read_files();
@@ -76,17 +81,13 @@ impl DustError {
                 let renderer = Renderer::styled();
 
                 renderer.render(&report)
-            } // DustErrorKind::Jit(jit_error) => {
-              //     let source_file = self.source.get_file(jit_error.file_id());
-              //     let source = match source_file {
-              //         Some(file) => &file.source_code,
-              //         None => SOURCE_NOT_AVAILABLE,
-              //     };
-              //     let report = [jit_error.annotated_error(source)];
-              //     let renderer = Renderer::styled();
+            }
+            DustErrorKind::Jit(jit_error) => {
+                let report = [jit_error.annotated_error(SOURCE_NOT_AVAILABLE)];
+                let renderer = Renderer::styled();
 
-              //     renderer.render(&report)
-              // }
+                renderer.render(&report)
+            }
         }
     }
 }
@@ -95,7 +96,7 @@ impl DustError {
 pub enum DustErrorKind {
     Parse(Vec<ParseError>),
     Compile(CompileError),
-    // Jit(JitError),
+    Jit(JitError),
 }
 
 impl Display for DustError {

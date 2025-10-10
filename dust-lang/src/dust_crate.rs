@@ -7,6 +7,7 @@ pub enum DustCrate {
 }
 
 pub struct Program {
+    pub name: String,
     pub source: Source,
     pub constants: ConstantTable,
     pub prototypes: Vec<Chunk>,
