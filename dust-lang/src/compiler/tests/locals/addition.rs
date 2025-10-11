@@ -176,7 +176,7 @@ fn local_character_concatenation() {
                     Address::register(2),
                     Address::register(0),
                     Address::register(1),
-                    OperandType::STRING
+                    OperandType::CHARACTER
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::STRING)
             ],
@@ -212,7 +212,7 @@ fn local_string_character_concatenation() {
                     Address::register(2),
                     Address::register(0),
                     Address::register(1),
-                    OperandType::STRING
+                    OperandType::STRING_CHARACTER
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::STRING)
             ],
@@ -248,7 +248,7 @@ fn local_character_string_concatenation() {
                     Address::register(2),
                     Address::register(0),
                     Address::register(1),
-                    OperandType::STRING
+                    OperandType::CHARACTER_STRING
                 ),
                 Instruction::r#return(true, Address::register(2), OperandType::STRING)
             ],

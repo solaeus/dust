@@ -124,6 +124,66 @@ pub fn compile_stackless_function(
         )?
     };
 
+    let concatenate_character_string_function = {
+        let mut concatenate_character_string_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        concatenate_character_string_signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
+        concatenate_character_string_signature
+            .returns
+            .push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "concatenate_character_string",
+            concatenate_character_string_signature,
+        )?
+    };
+
+    let concatenate_string_character_function = {
+        let mut concatenate_string_character_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        concatenate_string_character_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        concatenate_string_character_signature
+            .returns
+            .push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "concatenate_string_character",
+            concatenate_string_character_signature,
+        )?
+    };
+
+    let concatenate_characters_function = {
+        let mut concatenate_characters_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        concatenate_characters_signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        concatenate_characters_signature
+            .returns
+            .push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "concatenate_characters",
+            concatenate_characters_signature,
+        )?
+    };
+
     let read_line_function = {
         let mut read_line_signature = Signature::new(compiler.module.isa().default_call_conv());
 
@@ -721,103 +781,102 @@ pub fn compile_stackless_function(
                             return Err(JitError::UnhandledOperation { operation });
                         }
 
-                        let (left_object_pointer, right_object_pointer) =
-                            match (left.memory, right.memory) {
-                                (MemoryKind::REGISTER, MemoryKind::REGISTER) => {
-                                    let left_pointer = get_string(
-                                        left,
-                                        &compiler.program.constants,
-                                        allocate_string_function,
-                                        &mut function_builder,
-                                        thread_context,
-                                        current_frame_base_register_address,
-                                    )?;
-                                    let right_pointer = get_string(
-                                        right,
-                                        &compiler.program.constants,
-                                        allocate_string_function,
-                                        &mut function_builder,
-                                        thread_context,
-                                        current_frame_base_register_address,
-                                    )?;
-
-                                    (left_pointer, right_pointer)
-                                }
-                                (
-                                    MemoryKind::CONSTANT,
-                                    MemoryKind::CONSTANT | MemoryKind::REGISTER,
-                                ) => {
-                                    let left_pointer = get_string(
-                                        left,
-                                        &compiler.program.constants,
-                                        allocate_string_function,
-                                        &mut function_builder,
-                                        thread_context,
-                                        current_frame_base_register_address,
-                                    )?;
-
-                                    JitCompiler::set_register(
-                                        destination.index,
-                                        left_pointer,
-                                        OperandType::STRING,
-                                        current_frame_base_register_address,
-                                        current_frame_base_tag_address,
-                                        &hot_registers,
-                                        &mut function_builder,
-                                    )?;
-
-                                    let right_pointer = get_string(
-                                        right,
-                                        &compiler.program.constants,
-                                        allocate_string_function,
-                                        &mut function_builder,
-                                        thread_context,
-                                        current_frame_base_register_address,
-                                    )?;
-
-                                    (left_pointer, right_pointer)
-                                }
-                                (MemoryKind::REGISTER, MemoryKind::CONSTANT) => {
-                                    let right_pointer = get_string(
-                                        right,
-                                        &compiler.program.constants,
-                                        allocate_string_function,
-                                        &mut function_builder,
-                                        thread_context,
-                                        current_frame_base_register_address,
-                                    )?;
-
-                                    JitCompiler::set_register(
-                                        destination.index,
-                                        right_pointer,
-                                        OperandType::STRING,
-                                        current_frame_base_register_address,
-                                        current_frame_base_tag_address,
-                                        &hot_registers,
-                                        &mut function_builder,
-                                    )?;
-
-                                    let left_pointer = get_string(
-                                        left,
-                                        &compiler.program.constants,
-                                        allocate_string_function,
-                                        &mut function_builder,
-                                        thread_context,
-                                        current_frame_base_register_address,
-                                    )?;
-
-                                    (left_pointer, right_pointer)
-                                }
-                                _ => {
-                                    return Err(JitError::UnsupportedMemoryKind {
-                                        memory_kind: left.memory,
-                                    });
-                                }
-                            };
-
+                        let left_pointer = get_string(
+                            left,
+                            &compiler.program.constants,
+                            allocate_string_function,
+                            &mut function_builder,
+                            thread_context,
+                            current_frame_base_register_address,
+                        )?;
+                        let right_pointer = get_string(
+                            right,
+                            &compiler.program.constants,
+                            allocate_string_function,
+                            &mut function_builder,
+                            thread_context,
+                            current_frame_base_register_address,
+                        )?;
                         let call_instruction = function_builder.ins().call(
                             concatenate_strings_function,
-                            &[left_object_pointer, right_object_pointer, thread_context],
+                            &[left_pointer, right_pointer, thread_context],
+                        );
+
+                        function_builder.inst_results(call_instruction)[0]
+                    }
+                    OperandType::CHARACTER_STRING => {
+                        if operation != Operation::ADD {
+                            return Err(JitError::UnhandledOperation { operation });
+                        }
+
+                        let left_value = get_character(
+                            left,
+                            current_frame_base_register_address,
+                            &compiler.program.constants,
+                            &mut function_builder,
+                        )?;
+                        let right_pointer = get_string(
+                            right,
+                            &compiler.program.constants,
+                            allocate_string_function,
+                            &mut function_builder,
+                            thread_context,
+                            current_frame_base_register_address,
+                        )?;
+                        let call_instruction = function_builder.ins().call(
+                            concatenate_character_string_function,
+                            &[left_value, right_pointer, thread_context],
+                        );
+
+                        function_builder.inst_results(call_instruction)[0]
+                    }
+                    OperandType::STRING_CHARACTER => {
+                        if operation != Operation::ADD {
+                            return Err(JitError::UnhandledOperation { operation });
+                        }
+
+                        let left_pointer = get_string(
+                            left,
+                            &compiler.program.constants,
+                            allocate_string_function,
+                            &mut function_builder,
+                            thread_context,
+                            current_frame_base_register_address,
+                        )?;
+                        let right_value = get_character(
+                            right,
+                            current_frame_base_register_address,
+                            &compiler.program.constants,
+                            &mut function_builder,
+                        )?;
+                        let call_instruction = function_builder.ins().call(
+                            concatenate_string_character_function,
+                            &[left_pointer, right_value, thread_context],
+                        );
+
+                        function_builder.inst_results(call_instruction)[0]
+                    }
+                    OperandType::CHARACTER => {
+                        if operation != Operation::ADD {
+                            return Err(JitError::UnhandledOperation { operation });
+                        }
+
+                        let left_value = get_character(
+                            left,
+                            current_frame_base_register_address,
+                            &compiler.program.constants,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_character(
+                            right,
+                            current_frame_base_register_address,
+                            &compiler.program.constants,
+                            &mut function_builder,
+                        )?;
+
+                        let call_instruction = function_builder.ins().call(
+                            concatenate_characters_function,
+                            &[left_value, right_value, thread_context],
                         );
 
                         function_builder.inst_results(call_instruction)[0]

@@ -52,6 +52,18 @@ impl<'a> JitCompiler<'a> {
 
         builder.symbol("allocate_string", allocate_string as *const u8);
         builder.symbol("concatenate_strings", concatenate_strings as *const u8);
+        builder.symbol(
+            "concatenate_character_string",
+            concatenate_character_string as *const u8,
+        );
+        builder.symbol(
+            "concatenate_string_character",
+            concatenate_string_character as *const u8,
+        );
+        builder.symbol(
+            "concatenate_characters",
+            concatenate_characters as *const u8,
+        );
 
         builder.symbol("read_line", read_line as *const u8);
         builder.symbol("write_line_integer", write_line_integer as *const u8);
@@ -402,6 +414,7 @@ impl<'a> JitCompiler<'a> {
         function_builder: &mut FunctionBuilder,
     ) -> Result<(), JitError> {
         if r#type.is_scalar()
+            && r#type != OperandType::FLOAT
             && let Some(variable) = hot_registers.get(destination_index as usize)
         {
             function_builder.def_var(*variable, value);

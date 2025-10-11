@@ -1019,7 +1019,7 @@ impl<'a> ChunkCompiler<'a> {
         }
 
         let left_type = left_emission.clone_type();
-        let _right_type = right_emission.clone_type();
+        let right_type = right_emission.clone_type();
 
         let instructions_count_before = self.instructions.len();
         let r#type = if left_type == Type::Character {
@@ -1030,7 +1030,16 @@ impl<'a> ChunkCompiler<'a> {
         let left_address = left_emission.handle_as_operand(self);
         let right_address = right_emission.handle_as_operand(self);
         let destination = Address::register(self.get_next_register());
-        let operand_type = r#type.as_operand_type();
+        let operand_type = match (left_type, right_type) {
+            (Type::Integer, Type::Integer) => OperandType::INTEGER,
+            (Type::Float, Type::Float) => OperandType::FLOAT,
+            (Type::Byte, Type::Byte) => OperandType::BYTE,
+            (Type::Character, Type::Character) => OperandType::CHARACTER,
+            (Type::String, Type::String) => OperandType::STRING,
+            (Type::String, Type::Character) => OperandType::STRING_CHARACTER,
+            (Type::Character, Type::String) => OperandType::CHARACTER_STRING,
+            _ => todo!("Error"),
+        };
 
         let instruction = match node.kind {
             SyntaxKind::AdditionExpression => {
