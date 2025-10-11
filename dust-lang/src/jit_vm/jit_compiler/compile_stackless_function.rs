@@ -137,7 +137,22 @@ pub fn compile_stackless_function(
         )?
     };
 
-    let write_line_function = {
+    let write_line_integer_function = {
+        let mut write_line_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        write_line_signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
+        write_line_signature.returns = vec![];
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "write_line_integer",
+            write_line_signature,
+        )?
+    };
+
+    let write_line_string_function = {
         let mut write_line_signature = Signature::new(compiler.module.isa().default_call_conv());
 
         write_line_signature
@@ -147,7 +162,7 @@ pub fn compile_stackless_function(
 
         compiler.declare_imported_function(
             &mut function_builder,
-            "write_line",
+            "write_line_string",
             write_line_signature,
         )?
     };
@@ -936,6 +951,13 @@ pub fn compile_stackless_function(
                             thread_context,
                             current_frame_base_register_address,
                         )?,
+                        OperandType::INTEGER => get_integer(
+                            *address,
+                            current_frame_base_register_address,
+                            &compiler.program.constants,
+                            &hot_registers,
+                            &mut function_builder,
+                        )?,
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
                                 operand_type: *r#type,
@@ -950,7 +972,18 @@ pub fn compile_stackless_function(
 
                 let function_reference = match function.name() {
                     "read_line" => read_line_function,
-                    "write_line" => write_line_function,
+                    "write_line"
+                        if call_arguments_list.len() == 1
+                            && call_arguments_list[0].1 == OperandType::STRING =>
+                    {
+                        write_line_string_function
+                    }
+                    "write_line"
+                        if call_arguments_list.len() == 1
+                            && call_arguments_list[0].1 == OperandType::INTEGER =>
+                    {
+                        write_line_integer_function
+                    }
                     _ => {
                         return Err(JitError::UnhandledNativeFunction {
                             function_name: function.name().to_string(),

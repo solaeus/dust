@@ -20,7 +20,11 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     group.measurement_time(Duration::from_secs(15));
     group.bench_function("addictive_addition", |b| {
-        b.iter(|| addictive_addition(black_box(SOURCE.to_string())))
+        b.iter_batched(
+            || SOURCE.to_string(),
+            |input: String| addictive_addition(black_box(input)),
+            criterion::BatchSize::SmallInput,
+        )
     });
     group.finish();
 }

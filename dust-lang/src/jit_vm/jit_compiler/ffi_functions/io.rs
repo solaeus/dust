@@ -38,7 +38,18 @@ pub unsafe extern "C" fn read_line(thread_context: *mut ThreadContext) -> i64 {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn write_line(message: *const Object, _thread_context: *const ThreadContext) {
+pub unsafe extern "C" fn write_line_integer(message: i64, _thread_context: *const ThreadContext) {
+    let mut stdout = stdout().lock();
+    let _ = stdout.write_all(message.to_string().as_bytes());
+    let _ = stdout.write_all(b"\n");
+    let _ = stdout.flush();
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn write_line_string(
+    message: *const Object,
+    _thread_context: *const ThreadContext,
+) {
     let string = unsafe { &*message }
         .as_string()
         .map(|string| string.as_str())

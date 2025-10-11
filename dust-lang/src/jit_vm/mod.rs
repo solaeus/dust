@@ -5,6 +5,8 @@ mod jit_compiler;
 mod object;
 mod object_pool;
 mod register;
+#[cfg(test)]
+mod tests;
 pub mod thread;
 
 pub use cell::{Cell, CellValue};

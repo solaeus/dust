@@ -54,7 +54,8 @@ impl<'a> JitCompiler<'a> {
         builder.symbol("concatenate_strings", concatenate_strings as *const u8);
 
         builder.symbol("read_line", read_line as *const u8);
-        builder.symbol("write_line", write_line as *const u8);
+        builder.symbol("write_line_integer", write_line_integer as *const u8);
+        builder.symbol("write_line_string", write_line_string as *const u8);
 
         #[cfg(debug_assertions)]
         builder.symbol("log_operation_and_ip", log_operation_and_ip as *const u8);
@@ -548,5 +549,6 @@ pub fn compute_compile_order(program: &Program) -> Vec<usize> {
     }
 
     order.reverse();
+
     order
 }

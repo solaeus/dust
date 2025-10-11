@@ -1,6 +1,6 @@
 use std::{hint::black_box, time::Duration};
 
-use criterion::{Criterion, Throughput, criterion_group, criterion_main};
+use criterion::{BatchSize, Criterion, Throughput, criterion_group, criterion_main};
 use dust_lang::compiler::compile_main;
 
 const LOOP: &str = r"
@@ -39,7 +39,11 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     group.throughput(Throughput::Elements(1000));
     group.bench_function("compile 1,000 loops", |b| {
-        b.iter(|| compile_bench(black_box(source.clone())))
+        b.iter_batched(
+            || source.clone(),
+            |input: String| compile_bench(black_box(input)),
+            BatchSize::SmallInput,
+        )
     });
 
     for _ in 0..4000 {
@@ -49,7 +53,11 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     group.throughput(Throughput::Elements(5000));
     group.bench_function("compile 5,000 loops", |b| {
-        b.iter(|| compile_bench(black_box(source.clone())))
+        b.iter_batched(
+            || source.clone(),
+            |input: String| compile_bench(black_box(input)),
+            BatchSize::SmallInput,
+        )
     });
 
     source.clear();
@@ -61,7 +69,11 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     group.throughput(Throughput::Elements(1000));
     group.bench_function("compile 1,000 functions", |b| {
-        b.iter(|| compile_bench(black_box(source.clone())))
+        b.iter_batched(
+            || source.clone(),
+            |input: String| compile_bench(black_box(input)),
+            BatchSize::SmallInput,
+        )
     });
 
     for _ in 0..9000 {
@@ -71,7 +83,11 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     group.throughput(Throughput::Elements(10_000));
     group.bench_function("compile 10,000 functions", |b| {
-        b.iter(|| compile_bench(black_box(source.clone())))
+        b.iter_batched(
+            || source.clone(),
+            |input: String| compile_bench(black_box(input)),
+            BatchSize::SmallInput,
+        )
     });
 }
 
