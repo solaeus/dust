@@ -1,10 +1,8 @@
 # Dust
 
 [![Build Status](https://github.com/solaeus/dust/actions/workflows/rust.yml/badge.svg)](https://github.com/solaeus/dust/actions)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Rust Version](https://img.shields.io/badge/rust-1.91.0--nightly-orange?logo=rust)](https://www.rust-lang.org/)
 
-**High-performance programming language focused on correctness, performance and ease of use.**
+**Programming language focused on correctness, performance and ease of use.**
 
 Dust enforces static typing, has no null or undefined values and emits helpful errors that guide users to correct syntax. Compiling to 64-bit encoded bytecode in a single pass before JIT compilation enables powerful runtime optimizations and fast startup times. Dust is designed to combine the best features of register-based virtual machines, JIT compilation and static typing to deliver a language that never compromises on correctness or speed while remaining delightfully easy to read and write.
 

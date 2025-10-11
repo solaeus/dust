@@ -6,7 +6,7 @@ use cranelift::{
     prelude::{
         AbiParam, FunctionBuilder, FunctionBuilderContext, InstBuilder, IntCC, MemFlags, Signature,
         Value as CraneliftValue, Variable,
-        types::{I8, I64},
+        types::{F64, I8, I64},
     },
 };
 use cranelift_module::{FuncId, Module, ModuleError};
@@ -1448,7 +1448,7 @@ fn get_float(
 
             function_builder
                 .ins()
-                .load(I64, MemFlags::new(), address, 0)
+                .load(F64, MemFlags::new(), address, 0)
         }
         MemoryKind::CONSTANT => {
             let float =
@@ -1459,7 +1459,7 @@ fn get_float(
                         total_constant_count: constants.len(),
                     })?;
 
-            function_builder.ins().iconst(I64, float as i64)
+            function_builder.ins().f64const(float)
         }
         _ => {
             return Err(JitError::UnsupportedMemoryKind {

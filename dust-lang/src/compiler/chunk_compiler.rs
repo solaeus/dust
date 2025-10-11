@@ -160,7 +160,7 @@ impl<'a> ChunkCompiler<'a> {
             (Constant::Boolean(left), Constant::Boolean(right)) => match operation {
                 SyntaxKind::AndExpression => Constant::Boolean(left && right),
                 SyntaxKind::OrExpression => Constant::Boolean(left || right),
-                SyntaxKind::GreaterThanExpression => Constant::Boolean(left && right),
+                SyntaxKind::GreaterThanExpression => Constant::Boolean(left || right),
                 SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
                 SyntaxKind::LessThanExpression => Constant::Boolean(left || right),
                 SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),

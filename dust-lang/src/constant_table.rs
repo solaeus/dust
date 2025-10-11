@@ -251,6 +251,7 @@ impl Iterator for ConstantTableIterator<'_> {
         let payload = self.table.payloads[self.index];
         let value = match tag {
             OperandType::CHARACTER => Value::Character(std::char::from_u32(payload as u32)?),
+            OperandType::FLOAT => Value::Float(f64::from_bits(payload)),
             OperandType::INTEGER => Value::Integer(payload as i64),
             OperandType::STRING => {
                 let payload = *self.table.payloads.get_index(self.index)?.1;
