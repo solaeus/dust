@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use rustc_hash::FxBuildHasher;
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 use tracing::{debug, info, span};
 
 use crate::{
@@ -1160,7 +1160,7 @@ impl<'a> ChunkCompiler<'a> {
                 let destination = instructions[0].destination();
                 let operand_type = instructions[0].operand_type();
 
-                self.instructions.append(&mut instructions);
+                self.instructions.extend(instructions.drain(..));
 
                 (destination, operand_type)
             }
@@ -1222,7 +1222,7 @@ impl<'a> ChunkCompiler<'a> {
         );
 
         Ok(Emission::Instructions(
-            vec![
+            smallvec![
                 comparison_instruction,
                 jump_instruction,
                 load_true_instruction,
@@ -1265,31 +1265,59 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(Emission::Constant(combined, left_type.clone()));
         }
 
-        let left_address = match &left_emission {
+        let left_address = match left_emission {
             Emission::Instruction(instruction, _) => {
-                self.instructions.push(*instruction);
+                self.instructions.push(instruction);
 
                 instruction.destination()
             }
-            Emission::Instructions(instructions, _) => {
-                self.instructions.extend(instructions.iter());
+            Emission::Instructions(mut instructions, _) => {
+                self.instructions.extend(instructions.drain(..));
 
                 instructions.last().unwrap().destination()
             }
             Emission::Constant(constant, type_id) => {
                 let operand_type = type_id.as_operand_type();
-                let address = self.get_constant_address(*constant);
+                let address = self.get_constant_address(constant);
                 let destination = Address::register(self.get_next_register());
                 let load_instruction = Instruction::load(destination, address, operand_type, false);
 
                 self.handle_operand(load_instruction)
             }
-            Emission::Local(Local { address, .. }) => *address,
-            Emission::Function(address, _) => *address,
+            Emission::Local(Local { address, .. }) | Emission::Function(address, _) => address,
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: left.kind,
                     position: Position::new(self.file_id, left.span),
+                });
+            }
+        };
+        let right_address = match right_emission {
+            Emission::Instruction(instruction, _) => {
+                self.instructions.push(instruction);
+
+                instruction.destination()
+            }
+            Emission::Instructions(mut instructions, _) => {
+                self.instructions.extend(instructions.drain(..));
+
+                instructions.last().unwrap().destination()
+            }
+            Emission::Constant(constant, type_id) => {
+                let operand_type = type_id.as_operand_type();
+                let address = self.get_constant_address(constant);
+                let destination = Address::register(self.get_next_register());
+                let load_instruction = Instruction::load(destination, address, operand_type, false);
+
+                self.instructions.push(load_instruction);
+
+                destination
+            }
+            Emission::Local(Local { address, .. }) | Emission::Function(address, _) => address,
+            Emission::None => {
+                return Err(CompileError::ExpectedExpression {
+                    node_kind: right.kind,
+                    position: Position::new(self.file_id, right.span),
                 });
             }
         };
@@ -1299,36 +1327,23 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::OrExpression => false,
             _ => unreachable!("Expected logical expression, found {}", node.kind),
         };
-        let left_copy_destination = Address::register(self.get_next_register());
-        let load_instruction = Instruction::load(
-            left_copy_destination,
-            left_address,
-            OperandType::BOOLEAN,
-            false,
-        );
-        let test_instruction = Instruction::test(left_copy_destination, comparator);
+
+        let mut instructions = SmallVec::new();
+
+        let load_destination = Address::register(self.get_next_register());
+        let left_load_instruction =
+            Instruction::load(load_destination, left_address, OperandType::BOOLEAN, false);
+        let test_instruction = Instruction::test(load_destination, comparator);
         let jump_instruction = Instruction::jump(1, true);
+        let right_load_instruction =
+            Instruction::load(load_destination, right_address, OperandType::BOOLEAN, false);
 
-        self.instructions.push(load_instruction);
-        self.instructions.push(test_instruction);
-        self.instructions.push(jump_instruction);
+        instructions.push(left_load_instruction);
+        instructions.push(test_instruction);
+        instructions.push(jump_instruction);
+        instructions.push(right_load_instruction);
 
-        let emission = match right_emission {
-            Emission::Instruction(instruction, _) => {
-                Emission::Instruction(instruction, Type::Boolean)
-            }
-            Emission::Instructions(instructions, r#type) => {
-                Emission::Instructions(instructions, r#type)
-            }
-            Emission::Local(local) => Emission::Local(local),
-            Emission::None => {
-                return Err(CompileError::ExpectedExpression {
-                    node_kind: right.kind,
-                    position: Position::new(self.file_id, right.span),
-                });
-            }
-            emission => emission,
-        };
+        let emission = Emission::Instructions(instructions, Type::Boolean);
 
         Ok(emission)
     }
@@ -1999,7 +2014,7 @@ impl<'a> ChunkCompiler<'a> {
 #[derive(Clone, Debug)]
 enum Emission {
     Instruction(Instruction, Type),
-    Instructions(Vec<Instruction>, Type),
+    Instructions(SmallVec<[Instruction; 4]>, Type),
     Local(Local),
     Constant(Constant, Type),
     Function(Address, FunctionType),

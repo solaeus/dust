@@ -36,7 +36,13 @@ fn local_boolean_and() {
                 ),
                 Instruction::test(Address::register(2), true),
                 Instruction::jump(1, true),
-                Instruction::r#return(true, Address::register(1), OperandType::BOOLEAN)
+                Instruction::load(
+                    Address::register(2),
+                    Address::register(1),
+                    OperandType::BOOLEAN,
+                    false
+                ),
+                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
             ..Default::default()

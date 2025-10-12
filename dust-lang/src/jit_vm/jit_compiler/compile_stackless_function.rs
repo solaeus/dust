@@ -18,7 +18,7 @@ use crate::{
     constant_table::ConstantTable,
     instruction::{
         Address, Call, CallNative, Drop, Jump, Load, MemoryKind, NewList, OperandType, Operation,
-        Return, SetList,
+        Return, SetList, Test,
     },
     jit_vm::{
         JitCompiler, JitError, Register, RegisterTag, call_stack::get_call_frame,
@@ -364,7 +364,9 @@ pub fn compile_stackless_function(
         offset_of!(ThreadContext, return_type_pointer) as i32,
     );
 
-    let hot_registers: [Variable; 8] = array::from_fn(|_| function_builder.declare_var(I64));
+    let hot_integer_registers: [Variable; 8] =
+        array::from_fn(|_| function_builder.declare_var(I64));
+    let hot_float_registers: [Variable; 8] = array::from_fn(|_| function_builder.declare_var(F64));
 
     switch.emit(&mut function_builder, current_frame_ip, return_block);
 
@@ -416,13 +418,14 @@ pub fn compile_stackless_function(
                         operand,
                         current_frame_base_register_address,
                         &compiler.program.constants,
+                        &hot_float_registers,
                         &mut function_builder,
                     )?,
                     OperandType::INTEGER => get_integer(
                         operand,
                         current_frame_base_register_address,
                         &compiler.program.constants,
-                        &hot_registers,
+                        &hot_integer_registers,
                         &mut function_builder,
                     )?,
                     OperandType::STRING => get_string(
@@ -458,7 +461,8 @@ pub fn compile_stackless_function(
                     r#type.destination_type(),
                     current_frame_base_register_address,
                     current_frame_base_tag_address,
-                    &hot_registers,
+                    &hot_integer_registers,
+                    &hot_float_registers,
                     &mut function_builder,
                 )?;
 
@@ -530,7 +534,8 @@ pub fn compile_stackless_function(
                     list_type,
                     current_frame_base_register_address,
                     current_frame_base_tag_address,
-                    &hot_registers,
+                    &hot_integer_registers,
+                    &hot_float_registers,
                     &mut function_builder,
                 )?;
 
@@ -553,7 +558,7 @@ pub fn compile_stackless_function(
                         item_source,
                         current_frame_base_register_address,
                         &compiler.program.constants,
-                        &hot_registers,
+                        &hot_integer_registers,
                         &mut function_builder,
                     )?,
                     OperandType::BOOLEAN => get_boolean(
@@ -576,6 +581,7 @@ pub fn compile_stackless_function(
                         item_source,
                         current_frame_base_register_address,
                         &compiler.program.constants,
+                        &hot_float_registers,
                         &mut function_builder,
                     )?,
                     OperandType::STRING => get_string(
@@ -634,14 +640,14 @@ pub fn compile_stackless_function(
                             left,
                             current_frame_base_register_address,
                             &compiler.program.constants,
-                            &hot_registers,
+                            &hot_integer_registers,
                             &mut function_builder,
                         )?;
                         let right_value = get_integer(
                             right,
                             current_frame_base_register_address,
                             &compiler.program.constants,
-                            &hot_registers,
+                            &hot_integer_registers,
                             &mut function_builder,
                         )?;
 
@@ -711,14 +717,14 @@ pub fn compile_stackless_function(
                             left,
                             current_frame_base_register_address,
                             &compiler.program.constants,
-                            &hot_registers,
+                            &hot_integer_registers,
                             &mut function_builder,
                         )?;
                         let right_value = get_integer(
                             right,
                             current_frame_base_register_address,
                             &compiler.program.constants,
-                            &hot_registers,
+                            &hot_integer_registers,
                             &mut function_builder,
                         )?;
 
@@ -746,12 +752,14 @@ pub fn compile_stackless_function(
                             left,
                             current_frame_base_register_address,
                             &compiler.program.constants,
+                            &hot_float_registers,
                             &mut function_builder,
                         )?;
                         let right_value = get_float(
                             right,
                             current_frame_base_register_address,
                             &compiler.program.constants,
+                            &hot_float_registers,
                             &mut function_builder,
                         )?;
 
@@ -894,11 +902,37 @@ pub fn compile_stackless_function(
                     r#type.destination_type(),
                     current_frame_base_register_address,
                     current_frame_base_tag_address,
-                    &hot_registers,
+                    &hot_integer_registers,
+                    &hot_float_registers,
                     &mut function_builder,
                 )?;
 
                 function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
+            }
+            Operation::TEST => {
+                let Test {
+                    comparator,
+                    operand,
+                } = Test::from(*current_instruction);
+
+                let operand_value = get_boolean(
+                    operand,
+                    current_frame_base_register_address,
+                    &mut function_builder,
+                )?;
+                let comparator_value = function_builder.ins().iconst(I64, comparator as i64);
+                let comparison_result =
+                    function_builder
+                        .ins()
+                        .icmp(IntCC::Equal, operand_value, comparator_value);
+
+                function_builder.ins().brif(
+                    comparison_result,
+                    instruction_blocks[ip + 2],
+                    &[],
+                    instruction_blocks[ip + 1],
+                    &[],
+                );
             }
             Operation::CALL => {
                 let Call {
@@ -942,7 +976,7 @@ pub fn compile_stackless_function(
                                 *address,
                                 current_frame_base_register_address,
                                 &compiler.program.constants,
-                                &hot_registers,
+                                &hot_integer_registers,
                                 &mut function_builder,
                             )?;
 
@@ -973,7 +1007,8 @@ pub fn compile_stackless_function(
                         return_type,
                         current_frame_base_register_address,
                         current_frame_base_tag_address,
-                        &hot_registers,
+                        &hot_integer_registers,
+                        &hot_float_registers,
                         &mut function_builder,
                     )?;
                 }
@@ -1014,7 +1049,7 @@ pub fn compile_stackless_function(
                             *address,
                             current_frame_base_register_address,
                             &compiler.program.constants,
-                            &hot_registers,
+                            &hot_integer_registers,
                             &mut function_builder,
                         )?,
                         _ => {
@@ -1061,7 +1096,8 @@ pub fn compile_stackless_function(
                         function_type.return_type.as_operand_type(),
                         current_frame_base_register_address,
                         current_frame_base_tag_address,
-                        &hot_registers,
+                        &hot_integer_registers,
+                        &hot_float_registers,
                         &mut function_builder,
                     )?;
                 }
@@ -1135,6 +1171,7 @@ pub fn compile_stackless_function(
                                 return_value_address,
                                 current_frame_base_register_address,
                                 &compiler.program.constants,
+                                &hot_float_registers,
                                 &mut function_builder,
                             )?;
                             let float_type = function_builder
@@ -1148,7 +1185,7 @@ pub fn compile_stackless_function(
                                 return_value_address,
                                 current_frame_base_register_address,
                                 &compiler.program.constants,
-                                &hot_registers,
+                                &hot_integer_registers,
                                 &mut function_builder,
                             )?;
                             let integer_type = function_builder
@@ -1495,10 +1532,15 @@ fn get_float(
     address: Address,
     frame_base_address: CraneliftValue,
     constants: &ConstantTable,
+    hot_registers: &[Variable],
     function_builder: &mut FunctionBuilder,
 ) -> Result<CraneliftValue, JitError> {
     let jit_value = match address.memory {
         MemoryKind::REGISTER => {
+            if let Some(variable) = hot_registers.get(address.index as usize) {
+                return Ok(function_builder.use_var(*variable));
+            }
+
             let relative_index = function_builder.ins().iconst(I64, address.index as i64);
             let byte_offset = function_builder
                 .ins()

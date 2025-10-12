@@ -410,14 +410,26 @@ impl<'a> JitCompiler<'a> {
         r#type: OperandType,
         frame_base_register_address: CraneliftValue,
         frame_base_tag_address: CraneliftValue,
-        hot_registers: &[Variable],
+        hot_integer_registers: &[Variable],
+        hot_float_registers: &[Variable],
         function_builder: &mut FunctionBuilder,
     ) -> Result<(), JitError> {
-        if r#type.is_scalar()
-            && r#type != OperandType::FLOAT
-            && let Some(variable) = hot_registers.get(destination_index as usize)
-        {
-            function_builder.def_var(*variable, value);
+        match r#type {
+            OperandType::FLOAT => {
+                if let Some(variable) = hot_float_registers.get(destination_index as usize) {
+                    function_builder.def_var(*variable, value);
+                }
+            }
+            OperandType::BOOLEAN
+            | OperandType::BYTE
+            | OperandType::CHARACTER
+            | OperandType::INTEGER
+            | OperandType::FUNCTION => {
+                if let Some(variable) = hot_integer_registers.get(destination_index as usize) {
+                    function_builder.def_var(*variable, value);
+                }
+            }
+            _ => {}
         }
 
         let destination_index_value = function_builder.ins().iconst(I64, destination_index as i64);
