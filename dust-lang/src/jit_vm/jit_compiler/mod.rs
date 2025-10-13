@@ -64,6 +64,27 @@ impl<'a> JitCompiler<'a> {
             "concatenate_characters",
             concatenate_characters as *const u8,
         );
+        builder.symbol("compare_strings_equal", compare_strings_equal as *const u8);
+        builder.symbol(
+            "compare_strings_not_equal",
+            compare_strings_not_equal as *const u8,
+        );
+        builder.symbol(
+            "compare_strings_less_than",
+            compare_strings_less_than as *const u8,
+        );
+        builder.symbol(
+            "compare_strings_greater_than",
+            compare_strings_greater_than as *const u8,
+        );
+        builder.symbol(
+            "compare_strings_less_than_equal",
+            compare_strings_less_than_equal as *const u8,
+        );
+        builder.symbol(
+            "compare_strings_greater_than_equal",
+            compare_strings_greater_than_equal as *const u8,
+        );
 
         builder.symbol("read_line", read_line as *const u8);
         builder.symbol("write_line_integer", write_line_integer as *const u8);
@@ -410,22 +431,37 @@ impl<'a> JitCompiler<'a> {
         r#type: OperandType,
         frame_base_register_address: CraneliftValue,
         frame_base_tag_address: CraneliftValue,
-        hot_integer_registers: &[Variable],
-        hot_float_registers: &[Variable],
+        hot_registers: &HotRegisters,
         function_builder: &mut FunctionBuilder,
     ) -> Result<(), JitError> {
         match r#type {
-            OperandType::FLOAT => {
-                if let Some(variable) = hot_float_registers.get(destination_index as usize) {
+            OperandType::BOOLEAN => {
+                if let Some(variable) = hot_registers.boolean.get(destination_index as usize) {
                     function_builder.def_var(*variable, value);
                 }
             }
-            OperandType::BOOLEAN
-            | OperandType::BYTE
-            | OperandType::CHARACTER
-            | OperandType::INTEGER
-            | OperandType::FUNCTION => {
-                if let Some(variable) = hot_integer_registers.get(destination_index as usize) {
+            OperandType::BYTE => {
+                if let Some(variable) = hot_registers.byte.get(destination_index as usize) {
+                    function_builder.def_var(*variable, value);
+                }
+            }
+            OperandType::CHARACTER => {
+                if let Some(variable) = hot_registers.character.get(destination_index as usize) {
+                    function_builder.def_var(*variable, value);
+                }
+            }
+            OperandType::FLOAT => {
+                if let Some(variable) = hot_registers.float.get(destination_index as usize) {
+                    function_builder.def_var(*variable, value);
+                }
+            }
+            OperandType::INTEGER => {
+                if let Some(variable) = hot_registers.integer.get(destination_index as usize) {
+                    function_builder.def_var(*variable, value);
+                }
+            }
+            OperandType::FUNCTION => {
+                if let Some(variable) = hot_registers.function.get(destination_index as usize) {
                     function_builder.def_var(*variable, value);
                 }
             }
@@ -576,4 +612,13 @@ pub fn compute_compile_order(program: &Program) -> Vec<usize> {
     order.reverse();
 
     order
+}
+
+struct HotRegisters {
+    boolean: [Variable; 8],
+    byte: [Variable; 8],
+    character: [Variable; 8],
+    float: [Variable; 8],
+    integer: [Variable; 8],
+    function: [Variable; 8],
 }

@@ -4,8 +4,8 @@ use cranelift::{
     codegen::{CodegenError, ir::FuncRef},
     frontend::Switch,
     prelude::{
-        AbiParam, FunctionBuilder, FunctionBuilderContext, InstBuilder, IntCC, MemFlags, Signature,
-        Value as CraneliftValue, Variable,
+        AbiParam, FloatCC, FunctionBuilder, FunctionBuilderContext, InstBuilder, IntCC, MemFlags,
+        Signature, Value as CraneliftValue, Variable,
         types::{F64, I8, I64},
     },
 };
@@ -17,12 +17,14 @@ use crate::{
     chunk::Chunk,
     constant_table::ConstantTable,
     instruction::{
-        Address, Call, CallNative, Drop, Jump, Load, MemoryKind, NewList, OperandType, Operation,
-        Return, SetList, Test,
+        Address, Call, CallNative, Drop, Jump, Load, MemoryKind, Negate, NewList, OperandType,
+        Operation, Return, SetList, Test,
     },
     jit_vm::{
-        JitCompiler, JitError, Register, RegisterTag, call_stack::get_call_frame,
-        jit_compiler::FunctionIds, thread::ThreadContext,
+        JitCompiler, JitError, Register, RegisterTag,
+        call_stack::get_call_frame,
+        jit_compiler::{FunctionIds, HotRegisters},
+        thread::ThreadContext,
     },
     r#type::Type,
 };
@@ -181,6 +183,126 @@ pub fn compile_stackless_function(
             &mut function_builder,
             "concatenate_characters",
             concatenate_characters_signature,
+        )?
+    };
+
+    let compare_strings_equal_function = {
+        let mut compare_strings_equal_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        compare_strings_equal_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
+        compare_strings_equal_signature
+            .returns
+            .push(AbiParam::new(I8));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "compare_strings_equal",
+            compare_strings_equal_signature,
+        )?
+    };
+
+    let compare_strings_not_equal_function = {
+        let mut compare_strings_not_equal_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        compare_strings_not_equal_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
+        compare_strings_not_equal_signature
+            .returns
+            .push(AbiParam::new(I8));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "compare_strings_not_equal",
+            compare_strings_not_equal_signature,
+        )?
+    };
+
+    let compare_strings_less_than_function = {
+        let mut compare_strings_less_than_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        compare_strings_less_than_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
+        compare_strings_less_than_signature
+            .returns
+            .push(AbiParam::new(I8));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "compare_strings_less_than",
+            compare_strings_less_than_signature,
+        )?
+    };
+
+    let compare_strings_greater_than_function = {
+        let mut compare_strings_greater_than_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        compare_strings_greater_than_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
+        compare_strings_greater_than_signature
+            .returns
+            .push(AbiParam::new(I8));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "compare_strings_greater_than",
+            compare_strings_greater_than_signature,
+        )?
+    };
+
+    let compare_strings_less_than_equal_function = {
+        let mut compare_strings_less_than_equal_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        compare_strings_less_than_equal_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
+        compare_strings_less_than_equal_signature
+            .returns
+            .push(AbiParam::new(I8));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "compare_strings_less_than_equal",
+            compare_strings_less_than_equal_signature,
+        )?
+    };
+
+    let compare_strings_greater_than_equal_function = {
+        let mut compare_strings_greater_than_equal_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        compare_strings_greater_than_equal_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
+        compare_strings_greater_than_equal_signature
+            .returns
+            .push(AbiParam::new(I8));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "compare_strings_greater_than_equal",
+            compare_strings_greater_than_equal_signature,
         )?
     };
 
@@ -364,9 +486,14 @@ pub fn compile_stackless_function(
         offset_of!(ThreadContext, return_type_pointer) as i32,
     );
 
-    let hot_integer_registers: [Variable; 8] =
-        array::from_fn(|_| function_builder.declare_var(I64));
-    let hot_float_registers: [Variable; 8] = array::from_fn(|_| function_builder.declare_var(F64));
+    let hot_registers = HotRegisters {
+        boolean: array::from_fn(|_| function_builder.declare_var(I64)),
+        byte: array::from_fn(|_| function_builder.declare_var(I64)),
+        character: array::from_fn(|_| function_builder.declare_var(I64)),
+        float: array::from_fn(|_| function_builder.declare_var(F64)),
+        integer: array::from_fn(|_| function_builder.declare_var(I64)),
+        function: array::from_fn(|_| function_builder.declare_var(I64)),
+    };
 
     switch.emit(&mut function_builder, current_frame_ip, return_block);
 
@@ -401,31 +528,34 @@ pub fn compile_stackless_function(
                     OperandType::BOOLEAN => get_boolean(
                         operand,
                         current_frame_base_register_address,
+                        &hot_registers.boolean,
                         &mut function_builder,
                     )?,
                     OperandType::BYTE => get_byte(
                         operand,
                         current_frame_base_register_address,
+                        &hot_registers.byte,
                         &mut function_builder,
                     )?,
                     OperandType::CHARACTER => get_character(
                         operand,
                         current_frame_base_register_address,
                         &compiler.program.constants,
+                        &hot_registers.character,
                         &mut function_builder,
                     )?,
                     OperandType::FLOAT => get_float(
                         operand,
                         current_frame_base_register_address,
                         &compiler.program.constants,
-                        &hot_float_registers,
+                        &hot_registers.float,
                         &mut function_builder,
                     )?,
                     OperandType::INTEGER => get_integer(
                         operand,
                         current_frame_base_register_address,
                         &compiler.program.constants,
-                        &hot_integer_registers,
+                        &hot_registers.integer,
                         &mut function_builder,
                     )?,
                     OperandType::STRING => get_string(
@@ -461,8 +591,7 @@ pub fn compile_stackless_function(
                     r#type.destination_type(),
                     current_frame_base_register_address,
                     current_frame_base_tag_address,
-                    &hot_integer_registers,
-                    &hot_float_registers,
+                    &hot_registers,
                     &mut function_builder,
                 )?;
 
@@ -534,8 +663,7 @@ pub fn compile_stackless_function(
                     list_type,
                     current_frame_base_register_address,
                     current_frame_base_tag_address,
-                    &hot_integer_registers,
-                    &hot_float_registers,
+                    &hot_registers,
                     &mut function_builder,
                 )?;
 
@@ -558,30 +686,33 @@ pub fn compile_stackless_function(
                         item_source,
                         current_frame_base_register_address,
                         &compiler.program.constants,
-                        &hot_integer_registers,
+                        &hot_registers.integer,
                         &mut function_builder,
                     )?,
                     OperandType::BOOLEAN => get_boolean(
                         item_source,
                         current_frame_base_register_address,
+                        &hot_registers.boolean,
                         &mut function_builder,
                     )?,
                     OperandType::BYTE => get_byte(
                         item_source,
                         current_frame_base_register_address,
+                        &hot_registers.byte,
                         &mut function_builder,
                     )?,
                     OperandType::CHARACTER => get_character(
                         item_source,
                         current_frame_base_register_address,
                         &compiler.program.constants,
+                        &hot_registers.character,
                         &mut function_builder,
                     )?,
                     OperandType::FLOAT => get_float(
                         item_source,
                         current_frame_base_register_address,
                         &compiler.program.constants,
-                        &hot_float_registers,
+                        &hot_registers.float,
                         &mut function_builder,
                     )?,
                     OperandType::STRING => get_string(
@@ -623,7 +754,7 @@ pub fn compile_stackless_function(
                 let comparator = current_instruction.a_field();
                 let left = current_instruction.b_address();
                 let right = current_instruction.c_address();
-                let r#type = current_instruction.operand_type();
+                let operand_type = current_instruction.operand_type();
                 let operation = current_instruction.operation();
                 let comparison = match (operation, comparator != 0) {
                     (Operation::EQUAL, true) => IntCC::Equal,
@@ -634,20 +765,18 @@ pub fn compile_stackless_function(
                     (Operation::LESS_EQUAL, false) => IntCC::SignedGreaterThan,
                     _ => unreachable!(),
                 };
-                let comparison_result = match r#type {
-                    OperandType::INTEGER => {
-                        let left_value = get_integer(
+                let comparison_result = match operand_type {
+                    OperandType::BOOLEAN => {
+                        let left_value = get_boolean(
                             left,
                             current_frame_base_register_address,
-                            &compiler.program.constants,
-                            &hot_integer_registers,
+                            &hot_registers.boolean,
                             &mut function_builder,
                         )?;
-                        let right_value = get_integer(
+                        let right_value = get_boolean(
                             right,
                             current_frame_base_register_address,
-                            &compiler.program.constants,
-                            &hot_integer_registers,
+                            &hot_registers.boolean,
                             &mut function_builder,
                         )?;
 
@@ -655,10 +784,137 @@ pub fn compile_stackless_function(
                             .ins()
                             .icmp(comparison, left_value, right_value)
                     }
+                    OperandType::BYTE => {
+                        let left_value = get_byte(
+                            left,
+                            current_frame_base_register_address,
+                            &hot_registers.byte,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_byte(
+                            right,
+                            current_frame_base_register_address,
+                            &hot_registers.byte,
+                            &mut function_builder,
+                        )?;
+
+                        function_builder
+                            .ins()
+                            .icmp(comparison, left_value, right_value)
+                    }
+                    OperandType::CHARACTER => {
+                        let left_value = get_character(
+                            left,
+                            current_frame_base_register_address,
+                            &compiler.program.constants,
+                            &hot_registers.character,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_character(
+                            right,
+                            current_frame_base_register_address,
+                            &compiler.program.constants,
+                            &hot_registers.character,
+                            &mut function_builder,
+                        )?;
+
+                        function_builder
+                            .ins()
+                            .icmp(comparison, left_value, right_value)
+                    }
+                    OperandType::FLOAT => {
+                        let comparison = match comparison {
+                            IntCC::Equal => FloatCC::Equal,
+                            IntCC::NotEqual => FloatCC::NotEqual,
+                            IntCC::SignedLessThan => FloatCC::LessThan,
+                            IntCC::SignedGreaterThanOrEqual => FloatCC::GreaterThanOrEqual,
+                            IntCC::SignedLessThanOrEqual => FloatCC::LessThanOrEqual,
+                            IntCC::SignedGreaterThan => FloatCC::GreaterThan,
+                            _ => {
+                                unreachable!();
+                            }
+                        };
+                        let left_value = get_float(
+                            left,
+                            current_frame_base_register_address,
+                            &compiler.program.constants,
+                            &hot_registers.float,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_float(
+                            right,
+                            current_frame_base_register_address,
+                            &compiler.program.constants,
+                            &hot_registers.float,
+                            &mut function_builder,
+                        )?;
+
+                        function_builder
+                            .ins()
+                            .fcmp(comparison, left_value, right_value)
+                    }
+                    OperandType::INTEGER => {
+                        let left_value = get_integer(
+                            left,
+                            current_frame_base_register_address,
+                            &compiler.program.constants,
+                            &hot_registers.integer,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_integer(
+                            right,
+                            current_frame_base_register_address,
+                            &compiler.program.constants,
+                            &hot_registers.integer,
+                            &mut function_builder,
+                        )?;
+
+                        function_builder
+                            .ins()
+                            .icmp(comparison, left_value, right_value)
+                    }
+                    OperandType::STRING => {
+                        let left_pointer = get_string(
+                            left,
+                            &compiler.program.constants,
+                            allocate_string_function,
+                            &mut function_builder,
+                            thread_context,
+                            current_frame_base_register_address,
+                        )?;
+                        let right_pointer = get_string(
+                            right,
+                            &compiler.program.constants,
+                            allocate_string_function,
+                            &mut function_builder,
+                            thread_context,
+                            current_frame_base_register_address,
+                        )?;
+                        let compare_function = match (operation, comparator != 0) {
+                            (Operation::EQUAL, true) => compare_strings_equal_function,
+                            (Operation::EQUAL, false) => compare_strings_not_equal_function,
+                            (Operation::LESS, true) => compare_strings_less_than_function,
+                            (Operation::LESS, false) => compare_strings_greater_than_function,
+                            (Operation::LESS_EQUAL, true) => {
+                                compare_strings_less_than_equal_function
+                            }
+                            (Operation::LESS_EQUAL, false) => {
+                                compare_strings_greater_than_equal_function
+                            }
+                            _ => {
+                                return Err(JitError::UnhandledOperation { operation });
+                            }
+                        };
+
+                        let call_instruction = function_builder.ins().call(
+                            compare_function,
+                            &[left_pointer, right_pointer, thread_context],
+                        );
+
+                        function_builder.inst_results(call_instruction)[0]
+                    }
                     _ => {
-                        return Err(JitError::UnsupportedOperandType {
-                            operand_type: r#type,
-                        });
+                        return Err(JitError::UnsupportedOperandType { operand_type });
                     }
                 };
 
@@ -685,11 +941,13 @@ pub fn compile_stackless_function(
                         let left_value = get_byte(
                             left,
                             current_frame_base_register_address,
+                            &hot_registers.byte,
                             &mut function_builder,
                         )?;
                         let right_value = get_byte(
                             right,
                             current_frame_base_register_address,
+                            &hot_registers.byte,
                             &mut function_builder,
                         )?;
 
@@ -717,14 +975,14 @@ pub fn compile_stackless_function(
                             left,
                             current_frame_base_register_address,
                             &compiler.program.constants,
-                            &hot_integer_registers,
+                            &hot_registers.integer,
                             &mut function_builder,
                         )?;
                         let right_value = get_integer(
                             right,
                             current_frame_base_register_address,
                             &compiler.program.constants,
-                            &hot_integer_registers,
+                            &hot_registers.integer,
                             &mut function_builder,
                         )?;
 
@@ -752,14 +1010,14 @@ pub fn compile_stackless_function(
                             left,
                             current_frame_base_register_address,
                             &compiler.program.constants,
-                            &hot_float_registers,
+                            &hot_registers.float,
                             &mut function_builder,
                         )?;
                         let right_value = get_float(
                             right,
                             current_frame_base_register_address,
                             &compiler.program.constants,
-                            &hot_float_registers,
+                            &hot_registers.float,
                             &mut function_builder,
                         )?;
 
@@ -775,9 +1033,12 @@ pub fn compile_stackless_function(
                                 function_builder.ins().fdiv(left_value, right_value)
                             }
                             Operation::MODULO => {
-                                return Err(JitError::UnsupportedOperandType {
-                                    operand_type: r#type,
-                                });
+                                let divided = function_builder.ins().fdiv(left_value, right_value);
+                                let truncated = function_builder.ins().floor(divided);
+                                let multiplied =
+                                    function_builder.ins().fmul(truncated, right_value);
+
+                                function_builder.ins().fsub(left_value, multiplied)
                             }
                             _ => {
                                 return Err(JitError::UnhandledOperation { operation });
@@ -821,6 +1082,7 @@ pub fn compile_stackless_function(
                             left,
                             current_frame_base_register_address,
                             &compiler.program.constants,
+                            &hot_registers.character,
                             &mut function_builder,
                         )?;
                         let right_pointer = get_string(
@@ -855,6 +1117,7 @@ pub fn compile_stackless_function(
                             right,
                             current_frame_base_register_address,
                             &compiler.program.constants,
+                            &hot_registers.character,
                             &mut function_builder,
                         )?;
                         let call_instruction = function_builder.ins().call(
@@ -873,12 +1136,14 @@ pub fn compile_stackless_function(
                             left,
                             current_frame_base_register_address,
                             &compiler.program.constants,
+                            &hot_registers.character,
                             &mut function_builder,
                         )?;
                         let right_value = get_character(
                             right,
                             current_frame_base_register_address,
                             &compiler.program.constants,
+                            &hot_registers.character,
                             &mut function_builder,
                         )?;
 
@@ -902,8 +1167,7 @@ pub fn compile_stackless_function(
                     r#type.destination_type(),
                     current_frame_base_register_address,
                     current_frame_base_tag_address,
-                    &hot_integer_registers,
-                    &hot_float_registers,
+                    &hot_registers,
                     &mut function_builder,
                 )?;
 
@@ -918,6 +1182,7 @@ pub fn compile_stackless_function(
                 let operand_value = get_boolean(
                     operand,
                     current_frame_base_register_address,
+                    &hot_registers.boolean,
                     &mut function_builder,
                 )?;
                 let comparator_value = function_builder.ins().iconst(I64, comparator as i64);
@@ -933,6 +1198,43 @@ pub fn compile_stackless_function(
                     instruction_blocks[ip + 1],
                     &[],
                 );
+            }
+            Operation::NEGATE => {
+                let Negate {
+                    destination,
+                    operand,
+                    r#type,
+                } = Negate::from(*current_instruction);
+
+                let result_value = match r#type {
+                    OperandType::BOOLEAN => {
+                        let boolean_value = get_boolean(
+                            operand,
+                            current_frame_base_register_address,
+                            &hot_registers.boolean,
+                            &mut function_builder,
+                        )?;
+
+                        function_builder.ins().bnot(boolean_value)
+                    }
+                    _ => {
+                        return Err(JitError::UnsupportedOperandType {
+                            operand_type: r#type,
+                        });
+                    }
+                };
+
+                JitCompiler::set_register(
+                    destination.index,
+                    result_value,
+                    r#type,
+                    current_frame_base_register_address,
+                    current_frame_base_tag_address,
+                    &hot_registers,
+                    &mut function_builder,
+                )?;
+
+                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }
             Operation::CALL => {
                 let Call {
@@ -976,7 +1278,7 @@ pub fn compile_stackless_function(
                                 *address,
                                 current_frame_base_register_address,
                                 &compiler.program.constants,
-                                &hot_integer_registers,
+                                &hot_registers.integer,
                                 &mut function_builder,
                             )?;
 
@@ -1007,8 +1309,7 @@ pub fn compile_stackless_function(
                         return_type,
                         current_frame_base_register_address,
                         current_frame_base_tag_address,
-                        &hot_integer_registers,
-                        &hot_float_registers,
+                        &hot_registers,
                         &mut function_builder,
                     )?;
                 }
@@ -1049,7 +1350,7 @@ pub fn compile_stackless_function(
                             *address,
                             current_frame_base_register_address,
                             &compiler.program.constants,
-                            &hot_integer_registers,
+                            &hot_registers.integer,
                             &mut function_builder,
                         )?,
                         _ => {
@@ -1096,8 +1397,7 @@ pub fn compile_stackless_function(
                         function_type.return_type.as_operand_type(),
                         current_frame_base_register_address,
                         current_frame_base_tag_address,
-                        &hot_integer_registers,
-                        &hot_float_registers,
+                        &hot_registers,
                         &mut function_builder,
                     )?;
                 }
@@ -1133,6 +1433,7 @@ pub fn compile_stackless_function(
                             let boolean_value = get_boolean(
                                 return_value_address,
                                 current_frame_base_register_address,
+                                &hot_registers.boolean,
                                 &mut function_builder,
                             )?;
                             let boolean_type = function_builder
@@ -1145,6 +1446,7 @@ pub fn compile_stackless_function(
                             let byte_value = get_byte(
                                 return_value_address,
                                 current_frame_base_register_address,
+                                &hot_registers.byte,
                                 &mut function_builder,
                             )?;
                             let byte_type = function_builder
@@ -1158,6 +1460,7 @@ pub fn compile_stackless_function(
                                 return_value_address,
                                 current_frame_base_register_address,
                                 &compiler.program.constants,
+                                &hot_registers.character,
                                 &mut function_builder,
                             )?;
                             let character_type = function_builder
@@ -1171,7 +1474,7 @@ pub fn compile_stackless_function(
                                 return_value_address,
                                 current_frame_base_register_address,
                                 &compiler.program.constants,
-                                &hot_float_registers,
+                                &hot_registers.float,
                                 &mut function_builder,
                             )?;
                             let float_type = function_builder
@@ -1185,7 +1488,7 @@ pub fn compile_stackless_function(
                                 return_value_address,
                                 current_frame_base_register_address,
                                 &compiler.program.constants,
-                                &hot_integer_registers,
+                                &hot_registers.integer,
                                 &mut function_builder,
                             )?;
                             let integer_type = function_builder
@@ -1433,10 +1736,15 @@ pub fn compile_stackless_function(
 fn get_boolean(
     address: Address,
     frame_base_address: CraneliftValue,
+    hot_registers: &[Variable],
     function_builder: &mut FunctionBuilder,
 ) -> Result<CraneliftValue, JitError> {
     let jit_value = match address.memory {
         MemoryKind::REGISTER => {
+            if let Some(variable) = hot_registers.get(address.index as usize) {
+                return Ok(function_builder.use_var(*variable));
+            }
+
             let relative_index = function_builder.ins().iconst(I64, address.index as i64);
             let byte_offset = function_builder
                 .ins()
@@ -1465,10 +1773,15 @@ fn get_boolean(
 fn get_byte(
     address: Address,
     frame_base_address: CraneliftValue,
+    hot_registers: &[Variable],
     function_builder: &mut FunctionBuilder,
 ) -> Result<CraneliftValue, JitError> {
     let jit_value = match address.memory {
         MemoryKind::REGISTER => {
+            if let Some(variable) = hot_registers.get(address.index as usize) {
+                return Ok(function_builder.use_var(*variable));
+            }
+
             let relative_index = function_builder.ins().iconst(I64, address.index as i64);
             let byte_offset = function_builder
                 .ins()
@@ -1494,10 +1807,15 @@ fn get_character(
     address: Address,
     frame_base_address: CraneliftValue,
     constants: &ConstantTable,
+    hot_registers: &[Variable],
     function_builder: &mut FunctionBuilder,
 ) -> Result<CraneliftValue, JitError> {
     let jit_value = match address.memory {
         MemoryKind::REGISTER => {
+            if let Some(variable) = hot_registers.get(address.index as usize) {
+                return Ok(function_builder.use_var(*variable));
+            }
+
             let relative_index = function_builder.ins().iconst(I64, address.index as i64);
             let byte_offset = function_builder
                 .ins()

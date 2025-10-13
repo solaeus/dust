@@ -1235,6 +1235,12 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_logical_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling logical expression");
 
+        let comparator = match node.kind {
+            SyntaxKind::AndExpression => true,
+            SyntaxKind::OrExpression => false,
+            _ => unreachable!("Expected logical expression, found {}", node.kind),
+        };
+
         let left_index = SyntaxId(node.children.0);
         let left = *self.syntax_tree()?.nodes.get(left_index.0 as usize).ok_or(
             CompileError::MissingChild {
@@ -1320,12 +1326,6 @@ impl<'a> ChunkCompiler<'a> {
                     position: Position::new(self.file_id, right.span),
                 });
             }
-        };
-
-        let comparator = match node.kind {
-            SyntaxKind::AndExpression => true,
-            SyntaxKind::OrExpression => false,
-            _ => unreachable!("Expected logical expression, found {}", node.kind),
         };
 
         let mut instructions = SmallVec::new();
