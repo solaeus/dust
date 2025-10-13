@@ -894,13 +894,11 @@ pub fn compile_stackless_function(
                             (Operation::EQUAL, true) => compare_strings_equal_function,
                             (Operation::EQUAL, false) => compare_strings_not_equal_function,
                             (Operation::LESS, true) => compare_strings_less_than_function,
-                            (Operation::LESS, false) => compare_strings_greater_than_function,
+                            (Operation::LESS, false) => compare_strings_greater_than_equal_function,
                             (Operation::LESS_EQUAL, true) => {
                                 compare_strings_less_than_equal_function
                             }
-                            (Operation::LESS_EQUAL, false) => {
-                                compare_strings_greater_than_equal_function
-                            }
+                            (Operation::LESS_EQUAL, false) => compare_strings_greater_than_function,
                             _ => {
                                 return Err(JitError::UnhandledOperation { operation });
                             }
