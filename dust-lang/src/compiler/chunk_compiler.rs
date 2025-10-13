@@ -870,6 +870,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::FloatExpression => self.compile_float_expression(node),
             SyntaxKind::IntegerExpression => self.compile_integer_expression(node),
             SyntaxKind::StringExpression => self.compile_string_expression(node),
+            SyntaxKind::ListExpression => self.compile_list_expression(node),
             SyntaxKind::PathExpression => self.compile_path_expression(node),
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
@@ -977,6 +978,88 @@ impl<'a> ChunkCompiler<'a> {
                 pool_end,
             },
             Type::String,
+        ))
+    }
+
+    fn compile_list_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        info!("Compiling list expression");
+
+        let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
+        let list_destination = Address::register(self.get_next_register());
+        let mut instructions = {
+            let mut instructions = SmallVec::<[Instruction; 4]>::with_capacity(child_count + 1);
+            let placeholder = Instruction::no_op();
+
+            instructions.push(placeholder);
+
+            instructions
+        };
+        let mut current_child_index = start_children;
+        let mut element_type = None;
+
+        for list_index in 0..child_count {
+            let child_id = *self
+                .syntax_tree()?
+                .children
+                .get(current_child_index)
+                .ok_or(CompileError::MissingChild {
+                    parent_kind: node.kind,
+                    child_index: current_child_index as u32,
+                })?;
+            let child_node =
+                *self
+                    .syntax_tree()?
+                    .get_node(child_id)
+                    .ok_or(CompileError::MissingSyntaxNode {
+                        syntax_id: child_id,
+                    })?;
+            current_child_index += 1;
+
+            let element_emission = self.compile_expression(&child_node)?;
+            let new_type = element_emission.clone_type();
+            let element_address = element_emission.handle_as_operand(self);
+
+            if let Some(existing_type) = &element_type {
+                if existing_type != &new_type {
+                    todo!("Error");
+                }
+            } else {
+                element_type = Some(new_type);
+            }
+
+            let element_type = element_type.as_ref().unwrap();
+
+            let set_list_instruction = Instruction::set_list(
+                list_destination,
+                element_address,
+                list_index as u16,
+                element_type.as_operand_type(),
+            );
+
+            instructions.push(set_list_instruction);
+        }
+
+        let element_type = element_type.unwrap_or(Type::None);
+        let list_type = match &element_type {
+            Type::Boolean => OperandType::LIST_BOOLEAN,
+            Type::Byte => OperandType::LIST_BYTE,
+            Type::Character => OperandType::LIST_CHARACTER,
+            Type::Float => OperandType::LIST_FLOAT,
+            Type::Integer => OperandType::LIST_INTEGER,
+            Type::String => OperandType::LIST_STRING,
+            Type::List(_) => OperandType::LIST_LIST,
+            Type::Function(_) => OperandType::LIST_FUNCTION,
+            _ => todo!(),
+        };
+
+        let new_list_instruction =
+            Instruction::new_list(list_destination, child_count as u16, list_type);
+
+        instructions[0] = new_list_instruction;
+
+        Ok(Emission::Instructions(
+            instructions,
+            Type::List(Box::new(element_type)),
         ))
     }
 
