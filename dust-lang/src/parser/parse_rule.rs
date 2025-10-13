@@ -236,7 +236,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::Call,
             },
             TokenKind::LeftSquareBracket => ParseRule {
-                prefix: Some(Parser::parse_array),
+                prefix: Some(Parser::parse_array_expression),
                 infix: None,
                 precedence: Precedence::None,
             },

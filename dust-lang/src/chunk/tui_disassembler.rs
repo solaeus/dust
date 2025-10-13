@@ -255,8 +255,29 @@ impl<'a> TuiDisassembler<'a> {
 
         // Constants section
         {
-            let horizontal_areas =
-                Layout::horizontal([Constraint::Min(1), Constraint::Min(60), Constraint::Min(1)]);
+            let mut longest_address_string = 0;
+            let mut longest_value_string = 0;
+            let instruction_rows = self
+                .program
+                .constants
+                .iter()
+                .enumerate()
+                .map(|(index, value_string)| {
+                    let address_string = format!("const_{index}");
+                    longest_address_string = longest_address_string.max(address_string.len());
+                    longest_value_string = longest_value_string.max(value_string.len());
+
+                    Row::new(vec![address_string, value_string])
+                })
+                .collect::<Vec<_>>();
+
+            let row_minumum_width = (longest_address_string + longest_value_string + 8) as u16;
+
+            let horizontal_areas = Layout::horizontal([
+                Constraint::Fill(1),
+                Constraint::Min(row_minumum_width + 8),
+                Constraint::Fill(1),
+            ]);
             let [_, block_area, _] = horizontal_areas.areas(constants_area);
 
             let block = Block::new()
@@ -270,23 +291,22 @@ impl<'a> TuiDisassembler<'a> {
 
             block.render(block_area, buffer);
 
-            let horizontal_areas =
-                Layout::horizontal([Constraint::Min(1), Constraint::Min(40), Constraint::Min(1)]);
+            let horizontal_areas = Layout::horizontal([
+                Constraint::Fill(1),
+                Constraint::Min(row_minumum_width),
+                Constraint::Fill(1),
+            ]);
             let [_, center_area, _] = horizontal_areas.areas(instructions_table_area);
 
-            let instruction_rows = self
-                .program
-                .constants
-                .iter()
-                .enumerate()
-                .map(|(index, value)| Row::new(vec![format!("const_{index}"), value.to_string()]))
-                .collect::<Vec<_>>();
-            let widths = [Constraint::Min(30), Constraint::Min(30)];
+            let widths = [
+                Constraint::Min(longest_address_string as u16 + 5),
+                Constraint::Min(longest_value_string as u16),
+            ];
 
-            let instructions_table = Table::new(instruction_rows, widths)
+            let constants_table = Table::new(instruction_rows, widths)
                 .header(Row::new(["Address", "Value"]).add_modifier(Modifier::BOLD));
 
-            instructions_table.render(center_area, buffer);
+            constants_table.render(center_area, buffer);
         }
 
         // Arguments section

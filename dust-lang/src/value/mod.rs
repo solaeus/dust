@@ -17,6 +17,7 @@ pub enum Value {
     Float(f64),
     Integer(i64),
     String(String),
+    Array(Vec<Value>),
     List(List),
     Function(u16),
 }
@@ -162,6 +163,24 @@ impl Value {
             Value::Float(_) => OperandType::FLOAT,
             Value::Integer(_) => OperandType::INTEGER,
             Value::String(_) => OperandType::STRING,
+            Value::Array(values) => {
+                let value_type = if let Some(first) = values.first() {
+                    first.operand_type()
+                } else {
+                    OperandType::NONE
+                };
+
+                match value_type {
+                    OperandType::BOOLEAN => OperandType::ARRAY_BOOLEAN,
+                    OperandType::BYTE => OperandType::ARRAY_BYTE,
+                    OperandType::CHARACTER => OperandType::ARRAY_CHARACTER,
+                    OperandType::FLOAT => OperandType::ARRAY_FLOAT,
+                    OperandType::INTEGER => OperandType::ARRAY_INTEGER,
+                    OperandType::STRING => OperandType::ARRAY_STRING,
+                    OperandType::FUNCTION => OperandType::ARRAY_FUNCTION,
+                    _ => todo!(),
+                }
+            }
             Value::List(list) => list.operand_type(),
             Value::Function(_) => OperandType::FUNCTION,
         }
@@ -176,7 +195,20 @@ impl Display for Value {
             Value::Character(character) => write!(f, "{character}"),
             Value::Float(float) => write!(f, "{float}"),
             Value::Integer(integer) => write!(f, "{integer}"),
-            Value::String(string) => write!(f, "{string}",),
+            Value::String(string) => write!(f, "{string}"),
+            Value::Array(array) => {
+                write!(f, "[")?;
+
+                for (i, value) in array.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{value}")?;
+                }
+
+                write!(f, "]")
+            }
             Value::List(list) => write!(f, "{list}"),
             Value::Function(chunk) => write!(f, "{chunk}"),
         }
@@ -222,6 +254,8 @@ impl Ord for Value {
             (Value::Integer(_), _) => Ordering::Less,
             (Value::String(left), Value::String(right)) => left.cmp(right),
             (Value::String(_), _) => Ordering::Less,
+            (Value::Array(left), Value::Array(right)) => left.cmp(right),
+            (Value::Array(_), _) => Ordering::Less,
             (Value::List(left), Value::List(right)) => left.cmp(right),
             (Value::List(_), _) => Ordering::Less,
             (Value::Function(left), Value::Function(right)) => left.cmp(right),

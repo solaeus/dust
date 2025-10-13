@@ -99,6 +99,7 @@ impl SyntaxNode {
             SyntaxKind::MainFunctionItem
             | SyntaxKind::ModuleItem
             | SyntaxKind::BlockExpression
+            | SyntaxKind::ArrayExpression
             | SyntaxKind::Path
             | SyntaxKind::CallValueArguments
             | SyntaxKind::FunctionValueParameters => {

@@ -112,6 +112,9 @@ pub enum CompileError {
         name: String,
         position: Position,
     },
+    EmptyArray {
+        position: Position,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -147,6 +150,7 @@ impl AnnotatedError for CompileError {
             CompileError::UndeclaredVariable { position, .. } => position.file_id,
             CompileError::UnresolvedFunctionType { .. } => SourceFileId::default(),
             CompileError::CannotImport { position, .. } => position.file_id,
+            CompileError::EmptyArray { position } => position.file_id,
         }
     }
 
@@ -419,6 +423,18 @@ impl AnnotatedError for CompileError {
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!("Cannot import {name}")),
+                    ),
+                )
+            }
+            CompileError::EmptyArray { position } => {
+                let title = "Cannot create an empty array, array must have at least one element"
+                    .to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label("Empty array found here".to_string()),
                     ),
                 )
             }

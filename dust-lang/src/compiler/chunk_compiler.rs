@@ -140,6 +140,7 @@ impl<'a> ChunkCompiler<'a> {
                 .context
                 .constants
                 .add_pooled_string(pool_start, pool_end),
+            Constant::Array(index) => index,
         };
 
         Address::constant(index)
@@ -870,6 +871,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::FloatExpression => self.compile_float_expression(node),
             SyntaxKind::IntegerExpression => self.compile_integer_expression(node),
             SyntaxKind::StringExpression => self.compile_string_expression(node),
+            SyntaxKind::ArrayExpression => self.compile_array_expression(node),
             SyntaxKind::PathExpression => self.compile_path_expression(node),
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
@@ -977,6 +979,80 @@ impl<'a> ChunkCompiler<'a> {
                 pool_end,
             },
             Type::String,
+        ))
+    }
+
+    fn compile_array_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        info!("Compiling array expression");
+
+        let child_ids = self
+            .syntax_tree()?
+            .get_children(node.children.0, node.children.1)
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.kind,
+                start_index: node.children.0,
+                count: node.children.1,
+            })?;
+        let child_nodes = child_ids
+            .iter()
+            .map(|id| {
+                self.syntax_tree()?
+                    .get_node(*id)
+                    .ok_or(CompileError::MissingSyntaxNode { syntax_id: *id })
+                    .copied()
+            })
+            .collect::<Result<SmallVec<[SyntaxNode; 4]>, CompileError>>()?;
+
+        let mut element_addresses = SmallVec::<[Address; 4]>::with_capacity(child_nodes.len());
+        let mut element_type: Option<Type> = None;
+
+        for child_node in child_nodes {
+            let emission = self.compile_expression(&child_node)?;
+
+            match emission {
+                Emission::Constant(constant, r#type) => {
+                    if let Some(existing_type) = &element_type {
+                        if existing_type != &r#type {
+                            todo!("Error");
+                        }
+                    } else {
+                        element_type = Some(r#type.clone());
+                    }
+
+                    let constant_address = self.get_constant_address(constant);
+
+                    element_addresses.push(constant_address);
+                }
+                _ => {
+                    todo!("Error");
+                }
+            }
+        }
+
+        let element_type = element_type.ok_or(CompileError::EmptyArray {
+            position: Position::new(self.file_id, node.span),
+        })?;
+        let array_type = match element_type {
+            Type::Boolean => OperandType::ARRAY_BOOLEAN,
+            Type::Byte => OperandType::ARRAY_BYTE,
+            Type::Character => OperandType::ARRAY_CHARACTER,
+            Type::Float => OperandType::ARRAY_FLOAT,
+            Type::Integer => OperandType::ARRAY_INTEGER,
+            Type::String => OperandType::ARRAY_STRING,
+            Type::Function(_) => OperandType::ARRAY_FUNCTION,
+            _ => {
+                todo!("Error")
+            }
+        };
+
+        let array_constant_index = self
+            .context
+            .constants
+            .add_array(&element_addresses, array_type);
+
+        Ok(Emission::Constant(
+            Constant::Array(array_constant_index),
+            Type::Array(Box::new(element_type), element_addresses.len()),
         ))
     }
 
@@ -2067,6 +2143,7 @@ pub enum Constant {
     Float(f64),
     Integer(i64),
     String { pool_start: u32, pool_end: u32 },
+    Array(u16),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]

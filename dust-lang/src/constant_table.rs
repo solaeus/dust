@@ -7,13 +7,14 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::{instruction::OperandType, value::Value};
+use crate::instruction::{Address, OperandType};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ConstantTable {
     payloads: IndexMap<u64, u64, FxBuildHasher>,
     tags: Vec<OperandType>,
     string_pool: Vec<u8>,
+    array_pool: Vec<Address>,
 }
 
 impl ConstantTable {
@@ -22,6 +23,7 @@ impl ConstantTable {
             payloads: IndexMap::default(),
             tags: Vec::new(),
             string_pool: Vec::new(),
+            array_pool: Vec::new(),
         }
     }
 
@@ -88,7 +90,11 @@ impl ConstantTable {
     pub fn get_character(&self, index: u16) -> Option<char> {
         let payload = *self.payloads.get_index(index as usize)?.1;
 
-        char::from_u32(payload as u32)
+        if index < self.payloads.len() as u16 {
+            std::char::from_u32(payload as u32)
+        } else {
+            None
+        }
     }
 
     pub fn add_float(&mut self, float: f64) -> u16 {
@@ -112,7 +118,11 @@ impl ConstantTable {
     pub fn get_float(&self, index: u16) -> Option<f64> {
         let payload = *self.payloads.get_index(index as usize)?.1;
 
-        Some(f64::from_bits(payload))
+        if index < self.payloads.len() as u16 {
+            Some(f64::from_bits(payload))
+        } else {
+            None
+        }
     }
 
     pub fn add_integer(&mut self, integer: i64) -> u16 {
@@ -138,7 +148,46 @@ impl ConstantTable {
 
         debug_assert!(self.tags[index as usize] == OperandType::INTEGER);
 
-        Some(i64::from_le_bytes(payload.to_le_bytes()))
+        if index < self.payloads.len() as u16 {
+            Some(i64::from_le_bytes(payload.to_le_bytes()))
+        } else {
+            None
+        }
+    }
+
+    pub fn add_array(&mut self, members: &[Address], array_type: OperandType) -> u16 {
+        let start = self.array_pool.len();
+
+        self.array_pool.extend_from_slice(members);
+
+        let end = self.array_pool.len() as u32;
+        let payload = (start as u64) << 32 | (end as u64);
+        let index = self.payloads.len() as u16;
+
+        let hash = {
+            let mut hasher = FxHasher::default();
+
+            members.hash(&mut hasher);
+
+            hasher.finish()
+        };
+
+        self.payloads.insert(hash, payload);
+        self.tags.push(array_type);
+
+        index
+    }
+
+    pub fn get_array(&self, index: u16) -> Option<&[Address]> {
+        let payload = *self.payloads.get_index(index as usize)?.1;
+        let start = (payload >> 32) as usize;
+        let end = (payload & 0xFFFFFFFF) as usize;
+
+        if start < end && end <= self.array_pool.len() {
+            Some(&self.array_pool[start..end])
+        } else {
+            None
+        }
     }
 
     pub fn add_string(&mut self, bytes: &[u8]) -> u16 {
@@ -173,7 +222,11 @@ impl ConstantTable {
         let start = (payload >> 32) as usize;
         let end = (payload & 0xFFFFFFFF) as usize;
 
-        Some(self.get_string_pool_range(start..end))
+        if start <= end && end <= self.string_pool.len() {
+            Some(self.get_string_pool_range(start..end))
+        } else {
+            None
+        }
     }
 
     pub fn get_string_raw_parts(&self, index: u16) -> Option<(*const u8, usize)> {
@@ -182,7 +235,11 @@ impl ConstantTable {
         let end = (payload & 0xFFFFFFFF) as usize;
         let string = self.get_string_pool_range(start..end);
 
-        Some((string.as_ptr(), string.len()))
+        if start <= end && end <= self.string_pool.len() {
+            Some((string.as_ptr(), string.len()))
+        } else {
+            None
+        }
     }
 
     pub fn push_str_to_string_pool(&mut self, bytes: &[u8]) -> (u32, u32) {
@@ -240,7 +297,7 @@ pub struct ConstantTableIterator<'a> {
 }
 
 impl Iterator for ConstantTableIterator<'_> {
-    type Item = Value;
+    type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.table.payloads.len() {
@@ -249,24 +306,44 @@ impl Iterator for ConstantTableIterator<'_> {
 
         let tag = self.table.tags[self.index];
         let payload = self.table.payloads[self.index];
-        let value = match tag {
-            OperandType::CHARACTER => Value::Character(std::char::from_u32(payload as u32)?),
-            OperandType::FLOAT => Value::Float(f64::from_bits(payload)),
-            OperandType::INTEGER => Value::Integer(payload as i64),
+        let string = match tag {
+            OperandType::CHARACTER => char::from_u32(payload as u32)?.to_string(),
+            OperandType::FLOAT => f64::from_bits(payload).to_string(),
+            OperandType::INTEGER => (payload as i64).to_string(),
             OperandType::STRING => {
                 let payload = *self.table.payloads.get_index(self.index)?.1;
                 let start = (payload >> 32) as usize;
                 let end = (payload & 0xFFFFFFFF) as usize;
                 let slice = self.table.get_string_pool_range(start..end);
 
-                Value::string(slice)
+                String::from(slice)
+            }
+            OperandType::ARRAY_INTEGER => {
+                let payload = *self.table.payloads.get_index(self.index)?.1;
+                let start = (payload >> 32) as usize;
+                let end = (payload & 0xFFFFFFFF) as usize;
+                let addresses = &self.table.array_pool[start..end];
+
+                let mut string = String::from("[");
+
+                for (i, address) in addresses.iter().enumerate() {
+                    if i > 0 {
+                        string.push_str(", ");
+                    }
+
+                    string.push_str(&address.to_string(OperandType::INTEGER));
+                }
+
+                string.push(']');
+
+                string
             }
             _ => todo!(),
         };
 
         self.index += 1;
 
-        Some(value)
+        Some(string)
     }
 }
 
