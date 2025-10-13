@@ -1217,7 +1217,34 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_list(&mut self) -> Result<(), ParseError> {
-        todo!()
+        info!("Parsing list expression");
+
+        let start = self.current_token.span.0;
+
+        self.advance()?;
+        self.allow(TokenKind::LeftParenthesis)?;
+
+        let mut children = Self::new_child_buffer();
+
+        while !self.allow(TokenKind::RightParenthesis)? {
+            self.parse_expression()?;
+
+            let child_id = self.syntax_tree.last_node_id();
+
+            children.push(child_id);
+            self.allow(TokenKind::Comma)?;
+        }
+
+        let end = self.previous_token.span.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::ListExpression,
+            span: Span(start, end),
+            children: self.syntax_tree.add_children(&children),
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
     }
 
     fn parse_semicolon(&mut self) -> Result<(), ParseError> {

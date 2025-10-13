@@ -99,7 +99,7 @@ impl SyntaxNode {
             SyntaxKind::MainFunctionItem
             | SyntaxKind::ModuleItem
             | SyntaxKind::BlockExpression
-            | SyntaxKind::ArrayExpression
+            | SyntaxKind::ListExpression
             | SyntaxKind::Path
             | SyntaxKind::CallValueArguments
             | SyntaxKind::FunctionValueParameters => {
@@ -243,6 +243,7 @@ pub enum SyntaxKind {
     // Other Expressions
     ArrayExpression,
     ArrayIndexExpression,
+    ListExpression,
     BlockExpression,
     CallExpression,
     FunctionExpression,
@@ -403,6 +404,7 @@ impl Display for SyntaxKind {
             SyntaxKind::NotExpression => write!(f, "not expression"),
             SyntaxKind::ArrayExpression => write!(f, "array expression"),
             SyntaxKind::ArrayIndexExpression => write!(f, "array index expression"),
+            SyntaxKind::ListExpression => write!(f, "list expression"),
             SyntaxKind::BlockExpression => write!(f, "block expression"),
             SyntaxKind::CallExpression => write!(f, "call expression"),
             SyntaxKind::FunctionExpression => write!(f, "function expression"),

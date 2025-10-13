@@ -871,7 +871,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::FloatExpression => self.compile_float_expression(node),
             SyntaxKind::IntegerExpression => self.compile_integer_expression(node),
             SyntaxKind::StringExpression => self.compile_string_expression(node),
-            SyntaxKind::ArrayExpression => self.compile_array_expression(node),
+            SyntaxKind::ListExpression => self.compile_list_expression(node),
             SyntaxKind::PathExpression => self.compile_path_expression(node),
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
@@ -982,77 +982,85 @@ impl<'a> ChunkCompiler<'a> {
         ))
     }
 
-    fn compile_array_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
-        info!("Compiling array expression");
+    fn compile_list_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        info!("Compiling list expression");
 
-        let child_ids = self
-            .syntax_tree()?
-            .get_children(node.children.0, node.children.1)
-            .ok_or(CompileError::MissingChildren {
-                parent_kind: node.kind,
-                start_index: node.children.0,
-                count: node.children.1,
-            })?;
-        let child_nodes = child_ids
-            .iter()
-            .map(|id| {
-                self.syntax_tree()?
-                    .get_node(*id)
-                    .ok_or(CompileError::MissingSyntaxNode { syntax_id: *id })
-                    .copied()
-            })
-            .collect::<Result<SmallVec<[SyntaxNode; 4]>, CompileError>>()?;
+        let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
+        let list_destination = Address::register(self.get_next_register());
+        let mut instructions = {
+            let mut instructions = SmallVec::<[Instruction; 4]>::with_capacity(child_count + 1);
+            let placeholder = Instruction::no_op();
 
-        let mut element_addresses = SmallVec::<[Address; 4]>::with_capacity(child_nodes.len());
-        let mut element_type: Option<Type> = None;
+            instructions.push(placeholder);
 
-        for child_node in child_nodes {
-            let emission = self.compile_expression(&child_node)?;
+            instructions
+        };
+        let mut current_child_index = start_children;
+        let mut element_type = None;
 
-            match emission {
-                Emission::Constant(constant, r#type) => {
-                    if let Some(existing_type) = &element_type {
-                        if existing_type != &r#type {
-                            todo!("Error");
-                        }
-                    } else {
-                        element_type = Some(r#type.clone());
-                    }
+        for list_index in 0..child_count {
+            let child_id = *self
+                .syntax_tree()?
+                .children
+                .get(current_child_index)
+                .ok_or(CompileError::MissingChild {
+                    parent_kind: node.kind,
+                    child_index: current_child_index as u32,
+                })?;
+            let child_node =
+                *self
+                    .syntax_tree()?
+                    .get_node(child_id)
+                    .ok_or(CompileError::MissingSyntaxNode {
+                        syntax_id: child_id,
+                    })?;
+            current_child_index += 1;
 
-                    let constant_address = self.get_constant_address(constant);
+            let element_emission = self.compile_expression(&child_node)?;
+            let new_type = element_emission.clone_type();
+            let element_address = element_emission.handle_as_operand(self);
 
-                    element_addresses.push(constant_address);
-                }
-                _ => {
+            if let Some(existing_type) = &element_type {
+                if existing_type != &new_type {
                     todo!("Error");
                 }
+            } else {
+                element_type = Some(new_type);
             }
+
+            let element_type = element_type.as_ref().unwrap();
+
+            let set_list_instruction = Instruction::set_list(
+                list_destination,
+                element_address,
+                list_index as u16,
+                element_type.as_operand_type(),
+            );
+
+            instructions.push(set_list_instruction);
         }
 
-        let element_type = element_type.ok_or(CompileError::EmptyArray {
-            position: Position::new(self.file_id, node.span),
-        })?;
-        let array_type = match element_type {
-            Type::Boolean => OperandType::ARRAY_BOOLEAN,
-            Type::Byte => OperandType::ARRAY_BYTE,
-            Type::Character => OperandType::ARRAY_CHARACTER,
-            Type::Float => OperandType::ARRAY_FLOAT,
-            Type::Integer => OperandType::ARRAY_INTEGER,
-            Type::String => OperandType::ARRAY_STRING,
-            Type::Function(_) => OperandType::ARRAY_FUNCTION,
-            _ => {
-                todo!("Error")
-            }
+        let element_type = element_type.unwrap_or(Type::None);
+        let list_type = match &element_type {
+            Type::Boolean => OperandType::LIST_BOOLEAN,
+            Type::Byte => OperandType::LIST_BYTE,
+            Type::Character => OperandType::LIST_CHARACTER,
+            Type::Float => OperandType::LIST_FLOAT,
+            Type::Integer => OperandType::LIST_INTEGER,
+            Type::String => OperandType::LIST_STRING,
+            Type::List(_) => OperandType::LIST_LIST,
+            Type::Function(_) => OperandType::LIST_FUNCTION,
+            _ => todo!(),
         };
 
-        let array_constant_index = self
-            .context
-            .constants
-            .add_array(&element_addresses, array_type);
+        let new_list_instruction =
+            Instruction::new_list(list_destination, child_count as u16, list_type);
 
-        Ok(Emission::Constant(
-            Constant::Array(array_constant_index),
-            Type::Array(Box::new(element_type), element_addresses.len()),
+        instructions[0] = new_list_instruction;
+
+        Ok(Emission::Instructions(
+            instructions,
+            Type::List(Box::new(element_type)),
         ))
     }
 
