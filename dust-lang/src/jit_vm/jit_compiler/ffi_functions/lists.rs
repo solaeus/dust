@@ -3,8 +3,7 @@ use crate::{
     jit_vm::{Object, object::ObjectValue, thread::ThreadContext},
 };
 
-/// # Safety
-/// This function dereferences a raw pointer to an `ObjectPool`.
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn allocate_list(
     list_type: i8,
     list_length: usize,
@@ -37,6 +36,7 @@ pub unsafe extern "C" fn allocate_list(
     object_pointer as i64
 }
 
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn insert_into_list(list_pointer: i64, index: i64, item: i64) {
     let object = unsafe { &mut *(list_pointer as *mut Object) };
     let index = index as usize;
@@ -115,6 +115,65 @@ pub unsafe extern "C" fn insert_into_list(list_pointer: i64, index: i64, item: i
                 function_index[index] = function_pointer;
             } else {
                 panic!("Index out of bounds for list insertion");
+            }
+        }
+        _ => panic!("Object is not a list"),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn get_from_list(list_pointer: i64, index: i64) -> i64 {
+    let object = unsafe { &mut *(list_pointer as *mut Object) };
+    let index = index as usize;
+
+    match &object.value {
+        ObjectValue::BooleanList(booleans) => {
+            if index < booleans.len() {
+                if booleans[index] { 1 } else { 0 }
+            } else {
+                panic!("Index out of bounds for list access");
+            }
+        }
+        ObjectValue::ByteList(bytes) => {
+            if index < bytes.len() {
+                bytes[index] as i64
+            } else {
+                panic!("Index out of bounds for list access");
+            }
+        }
+        ObjectValue::CharacterList(characters) => {
+            if index < characters.len() {
+                characters[index] as u32 as i64
+            } else {
+                panic!("Index out of bounds for list access");
+            }
+        }
+        ObjectValue::FloatList(floats) => {
+            if index < floats.len() {
+                floats[index].to_bits() as i64
+            } else {
+                panic!("Index out of bounds for list access");
+            }
+        }
+        ObjectValue::IntegerList(integers) => {
+            if index < integers.len() {
+                integers[index]
+            } else {
+                panic!("Index out of bounds for list access");
+            }
+        }
+        ObjectValue::ObjectList(object_pointers) => {
+            if index < object_pointers.len() {
+                object_pointers[index] as i64
+            } else {
+                panic!("Index out of bounds for list access");
+            }
+        }
+        ObjectValue::FunctionList(function_indices) => {
+            if index < function_indices.len() {
+                function_indices[index] as i64
+            } else {
+                panic!("Index out of bounds for list access");
             }
         }
         _ => panic!("Object is not a list"),

@@ -17,8 +17,8 @@ use crate::{
     chunk::Chunk,
     constant_table::ConstantTable,
     instruction::{
-        Address, Call, CallNative, Drop, Jump, Load, MemoryKind, Negate, NewList, OperandType,
-        Operation, Return, SetList, Test,
+        Address, Call, CallNative, Drop, GetList, Jump, Load, MemoryKind, Negate, NewList,
+        OperandType, Operation, Return, SetList, Test,
     },
     jit_vm::{
         JitCompiler, JitError, Register, RegisterTag,
@@ -85,6 +85,21 @@ pub fn compile_stackless_function(
             &mut function_builder,
             "insert_into_list",
             insert_into_list_signature,
+        )?
+    };
+
+    let get_from_list_function = {
+        let mut get_from_list_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        get_from_list_signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(I64)]);
+        get_from_list_signature.returns.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "get_from_list",
+            get_from_list_signature,
         )?
     };
 
@@ -747,6 +762,44 @@ pub fn compile_stackless_function(
                     instert_into_list_function,
                     &[list_pointer, list_index, item_value],
                 );
+
+                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
+            }
+            Operation::GET_LIST => {
+                let GetList {
+                    destination,
+                    list,
+                    list_index,
+                    item_type,
+                } = GetList::from(*current_instruction);
+
+                let list_pointer = get_list(
+                    list,
+                    current_frame_base_register_address,
+                    &mut function_builder,
+                )?;
+                let list_index = get_integer(
+                    list_index,
+                    current_frame_base_register_address,
+                    &compiler.program.constants,
+                    &hot_registers.integer,
+                    &mut function_builder,
+                )?;
+
+                let call_get_list_instruction = function_builder
+                    .ins()
+                    .call(get_from_list_function, &[list_pointer, list_index]);
+                let element_value = function_builder.inst_results(call_get_list_instruction)[0];
+
+                JitCompiler::set_register(
+                    destination.index,
+                    element_value,
+                    item_type,
+                    current_frame_base_register_address,
+                    current_frame_base_tag_address,
+                    &hot_registers,
+                    &mut function_builder,
+                )?;
 
                 function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }

@@ -58,12 +58,12 @@ impl Display for NewList {
             OperandType::LIST_FLOAT => OperandType::FLOAT.to_string(),
             OperandType::LIST_INTEGER => OperandType::INTEGER.to_string(),
             OperandType::LIST_STRING => OperandType::STRING.to_string(),
-            OperandType::LIST_LIST => "List<List>".to_string(),
+            OperandType::LIST_LIST => "[[]]".to_string(),
             OperandType::LIST_FUNCTION => OperandType::FUNCTION.to_string(),
             _ => "error".to_string(),
         };
 
         destination.display(f, *list_type)?;
-        write!(f, " = List<{item_type}>")
+        write!(f, " = [{item_type}]")
     }
 }

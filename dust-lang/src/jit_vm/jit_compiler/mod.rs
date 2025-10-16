@@ -49,6 +49,7 @@ impl<'a> JitCompiler<'a> {
 
         builder.symbol("allocate_list", allocate_list as *const u8);
         builder.symbol("insert_into_list", insert_into_list as *const u8);
+        builder.symbol("get_from_list", get_from_list as *const u8);
 
         builder.symbol("allocate_string", allocate_string as *const u8);
         builder.symbol("concatenate_strings", concatenate_strings as *const u8);
