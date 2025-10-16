@@ -650,7 +650,6 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
                 }
             }
             b'l' => match &token[1..4] {
-                b"ist" => Some(TokenKind::List),
                 b"oop" => Some(TokenKind::Loop),
                 _ => None,
             },

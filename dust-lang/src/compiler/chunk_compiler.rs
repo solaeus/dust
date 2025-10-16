@@ -140,7 +140,6 @@ impl<'a> ChunkCompiler<'a> {
                 .context
                 .constants
                 .add_pooled_string(pool_start, pool_end),
-            Constant::Array(index) => index,
         };
 
         Address::constant(index)
@@ -697,7 +696,7 @@ impl<'a> ChunkCompiler<'a> {
                 syntax_id: SyntaxId(expression_statement.children.0),
             })?;
         let expression_emission = self.compile_expression(&expression)?;
-        let expression_type = expression_emission.clone_type();
+        let expression_type = expression_emission.r#type().clone();
         let type_id = self.context.resolver.add_type(&expression_type);
         let local_address = match expression_emission {
             Emission::Instruction(instruction, _) => {
@@ -828,21 +827,24 @@ impl<'a> ChunkCompiler<'a> {
                 name: function_name.to_string(),
                 position: Position::new(self.file_id, path_node.span),
             })?;
-        let function_type = self
+        let r#type = self
             .context
             .resolver
             .resolve_type(declaration.type_id)
             .ok_or(CompileError::MissingType {
                 type_id: declaration.type_id,
-            })?
-            .into_function_type()
-            .ok_or(CompileError::ExpectedFunctionType {
-                type_id: declaration.type_id,
             })?;
+        let function_type =
+            r#type
+                .clone()
+                .into_function_type()
+                .ok_or(CompileError::ExpectedFunctionType {
+                    type_id: declaration.type_id,
+                })?;
 
         drop(files);
 
-        let Emission::Function(address, function_type) = self.compile_function_expression(
+        let Emission::Function(address, _) = self.compile_function_expression(
             &function_expression_node,
             Some((declaration_id, declaration)),
             Some(function_type),
@@ -853,10 +855,7 @@ impl<'a> ChunkCompiler<'a> {
                 position: Position::new(self.file_id, function_expression_node.span),
             });
         };
-        let local = Local {
-            address,
-            r#type: Type::Function(Box::new(function_type)),
-        };
+        let local = Local { address, r#type };
 
         self.locals.insert(declaration_id, local);
 
@@ -872,6 +871,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::IntegerExpression => self.compile_integer_expression(node),
             SyntaxKind::StringExpression => self.compile_string_expression(node),
             SyntaxKind::ListExpression => self.compile_list_expression(node),
+            SyntaxKind::IndexExpression => self.compile_index_expression(node),
             SyntaxKind::PathExpression => self.compile_path_expression(node),
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
@@ -1017,7 +1017,7 @@ impl<'a> ChunkCompiler<'a> {
             current_child_index += 1;
 
             let element_emission = self.compile_expression(&child_node)?;
-            let new_type = element_emission.clone_type();
+            let new_type = element_emission.r#type().clone();
             let element_address = element_emission.handle_as_operand(self);
 
             if let Some(existing_type) = &element_type {
@@ -1064,6 +1064,49 @@ impl<'a> ChunkCompiler<'a> {
         ))
     }
 
+    fn compile_index_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        info!("Compiling index expression");
+
+        let list_index = SyntaxId(node.children.0);
+        let list_node =
+            *self
+                .syntax_tree()?
+                .get_node(list_index)
+                .ok_or(CompileError::MissingSyntaxNode {
+                    syntax_id: list_index,
+                })?;
+        let index_index = SyntaxId(node.children.1);
+        let index_node =
+            *self
+                .syntax_tree()?
+                .get_node(index_index)
+                .ok_or(CompileError::MissingSyntaxNode {
+                    syntax_id: index_index,
+                })?;
+        let list_emission = self.compile_expression(&list_node)?;
+        let element_type = list_emission
+            .r#type()
+            .as_element_type()
+            .ok_or(CompileError::ExpectedList {
+                found_type: list_emission.r#type().clone(),
+                position: Position::new(self.file_id, list_node.span),
+            })?
+            .clone();
+        let index_emission = self.compile_expression(&index_node)?;
+        let list_address = list_emission.handle_as_operand(self);
+        let index_address = index_emission.handle_as_operand(self);
+        let destination = Address::register(self.get_next_register());
+
+        let get_list_instruction = Instruction::get_list(
+            destination,
+            list_address,
+            index_address,
+            element_type.as_operand_type(),
+        );
+
+        Ok(Emission::Instruction(get_list_instruction, element_type))
+    }
+
     fn compile_math_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling math expression");
 
@@ -1102,8 +1145,8 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(Emission::Constant(combined, combined_type));
         }
 
-        let left_type = left_emission.clone_type();
-        let right_type = right_emission.clone_type();
+        let left_type = left_emission.r#type().clone();
+        let right_type = right_emission.r#type().clone();
 
         let instructions_count_before = self.instructions.len();
         let r#type = if left_type == Type::Character {
@@ -1459,7 +1502,7 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(Emission::Constant(evaluated, child_type.clone()));
         }
 
-        let r#type = child_emission.clone_type().clone();
+        let r#type = child_emission.r#type().clone();
         let child_address = child_emission.handle_as_operand(self);
         let destination = Address::register(self.get_next_register());
         let negate_instruction =
@@ -1613,11 +1656,7 @@ impl<'a> ChunkCompiler<'a> {
         };
 
         if matches!(declaration.kind, DeclarationKind::Function { .. }) {
-            let function_type = local.r#type.clone().into_function_type().ok_or(
-                CompileError::ExpectedFunctionType {
-                    type_id: declaration.type_id,
-                },
-            )?;
+            let function_type = local.r#type.clone();
 
             Ok(Emission::Function(local.address, function_type))
         } else {
@@ -1708,7 +1747,7 @@ impl<'a> ChunkCompiler<'a> {
     ) -> Result<Emission, CompileError> {
         info!("Compiling function expression");
 
-        let function_type = if let Some(function_type) = bound_type {
+        let r#type = if let Some(function_type) = bound_type {
             function_type
         } else {
             let function_signature_id = SyntaxId(node.children.0);
@@ -1872,7 +1911,7 @@ impl<'a> ChunkCompiler<'a> {
         let mut function_compiler = ChunkCompiler::new(
             declaration_id,
             self.file_id,
-            function_type.clone(),
+            r#type.clone(),
             self.context,
             function_scope_id,
         );
@@ -1881,12 +1920,13 @@ impl<'a> ChunkCompiler<'a> {
 
         let function_chunk = function_compiler.finish()?;
         let prototype_index = self.context.prototypes.len() as u16;
+        let r#type = Type::Function(Box::new(r#type));
 
         self.context.prototypes.push(function_chunk);
 
         Ok(Emission::Function(
             Address::constant(prototype_index),
-            function_type,
+            r#type,
         ))
     }
 
@@ -1913,7 +1953,7 @@ impl<'a> ChunkCompiler<'a> {
                     },
                 )?;
                 let argument_emission = compiler.compile_expression(&child_node)?;
-                let operand_type = argument_emission.clone_type().as_operand_type();
+                let operand_type = argument_emission.r#type().as_operand_type();
                 let argument_address = argument_emission.handle_as_operand(compiler);
 
                 compiler
@@ -1988,7 +2028,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let expression_emission = self.compile_expression(&function_node)?;
 
-        let Emission::Function(address, function_type) = expression_emission else {
+        let Emission::Function(address, r#type) = expression_emission else {
             return Err(CompileError::ExpectedFunction {
                 node_kind: function_node.kind,
                 position: Position::new(self.file_id, function_node.span),
@@ -2000,7 +2040,14 @@ impl<'a> ChunkCompiler<'a> {
         handle_call_arguments(self, &arguments_node)?;
 
         let destination_index = self.get_next_register();
-        let r#type = function_type.return_type.clone();
+        let r#type = r#type
+            .into_function_type()
+            .ok_or(CompileError::ExpectedFunction {
+                node_kind: function_node.kind,
+                position: Position::new(self.file_id, function_node.span),
+            })?
+            .return_type
+            .clone();
         let argument_count = self.call_arguments.len() as u16 - arguments_start_index;
         let call_instruction = Instruction::call(
             destination_index,
@@ -2051,9 +2098,7 @@ impl<'a> ChunkCompiler<'a> {
 
                     (address, r#type)
                 }
-                Emission::Function(address, function_type) => {
-                    (address, Type::Function(Box::new(function_type)))
-                }
+                Emission::Function(address, function_type) => (address, function_type),
                 Emission::Local(Local { address, r#type }) => {
                     let mut return_address = address;
 
@@ -2101,7 +2146,7 @@ enum Emission {
     Instructions(SmallVec<[Instruction; 4]>, Type),
     Local(Local),
     Constant(Constant, Type),
-    Function(Address, FunctionType),
+    Function(Address, Type),
     None,
 }
 
@@ -2131,14 +2176,14 @@ impl Emission {
         }
     }
 
-    fn clone_type(&self) -> Type {
+    fn r#type(&self) -> &Type {
         match self {
-            Emission::Instruction(_, r#type) => r#type.clone(),
-            Emission::Instructions(_, r#type) => r#type.clone(),
-            Emission::Constant(_, r#type) => r#type.clone(),
-            Emission::Local(Local { r#type, .. }) => r#type.clone(),
-            Emission::Function(_, function_type) => Type::Function(Box::new(function_type.clone())),
-            Emission::None => Type::None,
+            Emission::Instruction(_, r#type) => r#type,
+            Emission::Instructions(_, r#type) => r#type,
+            Emission::Constant(_, r#type) => r#type,
+            Emission::Local(Local { r#type, .. }) => r#type,
+            Emission::Function(_, r#type) => r#type,
+            Emission::None => &Type::None,
         }
     }
 }
@@ -2151,7 +2196,6 @@ pub enum Constant {
     Float(f64),
     Integer(i64),
     String { pool_start: u32, pool_end: u32 },
-    Array(u16),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]

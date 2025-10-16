@@ -5,6 +5,7 @@ use crate::{
     resolver::{DeclarationId, ScopeId, TypeId},
     source::{Position, SourceFileId},
     syntax_tree::{SyntaxId, SyntaxKind},
+    r#type::Type,
 };
 
 #[derive(Debug, Clone)]
@@ -115,6 +116,10 @@ pub enum CompileError {
     EmptyArray {
         position: Position,
     },
+    ExpectedList {
+        found_type: Type,
+        position: Position,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -133,6 +138,7 @@ impl AnnotatedError for CompileError {
             CompileError::ExpectedFunction { position, .. } => position.file_id,
             CompileError::ExpectedFunctionBody { position, .. } => position.file_id,
             CompileError::ExpectedFunctionType { .. } => SourceFileId::default(),
+            CompileError::ExpectedList { position, .. } => position.file_id,
             CompileError::MissingChild { .. } => SourceFileId::default(),
             CompileError::MissingChildren { .. } => SourceFileId::default(),
             CompileError::MissingConstant { .. } => SourceFileId::default(),
@@ -288,6 +294,17 @@ impl AnnotatedError for CompileError {
                 let title = format!("Expected a function type, found {type_id:?}");
 
                 Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::ExpectedList {
+                found_type,
+                position,
+            } => {
+                let title = format!("Expected a list type, found {found_type}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
+                )
             }
             CompileError::MissingChild {
                 parent_kind,

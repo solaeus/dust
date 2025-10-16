@@ -16,17 +16,12 @@ pub enum Type {
     Integer,
 
     String,
-    Array(Box<Type>, usize),
     List(Box<Type>),
 
     Function(Box<FunctionType>),
 }
 
 impl Type {
-    pub fn array(element_type: Type, length: usize) -> Self {
-        Type::Array(Box::new(element_type), length)
-    }
-
     pub fn list(element_type: Type) -> Self {
         Type::List(Box::new(element_type))
     }
@@ -41,6 +36,13 @@ impl Type {
             value_parameters: value_parameters.into(),
             return_type,
         }))
+    }
+
+    pub fn as_element_type(&self) -> Option<&Type> {
+        match self {
+            Type::List(item_type) => Some(item_type.as_ref()),
+            _ => None,
+        }
     }
 
     pub fn into_function_type(self) -> Option<FunctionType> {
@@ -59,20 +61,6 @@ impl Type {
             Type::Float => OperandType::FLOAT,
             Type::Integer => OperandType::INTEGER,
             Type::String => OperandType::STRING,
-            Type::Array(item_type, _) => match item_type.as_ref() {
-                Type::Boolean => OperandType::ARRAY_BOOLEAN,
-                Type::Byte => OperandType::ARRAY_BYTE,
-                Type::Character => OperandType::ARRAY_CHARACTER,
-                Type::Float => OperandType::ARRAY_FLOAT,
-                Type::Integer => OperandType::ARRAY_INTEGER,
-                Type::String => OperandType::ARRAY_STRING,
-                Type::Function(_) => OperandType::ARRAY_FUNCTION,
-                Type::Array(_, _) => OperandType::ARRAY_ARRAY,
-                Type::List(_) => OperandType::ARRAY_LIST,
-                Type::None => {
-                    panic!("An array's item type must be known, even if it is empty")
-                }
-            },
             Type::List(item_type) => match item_type.as_ref() {
                 Type::Boolean => OperandType::LIST_BOOLEAN,
                 Type::Byte => OperandType::LIST_BYTE,
@@ -81,7 +69,6 @@ impl Type {
                 Type::Integer => OperandType::LIST_INTEGER,
                 Type::String => OperandType::LIST_STRING,
                 Type::Function(_) => OperandType::LIST_FUNCTION,
-                Type::Array(_, _) => OperandType::LIST_ARRAY,
                 Type::List(_) => OperandType::LIST_LIST,
                 Type::None => panic!("A list's item type must be known, even if it is empty"),
             },
@@ -102,7 +89,6 @@ impl Display for Type {
             Type::List(item_type) => write!(f, "List<{item_type}>"),
             Type::None => write!(f, "none"),
             Type::String => write!(f, "str"),
-            Type::Array(item_type, length) => write!(f, "[{item_type}; {length}]"),
         }
     }
 }

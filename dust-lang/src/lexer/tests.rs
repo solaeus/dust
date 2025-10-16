@@ -245,7 +245,6 @@ fn keywords() {
         ("if", TokenKind::If),
         ("int", TokenKind::Int),
         ("let", TokenKind::Let),
-        ("list", TokenKind::List),
         ("loop", TokenKind::Loop),
         ("map", TokenKind::Map),
         ("mod", TokenKind::Mod),

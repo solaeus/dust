@@ -18,32 +18,33 @@ impl Operation {
     // List operations
     pub const NEW_LIST: Operation = Operation(3);
     pub const SET_LIST: Operation = Operation(4);
+    pub const GET_LIST: Operation = Operation(5);
 
     // Arithmetic binary operations
-    pub const ADD: Operation = Operation(5);
-    pub const SUBTRACT: Operation = Operation(6);
-    pub const MULTIPLY: Operation = Operation(7);
-    pub const DIVIDE: Operation = Operation(8);
-    pub const MODULO: Operation = Operation(9);
+    pub const ADD: Operation = Operation(6);
+    pub const SUBTRACT: Operation = Operation(7);
+    pub const MULTIPLY: Operation = Operation(8);
+    pub const DIVIDE: Operation = Operation(9);
+    pub const MODULO: Operation = Operation(10);
 
     // Comparison binary operations
-    pub const EQUAL: Operation = Operation(10);
-    pub const LESS: Operation = Operation(11);
-    pub const LESS_EQUAL: Operation = Operation(12);
+    pub const EQUAL: Operation = Operation(11);
+    pub const LESS: Operation = Operation(12);
+    pub const LESS_EQUAL: Operation = Operation(13);
 
     // Logical AND/OR operations
-    pub const TEST: Operation = Operation(13);
+    pub const TEST: Operation = Operation(14);
 
     // Unary numeric negation and logical NOT
-    pub const NEGATE: Operation = Operation(14);
+    pub const NEGATE: Operation = Operation(15);
 
     // Function calls
-    pub const CALL: Operation = Operation(15);
-    pub const CALL_NATIVE: Operation = Operation(16);
+    pub const CALL: Operation = Operation(16);
+    pub const CALL_NATIVE: Operation = Operation(17);
 
     // Control flow
-    pub const JUMP: Operation = Operation(17);
-    pub const RETURN: Operation = Operation(18);
+    pub const JUMP: Operation = Operation(18);
+    pub const RETURN: Operation = Operation(19);
 }
 
 impl Operation {
@@ -54,6 +55,7 @@ impl Operation {
             Self::DROP => "DROP",
             Self::NEW_LIST => "NEW_LIST",
             Self::SET_LIST => "SET_LIST",
+            Self::GET_LIST => "GET_LIST",
             Self::ADD => "ADD",
             Self::SUBTRACT => "SUBTRACT",
             Self::MULTIPLY => "MULTIPLY",

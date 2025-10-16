@@ -213,15 +213,6 @@ impl Resolver {
             Type::Float => TypeId::FLOAT,
             Type::Integer => TypeId::INTEGER,
             Type::String => TypeId::STRING,
-            Type::Array(element_type, size) => {
-                let element_type_id = self.add_type(element_type);
-                let type_node = TypeNode::Array(element_type_id, *size as u32);
-                let type_id = TypeId(self.types.len() as u32);
-
-                self.types.insert(type_key, type_node);
-
-                type_id
-            }
             Type::List(element_type) => {
                 let element_type_id = self.add_type(element_type);
                 let type_node = TypeNode::List(element_type_id);
@@ -302,11 +293,6 @@ impl Resolver {
                 let (_, type_node) = self.types.get_index(index as usize)?;
 
                 match type_node {
-                    TypeNode::Array(element_type_id, size) => {
-                        let element_type = self.resolve_type(*element_type_id)?;
-
-                        Some(Type::array(element_type, *size as usize))
-                    }
                     TypeNode::List(element_type_id) => {
                         let element_type = self.resolve_type(*element_type_id)?;
 
@@ -511,7 +497,6 @@ pub struct TypeKey {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeNode {
-    Array(TypeId, u32),
     List(TypeId),
     Function(FunctionTypeNode),
 }

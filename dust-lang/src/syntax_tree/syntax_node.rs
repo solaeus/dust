@@ -138,7 +138,8 @@ impl SyntaxNode {
             | SyntaxKind::GreaterThanExpression
             | SyntaxKind::GreaterThanOrEqualExpression
             | SyntaxKind::WhileExpression
-            | SyntaxKind::CallExpression => {
+            | SyntaxKind::CallExpression
+            | SyntaxKind::IndexExpression => {
                 SyntaxNodeChildren::Double(SyntaxId(self.children.0), SyntaxId(self.children.1))
             }
             _ => SyntaxNodeChildren::None,
@@ -241,9 +242,8 @@ pub enum SyntaxKind {
     NotExpression,
 
     // Other Expressions
-    ArrayExpression,
-    ArrayIndexExpression,
     ListExpression,
+    IndexExpression,
     BlockExpression,
     CallExpression,
     FunctionExpression,
@@ -329,8 +329,7 @@ impl SyntaxKind {
                 | SyntaxKind::NotEqualExpression
                 | SyntaxKind::NegationExpression
                 | SyntaxKind::NotExpression
-                | SyntaxKind::ArrayExpression
-                | SyntaxKind::ArrayIndexExpression
+                | SyntaxKind::IndexExpression
                 | SyntaxKind::BlockExpression
                 | SyntaxKind::CallExpression
                 | SyntaxKind::FunctionExpression
@@ -402,8 +401,7 @@ impl Display for SyntaxKind {
             SyntaxKind::NotEqualExpression => write!(f, "not equal expression"),
             SyntaxKind::NegationExpression => write!(f, "negation expression"),
             SyntaxKind::NotExpression => write!(f, "not expression"),
-            SyntaxKind::ArrayExpression => write!(f, "array expression"),
-            SyntaxKind::ArrayIndexExpression => write!(f, "array index expression"),
+            SyntaxKind::IndexExpression => write!(f, "index expression"),
             SyntaxKind::ListExpression => write!(f, "list expression"),
             SyntaxKind::BlockExpression => write!(f, "block expression"),
             SyntaxKind::CallExpression => write!(f, "call expression"),

@@ -1162,37 +1162,6 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_array_expression(&mut self) -> Result<(), ParseError> {
-        info!("Parsing array expression");
-
-        let start = self.current_token.span.0;
-        let mut children = Self::new_child_buffer();
-
-        self.advance()?;
-
-        while !self.allow(TokenKind::RightSquareBracket)? {
-            self.parse_expression()?;
-
-            let expression_id = self.syntax_tree.last_node_id();
-
-            children.push(expression_id);
-
-            self.allow(TokenKind::Comma)?;
-        }
-
-        let end = self.previous_token.span.1;
-        let children = self.syntax_tree.add_children(&children);
-        let node = SyntaxNode {
-            kind: SyntaxKind::ArrayExpression,
-            span: Span(start, end),
-            children,
-        };
-
-        self.syntax_tree.push_node(node);
-
-        Ok(())
-    }
-
     fn parse_return(&mut self) -> Result<(), ParseError> {
         todo!()
     }
@@ -1216,17 +1185,16 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_list(&mut self) -> Result<(), ParseError> {
+    fn parse_list_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing list expression");
 
         let start = self.current_token.span.0;
 
         self.advance()?;
-        self.allow(TokenKind::LeftParenthesis)?;
 
         let mut children = Self::new_child_buffer();
 
-        while !self.allow(TokenKind::RightParenthesis)? {
+        while !self.allow(TokenKind::RightSquareBracket)? {
             self.parse_expression()?;
 
             let child_id = self.syntax_tree.last_node_id();
@@ -1240,6 +1208,33 @@ impl<'src> Parser<'src> {
             kind: SyntaxKind::ListExpression,
             span: Span(start, end),
             children: self.syntax_tree.add_children(&children),
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
+    }
+
+    fn parse_index_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing index expression");
+
+        let target_id = self.syntax_tree.last_node_id();
+        let target_node = *self
+            .syntax_tree
+            .get_node(target_id)
+            .ok_or(ParseError::MissingNode { id: target_id })?;
+        let start = target_node.span.0;
+
+        self.advance()?;
+        self.parse_expression()?;
+        self.expect(TokenKind::RightSquareBracket)?;
+
+        let index_id = self.syntax_tree.last_node_id();
+        let end = self.previous_token.span.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::IndexExpression,
+            span: Span(start, end),
+            children: (target_id.0, index_id.0),
         };
 
         self.syntax_tree.push_node(node);

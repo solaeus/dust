@@ -21,6 +21,7 @@ mod call_native;
 mod divide;
 mod drop;
 mod equal;
+mod get_list;
 mod jump;
 mod less;
 mod less_equal;
@@ -44,6 +45,7 @@ pub use call_native::CallNative;
 pub use divide::Divide;
 pub use drop::Drop;
 pub use equal::Equal;
+pub use get_list::GetList;
 pub use jump::Jump;
 pub use less::Less;
 pub use less_equal::LessEqual;
@@ -238,6 +240,20 @@ impl Instruction {
         })
     }
 
+    pub fn get_list(
+        destination: Address,
+        list: Address,
+        list_index: Address,
+        item_type: OperandType,
+    ) -> Instruction {
+        Instruction::from(GetList {
+            destination,
+            list,
+            list_index,
+            item_type,
+        })
+    }
+
     pub fn add(
         destination: Address,
         left: Address,
@@ -424,6 +440,7 @@ impl Instruction {
         match self.operation() {
             Operation::LOAD
             | Operation::NEW_LIST
+            | Operation::GET_LIST
             | Operation::ADD
             | Operation::SUBTRACT
             | Operation::MULTIPLY
@@ -457,6 +474,7 @@ impl Instruction {
             Operation::DROP => Drop::from(self).to_string(),
             Operation::NEW_LIST => NewList::from(self).to_string(),
             Operation::SET_LIST => SetList::from(self).to_string(),
+            Operation::GET_LIST => GetList::from(self).to_string(),
             Operation::ADD => Add::from(self).to_string(),
             Operation::SUBTRACT => Subtract::from(self).to_string(),
             Operation::MULTIPLY => Multiply::from(self).to_string(),

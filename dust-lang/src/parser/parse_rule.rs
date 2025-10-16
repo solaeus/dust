@@ -233,12 +233,12 @@ impl From<TokenKind> for ParseRule<'_> {
             TokenKind::LeftParenthesis => ParseRule {
                 prefix: Some(Parser::parse_grouped_expression),
                 infix: Some(Parser::parse_call_expression),
-                precedence: Precedence::Call,
+                precedence: Precedence::CallOrIndex,
             },
             TokenKind::LeftSquareBracket => ParseRule {
-                prefix: Some(Parser::parse_array_expression),
-                infix: None,
-                precedence: Precedence::None,
+                prefix: Some(Parser::parse_list_expression),
+                infix: Some(Parser::parse_index_expression),
+                precedence: Precedence::CallOrIndex,
             },
             TokenKind::Less => ParseRule {
                 prefix: None,
@@ -257,11 +257,6 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::LineComment => ParseRule {
                 prefix: Some(Parser::parse_unexpected),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            TokenKind::List => ParseRule {
-                prefix: Some(Parser::parse_list),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -404,7 +399,7 @@ impl From<TokenKind> for ParseRule<'_> {
 pub enum Precedence {
     Primary = 9,
     Path = 8,
-    Call = 7,
+    CallOrIndex = 7,
     Unary = 6,
     PrimaryMath = 5,
     SecondaryMath = 4,
@@ -423,8 +418,8 @@ impl Precedence {
             Precedence::Comparison => Precedence::SecondaryMath,
             Precedence::SecondaryMath => Precedence::PrimaryMath,
             Precedence::PrimaryMath => Precedence::Unary,
-            Precedence::Unary => Precedence::Call,
-            Precedence::Call => Precedence::Path,
+            Precedence::Unary => Precedence::CallOrIndex,
+            Precedence::CallOrIndex => Precedence::Path,
             Precedence::Path => Precedence::Primary,
             Precedence::Primary => Precedence::Primary,
         }
