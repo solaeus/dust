@@ -1,6 +1,6 @@
 use crate::{
     instruction::OperandType,
-    jit_vm::{Object, object::ObjectValue, thread::ThreadContext},
+    jit_vm::{Object, ThreadStatus, object::ObjectValue, thread::ThreadContext},
 };
 
 #[unsafe(no_mangle)]
@@ -122,7 +122,11 @@ pub unsafe extern "C" fn insert_into_list(list_pointer: i64, index: i64, item: i
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn get_from_list(list_pointer: i64, index: i64) -> i64 {
+pub unsafe extern "C" fn get_from_list(
+    list_pointer: i64,
+    index: i64,
+    thread_context: *mut ThreadContext,
+) -> i64 {
     let object = unsafe { &mut *(list_pointer as *mut Object) };
     let index = index as usize;
 
@@ -131,49 +135,70 @@ pub unsafe extern "C" fn get_from_list(list_pointer: i64, index: i64) -> i64 {
             if index < booleans.len() {
                 if booleans[index] { 1 } else { 0 }
             } else {
-                panic!("Index out of bounds for list access");
+                let thread_context = unsafe { &mut *thread_context };
+                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+
+                0
             }
         }
         ObjectValue::ByteList(bytes) => {
             if index < bytes.len() {
                 bytes[index] as i64
             } else {
-                panic!("Index out of bounds for list access");
+                let thread_context = unsafe { &mut *thread_context };
+                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+
+                0
             }
         }
         ObjectValue::CharacterList(characters) => {
             if index < characters.len() {
                 characters[index] as u32 as i64
             } else {
-                panic!("Index out of bounds for list access");
+                let thread_context = unsafe { &mut *thread_context };
+                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+
+                0
             }
         }
         ObjectValue::FloatList(floats) => {
             if index < floats.len() {
                 floats[index].to_bits() as i64
             } else {
-                panic!("Index out of bounds for list access");
+                let thread_context = unsafe { &mut *thread_context };
+                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+
+                0
             }
         }
         ObjectValue::IntegerList(integers) => {
             if index < integers.len() {
                 integers[index]
             } else {
-                panic!("Index out of bounds for list access");
+                let thread_context = unsafe { &mut *thread_context };
+                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+
+                0
             }
         }
         ObjectValue::ObjectList(object_pointers) => {
             if index < object_pointers.len() {
                 object_pointers[index] as i64
             } else {
-                panic!("Index out of bounds for list access");
+                let thread_context = unsafe { &mut *thread_context };
+                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+
+                0
             }
         }
         ObjectValue::FunctionList(function_indices) => {
             if index < function_indices.len() {
                 function_indices[index] as i64
             } else {
-                panic!("Index out of bounds for list access");
+                let thread_context = unsafe { &mut *thread_context };
+                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+
+                0
             }
         }
         _ => panic!("Object is not a list"),

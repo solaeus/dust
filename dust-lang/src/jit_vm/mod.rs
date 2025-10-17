@@ -14,7 +14,7 @@ pub use jit_compiler::{JitCompiler, JitError, JitLogic};
 pub use object::Object;
 pub use object_pool::ObjectPool;
 pub use register::{Register, RegisterTag};
-pub use thread::{Thread, ThreadResult};
+pub use thread::{Thread, ThreadStatus};
 
 use std::sync::{Arc, RwLock};
 

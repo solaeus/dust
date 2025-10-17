@@ -69,6 +69,8 @@ pub enum JitError {
     MissingDeclaration {
         declaration_id: crate::resolver::DeclarationId,
     },
+    ThreadErrorFunctionIndexOutOfBounds,
+    ThreadErrorListIndexOutOfBounds,
 }
 
 impl AnnotatedError for JitError {
@@ -196,6 +198,16 @@ impl AnnotatedError for JitError {
                     "Missing declaration for Declaration ID {}",
                     declaration_id.0
                 );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::ThreadErrorFunctionIndexOutOfBounds => {
+                let title = "Function index out of bounds in thread error".to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::ThreadErrorListIndexOutOfBounds => {
+                let title = "List index out of bounds in thread error".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }

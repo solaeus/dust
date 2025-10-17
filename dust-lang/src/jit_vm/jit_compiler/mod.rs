@@ -29,7 +29,7 @@ use crate::{
     dust_crate::Program,
     instruction::{OperandType, Operation},
     jit_vm::{
-        Register, RegisterTag, ThreadResult,
+        Register, RegisterTag, ThreadStatus,
         call_stack::{get_frame_function_index, push_call_frame},
         thread::ThreadContext,
     },
@@ -218,7 +218,7 @@ impl<'a> JitCompiler<'a> {
             .func
             .signature
             .returns
-            .push(AbiParam::new(ThreadResult::CRANELIFT_TYPE));
+            .push(AbiParam::new(ThreadStatus::CRANELIFT_TYPE));
 
         let loop_function_id = self
             .module
@@ -318,7 +318,7 @@ impl<'a> JitCompiler<'a> {
                     .icmp_imm(IntCC::Equal, call_stack_length, 0);
             let return_thread_status = function_builder
                 .ins()
-                .iconst(ThreadResult::CRANELIFT_TYPE, ThreadResult::Return as i64);
+                .iconst(ThreadStatus::CRANELIFT_TYPE, ThreadStatus::Return as i64);
 
             function_builder.ins().brif(
                 call_stack_is_empty,
@@ -343,8 +343,8 @@ impl<'a> JitCompiler<'a> {
                     .ins()
                     .icmp_imm(IntCC::Equal, call_stack_length, 0);
             let return_thread_status = function_builder.ins().iconst(
-                ThreadResult::CRANELIFT_TYPE,
-                ThreadResult::ErrorFunctionIndexOutOfBounds as i64,
+                ThreadStatus::CRANELIFT_TYPE,
+                ThreadStatus::ErrorFunctionIndexOutOfBounds as i64,
             );
 
             function_builder.ins().brif(
@@ -385,19 +385,35 @@ impl<'a> JitCompiler<'a> {
                 .zip(function_references.into_iter())
             {
                 function_builder.switch_to_block(block);
-
                 function_builder
                     .ins()
                     .call(stackless_reference, &[thread_context_pointer]);
-                function_builder
-                    .ins()
-                    .jump(check_for_empty_call_stack_block, &[]);
+
+                let thread_status = function_builder.ins().load(
+                    ThreadStatus::CRANELIFT_TYPE,
+                    MemFlags::new(),
+                    thread_context_pointer,
+                    offset_of!(ThreadContext, status) as i32,
+                );
+                let is_ok = function_builder.ins().icmp_imm(
+                    IntCC::Equal,
+                    thread_status,
+                    ThreadStatus::Continue as i64,
+                );
+
+                function_builder.ins().brif(
+                    is_ok,
+                    check_for_empty_call_stack_block,
+                    &[],
+                    return_block,
+                    &[thread_status.into()],
+                );
             }
         }
 
         {
             function_builder.switch_to_block(return_block);
-            function_builder.append_block_param(return_block, ThreadResult::CRANELIFT_TYPE);
+            function_builder.append_block_param(return_block, ThreadStatus::CRANELIFT_TYPE);
 
             let return_thread_status = function_builder.block_params(return_block)[0];
 
@@ -561,7 +577,7 @@ enum FunctionIds {
     Other { direct: FuncId, stackless: FuncId },
 }
 
-pub type JitLogic = extern "C" fn(&mut ThreadContext) -> ThreadResult;
+pub type JitLogic = extern "C" fn(&mut ThreadContext) -> ThreadStatus;
 
 pub fn compute_compile_order(program: &Program) -> Vec<usize> {
     let prototype_count = program.prototypes.len();

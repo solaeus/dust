@@ -91,9 +91,11 @@ pub fn compile_stackless_function(
     let get_from_list_function = {
         let mut get_from_list_signature = Signature::new(compiler.module.isa().default_call_conv());
 
-        get_from_list_signature
-            .params
-            .extend([AbiParam::new(I64), AbiParam::new(I64)]);
+        get_from_list_signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
         get_from_list_signature.returns.push(AbiParam::new(I64));
 
         compiler.declare_imported_function(
@@ -786,20 +788,38 @@ pub fn compile_stackless_function(
                     &mut function_builder,
                 )?;
 
-                let call_get_list_instruction = function_builder
-                    .ins()
-                    .call(get_from_list_function, &[list_pointer, list_index]);
+                let call_get_list_instruction = function_builder.ins().call(
+                    get_from_list_function,
+                    &[list_pointer, list_index, thread_context],
+                );
                 let element_value = function_builder.inst_results(call_get_list_instruction)[0];
 
-                JitCompiler::set_register(
-                    destination.index,
-                    element_value,
-                    item_type,
-                    current_frame_base_register_address,
-                    current_frame_base_tag_address,
-                    &hot_registers,
-                    &mut function_builder,
-                )?;
+                if item_type == OperandType::FLOAT {
+                    let element_value_as_float =
+                        function_builder
+                            .ins()
+                            .bitcast(F64, MemFlags::new(), element_value);
+
+                    JitCompiler::set_register(
+                        destination.index,
+                        element_value_as_float,
+                        item_type,
+                        current_frame_base_register_address,
+                        current_frame_base_tag_address,
+                        &hot_registers,
+                        &mut function_builder,
+                    )?;
+                } else {
+                    JitCompiler::set_register(
+                        destination.index,
+                        element_value,
+                        item_type,
+                        current_frame_base_register_address,
+                        current_frame_base_tag_address,
+                        &hot_registers,
+                        &mut function_builder,
+                    )?;
+                }
 
                 function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }

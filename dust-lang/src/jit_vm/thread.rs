@@ -96,14 +96,22 @@ fn run(
 
         return_register_pointer: &mut return_register,
         return_type_pointer: &mut return_type,
+
+        status: ThreadStatus::Continue,
     };
 
     loop {
         let thread_status = (jit_logic)(&mut thread_context);
 
         match thread_status {
-            ThreadResult::Return => break,
-            ThreadResult::ErrorFunctionIndexOutOfBounds => todo!(),
+            ThreadStatus::Continue => continue,
+            ThreadStatus::Return => break,
+            ThreadStatus::ErrorFunctionIndexOutOfBounds => {
+                return Err(JitError::ThreadErrorFunctionIndexOutOfBounds);
+            }
+            ThreadStatus::ErrorListIndexOutOfBounds => {
+                return Err(JitError::ThreadErrorListIndexOutOfBounds);
+            }
         }
     }
 
@@ -160,13 +168,15 @@ fn run(
 }
 
 #[repr(C)]
-pub enum ThreadResult {
-    Return = 0,
-    ErrorFunctionIndexOutOfBounds = 3,
+pub enum ThreadStatus {
+    Continue = 0,
+    Return = 1,
+    ErrorFunctionIndexOutOfBounds = 2,
+    ErrorListIndexOutOfBounds = 3,
 }
 
-impl ThreadResult {
-    pub const CRANELIFT_TYPE: CraneliftType = match size_of::<ThreadResult>() {
+impl ThreadStatus {
+    pub const CRANELIFT_TYPE: CraneliftType = match size_of::<ThreadStatus>() {
         4 => I32,
         8 => I64,
         _ => panic!("Unsupported ThreadStatus size"),
@@ -192,6 +202,8 @@ pub struct ThreadContext<'a> {
 
     pub return_register_pointer: *mut Register,
     pub return_type_pointer: *mut OperandType,
+
+    pub status: ThreadStatus,
 }
 
 fn get_boolean_from_register(register: Register) -> bool {
