@@ -1127,26 +1127,49 @@ impl<'a> ChunkCompiler<'a> {
                 child_index: node.children.1,
             })?;
 
-        let left_emission = self.compile_expression(&left)?;
-        let right_emission = self.compile_expression(&right)?;
+        if matches!(
+            left.kind,
+            SyntaxKind::BooleanExpression
+                | SyntaxKind::ByteExpression
+                | SyntaxKind::CharacterExpression
+                | SyntaxKind::FloatExpression
+                | SyntaxKind::IntegerExpression
+                | SyntaxKind::StringExpression
+        ) && matches!(
+            right.kind,
+            SyntaxKind::BooleanExpression
+                | SyntaxKind::ByteExpression
+                | SyntaxKind::CharacterExpression
+                | SyntaxKind::FloatExpression
+                | SyntaxKind::IntegerExpression
+                | SyntaxKind::StringExpression
+        ) {
+            let left_emission = self.compile_expression(&left)?;
+            let right_emission = self.compile_expression(&right)?;
 
-        if let (
-            Emission::Constant(left_value, left_type),
-            Emission::Constant(right_value, _right_type),
-        ) = (&left_emission, &right_emission)
-        {
-            let combined = self.combine_constants(*left_value, *right_value, node.kind)?;
-            let combined_type = if left_type == &Type::Character {
-                Type::String
-            } else {
-                left_type.clone()
-            };
+            if let (
+                Emission::Constant(left_value, left_type),
+                Emission::Constant(right_value, _right_type),
+            ) = (&left_emission, &right_emission)
+            {
+                let combined = self.combine_constants(*left_value, *right_value, node.kind)?;
+                let combined_type = if left_type == &Type::Character {
+                    Type::String
+                } else {
+                    left_type.clone()
+                };
 
-            return Ok(Emission::Constant(combined, combined_type));
+                return Ok(Emission::Constant(combined, combined_type));
+            }
         }
 
+        let left_emission = self.compile_expression(&left)?;
         let left_type = left_emission.r#type().clone();
+        let left_address = left_emission.handle_as_operand(self);
+
+        let right_emission = self.compile_expression(&right)?;
         let right_type = right_emission.r#type().clone();
+        let right_address = right_emission.handle_as_operand(self);
 
         let instructions_count_before = self.instructions.len();
         let r#type = if left_type == Type::Character {
@@ -1154,8 +1177,6 @@ impl<'a> ChunkCompiler<'a> {
         } else {
             left_type.clone()
         };
-        let left_address = left_emission.handle_as_operand(self);
-        let right_address = right_emission.handle_as_operand(self);
         let destination = Address::register(self.get_next_register());
         let operand_type = match (left_type, right_type) {
             (Type::Integer, Type::Integer) => OperandType::INTEGER,
