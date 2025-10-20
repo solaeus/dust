@@ -381,6 +381,21 @@ pub fn compile_stackless_function(
         )?
     };
 
+    let float_power_function = {
+        let mut float_power_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        float_power_signature
+            .params
+            .extend([AbiParam::new(F64), AbiParam::new(F64)]);
+        float_power_signature.returns.push(AbiParam::new(F64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "float_power",
+            float_power_signature,
+        )?
+    };
+
     #[cfg(debug_assertions)]
     let log_operation_and_ip_function = {
         let mut log_operation_signature = Signature::new(compiler.module.isa().default_call_conv());
@@ -1133,6 +1148,13 @@ pub fn compile_stackless_function(
                                     function_builder.ins().fmul(truncated, right_value);
 
                                 function_builder.ins().fsub(left_value, multiplied)
+                            }
+                            Operation::POWER => {
+                                let call_instruction = function_builder
+                                    .ins()
+                                    .call(float_power_function, &[left_value, right_value]);
+
+                                function_builder.inst_results(call_instruction)[0]
                             }
                             _ => {
                                 return Err(JitError::UnhandledOperation { operation });
