@@ -188,6 +188,7 @@ impl<'a> ChunkCompiler<'a> {
                 SyntaxKind::MultiplicationExpression => Constant::Float(left * right),
                 SyntaxKind::DivisionExpression => Constant::Float(left / right),
                 SyntaxKind::ModuloExpression => Constant::Float(left % right),
+                SyntaxKind::ExponentExpression => Constant::Float(left.powf(right)),
                 SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
                 SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
                 SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
@@ -204,6 +205,9 @@ impl<'a> ChunkCompiler<'a> {
                 }
                 SyntaxKind::DivisionExpression => Constant::Integer(left.saturating_div(right)),
                 SyntaxKind::ModuloExpression => Constant::Integer(left % right),
+                SyntaxKind::ExponentExpression => {
+                    Constant::Integer(left.saturating_pow(right as u32))
+                }
                 SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
                 SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
                 SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
@@ -354,7 +358,7 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn handle_operand(&mut self, instruction: Instruction) -> Address {
-        if let Operation::LOAD = instruction.operation() {
+        if let Operation::MOVE = instruction.operation() {
             instruction.b_address()
         } else {
             self.instructions.push(instruction);
@@ -763,7 +767,7 @@ impl<'a> ChunkCompiler<'a> {
             );
         } else {
             let destination = Address::register(self.get_next_register());
-            let load_instruction = Instruction::load(
+            let load_instruction = Instruction::r#move(
                 destination,
                 local_address,
                 expression_type.as_operand_type(),
@@ -882,7 +886,8 @@ impl<'a> ChunkCompiler<'a> {
             | SyntaxKind::SubtractionAssignmentExpression
             | SyntaxKind::MultiplicationAssignmentExpression
             | SyntaxKind::DivisionAssignmentExpression
-            | SyntaxKind::ModuloAssignmentExpression => self.compile_math_expression(node),
+            | SyntaxKind::ModuloAssignmentExpression
+            | SyntaxKind::ExponentExpression => self.compile_math_expression(node),
             SyntaxKind::GreaterThanExpression
             | SyntaxKind::GreaterThanOrEqualExpression
             | SyntaxKind::LessThanExpression
@@ -1230,6 +1235,9 @@ impl<'a> ChunkCompiler<'a> {
 
                 Instruction::modulo(left_address, left_address, right_address, operand_type)
             }
+            SyntaxKind::ExponentExpression => {
+                Instruction::power(destination, left_address, right_address, operand_type)
+            }
             _ => unreachable!("Expected binary expression, found {}", node.kind),
         };
 
@@ -1287,7 +1295,8 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Constant(constant, type_id) => {
                 let operand_type = type_id.as_operand_type();
                 let address = self.get_constant_address(*constant);
-                let load_instruction = Instruction::load(destination, address, operand_type, false);
+                let load_instruction =
+                    Instruction::r#move(destination, address, operand_type, false);
 
                 (self.handle_operand(load_instruction), operand_type)
             }
@@ -1315,7 +1324,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Constant(constant, type_id) => {
                 let r#type = type_id.as_operand_type();
                 let address = self.get_constant_address(constant);
-                let load_instruction = Instruction::load(destination, address, r#type, false);
+                let load_instruction = Instruction::r#move(destination, address, r#type, false);
 
                 (self.handle_operand(load_instruction), r#type)
             }
@@ -1356,13 +1365,13 @@ impl<'a> ChunkCompiler<'a> {
             _ => unreachable!("Expected comparison expression, found {}", node.kind),
         };
         let jump_instruction = Instruction::jump(1, true);
-        let load_true_instruction = Instruction::load(
+        let load_true_instruction = Instruction::r#move(
             destination,
             Address::encoded(true as u16),
             OperandType::BOOLEAN,
             true,
         );
-        let load_false_instruction = Instruction::load(
+        let load_false_instruction = Instruction::r#move(
             destination,
             Address::encoded(false as u16),
             OperandType::BOOLEAN,
@@ -1434,7 +1443,8 @@ impl<'a> ChunkCompiler<'a> {
                 let operand_type = type_id.as_operand_type();
                 let address = self.get_constant_address(constant);
                 let destination = Address::register(self.get_next_register());
-                let load_instruction = Instruction::load(destination, address, operand_type, false);
+                let load_instruction =
+                    Instruction::r#move(destination, address, operand_type, false);
 
                 self.handle_operand(load_instruction)
             }
@@ -1461,7 +1471,8 @@ impl<'a> ChunkCompiler<'a> {
                 let operand_type = type_id.as_operand_type();
                 let address = self.get_constant_address(constant);
                 let destination = Address::register(self.get_next_register());
-                let load_instruction = Instruction::load(destination, address, operand_type, false);
+                let load_instruction =
+                    Instruction::r#move(destination, address, operand_type, false);
 
                 self.instructions.push(load_instruction);
 
@@ -1480,11 +1491,11 @@ impl<'a> ChunkCompiler<'a> {
 
         let load_destination = Address::register(self.get_next_register());
         let left_load_instruction =
-            Instruction::load(load_destination, left_address, OperandType::BOOLEAN, false);
+            Instruction::r#move(load_destination, left_address, OperandType::BOOLEAN, false);
         let test_instruction = Instruction::test(load_destination, comparator);
         let jump_instruction = Instruction::jump(1, true);
         let right_load_instruction =
-            Instruction::load(load_destination, right_address, OperandType::BOOLEAN, false);
+            Instruction::r#move(load_destination, right_address, OperandType::BOOLEAN, false);
 
         instructions.push(left_load_instruction);
         instructions.push(test_instruction);
@@ -1722,7 +1733,8 @@ impl<'a> ChunkCompiler<'a> {
                 let operand_type = type_id.as_operand_type();
                 let address = self.get_constant_address(constant);
                 let destination = Address::register(self.get_next_register());
-                let load_instruction = Instruction::load(destination, address, operand_type, false);
+                let load_instruction =
+                    Instruction::r#move(destination, address, operand_type, false);
 
                 self.handle_operand(load_instruction);
             }
@@ -2097,7 +2109,7 @@ impl<'a> ChunkCompiler<'a> {
                     let mut return_operand = self.handle_operand(instruction);
 
                     if let Some(last_instruction) = self.instructions.last()
-                        && last_instruction.operation() == Operation::LOAD
+                        && last_instruction.operation() == Operation::MOVE
                         && last_instruction.destination() == return_operand
                     {
                         return_operand = last_instruction.b_address();
@@ -2124,7 +2136,7 @@ impl<'a> ChunkCompiler<'a> {
                     let mut return_address = address;
 
                     if let Some(last_instruction) = self.instructions.last()
-                        && last_instruction.operation() == Operation::LOAD
+                        && last_instruction.operation() == Operation::MOVE
                         && last_instruction.destination() == return_address
                     {
                         return_address = last_instruction.b_address();
@@ -2187,7 +2199,7 @@ impl Emission {
                 let address = compiler.get_constant_address(constant);
                 let destination = Address::register(compiler.get_next_register());
                 let load_instruction =
-                    Instruction::load(destination, address, type_node.as_operand_type(), false);
+                    Instruction::r#move(destination, address, type_node.as_operand_type(), false);
 
                 compiler.handle_operand(load_instruction)
             }

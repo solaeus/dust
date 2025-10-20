@@ -124,6 +124,7 @@ impl SyntaxNode {
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression
+            | SyntaxKind::ExponentExpression
             | SyntaxKind::AdditionAssignmentExpression
             | SyntaxKind::SubtractionAssignmentExpression
             | SyntaxKind::MultiplicationAssignmentExpression
@@ -217,6 +218,7 @@ pub enum SyntaxKind {
     MultiplicationExpression,
     DivisionExpression,
     ModuloExpression,
+    ExponentExpression,
 
     // Binary Math Assignment Expressions
     AdditionAssignmentExpression,
@@ -374,6 +376,7 @@ impl Display for SyntaxKind {
             SyntaxKind::MultiplicationExpression => write!(f, "multiplication expression"),
             SyntaxKind::DivisionExpression => write!(f, "division expression"),
             SyntaxKind::ModuloExpression => write!(f, "modulo expression"),
+            SyntaxKind::ExponentExpression => write!(f, "exponent expression"),
             SyntaxKind::AdditionAssignmentExpression => {
                 write!(f, "addition assignment expression")
             }

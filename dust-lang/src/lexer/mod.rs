@@ -752,6 +752,7 @@ fn classify_single_operator(b: u8) -> TokenKind {
     match b {
         b'*' => TokenKind::Asterisk,
         b'!' => TokenKind::Bang,
+        b'^' => TokenKind::Caret,
         b':' => TokenKind::Colon,
         b',' => TokenKind::Comma,
         b'.' => TokenKind::Dot,
@@ -770,7 +771,6 @@ fn classify_single_operator(b: u8) -> TokenKind {
         b';' => TokenKind::Semicolon,
         b'/' => TokenKind::Slash,
         b'@' => TokenKind::Unknown,
-        b'^' => TokenKind::Unknown,
         b'`' => TokenKind::Unknown,
         b'~' => TokenKind::Unknown,
         b'?' => TokenKind::Unknown,

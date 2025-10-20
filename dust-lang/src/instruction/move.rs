@@ -2,21 +2,21 @@ use std::fmt::{self, Display, Formatter};
 
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
-pub struct Load {
+pub struct Move {
     pub destination: Address,
     pub operand: Address,
     pub r#type: OperandType,
     pub jump_next: bool,
 }
 
-impl From<Instruction> for Load {
+impl From<Instruction> for Move {
     fn from(instruction: Instruction) -> Self {
         let destination = instruction.destination();
         let operand = instruction.b_address();
         let r#type = instruction.operand_type();
         let jump_next = instruction.c_field() != 0;
 
-        Load {
+        Move {
             destination,
             operand,
             r#type,
@@ -25,8 +25,8 @@ impl From<Instruction> for Load {
     }
 }
 
-impl From<Load> for Instruction {
-    fn from(load: Load) -> Self {
+impl From<Move> for Instruction {
+    fn from(load: Move) -> Self {
         let Address {
             index: a_field,
             memory: a_memory_kind,
@@ -39,7 +39,7 @@ impl From<Load> for Instruction {
         let operand_type = load.r#type;
 
         InstructionFields {
-            operation: Operation::LOAD,
+            operation: Operation::MOVE,
             a_field,
             a_memory_kind,
             b_field,
@@ -52,9 +52,9 @@ impl From<Load> for Instruction {
     }
 }
 
-impl Display for Load {
+impl Display for Move {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let Load {
+        let Move {
             destination,
             operand,
             jump_next,

@@ -95,6 +95,11 @@ impl From<TokenKind> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
+            TokenKind::Caret => ParseRule {
+                prefix: None,
+                infix: Some(Parser::parse_binary_expression),
+                precedence: Precedence::Exponent,
+            },
             TokenKind::Cell => ParseRule {
                 prefix: Some(Parser::parse_unexpected),
                 infix: None,
@@ -397,10 +402,11 @@ impl From<TokenKind> for ParseRule<'_> {
 /// Operator precedence levels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Precedence {
-    Primary = 9,
-    Path = 8,
-    CallOrIndex = 7,
-    Unary = 6,
+    Primary = 10,
+    Path = 9,
+    CallOrIndex = 8,
+    Unary = 7,
+    Exponent = 6,
     PrimaryMath = 5,
     SecondaryMath = 4,
     Comparison = 3,
@@ -417,7 +423,8 @@ impl Precedence {
             Precedence::Logic => Precedence::Comparison,
             Precedence::Comparison => Precedence::SecondaryMath,
             Precedence::SecondaryMath => Precedence::PrimaryMath,
-            Precedence::PrimaryMath => Precedence::Unary,
+            Precedence::PrimaryMath => Precedence::Exponent,
+            Precedence::Exponent => Precedence::Unary,
             Precedence::Unary => Precedence::CallOrIndex,
             Precedence::CallOrIndex => Precedence::Path,
             Precedence::Path => Precedence::Primary,

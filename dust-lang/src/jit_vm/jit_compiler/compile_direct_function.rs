@@ -12,7 +12,7 @@ use crate::{
     chunk::Chunk,
     constant_table::ConstantTable,
     instruction::{
-        Add, Address, Call, CallNative, Jump, Load, MemoryKind, OperandType, Operation, Return,
+        Add, Address, Call, CallNative, Jump, Move, MemoryKind, OperandType, Operation, Return,
     },
     jit_vm::{JitCompiler, JitError, jit_compiler::FunctionIds},
     r#type::Type,
@@ -167,13 +167,13 @@ pub fn compile_direct_function(
         }
 
         match operation {
-            Operation::LOAD => {
-                let Load {
+            Operation::MOVE => {
+                let Move {
                     destination,
                     operand,
                     r#type,
                     jump_next,
-                } = Load::from(*current_instruction);
+                } = Move::from(*current_instruction);
                 let destination_index = destination.index as usize;
                 let value = match r#type {
                     OperandType::INTEGER => self::get_integer(

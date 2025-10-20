@@ -16,7 +16,7 @@ fn local_boolean_not() {
         Chunk {
             r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::encoded(true as u16),
                     OperandType::BOOLEAN,

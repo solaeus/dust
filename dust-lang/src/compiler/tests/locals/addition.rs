@@ -16,13 +16,13 @@ fn local_byte_addition() {
         Chunk {
             r#type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::encoded(40),
                     OperandType::BYTE,
                     false
                 ),
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(1),
                     Address::encoded(2),
                     OperandType::BYTE,
@@ -52,13 +52,13 @@ fn local_float_addition() {
         Chunk {
             r#type: FunctionType::new([], [], Type::Float),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::constant(0),
                     OperandType::FLOAT,
                     false
                 ),
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(1),
                     Address::constant(1),
                     OperandType::FLOAT,
@@ -88,13 +88,13 @@ fn local_integer_addition() {
         Chunk {
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::constant(0),
                     OperandType::INTEGER,
                     false
                 ),
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(1),
                     Address::constant(1),
                     OperandType::INTEGER,
@@ -124,13 +124,13 @@ fn local_string_concatenation() {
         Chunk {
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::constant(0),
                     OperandType::STRING,
                     false
                 ),
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(1),
                     Address::constant(1),
                     OperandType::STRING,
@@ -160,13 +160,13 @@ fn local_character_concatenation() {
         Chunk {
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::constant(0),
                     OperandType::CHARACTER,
                     false
                 ),
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(1),
                     Address::constant(0),
                     OperandType::CHARACTER,
@@ -196,13 +196,13 @@ fn local_string_character_concatenation() {
         Chunk {
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::constant(0),
                     OperandType::STRING,
                     false
                 ),
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(1),
                     Address::constant(1),
                     OperandType::CHARACTER,
@@ -232,13 +232,13 @@ fn local_character_string_concatenation() {
         Chunk {
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::constant(0),
                     OperandType::CHARACTER,
                     false
                 ),
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(1),
                     Address::constant(1),
                     OperandType::STRING,

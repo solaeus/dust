@@ -54,7 +54,7 @@ fn block_statement() {
         Chunk {
             r#type: FunctionType::new([], [], Type::None),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::constant(0),
                     OperandType::INTEGER,
@@ -78,7 +78,7 @@ fn block_statement_and_expression() {
         Chunk {
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::constant(0),
                     OperandType::INTEGER,
@@ -128,13 +128,13 @@ fn nested_parrent_scope_access() {
         Chunk {
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::constant(0),
                     OperandType::INTEGER,
                     false
                 ),
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(1),
                     Address::constant(1),
                     OperandType::INTEGER,
@@ -164,7 +164,7 @@ fn scope_shadowing() {
         Chunk {
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::constant(0),
                     OperandType::INTEGER,
@@ -188,13 +188,13 @@ fn scope_deshadowing() {
         Chunk {
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::constant(0),
                     OperandType::INTEGER,
                     false
                 ),
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(1),
                     Address::constant(1),
                     OperandType::INTEGER,

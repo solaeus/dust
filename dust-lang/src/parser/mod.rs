@@ -931,6 +931,7 @@ impl<'src> Parser<'src> {
             TokenKind::SlashEqual => SyntaxKind::DivisionAssignmentExpression,
             TokenKind::Percent => SyntaxKind::ModuloExpression,
             TokenKind::PercentEqual => SyntaxKind::ModuloAssignmentExpression,
+            TokenKind::Caret => SyntaxKind::ExponentExpression,
             TokenKind::Greater => SyntaxKind::GreaterThanExpression,
             TokenKind::GreaterEqual => SyntaxKind::GreaterThanOrEqualExpression,
             TokenKind::Less => SyntaxKind::LessThanExpression,
@@ -943,10 +944,24 @@ impl<'src> Parser<'src> {
                 return Err(ParseError::ExpectedMultipleTokens {
                     expected: &[
                         TokenKind::Plus,
+                        TokenKind::PlusEqual,
                         TokenKind::Minus,
+                        TokenKind::MinusEqual,
                         TokenKind::Asterisk,
+                        TokenKind::AsteriskEqual,
                         TokenKind::Slash,
+                        TokenKind::SlashEqual,
                         TokenKind::Percent,
+                        TokenKind::PercentEqual,
+                        TokenKind::Caret,
+                        TokenKind::Greater,
+                        TokenKind::GreaterEqual,
+                        TokenKind::Less,
+                        TokenKind::LessEqual,
+                        TokenKind::DoubleEqual,
+                        TokenKind::BangEqual,
+                        TokenKind::DoubleAmpersand,
+                        TokenKind::DoublePipe,
                     ],
                     actual: operator,
                     position: self.current_position(),
@@ -1250,8 +1265,8 @@ impl<'src> Parser<'src> {
         let end = self.previous_token.span.1;
         let Some(last_node) = self.syntax_tree.last_node() else {
             return Err(ParseError::UnexpectedToken {
-                actual: self.current_token.kind,
-                position: self.current_position(),
+                actual: self.previous_token.kind,
+                position: Position::new(self.file_id, self.previous_token.span),
             });
         };
         let is_optional = last_node.kind.has_block();

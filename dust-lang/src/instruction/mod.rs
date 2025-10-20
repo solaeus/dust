@@ -25,14 +25,15 @@ mod get_list;
 mod jump;
 mod less;
 mod less_equal;
-mod load;
 mod memory_kind;
 mod modulo;
+mod r#move;
 mod multiply;
 mod negate;
 mod new_list;
 mod operand_type;
 mod operation;
+mod power;
 mod r#return;
 mod set_list;
 mod subtract;
@@ -49,14 +50,15 @@ pub use get_list::GetList;
 pub use jump::Jump;
 pub use less::Less;
 pub use less_equal::LessEqual;
-pub use load::Load;
 pub use memory_kind::MemoryKind;
 pub use modulo::Modulo;
+pub use r#move::Move;
 pub use multiply::Multiply;
 pub use negate::Negate;
 pub use new_list::NewList;
 pub use operand_type::OperandType;
 pub use operation::Operation;
+pub use power::Power;
 pub use r#return::Return;
 pub use set_list::SetList;
 pub use subtract::Subtract;
@@ -193,13 +195,13 @@ impl Instruction {
         Instruction(0)
     }
 
-    pub fn load(
+    pub fn r#move(
         destination: Address,
         operand: Address,
         r#type: OperandType,
         jump_next: bool,
     ) -> Instruction {
-        Instruction::from(Load {
+        Instruction::from(Move {
             destination,
             operand,
             r#type,
@@ -324,6 +326,20 @@ impl Instruction {
         })
     }
 
+    pub fn power(
+        destination: Address,
+        base: Address,
+        exponent: Address,
+        r#type: OperandType,
+    ) -> Instruction {
+        Instruction::from(Power {
+            destination,
+            base,
+            exponent,
+            r#type,
+        })
+    }
+
     pub fn equal(
         comparator: bool,
         left: Address,
@@ -438,7 +454,7 @@ impl Instruction {
 
     pub fn yields_value(&self) -> bool {
         match self.operation() {
-            Operation::LOAD
+            Operation::MOVE
             | Operation::NEW_LIST
             | Operation::GET_LIST
             | Operation::ADD
@@ -446,6 +462,7 @@ impl Instruction {
             | Operation::MULTIPLY
             | Operation::DIVIDE
             | Operation::MODULO
+            | Operation::POWER
             | Operation::NEGATE
             | Operation::CALL => true,
             Operation::CALL_NATIVE => {
@@ -470,7 +487,7 @@ impl Instruction {
         let operation = self.operation();
 
         match operation {
-            Operation::LOAD => Load::from(self).to_string(),
+            Operation::MOVE => Move::from(self).to_string(),
             Operation::DROP => Drop::from(self).to_string(),
             Operation::NEW_LIST => NewList::from(self).to_string(),
             Operation::SET_LIST => SetList::from(self).to_string(),
@@ -480,6 +497,7 @@ impl Instruction {
             Operation::MULTIPLY => Multiply::from(self).to_string(),
             Operation::DIVIDE => Divide::from(self).to_string(),
             Operation::MODULO => Modulo::from(self).to_string(),
+            Operation::POWER => Power::from(self).to_string(),
             Operation::NEGATE => Negate::from(self).to_string(),
             Operation::EQUAL => Equal::from(self).to_string(),
             Operation::LESS => Less::from(self).to_string(),

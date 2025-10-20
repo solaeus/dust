@@ -17,7 +17,7 @@ use crate::{
     chunk::Chunk,
     constant_table::ConstantTable,
     instruction::{
-        Address, Call, CallNative, Drop, GetList, Jump, Load, MemoryKind, Negate, NewList,
+        Address, Call, CallNative, Drop, GetList, Jump, MemoryKind, Move, Negate, NewList,
         OperandType, Operation, Return, SetList, Test,
     },
     jit_vm::{
@@ -366,6 +366,21 @@ pub fn compile_stackless_function(
         )?
     };
 
+    let integer_power_function = {
+        let mut integer_power_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        integer_power_signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(I64)]);
+        integer_power_signature.returns.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "integer_power",
+            integer_power_signature,
+        )?
+    };
+
     #[cfg(debug_assertions)]
     let log_operation_and_ip_function = {
         let mut log_operation_signature = Signature::new(compiler.module.isa().default_call_conv());
@@ -534,13 +549,13 @@ pub fn compile_stackless_function(
         }
 
         match operation {
-            Operation::LOAD => {
-                let Load {
+            Operation::MOVE => {
+                let Move {
                     destination,
                     operand,
                     r#type,
                     jump_next,
-                } = Load::from(*current_instruction);
+                } = Move::from(*current_instruction);
                 let result_register = match r#type {
                     OperandType::BOOLEAN => get_boolean(
                         operand,
@@ -1001,7 +1016,8 @@ pub fn compile_stackless_function(
             | Operation::SUBTRACT
             | Operation::MULTIPLY
             | Operation::DIVIDE
-            | Operation::MODULO => {
+            | Operation::MODULO
+            | Operation::POWER => {
                 let destination = current_instruction.destination();
                 let left = current_instruction.b_address();
                 let right = current_instruction.c_address();
@@ -1070,6 +1086,13 @@ pub fn compile_stackless_function(
                             }
                             Operation::MODULO => {
                                 function_builder.ins().urem(left_value, right_value)
+                            }
+                            Operation::POWER => {
+                                let call_instruction = function_builder
+                                    .ins()
+                                    .call(integer_power_function, &[left_value, right_value]);
+
+                                function_builder.inst_results(call_instruction)[0]
                             }
                             _ => {
                                 return Err(JitError::UnhandledOperation { operation });

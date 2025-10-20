@@ -91,6 +91,8 @@ impl<'a> JitCompiler<'a> {
         builder.symbol("write_line_integer", write_line_integer as *const u8);
         builder.symbol("write_line_string", write_line_string as *const u8);
 
+        builder.symbol("integer_power", integer_power as *const u8);
+
         #[cfg(debug_assertions)]
         builder.symbol("log_operation_and_ip", log_operation_and_ip as *const u8);
 

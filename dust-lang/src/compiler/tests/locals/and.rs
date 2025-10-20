@@ -16,19 +16,19 @@ fn local_boolean_and() {
         Chunk {
             r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(0),
                     Address::encoded(true as u16),
                     OperandType::BOOLEAN,
                     false
                 ),
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(1),
                     Address::encoded(false as u16),
                     OperandType::BOOLEAN,
                     false
                 ),
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(2),
                     Address::register(0),
                     OperandType::BOOLEAN,
@@ -36,7 +36,7 @@ fn local_boolean_and() {
                 ),
                 Instruction::test(Address::register(2), true),
                 Instruction::jump(1, true),
-                Instruction::load(
+                Instruction::r#move(
                     Address::register(2),
                     Address::register(1),
                     OperandType::BOOLEAN,

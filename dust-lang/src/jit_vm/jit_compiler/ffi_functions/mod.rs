@@ -1,9 +1,11 @@
 pub mod io;
 pub mod lists;
+pub mod math;
 pub mod strings;
 
 pub use io::*;
 pub use lists::*;
+pub use math::*;
 pub use strings::*;
 
 use tracing::info;
