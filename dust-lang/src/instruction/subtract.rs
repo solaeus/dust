@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Subtract {
-    pub destination: Address,
+    pub destination: u16,
     pub left: Address,
     pub right: Address,
     pub r#type: OperandType,
@@ -11,7 +11,7 @@ pub struct Subtract {
 
 impl From<Instruction> for Subtract {
     fn from(instruction: Instruction) -> Self {
-        let destination = instruction.destination();
+        let destination = instruction.a_field();
         let left = instruction.b_address();
         let right = instruction.c_address();
         let r#type = instruction.operand_type();
@@ -28,10 +28,7 @@ impl From<Instruction> for Subtract {
 impl From<Subtract> for Instruction {
     fn from(subtract: Subtract) -> Self {
         let operation = Operation::SUBTRACT;
-        let Address {
-            index: a_field,
-            memory: a_memory_kind,
-        } = subtract.destination;
+        let a_field = subtract.destination;
         let Address {
             index: b_field,
             memory: b_memory_kind,
@@ -45,7 +42,6 @@ impl From<Subtract> for Instruction {
         InstructionFields {
             operation,
             a_field,
-            a_memory_kind,
             b_field,
             b_memory_kind,
             c_field,
@@ -66,8 +62,7 @@ impl Display for Subtract {
             r#type,
         } = self;
 
-        destination.display(f, *r#type)?;
-        write!(f, " = ")?;
+        write!(f, "reg_{destination} = ")?;
         left.display(f, *r#type)?;
         write!(f, " - ")?;
         right.display(f, *r#type)

@@ -621,10 +621,10 @@ pub fn compile_stackless_function(
                     | OperandType::LIST_STRING
                     | OperandType::LIST_LIST
                     | OperandType::LIST_FUNCTION => get_list(
-                        operand,
+                        operand.index,
                         current_frame_base_register_address,
                         &mut function_builder,
-                    )?,
+                    ),
                     _ => {
                         return Err(JitError::UnsupportedOperandType {
                             operand_type: r#type,
@@ -633,7 +633,7 @@ pub fn compile_stackless_function(
                 };
 
                 JitCompiler::set_register(
-                    destination.index,
+                    destination,
                     result_register,
                     r#type.destination_type(),
                     current_frame_base_register_address,
@@ -705,7 +705,7 @@ pub fn compile_stackless_function(
                     function_builder.inst_results(call_allocate_list_instruction)[0];
 
                 JitCompiler::set_register(
-                    destination.index,
+                    destination,
                     list_object_pointer,
                     list_type,
                     current_frame_base_register_address,
@@ -727,7 +727,7 @@ pub fn compile_stackless_function(
                     destination_list,
                     current_frame_base_register_address,
                     &mut function_builder,
-                )?;
+                );
                 let item_value = match item_type {
                     OperandType::INTEGER => get_integer(
                         item_source,
@@ -778,10 +778,10 @@ pub fn compile_stackless_function(
                     | OperandType::LIST_STRING
                     | OperandType::LIST_LIST
                     | OperandType::LIST_FUNCTION => get_list(
-                        item_source,
+                        item_source.index,
                         current_frame_base_register_address,
                         &mut function_builder,
-                    )?,
+                    ),
                     _ => {
                         return Err(JitError::UnsupportedOperandType {
                             operand_type: item_type,
@@ -806,10 +806,10 @@ pub fn compile_stackless_function(
                 } = GetList::from(*current_instruction);
 
                 let list_pointer = get_list(
-                    list,
+                    list.index,
                     current_frame_base_register_address,
                     &mut function_builder,
-                )?;
+                );
                 let list_index = get_integer(
                     list_index,
                     current_frame_base_register_address,
@@ -831,7 +831,7 @@ pub fn compile_stackless_function(
                             .bitcast(F64, MemFlags::new(), element_value);
 
                     JitCompiler::set_register(
-                        destination.index,
+                        destination,
                         element_value_as_float,
                         item_type,
                         current_frame_base_register_address,
@@ -841,7 +841,7 @@ pub fn compile_stackless_function(
                     )?;
                 } else {
                     JitCompiler::set_register(
-                        destination.index,
+                        destination,
                         element_value,
                         item_type,
                         current_frame_base_register_address,
@@ -1341,7 +1341,7 @@ pub fn compile_stackless_function(
                 };
 
                 JitCompiler::set_register(
-                    destination.index,
+                    destination,
                     result_value,
                     r#type,
                     current_frame_base_register_address,
@@ -1508,7 +1508,7 @@ pub fn compile_stackless_function(
                     let return_value = function_builder.inst_results(call_instruction)[0];
 
                     JitCompiler::set_register(
-                        destination.index,
+                        destination,
                         return_value,
                         function_type.return_type.as_operand_type(),
                         current_frame_base_register_address,
@@ -1630,10 +1630,10 @@ pub fn compile_stackless_function(
                         }
                         OperandType::LIST_BOOLEAN => {
                             let list_value = get_list(
-                                return_value_address,
+                                return_value_address.index,
                                 current_frame_base_register_address,
                                 &mut function_builder,
-                            )?;
+                            );
                             let list_type = function_builder
                                 .ins()
                                 .iconst(I8, OperandType::LIST_BOOLEAN.0 as i64);
@@ -1642,10 +1642,10 @@ pub fn compile_stackless_function(
                         }
                         OperandType::LIST_BYTE => {
                             let list_value = get_list(
-                                return_value_address,
+                                return_value_address.index,
                                 current_frame_base_register_address,
                                 &mut function_builder,
-                            )?;
+                            );
                             let list_type = function_builder
                                 .ins()
                                 .iconst(I8, OperandType::LIST_BYTE.0 as i64);
@@ -1654,10 +1654,10 @@ pub fn compile_stackless_function(
                         }
                         OperandType::LIST_CHARACTER => {
                             let list_value = get_list(
-                                return_value_address,
+                                return_value_address.index,
                                 current_frame_base_register_address,
                                 &mut function_builder,
-                            )?;
+                            );
                             let list_type = function_builder
                                 .ins()
                                 .iconst(I8, OperandType::LIST_CHARACTER.0 as i64);
@@ -1666,10 +1666,10 @@ pub fn compile_stackless_function(
                         }
                         OperandType::LIST_FLOAT => {
                             let list_value = get_list(
-                                return_value_address,
+                                return_value_address.index,
                                 current_frame_base_register_address,
                                 &mut function_builder,
-                            )?;
+                            );
                             let list_type = function_builder
                                 .ins()
                                 .iconst(I8, OperandType::LIST_FLOAT.0 as i64);
@@ -1678,10 +1678,10 @@ pub fn compile_stackless_function(
                         }
                         OperandType::LIST_INTEGER => {
                             let list_value = get_list(
-                                return_value_address,
+                                return_value_address.index,
                                 current_frame_base_register_address,
                                 &mut function_builder,
-                            )?;
+                            );
                             let list_type = function_builder
                                 .ins()
                                 .iconst(I8, OperandType::LIST_INTEGER.0 as i64);
@@ -1690,10 +1690,10 @@ pub fn compile_stackless_function(
                         }
                         OperandType::LIST_STRING => {
                             let list_value = get_list(
-                                return_value_address,
+                                return_value_address.index,
                                 current_frame_base_register_address,
                                 &mut function_builder,
-                            )?;
+                            );
                             let list_type = function_builder
                                 .ins()
                                 .iconst(I8, OperandType::LIST_STRING.0 as i64);
@@ -1702,10 +1702,10 @@ pub fn compile_stackless_function(
                         }
                         OperandType::LIST_LIST => {
                             let list_value = get_list(
-                                return_value_address,
+                                return_value_address.index,
                                 current_frame_base_register_address,
                                 &mut function_builder,
-                            )?;
+                            );
                             let list_type = function_builder
                                 .ins()
                                 .iconst(I8, OperandType::LIST_LIST.0 as i64);
@@ -2100,28 +2100,17 @@ fn get_string(
 }
 
 fn get_list(
-    address: Address,
+    register: u16,
     frame_base_address: CraneliftValue,
     function_builder: &mut FunctionBuilder,
-) -> Result<CraneliftValue, JitError> {
-    let jit_value = match address.memory {
-        MemoryKind::REGISTER => {
-            let relative_index = function_builder.ins().iconst(I64, address.index as i64);
-            let byte_offset = function_builder
-                .ins()
-                .imul_imm(relative_index, size_of::<Register>() as i64);
-            let address = function_builder.ins().iadd(frame_base_address, byte_offset);
+) -> CraneliftValue {
+    let relative_index = function_builder.ins().iconst(I64, register as i64);
+    let byte_offset = function_builder
+        .ins()
+        .imul_imm(relative_index, size_of::<Register>() as i64);
+    let address = function_builder.ins().iadd(frame_base_address, byte_offset);
 
-            function_builder
-                .ins()
-                .load(I64, MemFlags::new(), address, 0)
-        }
-        _ => {
-            return Err(JitError::UnsupportedMemoryKind {
-                memory_kind: address.memory,
-            });
-        }
-    };
-
-    Ok(jit_value)
+    function_builder
+        .ins()
+        .load(I64, MemFlags::new(), address, 0)
 }

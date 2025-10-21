@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Move {
-    pub destination: Address,
+    pub destination: u16,
     pub operand: Address,
     pub r#type: OperandType,
     pub jump_next: bool,
@@ -11,7 +11,7 @@ pub struct Move {
 
 impl From<Instruction> for Move {
     fn from(instruction: Instruction) -> Self {
-        let destination = instruction.destination();
+        let destination = instruction.a_field();
         let operand = instruction.b_address();
         let r#type = instruction.operand_type();
         let jump_next = instruction.c_field() != 0;
@@ -27,10 +27,7 @@ impl From<Instruction> for Move {
 
 impl From<Move> for Instruction {
     fn from(load: Move) -> Self {
-        let Address {
-            index: a_field,
-            memory: a_memory_kind,
-        } = load.destination;
+        let a_field = load.destination;
         let Address {
             index: b_field,
             memory: b_memory_kind,
@@ -41,7 +38,6 @@ impl From<Move> for Instruction {
         InstructionFields {
             operation: Operation::MOVE,
             a_field,
-            a_memory_kind,
             b_field,
             b_memory_kind,
             c_field,
@@ -61,8 +57,7 @@ impl Display for Move {
             r#type,
         } = self;
 
-        write!(f, "reg_{}", destination.index)?;
-        write!(f, " = ")?;
+        write!(f, "reg_{destination} = ")?;
         operand.display(f, *r#type)?;
 
         if *jump_next {

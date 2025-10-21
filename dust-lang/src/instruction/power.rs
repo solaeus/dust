@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use crate::instruction::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Power {
-    pub destination: Address,
+    pub destination: u16,
     pub base: Address,
     pub exponent: Address,
     pub r#type: OperandType,
@@ -11,7 +11,7 @@ pub struct Power {
 
 impl From<Instruction> for Power {
     fn from(instruction: Instruction) -> Self {
-        let destination = instruction.destination();
+        let destination = instruction.a_field();
         let base = instruction.b_address();
         let exponent = instruction.c_address();
         let r#type = instruction.operand_type();
@@ -28,10 +28,7 @@ impl From<Instruction> for Power {
 impl From<Power> for Instruction {
     fn from(modulo: Power) -> Self {
         let operation = Operation::POWER;
-        let Address {
-            index: a_field,
-            memory: a_memory_kind,
-        } = modulo.destination;
+        let a_field = modulo.destination;
         let Address {
             index: b_field,
             memory: b_memory_kind,
@@ -45,7 +42,6 @@ impl From<Power> for Instruction {
         InstructionFields {
             operation,
             a_field,
-            a_memory_kind,
             b_field,
             b_memory_kind,
             c_field,
@@ -66,8 +62,7 @@ impl Display for Power {
             r#type,
         } = self;
 
-        destination.display(f, *r#type)?;
-        write!(f, " = ")?;
+        write!(f, "reg_{destination} = ")?;
         base.display(f, *r#type)?;
         write!(f, "^")?;
         exponent.display(f, *r#type)

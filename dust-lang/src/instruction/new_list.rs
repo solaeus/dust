@@ -1,16 +1,16 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, OperandType, Operation};
+use super::{Instruction, InstructionFields, OperandType, Operation};
 
 pub struct NewList {
-    pub destination: Address,
+    pub destination: u16,
     pub initial_length: u16,
     pub list_type: OperandType,
 }
 
 impl From<Instruction> for NewList {
     fn from(instruction: Instruction) -> Self {
-        let destination = instruction.destination();
+        let destination = instruction.a_field();
         let initial_length = instruction.b_field();
         let list_type = instruction.operand_type();
 
@@ -25,17 +25,13 @@ impl From<Instruction> for NewList {
 impl From<NewList> for Instruction {
     fn from(list: NewList) -> Self {
         let operation = Operation::NEW_LIST;
-        let Address {
-            index: a_field,
-            memory: a_memory_kind,
-        } = list.destination;
+        let a_field = list.destination;
         let b_field = list.initial_length;
         let operand_type = list.list_type;
 
         InstructionFields {
             operation,
             a_field,
-            a_memory_kind,
             b_field,
             operand_type,
             ..Default::default()
@@ -63,7 +59,6 @@ impl Display for NewList {
             _ => "error".to_string(),
         };
 
-        destination.display(f, *list_type)?;
-        write!(f, " = [{item_type}]")
+        write!(f, "reg_{destination} = [{item_type}]")
     }
 }

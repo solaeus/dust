@@ -12,7 +12,7 @@ use crate::{
     chunk::Chunk,
     constant_table::ConstantTable,
     instruction::{
-        Add, Address, Call, CallNative, Jump, Move, MemoryKind, OperandType, Operation, Return,
+        Add, Address, Call, CallNative, Jump, MemoryKind, Move, OperandType, Operation, Return,
     },
     jit_vm::{JitCompiler, JitError, jit_compiler::FunctionIds},
     r#type::Type,
@@ -174,7 +174,6 @@ pub fn compile_direct_function(
                     r#type,
                     jump_next,
                 } = Move::from(*current_instruction);
-                let destination_index = destination.index as usize;
                 let value = match r#type {
                     OperandType::INTEGER => self::get_integer(
                         operand,
@@ -189,7 +188,7 @@ pub fn compile_direct_function(
                     }
                 };
 
-                ssa_registers[destination_index] = value;
+                ssa_registers[destination as usize] = value;
 
                 if jump_next {
                     function_builder.ins().jump(instruction_blocks[ip + 2], &[]);
@@ -257,7 +256,7 @@ pub fn compile_direct_function(
                     right,
                     r#type,
                 } = Add::from(*current_instruction);
-                let destination_index = destination.index as usize;
+                let destination_index = destination as usize;
                 let sum = match r#type {
                     OperandType::INTEGER => {
                         let left_value = get_integer(
@@ -457,7 +456,7 @@ pub fn compile_direct_function(
                 if function_type.return_type != Type::None {
                     let return_value = function_builder.inst_results(call_instruction)[0];
 
-                    ssa_registers[destination.index as usize] = return_value;
+                    ssa_registers[destination as usize] = return_value;
                 }
 
                 function_builder.ins().jump(instruction_blocks[ip + 1], &[]);

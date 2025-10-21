@@ -17,16 +17,12 @@ fn local_boolean_not() {
             r#type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(
-                    Address::register(0),
+                    0,
                     Address::encoded(true as u16),
                     OperandType::BOOLEAN,
                     false
                 ),
-                Instruction::negate(
-                    Address::register(1),
-                    Address::register(0),
-                    OperandType::BOOLEAN
-                ),
+                Instruction::negate(1, Address::register(0), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(1), OperandType::BOOLEAN)
             ],
             register_count: 2,

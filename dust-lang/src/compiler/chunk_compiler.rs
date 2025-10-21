@@ -766,9 +766,9 @@ impl<'a> ChunkCompiler<'a> {
                 },
             );
         } else {
-            let destination = Address::register(self.get_next_register());
+            let destination_register = self.get_next_register();
             let load_instruction = Instruction::r#move(
-                destination,
+                destination_register,
                 local_address,
                 expression_type.as_operand_type(),
                 false,
@@ -779,7 +779,7 @@ impl<'a> ChunkCompiler<'a> {
                 declaration_id,
                 Local {
                     r#type: expression_type,
-                    address: destination,
+                    address: Address::register(destination_register),
                 },
             );
         }
@@ -991,7 +991,7 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling list expression");
 
         let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
-        let list_destination = Address::register(self.get_next_register());
+        let list_destination = self.get_next_register();
         let mut instructions = {
             let mut instructions = SmallVec::<[Instruction; 4]>::with_capacity(child_count + 1);
             let placeholder = Instruction::no_op();
@@ -1100,7 +1100,7 @@ impl<'a> ChunkCompiler<'a> {
         let index_emission = self.compile_expression(&index_node)?;
         let list_address = list_emission.handle_as_operand(self);
         let index_address = index_emission.handle_as_operand(self);
-        let destination = Address::register(self.get_next_register());
+        let destination = self.get_next_register();
 
         let get_list_instruction = Instruction::get_list(
             destination,
@@ -1182,7 +1182,7 @@ impl<'a> ChunkCompiler<'a> {
         } else {
             left_type.clone()
         };
-        let destination = Address::register(self.get_next_register());
+        let destination = self.get_next_register();
         let operand_type = match (left_type, right_type) {
             (Type::Integer, Type::Integer) => OperandType::INTEGER,
             (Type::Float, Type::Float) => OperandType::FLOAT,
@@ -1201,7 +1201,12 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::AdditionAssignmentExpression => {
                 self.instructions.truncate(instructions_count_before);
 
-                Instruction::add(left_address, left_address, right_address, operand_type)
+                Instruction::add(
+                    left_address.index,
+                    left_address,
+                    right_address,
+                    operand_type,
+                )
             }
             SyntaxKind::SubtractionExpression => {
                 Instruction::subtract(destination, left_address, right_address, operand_type)
@@ -1209,7 +1214,12 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::SubtractionAssignmentExpression => {
                 self.instructions.truncate(instructions_count_before);
 
-                Instruction::subtract(left_address, left_address, right_address, operand_type)
+                Instruction::subtract(
+                    left_address.index,
+                    left_address,
+                    right_address,
+                    operand_type,
+                )
             }
             SyntaxKind::MultiplicationExpression => {
                 Instruction::multiply(destination, left_address, right_address, operand_type)
@@ -1217,7 +1227,12 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::MultiplicationAssignmentExpression => {
                 self.instructions.truncate(instructions_count_before);
 
-                Instruction::multiply(left_address, left_address, right_address, operand_type)
+                Instruction::multiply(
+                    left_address.index,
+                    left_address,
+                    right_address,
+                    operand_type,
+                )
             }
             SyntaxKind::DivisionExpression => {
                 Instruction::divide(destination, left_address, right_address, operand_type)
@@ -1225,7 +1240,12 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::DivisionAssignmentExpression => {
                 self.instructions.truncate(instructions_count_before);
 
-                Instruction::divide(left_address, left_address, right_address, operand_type)
+                Instruction::divide(
+                    left_address.index,
+                    left_address,
+                    right_address,
+                    operand_type,
+                )
             }
             SyntaxKind::ModuloExpression => {
                 Instruction::modulo(destination, left_address, right_address, operand_type)
@@ -1233,7 +1253,12 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::ModuloAssignmentExpression => {
                 self.instructions.truncate(instructions_count_before);
 
-                Instruction::modulo(left_address, left_address, right_address, operand_type)
+                Instruction::modulo(
+                    left_address.index,
+                    left_address,
+                    right_address,
+                    operand_type,
+                )
             }
             SyntaxKind::ExponentExpression => {
                 Instruction::power(destination, left_address, right_address, operand_type)
@@ -1278,7 +1303,7 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(Emission::Constant(combined, Type::Boolean));
         }
 
-        let destination = Address::register(self.get_next_register());
+        let destination = self.get_next_register();
         let (left_address, left_type) = match &left_emission {
             Emission::Instruction(instruction, _) => (
                 self.handle_operand(*instruction),
@@ -1342,7 +1367,7 @@ impl<'a> ChunkCompiler<'a> {
             todo!("Error");
         }
 
-        let destination = Address::register(self.get_next_register());
+        let destination = self.get_next_register();
         let comparison_instruction = match node.kind {
             SyntaxKind::GreaterThanExpression => {
                 Instruction::less_equal(false, left_address, right_address, left_type)
@@ -1442,7 +1467,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Constant(constant, type_id) => {
                 let operand_type = type_id.as_operand_type();
                 let address = self.get_constant_address(constant);
-                let destination = Address::register(self.get_next_register());
+                let destination = self.get_next_register();
                 let load_instruction =
                     Instruction::r#move(destination, address, operand_type, false);
 
@@ -1470,13 +1495,13 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Constant(constant, type_id) => {
                 let operand_type = type_id.as_operand_type();
                 let address = self.get_constant_address(constant);
-                let destination = Address::register(self.get_next_register());
+                let destination = self.get_next_register();
                 let load_instruction =
                     Instruction::r#move(destination, address, operand_type, false);
 
                 self.instructions.push(load_instruction);
 
-                destination
+                Address::register(destination)
             }
             Emission::Local(Local { address, .. }) | Emission::Function(address, _) => address,
             Emission::None => {
@@ -1489,10 +1514,10 @@ impl<'a> ChunkCompiler<'a> {
 
         let mut instructions = SmallVec::new();
 
-        let load_destination = Address::register(self.get_next_register());
+        let load_destination = self.get_next_register();
         let left_load_instruction =
             Instruction::r#move(load_destination, left_address, OperandType::BOOLEAN, false);
-        let test_instruction = Instruction::test(load_destination, comparator);
+        let test_instruction = Instruction::test(Address::register(load_destination), comparator);
         let jump_instruction = Instruction::jump(1, true);
         let right_load_instruction =
             Instruction::r#move(load_destination, right_address, OperandType::BOOLEAN, false);
@@ -1536,7 +1561,7 @@ impl<'a> ChunkCompiler<'a> {
 
         let r#type = child_emission.r#type().clone();
         let child_address = child_emission.handle_as_operand(self);
-        let destination = Address::register(self.get_next_register());
+        let destination = self.get_next_register();
         let negate_instruction =
             Instruction::negate(destination, child_address, r#type.as_operand_type());
 
@@ -1732,7 +1757,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Constant(constant, type_id) => {
                 let operand_type = type_id.as_operand_type();
                 let address = self.get_constant_address(constant);
-                let destination = Address::register(self.get_next_register());
+                let destination = self.get_next_register();
                 let load_instruction =
                     Instruction::r#move(destination, address, operand_type, false);
 
@@ -2022,7 +2047,7 @@ impl<'a> ChunkCompiler<'a> {
         debug_assert_eq!(arguments_node.kind, SyntaxKind::CallValueArguments);
 
         if function_node.kind == SyntaxKind::PathExpression {
-            let destination = Address::register(self.get_next_register());
+            let destination = self.get_next_register();
             let native_function = {
                 let files = self.context.source.read_files();
                 let source_file =
@@ -2197,7 +2222,7 @@ impl Emission {
             }
             Emission::Constant(constant, type_node) => {
                 let address = compiler.get_constant_address(constant);
-                let destination = Address::register(compiler.get_next_register());
+                let destination = compiler.get_next_register();
                 let load_instruction =
                     Instruction::r#move(destination, address, type_node.as_operand_type(), false);
 

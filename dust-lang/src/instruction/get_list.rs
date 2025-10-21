@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct GetList {
-    pub destination: Address,
+    pub destination: u16,
     pub list: Address,
     pub list_index: Address,
     pub item_type: OperandType,
@@ -11,13 +11,13 @@ pub struct GetList {
 
 impl From<Instruction> for GetList {
     fn from(instruction: Instruction) -> Self {
-        let destination_list = instruction.destination();
+        let destination = instruction.a_field();
         let item_source = instruction.b_address();
         let list_index = instruction.c_address();
         let item_type = instruction.operand_type();
 
         GetList {
-            destination: destination_list,
+            destination,
             list: item_source,
             list_index,
             item_type,
@@ -28,10 +28,7 @@ impl From<Instruction> for GetList {
 impl From<GetList> for Instruction {
     fn from(set_list: GetList) -> Self {
         let operation = Operation::GET_LIST;
-        let Address {
-            index: a_field,
-            memory: a_memory_kind,
-        } = set_list.destination;
+        let a_field = set_list.destination;
         let Address {
             index: b_field,
             memory: b_memory_kind,
@@ -45,7 +42,6 @@ impl From<GetList> for Instruction {
         InstructionFields {
             operation,
             a_field,
-            a_memory_kind,
             b_field,
             b_memory_kind,
             c_field,
@@ -66,8 +62,7 @@ impl Display for GetList {
             item_type,
         } = self;
 
-        destination.display(f, *item_type)?;
-        write!(f, " = ")?;
+        write!(f, "reg_{destination} = ")?;
         list.display(f, item_type.list_type())?;
         write!(f, "[")?;
         list_index.display(f, *item_type)?;

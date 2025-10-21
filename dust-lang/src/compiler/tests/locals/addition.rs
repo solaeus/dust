@@ -16,20 +16,10 @@ fn local_byte_addition() {
         Chunk {
             r#type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
-                Instruction::r#move(
-                    Address::register(0),
-                    Address::encoded(40),
-                    OperandType::BYTE,
-                    false
-                ),
-                Instruction::r#move(
-                    Address::register(1),
-                    Address::encoded(2),
-                    OperandType::BYTE,
-                    false
-                ),
+                Instruction::r#move(0, Address::encoded(40), OperandType::BYTE, false),
+                Instruction::r#move(1, Address::encoded(2), OperandType::BYTE, false),
                 Instruction::add(
-                    Address::register(2),
+                    2,
                     Address::register(0),
                     Address::register(1),
                     OperandType::BYTE
@@ -52,20 +42,10 @@ fn local_float_addition() {
         Chunk {
             r#type: FunctionType::new([], [], Type::Float),
             instructions: vec![
-                Instruction::r#move(
-                    Address::register(0),
-                    Address::constant(0),
-                    OperandType::FLOAT,
-                    false
-                ),
-                Instruction::r#move(
-                    Address::register(1),
-                    Address::constant(1),
-                    OperandType::FLOAT,
-                    false
-                ),
+                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT, false),
+                Instruction::r#move(1, Address::constant(1), OperandType::FLOAT, false),
                 Instruction::add(
-                    Address::register(2),
+                    2,
                     Address::register(0),
                     Address::register(1),
                     OperandType::FLOAT
@@ -88,20 +68,10 @@ fn local_integer_addition() {
         Chunk {
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(
-                    Address::register(0),
-                    Address::constant(0),
-                    OperandType::INTEGER,
-                    false
-                ),
-                Instruction::r#move(
-                    Address::register(1),
-                    Address::constant(1),
-                    OperandType::INTEGER,
-                    false
-                ),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
                 Instruction::add(
-                    Address::register(2),
+                    2,
                     Address::register(0),
                     Address::register(1),
                     OperandType::INTEGER
@@ -124,20 +94,10 @@ fn local_string_concatenation() {
         Chunk {
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![
-                Instruction::r#move(
-                    Address::register(0),
-                    Address::constant(0),
-                    OperandType::STRING,
-                    false
-                ),
-                Instruction::r#move(
-                    Address::register(1),
-                    Address::constant(1),
-                    OperandType::STRING,
-                    false
-                ),
+                Instruction::r#move(0, Address::constant(0), OperandType::STRING, false),
+                Instruction::r#move(1, Address::constant(1), OperandType::STRING, false),
                 Instruction::add(
-                    Address::register(2),
+                    2,
                     Address::register(0),
                     Address::register(1),
                     OperandType::STRING
@@ -160,20 +120,10 @@ fn local_character_concatenation() {
         Chunk {
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![
-                Instruction::r#move(
-                    Address::register(0),
-                    Address::constant(0),
-                    OperandType::CHARACTER,
-                    false
-                ),
-                Instruction::r#move(
-                    Address::register(1),
-                    Address::constant(0),
-                    OperandType::CHARACTER,
-                    false
-                ),
+                Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER, false),
+                Instruction::r#move(1, Address::constant(0), OperandType::CHARACTER, false),
                 Instruction::add(
-                    Address::register(2),
+                    2,
                     Address::register(0),
                     Address::register(1),
                     OperandType::CHARACTER
@@ -196,20 +146,10 @@ fn local_string_character_concatenation() {
         Chunk {
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![
-                Instruction::r#move(
-                    Address::register(0),
-                    Address::constant(0),
-                    OperandType::STRING,
-                    false
-                ),
-                Instruction::r#move(
-                    Address::register(1),
-                    Address::constant(1),
-                    OperandType::CHARACTER,
-                    false
-                ),
+                Instruction::r#move(0, Address::constant(0), OperandType::STRING, false),
+                Instruction::r#move(1, Address::constant(1), OperandType::CHARACTER, false),
                 Instruction::add(
-                    Address::register(2),
+                    2,
                     Address::register(0),
                     Address::register(1),
                     OperandType::STRING_CHARACTER
@@ -232,20 +172,10 @@ fn local_character_string_concatenation() {
         Chunk {
             r#type: FunctionType::new([], [], Type::String),
             instructions: vec![
-                Instruction::r#move(
-                    Address::register(0),
-                    Address::constant(0),
-                    OperandType::CHARACTER,
-                    false
-                ),
-                Instruction::r#move(
-                    Address::register(1),
-                    Address::constant(1),
-                    OperandType::STRING,
-                    false
-                ),
+                Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER, false),
+                Instruction::r#move(1, Address::constant(1), OperandType::STRING, false),
                 Instruction::add(
-                    Address::register(2),
+                    2,
                     Address::register(0),
                     Address::register(1),
                     OperandType::CHARACTER_STRING

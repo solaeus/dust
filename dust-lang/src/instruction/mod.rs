@@ -6,9 +6,8 @@
 //!
 //! Bits  | Description
 //! ----- | -----------
-//! 0-4   | Operation
-//! 5-6   | Memory kind (for the A field)  ─┐
-//! 7-8   | Memory kind (for the B field)   ├─ D field (for CALL instructions to list argument count)
+//! 0-6   | Operation
+//! 7-8   | Memory kind (for the B field)  ─┬― D field (for CALL instruction only)
 //! 9-10  | Memory kind (for the C field)  ─┘
 //! 11-15 | Operand type info
 //! 16-31 | A field (unsigned 16-bit integer), usually the destination index
@@ -80,7 +79,7 @@ impl Instruction {
     pub fn destination(&self) -> Address {
         Address {
             index: self.a_field(),
-            memory: self.a_memory_kind(),
+            memory: MemoryKind::REGISTER,
         }
     }
 
@@ -102,12 +101,6 @@ impl Instruction {
         let bits_0_to_4 = (self.0 & 0x1F) as u8;
 
         Operation(bits_0_to_4)
-    }
-
-    pub fn a_memory_kind(&self) -> MemoryKind {
-        let bits_5_to_6 = (self.0 >> 5) & 0x3;
-
-        MemoryKind(bits_5_to_6 as u8)
     }
 
     pub fn b_memory_kind(&self) -> MemoryKind {
@@ -173,7 +166,6 @@ impl Instruction {
     pub fn set_destination(&mut self, address: Address) {
         let mut fields = InstructionFields::from(&*self);
         fields.a_field = address.index;
-        fields.a_memory_kind = address.memory;
         *self = fields.build();
     }
 
@@ -196,7 +188,7 @@ impl Instruction {
     }
 
     pub fn r#move(
-        destination: Address,
+        destination: u16,
         operand: Address,
         r#type: OperandType,
         jump_next: bool,
@@ -216,11 +208,7 @@ impl Instruction {
         })
     }
 
-    pub fn new_list(
-        destination: Address,
-        initial_length: u16,
-        list_type: OperandType,
-    ) -> Instruction {
+    pub fn new_list(destination: u16, initial_length: u16, list_type: OperandType) -> Instruction {
         Instruction::from(NewList {
             destination,
             initial_length,
@@ -229,7 +217,7 @@ impl Instruction {
     }
 
     pub fn set_list(
-        destination_list: Address,
+        destination_list: u16,
         item_source: Address,
         list_index: u16,
         item_type: OperandType,
@@ -243,7 +231,7 @@ impl Instruction {
     }
 
     pub fn get_list(
-        destination: Address,
+        destination: u16,
         list: Address,
         list_index: Address,
         item_type: OperandType,
@@ -257,7 +245,7 @@ impl Instruction {
     }
 
     pub fn add(
-        destination: Address,
+        destination: u16,
         left: Address,
         right: Address,
         r#type: OperandType,
@@ -271,7 +259,7 @@ impl Instruction {
     }
 
     pub fn subtract(
-        destination: Address,
+        destination: u16,
         left: Address,
         right: Address,
         r#type: OperandType,
@@ -285,7 +273,7 @@ impl Instruction {
     }
 
     pub fn multiply(
-        destination: Address,
+        destination: u16,
         left: Address,
         right: Address,
         r#type: OperandType,
@@ -299,7 +287,7 @@ impl Instruction {
     }
 
     pub fn divide(
-        destination: Address,
+        destination: u16,
         left: Address,
         right: Address,
         r#type: OperandType,
@@ -313,7 +301,7 @@ impl Instruction {
     }
 
     pub fn modulo(
-        destination: Address,
+        destination: u16,
         left: Address,
         right: Address,
         r#type: OperandType,
@@ -327,7 +315,7 @@ impl Instruction {
     }
 
     pub fn power(
-        destination: Address,
+        destination: u16,
         base: Address,
         exponent: Address,
         r#type: OperandType,
@@ -389,7 +377,7 @@ impl Instruction {
         })
     }
 
-    pub fn negate(destination: Address, operand: Address, r#type: OperandType) -> Instruction {
+    pub fn negate(destination: u16, operand: Address, r#type: OperandType) -> Instruction {
         Instruction::from(Negate {
             destination,
             operand,
@@ -421,7 +409,7 @@ impl Instruction {
     }
 
     pub fn call_native(
-        destination: Address,
+        destination: u16,
         function: NativeFunction,
         arguments_index: u16,
     ) -> Instruction {
@@ -528,7 +516,6 @@ impl Display for Instruction {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct InstructionFields {
     pub operation: Operation,
-    pub a_memory_kind: MemoryKind,
     pub b_memory_kind: MemoryKind,
     pub c_memory_kind: MemoryKind,
     pub operand_type: OperandType,
@@ -545,10 +532,9 @@ impl InstructionFields {
         bits |= self.operation.0 as u64;
 
         if let Some(d_field) = self.d_field {
-            // Set bits 5-10 to the d_field value
-            bits |= (d_field as u64) << 5;
+            // Set bits 7-10 to the d_field value
+            bits |= (d_field as u64) << 7;
         } else {
-            bits |= (self.a_memory_kind.0 as u64) << 5;
             bits |= (self.b_memory_kind.0 as u64) << 7;
             bits |= (self.c_memory_kind.0 as u64) << 9;
         }
@@ -566,7 +552,6 @@ impl From<&Instruction> for InstructionFields {
     fn from(instruction: &Instruction) -> Self {
         InstructionFields {
             operation: instruction.operation(),
-            a_memory_kind: instruction.a_memory_kind(),
             b_memory_kind: instruction.b_memory_kind(),
             c_memory_kind: instruction.c_memory_kind(),
             operand_type: instruction.operand_type(),
@@ -588,7 +573,7 @@ mod tests {
 
     fn create_instruction() -> Instruction {
         Instruction::add(
-            Address::register(42),
+            42,
             Address::register(1),
             Address::cell(2),
             OperandType::INTEGER,
@@ -600,13 +585,6 @@ mod tests {
         let instruction = create_instruction();
 
         assert_eq!(instruction.operation(), Operation::ADD);
-    }
-
-    #[test]
-    fn decode_a_memory() {
-        let instruction = create_instruction();
-
-        assert_eq!(instruction.a_memory_kind(), MemoryKind::REGISTER);
     }
 
     #[test]

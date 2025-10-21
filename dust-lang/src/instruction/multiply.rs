@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Multiply {
-    pub destination: Address,
+    pub destination: u16,
     pub left: Address,
     pub right: Address,
     pub r#type: OperandType,
@@ -11,7 +11,7 @@ pub struct Multiply {
 
 impl From<Instruction> for Multiply {
     fn from(instruction: Instruction) -> Self {
-        let destination = instruction.destination();
+        let destination = instruction.a_field();
         let left = instruction.b_address();
         let right = instruction.c_address();
         let r#type = instruction.operand_type();
@@ -28,10 +28,7 @@ impl From<Instruction> for Multiply {
 impl From<Multiply> for Instruction {
     fn from(multiply: Multiply) -> Self {
         let operation = Operation::MULTIPLY;
-        let Address {
-            index: a_field,
-            memory: a_memory_kind,
-        } = multiply.destination;
+        let a_field = multiply.destination;
         let Address {
             index: b_field,
             memory: b_memory_kind,
@@ -45,7 +42,6 @@ impl From<Multiply> for Instruction {
         InstructionFields {
             operation,
             a_field,
-            a_memory_kind,
             b_field,
             b_memory_kind,
             c_field,
@@ -66,8 +62,7 @@ impl Display for Multiply {
             r#type,
         } = self;
 
-        destination.display(f, *r#type)?;
-        write!(f, " = ")?;
+        write!(f, "reg_{destination} = ")?;
         left.display(f, *r#type)?;
         write!(f, " * ")?;
         right.display(f, *r#type)?;

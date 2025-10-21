@@ -3,14 +3,14 @@ use std::fmt::{self, Display, Formatter};
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Negate {
-    pub destination: Address,
+    pub destination: u16,
     pub operand: Address,
     pub r#type: OperandType,
 }
 
 impl From<Instruction> for Negate {
     fn from(instruction: Instruction) -> Self {
-        let destination = instruction.destination();
+        let destination = instruction.a_field();
         let operand = instruction.b_address();
         let r#type = instruction.operand_type();
 
@@ -25,10 +25,7 @@ impl From<Instruction> for Negate {
 impl From<Negate> for Instruction {
     fn from(negate: Negate) -> Self {
         let operation = Operation::NEGATE;
-        let Address {
-            index: a_field,
-            memory: a_memory_kind,
-        } = negate.destination;
+        let a_field = negate.destination;
         let Address {
             index: b_field,
             memory: b_memory_kind,
@@ -38,7 +35,6 @@ impl From<Negate> for Instruction {
         InstructionFields {
             operation,
             a_field,
-            a_memory_kind,
             b_field,
             b_memory_kind,
             operand_type,
@@ -56,14 +52,13 @@ impl Display for Negate {
             r#type,
         } = self;
 
-        let operatore = if *r#type == OperandType::BOOLEAN {
+        let operator = if *r#type == OperandType::BOOLEAN {
             "!"
         } else {
             "-"
         };
 
-        destination.display(f, *r#type)?;
-        write!(f, " = {operatore}")?;
+        write!(f, "reg_{destination} = {operator}")?;
         operand.display(f, *r#type)
     }
 }
