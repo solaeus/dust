@@ -987,6 +987,31 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
+    fn parse_as_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing as expression");
+
+        let left_id = self.syntax_tree.last_node_id();
+        let left_node = *self
+            .syntax_tree
+            .get_node(left_id)
+            .ok_or(ParseError::MissingNode { id: left_id })?;
+        let start = left_node.span.0;
+
+        self.advance()?;
+
+        let type_id = self.parse_type()?;
+        let end = self.previous_token.span.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::AsExpression,
+            span: Span(start, end),
+            children: (left_id.0, type_id.0),
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
+    }
+
     fn parse_call_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing call expression");
 
@@ -1349,9 +1374,5 @@ impl<'src> Parser<'src> {
         self.syntax_tree.push_node(node);
 
         Ok(())
-    }
-
-    fn parse_str(&mut self) -> Result<(), ParseError> {
-        todo!()
     }
 }

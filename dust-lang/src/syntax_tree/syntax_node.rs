@@ -140,7 +140,8 @@ impl SyntaxNode {
             | SyntaxKind::GreaterThanOrEqualExpression
             | SyntaxKind::WhileExpression
             | SyntaxKind::CallExpression
-            | SyntaxKind::IndexExpression => {
+            | SyntaxKind::IndexExpression
+            | SyntaxKind::AsExpression => {
                 SyntaxNodeChildren::Double(SyntaxId(self.children.0), SyntaxId(self.children.1))
             }
             _ => SyntaxNodeChildren::None,
@@ -257,6 +258,7 @@ pub enum SyntaxKind {
     WhileExpression,
     ReturnExpression,
     BreakExpression,
+    AsExpression,
 
     // Sub-Syntax
     CallValueArguments,
@@ -417,6 +419,7 @@ impl Display for SyntaxKind {
             SyntaxKind::WhileExpression => write!(f, "while loop expression"),
             SyntaxKind::ReturnExpression => write!(f, "return expression"),
             SyntaxKind::BreakExpression => write!(f, "break expression"),
+            SyntaxKind::AsExpression => write!(f, "as expression"),
             SyntaxKind::FunctionSignature => write!(f, "function signature"),
             SyntaxKind::FunctionValueParameters => write!(f, "function value parameters"),
             SyntaxKind::FunctionValueParameter => write!(f, "function value parameter"),

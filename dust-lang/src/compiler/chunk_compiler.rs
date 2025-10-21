@@ -905,6 +905,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::WhileExpression => self.compile_while_expression(node),
             SyntaxKind::FunctionExpression => self.compile_function_expression(node, None, None),
             SyntaxKind::CallExpression => self.compile_call_expression(node),
+            SyntaxKind::AsExpression => self.compile_as_expression(node),
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind,
                 position: Position::new(self.file_id, node.span),
@@ -2116,6 +2117,56 @@ impl<'a> ChunkCompiler<'a> {
         );
 
         Ok(Emission::Instruction(call_instruction, r#type))
+    }
+
+    fn compile_as_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+        info!("Compiling 'as' expression");
+
+        let value_node_id = SyntaxId(node.children.0);
+        let type_node_id = SyntaxId(node.children.1);
+
+        let value_node =
+            *self
+                .syntax_tree()?
+                .get_node(value_node_id)
+                .ok_or(CompileError::MissingChild {
+                    parent_kind: node.kind,
+                    child_index: node.children.0,
+                })?;
+        let type_node =
+            *self
+                .syntax_tree()?
+                .get_node(type_node_id)
+                .ok_or(CompileError::MissingChild {
+                    parent_kind: node.kind,
+                    child_index: node.children.1,
+                })?;
+
+        let value_emission = self.compile_expression(&value_node)?;
+        let target_type = match type_node.kind {
+            SyntaxKind::BooleanType => Type::Boolean,
+            SyntaxKind::ByteType => Type::Byte,
+            SyntaxKind::CharacterType => Type::Character,
+            SyntaxKind::FloatType => Type::Float,
+            SyntaxKind::IntegerType => Type::Integer,
+            SyntaxKind::StringType => Type::String,
+            _ => {
+                todo!()
+            }
+        };
+        let target_operand_type = target_type.as_operand_type();
+        let value_address = value_emission.handle_as_operand(self);
+        let destination = self.get_next_register();
+        let to_type_instruction = match target_operand_type {
+            OperandType::STRING => {
+                Instruction::to_string(destination, value_address, target_operand_type)
+            }
+            _ => {
+                todo!()
+            }
+        };
+
+        Ok(Emission::Instruction(to_type_instruction, target_type))
     }
 
     fn compile_implicit_return(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {

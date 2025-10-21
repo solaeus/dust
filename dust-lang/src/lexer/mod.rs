@@ -564,6 +564,13 @@ fn is_operator_or_punctuation(byte: u8) -> bool {
 fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
     match token.len() {
         2 => match token[0] {
+            b'a' => {
+                if token[1] == b's' {
+                    Some(TokenKind::As)
+                } else {
+                    None
+                }
+            }
             b'f' => {
                 if token[1] == b'n' {
                     Some(TokenKind::Fn)

@@ -37,6 +37,7 @@ mod r#return;
 mod set_list;
 mod subtract;
 mod test;
+mod to_string;
 
 pub use add::Add;
 pub use address::Address;
@@ -62,6 +63,7 @@ pub use r#return::Return;
 pub use set_list::SetList;
 pub use subtract::Subtract;
 pub use test::Test;
+pub use to_string::ToString;
 
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
@@ -432,6 +434,14 @@ impl Instruction {
         })
     }
 
+    pub fn to_string(destination: u16, operand: Address, r#type: OperandType) -> Instruction {
+        Instruction::from(ToString {
+            destination,
+            operand,
+            r#type,
+        })
+    }
+
     pub fn is_math(&self) -> bool {
         self.operation().is_math()
     }
@@ -452,7 +462,8 @@ impl Instruction {
             | Operation::MODULO
             | Operation::POWER
             | Operation::NEGATE
-            | Operation::CALL => true,
+            | Operation::CALL
+            | Operation::TO_STRING => true,
             Operation::CALL_NATIVE => {
                 let function = NativeFunction::from_index(self.b_field());
 
@@ -475,6 +486,7 @@ impl Instruction {
         let operation = self.operation();
 
         match operation {
+            Operation::NO_OP => String::new(),
             Operation::MOVE => Move::from(self).to_string(),
             Operation::DROP => Drop::from(self).to_string(),
             Operation::NEW_LIST => NewList::from(self).to_string(),
@@ -495,7 +507,7 @@ impl Instruction {
             Operation::CALL_NATIVE => CallNative::from(self).to_string(),
             Operation::JUMP => Jump::from(self).to_string(),
             Operation::RETURN => Return::from(self).to_string(),
-            Operation::NO_OP => String::new(),
+            Operation::TO_STRING => ToString::from(self).to_string(),
             unknown => format!("Unknown operation: {}", unknown.0),
         }
     }
@@ -532,7 +544,6 @@ impl InstructionFields {
         bits |= self.operation.0 as u64;
 
         if let Some(d_field) = self.d_field {
-            // Set bits 7-10 to the d_field value
             bits |= (d_field as u64) << 7;
         } else {
             bits |= (self.b_memory_kind.0 as u64) << 7;

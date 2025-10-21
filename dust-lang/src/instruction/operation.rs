@@ -46,6 +46,14 @@ impl Operation {
     // Control flow
     pub const JUMP: Operation = Operation(19);
     pub const RETURN: Operation = Operation(20);
+
+    // Type conversions
+    pub const TO_BOOLEAN: Operation = Operation(21);
+    pub const TO_BYTE: Operation = Operation(22);
+    pub const TO_CHARACTER: Operation = Operation(23);
+    pub const TO_FLOAT: Operation = Operation(24);
+    pub const TO_INTEGER: Operation = Operation(25);
+    pub const TO_STRING: Operation = Operation(26);
 }
 
 impl Operation {
@@ -72,6 +80,12 @@ impl Operation {
             Self::CALL_NATIVE => "CALL_NATIVE",
             Self::JUMP => "JUMP",
             Self::RETURN => "RETURN",
+            Self::TO_BOOLEAN => "TO_BOOLEAN",
+            Self::TO_BYTE => "TO_BYTE",
+            Self::TO_CHARACTER => "TO_CHARACTER",
+            Self::TO_FLOAT => "TO_FLOAT",
+            Self::TO_INTEGER => "TO_INTEGER",
+            Self::TO_STRING => "TO_STRING",
             _ => "UNKNOWN",
         }
     }

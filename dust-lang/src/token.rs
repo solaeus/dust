@@ -38,6 +38,7 @@ pub enum TokenKind {
 
     // Keywords
     Any,
+    As,
     Async,
     Bool,
     Break,
@@ -136,6 +137,7 @@ impl Display for TokenKind {
             TokenKind::Identifier => write!(f, "identifier"),
             TokenKind::Any => write!(f, "'any' keyword"),
             TokenKind::Async => write!(f, "'async' keyword"),
+            TokenKind::As => write!(f, "'as' keyword"),
             TokenKind::Bool => write!(f, "'bool' keyword"),
             TokenKind::Break => write!(f, "'break' keyword"),
             TokenKind::Byte => write!(f, "'byte' keyword"),
