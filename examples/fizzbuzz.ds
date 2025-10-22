@@ -11,7 +11,7 @@ while count <= 15 {
 	} else if count % 5 == 0 {
 		write_line("buzz")
 	} else {
-	    write_line(int_to_str(count))
+	    write_line(count as str)
 	}
 
 	count += 1

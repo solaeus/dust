@@ -102,7 +102,8 @@ impl SyntaxNode {
             | SyntaxKind::ListExpression
             | SyntaxKind::Path
             | SyntaxKind::CallValueArguments
-            | SyntaxKind::FunctionValueParameters => {
+            | SyntaxKind::FunctionValueParameters
+            | SyntaxKind::IfExpression => {
                 SyntaxNodeChildren::Multiple(self.children.0, self.children.1)
             }
             SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem => {
@@ -112,7 +113,8 @@ impl SyntaxNode {
             | SyntaxKind::PathExpression
             | SyntaxKind::GroupedExpression
             | SyntaxKind::NegationExpression
-            | SyntaxKind::NotExpression => SyntaxNodeChildren::Single(SyntaxId(self.children.0)),
+            | SyntaxKind::NotExpression
+            | SyntaxKind::ElseExpression => SyntaxNodeChildren::Single(SyntaxId(self.children.0)),
             SyntaxKind::ReassignStatement
             | SyntaxKind::LetStatement
             | SyntaxKind::LetMutStatement
@@ -253,6 +255,7 @@ pub enum SyntaxKind {
     NativeFunctionExpression,
     GroupedExpression,
     IfExpression,
+    ElseExpression,
     OperatorExpression,
     PathExpression,
     WhileExpression,
@@ -338,11 +341,13 @@ impl SyntaxKind {
                 | SyntaxKind::CallExpression
                 | SyntaxKind::FunctionExpression
                 | SyntaxKind::GroupedExpression
-                | SyntaxKind::IfExpression
                 | SyntaxKind::PathExpression
                 | SyntaxKind::WhileExpression
                 | SyntaxKind::ReturnExpression
                 | SyntaxKind::BreakExpression
+                | SyntaxKind::AsExpression
+                | SyntaxKind::IfExpression
+                | SyntaxKind::ElseExpression
         )
     }
 
@@ -414,6 +419,7 @@ impl Display for SyntaxKind {
             SyntaxKind::NativeFunctionExpression => write!(f, "native function expression"),
             SyntaxKind::GroupedExpression => write!(f, "grouped expression"),
             SyntaxKind::IfExpression => write!(f, "if expression"),
+            SyntaxKind::ElseExpression => write!(f, "else expression"),
             SyntaxKind::OperatorExpression => write!(f, "operator expression"),
             SyntaxKind::PathExpression => write!(f, "path expression"),
             SyntaxKind::WhileExpression => write!(f, "while loop expression"),

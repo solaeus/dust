@@ -18,7 +18,7 @@ use crate::{
     constant_table::ConstantTable,
     instruction::{
         Address, Call, CallNative, Drop, GetList, Jump, MemoryKind, Move, Negate, NewList,
-        OperandType, Operation, Return, SetList, Test,
+        OperandType, Operation, Return, SetList, Test, ToString,
     },
     jit_vm::{
         JitCompiler, JitError, Register, RegisterTag,
@@ -320,6 +320,22 @@ pub fn compile_stackless_function(
             &mut function_builder,
             "compare_strings_greater_than_equal",
             compare_strings_greater_than_equal_signature,
+        )?
+    };
+
+    let integer_to_string_function = {
+        let mut integer_to_string_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        integer_to_string_signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
+        integer_to_string_signature.returns.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "integer_to_string",
+            integer_to_string_signature,
         )?
     };
 
@@ -1806,6 +1822,56 @@ pub fn compile_stackless_function(
                 );
 
                 function_builder.ins().return_(&[]);
+            }
+            Operation::TO_STRING => {
+                let ToString {
+                    destination,
+                    operand,
+                    r#type,
+                } = ToString::from(*current_instruction);
+
+                let string_value = match r#type {
+                    OperandType::INTEGER => {
+                        let integer_operand = get_integer(
+                            operand,
+                            current_frame_base_register_address,
+                            &compiler.program.constants,
+                            &hot_registers.integer,
+                            &mut function_builder,
+                        )?;
+                        let call_instruction = function_builder.ins().call(
+                            integer_to_string_function,
+                            &[integer_operand, thread_context],
+                        );
+
+                        function_builder.inst_results(call_instruction)[0]
+                    }
+                    OperandType::STRING => get_string(
+                        operand,
+                        &compiler.program.constants,
+                        allocate_string_function,
+                        &mut function_builder,
+                        thread_context,
+                        current_frame_base_register_address,
+                    )?,
+                    _ => {
+                        return Err(JitError::UnsupportedOperandType {
+                            operand_type: r#type,
+                        });
+                    }
+                };
+
+                JitCompiler::set_register(
+                    destination,
+                    string_value,
+                    OperandType::STRING,
+                    current_frame_base_register_address,
+                    current_frame_base_tag_address,
+                    &hot_registers,
+                    &mut function_builder,
+                )?;
+
+                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
             }
 
             _ => {

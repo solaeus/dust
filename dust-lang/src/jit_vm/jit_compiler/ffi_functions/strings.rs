@@ -78,7 +78,7 @@ pub unsafe extern "C" fn concatenate_strings(
 }
 
 #[unsafe(no_mangle)]
-pub fn concatenate_character_string(
+pub unsafe extern "C" fn concatenate_character_string(
     left: i64,
     right: *const Object,
     thread_context: *const ThreadContext,
@@ -108,7 +108,7 @@ pub fn concatenate_character_string(
 }
 
 #[unsafe(no_mangle)]
-pub fn concatenate_string_character(
+pub unsafe extern "C" fn concatenate_string_character(
     left: *const Object,
     right: i64,
     thread_context: *const ThreadContext,
@@ -138,7 +138,11 @@ pub fn concatenate_string_character(
 }
 
 #[unsafe(no_mangle)]
-pub fn concatenate_characters(left: i64, right: i64, thread_context: *const ThreadContext) -> i64 {
+pub unsafe extern "C" fn concatenate_characters(
+    left: i64,
+    right: i64,
+    thread_context: *const ThreadContext,
+) -> i64 {
     let thread_context = unsafe { &*thread_context };
     let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
     let register_stack = unsafe { &mut *thread_context.register_stack_vec_pointer };
@@ -161,7 +165,7 @@ pub fn concatenate_characters(left: i64, right: i64, thread_context: *const Thre
 }
 
 #[unsafe(no_mangle)]
-pub fn compare_strings_equal(
+pub unsafe extern "C" fn compare_strings_equal(
     left: *const Object,
     right: *const Object,
     _thread_context: *const ThreadContext,
@@ -179,7 +183,7 @@ pub fn compare_strings_equal(
 }
 
 #[unsafe(no_mangle)]
-pub fn compare_strings_not_equal(
+pub unsafe extern "C" fn compare_strings_not_equal(
     left: *const Object,
     right: *const Object,
     _thread_context: *const ThreadContext,
@@ -197,7 +201,7 @@ pub fn compare_strings_not_equal(
 }
 
 #[unsafe(no_mangle)]
-pub fn compare_strings_less_than(
+pub unsafe extern "C" fn compare_strings_less_than(
     left: *const Object,
     right: *const Object,
     _thread_context: *const ThreadContext,
@@ -215,7 +219,7 @@ pub fn compare_strings_less_than(
 }
 
 #[unsafe(no_mangle)]
-pub fn compare_strings_greater_than(
+pub unsafe extern "C" fn compare_strings_greater_than(
     left: *const Object,
     right: *const Object,
     _thread_context: *const ThreadContext,
@@ -233,7 +237,7 @@ pub fn compare_strings_greater_than(
 }
 
 #[unsafe(no_mangle)]
-pub fn compare_strings_less_than_equal(
+pub unsafe extern "C" fn compare_strings_less_than_equal(
     left: *const Object,
     right: *const Object,
     _thread_context: *const ThreadContext,
@@ -251,7 +255,7 @@ pub fn compare_strings_less_than_equal(
 }
 
 #[unsafe(no_mangle)]
-pub fn compare_strings_greater_than_equal(
+pub unsafe extern "C" fn compare_strings_greater_than_equal(
     left: *const Object,
     right: *const Object,
     _thread_context: *const ThreadContext,
@@ -266,4 +270,24 @@ pub fn compare_strings_greater_than_equal(
         .unwrap_or(ERROR_REPLACEMENT_STR);
 
     if left_string >= right_string { 1 } else { 0 }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn integer_to_string(
+    value: i64,
+    thread_context: *const ThreadContext,
+) -> i64 {
+    let thread_context = unsafe { &*thread_context };
+    let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
+    let register_stack = unsafe { &mut *thread_context.register_stack_vec_pointer };
+    let register_tags = unsafe { &mut *thread_context.register_tags_vec_pointer };
+    let register_stack_used_length = unsafe { *thread_context.register_stack_used_length_pointer };
+    let register_window = &register_stack[0..register_stack_used_length];
+    let register_tags_window = &register_tags[0..register_stack_used_length];
+
+    let string = value.to_string();
+    let object = Object::string(string);
+    let object_pointer = object_pool.allocate(object, register_window, register_tags_window);
+
+    object_pointer as i64
 }

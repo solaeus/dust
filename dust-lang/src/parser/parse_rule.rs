@@ -211,7 +211,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             TokenKind::If => ParseRule {
-                prefix: Some(Parser::parse_if),
+                prefix: Some(Parser::parse_if_expression),
                 infix: None,
                 precedence: Precedence::None,
             },

@@ -41,6 +41,10 @@ pub enum CompileError {
         node_kind: SyntaxKind,
         position: Position,
     },
+    ExpectedBooleanExpression {
+        node_kind: SyntaxKind,
+        position: Position,
+    },
     ExpectedExpression {
         node_kind: SyntaxKind,
         position: Position,
@@ -120,6 +124,11 @@ pub enum CompileError {
         found_type: Type,
         position: Position,
     },
+    MismatchedIfElseTypes {
+        then_type: Type,
+        else_type: Type,
+        position: Position,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -134,6 +143,7 @@ impl AnnotatedError for CompileError {
             } => second_position.file_id,
             CompileError::ExpectedItem { position, .. } => position.file_id,
             CompileError::ExpectedStatement { position, .. } => position.file_id,
+            CompileError::ExpectedBooleanExpression { position, .. } => position.file_id,
             CompileError::ExpectedExpression { position, .. } => position.file_id,
             CompileError::ExpectedFunction { position, .. } => position.file_id,
             CompileError::ExpectedFunctionBody { position, .. } => position.file_id,
@@ -157,6 +167,7 @@ impl AnnotatedError for CompileError {
             CompileError::UnresolvedFunctionType { .. } => SourceFileId::default(),
             CompileError::CannotImport { position, .. } => position.file_id,
             CompileError::EmptyArray { position } => position.file_id,
+            CompileError::MismatchedIfElseTypes { position, .. } => position.file_id,
         }
     }
 
@@ -251,6 +262,17 @@ impl AnnotatedError for CompileError {
                 position,
             } => {
                 let title = format!("Expected a statement, found {node_kind}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
+                )
+            }
+            CompileError::ExpectedBooleanExpression {
+                node_kind,
+                position,
+            } => {
+                let title = format!("Expected a boolean expression, found {node_kind}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
@@ -452,6 +474,23 @@ impl AnnotatedError for CompileError {
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label("Empty array found here".to_string()),
+                    ),
+                )
+            }
+            CompileError::MismatchedIfElseTypes {
+                then_type,
+                else_type,
+                position,
+            } => {
+                let title = format!(
+                    "Mismatched types in if-else branches: then branch has type {then_type}, else branch has type {else_type}"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label("If-else expression found here".to_string()),
                     ),
                 )
             }

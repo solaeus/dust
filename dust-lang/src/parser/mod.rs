@@ -243,7 +243,7 @@ impl<'src> Parser<'src> {
         Ok(allowed)
     }
 
-    fn expect(&mut self, expected: TokenKind) -> Result<(), ParseError> {
+    fn expect(&mut self, expected: TokenKind) -> Result<bool, ParseError> {
         if self.current_token.kind != expected {
             return Err(ParseError::ExpectedToken {
                 expected,
@@ -254,7 +254,7 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        Ok(())
+        Ok(true)
     }
 
     fn parse_item(&mut self) -> Result<(), ParseError> {
@@ -1147,8 +1147,70 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_if(&mut self) -> Result<(), ParseError> {
-        todo!()
+    fn parse_if_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing if expression");
+
+        let start = self.current_token.span.0;
+
+        self.advance()?;
+        self.parse_expression()?;
+
+        let condition_id = self.syntax_tree.last_node_id();
+
+        self.parse_block_expression()?;
+
+        let then_id = self.syntax_tree.last_node_id();
+        let mut children = Self::new_child_buffer();
+
+        children.push(condition_id);
+        children.push(then_id);
+
+        if self.current_token.kind == TokenKind::Else {
+            self.parse_else_expression()?;
+
+            let else_id = self.syntax_tree.last_node_id();
+
+            children.push(else_id);
+        }
+
+        let end = self.previous_token.span.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::IfExpression,
+            span: Span(start, end),
+            children: self.syntax_tree.add_children(&children),
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
+    }
+
+    fn parse_else_expression(&mut self) -> Result<(), ParseError> {
+        info!("Parsing else expression");
+
+        self.advance()?;
+
+        if self.current_token.kind == TokenKind::If {
+            self.parse_if_expression()?;
+        } else {
+            self.parse_block_expression()?;
+        };
+
+        let last_node_id = self.syntax_tree.last_node_id();
+        let last_node = *self
+            .syntax_tree
+            .get_node(last_node_id)
+            .ok_or(ParseError::MissingNode { id: last_node_id })?;
+        let end = last_node.span.1;
+        let node = SyntaxNode {
+            kind: SyntaxKind::ElseExpression,
+            span: Span(last_node.span.0, end),
+            children: (last_node_id.0, 0),
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
     }
 
     fn parse_while_expression(&mut self) -> Result<(), ParseError> {
