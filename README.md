@@ -4,16 +4,21 @@
 
 **Programming language focused on correctness, performance and ease of use.**
 
-Dust enforces static typing, has no null or undefined values and emits helpful errors that guide users to correct syntax. Compiling to 64-bit encoded bytecode in a single pass before JIT compilation enables powerful runtime optimizations and fast startup times. Dust is designed to combine the best features of register-based virtual machines, JIT compilation and static typing to deliver a language that never compromises on correctness or speed while remaining delightfully easy to read and write.
+Dust is an ongoing research project into a language implementation that enforces static typing, has
+no null or undefined values and emits helpful errors that guide users to correct syntax. Compiling
+to 64-bit encoded bytecode in a single pass before JIT compilation enables powerful runtime
+optimizations and fast startup times. Dust is designed to combine the best features of
+register-based virtual machines, JIT compilation and static typing to deliver a language that never
+compromises on correctness or speed while remaining delightfully easy to read and write.
 
 An interactive "Hello, world" using Dust's built-in I/O functions:
 
 ```rust
-write_line("Enter your name...")
+write_line("Enter your name...");
 
-let name = read_line()
+let name = read_line();
 
-write_line("Hello " + name + "!")
+write_line("Hello " + name + "!");
 ```
 
 The classic, unoptimized Fibonacci sequence:
@@ -39,11 +44,14 @@ fib(25)
 >
 > Dust is still experimental.
 
-Development is active and, while many aspects of the implementation are stable, research is ongoing into optimizations and performance improvements. JIT compilation is the latest feature to be added and is still being refined. Before a 1.0 release, the JIT VM needs to be fully implemented along with a bytecode interpreter for environments where JIT compilation is not possible.
+Development is active and, while many aspects of the implementation are stable, research is ongoing
+into design optimizations and performance improvements.
 
 ## Overview
 
-This project's goal is to deliver a language with features that stand out due to a combination of design choices and a high-quality implementation, providing **correctness**, **performance** and **ease-of-use**.
+This project's goal is to deliver a language with features that stand out due to a combination of
+design choices and a high-quality implementation, providing **correctness**, **performance** and
+**ease-of-use**.
 
 - **Correctness**
   - Statically typed with type inference
@@ -62,9 +70,12 @@ This project's goal is to deliver a language with features that stand out due to
 
 **Dust is under active development and is not yet ready for general use.**
 
-The Dust CLI has commands to run, disassemble or tokenize Dust code. It can also provide logging at different levels and measure the time taken for compilation and execution.
+The Dust CLI has commands to run, disassemble or tokenize Dust code. It can also provide logging at
+different levels and measure the time taken for compilation and execution.
 
-If not specified, the CLI will use the `run` command. This mode compiles and executes the Dust program, printing the return value to the console. You can also run Dust code directly from the command line using the `--eval` or `-e` flag.
+If not specified, the CLI will use the `run` command. This mode compiles and executes the Dust
+program, printing the return value to the console. You can also run Dust code directly from the
+command line using the `--eval` or `-e` flag.
 
 ```sh
 dust foobar.ds
@@ -84,11 +95,15 @@ The following benchmarks were run on a machine with the following specifications
 | Memory        | 32 GB                                 |
 | Rust Version  | 1.91.0-nightly                        |
 
-The languages used in the benchmarks were chosen because they are invoked in a single command, i.e. they are "interpreted" languages that run directly from source code, rather than being compiled to an executable file. See the `bench/addictive_addition` and `bench/addictive_calling` directories for the code used.
+The languages used in the benchmarks were chosen because they are invoked in a single command, i.e.
+they are "interpreted" languages that run directly from source code, rather than being compiled to
+an executable file. See the `bench/addictive_addition` and `bench/addictive_calling` directories for
+the code used.
 
 **Addictive Addition** increments a counter from 0 to 10,000,000 using a loop and an operator.
 
-**Addictive Calling** performs the same logic as "Addictive Addition" but it increments by calling a function rather than using an operator directly.
+**Addictive Calling** performs the same logic as "Addictive Addition" but it increments by calling a
+function rather than using an operator directly.
 
 |  Runtime  | Addictive Addition (ms) | Addictive Calling (ms) |
 |-----------|-------------------------|------------------------|
@@ -108,21 +123,40 @@ The languages used in the benchmarks were chosen because they are invoked in a s
 | Python    | 461.2                   | 594.9                  |
 | Clojure   | 1266.0                  | 1352.0                 |
 
-The results of this benchmark show that Dust is performing very well in simple arithmetic operations. Languages like LuaJIT and Bun are clearly using function inlining due to the nearly identical times for both benchmarks. Dust does not yet perform function inlining, hence the slower time for "Addictive Calling".
+The results of this benchmark show that Dust is performing very well in simple arithmetic
+operations. Languages like LuaJIT and Bun are clearly using function inlining due to the nearly
+identical times for both benchmarks. Dust does not yet perform function inlining, hence the slower
+time for "Addictive Calling".
 
 As this project matures, more benchmarks will be added to cover a wider range of use cases.
 
 ## Inspiration
 
-*Crafting Interpreters*[^0] by Bob Nystrom was a great resource for writing the compiler, especially the Pratt parser. The book is a great introduction to writing interpreters. Had it been discovered sooner, some early implementations of Dust would have been both simpler in design and more ambitious in scope.
+*Crafting Interpreters*[^0] by Bob Nystrom was a great resource for writing the compiler, especially
+the Pratt parser. The book is a great introduction to writing interpreters. Had it been discovered
+sooner, some early implementations of Dust would have been both simpler in design and more ambitious
+in scope.
 
-*The Implementation of Lua 5.0*[^1] by Roberto Ierusalimschy, Luiz Henrique de Figueiredo, and Waldemar Celes was a great resource for understanding register-based virtual machines and their instructions. This paper was recommended by Bob Nystrom in *Crafting Interpreters*.
+*The Implementation of Lua 5.0*[^1] by Roberto Ierusalimschy, Luiz Henrique de Figueiredo, and
+Waldemar Celes was a great resource for understanding register-based virtual machines and their
+instructions. This paper was recommended by Bob Nystrom in *Crafting Interpreters*.
 
-*A No-Frills Introduction to Lua 5.1 VM Instructions*[^2] by Kein-Hong Man has a wealth of detailed information on how Lua uses terse instructions to create dense chunks that execute quickly. This was essential in the design of Dust's instructions. Dust uses compile-time optimizations that are based on Lua optimizations covered in this paper.
+*A No-Frills Introduction to Lua 5.1 VM Instructions*[^2] by Kein-Hong Man has a wealth of detailed
+information on how Lua uses terse instructions to create dense chunks that execute quickly. This was
+essential in the design of Dust's instructions. Dust uses compile-time optimizations that are based
+on Lua optimizations covered in this paper.
 
-"A Performance Survey on Stack-based and Register-based Virtual Machines"[^3] by Ruijie Fang and Siqi Liup was helpful for a quick yet efficient primer on getting stack-based and register-based virtual machines up and running. The included code examples show how to implement both types of VMs in C. The performance comparison between the two types of VMs is worth reading for anyone who is trying to choose between the two. Some of the benchmarks described in the paper inspired similar benchmarks used in this project to compare Dust to other languages and inform design decisions.
+"A Performance Survey on Stack-based and Register-based Virtual Machines"[^3] by Ruijie Fang and
+Siqi Liup was helpful for a quick yet efficient primer on getting stack-based and register-based
+virtual machines up and running. The included code examples show how to implement both types of VMs
+in C. The performance comparison between the two types of VMs is worth reading for anyone who is
+trying to choose between the two. Some of the benchmarks described in the paper inspired similar
+benchmarks used in this project to compare Dust to other languages and inform design decisions.
 
-*Writing a Compiler in Go*[^6] by Thorsten Ball is a lot like *Crafting Interpreters*, they are the where I look for a generalized approach to solving a problem. Filled with code examples, this book helps the reader make the turn from evaluating a syntax tree to thinking about how problems are solved on physical hardware and how that informs the design of a virtual machine.
+*Writing a Compiler in Go*[^6] by Thorsten Ball is a lot like *Crafting Interpreters*, they are the
+where I look for a generalized approach to solving a problem. Filled with code examples, this book
+helps the reader make the turn from evaluating a syntax tree to thinking about how problems are
+solved on physical hardware and how that informs the design of a virtual machine.
 
 > Let me get straight to the point: a virtual machine is a computer built with software.
 > -- Thorsten Ball, *Writing a Compiler in Go*
