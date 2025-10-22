@@ -2195,18 +2195,18 @@ impl<'a> ChunkCompiler<'a> {
                 })?;
         let condition_emission = self.compile_expression(&condition_node)?;
         let mut instructions = SmallVec::new();
-        let (condition_address, conditon_type) = match condition_emission {
+        let (condition_address, conditon_type, needs_test) = match condition_emission {
             Emission::Instruction(instruction, r#type) => {
                 instructions.push(instruction);
 
-                (instruction.destination(), r#type)
+                (instruction.destination(), r#type, true)
             }
             Emission::Instructions(then_instructions, r#type) => {
                 let comparison_or_test_instruction = then_instructions[0];
 
                 instructions.push(comparison_or_test_instruction);
 
-                (comparison_or_test_instruction.destination(), r#type)
+                (comparison_or_test_instruction.destination(), r#type, false)
             }
             Emission::Constant(constant, r#type) => {
                 let operand_type = r#type.as_operand_type();
@@ -2217,9 +2217,9 @@ impl<'a> ChunkCompiler<'a> {
 
                 instructions.push(move_instruction);
 
-                (Address::register(destination), r#type)
+                (Address::register(destination), r#type, true)
             }
-            Emission::Local(Local { address, r#type }) => (address, r#type),
+            Emission::Local(Local { address, r#type }) => (address, r#type, true),
             _ => {
                 return Err(CompileError::ExpectedBooleanExpression {
                     node_kind: condition_node.kind,
@@ -2235,9 +2235,11 @@ impl<'a> ChunkCompiler<'a> {
             });
         }
 
-        let test_instruction = Instruction::test(condition_address, true);
+        if needs_test {
+            let test_instruction = Instruction::test(condition_address, true);
 
-        instructions.push(test_instruction);
+            instructions.push(test_instruction);
+        }
 
         let jump_to_else_index = instructions.len();
 
