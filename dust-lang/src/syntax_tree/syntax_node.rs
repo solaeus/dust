@@ -354,7 +354,10 @@ impl SyntaxKind {
     pub fn has_block(self) -> bool {
         matches!(
             self,
-            SyntaxKind::BlockExpression | SyntaxKind::IfExpression | SyntaxKind::WhileExpression
+            SyntaxKind::BlockExpression
+                | SyntaxKind::IfExpression
+                | SyntaxKind::ElseExpression
+                | SyntaxKind::WhileExpression
         )
     }
 }

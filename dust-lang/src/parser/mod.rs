@@ -1345,8 +1345,6 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_semicolon(&mut self) -> Result<(), ParseError> {
-        let start = self.current_token.span.0;
-
         self.advance()?;
 
         let end = self.previous_token.span.1;
@@ -1356,23 +1354,15 @@ impl<'src> Parser<'src> {
                 position: Position::new(self.file_id, self.previous_token.span),
             });
         };
-        let is_optional = last_node.kind.has_block();
 
-        let node = if is_optional {
-            SyntaxNode {
-                kind: SyntaxKind::SemicolonStatement,
-                span: Span(start, end),
-                children: (is_optional as u32, 0),
-            }
-        } else {
-            let span = Span(last_node.span.0, end);
-            let expression_id = self.syntax_tree.last_node_id();
+        println!("Last node kind: {:?}", last_node.kind);
 
-            SyntaxNode {
-                kind: SyntaxKind::ExpressionStatement,
-                span,
-                children: (expression_id.0, 0),
-            }
+        let span = Span(last_node.span.0, end);
+        let expression_id = self.syntax_tree.last_node_id();
+        let node = SyntaxNode {
+            kind: SyntaxKind::ExpressionStatement,
+            span,
+            children: (expression_id.0, 0),
         };
 
         self.syntax_tree.push_node(node);
