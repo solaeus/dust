@@ -46,6 +46,6 @@ impl Display for Test {
         } = self;
         let bang = if *comparator { "" } else { "!" };
 
-        write!(f, "if {bang}reg_{} {{ jump + 1 }}", operand.index)
+        write!(f, "if {bang}reg_{} jump +1", operand.index)
     }
 }

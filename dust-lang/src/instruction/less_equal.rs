@@ -67,6 +67,6 @@ impl Display for LessEqual {
         left.display(f, *r#type)?;
         write!(f, " {operator} ")?;
         right.display(f, *r#type)?;
-        write!(f, " {{ JUMP +1 }}")
+        write!(f, " jump +1")
     }
 }
