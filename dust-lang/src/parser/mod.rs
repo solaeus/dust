@@ -1354,9 +1354,6 @@ impl<'src> Parser<'src> {
                 position: Position::new(self.file_id, self.previous_token.span),
             });
         };
-
-        println!("Last node kind: {:?}", last_node.kind);
-
         let span = Span(last_node.span.0, end);
         let expression_id = self.syntax_tree.last_node_id();
         let node = SyntaxNode {
