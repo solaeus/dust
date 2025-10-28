@@ -205,21 +205,16 @@ where
             .map(|scope| scope.from_root().collect::<Vec<_>>())
             .unwrap_or_default();
 
-        let (emoji, colorized_level) = match *level {
-            Level::ERROR => ("🕱", "ERROR".red().bold()),
-            Level::WARN => ("⚠", "WARN".yellow().bold()),
-            Level::INFO => ("🛈", "INFO".blue().bold()),
-            Level::DEBUG => ("🕷", "DEBUG".green().bold()),
-            Level::TRACE => ("🖙", "TRACE".cyan().bold()),
+        let colorized_level = match *level {
+            Level::ERROR => "ERROR".red().bold(),
+            Level::WARN => "WARN".yellow().bold(),
+            Level::INFO => "INFO".blue().bold(),
+            Level::DEBUG => "DEBUG".green().bold(),
+            Level::TRACE => "TRACE".cyan().bold(),
         };
+        let time = format!("{elapsed:.5}ms").dimmed();
 
-        write!(
-            writer,
-            "{} {}  {:5}",
-            format!("{elapsed:.5}ms").dimmed(),
-            emoji,
-            colorized_level,
-        )?;
+        write!(writer, "{colorized_level:5} {time}",)?;
 
         if !scopes.is_empty() {
             let span_names = scopes
