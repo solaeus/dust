@@ -374,7 +374,6 @@ impl<'a> ChunkCompiler<'a> {
         fn handle_compound_emission(
             compiler: &mut ChunkCompiler,
             mut emissions: Vec<Emission>,
-            node: &SyntaxNode,
         ) -> Result<(Vec<Emission>, Address), CompileError> {
             let last_emission = emissions.pop().unwrap();
             let (new_last_emission, address) = match last_emission {
@@ -407,7 +406,7 @@ impl<'a> ChunkCompiler<'a> {
                 Emission::Function(address, _) => (None, address),
                 Emission::Compound(nested_emissions, _) => {
                     let (emissions, address) =
-                        handle_compound_emission(compiler, nested_emissions, node)?;
+                        handle_compound_emission(compiler, nested_emissions)?;
 
                     (Some(Emission::Compound(emissions, Type::None)), address)
                 }
@@ -461,7 +460,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Local(Local { address, r#type }) => Ok((Emission::None, address, r#type)),
             Emission::Function(address, r#type) => Ok((Emission::None, address, r#type)),
             Emission::Compound(emissions, r#type) => {
-                let (emissions, address) = handle_compound_emission(self, emissions, node)?;
+                let (emissions, address) = handle_compound_emission(self, emissions)?;
 
                 Ok((
                     Emission::Compound(emissions, r#type.clone()),
@@ -2337,7 +2336,10 @@ impl<'a> ChunkCompiler<'a> {
                     let mut results = (Address::default(), Type::None, false);
 
                     for emission in condition_emissions {
-                        results = handle_condition_emission(compiler, emission, emissions, node)?;
+                        if !matches!(emission, Emission::None) {
+                            results =
+                                handle_condition_emission(compiler, emission, emissions, node)?;
+                        }
                     }
 
                     results.1 = r#type;
@@ -2345,7 +2347,7 @@ impl<'a> ChunkCompiler<'a> {
                     Ok(results)
                 }
                 Emission::None => Err(CompileError::ExpectedExpression {
-                    node_kind: SyntaxKind::IfExpression,
+                    node_kind: node.kind,
                     position: Position::new(compiler.file_id, node.span),
                 }),
             }
