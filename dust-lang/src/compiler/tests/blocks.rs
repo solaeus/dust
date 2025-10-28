@@ -97,12 +97,11 @@ fn parent_scope_access() {
         chunk,
         Chunk {
             r#type: FunctionType::new([], [], Type::Integer),
-            instructions: vec![Instruction::r#return(
-                true,
-                Address::constant(0),
-                OperandType::INTEGER
-            ),],
-            register_count: 0,
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
+            ],
+            register_count: 1,
             ..Default::default()
         }
     );
@@ -145,9 +144,10 @@ fn scope_shadowing() {
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#return(true, Address::constant(1), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#return(true, Address::register(1), OperandType::INTEGER),
             ],
-            register_count: 1,
+            register_count: 2,
             ..Default::default()
         }
     );
