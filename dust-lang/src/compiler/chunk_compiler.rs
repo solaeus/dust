@@ -1,7 +1,7 @@
 use std::{collections::HashMap, mem::replace};
 
 use rustc_hash::FxBuildHasher;
-use smallvec::{SmallVec, smallvec};
+use smallvec::SmallVec;
 use tracing::{debug, info, span, trace};
 
 use crate::{
@@ -158,8 +158,6 @@ impl<'a> ChunkCompiler<'a> {
     fn reclaim_register(&mut self, register: u16) {
         if register + 1 == self.minimum_register {
             self.minimum_register -= 1;
-        } else {
-            self.reusable_registers.push(register);
         }
     }
 
@@ -498,7 +496,15 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Function(address, r#type) => Ok((address, r#type)),
             Emission::Local(Local { address, r#type }) => Ok((address, r#type)),
             Emission::Instruction(instruction, r#type) => {
+                if r#type == Type::None {
+                    instructions.push(instruction);
+
+                    return Ok((Address::default(), r#type));
+                }
+
                 if instruction.operation() == Operation::MOVE {
+                    self.reclaim_register(instruction.a_field());
+
                     Ok((instruction.b_address(), r#type))
                 } else {
                     instructions.push(instruction);
@@ -510,6 +516,12 @@ impl<'a> ChunkCompiler<'a> {
                 instructions: mut operand_instructions,
                 r#type,
             }) => {
+                if r#type == Type::None {
+                    instructions.instructions.extend(operand_instructions);
+
+                    return Ok((Address::default(), r#type));
+                }
+
                 let ends_with_condition = operand_instructions.len() >= 4
                     && (matches!(
                         operand_instructions[operand_instructions.len() - 3].operation(),
@@ -524,10 +536,7 @@ impl<'a> ChunkCompiler<'a> {
                 if last_instruction.operation() == Operation::MOVE && !ends_with_condition {
                     let address = last_instruction.b_address();
 
-                    if address.memory == MemoryKind::REGISTER {
-                        self.reclaim_register(last_instruction.a_field());
-                    }
-
+                    self.reclaim_register(last_instruction.a_field());
                     operand_instructions.pop();
                     instructions.instructions.extend(operand_instructions);
 
@@ -540,10 +549,7 @@ impl<'a> ChunkCompiler<'a> {
                     Ok((address, r#type))
                 }
             }
-            Emission::None => Err(CompileError::ExpectedExpression {
-                node_kind: node.kind,
-                position: Position::new(self.file_id, node.span),
-            }),
+            Emission::None => Ok((Address::default(), Type::None)),
         }
     }
 
@@ -1830,6 +1836,35 @@ impl<'a> ChunkCompiler<'a> {
                 syntax_id: final_expression_id,
             },
         )?;
+
+        if final_expression_node.kind.is_item() {
+            self.compile_item(&final_expression_node)?;
+
+            self.current_scope_id = start_scope_id;
+
+            return Ok(Emission::Instructions(instructions_emission));
+        }
+
+        if final_expression_node.kind.is_statement() {
+            let statement_emission = self.compile_statement(&final_expression_node)?;
+
+            match statement_emission {
+                Emission::Instructions(InstructionsEmission { instructions, .. }) => {
+                    instructions_emission.instructions.extend(instructions);
+                }
+                Emission::Instruction(instruction, _) => {
+                    instructions_emission.push(instruction);
+                }
+                _ => {}
+            }
+
+            self.current_scope_id = start_scope_id;
+
+            instructions_emission.set_type(Type::None);
+
+            return Ok(Emission::Instructions(instructions_emission));
+        }
+
         let final_expression_emission = self.compile_expression(&final_expression_node)?;
 
         let block_type = match final_expression_emission {
@@ -1911,7 +1946,10 @@ impl<'a> ChunkCompiler<'a> {
                 position: Position::new(self.file_id, node.span),
             })?;
 
-        if !matches!(declaration.kind, DeclarationKind::Local { .. }) {
+        if !matches!(
+            declaration.kind,
+            DeclarationKind::Local { .. } | DeclarationKind::LocalMutable { .. }
+        ) {
             todo!("Error");
         }
 
