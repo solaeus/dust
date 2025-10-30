@@ -159,6 +159,12 @@ impl Instruction {
         *self = fields.build();
     }
 
+    pub fn set_c_field(&mut self, bits: u16) {
+        let mut fields = InstructionFields::from(&*self);
+        fields.c_field = bits;
+        *self = fields.build();
+    }
+
     pub fn set_d_field(&mut self, bits: u16) {
         let mut fields = InstructionFields::from(&*self);
         fields.d_field = Some(bits);

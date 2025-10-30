@@ -7,7 +7,7 @@ use tracing::{debug, info, span, trace};
 use crate::{
     chunk::Chunk,
     compiler::{CompileContext, binder::Binder},
-    instruction::{Address, Instruction, MemoryKind, OperandType, Operation},
+    instruction::{Address, Instruction, OperandType, Operation},
     native_function::NativeFunction,
     resolver::{Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind},
     source::{Position, SourceFileId},
@@ -423,12 +423,8 @@ impl<'a> ChunkCompiler<'a> {
         let r#type = match emission {
             Emission::Constant(constant, r#type) => {
                 let address = self.get_constant_address(constant);
-                let destination = self.allocate_register();
-                let move_instruction =
-                    Instruction::r#move(destination, address, r#type.as_operand_type(), false);
-                let test_instruction = Instruction::test(Address::register(destination), true);
+                let test_instruction = Instruction::test(address, true);
 
-                instructions.push(move_instruction);
                 instructions.push(test_instruction);
 
                 r#type
@@ -436,6 +432,12 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Function(_, r#type) => r#type,
             Emission::Local(Local { r#type, .. }) => r#type,
             Emission::Instruction(instruction, r#type) => {
+                if instruction.operation() == Operation::TEST {
+                    instructions.push(instruction);
+
+                    return Ok(());
+                }
+
                 let test_instruction = Instruction::test(instruction.destination(), true);
 
                 instructions.push(instruction);
@@ -460,7 +462,7 @@ impl<'a> ChunkCompiler<'a> {
                             | Operation::EQUAL
                             | Operation::TEST
                     ) {
-                        condition_instructions.truncate(length - 4);
+                        condition_instructions.truncate(length - 3);
                     }
                 }
 
@@ -523,13 +525,13 @@ impl<'a> ChunkCompiler<'a> {
                 }
 
                 let ends_with_condition = operand_instructions.len() >= 4
-                    && (matches!(
-                        operand_instructions[operand_instructions.len() - 3].operation(),
-                        Operation::TEST
-                    ) || matches!(
+                    && matches!(
                         operand_instructions[operand_instructions.len() - 4].operation(),
-                        Operation::LESS | Operation::LESS_EQUAL | Operation::EQUAL
-                    ));
+                        Operation::LESS
+                            | Operation::LESS_EQUAL
+                            | Operation::EQUAL
+                            | Operation::TEST
+                    );
 
                 let last_instruction = operand_instructions.last().unwrap();
 
@@ -1139,7 +1141,7 @@ impl<'a> ChunkCompiler<'a> {
             | SyntaxKind::EqualExpression
             | SyntaxKind::NotEqualExpression => self.compile_comparison_expression(node),
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
-                self.compile_logical_expression(node)
+                self.compile_logic_expression(node)
             }
             SyntaxKind::NotExpression | SyntaxKind::NegationExpression => {
                 self.compile_unary_expression(node)
@@ -1639,13 +1641,13 @@ impl<'a> ChunkCompiler<'a> {
         Ok(Emission::Instructions(instructions_emission))
     }
 
-    fn compile_logical_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+    fn compile_logic_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling logical expression");
 
         let comparator = match node.kind {
             SyntaxKind::AndExpression => true,
             SyntaxKind::OrExpression => false,
-            _ => unreachable!("Expected logical expression, found {}", node.kind),
+            _ => unreachable!("Expected logic expression, found {}", node.kind),
         };
 
         let left_index = SyntaxId(node.children.0);
@@ -1694,18 +1696,18 @@ impl<'a> ChunkCompiler<'a> {
         }
 
         let load_destination = self.allocate_register();
-        let left_move_instruction =
-            Instruction::r#move(load_destination, left_address, OperandType::BOOLEAN, false);
-        let test_instruction = Instruction::test(Address::register(load_destination), comparator);
+        let test_instruction = Instruction::test(left_address, comparator);
         let jump_instruction = Instruction::jump(1, true);
+        let left_move_instruction =
+            Instruction::r#move(load_destination, left_address, OperandType::BOOLEAN, true);
         let right_move_instruction =
             Instruction::r#move(load_destination, right_address, OperandType::BOOLEAN, false);
 
-        instructions_emission.push(left_move_instruction);
         instructions_emission.push(test_instruction);
         instructions_emission.push(jump_instruction);
+        instructions_emission.push(left_move_instruction);
         instructions_emission.push(right_move_instruction);
-        instructions_emission.r#type = Type::Boolean;
+        instructions_emission.set_type(Type::Boolean);
 
         Ok(Emission::Instructions(instructions_emission))
     }
@@ -1918,6 +1920,13 @@ impl<'a> ChunkCompiler<'a> {
 
         if instructions_emission.instructions.is_empty() {
             Ok(Emission::None)
+        } else if instructions_emission.length() == 1 {
+            let instruction = instructions_emission.instructions[0];
+
+            Ok(Emission::Instruction(
+                instruction,
+                instructions_emission.r#type,
+            ))
         } else {
             Ok(Emission::Instructions(instructions_emission))
         }
@@ -2437,45 +2446,67 @@ impl<'a> ChunkCompiler<'a> {
             compiler: &mut ChunkCompiler,
             instructions_emission: &mut InstructionsEmission,
             emission: Emission,
+            destination_register: u16,
         ) -> Type {
             match emission {
                 Emission::Constant(constant, r#type) => {
-                    let destination = compiler.allocate_register();
                     let address = compiler.get_constant_address(constant);
-                    let move_instruction =
-                        Instruction::r#move(destination, address, r#type.as_operand_type(), false);
+                    let move_instruction = Instruction::r#move(
+                        destination_register,
+                        address,
+                        r#type.as_operand_type(),
+                        false,
+                    );
 
                     instructions_emission.push(move_instruction);
 
                     r#type
                 }
                 Emission::Function(address, r#type) => {
-                    let destination = compiler.allocate_register();
-                    let move_instruction =
-                        Instruction::r#move(destination, address, r#type.as_operand_type(), false);
+                    let move_instruction = Instruction::r#move(
+                        destination_register,
+                        address,
+                        r#type.as_operand_type(),
+                        false,
+                    );
 
                     instructions_emission.push(move_instruction);
 
                     r#type
                 }
                 Emission::Local(Local { address, r#type }) => {
-                    let destination = compiler.allocate_register();
-                    let move_instruction =
-                        Instruction::r#move(destination, address, r#type.as_operand_type(), false);
+                    let move_instruction = Instruction::r#move(
+                        destination_register,
+                        address,
+                        r#type.as_operand_type(),
+                        false,
+                    );
 
                     instructions_emission.push(move_instruction);
 
                     r#type
                 }
-                Emission::Instruction(instruction, r#type) => {
+                Emission::Instruction(mut instruction, r#type) => {
+                    if instruction.operation() == Operation::MOVE {
+                        compiler.reclaim_register(instruction.a_field());
+                        instruction.set_destination(Address::register(destination_register));
+                    }
+
                     instructions_emission.push(instruction);
 
                     r#type
                 }
                 Emission::Instructions(InstructionsEmission {
-                    instructions,
+                    mut instructions,
                     r#type,
                 }) => {
+                    let last_instruction = instructions.last_mut().unwrap();
+
+                    if last_instruction.operation() == Operation::MOVE {
+                        compiler.reclaim_register(last_instruction.a_field());
+                        last_instruction.set_destination(Address::register(destination_register));
+                    }
+
                     instructions_emission.instructions.extend(instructions);
 
                     r#type
@@ -2521,18 +2552,29 @@ impl<'a> ChunkCompiler<'a> {
 
         let condition_emission = self.compile_expression(&condition_node)?;
 
+        println!("Condition emission: {:?}", condition_emission);
+
         self.handle_condition_emission(
             &mut instructions_emission,
             condition_emission,
             &condition_node,
         )?;
 
+        println!("Emissions after condition: {:?}", instructions_emission);
+
         let jump_to_else_index = instructions_emission.length();
 
         instructions_emission.push(Instruction::no_op());
 
+        let destination_register = self.allocate_register();
+
         let then_emission = self.compile_expression(&then_block_node)?;
-        let then_type = handle_branch_emission(self, &mut instructions_emission, then_emission);
+        let then_type = handle_branch_emission(
+            self,
+            &mut instructions_emission,
+            then_emission,
+            destination_register,
+        );
 
         if children_ids.len() == 3 {
             let jump_to_end_index = instructions_emission.length();
@@ -2553,7 +2595,12 @@ impl<'a> ChunkCompiler<'a> {
                         child_index: node.children.0 + 2,
                     })?;
             let else_emission = self.compile_else_expression(&else_block_node)?;
-            let else_type = handle_branch_emission(self, &mut instructions_emission, else_emission);
+            let else_type = handle_branch_emission(
+                self,
+                &mut instructions_emission,
+                else_emission,
+                destination_register,
+            );
 
             if then_type != else_type {
                 return Err(CompileError::MismatchedIfElseTypes {
@@ -2565,14 +2612,25 @@ impl<'a> ChunkCompiler<'a> {
 
             let instruction_length = instructions_emission.length();
             let distance_to_end = (instruction_length - jump_to_end_index - 1) as u16;
-            let jump_to_end_instruction = Instruction::jump(distance_to_end, true);
-            instructions_emission.instructions[jump_to_end_index] = jump_to_end_instruction;
+
+            if distance_to_end == 1
+                && instructions_emission.instructions[jump_to_end_index - 1].operation()
+                    == Operation::MOVE
+            {
+                instructions_emission.instructions[jump_to_end_index - 1].set_c_field(true as u16);
+                instructions_emission.instructions.remove(jump_to_end_index);
+            } else {
+                let jump_to_end_instruction = Instruction::jump(distance_to_end, true);
+                instructions_emission.instructions[jump_to_end_index] = jump_to_end_instruction;
+            }
         } else {
             let instruction_length = instructions_emission.length();
             let distance_past_then = (instruction_length - jump_to_else_index - 1) as u16;
             let jump_forward_instruction = Instruction::jump(distance_past_then, true);
             instructions_emission.instructions[jump_to_else_index] = jump_forward_instruction;
         }
+
+        instructions_emission.set_type(then_type);
 
         Ok(Emission::Instructions(instructions_emission))
     }

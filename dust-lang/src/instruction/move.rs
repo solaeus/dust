@@ -61,7 +61,7 @@ impl Display for Move {
         operand.display(f, *r#type)?;
 
         if *jump_next {
-            write!(f, " (jump +1)")?;
+            write!(f, " jump +1")?;
         }
 
         Ok(())
