@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, mem::replace};
 
 use rustc_hash::FxBuildHasher;
 use smallvec::{SmallVec, smallvec};
@@ -41,7 +41,9 @@ pub struct ChunkCompiler<'a> {
 
     current_scope_id: ScopeId,
 
-    next_register: u16,
+    minimum_register: u16,
+
+    reusable_registers: Vec<u16>,
 }
 
 impl<'a> ChunkCompiler<'a> {
@@ -61,7 +63,8 @@ impl<'a> ChunkCompiler<'a> {
             call_arguments: Vec::new(),
             drop_lists: Vec::new(),
             locals: HashMap::default(),
-            next_register: 0,
+            minimum_register: 0,
+            reusable_registers: Vec::new(),
             current_scope_id: starting_scope_id,
         }
     }
@@ -93,7 +96,7 @@ impl<'a> ChunkCompiler<'a> {
         } else {
             None
         };
-        let register_count = self.next_register;
+        let register_count = self.minimum_register;
 
         Ok(Chunk {
             name_position,
@@ -109,22 +112,10 @@ impl<'a> ChunkCompiler<'a> {
         trace!("Emitting {} instruction", instruction.operation());
 
         if instruction.yields_value() {
-            self.next_register = self.next_register.max(instruction.a_field() + 1);
+            self.minimum_register = self.minimum_register.max(instruction.a_field() + 1);
         }
 
         self.instructions.push(instruction);
-    }
-
-    fn emit_instructions(&mut self, instructions: SmallVec<[Instruction; 8]>) {
-        for instruction in &instructions {
-            trace!("Emitting {} instruction", instruction.operation());
-
-            if instruction.yields_value() {
-                self.next_register = self.next_register.max(instruction.a_field() + 1);
-            }
-        }
-
-        self.instructions.extend(instructions);
     }
 
     fn syntax_tree(&self) -> Result<&SyntaxTree, CompileError> {
@@ -152,6 +143,24 @@ impl<'a> ChunkCompiler<'a> {
         };
 
         Address::constant(index)
+    }
+
+    fn allocate_register(&mut self) -> u16 {
+        self.reusable_registers.pop().unwrap_or_else(|| {
+            let register = self.minimum_register;
+
+            self.minimum_register += 1;
+
+            register
+        })
+    }
+
+    fn reclaim_register(&mut self, register: u16) {
+        if register + 1 == self.minimum_register {
+            self.minimum_register -= 1;
+        } else {
+            self.reusable_registers.push(register);
+        }
     }
 
     fn combine_constants(
@@ -366,109 +375,175 @@ impl<'a> ChunkCompiler<'a> {
         Ok(combined)
     }
 
-    fn handle_operand(
+    fn handle_operand_emission(
         &mut self,
+        instructions: &mut InstructionsEmission,
         emission: Emission,
         node: &SyntaxNode,
-    ) -> Result<(Emission, Address, Type), CompileError> {
-        fn handle_compound_emission(
-            compiler: &mut ChunkCompiler,
-            mut emissions: Vec<Emission>,
-        ) -> Result<(Vec<Emission>, Address), CompileError> {
-            let last_emission = emissions.pop().unwrap();
-            let (new_last_emission, address) = match last_emission {
-                Emission::Instruction(instruction, r#type) => {
-                    if instruction.operation() == Operation::MOVE {
-                        (None, instruction.b_address())
-                    } else if instruction.yields_value() {
-                        (
-                            Some(Emission::Instruction(instruction, r#type)),
-                            instruction.destination(),
-                        )
-                    } else {
-                        (
-                            Some(Emission::Instruction(instruction, r#type)),
-                            Address::default(),
-                        )
-                    }
-                }
-                Emission::Instructions(instructions, r#type) => {
-                    let address = instructions.last().unwrap().destination();
-
-                    (Some(Emission::Instructions(instructions, r#type)), address)
-                }
-                Emission::Constant(constant, _) => {
-                    let address = compiler.get_constant_address(constant);
-
-                    (None, address)
-                }
-                Emission::Local(Local { address, .. }) => (None, address),
-                Emission::Function(address, _) => (None, address),
-                Emission::Compound(nested_emissions, _) => {
-                    let (emissions, address) =
-                        handle_compound_emission(compiler, nested_emissions)?;
-
-                    (Some(Emission::Compound(emissions, Type::None)), address)
-                }
-                Emission::None => (None, Address::default()),
-            };
-
-            if let Some(new_emission) = new_last_emission {
-                emissions.push(new_emission)
-            }
-
-            Ok((emissions, address))
-        }
-
+    ) -> Result<(Address, Type), CompileError> {
         match emission {
-            Emission::Instruction(instruction, r#type) => {
-                if instruction.operation() == Operation::MOVE {
-                    let address = instruction.b_address();
-
-                    Ok((Emission::None, address, r#type))
-                } else if instruction.yields_value() {
-                    let address = instruction.destination();
-
-                    self.emit_instruction(instruction);
-
-                    Ok((
-                        Emission::Instruction(instruction, r#type.clone()),
-                        address,
-                        r#type,
-                    ))
-                } else {
-                    Err(CompileError::ExpectedExpression {
-                        node_kind: node.kind,
-                        position: Position::new(self.file_id, node.span),
-                    })
-                }
-            }
-            Emission::Instructions(instructions, r#type) => {
-                let address = instructions.last().unwrap().destination();
-
-                Ok((
-                    Emission::Instructions(instructions, r#type.clone()),
-                    address,
-                    r#type,
-                ))
-            }
             Emission::Constant(constant, r#type) => {
                 let address = self.get_constant_address(constant);
 
-                Ok((Emission::None, address, r#type))
+                Ok((address, r#type))
             }
-            Emission::Local(Local { address, r#type }) => Ok((Emission::None, address, r#type)),
-            Emission::Function(address, r#type) => Ok((Emission::None, address, r#type)),
-            Emission::Compound(emissions, r#type) => {
-                let (emissions, address) = handle_compound_emission(self, emissions)?;
+            Emission::Function(address, r#type) => Ok((address, r#type)),
+            Emission::Local(Local { address, r#type }) => Ok((address, r#type)),
+            Emission::Instruction(instruction, r#type) => {
+                instructions.push(instruction);
 
-                Ok((
-                    Emission::Compound(emissions, r#type.clone()),
-                    address,
-                    r#type,
-                ))
+                Ok((instruction.destination(), r#type))
             }
-            Emission::None => Ok((Emission::None, Address::default(), Type::None)),
+            Emission::Instructions(InstructionsEmission {
+                instructions: operand_instructions,
+                r#type,
+            }) => {
+                let last_instruction = operand_instructions.last().unwrap();
+                let address = if last_instruction.operation() == Operation::MOVE {
+                    last_instruction.b_address()
+                } else {
+                    last_instruction.destination()
+                };
+
+                instructions.instructions.extend(operand_instructions);
+
+                Ok((address, r#type))
+            }
+            Emission::None => Err(CompileError::ExpectedExpression {
+                node_kind: node.kind,
+                position: Position::new(self.file_id, node.span),
+            }),
+        }
+    }
+
+    fn handle_condition_emission(
+        &mut self,
+        instructions: &mut InstructionsEmission,
+        emission: Emission,
+        node: &SyntaxNode,
+    ) -> Result<(), CompileError> {
+        let r#type = match emission {
+            Emission::Constant(constant, r#type) => {
+                let address = self.get_constant_address(constant);
+                let destination = self.allocate_register();
+                let move_instruction =
+                    Instruction::r#move(destination, address, r#type.as_operand_type(), false);
+                let test_instruction = Instruction::test(Address::register(destination), true);
+
+                instructions.push(move_instruction);
+                instructions.push(test_instruction);
+
+                r#type
+            }
+            Emission::Function(_, r#type) => r#type,
+            Emission::Local(Local { r#type, .. }) => r#type,
+            Emission::Instruction(instruction, r#type) => {
+                let test_instruction = Instruction::test(instruction.destination(), true);
+
+                instructions.push(instruction);
+                instructions.push(test_instruction);
+
+                r#type
+            }
+            Emission::Instructions(InstructionsEmission {
+                instructions: mut condition_instructions,
+                r#type,
+            }) => {
+                let length = condition_instructions.len();
+
+                if condition_instructions.len() >= 4 {
+                    let possible_condition_operation =
+                        condition_instructions[length - 4].operation();
+
+                    if matches!(
+                        possible_condition_operation,
+                        Operation::LESS
+                            | Operation::LESS_EQUAL
+                            | Operation::EQUAL
+                            | Operation::TEST
+                    ) {
+                        condition_instructions.truncate(length - 4);
+                    }
+                }
+
+                instructions.instructions.extend(condition_instructions);
+
+                r#type
+            }
+            Emission::None => Type::None,
+        };
+
+        if r#type == Type::Boolean {
+            Ok(())
+        } else {
+            Err(CompileError::ExpectedBooleanExpression {
+                node_kind: node.kind,
+                position: Position::new(self.file_id, node.span),
+            })
+        }
+    }
+
+    fn handle_return_emission(
+        &mut self,
+        instructions: &mut InstructionsEmission,
+        emission: Emission,
+        node: &SyntaxNode,
+    ) -> Result<(Address, Type), CompileError> {
+        match emission {
+            Emission::Constant(constant, r#type) => {
+                let address = self.get_constant_address(constant);
+
+                Ok((address, r#type))
+            }
+            Emission::Function(address, r#type) => Ok((address, r#type)),
+            Emission::Local(Local { address, r#type }) => Ok((address, r#type)),
+            Emission::Instruction(instruction, r#type) => {
+                if instruction.operation() == Operation::MOVE {
+                    Ok((instruction.b_address(), r#type))
+                } else {
+                    instructions.push(instruction);
+
+                    Ok((instruction.destination(), r#type))
+                }
+            }
+            Emission::Instructions(InstructionsEmission {
+                instructions: mut operand_instructions,
+                r#type,
+            }) => {
+                let ends_with_condition = operand_instructions.len() >= 4
+                    && (matches!(
+                        operand_instructions[operand_instructions.len() - 3].operation(),
+                        Operation::TEST
+                    ) || matches!(
+                        operand_instructions[operand_instructions.len() - 4].operation(),
+                        Operation::LESS | Operation::LESS_EQUAL | Operation::EQUAL
+                    ));
+
+                let last_instruction = operand_instructions.last().unwrap();
+
+                if last_instruction.operation() == Operation::MOVE && !ends_with_condition {
+                    let address = last_instruction.b_address();
+
+                    if address.memory == MemoryKind::REGISTER {
+                        self.reclaim_register(last_instruction.a_field());
+                    }
+
+                    operand_instructions.pop();
+                    instructions.instructions.extend(operand_instructions);
+
+                    Ok((address, r#type))
+                } else {
+                    let address = last_instruction.destination();
+
+                    instructions.instructions.extend(operand_instructions);
+
+                    Ok((address, r#type))
+                }
+            }
+            Emission::None => Err(CompileError::ExpectedExpression {
+                node_kind: node.kind,
+                position: Position::new(self.file_id, node.span),
+            }),
         }
     }
 
@@ -501,23 +576,43 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_main_function_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling main function");
 
-        fn handle_emission(compiler: &mut ChunkCompiler, statement_emission: Emission) {
-            match statement_emission {
+        fn handle_emission(compiler: &mut ChunkCompiler, emission: Emission) {
+            match emission {
+                Emission::Constant(constant, r#type) => {
+                    let address = compiler.get_constant_address(constant);
+                    let destination = compiler.allocate_register();
+                    let move_instruction =
+                        Instruction::r#move(destination, address, r#type.as_operand_type(), false);
+
+                    compiler.emit_instruction(move_instruction);
+                }
+                Emission::Function(function_address, r#type) => {
+                    let destination = compiler.allocate_register();
+                    let move_instruction = Instruction::r#move(
+                        destination,
+                        function_address,
+                        r#type.as_operand_type(),
+                        false,
+                    );
+
+                    compiler.emit_instruction(move_instruction);
+                }
+                Emission::Local(Local { address, r#type }) => {
+                    let destination = compiler.allocate_register();
+                    let move_instruction =
+                        Instruction::r#move(destination, address, r#type.as_operand_type(), false);
+
+                    compiler.emit_instruction(move_instruction);
+                }
                 Emission::Instruction(instruction, _) => {
                     compiler.emit_instruction(instruction);
                 }
-                Emission::Instructions(instructions, _) => {
-                    compiler.emit_instructions(instructions);
-                }
-                Emission::Compound(emissions, _) => {
-                    for emission in emissions {
-                        handle_emission(compiler, emission);
+                Emission::Instructions(InstructionsEmission { instructions, .. }) => {
+                    for instruction in instructions {
+                        compiler.emit_instruction(instruction);
                     }
                 }
-                Emission::Constant(_, _)
-                | Emission::Local(_)
-                | Emission::Function(_, _)
-                | Emission::None => {}
+                Emission::None => {}
             }
         }
 
@@ -794,57 +889,15 @@ impl<'a> ChunkCompiler<'a> {
                     syntax_id: exression_id,
                 })?;
 
-        let expression_emission = self.compile_expression(&expression_node)?;
-        let statement_emission = match expression_emission {
-            Emission::Instruction(instruction, _) => Emission::Instruction(instruction, Type::None),
-            Emission::Instructions(instructions, _) => {
-                Emission::Instructions(instructions, Type::None)
-            }
-            Emission::Compound(emissions, _) => Emission::Compound(emissions, Type::None),
-            Emission::Constant(constant, _) => Emission::Constant(constant, Type::None),
-            emission => emission,
-        };
+        let mut emission = self.compile_expression(&expression_node)?;
 
-        Ok(statement_emission)
+        emission.set_type(Type::None);
+
+        Ok(emission)
     }
 
     fn compile_let_statement(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling let statement");
-
-        fn handle_expression_emission(
-            compiler: &mut ChunkCompiler,
-            expression_emission: Emission,
-        ) -> Address {
-            match expression_emission {
-                Emission::Instruction(instruction, _) => {
-                    let local_address = instruction.destination();
-
-                    compiler.emit_instruction(instruction);
-
-                    local_address
-                }
-                Emission::Instructions(instructions, _) => {
-                    let local_address = instructions.last().unwrap().destination();
-
-                    compiler.emit_instructions(instructions);
-
-                    local_address
-                }
-                Emission::Constant(constant, _) => compiler.get_constant_address(constant),
-                Emission::Local(Local { address, .. }) => address,
-                Emission::Function(address, _) => address,
-                Emission::Compound(emissions, _) => {
-                    let mut address = Address::default();
-
-                    for emission in emissions {
-                        address = handle_expression_emission(compiler, emission);
-                    }
-
-                    address
-                }
-                Emission::None => Address::default(),
-            }
-        }
 
         let path_id = SyntaxId(node.children.0);
         let expression_statement_id = SyntaxId(node.children.1);
@@ -860,11 +913,72 @@ impl<'a> ChunkCompiler<'a> {
             .ok_or(CompileError::MissingSyntaxNode {
                 syntax_id: SyntaxId(expression_statement.children.0),
             })?;
+
+        let mut instructions_emission = InstructionsEmission::new();
+
         let expression_emission = self.compile_expression(&expression)?;
-        let expression_type = expression_emission.r#type().clone();
-        let type_id = self.context.resolver.add_type(&expression_type);
-        let destination = self.next_register;
-        let local_address = handle_expression_emission(self, expression_emission);
+        let (local_address, local_type) = match expression_emission {
+            Emission::Constant(constant, r#type) => {
+                let destination = self.allocate_register();
+                let address = self.get_constant_address(constant);
+                let move_instruction =
+                    Instruction::r#move(destination, address, r#type.as_operand_type(), false);
+
+                instructions_emission.push(move_instruction);
+
+                (Address::register(destination), r#type)
+            }
+            Emission::Function(address, r#type) => {
+                let destination = self.allocate_register();
+                let move_instruction =
+                    Instruction::r#move(destination, address, r#type.as_operand_type(), false);
+
+                instructions_emission.push(move_instruction);
+
+                (Address::register(destination), r#type)
+            }
+            Emission::Local(Local { address, r#type }) => {
+                let destination = self.allocate_register();
+                let move_instruction =
+                    Instruction::r#move(destination, address, r#type.as_operand_type(), false);
+
+                instructions_emission.push(move_instruction);
+
+                (Address::register(destination), r#type)
+            }
+            Emission::Instruction(instruction, r#type) => {
+                if instruction.operation() == Operation::MOVE {
+                    (instruction.b_address(), r#type)
+                } else {
+                    instructions_emission.push(instruction);
+
+                    (instruction.destination(), r#type)
+                }
+            }
+            Emission::Instructions(InstructionsEmission {
+                instructions,
+                r#type,
+            }) => {
+                let last_instruction = instructions.last().unwrap();
+                let address = if last_instruction.operation() == Operation::MOVE {
+                    last_instruction.b_address()
+                } else {
+                    last_instruction.destination()
+                };
+
+                instructions_emission.instructions.extend(instructions);
+
+                (address, r#type)
+            }
+            Emission::None => {
+                return Err(CompileError::ExpectedExpression {
+                    node_kind: expression.kind,
+                    position: Position::new(self.file_id, expression.span),
+                });
+            }
+        };
+        let type_id = self.context.resolver.add_type(&local_type);
+
         let path_node = *self
             .syntax_tree()?
             .get_node(path_id)
@@ -879,6 +993,7 @@ impl<'a> ChunkCompiler<'a> {
         let variable_name_bytes =
             &source_file.source_code.as_ref()[path_node.span.0 as usize..path_node.span.1 as usize];
         let variable_name = unsafe { str::from_utf8_unchecked(variable_name_bytes) };
+
         let shadowed = self
             .context
             .resolver
@@ -902,34 +1017,15 @@ impl<'a> ChunkCompiler<'a> {
 
         drop(files);
 
-        if local_address.memory == MemoryKind::REGISTER {
-            self.locals.insert(
-                declaration_id,
-                Local {
-                    r#type: expression_type,
-                    address: local_address,
-                },
-            );
-        } else {
-            let move_instruction = Instruction::r#move(
-                destination,
-                local_address,
-                expression_type.as_operand_type(),
-                false,
-            );
+        self.locals.insert(
+            declaration_id,
+            Local {
+                r#type: local_type,
+                address: local_address,
+            },
+        );
 
-            self.emit_instruction(move_instruction);
-
-            self.locals.insert(
-                declaration_id,
-                Local {
-                    r#type: expression_type,
-                    address: Address::register(destination),
-                },
-            );
-        }
-
-        Ok(Emission::None)
+        Ok(Emission::Instructions(instructions_emission))
     }
 
     fn compile_function_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
@@ -987,18 +1083,21 @@ impl<'a> ChunkCompiler<'a> {
 
         drop(files);
 
-        let Emission::Function(address, _) = self.compile_function_expression(
+        let function_emission = self.compile_function_expression(
             &function_expression_node,
             Some((declaration_id, declaration)),
             Some(function_type),
-        )?
-        else {
+        )?;
+        let Emission::Function(prototype_address, _) = function_emission else {
             return Err(CompileError::ExpectedFunction {
-                node_kind: function_expression_node.kind,
-                position: Position::new(self.file_id, function_expression_node.span),
+                node_kind: node.kind,
+                position: Position::new(self.file_id, node.span),
             });
         };
-        let local = Local { address, r#type };
+        let local = Local {
+            address: prototype_address,
+            r#type,
+        };
 
         self.locals.insert(declaration_id, local);
 
@@ -1132,13 +1231,57 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_list_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling list expression");
 
-        let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
-        let list_destination = self.next_register;
-        let mut emissions = {
-            let mut instructions = Vec::with_capacity(child_count + 1);
-            let placeholder = Emission::Instruction(Instruction::no_op(), Type::None);
+        fn handle_element_emission(
+            compiler: &mut ChunkCompiler,
+            instructions: &mut InstructionsEmission,
+            element_emission: Emission,
+            element_node: &SyntaxNode,
+        ) -> Result<(Address, Type), CompileError> {
+            match element_emission {
+                Emission::Constant(constant, r#type) => {
+                    let address = compiler.get_constant_address(constant);
 
-            instructions.push(placeholder);
+                    Ok((address, r#type))
+                }
+                Emission::Function(address, r#type) => Ok((address, r#type)),
+                Emission::Local(Local { address, r#type }) => Ok((address, r#type)),
+                Emission::Instruction(instruction, r#type) => {
+                    if instruction.operation() == Operation::MOVE {
+                        Ok((instruction.b_address(), r#type))
+                    } else {
+                        instructions.push(instruction);
+
+                        Ok((instruction.destination(), r#type))
+                    }
+                }
+                Emission::Instructions(InstructionsEmission {
+                    instructions: element_instructions,
+                    r#type,
+                }) => {
+                    let last_instruction = element_instructions.last().unwrap();
+                    let address = if last_instruction.operation() == Operation::MOVE {
+                        last_instruction.b_address()
+                    } else {
+                        last_instruction.destination()
+                    };
+
+                    instructions.instructions.extend(element_instructions);
+
+                    Ok((address, r#type))
+                }
+                Emission::None => Err(CompileError::ExpectedExpression {
+                    node_kind: element_node.kind,
+                    position: Position::new(compiler.file_id, element_node.span),
+                }),
+            }
+        }
+
+        let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
+        let list_destination = self.allocate_register();
+        let mut instructions_emission = {
+            let mut instructions = InstructionsEmission::with_capacity(child_count + 1);
+
+            instructions.push(Instruction::no_op());
 
             instructions
         };
@@ -1164,8 +1307,12 @@ impl<'a> ChunkCompiler<'a> {
             current_child_index += 1;
 
             let element_emission = self.compile_expression(&child_node)?;
-            let (compiled_element_emission, element_address, element_type) =
-                self.handle_operand(element_emission, &child_node)?;
+            let (element_address, element_type) = handle_element_emission(
+                self,
+                &mut instructions_emission,
+                element_emission,
+                &child_node,
+            )?;
             let element_operand_type = element_type.as_operand_type();
 
             if let Some(established) = &established_type
@@ -1182,10 +1329,8 @@ impl<'a> ChunkCompiler<'a> {
                 list_index as u16,
                 element_operand_type,
             );
-            let set_list_emission = Emission::Instruction(set_list_instruction, Type::None);
 
-            emissions.push(compiled_element_emission);
-            emissions.push(set_list_emission);
+            instructions_emission.push(set_list_instruction);
         }
 
         let element_type = established_type.unwrap_or(Type::None);
@@ -1194,11 +1339,12 @@ impl<'a> ChunkCompiler<'a> {
 
         let new_list_instruction =
             Instruction::new_list(list_destination, child_count as u16, list_type_operand);
-        let new_list_emission = Emission::Instruction(new_list_instruction, list_type.clone());
 
-        emissions[0] = new_list_emission;
+        instructions_emission.instructions[0] = new_list_instruction;
 
-        Ok(Emission::Compound(emissions, list_type))
+        instructions_emission.r#type = list_type;
+
+        Ok(Emission::Instructions(instructions_emission))
     }
 
     fn compile_index_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -1220,12 +1366,15 @@ impl<'a> ChunkCompiler<'a> {
                 .ok_or(CompileError::MissingSyntaxNode {
                     syntax_id: index_index,
                 })?;
+
+        let mut instructions_emission = InstructionsEmission::new();
+
         let list_emission = self.compile_expression(&list_node)?;
+        let (list_address, list_type) =
+            self.handle_operand_emission(&mut instructions_emission, list_emission, &list_node)?;
         let index_emission = self.compile_expression(&index_node)?;
-        let (compiled_list_emission, list_address, list_type) =
-            self.handle_operand(list_emission, &list_node)?;
-        let (compiled_index_emission, index_address, index_type) =
-            self.handle_operand(index_emission, &index_node)?;
+        let (index_address, index_type) =
+            self.handle_operand_emission(&mut instructions_emission, index_emission, &index_node)?;
         let element_type = list_type
             .as_element_type()
             .ok_or(CompileError::ExpectedList {
@@ -1238,37 +1387,31 @@ impl<'a> ChunkCompiler<'a> {
             todo!("Error");
         }
 
-        let destination = self.next_register;
+        let destination = self.allocate_register();
         let get_list_instruction = Instruction::get_list(
             destination,
             list_address,
             index_address,
             element_type.as_operand_type(),
         );
-        let get_list_emission = Emission::Instruction(get_list_instruction, element_type.clone());
 
-        Ok(Emission::Compound(
-            vec![
-                compiled_list_emission,
-                compiled_index_emission,
-                get_list_emission,
-            ],
-            element_type,
-        ))
+        instructions_emission.push(get_list_instruction);
+
+        Ok(Emission::Instructions(instructions_emission))
     }
 
     fn compile_math_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling math expression");
 
         let left_index = SyntaxId(node.children.0);
-        let left = *self.syntax_tree()?.nodes.get(left_index.0 as usize).ok_or(
+        let left_node = *self.syntax_tree()?.nodes.get(left_index.0 as usize).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.0,
             },
         )?;
         let right_index = SyntaxId(node.children.1);
-        let right = *self
+        let right_node = *self
             .syntax_tree()?
             .nodes
             .get(right_index.0 as usize)
@@ -1278,7 +1421,7 @@ impl<'a> ChunkCompiler<'a> {
             })?;
 
         if matches!(
-            left.kind,
+            left_node.kind,
             SyntaxKind::BooleanExpression
                 | SyntaxKind::ByteExpression
                 | SyntaxKind::CharacterExpression
@@ -1286,7 +1429,7 @@ impl<'a> ChunkCompiler<'a> {
                 | SyntaxKind::IntegerExpression
                 | SyntaxKind::StringExpression
         ) && matches!(
-            right.kind,
+            right_node.kind,
             SyntaxKind::BooleanExpression
                 | SyntaxKind::ByteExpression
                 | SyntaxKind::CharacterExpression
@@ -1294,8 +1437,8 @@ impl<'a> ChunkCompiler<'a> {
                 | SyntaxKind::IntegerExpression
                 | SyntaxKind::StringExpression
         ) {
-            let left_emission = self.compile_expression(&left)?;
-            let right_emission = self.compile_expression(&right)?;
+            let left_emission = self.compile_expression(&left_node)?;
+            let right_emission = self.compile_expression(&right_node)?;
 
             if let (
                 Emission::Constant(left_value, left_type),
@@ -1313,21 +1456,22 @@ impl<'a> ChunkCompiler<'a> {
             }
         }
 
-        let left_emission = self.compile_expression(&left)?;
-        let (compiled_left_emission, left_address, left_type) =
-            self.handle_operand(left_emission, &left)?;
+        let mut instructions_emission = InstructionsEmission::new();
 
-        let right_emission = self.compile_expression(&right)?;
-        let (compiled_right_emission, right_address, right_type) =
-            self.handle_operand(right_emission, &right)?;
+        let left_emission = self.compile_expression(&left_node)?;
+        let (left_address, left_type) =
+            self.handle_operand_emission(&mut instructions_emission, left_emission, &left_node)?;
 
-        let instructions_count_before = self.instructions.len();
+        let right_emission = self.compile_expression(&right_node)?;
+        let (right_address, right_type) =
+            self.handle_operand_emission(&mut instructions_emission, right_emission, &right_node)?;
+
         let r#type = if left_type == Type::Character {
             Type::String
         } else {
             left_type.clone()
         };
-        let destination = self.next_register;
+        let destination = self.allocate_register();
         let operand_type = match (left_type, right_type) {
             (Type::Integer, Type::Integer) => OperandType::INTEGER,
             (Type::Float, Type::Float) => OperandType::FLOAT,
@@ -1342,83 +1486,58 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::AdditionExpression => {
                 Instruction::add(destination, left_address, right_address, operand_type)
             }
-            SyntaxKind::AdditionAssignmentExpression => {
-                self.instructions.truncate(instructions_count_before);
-
-                Instruction::add(
-                    left_address.index,
-                    left_address,
-                    right_address,
-                    operand_type,
-                )
-            }
+            SyntaxKind::AdditionAssignmentExpression => Instruction::add(
+                left_address.index,
+                left_address,
+                right_address,
+                operand_type,
+            ),
             SyntaxKind::SubtractionExpression => {
                 Instruction::subtract(destination, left_address, right_address, operand_type)
             }
-            SyntaxKind::SubtractionAssignmentExpression => {
-                self.instructions.truncate(instructions_count_before);
-
-                Instruction::subtract(
-                    left_address.index,
-                    left_address,
-                    right_address,
-                    operand_type,
-                )
-            }
+            SyntaxKind::SubtractionAssignmentExpression => Instruction::subtract(
+                left_address.index,
+                left_address,
+                right_address,
+                operand_type,
+            ),
             SyntaxKind::MultiplicationExpression => {
                 Instruction::multiply(destination, left_address, right_address, operand_type)
             }
-            SyntaxKind::MultiplicationAssignmentExpression => {
-                self.instructions.truncate(instructions_count_before);
-
-                Instruction::multiply(
-                    left_address.index,
-                    left_address,
-                    right_address,
-                    operand_type,
-                )
-            }
+            SyntaxKind::MultiplicationAssignmentExpression => Instruction::multiply(
+                left_address.index,
+                left_address,
+                right_address,
+                operand_type,
+            ),
             SyntaxKind::DivisionExpression => {
                 Instruction::divide(destination, left_address, right_address, operand_type)
             }
-            SyntaxKind::DivisionAssignmentExpression => {
-                self.instructions.truncate(instructions_count_before);
-
-                Instruction::divide(
-                    left_address.index,
-                    left_address,
-                    right_address,
-                    operand_type,
-                )
-            }
+            SyntaxKind::DivisionAssignmentExpression => Instruction::divide(
+                left_address.index,
+                left_address,
+                right_address,
+                operand_type,
+            ),
             SyntaxKind::ModuloExpression => {
                 Instruction::modulo(destination, left_address, right_address, operand_type)
             }
-            SyntaxKind::ModuloAssignmentExpression => {
-                self.instructions.truncate(instructions_count_before);
-
-                Instruction::modulo(
-                    left_address.index,
-                    left_address,
-                    right_address,
-                    operand_type,
-                )
-            }
+            SyntaxKind::ModuloAssignmentExpression => Instruction::modulo(
+                left_address.index,
+                left_address,
+                right_address,
+                operand_type,
+            ),
             SyntaxKind::ExponentExpression => {
                 Instruction::power(destination, left_address, right_address, operand_type)
             }
             _ => unreachable!("Expected binary expression, found {}", node.kind),
         };
-        let math_emission = Emission::Instruction(math_instruction, r#type.clone());
 
-        Ok(Emission::Compound(
-            vec![
-                compiled_left_emission,
-                compiled_right_emission,
-                math_emission,
-            ],
-            r#type,
-        ))
+        instructions_emission.push(math_instruction);
+        instructions_emission.r#type = r#type;
+
+        Ok(Emission::Instructions(instructions_emission))
     }
 
     fn compile_comparison_expression(
@@ -1457,16 +1576,18 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(Emission::Constant(combined, Type::Boolean));
         }
 
-        let (compiled_left_emission, left_address, left_type) =
-            self.handle_operand(left_emission, &left)?;
-        let (compiled_right_emission, right_address, right_type) =
-            self.handle_operand(right_emission, &right)?;
+        let mut instructions_emission = InstructionsEmission::new();
+
+        let (left_address, left_type) =
+            self.handle_operand_emission(&mut instructions_emission, left_emission, &left)?;
+        let (right_address, right_type) =
+            self.handle_operand_emission(&mut instructions_emission, right_emission, &right)?;
 
         if left_type != right_type {
             todo!("Error");
         }
 
-        let destination = self.next_register;
+        let destination = self.allocate_register();
         let operand_type = left_type.as_operand_type();
         let comparison_instruction = match node.kind {
             SyntaxKind::GreaterThanExpression => {
@@ -1502,24 +1623,14 @@ impl<'a> ChunkCompiler<'a> {
             OperandType::BOOLEAN,
             false,
         );
-        let comparison_emission = Emission::Instructions(
-            smallvec![
-                comparison_instruction,
-                jump_instruction,
-                load_true_instruction,
-                load_false_instruction,
-            ],
-            Type::Boolean,
-        );
 
-        Ok(Emission::Compound(
-            vec![
-                compiled_left_emission,
-                compiled_right_emission,
-                comparison_emission,
-            ],
-            Type::Boolean,
-        ))
+        instructions_emission.push(comparison_instruction);
+        instructions_emission.push(jump_instruction);
+        instructions_emission.push(load_true_instruction);
+        instructions_emission.push(load_false_instruction);
+        instructions_emission.r#type = Type::Boolean;
+
+        Ok(Emission::Instructions(instructions_emission))
     }
 
     fn compile_logical_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -1532,14 +1643,14 @@ impl<'a> ChunkCompiler<'a> {
         };
 
         let left_index = SyntaxId(node.children.0);
-        let left = *self.syntax_tree()?.nodes.get(left_index.0 as usize).ok_or(
+        let left_node = *self.syntax_tree()?.nodes.get(left_index.0 as usize).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: node.children.0,
             },
         )?;
         let right_index = SyntaxId(node.children.1);
-        let right = *self
+        let right_node = *self
             .syntax_tree()?
             .nodes
             .get(right_index.0 as usize)
@@ -1548,8 +1659,8 @@ impl<'a> ChunkCompiler<'a> {
                 child_index: node.children.1,
             })?;
 
-        let left_emission = self.compile_expression(&left)?;
-        let right_emission = self.compile_expression(&right)?;
+        let left_emission = self.compile_expression(&left_node)?;
+        let right_emission = self.compile_expression(&right_node)?;
 
         if let (
             Emission::Constant(left_value, left_type),
@@ -1561,9 +1672,12 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(Emission::Constant(combined, left_type.clone()));
         }
 
-        let (left_emission, left_address, left_type) = self.handle_operand(left_emission, &left)?;
-        let (right_emission, right_address, right_type) =
-            self.handle_operand(right_emission, &right)?;
+        let mut instructions_emission = InstructionsEmission::new();
+
+        let (left_address, left_type) =
+            self.handle_operand_emission(&mut instructions_emission, left_emission, &left_node)?;
+        let (right_address, right_type) =
+            self.handle_operand_emission(&mut instructions_emission, right_emission, &right_node)?;
 
         if left_type != Type::Boolean {
             todo!("Error");
@@ -1573,8 +1687,7 @@ impl<'a> ChunkCompiler<'a> {
             todo!("Error");
         }
 
-        let mut instructions = SmallVec::new();
-        let load_destination = self.next_register;
+        let load_destination = self.allocate_register();
         let left_move_instruction =
             Instruction::r#move(load_destination, left_address, OperandType::BOOLEAN, false);
         let test_instruction = Instruction::test(Address::register(load_destination), comparator);
@@ -1582,17 +1695,13 @@ impl<'a> ChunkCompiler<'a> {
         let right_move_instruction =
             Instruction::r#move(load_destination, right_address, OperandType::BOOLEAN, false);
 
-        instructions.push(left_move_instruction);
-        instructions.push(test_instruction);
-        instructions.push(jump_instruction);
-        instructions.push(right_move_instruction);
+        instructions_emission.push(left_move_instruction);
+        instructions_emission.push(test_instruction);
+        instructions_emission.push(jump_instruction);
+        instructions_emission.push(right_move_instruction);
+        instructions_emission.r#type = Type::Boolean;
 
-        let comparison_emission = Emission::Instructions(instructions, Type::Boolean);
-
-        Ok(Emission::Compound(
-            vec![left_emission, right_emission, comparison_emission],
-            Type::Boolean,
-        ))
+        Ok(Emission::Instructions(instructions_emission))
     }
 
     fn compile_unary_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -1622,17 +1731,18 @@ impl<'a> ChunkCompiler<'a> {
             return Ok(Emission::Constant(evaluated, child_type.clone()));
         }
 
-        let (compiled_child_emission, child_address, child_type) =
-            self.handle_operand(child_emission, &child_node)?;
-        let destination = self.next_register;
+        let mut instructions_emission = InstructionsEmission::new();
+
+        let (child_address, child_type) =
+            self.handle_operand_emission(&mut instructions_emission, child_emission, &child_node)?;
+        let destination = self.allocate_register();
         let negate_instruction =
             Instruction::negate(destination, child_address, child_type.as_operand_type());
-        let negate_emission = Emission::Instruction(negate_instruction, child_type.clone());
 
-        Ok(Emission::Compound(
-            vec![compiled_child_emission, negate_emission],
-            child_type,
-        ))
+        instructions_emission.push(negate_instruction);
+        instructions_emission.set_type(child_type);
+
+        Ok(Emission::Instructions(instructions_emission))
     }
 
     fn compile_grouped_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -1654,7 +1764,6 @@ impl<'a> ChunkCompiler<'a> {
     fn compile_block_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         info!("Compiling block expression");
 
-        let mut block_emissions = Vec::new();
         let start_children = node.children.0 as usize;
         let child_count = node.children.1 as usize;
 
@@ -1670,6 +1779,8 @@ impl<'a> ChunkCompiler<'a> {
             modules: SmallVec::new(),
         });
         self.current_scope_id = new_scope_id;
+
+        let mut instructions_emission = InstructionsEmission::new();
 
         let end_children = start_children + child_count - 1;
         let mut current_child_index = start_children;
@@ -1694,10 +1805,18 @@ impl<'a> ChunkCompiler<'a> {
 
             let statment_emission = self.compile_statement(&child_node)?;
 
-            block_emissions.push(statment_emission);
+            match statment_emission {
+                Emission::Instructions(InstructionsEmission { instructions, .. }) => {
+                    instructions_emission.instructions.extend(instructions);
+                }
+                Emission::Instruction(instruction, _) => {
+                    instructions_emission.push(instruction);
+                }
+                _ => {}
+            }
         }
 
-        let last_child_id =
+        let final_expression_id =
             *self
                 .syntax_tree()?
                 .children
@@ -1706,38 +1825,67 @@ impl<'a> ChunkCompiler<'a> {
                     parent_kind: node.kind,
                     child_index: end_children as u32,
                 })?;
-        let last_child_node = *self.syntax_tree()?.get_node(last_child_id).ok_or(
+        let final_expression_node = *self.syntax_tree()?.get_node(final_expression_id).ok_or(
             CompileError::MissingSyntaxNode {
-                syntax_id: last_child_id,
+                syntax_id: final_expression_id,
             },
         )?;
+        let final_expression_emission = self.compile_expression(&final_expression_node)?;
 
-        let block_type = if last_child_node.kind.is_expression() {
-            let expression_emission = self.compile_expression(&last_child_node)?;
-            let expression_type = expression_emission.r#type().clone();
+        let block_type = match final_expression_emission {
+            Emission::Constant(constant, r#type) => {
+                let address = self.get_constant_address(constant);
+                let destination = self.allocate_register();
+                let move_instruction =
+                    Instruction::r#move(destination, address, r#type.as_operand_type(), false);
 
-            block_emissions.push(expression_emission);
+                instructions_emission.push(move_instruction);
 
-            expression_type
-        } else {
-            let statement_emission = self.compile_statement(&last_child_node)?;
+                r#type
+            }
+            Emission::Function(address, r#type) => {
+                let destination = self.allocate_register();
+                let move_instruction =
+                    Instruction::r#move(destination, address, r#type.as_operand_type(), false);
 
-            block_emissions.push(statement_emission);
+                instructions_emission.push(move_instruction);
 
-            Type::None
+                r#type
+            }
+            Emission::Local(Local { address, r#type }) => {
+                let destination = self.allocate_register();
+                let move_instruction =
+                    Instruction::r#move(destination, address, r#type.as_operand_type(), false);
+
+                instructions_emission.push(move_instruction);
+
+                r#type
+            }
+            Emission::Instructions(InstructionsEmission {
+                instructions,
+                r#type,
+            }) => {
+                instructions_emission.instructions.extend(instructions);
+
+                r#type
+            }
+            Emission::Instruction(instruction, r#type) => {
+                instructions_emission.push(instruction);
+
+                r#type
+            }
+            Emission::None => Type::None,
         };
 
         self.current_scope_id = start_scope_id;
 
-        let emission = if block_emissions.is_empty() {
-            Emission::None
-        } else if block_emissions.len() == 1 {
-            block_emissions.remove(0)
-        } else {
-            Emission::Compound(block_emissions, block_type)
-        };
+        instructions_emission.set_type(block_type);
 
-        Ok(emission)
+        if instructions_emission.instructions.is_empty() {
+            Ok(Emission::None)
+        } else {
+            Ok(Emission::Instructions(instructions_emission))
+        }
     }
 
     fn compile_path_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -1763,114 +1911,23 @@ impl<'a> ChunkCompiler<'a> {
                 position: Position::new(self.file_id, node.span),
             })?;
 
-        drop(files);
+        if !matches!(declaration.kind, DeclarationKind::Local { .. }) {
+            todo!("Error");
+        }
 
-        let local = if let Some(local) = self.locals.get(&declaration_id) {
-            local.clone()
-        } else {
-            let r#type = self
-                .context
-                .resolver
-                .resolve_type(declaration.type_id)
-                .ok_or(CompileError::MissingType {
-                    type_id: declaration.type_id,
-                })?
-                .clone();
-            let address = if matches!(declaration.kind, DeclarationKind::Function { .. }) {
-                if let Some(index) = self
-                    .context
-                    .prototypes
-                    .iter()
-                    .position(|chunk| chunk.name_position == Some(declaration.position))
-                {
-                    Address::constant(index as u16)
-                } else {
-                    Address::register(self.next_register)
-                }
-            } else {
-                Address::register(self.next_register)
-            };
-            let local = Local { r#type, address };
-
-            self.locals.insert(declaration_id, local.clone());
-
-            local
+        let Some(local) = self.locals.get(&declaration_id).cloned() else {
+            return Err(CompileError::UndeclaredVariable {
+                name: variable_name.to_string(),
+                position: Position::new(self.file_id, node.span),
+            });
         };
 
-        if matches!(declaration.kind, DeclarationKind::Function { .. }) {
-            let function_type = local.r#type.clone();
+        drop(files);
 
-            Ok(Emission::Function(local.address, function_type))
-        } else {
-            Ok(Emission::Local(local))
-        }
+        Ok(Emission::Local(local))
     }
 
     fn compile_while_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
-        fn handle_condition_emission(
-            compiler: &mut ChunkCompiler,
-            emission: Emission,
-            emissions: &mut Vec<Emission>,
-            node: &SyntaxNode,
-        ) -> Result<(), CompileError> {
-            match emission {
-                Emission::Instruction(instruction, r#type) => {
-                    emissions.push(Emission::Instruction(instruction, r#type));
-
-                    Ok(())
-                }
-                Emission::Instructions(instructions, _) => {
-                    let comparison_or_test_instruction = instructions[0];
-
-                    emissions.push(Emission::Instruction(
-                        comparison_or_test_instruction,
-                        Type::Boolean,
-                    ));
-
-                    Ok(())
-                }
-                Emission::Constant(constant, r#type) => {
-                    let operand_type = r#type.as_operand_type();
-                    let address = compiler.get_constant_address(constant);
-                    let destination = compiler.next_register;
-                    let move_instruction =
-                        Instruction::r#move(destination, address, operand_type, false);
-                    let test_instruction = Instruction::test(Address::register(destination), true);
-
-                    emissions.push(Emission::Instructions(
-                        smallvec![move_instruction, test_instruction],
-                        Type::Boolean,
-                    ));
-
-                    Ok(())
-                }
-                Emission::Local(Local { address, .. }) => {
-                    let test_instruction = Instruction::test(address, true);
-
-                    emissions.push(Emission::Instruction(test_instruction, Type::Boolean));
-
-                    Ok(())
-                }
-                Emission::Compound(condition_emissions, _) => {
-                    for emission in condition_emissions {
-                        if !matches!(emission, Emission::None) {
-                            handle_condition_emission(compiler, emission, emissions, node)?;
-                        }
-                    }
-
-                    Ok(())
-                }
-                Emission::Function(_, _) => Err(CompileError::ExpectedBooleanExpression {
-                    node_kind: node.kind,
-                    position: Position::new(compiler.file_id, node.span),
-                }),
-                Emission::None => Err(CompileError::ExpectedExpression {
-                    node_kind: node.kind,
-                    position: Position::new(compiler.file_id, node.span),
-                }),
-            }
-        }
-
         info!("Compiling while expression");
 
         let condition_id = SyntaxId(node.children.0);
@@ -1893,38 +1950,64 @@ impl<'a> ChunkCompiler<'a> {
                     child_index: node.children.1,
                 })?;
 
-        let mut emissions = Vec::new();
+        let mut instructions_emission = InstructionsEmission::new();
+
         let condition_emission = self.compile_expression(&condition_node)?;
 
-        handle_condition_emission(self, condition_emission, &mut emissions, &condition_node)?;
+        self.handle_condition_emission(
+            &mut instructions_emission,
+            condition_emission,
+            &condition_node,
+        )?;
 
-        let jump_forward_index = emissions
-            .iter()
-            .map(|emission| emission.instruction_count())
-            .sum::<usize>();
+        let jump_forward_index = instructions_emission.length();
 
-        emissions.push(Emission::Instruction(Instruction::no_op(), Type::None));
+        instructions_emission.push(Instruction::no_op());
 
         let body_emission = self.compile_expression_statement(&body_node)?;
 
-        emissions.push(body_emission);
+        match body_emission {
+            Emission::Instructions(InstructionsEmission { instructions, .. }) => {
+                instructions_emission.instructions.extend(instructions);
+            }
+            Emission::Instruction(instruction, _) => {
+                instructions_emission.push(instruction);
+            }
+            Emission::Local(Local { address, r#type }) => {
+                let destination = self.allocate_register();
+                let move_instruction =
+                    Instruction::r#move(destination, address, r#type.as_operand_type(), false);
 
-        let instruction_length = emissions
-            .iter()
-            .map(|emission| emission.instruction_count())
-            .sum::<usize>();
-        let jump_distance = (instruction_length - jump_forward_index) as u16;
+                instructions_emission.push(move_instruction);
+            }
+            Emission::Constant(constant, r#type) => {
+                let address = self.get_constant_address(constant);
+                let destination = self.allocate_register();
+                let move_instruction =
+                    Instruction::r#move(destination, address, r#type.as_operand_type(), false);
 
-        let jump_forward_emission =
-            Emission::Instruction(Instruction::jump(jump_distance, true), Type::None);
-        let jump_back_emission =
-            Emission::Instruction(Instruction::jump(jump_distance, false), Type::None);
+                instructions_emission.push(move_instruction);
+            }
+            Emission::Function(address, r#type) => {
+                let destination = self.allocate_register();
+                let move_instruction =
+                    Instruction::r#move(destination, address, r#type.as_operand_type(), false);
 
-        emissions[jump_forward_index] = jump_forward_emission;
+                instructions_emission.push(move_instruction);
+            }
+            Emission::None => {}
+        }
 
-        emissions.push(jump_back_emission);
+        let jump_distance = (instructions_emission.length() - jump_forward_index) as u16;
 
-        Ok(Emission::Compound(emissions, Type::None))
+        let jump_forward_instruction = Instruction::jump(jump_distance, true);
+        let jump_back_instruction = Instruction::jump(jump_distance, false);
+
+        instructions_emission.instructions[jump_forward_index] = jump_forward_instruction;
+
+        instructions_emission.push(jump_back_instruction);
+
+        Ok(Emission::Instructions(instructions_emission))
     }
 
     fn compile_function_expression(
@@ -2108,21 +2191,20 @@ impl<'a> ChunkCompiler<'a> {
 
         let function_chunk = function_compiler.finish()?;
         let prototype_index = self.context.prototypes.len() as u16;
+        let address = Address::constant(prototype_index);
         let r#type = Type::Function(Box::new(r#type));
 
         self.context.prototypes.push(function_chunk);
 
-        Ok(Emission::Function(
-            Address::constant(prototype_index),
-            r#type,
-        ))
+        Ok(Emission::Function(address, r#type))
     }
 
     fn compile_call_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
         fn handle_call_arguments(
             compiler: &mut ChunkCompiler,
+            instructions_emission: &mut InstructionsEmission,
             arguments_node: &SyntaxNode,
-        ) -> Result<Vec<Emission>, CompileError> {
+        ) -> Result<(), CompileError> {
             debug_assert_eq!(arguments_node.kind, SyntaxKind::CallValueArguments);
 
             let children = compiler
@@ -2134,8 +2216,6 @@ impl<'a> ChunkCompiler<'a> {
                 })?
                 .to_vec();
 
-            let mut argument_emissions = Vec::with_capacity(children.len() + 2);
-
             for child_id in children {
                 let child_node = *compiler.syntax_tree()?.get_node(child_id).ok_or(
                     CompileError::MissingSyntaxNode {
@@ -2143,17 +2223,19 @@ impl<'a> ChunkCompiler<'a> {
                     },
                 )?;
                 let argument_emission = compiler.compile_expression(&child_node)?;
-                let (compiled_argument_emission, argument_address, argument_type) =
-                    compiler.handle_operand(argument_emission, &child_node)?;
+                let (argument_address, argument_type) = compiler.handle_operand_emission(
+                    instructions_emission,
+                    argument_emission,
+                    &child_node,
+                )?;
                 let operand_type = argument_type.as_operand_type();
 
-                argument_emissions.push(compiled_argument_emission);
                 compiler
                     .call_arguments
                     .push((argument_address, operand_type));
             }
 
-            Ok(argument_emissions)
+            Ok(())
         }
 
         info!("Compiling call expression");
@@ -2180,8 +2262,9 @@ impl<'a> ChunkCompiler<'a> {
 
         debug_assert_eq!(arguments_node.kind, SyntaxKind::CallValueArguments);
 
+        let mut instructions_emission = InstructionsEmission::new();
+
         if function_node.kind == SyntaxKind::PathExpression {
-            let destination = self.next_register;
             let native_function = {
                 let files = self.context.source.read_files();
                 let source_file =
@@ -2205,23 +2288,26 @@ impl<'a> ChunkCompiler<'a> {
             if let Some(native_function) = native_function {
                 let arguments_start_index = self.call_arguments.len() as u16;
 
-                let mut emissions = handle_call_arguments(self, &arguments_node)?;
+                handle_call_arguments(self, &mut instructions_emission, &arguments_node)?;
 
+                let destination = self.allocate_register();
                 let call_native_instruction =
                     Instruction::call_native(destination, native_function, arguments_start_index);
                 let return_type = native_function.r#type().return_type;
-                let call_native_emission =
-                    Emission::Instruction(call_native_instruction, return_type.clone());
 
-                emissions.push(call_native_emission);
+                instructions_emission.push(call_native_instruction);
+                instructions_emission.set_type(return_type);
 
-                return Ok(Emission::Compound(emissions, return_type));
+                return Ok(Emission::Instructions(instructions_emission));
             }
         }
 
         let function_emission = self.compile_expression(&function_node)?;
-        let (compiled_function_emission, function_address, callee_type) =
-            self.handle_operand(function_emission, &function_node)?;
+        let (function_address, callee_type) = self.handle_operand_emission(
+            &mut instructions_emission,
+            function_emission,
+            &function_node,
+        )?;
 
         if !matches!(callee_type, Type::Function(_)) {
             return Err(CompileError::ExpectedFunction {
@@ -2232,9 +2318,9 @@ impl<'a> ChunkCompiler<'a> {
 
         let arguments_start_index = self.call_arguments.len() as u16;
 
-        let mut emissions = handle_call_arguments(self, &arguments_node)?;
+        handle_call_arguments(self, &mut instructions_emission, &arguments_node)?;
 
-        let destination_index = self.next_register;
+        let destination_index = self.allocate_register();
         let return_type = callee_type
             .into_function_type()
             .ok_or(CompileError::ExpectedFunction {
@@ -2251,12 +2337,11 @@ impl<'a> ChunkCompiler<'a> {
             argument_count,
             return_type.as_operand_type(),
         );
-        let call_emission = Emission::Instruction(call_instruction, return_type.clone());
 
-        emissions.push(compiled_function_emission);
-        emissions.push(call_emission);
+        instructions_emission.push(call_instruction);
+        instructions_emission.set_type(return_type);
 
-        Ok(Emission::Compound(emissions, return_type))
+        Ok(Emission::Instructions(instructions_emission))
     }
 
     fn compile_as_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -2282,125 +2367,78 @@ impl<'a> ChunkCompiler<'a> {
                     child_index: node.children.1,
                 })?;
 
+        let mut instructions_emission = InstructionsEmission::new();
+
         let value_emission = self.compile_expression(&value_node)?;
-        let (compiled_value_emission, value_address, value_type) =
-            self.handle_operand(value_emission, &value_node)?;
-        let destination = self.next_register;
-        let convert_type_instruction = match type_node.kind {
+        let (value_address, value_type) =
+            self.handle_operand_emission(&mut instructions_emission, value_emission, &value_node)?;
+        let destination = self.allocate_register();
+        let (convert_type_instruction, target_type) = match type_node.kind {
             SyntaxKind::StringType => {
-                Instruction::to_string(destination, value_address, value_type.as_operand_type())
+                let instruction = Instruction::to_string(
+                    destination,
+                    value_address,
+                    value_type.as_operand_type(),
+                );
+
+                (instruction, Type::String)
             }
             _ => {
                 todo!()
             }
         };
-        let convert_type_emission = Emission::Instruction(convert_type_instruction, Type::String);
 
-        Ok(Emission::Compound(
-            vec![compiled_value_emission, convert_type_emission],
-            Type::String,
-        ))
+        instructions_emission.push(convert_type_instruction);
+        instructions_emission.set_type(target_type);
+
+        Ok(Emission::Instructions(instructions_emission))
     }
 
     fn compile_if_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
-        fn handle_condition_emission(
+        fn handle_branch_emission(
             compiler: &mut ChunkCompiler,
+            instructions_emission: &mut InstructionsEmission,
             emission: Emission,
-            emissions: &mut Vec<Emission>,
-            node: &SyntaxNode,
-        ) -> Result<(Address, Type, bool), CompileError> {
-            match emission {
-                Emission::Instruction(instruction, r#type) => {
-                    emissions.push(Emission::Instruction(instruction, r#type.clone()));
-
-                    Ok((instruction.destination(), r#type, true))
-                }
-                Emission::Instructions(condition_instructions, r#type) => {
-                    let comparison_or_test_instruction = condition_instructions[0];
-
-                    emissions.push(Emission::Instruction(
-                        comparison_or_test_instruction,
-                        r#type.clone(),
-                    ));
-
-                    Ok((comparison_or_test_instruction.destination(), r#type, false))
-                }
-                Emission::Constant(constant, r#type) => {
-                    let address = compiler.get_constant_address(constant);
-
-                    Ok((address, r#type, true))
-                }
-                Emission::Local(Local { address, r#type }) => Ok((address, r#type, true)),
-                Emission::Function(address, r#type) => Ok((address, r#type, true)),
-                Emission::Compound(condition_emissions, r#type) => {
-                    let mut results = (Address::default(), Type::None, false);
-
-                    for emission in condition_emissions {
-                        if !matches!(emission, Emission::None) {
-                            results =
-                                handle_condition_emission(compiler, emission, emissions, node)?;
-                        }
-                    }
-
-                    results.1 = r#type;
-
-                    Ok(results)
-                }
-                Emission::None => Err(CompileError::ExpectedExpression {
-                    node_kind: node.kind,
-                    position: Position::new(compiler.file_id, node.span),
-                }),
-            }
-        }
-
-        fn handle_then_emission(
-            compiler: &mut ChunkCompiler,
-            emission: Emission,
-            emissions: &mut Vec<Emission>,
         ) -> Type {
             match emission {
-                Emission::Instruction(instruction, r#type) => {
-                    emissions.push(Emission::Instruction(instruction, r#type.clone()));
-
-                    r#type
-                }
-                Emission::Instructions(then_instructions, r#type) => {
-                    emissions.push(Emission::Instructions(then_instructions, r#type.clone()));
-
-                    r#type
-                }
                 Emission::Constant(constant, r#type) => {
-                    let destination = compiler.next_register;
+                    let destination = compiler.allocate_register();
                     let address = compiler.get_constant_address(constant);
                     let move_instruction =
                         Instruction::r#move(destination, address, r#type.as_operand_type(), false);
 
-                    emissions.push(Emission::Instruction(move_instruction, r#type.clone()));
-
-                    r#type
-                }
-                Emission::Local(Local { address, r#type }) => {
-                    let destination = compiler.next_register;
-                    let move_instruction =
-                        Instruction::r#move(destination, address, r#type.as_operand_type(), false);
-
-                    emissions.push(Emission::Instruction(move_instruction, r#type.clone()));
+                    instructions_emission.push(move_instruction);
 
                     r#type
                 }
                 Emission::Function(address, r#type) => {
-                    let destination = compiler.next_register;
+                    let destination = compiler.allocate_register();
                     let move_instruction =
                         Instruction::r#move(destination, address, r#type.as_operand_type(), false);
 
-                    emissions.push(Emission::Instruction(move_instruction, r#type.clone()));
+                    instructions_emission.push(move_instruction);
 
                     r#type
                 }
-                Emission::Compound(then_emissions, r#type) => {
-                    for emission in then_emissions {
-                        handle_then_emission(compiler, emission, emissions);
-                    }
+                Emission::Local(Local { address, r#type }) => {
+                    let destination = compiler.allocate_register();
+                    let move_instruction =
+                        Instruction::r#move(destination, address, r#type.as_operand_type(), false);
+
+                    instructions_emission.push(move_instruction);
+
+                    r#type
+                }
+                Emission::Instruction(instruction, r#type) => {
+                    instructions_emission.push(instruction);
+
+                    r#type
+                }
+                Emission::Instructions(InstructionsEmission {
+                    instructions,
+                    r#type,
+                }) => {
+                    instructions_emission.instructions.extend(instructions);
 
                     r#type
                 }
@@ -2409,8 +2447,6 @@ impl<'a> ChunkCompiler<'a> {
         }
 
         info!("Compiling if expression");
-
-        let mut emissions = Vec::new();
 
         let children_ids = self
             .syntax_tree()?
@@ -2442,53 +2478,33 @@ impl<'a> ChunkCompiler<'a> {
                     parent_kind: node.kind,
                     child_index: node.children.1,
                 })?;
+
+        let mut instructions_emission = InstructionsEmission::new();
+
         let condition_emission = self.compile_expression(&condition_node)?;
-        let (condition_address, conditon_type, needs_test) =
-            handle_condition_emission(self, condition_emission, &mut emissions, &condition_node)?;
 
-        if conditon_type != Type::Boolean {
-            return Err(CompileError::ExpectedBooleanExpression {
-                node_kind: condition_node.kind,
-                position: Position::new(self.file_id, condition_node.span),
-            });
-        }
+        self.handle_condition_emission(
+            &mut instructions_emission,
+            condition_emission,
+            &condition_node,
+        )?;
 
-        if needs_test {
-            let test_instruction = Instruction::test(condition_address, true);
+        let jump_to_else_index = instructions_emission.length();
 
-            emissions.push(Emission::Instruction(test_instruction, Type::Boolean));
-        }
-
-        let jump_to_else_index = emissions
-            .iter()
-            .map(|emission| match emission {
-                Emission::Instruction(_, _) => 1,
-                Emission::Instructions(instructions, _) => instructions.len(),
-                _ => 0,
-            })
-            .sum::<usize>();
-
-        emissions.push(Emission::Instruction(Instruction::no_op(), Type::None));
+        instructions_emission.push(Instruction::no_op());
 
         let then_emission = self.compile_expression(&then_block_node)?;
-        let emission_type = handle_then_emission(self, then_emission, &mut emissions);
+        let then_type = handle_branch_emission(self, &mut instructions_emission, then_emission);
 
         if children_ids.len() == 3 {
-            let jump_to_end_index = emissions
-                .iter()
-                .map(|emission| match emission {
-                    Emission::Instruction(_, _) => 1,
-                    Emission::Instructions(instructions, _) => instructions.len(),
-                    _ => 0,
-                })
-                .sum::<usize>();
+            let jump_to_end_index = instructions_emission.length();
 
-            emissions.push(Emission::Instruction(Instruction::no_op(), Type::None));
+            instructions_emission.push(Instruction::no_op());
 
             let distance_to_else = (jump_to_end_index - jump_to_else_index - 1) as u16;
             let jump_to_else_instruction = Instruction::jump(distance_to_else, true);
-            emissions[jump_to_else_index] =
-                Emission::Instruction(jump_to_else_instruction, Type::None);
+            instructions_emission.instructions[jump_to_else_index] = jump_to_else_instruction;
+
             let else_block_id = children_ids[2];
             let else_block_node =
                 *self
@@ -2499,37 +2515,28 @@ impl<'a> ChunkCompiler<'a> {
                         child_index: node.children.0 + 2,
                     })?;
             let else_emission = self.compile_else_expression(&else_block_node)?;
+            let else_type = handle_branch_emission(self, &mut instructions_emission, else_emission);
 
-            handle_then_emission(self, else_emission, &mut emissions);
+            if then_type != else_type {
+                return Err(CompileError::MismatchedIfElseTypes {
+                    then_type,
+                    else_type,
+                    position: Position::new(self.file_id, node.span),
+                });
+            }
 
-            let instruction_length = emissions
-                .iter()
-                .map(|emission| match emission {
-                    Emission::Instruction(_, _) => 1,
-                    Emission::Instructions(instructions, _) => instructions.len(),
-                    _ => 0,
-                })
-                .sum::<usize>();
+            let instruction_length = instructions_emission.length();
             let distance_to_end = (instruction_length - jump_to_end_index - 1) as u16;
             let jump_to_end_instruction = Instruction::jump(distance_to_end, true);
-            emissions[jump_to_end_index] =
-                Emission::Instruction(jump_to_end_instruction, Type::None);
+            instructions_emission.instructions[jump_to_end_index] = jump_to_end_instruction;
         } else {
-            let instruction_length = emissions
-                .iter()
-                .map(|emission| match emission {
-                    Emission::Instruction(_, _) => 1,
-                    Emission::Instructions(instructions, _) => instructions.len(),
-                    _ => 0,
-                })
-                .sum::<usize>();
+            let instruction_length = instructions_emission.length();
             let distance_past_then = (instruction_length - jump_to_else_index - 1) as u16;
             let jump_forward_instruction = Instruction::jump(distance_past_then, true);
-            emissions[jump_to_else_index] =
-                Emission::Instruction(jump_forward_instruction, Type::None);
+            instructions_emission.instructions[jump_to_else_index] = jump_forward_instruction;
         }
 
-        Ok(Emission::Compound(emissions, emission_type))
+        Ok(Emission::Instructions(instructions_emission))
     }
 
     fn compile_else_expression(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -2553,87 +2560,152 @@ impl<'a> ChunkCompiler<'a> {
     }
 
     fn compile_implicit_return(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
-        let return_emission = if node.kind.is_item() {
+        if node.kind.is_item() {
             self.compile_item(node)?;
 
             let return_instruction =
                 Instruction::r#return(false, Address::default(), OperandType::NONE);
 
-            Emission::Instruction(return_instruction, Type::None)
+            Ok(Emission::Instruction(return_instruction, Type::None))
         } else if node.kind.is_statement() {
+            let mut instructions_emission = InstructionsEmission::new();
             let statement_emission = self.compile_statement(node)?;
-            let (compiled_statement_emission, _, _) =
-                self.handle_operand(statement_emission, node)?;
             let return_instruction =
                 Instruction::r#return(false, Address::default(), OperandType::NONE);
-            let return_emission = Emission::Instruction(return_instruction, Type::None);
 
-            Emission::Compound(
-                vec![compiled_statement_emission, return_emission],
-                Type::None,
-            )
+            self.handle_return_emission(&mut instructions_emission, statement_emission, node)?;
+
+            instructions_emission.push(return_instruction);
+
+            Ok(Emission::Instructions(instructions_emission))
         } else {
+            let mut instructions_emission = InstructionsEmission::new();
+
             let return_emission = self.compile_expression(node)?;
-            let (compiled_return_emission, return_address, return_type) =
-                self.handle_operand(return_emission, node)?;
+            let (return_address, return_type) =
+                self.handle_return_emission(&mut instructions_emission, return_emission, node)?;
+
             let return_operand_type = return_type.as_operand_type();
             let should_return_value = return_operand_type != OperandType::NONE;
             self.function_type.return_type = return_type;
 
             let return_instruction =
                 Instruction::r#return(should_return_value, return_address, return_operand_type);
-            let return_emission =
-                Emission::Instruction(return_instruction, self.function_type.return_type.clone());
 
-            Emission::Compound(
-                vec![compiled_return_emission, return_emission],
-                self.function_type.return_type.clone(),
-            )
-        };
+            instructions_emission.push(return_instruction);
 
-        Ok(return_emission)
+            Ok(Emission::Instructions(instructions_emission))
+        }
     }
 }
 
 #[derive(Clone, Debug)]
 enum Emission {
-    Instruction(Instruction, Type),
-    Instructions(SmallVec<[Instruction; 8]>, Type),
-    Local(Local),
     Constant(Constant, Type),
     Function(Address, Type),
-    Compound(Vec<Emission>, Type),
+    Local(Local),
+    Instruction(Instruction, Type),
+    Instructions(InstructionsEmission),
     None,
 }
 
 impl Emission {
     fn r#type(&self) -> &Type {
         match self {
-            Emission::Instruction(_, r#type) => r#type,
-            Emission::Instructions(_, r#type) => r#type,
             Emission::Constant(_, r#type) => r#type,
-            Emission::Local(Local { r#type, .. }) => r#type,
             Emission::Function(_, r#type) => r#type,
-            Emission::Compound(_, r#type) => r#type,
+            Emission::Local(local) => &local.r#type,
+            Emission::Instruction(_, r#type) => r#type,
+            Emission::Instructions(emission) => &emission.r#type,
             Emission::None => &Type::None,
         }
     }
 
-    fn instruction_count(&self) -> usize {
+    fn set_type(&mut self, r#type: Type) {
         match self {
-            Emission::Instruction(_, _) => 1,
-            Emission::Instructions(instructions, _) => instructions.len(),
-            Emission::Compound(emissions, _) => emissions
-                .iter()
-                .map(|emission| emission.instruction_count())
-                .sum(),
-            _ => 0,
+            Emission::Constant(_, existing_type) => *existing_type = r#type,
+            Emission::Function(_, existing_type) => *existing_type = r#type,
+            Emission::Local(local) => local.r#type = r#type,
+            Emission::Instruction(_, existing_type) => *existing_type = r#type,
+            Emission::Instructions(emission) => emission.set_type(r#type),
+            Emission::None => {}
+        }
+    }
+
+    fn replace_type(&mut self, r#type: Type) -> Type {
+        match self {
+            Emission::Constant(_, existing_type) => replace(existing_type, r#type),
+            Emission::Function(_, existing_type) => replace(existing_type, r#type),
+            Emission::Local(local) => replace(&mut local.r#type, r#type),
+            Emission::Instruction(_, existing_type) => replace(existing_type, r#type),
+            Emission::Instructions(emission) => emission.replace_type(r#type),
+            Emission::None => Type::None,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct InstructionsEmission {
+    instructions: SmallVec<[Instruction; 8]>,
+    r#type: Type,
+}
+
+impl InstructionsEmission {
+    fn new() -> Self {
+        Self {
+            instructions: SmallVec::new(),
+            r#type: Type::None,
+        }
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        Self {
+            instructions: SmallVec::with_capacity(capacity),
+            r#type: Type::None,
+        }
+    }
+
+    fn length(&self) -> usize {
+        self.instructions.len()
+    }
+
+    fn push(&mut self, instruction: Instruction) {
+        self.instructions.push(instruction);
+    }
+
+    fn set_type(&mut self, r#type: Type) {
+        self.r#type = r#type;
+    }
+
+    fn replace_type(&mut self, r#type: Type) -> Type {
+        replace(&mut self.r#type, r#type)
+    }
+
+    fn merge(&mut self, other: InstructionsEmission) {
+        self.instructions.extend(other.instructions);
+
+        self.r#type = other.r#type;
+    }
+
+    fn as_operand(&mut self) -> Address {
+        debug_assert!(!self.instructions.is_empty());
+
+        let last_instruction = self.instructions.last().unwrap();
+
+        if last_instruction.operation() == Operation::MOVE {
+            let address = last_instruction.b_address();
+
+            self.instructions.pop();
+
+            address
+        } else {
+            last_instruction.destination()
         }
     }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum Constant {
+enum Constant {
     Boolean(bool),
     Byte(u8),
     Character(char),
