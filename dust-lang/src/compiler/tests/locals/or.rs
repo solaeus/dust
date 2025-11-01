@@ -28,7 +28,7 @@ fn local_boolean_or() {
                     OperandType::BOOLEAN,
                     false
                 ),
-                Instruction::test(Address::register(0), false),
+                Instruction::test(Address::register(0), true),
                 Instruction::jump(1, true),
                 Instruction::r#move(2, Address::register(0), OperandType::BOOLEAN, true),
                 Instruction::r#move(2, Address::register(1), OperandType::BOOLEAN, false),

@@ -39,10 +39,9 @@ fn if_else_false() {
             r#type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::test(Address::encoded(false as u16), true),
-                Instruction::jump(2, true),
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false), // 0
                 Instruction::jump(1, true),
-                Instruction::r#move(0, Address::constant(1), OperandType::INTEGER, false), // 42
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, true),
+                Instruction::r#move(0, Address::constant(1), OperandType::INTEGER, false),
                 Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
@@ -69,10 +68,9 @@ fn if_else_equal() {
                     Address::register(1),
                     OperandType::INTEGER
                 ),
-                Instruction::jump(2, true),
-                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER, false), // 42
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER, false), // 0
+                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER, true),
+                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER, false),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,

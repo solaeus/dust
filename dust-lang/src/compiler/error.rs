@@ -10,20 +10,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum CompileError {
-    ChildIndexOutOfBounds {
-        parent_kind: SyntaxKind,
-        children_start: u32,
-        child_count: u32,
-    },
-    InvalidEncodedConstant {
-        node_kind: SyntaxKind,
-        position: Position,
-        payload: (u32, u32),
-    },
-    InvalidNativeFunction {
-        name: String,
-        position: Position,
-    },
+    // User Errors
     DivisionByZero {
         node_kind: SyntaxKind,
         position: Position,
@@ -41,10 +28,6 @@ pub enum CompileError {
         node_kind: SyntaxKind,
         position: Position,
     },
-    ExpectedBooleanExpression {
-        node_kind: SyntaxKind,
-        position: Position,
-    },
     ExpectedExpression {
         node_kind: SyntaxKind,
         position: Position,
@@ -53,12 +36,40 @@ pub enum CompileError {
         node_kind: SyntaxKind,
         position: Position,
     },
-    ExpectedFunctionBody {
+    ExpectedBooleanExpression {
         node_kind: SyntaxKind,
         position: Position,
     },
     ExpectedFunctionType {
         type_id: TypeId,
+    },
+    ExpectedList {
+        found_type: Type,
+        position: Position,
+    },
+    UndeclaredVariable {
+        name: String,
+        position: Position,
+    },
+
+    // Internal Errors (from incorrect Parser output)
+    ChildIndexOutOfBounds {
+        parent_kind: SyntaxKind,
+        children_start: u32,
+        child_count: u32,
+    },
+    InvalidEncodedConstant {
+        node_kind: SyntaxKind,
+        position: Position,
+        payload: (u32, u32),
+    },
+    InvalidNativeFunction {
+        name: String,
+        position: Position,
+    },
+    ExpectedFunctionBody {
+        node_kind: SyntaxKind,
+        position: Position,
     },
     MissingChild {
         parent_kind: SyntaxKind,
@@ -103,10 +114,6 @@ pub enum CompileError {
     MissingPosition {
         declaration_id: DeclarationId,
     },
-    UndeclaredVariable {
-        name: String,
-        position: Position,
-    },
     UnresolvedFunctionType {
         function_type: TypeId,
     },
@@ -117,17 +124,14 @@ pub enum CompileError {
         name: String,
         position: Position,
     },
-    EmptyArray {
-        position: Position,
-    },
-    ExpectedList {
-        found_type: Type,
-        position: Position,
-    },
     MismatchedIfElseTypes {
         then_type: Type,
         else_type: Type,
         position: Position,
+    },
+    MismatchedConstantTypes {
+        left: Type,
+        right: Type,
     },
 }
 
@@ -166,8 +170,8 @@ impl AnnotatedError for CompileError {
             CompileError::UndeclaredVariable { position, .. } => position.file_id,
             CompileError::UnresolvedFunctionType { .. } => SourceFileId::default(),
             CompileError::CannotImport { position, .. } => position.file_id,
-            CompileError::EmptyArray { position } => position.file_id,
             CompileError::MismatchedIfElseTypes { position, .. } => position.file_id,
+            CompileError::MismatchedConstantTypes { .. } => SourceFileId::default(),
         }
     }
 
@@ -465,18 +469,6 @@ impl AnnotatedError for CompileError {
                     ),
                 )
             }
-            CompileError::EmptyArray { position } => {
-                let title = "Cannot create an empty array, array must have at least one element"
-                    .to_string();
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label("Empty array found here".to_string()),
-                    ),
-                )
-            }
             CompileError::MismatchedIfElseTypes {
                 then_type,
                 else_type,
@@ -493,6 +485,11 @@ impl AnnotatedError for CompileError {
                             .label("If-else expression found here".to_string()),
                     ),
                 )
+            }
+            CompileError::MismatchedConstantTypes { left, right } => {
+                let title = format!("Mismatched constant types: left is {left}, right is {right}");
+
+                Group::with_title(Level::ERROR.primary_title(title))
             }
         }
     }

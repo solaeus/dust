@@ -196,9 +196,9 @@ impl<'a> TuiDisassembler<'a> {
             .render(prototype_area, buffer);
 
         Paragraph::new(format!(
-            "{} instructions, {} constants",
+            "{} instructions, {} registers",
             chunk.instructions.len(),
-            self.program.constants.len(),
+            chunk.register_count,
         ))
         .centered()
         .wrap(Wrap { trim: true })
