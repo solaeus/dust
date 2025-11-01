@@ -1942,8 +1942,6 @@ impl<'a> ChunkCompiler<'a> {
 
         let final_expression_emission = self.compile_expression(&final_expression_node, target)?;
 
-        println!("Final expression emission: {:?}", final_expression_emission);
-
         match final_expression_emission {
             Emission::Constant(constant, r#type) => {
                 let target = if block_emission.is_empty() {
