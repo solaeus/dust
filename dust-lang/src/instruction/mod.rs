@@ -397,6 +397,22 @@ impl Instruction {
         Instruction::from(Jump {
             offset,
             is_positive,
+            drop_list_start: 0,
+            drop_list_end: 0,
+        })
+    }
+
+    pub fn jump_with_drops(
+        offset: u16,
+        is_positive: bool,
+        drop_list_start: u16,
+        drop_list_end: u16,
+    ) -> Instruction {
+        Instruction::from(Jump {
+            offset,
+            is_positive,
+            drop_list_start,
+            drop_list_end,
         })
     }
 

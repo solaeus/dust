@@ -465,6 +465,7 @@ pub fn compile_direct_function(
                 let Jump {
                     offset,
                     is_positive,
+                    ..
                 } = Jump::from(*current_instruction);
                 let offset = offset + 1;
                 let next_ip = if is_positive {

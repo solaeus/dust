@@ -78,3 +78,306 @@ fn if_else_equal() {
         }
     );
 }
+
+#[test]
+fn if_else_not_equal() {
+    let source = if_else_cases::IF_ELSE_NOT_EQUAL.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::equal(
+                    false,
+                    Address::register(0),
+                    Address::register(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
+                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+            ],
+            register_count: 3,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn if_else_less_than() {
+    let source = if_else_cases::IF_ELSE_LESS_THAN.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::less(
+                    true,
+                    Address::register(0),
+                    Address::register(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
+                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+            ],
+            register_count: 3,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn if_else_greater_than() {
+    let source = if_else_cases::IF_ELSE_GREATER_THAN.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::less_equal(
+                    false,
+                    Address::register(0),
+                    Address::register(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
+                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+            ],
+            register_count: 3,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn if_else_less_than_equal() {
+    let source = if_else_cases::IF_ELSE_LESS_THAN_EQUAL.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(1, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::less_equal(
+                    true,
+                    Address::register(0),
+                    Address::register(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER, true),
+                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+            ],
+            register_count: 3,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn if_else_greater_than_equal() {
+    let source = if_else_cases::IF_ELSE_GREATER_THAN_EQUAL.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::less(
+                    false,
+                    Address::register(0),
+                    Address::register(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
+                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+            ],
+            register_count: 3,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn if_else_if_chain_end() {
+    let source = if_else_cases::IF_ELSE_IF_CHAIN_END.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::less(
+                    true,
+                    Address::register(0),
+                    Address::register(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, false),
+                Instruction::jump(4, true),
+                Instruction::equal(
+                    true,
+                    Address::register(0),
+                    Address::register(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER, true),
+                Instruction::r#move(2, Address::constant(3), OperandType::INTEGER, false),
+                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+            ],
+            register_count: 4,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn if_else_if_chain_middle() {
+    let source = if_else_cases::IF_ELSE_IF_CHAIN_MIDDLE.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(1, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::less(
+                    true,
+                    Address::register(0),
+                    Address::register(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::jump(4, true),
+                Instruction::equal(
+                    true,
+                    Address::register(0),
+                    Address::register(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
+                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+            ],
+            register_count: 4,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn if_else_nested() {
+    let source = if_else_cases::IF_ELSE_NESTED.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::less(
+                    true,
+                    Address::register(0),
+                    Address::register(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(4, true),
+                Instruction::less_equal(
+                    false,
+                    Address::register(1),
+                    Address::register(0),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
+                Instruction::r#move(2, Address::constant(3), OperandType::INTEGER, true),
+                Instruction::r#move(2, Address::constant(3), OperandType::INTEGER, false),
+                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+            ],
+            register_count: 4,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn if_else_double_nested() {
+    let source = if_else_cases::IF_ELSE_DOUBLE_NESTED.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            r#type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::less(
+                    true,
+                    Address::register(0),
+                    Address::register(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(7, true),
+                Instruction::less_equal(
+                    false,
+                    Address::register(1),
+                    Address::register(0),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(4, true),
+                Instruction::equal(
+                    false,
+                    Address::register(0),
+                    Address::constant(2),
+                    OperandType::INTEGER
+                ),
+                Instruction::jump(1, true),
+                Instruction::r#move(2, Address::constant(3), OperandType::INTEGER, true),
+                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
+                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
+                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, false),
+                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+            ],
+            register_count: 4,
+            ..Default::default()
+        }
+    );
+}

@@ -173,6 +173,8 @@ impl<'a> TuiDisassembler<'a> {
             Constraint::Length(self.program.constants.len() as u16 + 3),
             Constraint::Length(1),
             Constraint::Length(chunk.call_arguments.len() as u16 + 3),
+            Constraint::Length(1),
+            Constraint::Length(chunk.drop_lists.len() as u16 + 3),
             Constraint::Fill(1),
         ]);
         let [
@@ -187,6 +189,8 @@ impl<'a> TuiDisassembler<'a> {
             constants_area,
             _,
             arguments_area,
+            _,
+            drop_lists_area,
             _,
         ] = areas.areas(inner_area);
 
@@ -354,6 +358,43 @@ impl<'a> TuiDisassembler<'a> {
                 .header(Row::new(["i", "Address", "Type"]).add_modifier(Modifier::BOLD));
 
             address_table.render(center_area, buffer);
+        }
+
+        // Drop list section
+        {
+            let horizontal_areas =
+                Layout::horizontal([Constraint::Min(1), Constraint::Min(60), Constraint::Min(1)]);
+            let [_, block_area, _] = horizontal_areas.areas(drop_lists_area);
+
+            let block = Block::new()
+                .title(Span::styled("Drop Lists", Style::default()))
+                .title_alignment(Alignment::Center)
+                .title_style(Style::default().bold())
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded);
+
+            let instructions_table_area = block.inner(block_area);
+
+            block.render(block_area, buffer);
+
+            let horizontal_areas =
+                Layout::horizontal([Constraint::Min(1), Constraint::Min(40), Constraint::Min(1)]);
+            let [_, center_area, _] = horizontal_areas.areas(instructions_table_area);
+
+            let address_rows = chunk
+                .drop_lists
+                .iter()
+                .enumerate()
+                .map(|(index, register): (usize, &u16)| {
+                    Row::new(vec![index.to_string(), format!("reg_{register}")])
+                })
+                .collect::<Vec<_>>();
+            let widths = [Constraint::Length(5), Constraint::Min(10)];
+
+            let drop_list_table = Table::new(address_rows, widths)
+                .header(Row::new(["i", "Registers"]).add_modifier(Modifier::BOLD));
+
+            drop_list_table.render(center_area, buffer);
         }
     }
 }

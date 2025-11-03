@@ -1540,6 +1540,8 @@ pub fn compile_stackless_function(
                 let Jump {
                     offset,
                     is_positive,
+                    drop_list_start,
+                    drop_list_end,
                 } = Jump::from(*current_instruction);
                 let offset = offset as usize + 1;
                 let next_ip = if is_positive {
@@ -1547,6 +1549,39 @@ pub fn compile_stackless_function(
                 } else {
                     ip - offset
                 };
+
+                if drop_list_start > drop_list_end {
+                    let drop_list_range = drop_list_start as usize..=drop_list_end as usize;
+
+                    let safepoint_registers = chunk.drop_lists.get(drop_list_range).ok_or(
+                        JitError::DropListRangeOutOfBounds {
+                            drop_list_start,
+                            drop_list_end,
+                            total_safepoint_count: chunk.drop_lists.len(),
+                        },
+                    )?;
+
+                    for register_index in safepoint_registers {
+                        let register_index_value =
+                            function_builder.ins().iconst(I64, *register_index as i64);
+                        let empty_tag_value = function_builder
+                            .ins()
+                            .iconst(RegisterTag::CRANELIFT_TYPE, RegisterTag::EMPTY.0 as i64);
+                        let tag_offset = function_builder
+                            .ins()
+                            .imul_imm(register_index_value, size_of::<RegisterTag>() as i64);
+                        let tag_address = function_builder
+                            .ins()
+                            .iadd(current_frame_base_tag_address, tag_offset);
+
+                        function_builder.ins().store(
+                            MemFlags::new(),
+                            empty_tag_value,
+                            tag_address,
+                            0,
+                        );
+                    }
+                }
 
                 function_builder
                     .ins()

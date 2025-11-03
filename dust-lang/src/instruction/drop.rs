@@ -20,10 +20,10 @@ impl From<Instruction> for Drop {
 }
 
 impl From<Drop> for Instruction {
-    fn from(safepoint: Drop) -> Self {
+    fn from(drop: Drop) -> Self {
         let operation = Operation::DROP;
-        let a_field = safepoint.drop_list_start;
-        let b_field = safepoint.drop_list_end;
+        let a_field = drop.drop_list_start;
+        let b_field = drop.drop_list_end;
 
         InstructionFields {
             operation,
@@ -37,10 +37,11 @@ impl From<Drop> for Instruction {
 
 impl Display for Drop {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(
-            f,
-            "drop_list[{}..{}]",
-            self.drop_list_start, self.drop_list_end
-        )
+        let Drop {
+            drop_list_start,
+            drop_list_end,
+        } = self;
+
+        write!(f, "drop {drop_list_start}..{drop_list_end}")
     }
 }

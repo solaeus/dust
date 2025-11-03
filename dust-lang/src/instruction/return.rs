@@ -53,10 +53,10 @@ impl Display for Return {
         } = self;
 
         if *should_return_value {
-            write!(f, "RETURN ")?;
+            write!(f, "return ")?;
             return_value_address.display(f, *r#type)?;
         } else {
-            write!(f, "RETURN")?;
+            write!(f, "return")?;
         }
 
         Ok(())
