@@ -213,11 +213,24 @@ impl<'a> TuiDisassembler<'a> {
             .wrap(Wrap { trim: true })
             .render(type_area, buffer);
 
+        const BLOCK_MARGIN_WIDTH: u16 = 4;
+        const INDEX_COLUMN_WIDTH: u16 = 5;
+
         // Instructions section
         {
-            let horizontal_areas =
-                Layout::horizontal([Constraint::Min(1), Constraint::Min(60), Constraint::Min(1)]);
-            let [_, instructions_block_area, _] = horizontal_areas.areas(instructions_area);
+            const INSTRUCTION_BLOCK_WIDTH: u16 = 70;
+            const OPERATION_COLUMN_WIDTH: u16 = 15;
+            const INFO_COLUMN_WIDTH: u16 = INSTRUCTION_BLOCK_WIDTH
+                - INDEX_COLUMN_WIDTH
+                - OPERATION_COLUMN_WIDTH
+                - BLOCK_MARGIN_WIDTH * 2;
+
+            let [_, instructions_block_area, _] = Layout::horizontal([
+                Constraint::Fill(1),
+                Constraint::Min(INSTRUCTION_BLOCK_WIDTH),
+                Constraint::Fill(1),
+            ])
+            .areas(instructions_area);
 
             let instructions_block = Block::new()
                 .title(Span::styled("Instructions", Style::default()))
@@ -229,9 +242,12 @@ impl<'a> TuiDisassembler<'a> {
 
             instructions_block.render(instructions_block_area, buffer);
 
-            let horizontal_areas =
-                Layout::horizontal([Constraint::Min(1), Constraint::Min(50), Constraint::Min(1)]);
-            let [_, center_area, _] = horizontal_areas.areas(instructions_table_area);
+            let [_, center_area, _] = Layout::horizontal([
+                Constraint::Length(BLOCK_MARGIN_WIDTH),
+                Constraint::Fill(1),
+                Constraint::Length(BLOCK_MARGIN_WIDTH),
+            ])
+            .areas(instructions_table_area);
 
             let instruction_rows = chunk
                 .instructions
@@ -246,9 +262,9 @@ impl<'a> TuiDisassembler<'a> {
                 })
                 .collect::<Vec<_>>();
             let widths = [
-                Constraint::Length(5),
-                Constraint::Length(12),
-                Constraint::Length(30),
+                Constraint::Length(INDEX_COLUMN_WIDTH),
+                Constraint::Length(OPERATION_COLUMN_WIDTH),
+                Constraint::Length(INFO_COLUMN_WIDTH),
             ];
 
             let instructions_table = Table::new(instruction_rows, widths)
@@ -259,8 +275,9 @@ impl<'a> TuiDisassembler<'a> {
 
         // Constants section
         {
-            let mut longest_address_string = 0;
-            let mut longest_value_string = 0;
+            const ADDRESS_COLUMN_WIDTH: u16 = 8;
+
+            let mut value_column_width = 0;
             let instruction_rows = self
                 .program
                 .constants
@@ -268,21 +285,21 @@ impl<'a> TuiDisassembler<'a> {
                 .enumerate()
                 .map(|(index, value_string)| {
                     let address_string = format!("const_{index}");
-                    longest_address_string = longest_address_string.max(address_string.len());
-                    longest_value_string = longest_value_string.max(value_string.len());
+                    value_column_width =
+                        value_column_width.max(value_string.chars().count() as u16);
 
                     Row::new(vec![address_string, value_string])
                 })
                 .collect::<Vec<_>>();
+            let constants_area_width =
+                ADDRESS_COLUMN_WIDTH + value_column_width + BLOCK_MARGIN_WIDTH * 2;
 
-            let row_minumum_width = (longest_address_string + longest_value_string + 8) as u16;
-
-            let horizontal_areas = Layout::horizontal([
+            let [_, constants_block_area, _] = Layout::horizontal([
                 Constraint::Fill(1),
-                Constraint::Min(row_minumum_width + 8),
+                Constraint::Min(constants_area_width),
                 Constraint::Fill(1),
-            ]);
-            let [_, block_area, _] = horizontal_areas.areas(constants_area);
+            ])
+            .areas(constants_area);
 
             let block = Block::new()
                 .title(Span::styled("Constants", Style::default()))
@@ -291,24 +308,28 @@ impl<'a> TuiDisassembler<'a> {
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded);
 
-            let instructions_table_area = block.inner(block_area);
+            let constants_table_area = block.inner(constants_block_area);
 
-            block.render(block_area, buffer);
+            block.render(constants_block_area, buffer);
 
-            let horizontal_areas = Layout::horizontal([
+            let [_, center_area, _] = Layout::horizontal([
+                Constraint::Length(BLOCK_MARGIN_WIDTH),
                 Constraint::Fill(1),
-                Constraint::Min(row_minumum_width),
-                Constraint::Fill(1),
-            ]);
-            let [_, center_area, _] = horizontal_areas.areas(instructions_table_area);
+                Constraint::Length(BLOCK_MARGIN_WIDTH),
+            ])
+            .areas(constants_table_area);
 
             let widths = [
-                Constraint::Min(longest_address_string as u16 + 5),
-                Constraint::Min(longest_value_string as u16),
+                Constraint::Min(ADDRESS_COLUMN_WIDTH),
+                Constraint::Min(value_column_width),
             ];
 
+            let value_header_margin =
+                " ".repeat((value_column_width.saturating_sub(9) / 2) as usize);
+            let value_header = format!("{value_header_margin}Value{value_header_margin}");
+
             let constants_table = Table::new(instruction_rows, widths)
-                .header(Row::new(["Address", "Value"]).add_modifier(Modifier::BOLD));
+                .header(Row::new(["Address", &value_header]).add_modifier(Modifier::BOLD));
 
             constants_table.render(center_area, buffer);
         }
@@ -360,14 +381,14 @@ impl<'a> TuiDisassembler<'a> {
             address_table.render(center_area, buffer);
         }
 
-        // Drop list section
+        // Drops section
         {
             let horizontal_areas =
                 Layout::horizontal([Constraint::Min(1), Constraint::Min(60), Constraint::Min(1)]);
             let [_, block_area, _] = horizontal_areas.areas(drop_lists_area);
 
             let block = Block::new()
-                .title(Span::styled("Drop Lists", Style::default()))
+                .title(Span::styled("Drops", Style::default()))
                 .title_alignment(Alignment::Center)
                 .title_style(Style::default().bold())
                 .borders(Borders::ALL)
@@ -377,8 +398,11 @@ impl<'a> TuiDisassembler<'a> {
 
             block.render(block_area, buffer);
 
-            let horizontal_areas =
-                Layout::horizontal([Constraint::Min(1), Constraint::Min(40), Constraint::Min(1)]);
+            let horizontal_areas = Layout::horizontal([
+                Constraint::Fill(1),
+                Constraint::Min(20),
+                Constraint::Fill(1),
+            ]);
             let [_, center_area, _] = horizontal_areas.areas(instructions_table_area);
 
             let address_rows = chunk
@@ -389,10 +413,10 @@ impl<'a> TuiDisassembler<'a> {
                     Row::new(vec![index.to_string(), format!("reg_{register}")])
                 })
                 .collect::<Vec<_>>();
-            let widths = [Constraint::Length(5), Constraint::Min(10)];
+            let widths = [Constraint::Length(10), Constraint::Min(10)];
 
             let drop_list_table = Table::new(address_rows, widths)
-                .header(Row::new(["i", "Registers"]).add_modifier(Modifier::BOLD));
+                .header(Row::new(["i", "Address"]).add_modifier(Modifier::BOLD));
 
             drop_list_table.render(center_area, buffer);
         }

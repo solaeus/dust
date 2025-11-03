@@ -7,7 +7,7 @@ use tracing::{debug, info, span, trace};
 use crate::{
     chunk::Chunk,
     compiler::{CompileContext, binder::Binder},
-    instruction::{Address, Drop, Instruction, Jump, OperandType, Operation},
+    instruction::{Address, Drop, Instruction, OperandType, Operation},
     native_function::NativeFunction,
     resolver::{Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind},
     source::{Position, SourceFileId},
