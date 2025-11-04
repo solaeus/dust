@@ -2746,10 +2746,11 @@ impl<'a> ChunkCompiler<'a> {
 
         let mut if_emission = InstructionsEmission::new();
         let condition_emission = self.compile_expression(&condition_node, None)?;
-        let mut jump_indexes = SmallVec::new();
 
         self.handle_condition_emission(&mut if_emission, condition_emission, &condition_node)?;
-        jump_indexes.push(if_emission.length());
+
+        let jump_past_then_index = if_emission.length();
+
         if_emission.push(Instruction::no_op());
 
         let target = target.unwrap_or_else(|| TargetRegister {
@@ -2784,7 +2785,7 @@ impl<'a> ChunkCompiler<'a> {
                 jump_to_end_index + 1
             };
 
-            if_emission.patch_jumps_to_index(&mut jump_indexes, else_start_index);
+            if_emission.patch_jump_to_index(jump_past_then_index, else_start_index);
 
             let else_block_id = children_ids[2];
             let else_block_node = *self.syntax_tree()?.get_node(else_block_id).ok_or(
@@ -2808,7 +2809,7 @@ impl<'a> ChunkCompiler<'a> {
 
             if_emission.replace_instruction_with_jump(jump_to_end_index, distance_to_end, true);
         } else {
-            if_emission.patch_jumps_to_end(&mut jump_indexes);
+            if_emission.patch_jump_to_end(jump_past_then_index);
         }
 
         if_emission.set_type(if_type);
@@ -3018,18 +3019,16 @@ impl InstructionsEmission {
         }
     }
 
-    fn patch_jumps_to_index(&mut self, no_op_indexes: &mut SmallVec<[usize; 8]>, index: usize) {
-        for no_op_index in no_op_indexes.drain(..).rev() {
-            let distance = (index - no_op_index - 1) as u16;
+    fn patch_jump_to_index(&mut self, no_op_index: usize, index: usize) {
+        let distance = (index - no_op_index - 1) as u16;
 
-            self.replace_instruction_with_jump(no_op_index, distance, true);
-        }
+        self.replace_instruction_with_jump(no_op_index, distance, true);
     }
 
-    fn patch_jumps_to_end(&mut self, no_op_indexes: &mut SmallVec<[usize; 8]>) {
+    fn patch_jump_to_end(&mut self, no_op_index: usize) {
         let index = self.instructions.len();
 
-        self.patch_jumps_to_index(no_op_indexes, index);
+        self.patch_jump_to_index(no_op_index, index);
     }
 
     fn merge(&mut self, other: InstructionsEmission) {
