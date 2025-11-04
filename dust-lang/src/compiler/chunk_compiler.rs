@@ -1641,6 +1641,10 @@ impl<'a> ChunkCompiler<'a> {
                     is_temporary,
                 }));
 
+                if r#type == Type::String && target.is_none_or(|target| target.is_temporary) {
+                    self.pending_drops.last_mut().unwrap().push(destination);
+                }
+
                 Instruction::add(destination, left_address, right_address, operand_type)
             }
             SyntaxKind::AdditionAssignmentExpression => {
@@ -1755,13 +1759,6 @@ impl<'a> ChunkCompiler<'a> {
             }
             _ => unreachable!("Expected binary expression, found {}", node.kind),
         };
-
-        if r#type == Type::String && target.is_none_or(|target| target.is_temporary) {
-            self.pending_drops
-                .last_mut()
-                .unwrap()
-                .push(math_instruction.a_field());
-        }
 
         math_emission.push(math_instruction);
         math_emission.set_type(r#type);
