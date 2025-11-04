@@ -11,8 +11,11 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum CompileError {
     // User Errors
+    CannotImport {
+        name: String,
+        position: Position,
+    },
     DivisionByZero {
-        node_kind: SyntaxKind,
         position: Position,
     },
     DuplicateFunctionDeclaration {
@@ -50,6 +53,15 @@ pub enum CompileError {
     UndeclaredVariable {
         name: String,
         position: Position,
+    },
+    MismatchedIfElseTypes {
+        if_type: Type,
+        else_type: Type,
+        position: Position,
+    },
+    MismatchedConstantTypes {
+        left: Type,
+        right: Type,
     },
 
     // Internal Errors (from incorrect Parser output)
@@ -119,19 +131,6 @@ pub enum CompileError {
     },
     MissingDeclarations {
         name: String,
-    },
-    CannotImport {
-        name: String,
-        position: Position,
-    },
-    MismatchedIfElseTypes {
-        then_type: Type,
-        else_type: Type,
-        position: Position,
-    },
-    MismatchedConstantTypes {
-        left: Type,
-        right: Type,
     },
 }
 
@@ -216,18 +215,12 @@ impl AnnotatedError for CompileError {
                     ),
                 )
             }
-            CompileError::DivisionByZero {
-                node_kind,
-                position,
-            } => {
+            CompileError::DivisionByZero { position } => {
                 let title = "Division by zero".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!("Found {node_kind} that divides by zero here")),
-                    ),
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
             CompileError::DuplicateFunctionDeclaration {
@@ -470,20 +463,17 @@ impl AnnotatedError for CompileError {
                 )
             }
             CompileError::MismatchedIfElseTypes {
-                then_type,
+                if_type,
                 else_type,
                 position,
             } => {
                 let title = format!(
-                    "Mismatched types in if-else branches: then branch has type {then_type}, else branch has type {else_type}"
+                    "Mismatched types in if-else branches: if branch has type {if_type}, else branch has type {else_type}"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label("If-else expression found here".to_string()),
-                    ),
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
             CompileError::MismatchedConstantTypes { left, right } => {

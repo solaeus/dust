@@ -206,11 +206,23 @@ impl<'a> ChunkCompiler<'a> {
         left: Constant,
         right: Constant,
         operation: SyntaxKind,
+        position: Position,
     ) -> Result<Constant, CompileError> {
         debug!(
             "Combining constants: {:?} {:?} {:?}",
             left, right, operation
         );
+
+        let check_for_division_by_zero = || {
+            if matches!(
+                right,
+                Constant::Byte(0) | Constant::Integer(0) | Constant::Float(0.0)
+            ) {
+                Err(CompileError::DivisionByZero { position })
+            } else {
+                Ok(())
+            }
+        };
 
         let combined = match (left, right) {
             (Constant::Boolean(left), Constant::Boolean(right)) => match operation {
@@ -228,8 +240,16 @@ impl<'a> ChunkCompiler<'a> {
                 SyntaxKind::AdditionExpression => Constant::Byte(left.saturating_add(right)),
                 SyntaxKind::SubtractionExpression => Constant::Byte(left.saturating_sub(right)),
                 SyntaxKind::MultiplicationExpression => Constant::Byte(left.saturating_mul(right)),
-                SyntaxKind::DivisionExpression => Constant::Byte(left.saturating_div(right)),
-                SyntaxKind::ModuloExpression => Constant::Byte(left % right),
+                SyntaxKind::DivisionExpression => {
+                    check_for_division_by_zero()?;
+
+                    Constant::Byte(left.saturating_div(right))
+                }
+                SyntaxKind::ModuloExpression => {
+                    check_for_division_by_zero()?;
+
+                    Constant::Byte(left % right)
+                }
                 SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
                 SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
                 SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
@@ -242,8 +262,16 @@ impl<'a> ChunkCompiler<'a> {
                 SyntaxKind::AdditionExpression => Constant::Float(left + right),
                 SyntaxKind::SubtractionExpression => Constant::Float(left - right),
                 SyntaxKind::MultiplicationExpression => Constant::Float(left * right),
-                SyntaxKind::DivisionExpression => Constant::Float(left / right),
-                SyntaxKind::ModuloExpression => Constant::Float(left % right),
+                SyntaxKind::DivisionExpression => {
+                    check_for_division_by_zero()?;
+
+                    Constant::Float(left / right)
+                }
+                SyntaxKind::ModuloExpression => {
+                    check_for_division_by_zero()?;
+
+                    Constant::Float(left % right)
+                }
                 SyntaxKind::ExponentExpression => Constant::Float(left.powf(right)),
                 SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
                 SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
@@ -259,8 +287,16 @@ impl<'a> ChunkCompiler<'a> {
                 SyntaxKind::MultiplicationExpression => {
                     Constant::Integer(left.saturating_mul(right))
                 }
-                SyntaxKind::DivisionExpression => Constant::Integer(left.saturating_div(right)),
-                SyntaxKind::ModuloExpression => Constant::Integer(left % right),
+                SyntaxKind::DivisionExpression => {
+                    check_for_division_by_zero()?;
+
+                    Constant::Integer(left.saturating_div(right))
+                }
+                SyntaxKind::ModuloExpression => {
+                    check_for_division_by_zero()?;
+
+                    Constant::Integer(left % right)
+                }
                 SyntaxKind::ExponentExpression => {
                     Constant::Integer(left.saturating_pow(right as u32))
                 }
@@ -509,6 +545,61 @@ impl<'a> ChunkCompiler<'a> {
                 node_kind: node.kind,
                 position: Position::new(self.file_id, node.span),
             })
+        }
+    }
+
+    fn handle_branch_emission(
+        &mut self,
+        instructions_emission: &mut InstructionsEmission,
+        emission: Emission,
+        destination_register: u16,
+    ) -> Type {
+        match emission {
+            Emission::Constant(constant, r#type) => {
+                let address = self.get_constant_address(constant);
+                let move_instruction = Instruction::r#move(
+                    destination_register,
+                    address,
+                    r#type.as_operand_type(),
+                    false,
+                );
+
+                instructions_emission.push(move_instruction);
+
+                r#type
+            }
+            Emission::Function(address, r#type) => {
+                let move_instruction = Instruction::r#move(
+                    destination_register,
+                    address,
+                    r#type.as_operand_type(),
+                    false,
+                );
+
+                instructions_emission.push(move_instruction);
+
+                r#type
+            }
+            Emission::Local(Local { address, r#type }) => {
+                let move_instruction = Instruction::r#move(
+                    destination_register,
+                    address,
+                    r#type.as_operand_type(),
+                    false,
+                );
+
+                instructions_emission.push(move_instruction);
+
+                r#type
+            }
+            Emission::Instructions(branch_instructions) => {
+                let r#type = branch_instructions.r#type.clone();
+
+                instructions_emission.merge(branch_instructions);
+
+                r#type
+            }
+            Emission::None => Type::None,
         }
     }
 
@@ -1145,7 +1236,6 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::CallExpression => self.compile_call_expression(node, target),
             SyntaxKind::AsExpression => self.compile_as_expression(node, target),
             SyntaxKind::IfExpression => self.compile_if_expression(node, target),
-            SyntaxKind::ElseExpression => self.compile_else_expression(node, target),
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind,
                 position: Position::new(self.file_id, node.span),
@@ -1433,7 +1523,12 @@ impl<'a> ChunkCompiler<'a> {
                 Emission::Constant(right_value, _right_type),
             ) = (&left_emission, &right_emission)
         {
-            let combined = self.combine_constants(*left_value, *right_value, node.kind)?;
+            let combined = self.combine_constants(
+                *left_value,
+                *right_value,
+                node.kind,
+                Position::new(self.file_id, node.span),
+            )?;
             let combined_type = if left_type == &Type::Character {
                 Type::String
             } else {
@@ -1635,7 +1730,12 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Constant(right_value, _right_type),
         ) = (&left_emission, &right_emission)
         {
-            let combined = self.combine_constants(*left_value, *right_value, node.kind)?;
+            let combined = self.combine_constants(
+                *left_value,
+                *right_value,
+                node.kind,
+                Position::new(self.file_id, node.span),
+            )?;
 
             return Ok(Emission::Constant(combined, Type::Boolean));
         }
@@ -1741,7 +1841,12 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Constant(right_value, _right_type),
         ) = (&left_emission, &right_emission)
         {
-            let combined = self.combine_constants(*left_value, *right_value, node.kind)?;
+            let combined = self.combine_constants(
+                *left_value,
+                *right_value,
+                node.kind,
+                Position::new(self.file_id, node.span),
+            )?;
 
             return Ok(Emission::Constant(combined, left_type.clone()));
         }
@@ -2542,61 +2647,6 @@ impl<'a> ChunkCompiler<'a> {
         node: &SyntaxNode,
         target: Option<TargetRegister>,
     ) -> Result<Emission, CompileError> {
-        fn handle_branch_emission(
-            compiler: &mut ChunkCompiler,
-            instructions_emission: &mut InstructionsEmission,
-            emission: Emission,
-            destination_register: u16,
-        ) -> Type {
-            match emission {
-                Emission::Constant(constant, r#type) => {
-                    let address = compiler.get_constant_address(constant);
-                    let move_instruction = Instruction::r#move(
-                        destination_register,
-                        address,
-                        r#type.as_operand_type(),
-                        false,
-                    );
-
-                    instructions_emission.push(move_instruction);
-
-                    r#type
-                }
-                Emission::Function(address, r#type) => {
-                    let move_instruction = Instruction::r#move(
-                        destination_register,
-                        address,
-                        r#type.as_operand_type(),
-                        false,
-                    );
-
-                    instructions_emission.push(move_instruction);
-
-                    r#type
-                }
-                Emission::Local(Local { address, r#type }) => {
-                    let move_instruction = Instruction::r#move(
-                        destination_register,
-                        address,
-                        r#type.as_operand_type(),
-                        false,
-                    );
-
-                    instructions_emission.push(move_instruction);
-
-                    r#type
-                }
-                Emission::Instructions(branch_instructions) => {
-                    let r#type = branch_instructions.r#type.clone();
-
-                    instructions_emission.merge(branch_instructions);
-
-                    r#type
-                }
-                Emission::None => Type::None,
-            }
-        }
-
         info!("Compiling if expression");
 
         let children_ids = self
@@ -2627,11 +2677,10 @@ impl<'a> ChunkCompiler<'a> {
 
         let mut if_emission = InstructionsEmission::new();
         let condition_emission = self.compile_expression(&condition_node, None)?;
+        let mut jump_indexes = SmallVec::new();
 
         self.handle_condition_emission(&mut if_emission, condition_emission, &condition_node)?;
-
-        let jump_to_else_index = if_emission.length();
-
+        jump_indexes.push(if_emission.length());
         if_emission.push(Instruction::no_op());
 
         let target = target.unwrap_or_else(|| TargetRegister {
@@ -2639,17 +2688,24 @@ impl<'a> ChunkCompiler<'a> {
             is_temporary: true,
         });
         let then_emission = self.compile_expression(&then_block_node, Some(target))?;
-        let then_type =
-            handle_branch_emission(self, &mut if_emission, then_emission, target.register);
+        let if_type = self.handle_branch_emission(&mut if_emission, then_emission, target.register);
 
         if children_ids.len() == 3 {
             let jump_to_end_index = if_emission.length();
 
             if_emission.push(Instruction::no_op());
 
-            let distance_to_else = (jump_to_end_index - jump_to_else_index - 1) as u16;
-            let jump_to_else_instruction = Instruction::jump(distance_to_else, true);
-            if_emission.instructions[jump_to_else_index] = jump_to_else_instruction;
+            let else_start_index = if if_emission
+                .instructions
+                .get(jump_to_end_index)
+                .is_some_and(|instruction| instruction.operation() == Operation::DROP)
+            {
+                jump_to_end_index
+            } else {
+                jump_to_end_index + 1
+            };
+
+            if_emission.patch_jumps_to_index(&mut jump_indexes, else_start_index);
 
             let else_block_id = children_ids[2];
             let else_block_node = *self.syntax_tree()?.get_node(else_block_id).ok_or(
@@ -2659,28 +2715,24 @@ impl<'a> ChunkCompiler<'a> {
             )?;
             let else_emission = self.compile_else_expression(&else_block_node, Some(target))?;
             let else_type =
-                handle_branch_emission(self, &mut if_emission, else_emission, target.register);
+                self.handle_branch_emission(&mut if_emission, else_emission, target.register);
 
-            if then_type != else_type {
+            if if_type != else_type {
                 return Err(CompileError::MismatchedIfElseTypes {
-                    then_type,
+                    if_type,
                     else_type,
                     position: Position::new(self.file_id, node.span),
                 });
             }
 
-            let instruction_length = if_emission.length();
-            let distance_to_end = (instruction_length - jump_to_end_index - 1) as u16;
+            let distance_to_end = (if_emission.length() - jump_to_end_index - 1) as u16;
 
-            if_emission.replace_no_op_with_jump(jump_to_end_index, distance_to_end, true);
+            if_emission.replace_instruction_with_jump(jump_to_end_index, distance_to_end, true);
         } else {
-            let instruction_length = if_emission.length();
-            let distance_past_then = (instruction_length - jump_to_else_index - 1) as u16;
-
-            if_emission.replace_no_op_with_jump(jump_to_else_index, distance_past_then, true);
+            if_emission.patch_jumps_to_end(&mut jump_indexes);
         }
 
-        if_emission.set_type(then_type);
+        if_emission.set_type(if_type);
         if_emission.set_target(Some(target));
 
         Ok(Emission::Instructions(if_emission))
@@ -2849,12 +2901,21 @@ impl InstructionsEmission {
         }
     }
 
-    fn replace_no_op_with_jump(&mut self, index: usize, distance: u16, forward: bool) {
+    fn replace_instruction_with_jump(&mut self, index: usize, distance: u16, forward: bool) {
         debug_assert!(
             self.instructions
                 .get(index)
-                .is_some_and(|instruction| instruction.operation() == Operation::NO_OP)
+                .is_some_and(|instruction| matches!(
+                    instruction.operation(),
+                    Operation::NO_OP | Operation::JUMP
+                ))
         );
+
+        if distance == 0 {
+            self.instructions.remove(index);
+
+            return;
+        }
 
         if let Some(instruction) = self.instructions.get_mut(index - 1)
             && instruction.operation() == Operation::DROP
@@ -2873,6 +2934,20 @@ impl InstructionsEmission {
 
             self.instructions[index] = jump_instruction;
         }
+    }
+
+    fn patch_jumps_to_index(&mut self, no_op_indexes: &mut SmallVec<[usize; 8]>, index: usize) {
+        for no_op_index in no_op_indexes.drain(..).rev() {
+            let distance = (index - no_op_index - 1) as u16;
+
+            self.replace_instruction_with_jump(no_op_index, distance, true);
+        }
+    }
+
+    fn patch_jumps_to_end(&mut self, no_op_indexes: &mut SmallVec<[usize; 8]>) {
+        let index = self.instructions.len();
+
+        self.patch_jumps_to_index(no_op_indexes, index);
     }
 
     fn merge(&mut self, other: InstructionsEmission) {

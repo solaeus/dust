@@ -71,6 +71,7 @@ pub enum JitError {
     },
     ThreadErrorFunctionIndexOutOfBounds,
     ThreadErrorListIndexOutOfBounds,
+    ThreadErrorDivisionByZero,
 }
 
 impl AnnotatedError for JitError {
@@ -202,12 +203,17 @@ impl AnnotatedError for JitError {
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::ThreadErrorFunctionIndexOutOfBounds => {
-                let title = "Function index out of bounds in thread error".to_string();
+                let title = "Function index out of bounds".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::ThreadErrorListIndexOutOfBounds => {
-                let title = "List index out of bounds in thread error".to_string();
+                let title = "List index out of bounds".to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::ThreadErrorDivisionByZero => {
+                let title = "Division by zero".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }

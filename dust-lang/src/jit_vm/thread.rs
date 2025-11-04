@@ -112,6 +112,9 @@ fn run(
             ThreadStatus::ErrorListIndexOutOfBounds => {
                 return Err(JitError::ThreadErrorListIndexOutOfBounds);
             }
+            ThreadStatus::ErrorDivisionByZero => {
+                return Err(JitError::ThreadErrorDivisionByZero);
+            }
         }
     }
 
@@ -173,6 +176,7 @@ pub enum ThreadStatus {
     Return = 1,
     ErrorFunctionIndexOutOfBounds = 2,
     ErrorListIndexOutOfBounds = 3,
+    ErrorDivisionByZero = 4,
 }
 
 impl ThreadStatus {

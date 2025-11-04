@@ -21,7 +21,7 @@ use crate::{
         OperandType, Operation, Return, SetList, Test, ToString,
     },
     jit_vm::{
-        JitCompiler, JitError, Register, RegisterTag,
+        JitCompiler, JitError, Register, RegisterTag, ThreadStatus,
         call_stack::get_call_frame,
         jit_compiler::{FunctionIds, HotRegisters},
         thread::ThreadContext,
@@ -433,6 +433,7 @@ pub fn compile_stackless_function(
     let function_entry_block = function_builder.create_block();
     let mut instruction_blocks = Vec::with_capacity(instruction_count);
     let return_block = function_builder.create_block();
+    let division_by_zero_block = function_builder.create_block();
     let mut switch = Switch::new();
 
     for ip in 0..instruction_count {
@@ -1078,9 +1079,37 @@ pub fn compile_stackless_function(
                                 function_builder.ins().imul(left_value, right_value)
                             }
                             Operation::DIVIDE => {
+                                let division_block = function_builder.create_block();
+                                let right_is_zero =
+                                    function_builder
+                                        .ins()
+                                        .icmp_imm(IntCC::Equal, right_value, 0);
+
+                                function_builder.ins().brif(
+                                    right_is_zero,
+                                    division_by_zero_block,
+                                    &[],
+                                    division_block,
+                                    &[],
+                                );
+                                function_builder.switch_to_block(division_block);
                                 function_builder.ins().udiv(left_value, right_value)
                             }
                             Operation::MODULO => {
+                                let modulo_block = function_builder.create_block();
+                                let right_is_zero =
+                                    function_builder
+                                        .ins()
+                                        .icmp_imm(IntCC::Equal, right_value, 0);
+
+                                function_builder.ins().brif(
+                                    right_is_zero,
+                                    division_by_zero_block,
+                                    &[],
+                                    modulo_block,
+                                    &[],
+                                );
+                                function_builder.switch_to_block(modulo_block);
                                 function_builder.ins().urem(left_value, right_value)
                             }
                             _ => {
@@ -1113,9 +1142,37 @@ pub fn compile_stackless_function(
                                 function_builder.ins().imul(left_value, right_value)
                             }
                             Operation::DIVIDE => {
+                                let division_block = function_builder.create_block();
+                                let right_is_zero =
+                                    function_builder
+                                        .ins()
+                                        .icmp_imm(IntCC::Equal, right_value, 0);
+
+                                function_builder.ins().brif(
+                                    right_is_zero,
+                                    division_by_zero_block,
+                                    &[],
+                                    division_block,
+                                    &[],
+                                );
+                                function_builder.switch_to_block(division_block);
                                 function_builder.ins().udiv(left_value, right_value)
                             }
                             Operation::MODULO => {
+                                let modulo_block = function_builder.create_block();
+                                let right_is_zero =
+                                    function_builder
+                                        .ins()
+                                        .icmp_imm(IntCC::Equal, right_value, 0);
+
+                                function_builder.ins().brif(
+                                    right_is_zero,
+                                    division_by_zero_block,
+                                    &[],
+                                    modulo_block,
+                                    &[],
+                                );
+                                function_builder.switch_to_block(modulo_block);
                                 function_builder.ins().urem(left_value, right_value)
                             }
                             Operation::POWER => {
@@ -1155,9 +1212,40 @@ pub fn compile_stackless_function(
                                 function_builder.ins().fmul(left_value, right_value)
                             }
                             Operation::DIVIDE => {
+                                let division_block = function_builder.create_block();
+                                let zero = function_builder.ins().f64const(0.0);
+                                let right_is_zero =
+                                    function_builder
+                                        .ins()
+                                        .fcmp(FloatCC::Equal, right_value, zero);
+
+                                function_builder.ins().brif(
+                                    right_is_zero,
+                                    division_by_zero_block,
+                                    &[],
+                                    division_block,
+                                    &[],
+                                );
+                                function_builder.switch_to_block(division_block);
                                 function_builder.ins().fdiv(left_value, right_value)
                             }
                             Operation::MODULO => {
+                                let modulo_block = function_builder.create_block();
+                                let zero = function_builder.ins().f64const(0.0);
+                                let right_is_zero =
+                                    function_builder
+                                        .ins()
+                                        .fcmp(FloatCC::Equal, right_value, zero);
+
+                                function_builder.ins().brif(
+                                    right_is_zero,
+                                    division_by_zero_block,
+                                    &[],
+                                    modulo_block,
+                                    &[],
+                                );
+                                function_builder.switch_to_block(modulo_block);
+
                                 let divided = function_builder.ins().fdiv(left_value, right_value);
                                 let truncated = function_builder.ins().floor(divided);
                                 let multiplied =
@@ -1915,8 +2003,27 @@ pub fn compile_stackless_function(
         }
     }
 
-    function_builder.switch_to_block(return_block);
-    function_builder.ins().return_(&[]);
+    {
+        function_builder.switch_to_block(return_block);
+        function_builder.ins().return_(&[]);
+    }
+
+    {
+        function_builder.switch_to_block(division_by_zero_block);
+
+        let division_by_zero_status = function_builder
+            .ins()
+            .iconst(I8, ThreadStatus::ErrorDivisionByZero as i64);
+
+        function_builder.ins().store(
+            MemFlags::new(),
+            division_by_zero_status,
+            thread_context,
+            offset_of!(ThreadContext, status) as i32,
+        );
+        function_builder.ins().return_(&[]);
+    }
+
     function_builder.seal_all_blocks();
 
     compiler
