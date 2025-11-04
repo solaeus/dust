@@ -1,22 +1,21 @@
+mod block_table;
+
 use std::io;
 
 use ratatui::{
     buffer::Buffer,
     crossterm::event::{self, Event, KeyCode, KeyEventKind},
-    layout::{Alignment, Constraint, Layout, Rect},
-    style::{Modifier, Style, Stylize},
+    layout::{Alignment, Constraint, Flex, Layout, Rect},
+    style::{Style, Stylize},
     text::Span,
-    widgets::{Block, BorderType, Borders, Paragraph, Row, Table, Tabs, Widget, Wrap},
+    widgets::{Block, BorderType, Borders, Paragraph, Tabs, Widget, Wrap},
 };
 
 use crate::{
-    chunk::Chunk,
-    dust_crate::Program,
-    instruction::{Address, Instruction, OperandType},
-    resolver::Resolver,
-    source::Source,
-    syntax_tree::SyntaxTree,
+    chunk::Chunk, dust_crate::Program, resolver::Resolver, source::Source, syntax_tree::SyntaxTree,
 };
+
+use block_table::BlockTable;
 
 pub struct TuiDisassembler<'a> {
     program: &'a Program,
@@ -154,6 +153,10 @@ impl<'a> TuiDisassembler<'a> {
     }
 
     fn draw_chunk_tab(&self, index: usize, chunk: &Chunk, area: Rect, buffer: &mut Buffer) {
+        fn get_section_length(count: usize) -> u16 {
+            if count == 0 { 0 } else { count as u16 + 3 }
+        }
+
         let block = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Thick);
@@ -162,41 +165,28 @@ impl<'a> TuiDisassembler<'a> {
         block.render(area, buffer);
 
         let areas = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Length(chunk.instructions.len() as u16 + 3),
-            Constraint::Length(1),
-            Constraint::Length(self.program.constants.len() as u16 + 3),
-            Constraint::Length(1),
-            Constraint::Length(chunk.call_arguments.len() as u16 + 3),
-            Constraint::Length(1),
-            Constraint::Length(chunk.drop_lists.len() as u16 + 3),
-            Constraint::Fill(1),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(get_section_length(chunk.instructions.len())),
+            Constraint::Length(get_section_length(self.program.constants.len())),
+            Constraint::Length(get_section_length(chunk.call_arguments.len())),
+            Constraint::Length(get_section_length(chunk.drop_lists.len())),
         ]);
         let [
             prototype_area,
-            _,
             info_area,
-            _,
             type_area,
-            _,
             instructions_area,
-            _,
             constants_area,
-            _,
             arguments_area,
-            _,
             drop_lists_area,
-            _,
-        ] = areas.areas(inner_area);
+        ] = areas.flex(Flex::Start).areas(inner_area);
 
         Paragraph::new(format!("proto_{}", index))
             .centered()
             .wrap(Wrap { trim: true })
+            .bold()
             .render(prototype_area, buffer);
 
         Paragraph::new(format!(
@@ -208,217 +198,87 @@ impl<'a> TuiDisassembler<'a> {
         .wrap(Wrap { trim: true })
         .render(info_area, buffer);
 
-        Paragraph::new(chunk.r#type.to_string())
+        Paragraph::new(format!("Function type: {}", chunk.r#type))
             .centered()
             .wrap(Wrap { trim: true })
             .render(type_area, buffer);
 
-        const BLOCK_MARGIN_WIDTH: u16 = 4;
-        const INDEX_COLUMN_WIDTH: u16 = 5;
-
         // Instructions section
         {
-            const INSTRUCTION_BLOCK_WIDTH: u16 = 70;
-            const OPERATION_COLUMN_WIDTH: u16 = 15;
-            const INFO_COLUMN_WIDTH: u16 = INSTRUCTION_BLOCK_WIDTH
-                - INDEX_COLUMN_WIDTH
-                - OPERATION_COLUMN_WIDTH
-                - BLOCK_MARGIN_WIDTH * 2;
-
-            let [_, instructions_block_area, _] = Layout::horizontal([
-                Constraint::Fill(1),
-                Constraint::Min(INSTRUCTION_BLOCK_WIDTH),
-                Constraint::Fill(1),
-            ])
-            .areas(instructions_area);
-
-            let instructions_block = Block::new()
-                .title(Span::styled("Instructions", Style::default()))
-                .title_alignment(Alignment::Center)
-                .title_style(Style::default().bold())
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded);
-            let instructions_table_area = instructions_block.inner(instructions_block_area);
-
-            instructions_block.render(instructions_block_area, buffer);
-
-            let [_, center_area, _] = Layout::horizontal([
-                Constraint::Length(BLOCK_MARGIN_WIDTH),
-                Constraint::Fill(1),
-                Constraint::Length(BLOCK_MARGIN_WIDTH),
-            ])
-            .areas(instructions_table_area);
-
             let instruction_rows = chunk
                 .instructions
                 .iter()
                 .enumerate()
-                .map(|(ip, instruction): (usize, &Instruction)| {
-                    Row::new(vec![
-                        ip.to_string(),
+                .map(|(index, instruction)| {
+                    [
+                        index.to_string(),
                         instruction.operation().to_string(),
                         instruction.disassembly_info(),
-                    ])
+                    ]
                 })
                 .collect::<Vec<_>>();
-            let widths = [
-                Constraint::Length(INDEX_COLUMN_WIDTH),
-                Constraint::Length(OPERATION_COLUMN_WIDTH),
-                Constraint::Length(INFO_COLUMN_WIDTH),
-            ];
+            let instruction_section = BlockTable::new(
+                "Instructions",
+                ["IP", "Operation", "Info"],
+                instruction_rows,
+            );
 
-            let instructions_table = Table::new(instruction_rows, widths)
-                .header(Row::new(["IP", "Operation", "Info"]).add_modifier(Modifier::BOLD));
-
-            instructions_table.render(center_area, buffer);
+            instruction_section.render(instructions_area, buffer);
         }
 
         // Constants section
-        {
-            const ADDRESS_COLUMN_WIDTH: u16 = 8;
-
-            let mut value_column_width = 0;
-            let instruction_rows = self
+        if !self.program.constants.is_empty() {
+            let constant_rows = self
                 .program
                 .constants
-                .iter()
+                .display_iterator()
                 .enumerate()
-                .map(|(index, value_string)| {
-                    let address_string = format!("const_{index}");
-                    value_column_width =
-                        value_column_width.max(value_string.chars().count() as u16);
-
-                    Row::new(vec![address_string, value_string])
+                .map(|(index, (value, r#type))| {
+                    [
+                        format!("const_{index}"),
+                        value.to_string(),
+                        r#type.to_string(),
+                    ]
                 })
                 .collect::<Vec<_>>();
-            let constants_area_width =
-                ADDRESS_COLUMN_WIDTH + value_column_width + BLOCK_MARGIN_WIDTH * 2;
+            let constants_section =
+                BlockTable::new("Constants", ["Address", "Value", "Type"], constant_rows);
 
-            let [_, constants_block_area, _] = Layout::horizontal([
-                Constraint::Fill(1),
-                Constraint::Min(constants_area_width),
-                Constraint::Fill(1),
-            ])
-            .areas(constants_area);
-
-            let block = Block::new()
-                .title(Span::styled("Constants", Style::default()))
-                .title_alignment(Alignment::Center)
-                .title_style(Style::default().bold())
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded);
-
-            let constants_table_area = block.inner(constants_block_area);
-
-            block.render(constants_block_area, buffer);
-
-            let [_, center_area, _] = Layout::horizontal([
-                Constraint::Length(BLOCK_MARGIN_WIDTH),
-                Constraint::Fill(1),
-                Constraint::Length(BLOCK_MARGIN_WIDTH),
-            ])
-            .areas(constants_table_area);
-
-            let widths = [
-                Constraint::Min(ADDRESS_COLUMN_WIDTH),
-                Constraint::Min(value_column_width),
-            ];
-
-            let value_header_margin =
-                " ".repeat((value_column_width.saturating_sub(9) / 2) as usize);
-            let value_header = format!("{value_header_margin}Value{value_header_margin}");
-
-            let constants_table = Table::new(instruction_rows, widths)
-                .header(Row::new(["Address", &value_header]).add_modifier(Modifier::BOLD));
-
-            constants_table.render(center_area, buffer);
+            constants_section.render(constants_area, buffer);
         }
 
         // Arguments section
-        {
-            let horizontal_areas =
-                Layout::horizontal([Constraint::Min(1), Constraint::Min(60), Constraint::Min(1)]);
-            let [_, block_area, _] = horizontal_areas.areas(arguments_area);
-
-            let block = Block::new()
-                .title(Span::styled("Arguments", Style::default()))
-                .title_alignment(Alignment::Center)
-                .title_style(Style::default().bold())
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded);
-
-            let instructions_table_area = block.inner(block_area);
-
-            block.render(block_area, buffer);
-
-            let horizontal_areas =
-                Layout::horizontal([Constraint::Min(1), Constraint::Min(40), Constraint::Min(1)]);
-            let [_, center_area, _] = horizontal_areas.areas(instructions_table_area);
-
-            let address_rows = chunk
+        if !chunk.call_arguments.is_empty() {
+            let argument_rows = chunk
                 .call_arguments
                 .iter()
                 .enumerate()
-                .map(
-                    |(index, (address, r#type)): (usize, &(Address, OperandType))| {
-                        Row::new(vec![
-                            index.to_string(),
-                            address.to_string(*r#type),
-                            r#type.to_string(),
-                        ])
-                    },
-                )
+                .map(|(index, (address, operand_type))| {
+                    [
+                        index.to_string(),
+                        format!("reg_{}", address.to_string(*operand_type)),
+                        operand_type.to_string(),
+                    ]
+                })
                 .collect::<Vec<_>>();
-            let widths = [
-                Constraint::Length(5),
-                Constraint::Min(10),
-                Constraint::Min(10),
-            ];
+            let arguments_section =
+                BlockTable::new("Call Arguments", ["i", "Address", "Type"], argument_rows);
 
-            let address_table = Table::new(address_rows, widths)
-                .header(Row::new(["i", "Address", "Type"]).add_modifier(Modifier::BOLD));
-
-            address_table.render(center_area, buffer);
+            arguments_section.render(arguments_area, buffer);
         }
 
         // Drops section
-        {
-            let horizontal_areas =
-                Layout::horizontal([Constraint::Min(1), Constraint::Min(60), Constraint::Min(1)]);
-            let [_, block_area, _] = horizontal_areas.areas(drop_lists_area);
-
-            let block = Block::new()
-                .title(Span::styled("Drops", Style::default()))
-                .title_alignment(Alignment::Center)
-                .title_style(Style::default().bold())
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded);
-
-            let instructions_table_area = block.inner(block_area);
-
-            block.render(block_area, buffer);
-
-            let horizontal_areas = Layout::horizontal([
-                Constraint::Fill(1),
-                Constraint::Min(20),
-                Constraint::Fill(1),
-            ]);
-            let [_, center_area, _] = horizontal_areas.areas(instructions_table_area);
-
-            let address_rows = chunk
+        if !chunk.drop_lists.is_empty() {
+            let drop_list_rows = chunk
                 .drop_lists
                 .iter()
                 .enumerate()
-                .map(|(index, register): (usize, &u16)| {
-                    Row::new(vec![index.to_string(), format!("reg_{register}")])
-                })
+                .map(|(index, register)| [index.to_string(), format!("reg_{register}")])
                 .collect::<Vec<_>>();
-            let widths = [Constraint::Length(10), Constraint::Min(10)];
+            let drop_lists_section =
+                BlockTable::new("Drop List", ["i", "Drop List"], drop_list_rows);
 
-            let drop_list_table = Table::new(address_rows, widths)
-                .header(Row::new(["i", "Address"]).add_modifier(Modifier::BOLD));
-
-            drop_list_table.render(center_area, buffer);
+            drop_lists_section.render(drop_lists_area, buffer);
         }
     }
 }

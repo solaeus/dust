@@ -1,7 +1,9 @@
 //! The Dust programming language library.
+#![expect(incomplete_features)]
 #![feature(
     cold_path,
     formatting_options,
+    generic_const_exprs,
     int_from_ascii,
     iterator_try_collect,
     offset_of_enum,

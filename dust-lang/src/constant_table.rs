@@ -35,13 +35,6 @@ impl ConstantTable {
         self.payloads.is_empty()
     }
 
-    pub fn iter<'a>(&'a self) -> ConstantTableIterator<'a> {
-        ConstantTableIterator {
-            table: self,
-            index: 0,
-        }
-    }
-
     pub fn get_string_pool_range(&self, range: Range<usize>) -> &str {
         unsafe { str::from_utf8_unchecked(self.string_pool.get(range).unwrap_or_default()) }
     }
@@ -289,15 +282,22 @@ impl ConstantTable {
             index as u16
         }
     }
+
+    pub fn display_iterator<'a>(&'a self) -> ConstantTableDisplayIterator<'a> {
+        ConstantTableDisplayIterator {
+            table: self,
+            index: 0,
+        }
+    }
 }
 
-pub struct ConstantTableIterator<'a> {
+pub struct ConstantTableDisplayIterator<'a> {
     table: &'a ConstantTable,
     index: usize,
 }
 
-impl Iterator for ConstantTableIterator<'_> {
-    type Item = String;
+impl Iterator for ConstantTableDisplayIterator<'_> {
+    type Item = (String, String);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.table.payloads.len() {
@@ -306,7 +306,7 @@ impl Iterator for ConstantTableIterator<'_> {
 
         let tag = self.table.tags[self.index];
         let payload = self.table.payloads[self.index];
-        let string = match tag {
+        let value_string = match tag {
             OperandType::CHARACTER => char::from_u32(payload as u32)?.to_string(),
             OperandType::FLOAT => f64::from_bits(payload).to_string(),
             OperandType::INTEGER => (payload as i64).to_string(),
@@ -340,10 +340,11 @@ impl Iterator for ConstantTableIterator<'_> {
             }
             _ => todo!(),
         };
+        let type_string = tag.to_string();
 
         self.index += 1;
 
-        Some(string)
+        Some((value_string, type_string))
     }
 }
 
