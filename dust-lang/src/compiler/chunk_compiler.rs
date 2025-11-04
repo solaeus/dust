@@ -665,6 +665,7 @@ impl<'a> ChunkCompiler<'a> {
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
                 self.compile_let_statement(node)
             }
+            SyntaxKind::ReassignmentStatement => self.compile_reassignment_statement(node),
             _ => Err(CompileError::ExpectedStatement {
                 node_kind: node.kind,
                 position: Position::new(self.file_id, node.span),
@@ -1113,6 +1114,74 @@ impl<'a> ChunkCompiler<'a> {
         let_statement_emission.set_target(None);
 
         Ok(Emission::Instructions(let_statement_emission))
+    }
+
+    fn compile_reassignment_statement(
+        &mut self,
+        node: &SyntaxNode,
+    ) -> Result<Emission, CompileError> {
+        info!("Compiling reassignment statement");
+
+        let path_id = SyntaxId(node.children.0);
+        let expression_id = SyntaxId(node.children.1);
+
+        let path_node = *self
+            .syntax_tree()?
+            .get_node(path_id)
+            .ok_or(CompileError::MissingSyntaxNode { syntax_id: path_id })?;
+        let expression = *self.syntax_tree()?.get_node(expression_id).ok_or(
+            CompileError::MissingSyntaxNode {
+                syntax_id: expression_id,
+            },
+        )?;
+
+        let files = self.context.source.read_files();
+        let source_file =
+            files
+                .get(self.file_id.0 as usize)
+                .ok_or(CompileError::MissingSourceFile {
+                    file_id: self.file_id,
+                })?;
+        let variable_name_bytes =
+            &source_file.source_code.as_ref()[path_node.span.0 as usize..path_node.span.1 as usize];
+        let variable_name = unsafe { str::from_utf8_unchecked(variable_name_bytes) };
+
+        let (declaration_id, _) = self
+            .context
+            .resolver
+            .find_declaration_in_scope(variable_name, self.current_scope_id)
+            .ok_or(CompileError::UndeclaredVariable {
+                name: variable_name.to_string(),
+                position: Position::new(self.file_id, path_node.span),
+            })?;
+        let local = self
+            .locals
+            .get(&declaration_id)
+            .ok_or(CompileError::UndeclaredVariable {
+                name: variable_name.to_string(),
+                position: Position::new(self.file_id, path_node.span),
+            })?;
+        let local_register = local.address.index;
+
+        drop(files);
+
+        let mut reassignment_emission = InstructionsEmission::new();
+        let expression_emission = self.compile_expression(&expression, None)?;
+        let (expression_address, expression_type) = self.handle_operand_emission(
+            &mut reassignment_emission,
+            expression_emission,
+            &expression,
+        )?;
+        let move_instruction = Instruction::r#move(
+            local_register,
+            expression_address,
+            expression_type.as_operand_type(),
+            false,
+        );
+
+        reassignment_emission.push(move_instruction);
+
+        Ok(Emission::Instructions(reassignment_emission))
     }
 
     fn compile_function_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
@@ -2687,7 +2756,17 @@ impl<'a> ChunkCompiler<'a> {
             register: self.allocate_temporary_register(),
             is_temporary: true,
         });
-        let then_emission = self.compile_expression(&then_block_node, Some(target))?;
+        let then_emission = match then_block_node.kind {
+            SyntaxKind::BlockExpression => {
+                self.compile_block_expression(&then_block_node, Some(target))?
+            }
+            SyntaxKind::ExpressionStatement => {
+                self.compile_expression_statement(&then_block_node)?
+            }
+            _ => {
+                todo!("Error")
+            }
+        };
         let if_type = self.handle_branch_emission(&mut if_emission, then_emission, target.register);
 
         if children_ids.len() == 3 {
@@ -2697,7 +2776,7 @@ impl<'a> ChunkCompiler<'a> {
 
             let else_start_index = if if_emission
                 .instructions
-                .get(jump_to_end_index)
+                .get(jump_to_end_index - 1)
                 .is_some_and(|instruction| instruction.operation() == Operation::DROP)
             {
                 jump_to_end_index
@@ -2754,10 +2833,13 @@ impl<'a> ChunkCompiler<'a> {
                     syntax_id: child_id,
                 })?;
 
-        if child_node.kind == SyntaxKind::IfExpression {
-            self.compile_if_expression(&child_node, target)
-        } else {
-            self.compile_block_expression(&child_node, target)
+        match child_node.kind {
+            SyntaxKind::IfExpression => self.compile_if_expression(&child_node, target),
+            SyntaxKind::BlockExpression => self.compile_block_expression(&child_node, target),
+            SyntaxKind::ExpressionStatement => self.compile_expression_statement(&child_node),
+            _ => {
+                todo!("Error")
+            }
         }
     }
 

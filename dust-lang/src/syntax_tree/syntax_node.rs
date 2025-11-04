@@ -115,7 +115,7 @@ impl SyntaxNode {
             | SyntaxKind::NegationExpression
             | SyntaxKind::NotExpression
             | SyntaxKind::ElseExpression => SyntaxNodeChildren::Single(SyntaxId(self.children.0)),
-            SyntaxKind::ReassignStatement
+            SyntaxKind::ReassignmentStatement
             | SyntaxKind::LetStatement
             | SyntaxKind::LetMutStatement
             | SyntaxKind::FunctionExpression
@@ -204,7 +204,7 @@ pub enum SyntaxKind {
     ExpressionStatement,
     LetStatement,
     LetMutStatement,
-    ReassignStatement,
+    ReassignmentStatement,
     SemicolonStatement,
 
     // Literal Expressions
@@ -307,7 +307,7 @@ impl SyntaxKind {
             SyntaxKind::ExpressionStatement
                 | SyntaxKind::LetStatement
                 | SyntaxKind::LetMutStatement
-                | SyntaxKind::ReassignStatement
+                | SyntaxKind::ReassignmentStatement
                 | SyntaxKind::SemicolonStatement
         )
     }
@@ -373,7 +373,7 @@ impl Display for SyntaxKind {
             SyntaxKind::ExpressionStatement => write!(f, "expression statement"),
             SyntaxKind::LetStatement => write!(f, "let statement"),
             SyntaxKind::LetMutStatement => write!(f, "let mut statement"),
-            SyntaxKind::ReassignStatement => write!(f, "reassign statement"),
+            SyntaxKind::ReassignmentStatement => write!(f, "reassign statement"),
             SyntaxKind::SemicolonStatement => write!(f, "semicolon statement"),
             SyntaxKind::BooleanExpression => write!(f, "boolean expression"),
             SyntaxKind::ByteExpression => write!(f, "byte expression"),

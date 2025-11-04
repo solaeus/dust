@@ -735,7 +735,7 @@ impl<'src> Parser<'src> {
 
         let end = self.previous_token.span.1;
         let node = SyntaxNode {
-            kind: SyntaxKind::ReassignStatement,
+            kind: SyntaxKind::ReassignmentStatement,
             span: Span(start, end),
             children: (path_node_id.0, expression_id.0),
         };
@@ -1160,6 +1160,10 @@ impl<'src> Parser<'src> {
         self.parse_block_expression()?;
 
         let then_id = self.syntax_tree.last_node_id();
+        let then_node = *self
+            .syntax_tree
+            .get_node(then_id)
+            .ok_or(ParseError::MissingNode { id: then_id })?;
         let mut children = Self::new_child_buffer();
 
         children.push(condition_id);
@@ -1174,13 +1178,30 @@ impl<'src> Parser<'src> {
         }
 
         let end = self.previous_token.span.1;
-        let node = SyntaxNode {
-            kind: SyntaxKind::IfExpression,
-            span: Span(start, end),
-            children: self.syntax_tree.add_children(&children),
-        };
 
-        self.syntax_tree.push_node(node);
+        if then_node.kind.is_expression() {
+            let node = SyntaxNode {
+                kind: SyntaxKind::IfExpression,
+                span: Span(start, end),
+                children: self.syntax_tree.add_children(&children),
+            };
+
+            self.syntax_tree.push_node(node);
+        } else {
+            let if_node = SyntaxNode {
+                kind: SyntaxKind::IfExpression,
+                span: Span(start, end),
+                children: self.syntax_tree.add_children(&children),
+            };
+            let if_node_id = self.syntax_tree.push_node(if_node);
+            let expression_statement_node = SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                span: Span(start, end),
+                children: (if_node_id.0, 0),
+            };
+
+            self.syntax_tree.push_node(expression_statement_node);
+        }
 
         Ok(())
     }

@@ -670,7 +670,7 @@ pub fn compile_stackless_function(
                     drop_list_start,
                     drop_list_end,
                 } = Drop::from(*current_instruction);
-                let drop_list_range = drop_list_start as usize..=drop_list_end as usize;
+                let drop_list_range = drop_list_start as usize..drop_list_end as usize;
 
                 let safepoint_registers = chunk.drop_lists.get(drop_list_range).ok_or(
                     JitError::DropListRangeOutOfBounds {
