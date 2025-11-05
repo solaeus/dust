@@ -64,10 +64,7 @@ impl<'a> ObjectPool<'a> {
             self.next_sweep_threshold =
                 (self.allocated + self.minimum_sweep_threshold).max(self.minimum_heap_size);
 
-            debug!(
-                "Collected {collected} objects, deallocated {deallocated} bytes in {}ns",
-                elapsed
-            );
+            debug!("Collected {collected} objects, deallocated {deallocated} bytes in {elapsed}ns");
 
             self.total_objects_deallocated += collected;
             self.total_bytes_deallocated += deallocated;

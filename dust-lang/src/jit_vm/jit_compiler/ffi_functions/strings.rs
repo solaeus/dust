@@ -165,11 +165,7 @@ pub unsafe extern "C" fn concatenate_characters(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn compare_strings_equal(
-    left: *const Object,
-    right: *const Object,
-    _thread_context: *const ThreadContext,
-) -> i64 {
+pub unsafe extern "C" fn compare_strings_equal(left: *const Object, right: *const Object) -> i8 {
     let left_string = unsafe { &*left }
         .as_string()
         .map(|string| string.as_str())
@@ -179,33 +175,14 @@ pub unsafe extern "C" fn compare_strings_equal(
         .map(|string| string.as_str())
         .unwrap_or(ERROR_REPLACEMENT_STR);
 
-    if left_string == right_string { 1 } else { 0 }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn compare_strings_not_equal(
-    left: *const Object,
-    right: *const Object,
-    _thread_context: *const ThreadContext,
-) -> i64 {
-    let left_string = unsafe { &*left }
-        .as_string()
-        .map(|string| string.as_str())
-        .unwrap_or(ERROR_REPLACEMENT_STR);
-    let right_string = unsafe { &*right }
-        .as_string()
-        .map(|string| string.as_str())
-        .unwrap_or(ERROR_REPLACEMENT_STR);
-
-    if left_string != right_string { 1 } else { 0 }
+    (left_string == right_string) as i8
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn compare_strings_less_than(
     left: *const Object,
     right: *const Object,
-    _thread_context: *const ThreadContext,
-) -> i64 {
+) -> i8 {
     let left_string = unsafe { &*left }
         .as_string()
         .map(|string| string.as_str())
@@ -215,33 +192,14 @@ pub unsafe extern "C" fn compare_strings_less_than(
         .map(|string| string.as_str())
         .unwrap_or(ERROR_REPLACEMENT_STR);
 
-    if left_string < right_string { 1 } else { 0 }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn compare_strings_greater_than(
-    left: *const Object,
-    right: *const Object,
-    _thread_context: *const ThreadContext,
-) -> i64 {
-    let left_string = unsafe { &*left }
-        .as_string()
-        .map(|string| string.as_str())
-        .unwrap_or(ERROR_REPLACEMENT_STR);
-    let right_string = unsafe { &*right }
-        .as_string()
-        .map(|string| string.as_str())
-        .unwrap_or(ERROR_REPLACEMENT_STR);
-
-    if left_string > right_string { 1 } else { 0 }
+    (left_string < right_string) as i8
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn compare_strings_less_than_equal(
     left: *const Object,
     right: *const Object,
-    _thread_context: *const ThreadContext,
-) -> i64 {
+) -> i8 {
     let left_string = unsafe { &*left }
         .as_string()
         .map(|string| string.as_str())
@@ -251,32 +209,11 @@ pub unsafe extern "C" fn compare_strings_less_than_equal(
         .map(|string| string.as_str())
         .unwrap_or(ERROR_REPLACEMENT_STR);
 
-    if left_string <= right_string { 1 } else { 0 }
+    (left_string <= right_string) as i8
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn compare_strings_greater_than_equal(
-    left: *const Object,
-    right: *const Object,
-    _thread_context: *const ThreadContext,
-) -> i64 {
-    let left_string = unsafe { &*left }
-        .as_string()
-        .map(|string| string.as_str())
-        .unwrap_or(ERROR_REPLACEMENT_STR);
-    let right_string = unsafe { &*right }
-        .as_string()
-        .map(|string| string.as_str())
-        .unwrap_or(ERROR_REPLACEMENT_STR);
-
-    if left_string >= right_string { 1 } else { 0 }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn integer_to_string(
-    value: i64,
-    thread_context: *const ThreadContext,
-) -> i64 {
+pub unsafe extern "C" fn integer_to_string(value: i64, thread_context: *mut ThreadContext) -> i64 {
     let thread_context = unsafe { &*thread_context };
     let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
     let register_stack = unsafe { &mut *thread_context.register_stack_vec_pointer };

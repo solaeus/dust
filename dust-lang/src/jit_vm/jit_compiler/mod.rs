@@ -67,24 +67,12 @@ impl<'a> JitCompiler<'a> {
         );
         builder.symbol("compare_strings_equal", compare_strings_equal as *const u8);
         builder.symbol(
-            "compare_strings_not_equal",
-            compare_strings_not_equal as *const u8,
-        );
-        builder.symbol(
             "compare_strings_less_than",
             compare_strings_less_than as *const u8,
         );
         builder.symbol(
-            "compare_strings_greater_than",
-            compare_strings_greater_than as *const u8,
-        );
-        builder.symbol(
             "compare_strings_less_than_equal",
             compare_strings_less_than_equal as *const u8,
-        );
-        builder.symbol(
-            "compare_strings_greater_than_equal",
-            compare_strings_greater_than_equal as *const u8,
         );
         builder.symbol("integer_to_string", integer_to_string as *const u8);
 
@@ -128,7 +116,7 @@ impl<'a> JitCompiler<'a> {
             });
         }
 
-        let compile_order = compute_compile_order(self.program);
+        let compile_order = get_compile_order(self.program);
 
         for index in compile_order {
             if index == 0 {
@@ -583,10 +571,10 @@ enum FunctionIds {
 
 pub type JitLogic = extern "C" fn(&mut ThreadContext) -> ThreadStatus;
 
-pub fn compute_compile_order(program: &Program) -> Vec<usize> {
+pub fn get_compile_order(program: &Program) -> Vec<usize> {
     let prototype_count = program.prototypes.len();
     let mut edges: Vec<HashSet<usize>> = vec![HashSet::new(); prototype_count];
-    let mut indegree = vec![0usize; prototype_count];
+    let mut indegree = vec![0; prototype_count];
 
     for (caller, chunk) in program.prototypes.iter().enumerate() {
         for instr in &chunk.instructions {
@@ -602,9 +590,9 @@ pub fn compute_compile_order(program: &Program) -> Vec<usize> {
 
     // Kahn's algorithm: enqueue nodes (indices) with indegree == 0
     let mut queue = VecDeque::new();
-    for &i in &indegree {
-        if i == 0 {
-            queue.push_back(i);
+    for (index, indegree) in indegree.iter().enumerate() {
+        if *indegree == 0 {
+            queue.push_back(index);
         }
     }
 
@@ -612,9 +600,10 @@ pub fn compute_compile_order(program: &Program) -> Vec<usize> {
 
     while let Some(u) = queue.pop_front() {
         order.push(u);
+
         for &v in &edges[u] {
-            // indegree[v] > 0 must hold here
             indegree[v] -= 1;
+
             if indegree[v] == 0 {
                 queue.push_back(v);
             }
@@ -623,6 +612,7 @@ pub fn compute_compile_order(program: &Program) -> Vec<usize> {
 
     if order.len() != prototype_count {
         let in_topo: HashSet<_> = order.iter().copied().collect();
+
         for i in 0..prototype_count {
             if !in_topo.contains(&i) {
                 order.push(i);

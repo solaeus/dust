@@ -38,7 +38,7 @@ pub unsafe extern "C" fn read_line(thread_context: *mut ThreadContext) -> i64 {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn write_line_integer(message: i64, _thread_context: *const ThreadContext) {
+pub unsafe extern "C" fn write_line_integer(message: i64, _thread_context: *mut ThreadContext) {
     let mut stdout = stdout().lock();
     let _ = stdout.write_all(message.to_string().as_bytes());
     let _ = stdout.write_all(b"\n");

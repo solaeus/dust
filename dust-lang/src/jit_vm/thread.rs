@@ -39,7 +39,7 @@ impl Thread {
 
         let handle = ThreadBuilder::new()
             .name(thread_name)
-            .spawn(move || run(program, minimum_object_sweep, minimum_object_heap))
+            .spawn(move || run(program, minimum_object_heap, minimum_object_sweep))
             .expect("Failed to spawn thread");
 
         Ok(Thread { handle })

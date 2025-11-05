@@ -58,8 +58,6 @@ pub fn compile_stackless_function(
             AbiParam::new(I8),
             AbiParam::new(I64),
             AbiParam::new(pointer_type),
-            AbiParam::new(I64),
-            AbiParam::new(I64),
         ]);
         allocate_list_signature.returns.push(AbiParam::new(I64));
 
@@ -207,11 +205,9 @@ pub fn compile_stackless_function(
         let mut compare_strings_equal_signature =
             Signature::new(compiler.module.isa().default_call_conv());
 
-        compare_strings_equal_signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
+        compare_strings_equal_signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         compare_strings_equal_signature
             .returns
             .push(AbiParam::new(I8));
@@ -223,35 +219,13 @@ pub fn compile_stackless_function(
         )?
     };
 
-    let compare_strings_not_equal_function = {
-        let mut compare_strings_not_equal_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        compare_strings_not_equal_signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
-        compare_strings_not_equal_signature
-            .returns
-            .push(AbiParam::new(I8));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "compare_strings_not_equal",
-            compare_strings_not_equal_signature,
-        )?
-    };
-
     let compare_strings_less_than_function = {
         let mut compare_strings_less_than_signature =
             Signature::new(compiler.module.isa().default_call_conv());
 
-        compare_strings_less_than_signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
+        compare_strings_less_than_signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         compare_strings_less_than_signature
             .returns
             .push(AbiParam::new(I8));
@@ -263,35 +237,13 @@ pub fn compile_stackless_function(
         )?
     };
 
-    let compare_strings_greater_than_function = {
-        let mut compare_strings_greater_than_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        compare_strings_greater_than_signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
-        compare_strings_greater_than_signature
-            .returns
-            .push(AbiParam::new(I8));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "compare_strings_greater_than",
-            compare_strings_greater_than_signature,
-        )?
-    };
-
     let compare_strings_less_than_equal_function = {
         let mut compare_strings_less_than_equal_signature =
             Signature::new(compiler.module.isa().default_call_conv());
 
-        compare_strings_less_than_equal_signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
+        compare_strings_less_than_equal_signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         compare_strings_less_than_equal_signature
             .returns
             .push(AbiParam::new(I8));
@@ -300,26 +252,6 @@ pub fn compile_stackless_function(
             &mut function_builder,
             "compare_strings_less_than_equal",
             compare_strings_less_than_equal_signature,
-        )?
-    };
-
-    let compare_strings_greater_than_equal_function = {
-        let mut compare_strings_greater_than_equal_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        compare_strings_greater_than_equal_signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
-        compare_strings_greater_than_equal_signature
-            .returns
-            .push(AbiParam::new(I8));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "compare_strings_greater_than_equal",
-            compare_strings_greater_than_equal_signature,
         )?
     };
 
@@ -372,7 +304,7 @@ pub fn compile_stackless_function(
 
         write_line_signature
             .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(I64)]);
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         write_line_signature.returns = vec![];
 
         compiler.declare_imported_function(
@@ -490,10 +422,6 @@ pub fn compile_stackless_function(
         0,
     );
 
-    let register_stack_used_length =
-        function_builder
-            .ins()
-            .load(I64, MemFlags::new(), register_stack_used_length_pointer, 0);
     let _register_tags_vec_pointer = function_builder.ins().load(
         pointer_type,
         MemFlags::new(),
@@ -1010,26 +938,29 @@ pub fn compile_stackless_function(
                             thread_context,
                             current_frame_base_register_address,
                         )?;
-                        let compare_function = match (operation, comparator != 0) {
-                            (Operation::EQUAL, true) => compare_strings_equal_function,
-                            (Operation::EQUAL, false) => compare_strings_not_equal_function,
-                            (Operation::LESS, true) => compare_strings_less_than_function,
-                            (Operation::LESS, false) => compare_strings_greater_than_equal_function,
-                            (Operation::LESS_EQUAL, true) => {
-                                compare_strings_less_than_equal_function
-                            }
-                            (Operation::LESS_EQUAL, false) => compare_strings_greater_than_function,
+                        let compare_function = match operation {
+                            Operation::EQUAL => compare_strings_equal_function,
+                            Operation::LESS => compare_strings_less_than_function,
+                            Operation::LESS_EQUAL => compare_strings_less_than_equal_function,
                             _ => {
                                 return Err(JitError::UnhandledOperation { operation });
                             }
                         };
 
-                        let call_instruction = function_builder.ins().call(
-                            compare_function,
-                            &[left_pointer, right_pointer, thread_context],
-                        );
+                        let call_instruction = function_builder
+                            .ins()
+                            .call(compare_function, &[left_pointer, right_pointer]);
+                        let comparison_result = function_builder.inst_results(call_instruction)[0];
 
-                        function_builder.inst_results(call_instruction)[0]
+                        if comparator != 0 {
+                            function_builder
+                                .ins()
+                                .icmp_imm(IntCC::Equal, comparison_result, 1)
+                        } else {
+                            function_builder
+                                .ins()
+                                .icmp_imm(IntCC::Equal, comparison_result, 0)
+                        }
                     }
                     _ => {
                         return Err(JitError::UnsupportedOperandType { operand_type });
@@ -1156,7 +1087,7 @@ pub fn compile_stackless_function(
                                     &[],
                                 );
                                 function_builder.switch_to_block(division_block);
-                                function_builder.ins().udiv(left_value, right_value)
+                                function_builder.ins().sdiv(left_value, right_value)
                             }
                             Operation::MODULO => {
                                 let modulo_block = function_builder.create_block();
@@ -1173,7 +1104,7 @@ pub fn compile_stackless_function(
                                     &[],
                                 );
                                 function_builder.switch_to_block(modulo_block);
-                                function_builder.ins().urem(left_value, right_value)
+                                function_builder.ins().srem(left_value, right_value)
                             }
                             Operation::POWER => {
                                 let call_instruction = function_builder
@@ -1434,8 +1365,14 @@ pub fn compile_stackless_function(
                             &hot_registers.boolean,
                             &mut function_builder,
                         )?;
+                        let is_zero =
+                            function_builder
+                                .ins()
+                                .icmp_imm(IntCC::Equal, boolean_value, 0);
+                        let one = function_builder.ins().iconst(I64, 1);
+                        let zero = function_builder.ins().iconst(I64, 0);
 
-                        function_builder.ins().bnot(boolean_value)
+                        function_builder.ins().select(is_zero, one, zero)
                     }
                     _ => {
                         return Err(JitError::UnsupportedOperandType {
@@ -1638,8 +1575,8 @@ pub fn compile_stackless_function(
                     ip - offset
                 };
 
-                if drop_list_start > drop_list_end {
-                    let drop_list_range = drop_list_start as usize..=drop_list_end as usize;
+                if drop_list_end > drop_list_start {
+                    let drop_list_range = drop_list_start as usize..drop_list_end as usize;
 
                     let safepoint_registers = chunk.drop_lists.get(drop_list_range).ok_or(
                         JitError::DropListRangeOutOfBounds {
@@ -1928,6 +1865,12 @@ pub fn compile_stackless_function(
                     0,
                 );
 
+                let register_stack_used_length = function_builder.ins().load(
+                    I64,
+                    MemFlags::new(),
+                    register_stack_used_length_pointer,
+                    0,
+                );
                 let current_frame_register_window_length = function_builder.ins().isub(
                     current_frame_register_range_end,
                     current_frame_register_range_start,
