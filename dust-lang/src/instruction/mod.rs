@@ -195,17 +195,29 @@ impl Instruction {
         Instruction(0)
     }
 
-    pub fn r#move(
+    pub fn r#move(destination: u16, operand: Address, r#type: OperandType) -> Instruction {
+        Instruction::from(Move {
+            destination,
+            operand,
+            r#type,
+            jump_distance: 0,
+            jump_is_positive: false,
+        })
+    }
+
+    pub fn move_with_jump(
         destination: u16,
         operand: Address,
         r#type: OperandType,
-        jump_next: bool,
+        jump_distance: u16,
+        jump_is_positive: bool,
     ) -> Instruction {
         Instruction::from(Move {
             destination,
             operand,
             r#type,
-            jump_next,
+            jump_distance,
+            jump_is_positive,
         })
     }
 

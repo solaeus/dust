@@ -7,7 +7,7 @@ use tracing::{debug, info, span, trace};
 use crate::{
     chunk::Chunk,
     compiler::{CompileContext, binder::Binder},
-    instruction::{Address, Drop, Instruction, OperandType, Operation},
+    instruction::{Address, Drop, Instruction, Move, OperandType, Operation},
     native_function::NativeFunction,
     resolver::{
         Declaration, DeclarationId, DeclarationKind, FunctionTypeNode, Scope, ScopeId, ScopeKind,
@@ -585,7 +585,7 @@ impl<'a> ChunkCompiler<'a> {
                 let address = self.get_constant_address(constant);
                 let operand_type = self.get_operand_type(type_id)?;
                 let move_instruction =
-                    Instruction::r#move(destination_register, address, operand_type, false);
+                    Instruction::r#move(destination_register, address, operand_type);
 
                 instructions_emission.push(move_instruction);
 
@@ -594,7 +594,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Function(address, type_id) => {
                 let operand_type = self.get_operand_type(type_id)?;
                 let move_instruction =
-                    Instruction::r#move(destination_register, address, operand_type, false);
+                    Instruction::r#move(destination_register, address, operand_type);
 
                 instructions_emission.push(move_instruction);
 
@@ -603,7 +603,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Local(Local { address, type_id }) => {
                 let operand_type = self.get_operand_type(type_id)?;
                 let move_instruction =
-                    Instruction::r#move(destination_register, address, operand_type, false);
+                    Instruction::r#move(destination_register, address, operand_type);
 
                 instructions_emission.push(move_instruction);
 
@@ -711,8 +711,7 @@ impl<'a> ChunkCompiler<'a> {
                         .resolver
                         .get_operand_type(type_id)
                         .ok_or(CompileError::MissingType { type_id })?;
-                    let move_instruction =
-                        Instruction::r#move(destination, address, operand_type, false);
+                    let move_instruction = Instruction::r#move(destination, address, operand_type);
 
                     compiler.emit_instruction(move_instruction);
                 }
@@ -724,7 +723,7 @@ impl<'a> ChunkCompiler<'a> {
                         .get_operand_type(type_id)
                         .ok_or(CompileError::MissingType { type_id })?;
                     let move_instruction =
-                        Instruction::r#move(destination, function_address, operand_type, false);
+                        Instruction::r#move(destination, function_address, operand_type);
 
                     compiler.emit_instruction(move_instruction);
                 }
@@ -735,8 +734,7 @@ impl<'a> ChunkCompiler<'a> {
                         .resolver
                         .get_operand_type(type_id)
                         .ok_or(CompileError::MissingType { type_id })?;
-                    let move_instruction =
-                        Instruction::r#move(destination, address, operand_type, false);
+                    let move_instruction = Instruction::r#move(destination, address, operand_type);
 
                     compiler.emit_instruction(move_instruction);
                 }
@@ -1061,8 +1059,7 @@ impl<'a> ChunkCompiler<'a> {
             Emission::Constant(constant, type_id) => {
                 let address = self.get_constant_address(constant);
                 let operand_type = self.get_operand_type(type_id)?;
-                let move_instruction =
-                    Instruction::r#move(local_register, address, operand_type, false);
+                let move_instruction = Instruction::r#move(local_register, address, operand_type);
 
                 let_statement_emission.push(move_instruction);
 
@@ -1070,8 +1067,7 @@ impl<'a> ChunkCompiler<'a> {
             }
             Emission::Function(address, type_id) => {
                 let operand_type = self.get_operand_type(type_id)?;
-                let move_instruction =
-                    Instruction::r#move(local_register, address, operand_type, false);
+                let move_instruction = Instruction::r#move(local_register, address, operand_type);
 
                 let_statement_emission.push(move_instruction);
 
@@ -1079,8 +1075,7 @@ impl<'a> ChunkCompiler<'a> {
             }
             Emission::Local(Local { address, type_id }) => {
                 let operand_type = self.get_operand_type(type_id)?;
-                let move_instruction =
-                    Instruction::r#move(local_register, address, operand_type, false);
+                let move_instruction = Instruction::r#move(local_register, address, operand_type);
 
                 let_statement_emission.push(move_instruction);
 
@@ -1219,7 +1214,7 @@ impl<'a> ChunkCompiler<'a> {
                 type_id: expression_type,
             })?;
         let move_instruction =
-            Instruction::r#move(local_register, expression_address, operand_type, false);
+            Instruction::r#move(local_register, expression_address, operand_type);
 
         reassignment_emission.push(move_instruction);
 
@@ -1921,17 +1916,17 @@ impl<'a> ChunkCompiler<'a> {
             _ => unreachable!("Expected comparison expression, found {}", node.kind),
         };
         let jump_instruction = Instruction::jump(1, true);
-        let load_true_instruction = Instruction::r#move(
+        let load_true_instruction = Instruction::move_with_jump(
             target.register,
             Address::encoded(true as u16),
             OperandType::BOOLEAN,
+            1,
             true,
         );
         let load_false_instruction = Instruction::r#move(
             target.register,
             Address::encoded(false as u16),
             OperandType::BOOLEAN,
-            false,
         );
 
         comparison_emission.push(comparison_instruction);
@@ -2015,9 +2010,9 @@ impl<'a> ChunkCompiler<'a> {
         let test_instruction = Instruction::test(left_address, comparator);
         let jump_instruction = Instruction::jump(1, true);
         let left_move_instruction =
-            Instruction::r#move(destination, left_address, OperandType::BOOLEAN, true);
+            Instruction::move_with_jump(destination, left_address, OperandType::BOOLEAN, 1, true);
         let right_move_instruction =
-            Instruction::r#move(destination, right_address, OperandType::BOOLEAN, false);
+            Instruction::r#move(destination, right_address, OperandType::BOOLEAN);
 
         logic_emission.push(test_instruction);
         logic_emission.push(jump_instruction);
@@ -2218,8 +2213,7 @@ impl<'a> ChunkCompiler<'a> {
                     .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
-                let move_instruction =
-                    Instruction::r#move(target.register, address, operand_type, false);
+                let move_instruction = Instruction::r#move(target.register, address, operand_type);
 
                 block_emission.push(move_instruction);
                 block_emission.set_type(type_id);
@@ -2239,8 +2233,7 @@ impl<'a> ChunkCompiler<'a> {
                     .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
-                let move_instruction =
-                    Instruction::r#move(target.register, address, operand_type, false);
+                let move_instruction = Instruction::r#move(target.register, address, operand_type);
 
                 block_emission.push(move_instruction);
                 block_emission.set_type(type_id);
@@ -2323,7 +2316,7 @@ impl<'a> ChunkCompiler<'a> {
                     type_id: local.type_id,
                 })?;
             let move_instruction =
-                Instruction::r#move(target.register, local.address, operand_type, false);
+                Instruction::r#move(target.register, local.address, operand_type);
 
             let mut path_emission = InstructionsEmission::new();
 
@@ -2375,8 +2368,7 @@ impl<'a> ChunkCompiler<'a> {
                     .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
-                let move_instruction =
-                    Instruction::r#move(destination, address, operand_type, false);
+                let move_instruction = Instruction::r#move(destination, address, operand_type);
 
                 while_emission.push(move_instruction);
             }
@@ -2388,8 +2380,7 @@ impl<'a> ChunkCompiler<'a> {
                     .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
-                let move_instruction =
-                    Instruction::r#move(destination, address, operand_type, false);
+                let move_instruction = Instruction::r#move(destination, address, operand_type);
 
                 while_emission.push(move_instruction);
             }
@@ -2400,8 +2391,7 @@ impl<'a> ChunkCompiler<'a> {
                     .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
-                let move_instruction =
-                    Instruction::r#move(destination, address, operand_type, false);
+                let move_instruction = Instruction::r#move(destination, address, operand_type);
 
                 while_emission.push(move_instruction);
             }
@@ -2915,15 +2905,12 @@ impl<'a> ChunkCompiler<'a> {
 
             if_emission.push(Instruction::no_op());
 
-            let else_start_index = if if_emission
-                .instructions
-                .get(jump_to_end_index - 1)
-                .is_some_and(|instruction| instruction.operation() == Operation::DROP)
-            {
-                jump_to_end_index
-            } else {
-                jump_to_end_index + 1
-            };
+            let else_start_index =
+                if if_emission.is_instruction_coallescible_with_jump(jump_to_end_index - 1) {
+                    jump_to_end_index
+                } else {
+                    jump_to_end_index + 1
+                };
 
             if_emission.patch_jump_to_index(jump_past_then_index, else_start_index);
 
@@ -3151,23 +3138,62 @@ impl InstructionsEmission {
             return;
         }
 
-        if let Some(instruction) = self.instructions.get_mut(index - 1)
-            && instruction.operation() == Operation::DROP
-        {
-            let Drop {
-                drop_list_start,
-                drop_list_end,
-            } = Drop::from(*instruction);
+        if let Some(instruction) = self.instructions.get_mut(index - 1) {
+            match instruction.operation() {
+                Operation::MOVE => {
+                    let Move {
+                        destination,
+                        operand,
+                        r#type,
+                        jump_distance,
+                        jump_is_positive: _,
+                    } = Move::from(*instruction);
 
-            *instruction =
-                Instruction::jump_with_drops(distance, forward, drop_list_start, drop_list_end);
+                    if jump_distance == 0 {
+                        *instruction = Instruction::move_with_jump(
+                            destination,
+                            operand,
+                            r#type,
+                            distance,
+                            forward,
+                        );
 
-            self.instructions.remove(index);
-        } else {
-            let jump_instruction = Instruction::jump(distance, forward);
+                        self.instructions.remove(index);
 
-            self.instructions[index] = jump_instruction;
+                        return;
+                    }
+                }
+                Operation::DROP => {
+                    let Drop {
+                        drop_list_start,
+                        drop_list_end,
+                    } = Drop::from(*instruction);
+
+                    *instruction = Instruction::jump_with_drops(
+                        distance,
+                        forward,
+                        drop_list_start,
+                        drop_list_end,
+                    );
+
+                    self.instructions.remove(index);
+
+                    return;
+                }
+                _ => {}
+            }
         }
+
+        let jump_instruction = Instruction::jump(distance, forward);
+
+        self.instructions[index] = jump_instruction;
+    }
+
+    fn is_instruction_coallescible_with_jump(&self, index: usize) -> bool {
+        self.instructions.get(index - 1).is_some_and(|instruction| {
+            instruction.operation() == Operation::DROP
+                || (instruction.operation() == Operation::MOVE && instruction.c_field() == 0)
+        })
     }
 
     fn patch_jump_to_index(&mut self, no_op_index: usize, index: usize) {

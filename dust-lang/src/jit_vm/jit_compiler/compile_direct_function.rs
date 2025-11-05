@@ -172,7 +172,8 @@ pub fn compile_direct_function(
                     destination,
                     operand,
                     r#type,
-                    jump_next,
+                    jump_distance,
+                    jump_is_positive,
                 } = Move::from(*current_instruction);
                 let value = match r#type {
                     OperandType::INTEGER => self::get_integer(
@@ -190,8 +191,18 @@ pub fn compile_direct_function(
 
                 ssa_registers[destination as usize] = value;
 
-                if jump_next {
-                    function_builder.ins().jump(instruction_blocks[ip + 2], &[]);
+                if jump_distance > 0 {
+                    let distance = (jump_distance + 1) as usize;
+
+                    if jump_is_positive {
+                        function_builder
+                            .ins()
+                            .jump(instruction_blocks[ip + distance], &[]);
+                    } else {
+                        function_builder
+                            .ins()
+                            .jump(instruction_blocks[ip - distance], &[]);
+                    }
                 } else {
                     function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
                 }

@@ -26,11 +26,7 @@ impl From<Jump> for Instruction {
     fn from(jump: Jump) -> Self {
         let operation = Operation::JUMP;
         let a_field = jump.offset;
-        let b_memory_kind = if jump.is_positive {
-            MemoryKind(1)
-        } else {
-            MemoryKind(0)
-        };
+        let b_memory_kind = MemoryKind(jump.is_positive as u8);
         let b_field = jump.drop_list_start;
         let c_field = jump.drop_list_end;
 

@@ -69,6 +69,8 @@ pub enum JitError {
     MissingDeclaration {
         declaration_id: crate::resolver::DeclarationId,
     },
+
+    // Execution errors
     ThreadErrorFunctionIndexOutOfBounds,
     ThreadErrorListIndexOutOfBounds,
     ThreadErrorDivisionByZero,

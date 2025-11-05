@@ -1,12 +1,15 @@
 use std::fmt::{self, Display, Formatter};
 
+use crate::instruction::MemoryKind;
+
 use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Move {
     pub destination: u16,
     pub operand: Address,
     pub r#type: OperandType,
-    pub jump_next: bool,
+    pub jump_distance: u16,
+    pub jump_is_positive: bool,
 }
 
 impl From<Instruction> for Move {
@@ -14,26 +17,29 @@ impl From<Instruction> for Move {
         let destination = instruction.a_field();
         let operand = instruction.b_address();
         let r#type = instruction.operand_type();
-        let jump_next = instruction.c_field() != 0;
+        let jump_distance = instruction.c_field();
+        let jump_is_positive = instruction.c_memory_kind().0 != 0;
 
         Move {
             destination,
             operand,
             r#type,
-            jump_next,
+            jump_distance,
+            jump_is_positive,
         }
     }
 }
 
 impl From<Move> for Instruction {
-    fn from(load: Move) -> Self {
-        let a_field = load.destination;
+    fn from(r#move: Move) -> Self {
+        let a_field = r#move.destination;
         let Address {
             index: b_field,
             memory: b_memory_kind,
-        } = load.operand;
-        let c_field = load.jump_next as u16;
-        let operand_type = load.r#type;
+        } = r#move.operand;
+        let c_field = r#move.jump_distance;
+        let c_memory_kind = MemoryKind(r#move.jump_is_positive as u8);
+        let operand_type = r#move.r#type;
 
         InstructionFields {
             operation: Operation::MOVE,
@@ -41,6 +47,7 @@ impl From<Move> for Instruction {
             b_field,
             b_memory_kind,
             c_field,
+            c_memory_kind,
             operand_type,
             ..Default::default()
         }
@@ -53,15 +60,20 @@ impl Display for Move {
         let Move {
             destination,
             operand,
-            jump_next,
             r#type,
+            jump_distance,
+            jump_is_positive,
         } = self;
 
         write!(f, "reg_{destination} = ")?;
         operand.display(f, *r#type)?;
 
-        if *jump_next {
-            write!(f, " jump +1")?;
+        if *jump_distance > 0 {
+            if *jump_is_positive {
+                write!(f, " jump +{jump_distance}")?;
+            } else {
+                write!(f, " jump -{jump_distance}")?;
+            }
         }
 
         Ok(())

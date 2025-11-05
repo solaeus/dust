@@ -514,7 +514,8 @@ pub fn compile_stackless_function(
                     destination,
                     operand,
                     r#type,
-                    jump_next,
+                    jump_distance,
+                    jump_is_positive,
                 } = Move::from(*current_instruction);
                 let result_register = match r#type {
                     OperandType::BOOLEAN => get_boolean(
@@ -587,8 +588,18 @@ pub fn compile_stackless_function(
                     &mut function_builder,
                 )?;
 
-                if jump_next {
-                    function_builder.ins().jump(instruction_blocks[ip + 2], &[]);
+                if jump_distance > 0 {
+                    let distance = (jump_distance + 1) as usize;
+
+                    if jump_is_positive {
+                        function_builder
+                            .ins()
+                            .jump(instruction_blocks[ip + distance], &[]);
+                    } else {
+                        function_builder
+                            .ins()
+                            .jump(instruction_blocks[ip - distance], &[]);
+                    }
                 } else {
                     function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
                 };
