@@ -14,7 +14,7 @@ fn empty_block() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![Instruction::r#return(
                 false,
                 Address::default(),
@@ -33,7 +33,7 @@ fn block_expression() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Integer),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
                 Address::constant(0),
@@ -52,7 +52,7 @@ fn block_statement() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
                 Instruction::r#return(false, Address::default(), OperandType::NONE),
@@ -71,7 +71,7 @@ fn block_statement_and_expression() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Integer),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
                 Instruction::add(
@@ -96,7 +96,7 @@ fn parent_scope_access() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Integer),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
                 Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
@@ -115,7 +115,7 @@ fn nested_parrent_scope_access() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Integer),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
@@ -141,7 +141,7 @@ fn scope_shadowing() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Integer),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
@@ -161,7 +161,7 @@ fn scope_deshadowing() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Integer),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),

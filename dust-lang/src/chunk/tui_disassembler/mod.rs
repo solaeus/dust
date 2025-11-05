@@ -198,7 +198,7 @@ impl<'a> TuiDisassembler<'a> {
         .wrap(Wrap { trim: true })
         .render(info_area, buffer);
 
-        Paragraph::new(format!("Function type: {}", chunk.r#type))
+        Paragraph::new(format!("Function type: {}", chunk.function_type))
             .centered()
             .wrap(Wrap { trim: true })
             .render(type_area, buffer);
@@ -328,7 +328,7 @@ impl Widget for &TuiDisassembler<'_> {
 
         Paragraph::new(format!(
             "main function type: {} ({} other prototypes)",
-            main_chunk.r#type,
+            main_chunk.function_type,
             self.program.prototypes.len() - 1,
         ))
         .centered()

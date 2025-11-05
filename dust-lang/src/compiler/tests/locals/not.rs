@@ -14,7 +14,7 @@ fn local_boolean_not() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(
                     0,

@@ -14,7 +14,7 @@ fn local_boolean_not_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(
                     0,
@@ -58,7 +58,7 @@ fn local_byte_not_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(0x2A), OperandType::BYTE, false),
                 Instruction::r#move(1, Address::encoded(0x2B), OperandType::BYTE, false),
@@ -92,7 +92,7 @@ fn local_character_not_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER, false),
                 Instruction::r#move(1, Address::constant(1), OperandType::CHARACTER, false),
@@ -126,7 +126,7 @@ fn local_float_not_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT, false),
                 Instruction::r#move(1, Address::constant(1), OperandType::FLOAT, false),
@@ -160,7 +160,7 @@ fn local_integer_not_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
@@ -194,7 +194,7 @@ fn local_string_not_equal() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING, false),
                 Instruction::r#move(1, Address::constant(1), OperandType::STRING, false),

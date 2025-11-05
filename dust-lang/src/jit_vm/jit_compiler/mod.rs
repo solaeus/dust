@@ -151,7 +151,7 @@ impl<'a> JitCompiler<'a> {
             let chunk = &self.program.prototypes[index];
             let direct_name = format!("proto_{index}_direct");
             let stackless_name = format!("proto_{index}_stackless");
-            let value_parameters_count = chunk.r#type.value_parameters.len();
+            let value_parameters_count = chunk.function_type.value_parameters.len();
 
             let mut direct_signature = Signature::new(self.module.isa().default_call_conv());
 

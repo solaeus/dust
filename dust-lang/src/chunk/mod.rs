@@ -23,7 +23,7 @@ use crate::{
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Chunk {
     pub(crate) name_position: Option<Position>,
-    pub(crate) r#type: FunctionType,
+    pub(crate) function_type: FunctionType,
 
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) call_arguments: Vec<(Address, OperandType)>,

@@ -14,7 +14,7 @@ fn local_byte_multiplication() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Byte),
+            function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(14), OperandType::BYTE, false),
                 Instruction::r#move(1, Address::encoded(3), OperandType::BYTE, false),
@@ -40,7 +40,7 @@ fn local_float_multiplication() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Float),
+            function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT, false),
                 Instruction::r#move(1, Address::constant(1), OperandType::FLOAT, false),
@@ -66,7 +66,7 @@ fn local_integer_multiplication() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Integer),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),

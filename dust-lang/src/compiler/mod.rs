@@ -21,11 +21,11 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     resolver::{
-        Declaration, DeclarationKind, ModuleKind, Resolver, Scope, ScopeId, ScopeKind, TypeId,
+        Declaration, DeclarationKind, FunctionTypeNode, ModuleKind, Resolver, Scope, ScopeId,
+        ScopeKind, TypeId,
     },
     source::{Position, Source, SourceCode, SourceFile, SourceFileId, Span},
     syntax_tree::SyntaxTree,
-    r#type::{FunctionType, Type},
 };
 
 pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
@@ -76,7 +76,11 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
     let chunk_compiler = ChunkCompiler::new(
         None,
         SourceFileId(0),
-        FunctionType::new([], [], Type::None),
+        FunctionTypeNode {
+            type_parameters: (0, 0),
+            value_parameters: (0, 0),
+            return_type: TypeId::NONE,
+        },
         &mut context,
         ScopeId::MAIN,
     );
@@ -237,7 +241,11 @@ impl Compiler {
         let chunk_compiler = ChunkCompiler::new(
             None,
             SourceFileId(0),
-            FunctionType::new([], [], Type::None),
+            FunctionTypeNode {
+                type_parameters: (0, 0),
+                value_parameters: (0, 0),
+                return_type: TypeId::NONE,
+            },
             &mut self.context,
             ScopeId::MAIN,
         );

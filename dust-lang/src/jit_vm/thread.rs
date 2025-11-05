@@ -161,7 +161,7 @@ fn run(
         | OperandType::LIST_STRING
         | OperandType::LIST_LIST
         | OperandType::LIST_FUNCTION => {
-            let list_type = &program.main_chunk().r#type.return_type;
+            let list_type = &program.main_chunk().function_type.return_type;
             let list = get_list_from_register(return_register, list_type)?;
 
             Ok(Some(Value::List(list)))

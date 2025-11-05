@@ -7,14 +7,13 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::instruction::{Address, OperandType};
+use crate::instruction::OperandType;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ConstantTable {
     payloads: IndexMap<u64, u64, FxBuildHasher>,
     tags: Vec<OperandType>,
     string_pool: Vec<u8>,
-    array_pool: Vec<Address>,
 }
 
 impl ConstantTable {
@@ -23,7 +22,6 @@ impl ConstantTable {
             payloads: IndexMap::default(),
             tags: Vec::new(),
             string_pool: Vec::new(),
-            array_pool: Vec::new(),
         }
     }
 
@@ -143,41 +141,6 @@ impl ConstantTable {
 
         if index < self.payloads.len() as u16 {
             Some(i64::from_le_bytes(payload.to_le_bytes()))
-        } else {
-            None
-        }
-    }
-
-    pub fn add_array(&mut self, members: &[Address], array_type: OperandType) -> u16 {
-        let start = self.array_pool.len();
-
-        self.array_pool.extend_from_slice(members);
-
-        let end = self.array_pool.len() as u32;
-        let payload = (start as u64) << 32 | (end as u64);
-        let index = self.payloads.len() as u16;
-
-        let hash = {
-            let mut hasher = FxHasher::default();
-
-            members.hash(&mut hasher);
-
-            hasher.finish()
-        };
-
-        self.payloads.insert(hash, payload);
-        self.tags.push(array_type);
-
-        index
-    }
-
-    pub fn get_array(&self, index: u16) -> Option<&[Address]> {
-        let payload = *self.payloads.get_index(index as usize)?.1;
-        let start = (payload >> 32) as usize;
-        let end = (payload & 0xFFFFFFFF) as usize;
-
-        if start < end && end <= self.array_pool.len() {
-            Some(&self.array_pool[start..end])
         } else {
             None
         }
@@ -317,26 +280,6 @@ impl Iterator for ConstantTableDisplayIterator<'_> {
                 let slice = self.table.get_string_pool_range(start..end);
 
                 String::from(slice)
-            }
-            OperandType::ARRAY_INTEGER => {
-                let payload = *self.table.payloads.get_index(self.index)?.1;
-                let start = (payload >> 32) as usize;
-                let end = (payload & 0xFFFFFFFF) as usize;
-                let addresses = &self.table.array_pool[start..end];
-
-                let mut string = String::from("[");
-
-                for (i, address) in addresses.iter().enumerate() {
-                    if i > 0 {
-                        string.push_str(", ");
-                    }
-
-                    string.push_str(&address.to_string(OperandType::INTEGER));
-                }
-
-                string.push(']');
-
-                string
             }
             _ => todo!(),
         };

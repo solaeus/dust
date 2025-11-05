@@ -15,6 +15,9 @@ pub enum CompileError {
         name: String,
         position: Position,
     },
+    CannotInferListType {
+        position: Position,
+    },
     DivisionByZero {
         position: Position,
     },
@@ -132,6 +135,9 @@ pub enum CompileError {
     MissingDeclarations {
         name: String,
     },
+    MissingNativeFunction {
+        native_function: String,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -171,6 +177,8 @@ impl AnnotatedError for CompileError {
             CompileError::CannotImport { position, .. } => position.file_id,
             CompileError::MismatchedIfElseTypes { position, .. } => position.file_id,
             CompileError::MismatchedConstantTypes { .. } => SourceFileId::default(),
+            CompileError::CannotInferListType { position } => position.file_id,
+            CompileError::MissingNativeFunction { .. } => SourceFileId::default(),
         }
     }
 
@@ -478,6 +486,22 @@ impl AnnotatedError for CompileError {
             }
             CompileError::MismatchedConstantTypes { left, right } => {
                 let title = format!("Mismatched constant types: left is {left}, right is {right}");
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::CannotInferListType { position } => {
+                let title = "Cannot infer list type, please provide an explicit type".to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
+                )
+            }
+            CompileError::MissingNativeFunction { native_function } => {
+                let title = format!(
+                    "Native function {native_function} was missing, this is a bug in the parser or
+                    compiler"
+                );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }

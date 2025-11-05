@@ -14,7 +14,7 @@ fn local_boolean() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(
                     0,
@@ -38,7 +38,7 @@ fn local_byte() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Byte),
+            function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(42), OperandType::BYTE, false),
                 Instruction::r#return(true, Address::register(0), OperandType::BYTE),
@@ -57,7 +57,7 @@ fn local_character() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Character),
+            function_type: FunctionType::new([], [], Type::Character),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER, false),
                 Instruction::r#return(true, Address::register(0), OperandType::CHARACTER),
@@ -76,7 +76,7 @@ fn local_float() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Float),
+            function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT, false),
                 Instruction::r#return(true, Address::register(0), OperandType::FLOAT),
@@ -95,7 +95,7 @@ fn local_integer() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::Integer),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
                 Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
@@ -114,7 +114,7 @@ fn local_string() {
     assert_eq!(
         chunk,
         Chunk {
-            r#type: FunctionType::new([], [], Type::String),
+            function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING, false),
                 Instruction::r#return(true, Address::register(0), OperandType::STRING),

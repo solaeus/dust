@@ -336,6 +336,45 @@ impl Resolver {
             .map(|(_, type_node)| type_node)
     }
 
+    pub fn get_operand_type(&self, id: TypeId) -> Option<OperandType> {
+        match id {
+            TypeId::NONE => return Some(OperandType::NONE),
+            TypeId::BOOLEAN => return Some(OperandType::BOOLEAN),
+            TypeId::BYTE => return Some(OperandType::BYTE),
+            TypeId::CHARACTER => return Some(OperandType::CHARACTER),
+            TypeId::FLOAT => return Some(OperandType::FLOAT),
+            TypeId::INTEGER => return Some(OperandType::INTEGER),
+            TypeId::STRING => return Some(OperandType::STRING),
+            _ => {}
+        }
+
+        let type_node = self.get_type_node(id)?;
+        let operand_type = match type_node {
+            TypeNode::List(element_type_id) => {
+                let element_operand_type = self.get_operand_type(*element_type_id)?;
+
+                match element_operand_type {
+                    OperandType::BOOLEAN => OperandType::LIST_BOOLEAN,
+                    OperandType::BYTE => OperandType::LIST_BYTE,
+                    OperandType::CHARACTER => OperandType::LIST_CHARACTER,
+                    OperandType::FLOAT => OperandType::LIST_FLOAT,
+                    OperandType::INTEGER => OperandType::LIST_INTEGER,
+                    OperandType::STRING => OperandType::LIST_STRING,
+                    OperandType::LIST_BOOLEAN
+                    | OperandType::LIST_BYTE
+                    | OperandType::LIST_CHARACTER
+                    | OperandType::LIST_FLOAT
+                    | OperandType::LIST_INTEGER
+                    | OperandType::LIST_STRING => OperandType::LIST_LIST,
+                    _ => return None,
+                }
+            }
+            TypeNode::Function(_) => OperandType::FUNCTION,
+        };
+
+        Some(operand_type)
+    }
+
     pub fn add_type_members(&mut self, members: &[TypeId]) -> (u32, u32) {
         let start = self.type_members.len() as u32;
         let count = members.len() as u32;
@@ -470,18 +509,6 @@ impl TypeId {
     pub const FLOAT: Self = TypeId(u32::MAX - 4);
     pub const INTEGER: Self = TypeId(u32::MAX - 5);
     pub const STRING: Self = TypeId(u32::MAX - 6);
-
-    pub fn as_operand_type(&self) -> OperandType {
-        match *self {
-            TypeId::BOOLEAN => OperandType::BOOLEAN,
-            TypeId::BYTE => OperandType::BYTE,
-            TypeId::CHARACTER => OperandType::CHARACTER,
-            TypeId::FLOAT => OperandType::FLOAT,
-            TypeId::INTEGER => OperandType::INTEGER,
-            TypeId::STRING => OperandType::STRING,
-            _ => OperandType::NONE,
-        }
-    }
 }
 
 impl Default for TypeId {
@@ -499,6 +526,24 @@ pub struct TypeKey {
 pub enum TypeNode {
     List(TypeId),
     Function(FunctionTypeNode),
+}
+
+impl TypeNode {
+    pub fn into_function_type(self) -> Option<FunctionTypeNode> {
+        if let TypeNode::Function(function_type_node) = self {
+            Some(function_type_node)
+        } else {
+            None
+        }
+    }
+
+    pub fn into_list_element_type(self) -> Option<TypeId> {
+        if let TypeNode::List(element_type_id) = self {
+            Some(element_type_id)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
