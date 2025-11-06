@@ -16,8 +16,8 @@ fn local_byte_division() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(84), OperandType::BYTE, false),
-                Instruction::r#move(1, Address::encoded(2), OperandType::BYTE, false),
+                Instruction::r#move(0, Address::encoded(84), OperandType::BYTE),
+                Instruction::r#move(1, Address::encoded(2), OperandType::BYTE),
                 Instruction::divide(
                     2,
                     Address::register(0),
@@ -42,8 +42,8 @@ fn local_float_division() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::FLOAT, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
+                Instruction::r#move(1, Address::constant(1), OperandType::FLOAT),
                 Instruction::divide(
                     2,
                     Address::register(0),
@@ -68,8 +68,8 @@ fn local_integer_division() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
                 Instruction::divide(
                     2,
                     Address::register(0),

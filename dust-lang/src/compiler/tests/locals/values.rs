@@ -16,12 +16,7 @@ fn local_boolean() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::r#move(
-                    0,
-                    Address::encoded(true as u16),
-                    OperandType::BOOLEAN,
-                    false
-                ),
+                Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
             ],
             register_count: 1,
@@ -40,7 +35,7 @@ fn local_byte() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(42), OperandType::BYTE, false),
+                Instruction::r#move(0, Address::encoded(42), OperandType::BYTE),
                 Instruction::r#return(true, Address::register(0), OperandType::BYTE),
             ],
             register_count: 1,
@@ -59,7 +54,7 @@ fn local_character() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Character),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
                 Instruction::r#return(true, Address::register(0), OperandType::CHARACTER),
             ],
             register_count: 1,
@@ -78,7 +73,7 @@ fn local_float() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
                 Instruction::r#return(true, Address::register(0), OperandType::FLOAT),
             ],
             register_count: 1,
@@ -97,7 +92,7 @@ fn local_integer() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
@@ -116,7 +111,7 @@ fn local_string() {
         Chunk {
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::STRING, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::STRING),
                 Instruction::r#return(true, Address::register(0), OperandType::STRING),
             ],
             register_count: 1,

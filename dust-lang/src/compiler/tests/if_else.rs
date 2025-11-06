@@ -18,8 +18,8 @@ fn if_else_true() {
             instructions: vec![
                 Instruction::test(Address::encoded(true as u16), true),
                 Instruction::jump(1, true),
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, true),
-                Instruction::r#move(0, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::move_with_jump(0, Address::constant(0), OperandType::INTEGER, 1, true),
+                Instruction::r#move(0, Address::constant(1), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
@@ -40,8 +40,8 @@ fn if_else_false() {
             instructions: vec![
                 Instruction::test(Address::encoded(false as u16), true),
                 Instruction::jump(1, true),
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, true),
-                Instruction::r#move(0, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::move_with_jump(0, Address::constant(0), OperandType::INTEGER, 1, true),
+                Instruction::r#move(0, Address::constant(1), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
@@ -60,8 +60,8 @@ fn if_else_equal() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
                 Instruction::equal(
                     true,
                     Address::register(0),
@@ -69,8 +69,8 @@ fn if_else_equal() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER, true),
-                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::move_with_jump(2, Address::constant(1), OperandType::INTEGER, 1, true),
+                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
@@ -89,8 +89,8 @@ fn if_else_not_equal() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
                 Instruction::equal(
                     false,
                     Address::register(0),
@@ -98,8 +98,8 @@ fn if_else_not_equal() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
-                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
+                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
@@ -118,8 +118,8 @@ fn if_else_less_than() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
                 Instruction::less(
                     true,
                     Address::register(0),
@@ -127,8 +127,8 @@ fn if_else_less_than() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
-                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
+                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
@@ -147,8 +147,8 @@ fn if_else_greater_than() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
                 Instruction::less_equal(
                     false,
                     Address::register(0),
@@ -156,8 +156,8 @@ fn if_else_greater_than() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
-                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
+                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
@@ -176,8 +176,8 @@ fn if_else_less_than_equal() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
                 Instruction::less_equal(
                     true,
                     Address::register(0),
@@ -185,8 +185,8 @@ fn if_else_less_than_equal() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER, true),
-                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::move_with_jump(2, Address::constant(1), OperandType::INTEGER, 1, true),
+                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
@@ -205,8 +205,8 @@ fn if_else_greater_than_equal() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
                 Instruction::less(
                     false,
                     Address::register(0),
@@ -214,8 +214,8 @@ fn if_else_greater_than_equal() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
-                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
+                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
@@ -234,8 +234,8 @@ fn if_else_if_chain_end() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
                 Instruction::less(
                     true,
                     Address::register(0),
@@ -243,8 +243,7 @@ fn if_else_if_chain_end() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, false),
-                Instruction::jump(4, true),
+                Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 4, true),
                 Instruction::equal(
                     true,
                     Address::register(0),
@@ -252,8 +251,8 @@ fn if_else_if_chain_end() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER, true),
-                Instruction::r#move(2, Address::constant(3), OperandType::INTEGER, false),
+                Instruction::move_with_jump(2, Address::constant(1), OperandType::INTEGER, 1, true),
+                Instruction::r#move(2, Address::constant(3), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
             register_count: 4,
@@ -272,8 +271,8 @@ fn if_else_if_chain_middle() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
                 Instruction::less(
                     true,
                     Address::register(0),
@@ -281,8 +280,7 @@ fn if_else_if_chain_middle() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER, false),
-                Instruction::jump(4, true),
+                Instruction::move_with_jump(2, Address::constant(1), OperandType::INTEGER, 4, true),
                 Instruction::equal(
                     true,
                     Address::register(0),
@@ -290,8 +288,8 @@ fn if_else_if_chain_middle() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
-                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
+                Instruction::r#move(2, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
             register_count: 4,
@@ -310,8 +308,8 @@ fn if_else_nested() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
                 Instruction::less(
                     true,
                     Address::register(0),
@@ -326,9 +324,9 @@ fn if_else_nested() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
-                Instruction::r#move(2, Address::constant(3), OperandType::INTEGER, true),
-                Instruction::r#move(2, Address::constant(3), OperandType::INTEGER, false),
+                Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
+                Instruction::move_with_jump(2, Address::constant(3), OperandType::INTEGER, 1, true),
+                Instruction::r#move(2, Address::constant(3), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
             register_count: 4,
@@ -347,8 +345,8 @@ fn if_else_double_nested() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
                 Instruction::less(
                     true,
                     Address::register(0),
@@ -370,10 +368,10 @@ fn if_else_double_nested() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::constant(3), OperandType::INTEGER, true),
-                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
-                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, true),
-                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER, false),
+                Instruction::move_with_jump(2, Address::constant(3), OperandType::INTEGER, 1, true),
+                Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
+                Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
+                Instruction::r#move(2, Address::constant(2), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
             register_count: 4,

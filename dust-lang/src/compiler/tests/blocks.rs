@@ -54,7 +54,7 @@ fn block_statement() {
         Chunk {
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(false, Address::default(), OperandType::NONE),
             ],
             register_count: 1,
@@ -73,7 +73,7 @@ fn block_statement_and_expression() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::add(
                     1,
                     Address::register(0),
@@ -98,7 +98,7 @@ fn parent_scope_access() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
@@ -117,8 +117,8 @@ fn nested_parrent_scope_access() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
                 Instruction::add(
                     2,
                     Address::register(0),
@@ -143,8 +143,8 @@ fn scope_shadowing() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(1), OperandType::INTEGER),
             ],
             register_count: 2,
@@ -163,8 +163,8 @@ fn scope_deshadowing() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
             ],
             register_count: 2,

@@ -3126,10 +3126,7 @@ impl InstructionsEmission {
         debug_assert!(
             self.instructions
                 .get(index)
-                .is_some_and(|instruction| matches!(
-                    instruction.operation(),
-                    Operation::NO_OP | Operation::JUMP
-                ))
+                .is_some_and(|instruction| instruction.operation() == Operation::NO_OP)
         );
 
         if distance == 0 {
@@ -3190,10 +3187,13 @@ impl InstructionsEmission {
     }
 
     fn is_instruction_coallescible_with_jump(&self, index: usize) -> bool {
-        self.instructions.get(index - 1).is_some_and(|instruction| {
-            instruction.operation() == Operation::DROP
-                || (instruction.operation() == Operation::MOVE && instruction.c_field() == 0)
-        })
+        self.instructions
+            .get(index)
+            .is_some_and(|instruction| match instruction.operation() {
+                Operation::DROP => true,
+                Operation::MOVE => instruction.c_field() == 0,
+                _ => false,
+            })
     }
 
     fn patch_jump_to_index(&mut self, no_op_index: usize, index: usize) {

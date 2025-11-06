@@ -602,7 +602,7 @@ pub fn compile_stackless_function(
                     }
                 } else {
                     function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
-                };
+                }
             }
             Operation::DROP => {
                 let Drop {

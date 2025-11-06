@@ -16,18 +16,8 @@ fn local_boolean_less_than() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::r#move(
-                    0,
-                    Address::encoded(false as u16),
-                    OperandType::BOOLEAN,
-                    false
-                ),
-                Instruction::r#move(
-                    1,
-                    Address::encoded(true as u16),
-                    OperandType::BOOLEAN,
-                    false
-                ),
+                Instruction::r#move(0, Address::encoded(false as u16), OperandType::BOOLEAN),
+                Instruction::r#move(1, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::less(
                     true,
                     Address::register(0),
@@ -35,13 +25,14 @@ fn local_boolean_less_than() {
                     OperandType::BOOLEAN
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN, true),
-                Instruction::r#move(
+                Instruction::move_with_jump(
                     2,
-                    Address::encoded(false as u16),
+                    Address::encoded(true as u16),
                     OperandType::BOOLEAN,
-                    false
+                    1,
+                    true
                 ),
+                Instruction::r#move(2, Address::encoded(false as u16), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
@@ -60,8 +51,8 @@ fn local_byte_less_than() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(0x29), OperandType::BYTE, false),
-                Instruction::r#move(1, Address::encoded(0x2A), OperandType::BYTE, false),
+                Instruction::r#move(0, Address::encoded(0x29), OperandType::BYTE),
+                Instruction::r#move(1, Address::encoded(0x2A), OperandType::BYTE),
                 Instruction::less(
                     true,
                     Address::register(0),
@@ -69,13 +60,14 @@ fn local_byte_less_than() {
                     OperandType::BYTE
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN, true),
-                Instruction::r#move(
+                Instruction::move_with_jump(
                     2,
-                    Address::encoded(false as u16),
+                    Address::encoded(true as u16),
                     OperandType::BOOLEAN,
-                    false
+                    1,
+                    true
                 ),
+                Instruction::r#move(2, Address::encoded(false as u16), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
@@ -94,8 +86,8 @@ fn local_character_less_than() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::CHARACTER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
+                Instruction::r#move(1, Address::constant(1), OperandType::CHARACTER),
                 Instruction::less(
                     true,
                     Address::register(0),
@@ -103,13 +95,14 @@ fn local_character_less_than() {
                     OperandType::CHARACTER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN, true),
-                Instruction::r#move(
+                Instruction::move_with_jump(
                     2,
-                    Address::encoded(false as u16),
+                    Address::encoded(true as u16),
                     OperandType::BOOLEAN,
-                    false
+                    1,
+                    true
                 ),
+                Instruction::r#move(2, Address::encoded(false as u16), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
@@ -128,8 +121,8 @@ fn local_float_less_than() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::FLOAT, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
+                Instruction::r#move(1, Address::constant(1), OperandType::FLOAT),
                 Instruction::less(
                     true,
                     Address::register(0),
@@ -137,13 +130,14 @@ fn local_float_less_than() {
                     OperandType::FLOAT
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN, true),
-                Instruction::r#move(
+                Instruction::move_with_jump(
                     2,
-                    Address::encoded(false as u16),
+                    Address::encoded(true as u16),
                     OperandType::BOOLEAN,
-                    false
+                    1,
+                    true
                 ),
+                Instruction::r#move(2, Address::encoded(false as u16), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
@@ -162,8 +156,8 @@ fn local_integer_less_than() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
                 Instruction::less(
                     true,
                     Address::register(0),
@@ -171,13 +165,14 @@ fn local_integer_less_than() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN, true),
-                Instruction::r#move(
+                Instruction::move_with_jump(
                     2,
-                    Address::encoded(false as u16),
+                    Address::encoded(true as u16),
                     OperandType::BOOLEAN,
-                    false
+                    1,
+                    true
                 ),
+                Instruction::r#move(2, Address::encoded(false as u16), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
@@ -196,8 +191,8 @@ fn local_string_less_than() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::STRING, false),
-                Instruction::r#move(1, Address::constant(1), OperandType::STRING, false),
+                Instruction::r#move(0, Address::constant(0), OperandType::STRING),
+                Instruction::r#move(1, Address::constant(1), OperandType::STRING),
                 Instruction::less(
                     true,
                     Address::register(0),
@@ -205,13 +200,14 @@ fn local_string_less_than() {
                     OperandType::STRING
                 ),
                 Instruction::jump(1, true),
-                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN, true),
-                Instruction::r#move(
+                Instruction::move_with_jump(
                     2,
-                    Address::encoded(false as u16),
+                    Address::encoded(true as u16),
                     OperandType::BOOLEAN,
-                    false
+                    1,
+                    true
                 ),
+                Instruction::r#move(2, Address::encoded(false as u16), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
