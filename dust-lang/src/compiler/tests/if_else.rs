@@ -324,7 +324,7 @@ fn if_else_nested() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
+                Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 2, true),
                 Instruction::move_with_jump(2, Address::constant(3), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(3), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
@@ -368,8 +368,8 @@ fn if_else_double_nested() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(1, true),
-                Instruction::move_with_jump(2, Address::constant(3), OperandType::INTEGER, 1, true),
-                Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
+                Instruction::move_with_jump(2, Address::constant(3), OperandType::INTEGER, 3, true),
+                Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 2, true),
                 Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(2), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
