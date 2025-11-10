@@ -540,6 +540,105 @@ fn constant_integer_division() {
 }
 
 #[test]
+fn constant_byte_modulo() {
+    let source = constant_cases::CONSTANT_BYTE_MODULO.to_string();
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                span: Span(0, 11),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                children: (84, 0),
+                span: Span(0, 4),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ModuloExpression,
+                children: (1, 2),
+                span: Span(0, 11),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                children: (5, 0),
+                span: Span(7, 11),
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_float_modulo() {
+    let source = constant_cases::CONSTANT_FLOAT_MODULO.to_string();
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                span: Span(0, 10),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::FloatExpression,
+                children: SyntaxNode::encode_float(84.0),
+                span: Span(0, 4),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ModuloExpression,
+                children: (1, 2),
+                span: Span(0, 10),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::FloatExpression,
+                children: SyntaxNode::encode_float(5.0),
+                span: Span(7, 10),
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_integer_modulo() {
+    let source = constant_cases::CONSTANT_INTEGER_MODULO.to_string();
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                span: Span(0, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (84, 0),
+                span: Span(0, 2),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ModuloExpression,
+                children: (1, 2),
+                span: Span(0, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (5, 0),
+                span: Span(5, 6),
+            }
+        ]
+    );
+}
+
+#[test]
 fn constant_integer_negation() {
     let source = constant_cases::CONSTANT_INTEGER_NEGATION.to_string();
     let (syntax_tree, error) = parse_main(source);

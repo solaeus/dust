@@ -16,13 +16,61 @@ fn if_else_true() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::test(Address::encoded(true as u16), true),
+                Instruction::test(Address::encoded(true as u16), true, 1),
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(0, Address::constant(0), OperandType::INTEGER, 1, true),
                 Instruction::r#move(0, Address::constant(1), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn if_else_logical_and() {
+    let source = if_else_cases::IF_ELSE_LOGICAL_AND.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
+                Instruction::r#move(1, Address::encoded(true as u16), OperandType::BOOLEAN),
+                Instruction::test(Address::register(0), false, 1),
+                Instruction::test(Address::register(1), true, 2),
+                Instruction::move_with_jump(2, Address::constant(0), OperandType::INTEGER, 1, true),
+                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER),
+                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+            ],
+            register_count: 3,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn if_else_logical_or() {
+    let source = if_else_cases::IF_ELSE_LOGICAL_OR.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::r#move(0, Address::encoded(false as u16), OperandType::BOOLEAN),
+                Instruction::r#move(1, Address::encoded(true as u16), OperandType::BOOLEAN),
+                Instruction::test(Address::register(0), true, 1),
+                Instruction::test(Address::register(1), true, 2),
+                Instruction::move_with_jump(2, Address::constant(0), OperandType::INTEGER, 1, true),
+                Instruction::r#move(2, Address::constant(1), OperandType::INTEGER),
+                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+            ],
+            register_count: 3,
             ..Default::default()
         }
     );
@@ -38,7 +86,7 @@ fn if_else_false() {
         Chunk {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::test(Address::encoded(false as u16), true),
+                Instruction::test(Address::encoded(false as u16), true, 1),
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(0, Address::constant(0), OperandType::INTEGER, 1, true),
                 Instruction::r#move(0, Address::constant(1), OperandType::INTEGER),
@@ -255,7 +303,7 @@ fn if_else_if_chain_end() {
                 Instruction::r#move(2, Address::constant(3), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
-            register_count: 4,
+            register_count: 3,
             ..Default::default()
         }
     );
@@ -292,7 +340,7 @@ fn if_else_if_chain_middle() {
                 Instruction::r#move(2, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
-            register_count: 4,
+            register_count: 3,
             ..Default::default()
         }
     );
@@ -329,7 +377,7 @@ fn if_else_nested() {
                 Instruction::r#move(2, Address::constant(3), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
-            register_count: 4,
+            register_count: 3,
             ..Default::default()
         }
     );
@@ -374,7 +422,7 @@ fn if_else_double_nested() {
                 Instruction::r#move(2, Address::constant(2), OperandType::INTEGER),
                 Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
             ],
-            register_count: 4,
+            register_count: 3,
             ..Default::default()
         }
     );

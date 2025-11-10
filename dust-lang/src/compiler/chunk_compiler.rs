@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use rustc_hash::FxBuildHasher;
-use smallvec::{SmallVec, smallvec};
+use smallvec::SmallVec;
 use tracing::{debug, info, span, trace};
 
 use crate::{
     chunk::Chunk,
     compiler::{CompileContext, binder::Binder},
-    instruction::{Address, Drop, Instruction, Move, OperandType, Operation},
+    instruction::{Address, Drop, Instruction, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
     resolver::{
         Declaration, DeclarationId, DeclarationKind, FunctionTypeNode, Scope, ScopeId, ScopeKind,
@@ -45,7 +45,9 @@ pub struct ChunkCompiler<'a> {
     /// List of register indexes that need to be dropped at the end of the current scope.
     pending_drops: Vec<SmallVec<[u16; 8]>>,
 
-    jump_placements: HashMap<u16, SmallVec<[JumpPlacement; 2]>>,
+    jump_placements: HashMap<u16, JumpPlacement>,
+
+    jump_over_else_anchor_ids: Vec<u16>,
 
     current_scope_id: ScopeId,
 
@@ -77,6 +79,7 @@ impl<'a> ChunkCompiler<'a> {
             drop_lists: Vec::new(),
             pending_drops: vec![SmallVec::new()],
             jump_placements: HashMap::new(),
+            jump_over_else_anchor_ids: Vec::new(),
             current_scope_id: starting_scope_id,
             next_jump_id: 0,
             next_local_register: 0,
@@ -123,59 +126,67 @@ impl<'a> ChunkCompiler<'a> {
             .resolve_function_type(&self.function_type_node)
             .ok_or(CompileError::MissingType { type_id })?;
 
-        for jump_placements_by_id in self.jump_placements.into_values() {
-            for JumpPlacement {
-                index,
-                distance,
-                forward,
-                coalesce,
-            } in jump_placements_by_id
-            {
-                if coalesce {
-                    let instruction = &mut self.instructions[index];
+        for JumpPlacement {
+            index,
+            distance,
+            forward,
+            coalesce,
+        } in self.jump_placements.into_values()
+        {
+            if coalesce {
+                let instruction = &mut self.instructions[index];
 
-                    match instruction.operation() {
-                        Operation::MOVE => {
-                            let Move {
-                                destination,
-                                operand,
-                                r#type,
-                                jump_distance,
-                                ..
-                            } = Move::from(*instruction);
+                match instruction.operation() {
+                    Operation::DROP => {
+                        let Drop {
+                            drop_list_start,
+                            drop_list_end,
+                        } = Drop::from(*instruction);
 
-                            debug_assert_eq!(jump_distance, 0);
-
-                            *instruction = Instruction::move_with_jump(
-                                destination,
-                                operand,
-                                r#type,
-                                distance,
-                                forward,
-                            );
-                        }
-                        Operation::DROP => {
-                            let Drop {
-                                drop_list_start,
-                                drop_list_end,
-                            } = Drop::from(*instruction);
-
-                            *instruction = Instruction::jump_with_drops(
-                                distance,
-                                forward,
-                                drop_list_start,
-                                drop_list_end,
-                            )
-                        }
-                        _ => {
-                            panic!("Expected MOVE or DROP instruction for coalesced jump");
-                        }
+                        *instruction = Instruction::jump_with_drops(
+                            distance,
+                            forward,
+                            drop_list_start,
+                            drop_list_end,
+                        )
                     }
-                } else {
-                    let jump_instruction = Instruction::jump(distance, forward);
+                    Operation::MOVE => {
+                        let Move {
+                            destination,
+                            operand,
+                            r#type,
+                            jump_distance,
+                            ..
+                        } = Move::from(*instruction);
+                        let total_distance = jump_distance + distance;
 
-                    self.instructions[index] = jump_instruction;
+                        *instruction = Instruction::move_with_jump(
+                            destination,
+                            operand,
+                            r#type,
+                            total_distance,
+                            forward,
+                        );
+                    }
+                    Operation::TEST => {
+                        let Test {
+                            comparator,
+                            operand,
+                            jump_distance,
+                            ..
+                        } = Test::from(*instruction);
+                        let total_distance = jump_distance + distance;
+
+                        *instruction = Instruction::test(operand, comparator, total_distance);
+                    }
+                    _ => {
+                        panic!("Expected MOVE or DROP instruction for coalesced jump");
+                    }
                 }
+            } else {
+                let jump_instruction = Instruction::jump(distance, forward);
+
+                self.instructions[index] = jump_instruction;
             }
         }
 
@@ -235,6 +246,10 @@ impl<'a> ChunkCompiler<'a> {
         );
 
         self.next_temporary_register -= count;
+
+        if self.maximum_register > self.next_temporary_register {
+            self.maximum_register = self.next_temporary_register;
+        }
     }
 
     fn allocate_local_register(&mut self) -> u16 {
@@ -594,7 +609,7 @@ impl<'a> ChunkCompiler<'a> {
         let type_id = match emission {
             Emission::Constant(constant, type_id) => {
                 let address = self.get_constant_address(constant);
-                let test_instruction = Instruction::test(address, true);
+                let test_instruction = Instruction::test(address, true, 1);
 
                 instructions.push(test_instruction);
 
@@ -607,7 +622,7 @@ impl<'a> ChunkCompiler<'a> {
                 });
             }
             Emission::Local(Local { type_id, address }) => {
-                let test_instruction = Instruction::test(address, true);
+                let test_instruction = Instruction::test(address, true, 1);
 
                 instructions.push(test_instruction);
 
@@ -617,26 +632,36 @@ impl<'a> ChunkCompiler<'a> {
                 let length = condition_instructions.length();
                 let type_id = condition_instructions.type_id;
 
-                if condition_instructions.length() >= 4 {
-                    let possible_condition_instruction = condition_instructions.instructions
-                        [length - 4]
-                        .0
-                        .operation();
+                if condition_instructions.length() >= 3 {
+                    let possible_condition_instruction =
+                        &mut condition_instructions.instructions[length - 3].0;
 
-                    if matches!(
-                        possible_condition_instruction,
-                        Operation::LESS
-                            | Operation::LESS_EQUAL
-                            | Operation::EQUAL
-                            | Operation::TEST
-                    ) {
-                        condition_instructions.instructions.truncate(length - 3);
+                    match possible_condition_instruction.operation() {
+                        Operation::LESS | Operation::LESS_EQUAL | Operation::EQUAL => {
+                            condition_instructions.instructions.truncate(length - 2);
 
-                        if let Some(target) = condition_instructions.target_register
-                            && target.is_temporary
-                        {
-                            self.free_temporary_registers(1);
+                            if let Some(target) = condition_instructions.target_register
+                                && target.is_temporary
+                            {
+                                self.free_temporary_registers(1);
+                            }
                         }
+                        Operation::TEST => {
+                            let first_move_instruction =
+                                condition_instructions.instructions[length - 2].0;
+                            let new_test_instruction =
+                                Instruction::test(first_move_instruction.b_address(), false, 0);
+
+                            condition_instructions.instructions.truncate(length - 2);
+                            condition_instructions.push(new_test_instruction);
+
+                            if let Some(target) = condition_instructions.target_register
+                                && target.is_temporary
+                            {
+                                self.free_temporary_registers(1);
+                            }
+                        }
+                        _ => {}
                     }
                 }
 
@@ -822,16 +847,15 @@ impl<'a> ChunkCompiler<'a> {
                     compiler.emit_instruction(move_instruction);
                 }
                 Emission::Instructions(InstructionsEmission { instructions, .. }) => {
-                    let mut forward_to_ids: Vec<u16> = Vec::new();
-
                     for (instruction, jump_anchors) in instructions {
                         compiler.emit_instruction(instruction);
 
-                        for jump_anchor in jump_anchors {
-                            match jump_anchor {
-                                JumpAnchor::ForwardFrom(id) => {
+                        for JumpAnchor { id, kind } in jump_anchors {
+                            match kind {
+                                JumpKind::ForwardFrom => {
                                     let coalesce =
-                                        if is_instruction_coallescible_with_jump(instruction) {
+                                        if is_instruction_coallescible_with_jump(instruction, true)
+                                        {
                                             true
                                         } else {
                                             compiler.emit_instruction(Instruction::no_op());
@@ -841,53 +865,21 @@ impl<'a> ChunkCompiler<'a> {
 
                                     compiler.jump_placements.insert(
                                         id,
-                                        smallvec![JumpPlacement {
+                                        JumpPlacement {
                                             index: compiler.instructions.len() - 1,
                                             distance: 0,
                                             forward: true,
                                             coalesce,
-                                        }],
+                                        },
                                     );
                                 }
-                                JumpAnchor::ForwardPivot(id) => {
-                                    let coalesce =
-                                        if is_instruction_coallescible_with_jump(instruction) {
-                                            true
-                                        } else {
-                                            compiler.emit_instruction(Instruction::no_op());
+                                JumpKind::ForwardToNext => {
+                                    let placement = compiler.jump_placements.get_mut(&id).unwrap();
+                                    let next_index = compiler.instructions.len();
 
-                                            false
-                                        };
-                                    let target_position = compiler.instructions.len() - 1;
-                                    let placements = compiler.jump_placements.get_mut(&id).unwrap();
-
-                                    for placement in placements.iter_mut() {
-                                        placement.distance =
-                                            (target_position - placement.index) as u16;
-                                    }
-
-                                    placements.push(JumpPlacement {
-                                        index: target_position,
-                                        distance: 0,
-                                        forward: true,
-                                        coalesce,
-                                    });
-                                }
-                                JumpAnchor::ForwardTo(id) => {
-                                    forward_to_ids.push(id);
+                                    placement.distance = (next_index - placement.index - 1) as u16;
                                 }
                                 _ => (),
-                            }
-                        }
-                    }
-
-                    for id in forward_to_ids {
-                        let target_position = compiler.instructions.len() - 1;
-                        let placements = compiler.jump_placements.get_mut(&id).unwrap();
-
-                        for placement in placements.iter_mut() {
-                            if placement.distance == 0 {
-                                placement.distance = (target_position - placement.index - 1) as u16;
                             }
                         }
                     }
@@ -2064,24 +2056,22 @@ impl<'a> ChunkCompiler<'a> {
             }
             _ => unreachable!("Expected comparison expression, found {}", node.kind),
         };
-        let jump_instruction = Instruction::jump(1, true);
-        let load_true_instruction = Instruction::move_with_jump(
+        let load_false_instruction = Instruction::move_with_jump(
             target.register,
-            Address::encoded(true as u16),
+            Address::encoded(false as u16),
             OperandType::BOOLEAN,
             1,
             true,
         );
-        let load_false_instruction = Instruction::r#move(
+        let load_true_instruction = Instruction::r#move(
             target.register,
-            Address::encoded(false as u16),
+            Address::encoded(true as u16),
             OperandType::BOOLEAN,
         );
 
         comparison_emission.push(comparison_instruction);
-        comparison_emission.push(jump_instruction);
-        comparison_emission.push(load_true_instruction);
         comparison_emission.push(load_false_instruction);
+        comparison_emission.push(load_true_instruction);
         comparison_emission.set_type(TypeId::BOOLEAN);
         comparison_emission.set_target(Some(target));
 
@@ -2156,17 +2146,15 @@ impl<'a> ChunkCompiler<'a> {
         let (destination, is_temporary) = target
             .map(|target| (target.register, target.is_temporary))
             .unwrap_or_else(|| (self.allocate_temporary_register(), true));
-        let test_instruction = Instruction::test(left_address, comparator);
-        let jump_instruction = Instruction::jump(1, true);
-        let left_move_instruction =
-            Instruction::move_with_jump(destination, left_address, OperandType::BOOLEAN, 1, true);
+        let test_instruction = Instruction::test(left_address, comparator, 1);
         let right_move_instruction =
-            Instruction::r#move(destination, right_address, OperandType::BOOLEAN);
+            Instruction::move_with_jump(destination, right_address, OperandType::BOOLEAN, 1, true);
+        let left_move_instruction =
+            Instruction::r#move(destination, left_address, OperandType::BOOLEAN);
 
         logic_emission.push(test_instruction);
-        logic_emission.push(jump_instruction);
-        logic_emission.push(left_move_instruction);
         logic_emission.push(right_move_instruction);
+        logic_emission.push(left_move_instruction);
         logic_emission.set_type(TypeId::BOOLEAN);
         logic_emission.set_target(Some(TargetRegister {
             register: destination,
@@ -3022,24 +3010,29 @@ impl<'a> ChunkCompiler<'a> {
             },
         )?;
 
+        let target = target.unwrap_or_else(|| TargetRegister {
+            register: self.allocate_temporary_register(),
+            is_temporary: true,
+        });
+
         let mut if_emission = InstructionsEmission::new();
         let condition_emission = self.compile_expression(&condition_node, None)?;
 
         self.handle_condition_emission(&mut if_emission, condition_emission, &condition_node)?;
 
-        let jump_anchor_id = self.create_jump_anchor_id();
+        let jump_over_then_id = self.create_jump_anchor_id();
 
         if_emission
             .instructions
             .last_mut()
             .unwrap()
             .1
-            .push(JumpAnchor::ForwardFrom(jump_anchor_id));
+            .push(JumpAnchor {
+                id: jump_over_then_id,
+                kind: JumpKind::ForwardFrom,
+            });
 
-        let target = target.unwrap_or_else(|| TargetRegister {
-            register: self.allocate_temporary_register(),
-            is_temporary: true,
-        });
+        let start_else_anchor_count = self.jump_over_else_anchor_ids.len();
         let then_emission = match then_block_node.kind {
             SyntaxKind::BlockExpression => {
                 self.compile_block_expression(&then_block_node, Some(target))?
@@ -3054,13 +3047,29 @@ impl<'a> ChunkCompiler<'a> {
         let then_type_id =
             self.handle_branch_emission(&mut if_emission, then_emission, target.register)?;
 
+        if_emission
+            .instructions
+            .last_mut()
+            .unwrap()
+            .1
+            .push(JumpAnchor {
+                id: jump_over_then_id,
+                kind: JumpKind::ForwardToNext,
+            });
+
         if children_ids.len() == 3 {
+            let jump_over_else_id = self.create_jump_anchor_id();
+
             if_emission
                 .instructions
                 .last_mut()
                 .unwrap()
                 .1
-                .push(JumpAnchor::ForwardPivot(jump_anchor_id));
+                .push(JumpAnchor {
+                    id: jump_over_else_id,
+                    kind: JumpKind::ForwardFrom,
+                });
+            self.jump_over_else_anchor_ids.push(jump_over_else_id);
 
             let else_block_id = children_ids[2];
             let else_block_node = *self.syntax_tree()?.get_node(else_block_id).ok_or(
@@ -3092,12 +3101,21 @@ impl<'a> ChunkCompiler<'a> {
             }
         }
 
-        if_emission
-            .instructions
-            .last_mut()
-            .unwrap()
-            .1
-            .push(JumpAnchor::ForwardTo(jump_anchor_id));
+        let end_else_anchor_count = self.jump_over_else_anchor_ids.len();
+
+        for else_anchor_index in start_else_anchor_count..end_else_anchor_count {
+            let jump_over_else_id = self.jump_over_else_anchor_ids[else_anchor_index];
+
+            if_emission
+                .instructions
+                .last_mut()
+                .unwrap()
+                .1
+                .push(JumpAnchor {
+                    id: jump_over_else_id,
+                    kind: JumpKind::ForwardToNext,
+                });
+        }
 
         if_emission.set_type(then_type_id);
         if_emission.set_target(Some(target));
@@ -3317,12 +3335,17 @@ struct Local {
 }
 
 #[derive(Clone, Copy, Debug)]
-enum JumpAnchor {
-    ForwardFrom(u16),
-    ForwardPivot(u16),
-    ForwardTo(u16),
-    BackwardFrom(u16),
-    BackwardTo(u16),
+struct JumpAnchor {
+    id: u16,
+    kind: JumpKind,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum JumpKind {
+    ForwardFrom,
+    ForwardToNext,
+    BackwardFrom,
+    BackwardTo,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -3333,10 +3356,23 @@ struct JumpPlacement {
     coalesce: bool,
 }
 
-fn is_instruction_coallescible_with_jump(instruction: Instruction) -> bool {
+fn is_instruction_coallescible_with_jump(instruction: Instruction, forward: bool) -> bool {
     match instruction.operation() {
         Operation::DROP => true,
-        Operation::MOVE => instruction.c_field() == 0,
+        Operation::MOVE => {
+            let Move {
+                jump_distance,
+                jump_is_positive,
+                ..
+            } = Move::from(instruction);
+
+            jump_distance == 0 || (forward == jump_is_positive)
+        }
+        Operation::TEST => {
+            let Test { jump_distance, .. } = Test::from(instruction);
+
+            jump_distance == 0 && forward
+        }
         _ => false,
     }
 }

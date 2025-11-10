@@ -390,10 +390,11 @@ impl Instruction {
         })
     }
 
-    pub fn test(operand: Address, comparator: bool) -> Instruction {
+    pub fn test(operand: Address, comparator: bool, jump_distance: u16) -> Instruction {
         Instruction::from(Test {
             operand,
             comparator,
+            jump_distance,
         })
     }
 

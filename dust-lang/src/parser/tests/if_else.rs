@@ -112,6 +112,272 @@ fn if_else_false() {
 }
 
 #[test]
+fn if_else_logical_and() {
+    let source = if_else_cases::IF_ELSE_LOGICAL_AND.to_string();
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (9, 3),
+                span: Span(0, 66),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (2, 4),
+                span: Span(1, 14),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (1, 0),
+                span: Span(9, 13),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (3, 0),
+                span: Span(9, 14),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (7, 9),
+                span: Span(15, 28),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(19, 20),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(19, 20),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (1, 0),
+                span: Span(23, 27),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (8, 0),
+                span: Span(23, 28),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IfExpression,
+                children: (6, 3),
+                span: Span(30, 65),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(33, 34),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(33, 34),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (12, 0),
+                span: Span(33, 34),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::AndExpression,
+                children: (13, 16),
+                span: Span(33, 39),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(38, 39),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (3, 1),
+                span: Span(38, 39),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (15, 0),
+                span: Span(38, 39),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BlockExpression,
+                children: (4, 1),
+                span: Span(40, 50),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (42, 0),
+                span: Span(46, 48),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BlockExpression,
+                children: (5, 1),
+                span: Span(56, 65),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ElseExpression,
+                children: (21, 0),
+                span: Span(56, 65),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (0, 0),
+                span: Span(62, 63),
+            },
+        ]
+    );
+}
+
+#[test]
+fn if_else_logical_or() {
+    let source = if_else_cases::IF_ELSE_LOGICAL_OR.to_string();
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (9, 3),
+                span: Span(0, 67),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (2, 4),
+                span: Span(1, 15),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 6),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (0, 0),
+                span: Span(9, 14),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (3, 0),
+                span: Span(9, 15),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (7, 9),
+                span: Span(16, 29),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(20, 21),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (1, 1),
+                span: Span(20, 21),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BooleanExpression,
+                children: (1, 0),
+                span: Span(24, 28),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (8, 0),
+                span: Span(24, 29),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IfExpression,
+                children: (6, 3),
+                span: Span(31, 66),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(34, 35),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (2, 1),
+                span: Span(34, 35),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (12, 0),
+                span: Span(34, 35),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::OrExpression,
+                children: (13, 16),
+                span: Span(34, 40),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(39, 40),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (3, 1),
+                span: Span(39, 40),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (15, 0),
+                span: Span(39, 40),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BlockExpression,
+                children: (4, 1),
+                span: Span(41, 51),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (42, 0),
+                span: Span(47, 49),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BlockExpression,
+                children: (5, 1),
+                span: Span(57, 66),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ElseExpression,
+                children: (21, 0),
+                span: Span(57, 66),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (0, 0),
+                span: Span(63, 64),
+            },
+        ]
+    );
+}
+
+#[test]
 fn if_else_equal() {
     let source = if_else_cases::IF_ELSE_EQUAL.to_string();
     let (syntax_tree, error) = parse_main(source);

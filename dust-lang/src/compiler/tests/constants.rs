@@ -520,6 +520,120 @@ fn constant_boolean_not() {
 }
 
 #[test]
+fn constant_boolean_greater_than() {
+    let source = constant_cases::CONSTANT_BOOLEAN_GREATER_THAN.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(true as u16),
+                OperandType::BOOLEAN
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_boolean_less_than() {
+    let source = constant_cases::CONSTANT_BOOLEAN_LESS_THAN.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(true as u16),
+                OperandType::BOOLEAN
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_boolean_greater_than_or_equal() {
+    let source = constant_cases::CONSTANT_BOOLEAN_GREATER_THAN_OR_EQUAL.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(true as u16),
+                OperandType::BOOLEAN
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_boolean_less_than_or_equal() {
+    let source = constant_cases::CONSTANT_BOOLEAN_LESS_THAN_OR_EQUAL.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(true as u16),
+                OperandType::BOOLEAN
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_boolean_equal() {
+    let source = constant_cases::CONSTANT_BOOLEAN_EQUAL.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(true as u16),
+                OperandType::BOOLEAN
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_boolean_not_equal() {
+    let source = constant_cases::CONSTANT_BOOLEAN_NOT_EQUAL.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(true as u16),
+                OperandType::BOOLEAN
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
 fn constant_byte_less_than_or_equal() {
     let source = constant_cases::CONSTANT_BYTE_LESS_THAN_OR_EQUAL.to_string();
     let chunk = compile_main(source).unwrap();
@@ -1016,6 +1130,63 @@ fn constant_string_equal() {
 #[test]
 fn constant_string_not_equal() {
     let source = constant_cases::CONSTANT_STRING_NOT_EQUAL.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(true as u16),
+                OperandType::BOOLEAN
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_byte_greater_than() {
+    let source = constant_cases::CONSTANT_BYTE_GREATER_THAN.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(true as u16),
+                OperandType::BOOLEAN
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_byte_less_than() {
+    let source = constant_cases::CONSTANT_BYTE_LESS_THAN.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Boolean),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(true as u16),
+                OperandType::BOOLEAN
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_byte_greater_than_or_equal() {
+    let source = constant_cases::CONSTANT_BYTE_GREATER_THAN_OR_EQUAL.to_string();
     let chunk = compile_main(source).unwrap();
 
     assert_eq!(

@@ -18,7 +18,7 @@ fn local_boolean_or() {
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#move(1, Address::encoded(false as u16), OperandType::BOOLEAN),
-                Instruction::test(Address::register(0), true),
+                Instruction::test(Address::register(0), true, 1),
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(2, Address::register(0), OperandType::BOOLEAN, 1, true),
                 Instruction::r#move(2, Address::register(1), OperandType::BOOLEAN),

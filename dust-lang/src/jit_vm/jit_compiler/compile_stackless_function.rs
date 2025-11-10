@@ -1339,6 +1339,7 @@ pub fn compile_stackless_function(
                 let Test {
                     comparator,
                     operand,
+                    jump_distance,
                 } = Test::from(*current_instruction);
 
                 let operand_value = get_boolean(
@@ -1353,9 +1354,11 @@ pub fn compile_stackless_function(
                         .ins()
                         .icmp(IntCC::Equal, operand_value, comparator_value);
 
+                let distance = (jump_distance + 1) as usize;
+
                 function_builder.ins().brif(
                     comparison_result,
-                    instruction_blocks[ip + 2],
+                    instruction_blocks[ip + distance],
                     &[],
                     instruction_blocks[ip + 1],
                     &[],

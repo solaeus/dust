@@ -20,6 +20,9 @@ pub const CONSTANT_INTEGER_MULTIPLICATION: &str = "14 * 3";
 pub const CONSTANT_BYTE_DIVISION: &str = "0x54 / 0x02";
 pub const CONSTANT_FLOAT_DIVISION: &str = "84.0 / 2.0";
 pub const CONSTANT_INTEGER_DIVISION: &str = "84 / 2";
+pub const CONSTANT_BYTE_MODULO: &str = "0x54 % 0x05";
+pub const CONSTANT_FLOAT_MODULO: &str = "84.0 % 5.0";
+pub const CONSTANT_INTEGER_MODULO: &str = "84 % 5";
 pub const CONSTANT_INTEGER_NEGATION: &str = "-(42)";
 pub const CONSTANT_FLOAT_NEGATION: &str = "-(42.0)";
 
