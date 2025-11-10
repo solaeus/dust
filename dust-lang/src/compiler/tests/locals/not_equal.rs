@@ -24,15 +24,14 @@ fn local_boolean_not_equal() {
                     Address::register(1),
                     OperandType::BOOLEAN
                 ),
-                Instruction::jump(1, true),
                 Instruction::move_with_jump(
                     2,
-                    Address::encoded(true as u16),
+                    Address::encoded(false as u16),
                     OperandType::BOOLEAN,
                     1,
                     true
                 ),
-                Instruction::r#move(2, Address::encoded(false as u16), OperandType::BOOLEAN),
+                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
@@ -59,15 +58,14 @@ fn local_byte_not_equal() {
                     Address::register(1),
                     OperandType::BYTE
                 ),
-                Instruction::jump(1, true),
                 Instruction::move_with_jump(
                     2,
-                    Address::encoded(true as u16),
+                    Address::encoded(false as u16),
                     OperandType::BOOLEAN,
                     1,
                     true
                 ),
-                Instruction::r#move(2, Address::encoded(false as u16), OperandType::BOOLEAN),
+                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
@@ -94,15 +92,14 @@ fn local_character_not_equal() {
                     Address::register(1),
                     OperandType::CHARACTER
                 ),
-                Instruction::jump(1, true),
                 Instruction::move_with_jump(
                     2,
-                    Address::encoded(true as u16),
+                    Address::encoded(false as u16),
                     OperandType::BOOLEAN,
                     1,
                     true
                 ),
-                Instruction::r#move(2, Address::encoded(false as u16), OperandType::BOOLEAN),
+                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
@@ -129,15 +126,14 @@ fn local_float_not_equal() {
                     Address::register(1),
                     OperandType::FLOAT
                 ),
-                Instruction::jump(1, true),
                 Instruction::move_with_jump(
                     2,
-                    Address::encoded(true as u16),
+                    Address::encoded(false as u16),
                     OperandType::BOOLEAN,
                     1,
                     true
                 ),
-                Instruction::r#move(2, Address::encoded(false as u16), OperandType::BOOLEAN),
+                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
@@ -164,15 +160,14 @@ fn local_integer_not_equal() {
                     Address::register(1),
                     OperandType::INTEGER
                 ),
-                Instruction::jump(1, true),
                 Instruction::move_with_jump(
                     2,
-                    Address::encoded(true as u16),
+                    Address::encoded(false as u16),
                     OperandType::BOOLEAN,
                     1,
                     true
                 ),
-                Instruction::r#move(2, Address::encoded(false as u16), OperandType::BOOLEAN),
+                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
@@ -199,15 +194,14 @@ fn local_string_not_equal() {
                     Address::register(1),
                     OperandType::STRING
                 ),
-                Instruction::jump(1, true),
                 Instruction::move_with_jump(
                     2,
-                    Address::encoded(true as u16),
+                    Address::encoded(false as u16),
                     OperandType::BOOLEAN,
                     1,
                     true
                 ),
-                Instruction::r#move(2, Address::encoded(false as u16), OperandType::BOOLEAN),
+                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,

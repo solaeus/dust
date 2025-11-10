@@ -145,6 +145,30 @@ fn constant_integer_division() {
 }
 
 #[test]
+fn constant_byte_modulo() {
+    let source = constant_cases::CONSTANT_BYTE_MODULO.to_string();
+    let result = run_main(source).unwrap();
+
+    assert_eq!(result, Some(Value::byte(4)));
+}
+
+#[test]
+fn constant_float_modulo() {
+    let source = constant_cases::CONSTANT_FLOAT_MODULO.to_string();
+    let result = run_main(source).unwrap();
+
+    assert_eq!(result, Some(Value::float(4.0)));
+}
+
+#[test]
+fn constant_integer_modulo() {
+    let source = constant_cases::CONSTANT_INTEGER_MODULO.to_string();
+    let result = run_main(source).unwrap();
+
+    assert_eq!(result, Some(Value::integer(4)));
+}
+
+#[test]
 fn constant_integer_negation() {
     let source = constant_cases::CONSTANT_INTEGER_NEGATION.to_string();
     let result = run_main(source).unwrap();

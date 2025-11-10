@@ -39,10 +39,10 @@ pub struct ChunkCompiler<'a> {
     /// Concatenated list of arguments referenced by CALL instructions.
     call_arguments: Vec<(Address, OperandType)>,
 
-    /// Concatenated list of register indexes that are referenced by DROP and JUMP instructions.
+    /// Concatenated list of register indices that are referenced by DROP and JUMP instructions.
     drop_lists: Vec<u16>,
 
-    /// List of register indexes that need to be dropped at the end of the current scope.
+    /// List of register indices that need to be dropped at the end of the current scope.
     pending_drops: Vec<SmallVec<[u16; 8]>>,
 
     jump_placements: HashMap<u16, JumpPlacement>,
@@ -214,7 +214,7 @@ impl<'a> ChunkCompiler<'a> {
         )
     }
 
-    fn create_jump_anchor_id(&mut self) -> u16 {
+    fn create_jump_id(&mut self) -> u16 {
         let anchor_id = self.next_jump_id;
 
         self.next_jump_id += 1;
@@ -850,9 +850,9 @@ impl<'a> ChunkCompiler<'a> {
                     for (instruction, jump_anchors) in instructions {
                         compiler.emit_instruction(instruction);
 
-                        for JumpAnchor { id, kind } in jump_anchors {
-                            match kind {
-                                JumpKind::ForwardFrom => {
+                        for anchor in jump_anchors {
+                            match anchor {
+                                JumpAnchor::ForwardFromHere { id } => {
                                     let coalesce =
                                         if is_instruction_coallescible_with_jump(instruction, true)
                                         {
@@ -873,13 +873,70 @@ impl<'a> ChunkCompiler<'a> {
                                         },
                                     );
                                 }
-                                JumpKind::ForwardToNext => {
+                                JumpAnchor::ForwardToNext { id } => {
                                     let placement = compiler.jump_placements.get_mut(&id).unwrap();
                                     let next_index = compiler.instructions.len();
 
                                     placement.distance = (next_index - placement.index - 1) as u16;
                                 }
-                                _ => (),
+                                JumpAnchor::LoopStartHere {
+                                    forward_id,
+                                    backward_id,
+                                } => {
+                                    let coalesce = if is_instruction_coallescible_with_jump(
+                                        instruction,
+                                        false,
+                                    ) {
+                                        true
+                                    } else {
+                                        compiler.emit_instruction(Instruction::no_op());
+
+                                        false
+                                    };
+
+                                    compiler.jump_placements.insert(
+                                        forward_id,
+                                        JumpPlacement {
+                                            index: compiler.instructions.len() - 1,
+                                            distance: 0,
+                                            forward: true,
+                                            coalesce,
+                                        },
+                                    );
+                                }
+                                JumpAnchor::LoopEndOnNext {
+                                    forward_id,
+                                    backward_id,
+                                } => {
+                                    let forward_plament =
+                                        compiler.jump_placements.get_mut(&forward_id).unwrap();
+                                    let next_index = compiler.instructions.len();
+
+                                    forward_plament.distance =
+                                        (next_index - forward_plament.index) as u16;
+
+                                    let forward_index = forward_plament.index;
+                                    let coalesce = if is_instruction_coallescible_with_jump(
+                                        instruction,
+                                        false,
+                                    ) {
+                                        true
+                                    } else {
+                                        compiler.emit_instruction(Instruction::no_op());
+
+                                        false
+                                    };
+                                    let backward_placement = JumpPlacement {
+                                        index: compiler.instructions.len() - 1,
+                                        distance: (next_index - forward_index) as u16,
+                                        forward: false,
+                                        coalesce,
+                                    };
+
+                                    compiler
+                                        .jump_placements
+                                        .insert(backward_id, backward_placement);
+                                }
                             }
                         }
                     }
@@ -2486,14 +2543,22 @@ impl<'a> ChunkCompiler<'a> {
             .ok_or(CompileError::MissingSyntaxNode { syntax_id: body_id })?;
 
         let mut while_emission = InstructionsEmission::new();
-
         let condition_emission = self.compile_expression(&condition_node, None)?;
 
         self.handle_condition_emission(&mut while_emission, condition_emission, &condition_node)?;
 
-        let jump_forward_index = while_emission.length();
+        let jump_forward_id = self.create_jump_id();
+        let jump_backward_id = self.create_jump_id();
 
-        while_emission.push(Instruction::no_op());
+        while_emission
+            .instructions
+            .last_mut()
+            .unwrap()
+            .1
+            .push(JumpAnchor::LoopStartHere {
+                forward_id: jump_forward_id,
+                backward_id: jump_backward_id,
+            });
 
         let body_emission = self.compile_expression_statement(&body_node)?;
 
@@ -2538,13 +2603,15 @@ impl<'a> ChunkCompiler<'a> {
             Emission::None => {}
         }
 
-        let jump_distance = (while_emission.length() - jump_forward_index) as u16;
-        let jump_forward_instruction = Instruction::jump(jump_distance, true);
-        let jump_back_instruction = Instruction::jump(jump_distance, false);
-
-        while_emission.instructions[jump_forward_index].0 = jump_forward_instruction;
-
-        while_emission.push(jump_back_instruction);
+        while_emission
+            .instructions
+            .last_mut()
+            .unwrap()
+            .1
+            .push(JumpAnchor::LoopEndOnNext {
+                forward_id: jump_forward_id,
+                backward_id: jump_backward_id,
+            });
 
         Ok(Emission::Instructions(while_emission))
     }
@@ -3020,16 +3087,15 @@ impl<'a> ChunkCompiler<'a> {
 
         self.handle_condition_emission(&mut if_emission, condition_emission, &condition_node)?;
 
-        let jump_over_then_id = self.create_jump_anchor_id();
+        let jump_over_then_id = self.create_jump_id();
 
         if_emission
             .instructions
             .last_mut()
             .unwrap()
             .1
-            .push(JumpAnchor {
+            .push(JumpAnchor::ForwardFromHere {
                 id: jump_over_then_id,
-                kind: JumpKind::ForwardFrom,
             });
 
         let start_else_anchor_count = self.jump_over_else_anchor_ids.len();
@@ -3052,22 +3118,20 @@ impl<'a> ChunkCompiler<'a> {
             .last_mut()
             .unwrap()
             .1
-            .push(JumpAnchor {
+            .push(JumpAnchor::ForwardToNext {
                 id: jump_over_then_id,
-                kind: JumpKind::ForwardToNext,
             });
 
         if children_ids.len() == 3 {
-            let jump_over_else_id = self.create_jump_anchor_id();
+            let jump_over_else_id = self.create_jump_id();
 
             if_emission
                 .instructions
                 .last_mut()
                 .unwrap()
                 .1
-                .push(JumpAnchor {
+                .push(JumpAnchor::ForwardFromHere {
                     id: jump_over_else_id,
-                    kind: JumpKind::ForwardFrom,
                 });
             self.jump_over_else_anchor_ids.push(jump_over_else_id);
 
@@ -3111,9 +3175,8 @@ impl<'a> ChunkCompiler<'a> {
                 .last_mut()
                 .unwrap()
                 .1
-                .push(JumpAnchor {
+                .push(JumpAnchor::ForwardToNext {
                     id: jump_over_else_id,
-                    kind: JumpKind::ForwardToNext,
                 });
         }
 
@@ -3335,17 +3398,11 @@ struct Local {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct JumpAnchor {
-    id: u16,
-    kind: JumpKind,
-}
-
-#[derive(Clone, Copy, Debug)]
-enum JumpKind {
-    ForwardFrom,
-    ForwardToNext,
-    BackwardFrom,
-    BackwardTo,
+enum JumpAnchor {
+    ForwardFromHere { id: u16 },
+    ForwardToNext { id: u16 },
+    LoopStartHere { forward_id: u16, backward_id: u16 },
+    LoopEndOnNext { forward_id: u16, backward_id: u16 },
 }
 
 #[derive(Clone, Copy, Debug)]

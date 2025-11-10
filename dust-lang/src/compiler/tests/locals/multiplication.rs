@@ -7,6 +7,81 @@ use crate::{
 };
 
 #[test]
+fn local_mut_byte_multiplication() {
+    let source = local_cases::LOCAL_MUT_BYTE_MULTIPLICATION.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Byte),
+            instructions: vec![
+                Instruction::r#move(0, Address::encoded(14), OperandType::BYTE),
+                Instruction::multiply(
+                    0,
+                    Address::register(0),
+                    Address::encoded(3),
+                    OperandType::BYTE
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::BYTE)
+            ],
+            register_count: 1,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn local_mut_float_multiplication() {
+    let source = local_cases::LOCAL_MUT_FLOAT_MULTIPLICATION.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Float),
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
+                Instruction::multiply(
+                    0,
+                    Address::register(0),
+                    Address::constant(1),
+                    OperandType::FLOAT
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::FLOAT)
+            ],
+            register_count: 1,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn local_mut_integer_multiplication() {
+    let source = local_cases::LOCAL_MUT_INTEGER_MULTIPLICATION.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::multiply(
+                    0,
+                    Address::register(0),
+                    Address::constant(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::r#return(true, Address::register(0), OperandType::INTEGER)
+            ],
+            register_count: 1,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
 fn local_byte_multiplication() {
     let source = local_cases::LOCAL_BYTE_MULTIPLICATION.to_string();
     let chunk = compile_main(source).unwrap();

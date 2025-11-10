@@ -349,6 +349,63 @@ fn constant_integer_division() {
 }
 
 #[test]
+fn constant_byte_modulo() {
+    let source = constant_cases::CONSTANT_BYTE_MODULO.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Byte),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(4),
+                OperandType::BYTE
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_float_modulo() {
+    let source = constant_cases::CONSTANT_FLOAT_MODULO.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Float),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::FLOAT
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_integer_modulo() {
+    let source = constant_cases::CONSTANT_INTEGER_MODULO.to_string();
+    let chunk = compile_main(source).unwrap();
+
+    assert_eq!(
+        chunk,
+        Chunk {
+            function_type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::INTEGER
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
 fn constant_integer_negation() {
     let source = constant_cases::CONSTANT_INTEGER_NEGATION.to_string();
     let chunk = compile_main(source).unwrap();
