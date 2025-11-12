@@ -879,10 +879,7 @@ impl<'a> ChunkCompiler<'a> {
 
                                     placement.distance = (next_index - placement.index - 1) as u16;
                                 }
-                                JumpAnchor::LoopStartHere {
-                                    forward_id,
-                                    backward_id,
-                                } => {
+                                JumpAnchor::LoopStartHere { forward_id } => {
                                     let coalesce = if is_instruction_coallescible_with_jump(
                                         instruction,
                                         false,
@@ -2557,7 +2554,6 @@ impl<'a> ChunkCompiler<'a> {
             .1
             .push(JumpAnchor::LoopStartHere {
                 forward_id: jump_forward_id,
-                backward_id: jump_backward_id,
             });
 
         let body_emission = self.compile_expression_statement(&body_node)?;
@@ -3401,7 +3397,7 @@ struct Local {
 enum JumpAnchor {
     ForwardFromHere { id: u16 },
     ForwardToNext { id: u16 },
-    LoopStartHere { forward_id: u16, backward_id: u16 },
+    LoopStartHere { forward_id: u16 },
     LoopEndOnNext { forward_id: u16, backward_id: u16 },
 }
 
