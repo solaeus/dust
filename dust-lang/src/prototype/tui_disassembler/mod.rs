@@ -12,7 +12,8 @@ use ratatui::{
 };
 
 use crate::{
-    chunk::Chunk, dust_crate::Program, resolver::Resolver, source::Source, syntax_tree::SyntaxTree,
+    dust_crate::Program, prototype::Prototype, resolver::Resolver, source::Source,
+    syntax_tree::SyntaxTree,
 };
 
 use block_table::BlockTable;
@@ -42,10 +43,10 @@ impl<'a> TuiDisassembler<'a> {
             tabs.push(file.name.clone());
         }
 
-        for (index, chunk) in program.prototypes.iter().enumerate() {
-            let chunk_name = if index == 0 {
+        for (index, prototype) in program.prototypes.iter().enumerate() {
+            let prototype_name = if index == 0 {
                 "main".to_string()
-            } else if let Some(name_position) = chunk.name_position {
+            } else if let Some(name_position) = prototype.name_position {
                 files
                     .get(name_position.file_id.0 as usize)
                     .and_then(|file| {
@@ -59,7 +60,7 @@ impl<'a> TuiDisassembler<'a> {
             } else {
                 "anonymous".to_string()
             };
-            tabs.push(chunk_name);
+            tabs.push(prototype_name);
         }
 
         Self {
@@ -152,7 +153,13 @@ impl<'a> TuiDisassembler<'a> {
         paragraph.render(syntax_area, buffer);
     }
 
-    fn draw_chunk_tab(&self, index: usize, chunk: &Chunk, area: Rect, buffer: &mut Buffer) {
+    fn draw_prototype_tab(
+        &self,
+        index: usize,
+        prototype: &Prototype,
+        area: Rect,
+        buffer: &mut Buffer,
+    ) {
         fn get_section_length(count: usize) -> u16 {
             if count == 0 { 0 } else { count as u16 + 3 }
         }
@@ -168,10 +175,10 @@ impl<'a> TuiDisassembler<'a> {
             Constraint::Length(2),
             Constraint::Length(2),
             Constraint::Length(2),
-            Constraint::Length(get_section_length(chunk.instructions.len())),
+            Constraint::Length(get_section_length(prototype.instructions.len())),
             Constraint::Length(get_section_length(self.program.constants.len())),
-            Constraint::Length(get_section_length(chunk.call_arguments.len())),
-            Constraint::Length(get_section_length(chunk.drop_lists.len())),
+            Constraint::Length(get_section_length(prototype.call_arguments.len())),
+            Constraint::Length(get_section_length(prototype.drop_lists.len())),
         ]);
         let [
             prototype_area,
@@ -191,21 +198,21 @@ impl<'a> TuiDisassembler<'a> {
 
         Paragraph::new(format!(
             "{} instructions, {} registers",
-            chunk.instructions.len(),
-            chunk.register_count,
+            prototype.instructions.len(),
+            prototype.register_count,
         ))
         .centered()
         .wrap(Wrap { trim: true })
         .render(info_area, buffer);
 
-        Paragraph::new(format!("Function type: {}", chunk.function_type))
+        Paragraph::new(format!("Function type: {}", prototype.function_type))
             .centered()
             .wrap(Wrap { trim: true })
             .render(type_area, buffer);
 
         // Instructions section
         {
-            let instruction_rows = chunk
+            let instruction_rows = prototype
                 .instructions
                 .iter()
                 .enumerate()
@@ -248,8 +255,8 @@ impl<'a> TuiDisassembler<'a> {
         }
 
         // Arguments section
-        if !chunk.call_arguments.is_empty() {
-            let argument_rows = chunk
+        if !prototype.call_arguments.is_empty() {
+            let argument_rows = prototype
                 .call_arguments
                 .iter()
                 .enumerate()
@@ -268,8 +275,8 @@ impl<'a> TuiDisassembler<'a> {
         }
 
         // Drops section
-        if !chunk.drop_lists.is_empty() {
-            let drop_list_rows = chunk
+        if !prototype.drop_lists.is_empty() {
+            let drop_list_rows = prototype
                 .drop_lists
                 .iter()
                 .enumerate()
@@ -304,7 +311,7 @@ impl Widget for &TuiDisassembler<'_> {
             program_name_area,
             program_info_area,
             _,
-            chunk_tabs_header_area,
+            prototype_tabs_header_area,
             tab_content_area,
         ] = frame_areas.areas(area);
 
@@ -313,22 +320,22 @@ impl Widget for &TuiDisassembler<'_> {
             .wrap(Wrap { trim: true })
             .render(title_area, buffer);
 
-        let main_chunk = &self.program.main_chunk();
+        let main_prototype = &self.program.main_prototype();
         let files = self.source.read_files();
-        let main_chunk_name = main_chunk
+        let main_prototype_name = main_prototype
             .name_position
             .and_then(|pos| files.get(pos.file_id.0 as usize))
             .map(|file| file.name.as_str())
             .unwrap_or("unknown");
 
-        Paragraph::new(format!("program: {main_chunk_name}",))
+        Paragraph::new(format!("program: {main_prototype_name}",))
             .centered()
             .wrap(Wrap { trim: true })
             .render(program_name_area, buffer);
 
         Paragraph::new(format!(
             "main function type: {} ({} other prototypes)",
-            main_chunk.function_type,
+            main_prototype.function_type,
             self.program.prototypes.len() - 1,
         ))
         .centered()
@@ -338,7 +345,7 @@ impl Widget for &TuiDisassembler<'_> {
         Tabs::new(self.tabs.clone())
             .highlight_style(Style::default().cyan().bold())
             .select(self.selected_tab)
-            .render(chunk_tabs_header_area, buffer);
+            .render(prototype_tabs_header_area, buffer);
 
         if self.selected_tab < files.len() {
             let source_file = files.get(self.selected_tab).unwrap();
@@ -351,10 +358,10 @@ impl Widget for &TuiDisassembler<'_> {
                 buffer,
             );
         } else {
-            let chunk_index = self.selected_tab - files.len();
-            let chunk = &self.program.prototypes[chunk_index];
+            let prototype_index = self.selected_tab - files.len();
+            let prototype = &self.program.prototypes[prototype_index];
 
-            self.draw_chunk_tab(chunk_index, chunk, tab_content_area, buffer);
+            self.draw_prototype_tab(prototype_index, prototype, tab_content_area, buffer);
         }
     }
 }

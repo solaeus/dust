@@ -1,7 +1,7 @@
 //! Representation of a Dust program or function.
 //!
-//! A chunk is output by the compiler to represent all the information needed to execute a function.
-//! Each function in the source is compiled into its own chunk and stored in the global `prototypes`
+//! A prototype is output by the compiler to represent all the information needed to execute a function.
+//! Each function in the source is compiled into its own prototype and stored in the global `prototypes`
 //! collection.
 // mod disassembler;
 mod tui_disassembler;
@@ -21,7 +21,7 @@ use crate::{
 ///
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Chunk {
+pub struct Prototype {
     pub(crate) name_position: Option<Position>,
     pub(crate) function_type: FunctionType,
 

@@ -1,5 +1,5 @@
 use crate::{
-    chunk::Chunk,
+    prototype::Prototype,
     compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
     tests::local_cases,
@@ -9,11 +9,11 @@ use crate::{
 #[test]
 fn local_byte_subtraction() {
     let source = local_cases::LOCAL_BYTE_SUBTRACTION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(44), OperandType::BYTE),
@@ -35,11 +35,11 @@ fn local_byte_subtraction() {
 #[test]
 fn local_float_subtraction() {
     let source = local_cases::LOCAL_FLOAT_SUBTRACTION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -61,11 +61,11 @@ fn local_float_subtraction() {
 #[test]
 fn local_integer_subtraction() {
     let source = local_cases::LOCAL_INTEGER_SUBTRACTION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -87,11 +87,11 @@ fn local_integer_subtraction() {
 #[test]
 fn local_mut_byte_subtraction() {
     let source = local_cases::LOCAL_MUT_BYTE_SUBTRACTION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(44), OperandType::BYTE),
@@ -112,11 +112,11 @@ fn local_mut_byte_subtraction() {
 #[test]
 fn local_mut_float_subtraction() {
     let source = local_cases::LOCAL_MUT_FLOAT_SUBTRACTION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -137,11 +137,11 @@ fn local_mut_float_subtraction() {
 #[test]
 fn local_mut_integer_subtraction() {
     let source = local_cases::LOCAL_MUT_INTEGER_SUBTRACTION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

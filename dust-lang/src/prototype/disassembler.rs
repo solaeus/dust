@@ -1,6 +1,6 @@
-//! Tool for disassembling chunks into a human-readable format.
+//! Tool for disassembling prototypes into a human-readable format.
 //!
-//! A disassembler can be created by calling [Chunk::disassembler][] or by instantiating one with
+//! A disassembler can be created by calling [Prototype::disassembler][] or by instantiating one with
 //! [Disassembler::new][].
 //!
 //! # Options
@@ -13,7 +13,7 @@ use std::io::{self, Write};
 
 use colored::{ColoredString, Colorize};
 
-use crate::{Address, Chunk};
+use crate::{Address, Prototype};
 
 const INSTRUCTION_COLUMNS: [(&str, usize); 3] = [("i", 5), ("OPERATION", 13), ("INFO", 41)];
 const INSTRUCTION_BORDERS: [&str; 3] = [
@@ -50,11 +50,11 @@ const BOTTOM_BORDER: [char; 3] = ['╰', '─', '╯'];
 
 const WIDTH: usize = 80;
 
-/// Builder that constructs a human-readable representation of a chunk.
+/// Builder that constructs a human-readable representation of a prototype.
 ///
 /// See the [module-level documentation](index.html) for more information.
 pub struct Disassembler<'a, 'w, W> {
-    chunk: &'a Chunk,
+    prototype: &'a Prototype,
     writer: &'w mut W,
     source: Option<&'a str>,
 
@@ -64,9 +64,9 @@ pub struct Disassembler<'a, 'w, W> {
 }
 
 impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
-    pub fn new(chunk: &'a Chunk, writer: &'w mut W) -> Self {
+    pub fn new(prototype: &'a Prototype, writer: &'w mut W) -> Self {
         Self {
-            chunk,
+            prototype,
             writer,
             source: None,
             style: false,
@@ -95,10 +95,10 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
     pub fn disassemble(&mut self) -> Result<(), io::Error> {
         self.write_page_border(TOP_BORDER)?;
 
-        self.write_center_border_bold(self.chunk.name.as_str())?;
+        self.write_center_border_bold(self.prototype.name.as_str())?;
 
         if self.show_type {
-            let type_display = self.chunk.r#type.to_string();
+            let type_display = self.prototype.r#type.to_string();
 
             self.write_center_border(&type_display)?;
         }
@@ -113,28 +113,28 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
 
         let info_line = format!(
             "{} instructions, {} constants, returns {}",
-            self.chunk.instructions.len(),
-            self.chunk.constants.len(),
-            self.chunk.r#type.return_type
+            self.prototype.instructions.len(),
+            self.prototype.constants.len(),
+            self.prototype.r#type.return_type
         );
 
         self.write_center_border_dim(&info_line)?;
         self.write_center_border("")?;
 
-        if !self.chunk.instructions.is_empty() {
-            self.write_instruction_section(self.chunk)?;
+        if !self.prototype.instructions.is_empty() {
+            self.write_instruction_section(self.prototype)?;
         }
 
-        if !self.chunk.constants.is_empty() {
-            self.write_constant_section(self.chunk)?;
+        if !self.prototype.constants.is_empty() {
+            self.write_constant_section(self.prototype)?;
         }
 
-        if !self.chunk.call_arguments.is_empty() {
-            self.write_call_arguments_section(self.chunk)?;
+        if !self.prototype.call_arguments.is_empty() {
+            self.write_call_arguments_section(self.prototype)?;
         }
 
-        if !self.chunk.drop_lists.is_empty() {
-            self.write_drop_list_section(self.chunk)?;
+        if !self.prototype.drop_lists.is_empty() {
+            self.write_drop_list_section(self.prototype)?;
         }
 
         self.write_page_border(BOTTOM_BORDER)
@@ -253,7 +253,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         self.write_char('\n')
     }
 
-    fn write_instruction_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
+    fn write_instruction_section(&mut self, prototype: &Prototype) -> Result<(), io::Error> {
         let mut column_name_line = String::new();
 
         for (column_name, width) in INSTRUCTION_COLUMNS {
@@ -266,7 +266,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(INSTRUCTION_BORDERS[1])?;
 
-        for (index, instruction) in chunk.instructions.iter().enumerate() {
+        for (index, instruction) in prototype.instructions.iter().enumerate() {
             let operation = instruction.operation().to_string();
             let info = instruction.disassembly_info();
             let row = format!("│{index:^5}│{operation:^13}│{info:^41}│");
@@ -279,7 +279,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         Ok(())
     }
 
-    fn write_constant_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
+    fn write_constant_section(&mut self, prototype: &Prototype) -> Result<(), io::Error> {
         let mut column_name_line = String::new();
 
         for (column_name, width) in CONSTANT_COLUMNS {
@@ -292,7 +292,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(CONSTANT_BORDERS[1])?;
 
-        for (index, value) in chunk.constants.iter().enumerate() {
+        for (index, value) in prototype.constants.iter().enumerate() {
             let r#type = value.operand_type();
             let type_display = r#type.to_string();
             let value_display = {
@@ -316,7 +316,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         Ok(())
     }
 
-    fn write_call_arguments_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
+    fn write_call_arguments_section(&mut self, prototype: &Prototype) -> Result<(), io::Error> {
         let mut column_name_line = String::new();
         let (column_name, width) = ARGUMENT_LIST_COLUMN;
 
@@ -326,7 +326,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(ARGUMENT_LIST_BORDERS[1])?;
 
-        let row = format!("│{:52?}│", chunk.call_arguments);
+        let row = format!("│{:52?}│", prototype.call_arguments);
 
         self.write_center_border(&row)?;
         self.write_center_border(ARGUMENT_LIST_BORDERS[2])?;
@@ -334,7 +334,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         Ok(())
     }
 
-    fn write_drop_list_section(&mut self, chunk: &Chunk) -> Result<(), io::Error> {
+    fn write_drop_list_section(&mut self, prototype: &Prototype) -> Result<(), io::Error> {
         let mut column_name_line = String::new();
 
         column_name_line.push_str(&format!(
@@ -349,7 +349,7 @@ impl<'a, 'w, W: Write> Disassembler<'a, 'w, W> {
         self.write_center_border_bold(&column_name_line)?;
         self.write_center_border(DROP_LIST_BORDERS[1])?;
 
-        let registers_display = chunk
+        let registers_display = prototype
             .drop_lists
             .iter()
             .map(|index| format!("reg_{index}"))

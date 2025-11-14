@@ -1,7 +1,7 @@
 use crate::{
-    chunk::Chunk,
     compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
+    prototype::Prototype,
     tests::local_cases,
     r#type::{FunctionType, Type},
 };
@@ -9,11 +9,11 @@ use crate::{
 #[test]
 fn local_boolean_less_than_or_equal() {
     let source = local_cases::LOCAL_BOOLEAN_LESS_THAN_OR_EQUAL.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -43,11 +43,11 @@ fn local_boolean_less_than_or_equal() {
 #[test]
 fn local_byte_less_than_or_equal() {
     let source = local_cases::LOCAL_BYTE_LESS_THAN_OR_EQUAL.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(0x2A), OperandType::BYTE),
@@ -77,11 +77,11 @@ fn local_byte_less_than_or_equal() {
 #[test]
 fn local_character_less_than_or_equal() {
     let source = local_cases::LOCAL_CHARACTER_LESS_THAN_OR_EQUAL.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
@@ -111,11 +111,11 @@ fn local_character_less_than_or_equal() {
 #[test]
 fn local_float_less_than_or_equal() {
     let source = local_cases::LOCAL_FLOAT_LESS_THAN_OR_EQUAL.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -145,11 +145,11 @@ fn local_float_less_than_or_equal() {
 #[test]
 fn local_integer_less_than_or_equal() {
     let source = local_cases::LOCAL_INTEGER_LESS_THAN_OR_EQUAL.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -179,11 +179,11 @@ fn local_integer_less_than_or_equal() {
 #[test]
 fn local_string_less_than_or_equal() {
     let source = local_cases::LOCAL_STRING_LESS_THAN_OR_EQUAL.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),

@@ -1,5 +1,5 @@
 use crate::{
-    chunk::Chunk,
+    prototype::Prototype,
     compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
     tests::local_cases,
@@ -9,11 +9,11 @@ use crate::{
 #[test]
 fn local_boolean_or() {
     let source = local_cases::LOCAL_BOOLEAN_OR.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),

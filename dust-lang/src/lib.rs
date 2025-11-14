@@ -10,7 +10,6 @@
     pattern
 )]
 
-pub mod chunk;
 pub mod compiler;
 pub mod constant_table;
 pub mod dust_crate;
@@ -21,6 +20,7 @@ pub mod lexer;
 pub mod native_function;
 pub mod parser;
 pub mod project;
+pub mod prototype;
 pub mod resolver;
 pub mod source;
 pub mod syntax_tree;

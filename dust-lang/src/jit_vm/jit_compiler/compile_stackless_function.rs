@@ -14,7 +14,7 @@ use smallvec::SmallVec;
 use tracing::{Level, info, span};
 
 use crate::{
-    chunk::Chunk,
+    prototype::Prototype,
     constant_table::ConstantTable,
     instruction::{
         Address, Call, CallNative, Drop, GetList, Jump, MemoryKind, Move, Negate, NewList,
@@ -31,7 +31,7 @@ use crate::{
 
 pub fn compile_stackless_function(
     function_id: FuncId,
-    chunk: &Chunk,
+    prototype: &Prototype,
     is_main: bool,
     compiler: &mut JitCompiler,
 ) -> Result<(), JitError> {
@@ -359,7 +359,7 @@ pub fn compile_stackless_function(
         )?
     };
 
-    let bytecode_instructions = &chunk.instructions;
+    let bytecode_instructions = &prototype.instructions;
     let instruction_count = bytecode_instructions.len();
 
     let function_entry_block = function_builder.create_block();
@@ -413,7 +413,7 @@ pub fn compile_stackless_function(
 
     let register_count = function_builder
         .ins()
-        .iconst(I64, chunk.register_count as i64);
+        .iconst(I64, prototype.register_count as i64);
 
     function_builder.ins().store(
         MemFlags::new(),
@@ -611,11 +611,11 @@ pub fn compile_stackless_function(
                 } = Drop::from(*current_instruction);
                 let drop_list_range = drop_list_start as usize..drop_list_end as usize;
 
-                let safepoint_registers = chunk.drop_lists.get(drop_list_range).ok_or(
+                let safepoint_registers = prototype.drop_lists.get(drop_list_range).ok_or(
                     JitError::DropListRangeOutOfBounds {
                         drop_list_start,
                         drop_list_end,
-                        total_safepoint_count: chunk.drop_lists.len(),
+                        total_safepoint_count: prototype.drop_lists.len(),
                     },
                 )?;
 
@@ -1431,11 +1431,11 @@ pub fn compile_stackless_function(
                     .declare_func_in_func(*direct, function_builder.func);
                 let arguments_range =
                     arguments_start as usize..(arguments_start as usize + argument_count as usize);
-                let call_arguments_list = chunk.call_arguments.get(arguments_range).ok_or(
+                let call_arguments_list = prototype.call_arguments.get(arguments_range).ok_or(
                     JitError::ArgumentsRangeOutOfBounds {
                         arguments_start,
                         arguments_end: arguments_start + argument_count,
-                        total_argument_count: chunk.call_arguments.len(),
+                        total_argument_count: prototype.call_arguments.len(),
                     },
                 )?;
 
@@ -1498,11 +1498,11 @@ pub fn compile_stackless_function(
                 let argument_count = function_type.value_parameters.len();
                 let arguments_range =
                     arguments_index as usize..(arguments_index as usize + argument_count);
-                let call_arguments_list = chunk.call_arguments.get(arguments_range).ok_or(
+                let call_arguments_list = prototype.call_arguments.get(arguments_range).ok_or(
                     JitError::ArgumentsRangeOutOfBounds {
                         arguments_start: arguments_index,
                         arguments_end: arguments_index + argument_count as u16,
-                        total_argument_count: chunk.call_arguments.len(),
+                        total_argument_count: prototype.call_arguments.len(),
                     },
                 )?;
                 let mut arguments = Vec::with_capacity(call_arguments_list.len() + 1);
@@ -1592,11 +1592,11 @@ pub fn compile_stackless_function(
                 if drop_list_end > drop_list_start {
                     let drop_list_range = drop_list_start as usize..drop_list_end as usize;
 
-                    let safepoint_registers = chunk.drop_lists.get(drop_list_range).ok_or(
+                    let safepoint_registers = prototype.drop_lists.get(drop_list_range).ok_or(
                         JitError::DropListRangeOutOfBounds {
                             drop_list_start,
                             drop_list_end,
-                            total_safepoint_count: chunk.drop_lists.len(),
+                            total_safepoint_count: prototype.drop_lists.len(),
                         },
                     )?;
 

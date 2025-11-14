@@ -1,5 +1,5 @@
 use crate::{
-    chunk::Chunk,
+    prototype::Prototype,
     compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
     tests::local_cases,
@@ -9,11 +9,11 @@ use crate::{
 #[test]
 fn local_boolean() {
     let source = local_cases::LOCAL_BOOLEAN.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -28,11 +28,11 @@ fn local_boolean() {
 #[test]
 fn local_byte() {
     let source = local_cases::LOCAL_BYTE.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(42), OperandType::BYTE),
@@ -47,11 +47,11 @@ fn local_byte() {
 #[test]
 fn local_character() {
     let source = local_cases::LOCAL_CHARACTER.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Character),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
@@ -66,11 +66,11 @@ fn local_character() {
 #[test]
 fn local_float() {
     let source = local_cases::LOCAL_FLOAT.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -85,11 +85,11 @@ fn local_float() {
 #[test]
 fn local_integer() {
     let source = local_cases::LOCAL_INTEGER.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -104,11 +104,11 @@ fn local_integer() {
 #[test]
 fn local_string() {
     let source = local_cases::LOCAL_STRING.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),

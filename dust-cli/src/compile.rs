@@ -1,6 +1,6 @@
 use std::{path::PathBuf, time::Instant};
 
-use dust_lang::{chunk::TuiDisassembler, compiler::Compiler};
+use dust_lang::{compiler::Compiler, prototype::TuiDisassembler};
 
 use crate::{handle_source, print_times};
 

@@ -196,12 +196,12 @@ impl Display for List {
                 }
             }
             List::Function(functions) => {
-                for (index, chunk) in functions.iter().enumerate() {
+                for (index, prototype) in functions.iter().enumerate() {
                     if index > 0 {
                         write!(f, ", ")?;
                     }
 
-                    write!(f, "{chunk}")?;
+                    write!(f, "{prototype}")?;
                 }
             }
         }

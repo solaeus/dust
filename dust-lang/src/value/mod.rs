@@ -210,7 +210,7 @@ impl Display for Value {
                 write!(f, "]")
             }
             Value::List(list) => write!(f, "{list}"),
-            Value::Function(chunk) => write!(f, "{chunk}"),
+            Value::Function(prototype) => write!(f, "{prototype}"),
         }
     }
 }

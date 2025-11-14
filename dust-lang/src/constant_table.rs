@@ -300,3 +300,44 @@ impl PartialEq for ConstantTable {
             && self.string_pool == other.string_pool
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn character() {
+        let mut table = ConstantTable::new();
+        let charcter_index = table.add_character('a');
+        let retrieved_character = table.get_character(charcter_index).unwrap();
+
+        assert_eq!(retrieved_character, 'a');
+    }
+
+    #[test]
+    fn float() {
+        let mut table = ConstantTable::new();
+        let float_index = table.add_float(42.0);
+        let retrieved_float = table.get_float(float_index).unwrap();
+
+        assert_eq!(retrieved_float, 42.0);
+    }
+
+    #[test]
+    fn integer() {
+        let mut table = ConstantTable::new();
+        let integer_index = table.add_integer(42);
+        let retrieved_integer = table.get_integer(integer_index).unwrap();
+
+        assert_eq!(retrieved_integer, 42);
+    }
+
+    #[test]
+    fn string() {
+        let mut table = ConstantTable::new();
+        let string_index = table.add_string(b"foobar");
+        let retrieved_string = table.get_string(string_index).unwrap();
+
+        assert_eq!(retrieved_string, "foobar");
+    }
+}

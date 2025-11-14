@@ -1,7 +1,7 @@
 use crate::{
-    chunk::Chunk,
     compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
+    prototype::Prototype,
     tests::if_else_cases,
     r#type::{FunctionType, Type},
 };
@@ -9,11 +9,11 @@ use crate::{
 #[test]
 fn if_else_true() {
     let source = if_else_cases::IF_ELSE_TRUE.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::test(Address::encoded(true as u16), true, 1),
@@ -31,11 +31,11 @@ fn if_else_true() {
 #[test]
 fn if_else_logical_and() {
     let source = if_else_cases::IF_ELSE_LOGICAL_AND.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -55,11 +55,11 @@ fn if_else_logical_and() {
 #[test]
 fn if_else_logical_or() {
     let source = if_else_cases::IF_ELSE_LOGICAL_OR.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(false as u16), OperandType::BOOLEAN),
@@ -79,11 +79,11 @@ fn if_else_logical_or() {
 #[test]
 fn if_else_false() {
     let source = if_else_cases::IF_ELSE_FALSE.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::test(Address::encoded(false as u16), true, 1),
@@ -101,11 +101,11 @@ fn if_else_false() {
 #[test]
 fn if_else_equal() {
     let source = if_else_cases::IF_ELSE_EQUAL.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -130,11 +130,11 @@ fn if_else_equal() {
 #[test]
 fn if_else_not_equal() {
     let source = if_else_cases::IF_ELSE_NOT_EQUAL.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -159,11 +159,11 @@ fn if_else_not_equal() {
 #[test]
 fn if_else_less_than() {
     let source = if_else_cases::IF_ELSE_LESS_THAN.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -188,11 +188,11 @@ fn if_else_less_than() {
 #[test]
 fn if_else_greater_than() {
     let source = if_else_cases::IF_ELSE_GREATER_THAN.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -217,11 +217,11 @@ fn if_else_greater_than() {
 #[test]
 fn if_else_less_than_equal() {
     let source = if_else_cases::IF_ELSE_LESS_THAN_EQUAL.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -246,11 +246,11 @@ fn if_else_less_than_equal() {
 #[test]
 fn if_else_greater_than_equal() {
     let source = if_else_cases::IF_ELSE_GREATER_THAN_EQUAL.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -275,11 +275,11 @@ fn if_else_greater_than_equal() {
 #[test]
 fn if_else_if_chain_end() {
     let source = if_else_cases::IF_ELSE_IF_CHAIN_END.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -312,11 +312,11 @@ fn if_else_if_chain_end() {
 #[test]
 fn if_else_if_chain_middle() {
     let source = if_else_cases::IF_ELSE_IF_CHAIN_MIDDLE.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -349,11 +349,11 @@ fn if_else_if_chain_middle() {
 #[test]
 fn if_else_nested() {
     let source = if_else_cases::IF_ELSE_NESTED.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -386,11 +386,11 @@ fn if_else_nested() {
 #[test]
 fn if_else_double_nested() {
     let source = if_else_cases::IF_ELSE_DOUBLE_NESTED.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

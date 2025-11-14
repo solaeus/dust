@@ -1,7 +1,7 @@
 use crate::{
-    chunk::Chunk,
     compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
+    prototype::Prototype,
     tests::local_cases,
     r#type::{FunctionType, Type},
 };
@@ -9,11 +9,11 @@ use crate::{
 #[test]
 fn local_byte_addition() {
     let source = local_cases::LOCAL_BYTE_ADDITION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(40), OperandType::BYTE),
@@ -35,11 +35,11 @@ fn local_byte_addition() {
 #[test]
 fn local_float_addition() {
     let source = local_cases::LOCAL_FLOAT_ADDITION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -61,11 +61,11 @@ fn local_float_addition() {
 #[test]
 fn local_integer_addition() {
     let source = local_cases::LOCAL_INTEGER_ADDITION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -87,11 +87,11 @@ fn local_integer_addition() {
 #[test]
 fn local_string_concatenation() {
     let source = local_cases::LOCAL_STRING_CONCATENATION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
@@ -113,11 +113,11 @@ fn local_string_concatenation() {
 #[test]
 fn local_character_concatenation() {
     let source = local_cases::LOCAL_CHARACTER_CONCATENATION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
@@ -139,11 +139,11 @@ fn local_character_concatenation() {
 #[test]
 fn local_string_character_concatenation() {
     let source = local_cases::LOCAL_STRING_CHARACTER_CONCATENATION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
@@ -165,11 +165,11 @@ fn local_string_character_concatenation() {
 #[test]
 fn local_character_string_concatenation() {
     let source = local_cases::LOCAL_CHARACTER_STRING_CONCATENATION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
@@ -191,11 +191,11 @@ fn local_character_string_concatenation() {
 #[test]
 fn local_mut_byte_addition() {
     let source = local_cases::LOCAL_MUT_BYTE_ADDITION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(40), OperandType::BYTE),
@@ -216,11 +216,11 @@ fn local_mut_byte_addition() {
 #[test]
 fn local_mut_float_addition() {
     let source = local_cases::LOCAL_MUT_FLOAT_ADDITION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -241,11 +241,11 @@ fn local_mut_float_addition() {
 #[test]
 fn local_mut_integer_addition() {
     let source = local_cases::LOCAL_MUT_INTEGER_ADDITION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -266,11 +266,11 @@ fn local_mut_integer_addition() {
 #[test]
 fn local_mut_string_concatenation() {
     let source = local_cases::LOCAL_MUT_STRING_CONCATENATION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
@@ -291,11 +291,11 @@ fn local_mut_string_concatenation() {
 #[test]
 fn local_mut_string_character_concatenation() {
     let source = local_cases::LOCAL_MUT_STRING_CHARACTER_CONCATENATION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),

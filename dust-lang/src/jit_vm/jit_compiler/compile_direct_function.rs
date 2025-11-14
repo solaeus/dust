@@ -9,7 +9,7 @@ use cranelift_module::{FuncId, Module, ModuleError};
 use tracing::{Level, info, span};
 
 use crate::{
-    chunk::Chunk,
+    prototype::Prototype,
     constant_table::ConstantTable,
     instruction::{
         Add, Address, Call, CallNative, Jump, MemoryKind, Move, OperandType, Operation, Return,
@@ -21,7 +21,7 @@ use crate::{
 pub fn compile_direct_function(
     compiler: &mut JitCompiler,
     function_id: FuncId,
-    chunk: &Chunk,
+    prototype: &Prototype,
 ) -> Result<(), JitError> {
     let span = span!(Level::INFO, "direct");
     let _enter = span.enter();
@@ -29,7 +29,7 @@ pub fn compile_direct_function(
     let mut function_builder_context = FunctionBuilderContext::new();
     let mut compilation_context = compiler.module.make_context();
     let pointer_type = compiler.module.target_config().pointer_type();
-    let value_parameter_count = chunk.function_type.value_parameters.len();
+    let value_parameter_count = prototype.function_type.value_parameters.len();
 
     for _ in 0..value_parameter_count {
         compilation_context
@@ -116,7 +116,7 @@ pub fn compile_direct_function(
         )?
     };
 
-    let bytecode_instructions = &chunk.instructions;
+    let bytecode_instructions = &prototype.instructions;
     let instruction_count = bytecode_instructions.len();
 
     let function_entry_block = function_builder.create_block();
@@ -136,7 +136,7 @@ pub fn compile_direct_function(
     let thread_context = *entry_block_params.last().unwrap();
 
     let function_arguments = entry_block_params[..entry_block_params.len() - 1].to_vec();
-    let mut ssa_registers = vec![CraneliftValue::from_u32(0); chunk.register_count as usize];
+    let mut ssa_registers = vec![CraneliftValue::from_u32(0); prototype.register_count as usize];
 
     for (index, argument) in function_arguments.iter().enumerate() {
         ssa_registers[index] = *argument;
@@ -368,11 +368,11 @@ pub fn compile_direct_function(
                 let arguments_end = arguments_start + argument_count;
                 let arguments_range = arguments_start as usize..arguments_end as usize;
 
-                let call_arguments_list = chunk.call_arguments.get(arguments_range).ok_or(
+                let call_arguments_list = prototype.call_arguments.get(arguments_range).ok_or(
                     JitError::ArgumentsRangeOutOfBounds {
                         arguments_start,
                         arguments_end,
-                        total_argument_count: chunk.call_arguments.len(),
+                        total_argument_count: prototype.call_arguments.len(),
                     },
                 )?;
                 let mut arguments = Vec::with_capacity(call_arguments_list.len() + 1);
@@ -421,11 +421,11 @@ pub fn compile_direct_function(
                 let argument_count = function_type.value_parameters.len();
                 let arguments_range =
                     arguments_index as usize..(arguments_index as usize + argument_count);
-                let call_arguments_list = chunk.call_arguments.get(arguments_range).ok_or(
+                let call_arguments_list = prototype.call_arguments.get(arguments_range).ok_or(
                     JitError::ArgumentsRangeOutOfBounds {
                         arguments_start: arguments_index,
                         arguments_end: arguments_index + argument_count as u16,
-                        total_argument_count: chunk.call_arguments.len(),
+                        total_argument_count: prototype.call_arguments.len(),
                     },
                 )?;
                 let mut arguments = Vec::with_capacity(call_arguments_list.len() + 1);

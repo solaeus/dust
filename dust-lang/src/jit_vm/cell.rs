@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use crate::{chunk::Chunk, value::List};
+use crate::{prototype::Prototype, value::List};
 
 #[derive(Debug, Default)]
 pub struct Cell {
@@ -27,5 +27,5 @@ pub enum CellValue {
     Integer(i64),
     String(String),
     List(List),
-    Function(Arc<Chunk>),
+    Function(Arc<Prototype>),
 }

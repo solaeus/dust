@@ -136,10 +136,10 @@ impl<'a> JitCompiler<'a> {
                 continue;
             }
 
-            let chunk = &self.program.prototypes[index];
+            let prototype = &self.program.prototypes[index];
             let direct_name = format!("proto_{index}_direct");
             let stackless_name = format!("proto_{index}_stackless");
-            let value_parameters_count = chunk.function_type.value_parameters.len();
+            let value_parameters_count = prototype.function_type.value_parameters.len();
 
             let mut direct_signature = Signature::new(self.module.isa().default_call_conv());
 
@@ -171,7 +171,7 @@ impl<'a> JitCompiler<'a> {
             };
         }
 
-        let main_chunk = &self.program.prototypes[0];
+        let main_prototype = &self.program.prototypes[0];
         let function_references = {
             let mut references = Vec::with_capacity(self.program.prototypes.len());
 
@@ -183,7 +183,7 @@ impl<'a> JitCompiler<'a> {
                             .declare_func_in_func(stackless, &mut context.func);
 
                         references.push(main_reference);
-                        compile_stackless_function(stackless, main_chunk, true, self)?;
+                        compile_stackless_function(stackless, main_prototype, true, self)?;
 
                         continue;
                     }
@@ -191,11 +191,11 @@ impl<'a> JitCompiler<'a> {
                         let stackless_reference = self
                             .module
                             .declare_func_in_func(stackless, &mut context.func);
-                        let chunk = &self.program.prototypes[index];
+                        let prototype = &self.program.prototypes[index];
 
                         references.push(stackless_reference);
-                        compile_direct_function(self, direct, chunk)?;
-                        compile_stackless_function(stackless, chunk, false, self)?;
+                        compile_direct_function(self, direct, prototype)?;
+                        compile_stackless_function(stackless, prototype, false, self)?;
 
                         continue;
                     }
@@ -269,7 +269,7 @@ impl<'a> JitCompiler<'a> {
             let zero = function_builder.ins().iconst(I64, 0);
             let register_count = function_builder
                 .ins()
-                .iconst(I64, main_chunk.register_count as i64);
+                .iconst(I64, main_prototype.register_count as i64);
             let null_function_index = function_builder.ins().iconst(I64, u32::MAX as i64);
 
             push_call_frame(
@@ -576,8 +576,8 @@ pub fn get_compile_order(program: &Program) -> Vec<usize> {
     let mut edges: Vec<HashSet<usize>> = vec![HashSet::new(); prototype_count];
     let mut indegree = vec![0; prototype_count];
 
-    for (caller, chunk) in program.prototypes.iter().enumerate() {
-        for instr in &chunk.instructions {
+    for (caller, prototype) in program.prototypes.iter().enumerate() {
+        for instr in &prototype.instructions {
             if instr.operation() == Operation::CALL {
                 // b_field is the callee prototype index
                 let callee = instr.b_field() as usize;

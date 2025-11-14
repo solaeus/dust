@@ -5,10 +5,10 @@ use smallvec::SmallVec;
 use tracing::{debug, info, span, trace};
 
 use crate::{
-    chunk::Chunk,
     compiler::{CompileContext, binder::Binder},
     instruction::{Address, Drop, Instruction, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
+    prototype::Prototype,
     resolver::{
         Declaration, DeclarationId, DeclarationKind, FunctionTypeNode, Scope, ScopeId, ScopeKind,
         TypeId, TypeNode,
@@ -21,7 +21,7 @@ use crate::{
 use super::CompileError;
 
 #[derive(Debug)]
-pub struct ChunkCompiler<'a> {
+pub struct PrototypeCompiler<'a> {
     declaration_id: Option<DeclarationId>,
 
     file_id: SourceFileId,
@@ -60,7 +60,7 @@ pub struct ChunkCompiler<'a> {
     maximum_register: u16,
 }
 
-impl<'a> ChunkCompiler<'a> {
+impl<'a> PrototypeCompiler<'a> {
     pub fn new(
         declaration_id: Option<DeclarationId>,
         file_id: SourceFileId,
@@ -88,7 +88,7 @@ impl<'a> ChunkCompiler<'a> {
         }
     }
 
-    pub fn compile_main(mut self) -> Result<Chunk, CompileError> {
+    pub fn compile_main(mut self) -> Result<Prototype, CompileError> {
         let root_node =
             *self
                 .syntax_tree()?
@@ -101,7 +101,7 @@ impl<'a> ChunkCompiler<'a> {
         self.finish()
     }
 
-    pub fn finish(mut self) -> Result<Chunk, CompileError> {
+    pub fn finish(mut self) -> Result<Prototype, CompileError> {
         // self.context.constants.finalize_string_pool();
 
         let name_position = if let Some(declaration_id) = self.declaration_id {
@@ -190,7 +190,7 @@ impl<'a> ChunkCompiler<'a> {
             }
         }
 
-        Ok(Chunk {
+        Ok(Prototype {
             name_position,
             function_type,
             instructions: self.instructions,
@@ -807,7 +807,7 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling main function");
 
         fn handle_emission(
-            compiler: &mut ChunkCompiler,
+            compiler: &mut PrototypeCompiler,
             emission: Emission,
         ) -> Result<(), CompileError> {
             match emission {
@@ -1178,7 +1178,7 @@ impl<'a> ChunkCompiler<'a> {
 
             match function_node.kind {
                 SyntaxKind::PublicFunctionItem => {
-                    let mut importer = ChunkCompiler::new(
+                    let mut importer = PrototypeCompiler::new(
                         Some(final_declaration_id),
                         final_declaration.position.file_id,
                         function_type,
@@ -1626,7 +1626,7 @@ impl<'a> ChunkCompiler<'a> {
         info!("Compiling list expression");
 
         fn handle_element_emission(
-            compiler: &mut ChunkCompiler,
+            compiler: &mut PrototypeCompiler,
             instructions: &mut InstructionsEmission,
             element_emission: Emission,
             element_node: &SyntaxNode,
@@ -2781,7 +2781,7 @@ impl<'a> ChunkCompiler<'a> {
                 (None, function_scope)
             };
 
-        let mut function_compiler = ChunkCompiler::new(
+        let mut function_compiler = PrototypeCompiler::new(
             declaration_id,
             self.file_id,
             function_type_node,
@@ -2791,7 +2791,7 @@ impl<'a> ChunkCompiler<'a> {
 
         function_compiler.compile_implicit_return(&body_node)?;
 
-        let function_chunk = function_compiler.finish()?;
+        let function_prototype = function_compiler.finish()?;
         let prototype_index = self.context.prototypes.len() as u16;
         let address = Address::constant(prototype_index);
         let type_id = self
@@ -2799,7 +2799,7 @@ impl<'a> ChunkCompiler<'a> {
             .resolver
             .add_type_node(TypeNode::Function(function_type_node));
 
-        self.context.prototypes.push(function_chunk);
+        self.context.prototypes.push(function_prototype);
 
         Ok(Emission::Function(address, type_id))
     }
@@ -2810,7 +2810,7 @@ impl<'a> ChunkCompiler<'a> {
         target: Option<TargetRegister>,
     ) -> Result<Emission, CompileError> {
         fn handle_call_arguments(
-            compiler: &mut ChunkCompiler,
+            compiler: &mut PrototypeCompiler,
             instructions_emission: &mut InstructionsEmission,
             arguments_node: &SyntaxNode,
         ) -> Result<(), CompileError> {
@@ -3308,7 +3308,11 @@ impl InstructionsEmission {
         self.target_register = target;
     }
 
-    fn add_drop(&mut self, compiler: &mut ChunkCompiler, target_register: Option<TargetRegister>) {
+    fn add_drop(
+        &mut self,
+        compiler: &mut PrototypeCompiler,
+        target_register: Option<TargetRegister>,
+    ) {
         let start = compiler.drop_lists.len() as u16;
         let mut pending_drops_for_scope = compiler.pending_drops.pop().unwrap();
 

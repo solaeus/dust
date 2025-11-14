@@ -1,5 +1,5 @@
 use crate::{
-    chunk::Chunk,
+    prototype::Prototype,
     compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
     tests::loop_cases,
@@ -9,11 +9,11 @@ use crate::{
 #[test]
 fn while_loop() {
     let source = loop_cases::WHILE_LOOP.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

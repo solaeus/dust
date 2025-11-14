@@ -1,25 +1,25 @@
 mod binder;
-mod chunk_compiler;
 mod error;
+mod prototype_compiler;
 
 #[cfg(test)]
 mod tests;
 
-pub use chunk_compiler::ChunkCompiler;
 pub use error::CompileError;
+pub use prototype_compiler::PrototypeCompiler;
 use smallvec::SmallVec;
 use tracing::{Level, span};
 
 pub use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    chunk::Chunk,
     compiler::binder::Binder,
     constant_table::ConstantTable,
     dust_crate::Program,
     dust_error::DustError,
     lexer::Lexer,
     parser::{ParseResult, Parser},
+    prototype::Prototype,
     resolver::{
         Declaration, DeclarationKind, FunctionTypeNode, ModuleKind, Resolver, Scope, ScopeId,
         ScopeKind, TypeId,
@@ -28,7 +28,7 @@ use crate::{
     syntax_tree::SyntaxTree,
 };
 
-pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
+pub fn compile_main(source_code: String) -> Result<Prototype, DustError> {
     let source = Source::new();
     let mut files = source.write_files();
     let file = SourceFile {
@@ -73,7 +73,7 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
         constants: ConstantTable::new(),
         prototypes: Vec::new(),
     };
-    let chunk_compiler = ChunkCompiler::new(
+    let prototype_compiler = PrototypeCompiler::new(
         None,
         SourceFileId(0),
         FunctionTypeNode {
@@ -84,10 +84,10 @@ pub fn compile_main(source_code: String) -> Result<Chunk, DustError> {
         &mut context,
         ScopeId::MAIN,
     );
-    let compile_result = chunk_compiler.compile_main();
+    let compile_result = prototype_compiler.compile_main();
 
     match compile_result {
-        Ok(chunk) => Ok(chunk),
+        Ok(prototype) => Ok(prototype),
         Err(error) => Err(DustError::compile(error, source)),
     }
 }
@@ -236,9 +236,9 @@ impl Compiler {
             return Err(DustError::parse(errors, self.context.source));
         }
 
-        self.context.prototypes.push(Chunk::default()); // Insert a placeholder
+        self.context.prototypes.push(Prototype::default()); // Insert a placeholder
 
-        let chunk_compiler = ChunkCompiler::new(
+        let prototype_compiler = PrototypeCompiler::new(
             None,
             SourceFileId(0),
             FunctionTypeNode {
@@ -250,14 +250,14 @@ impl Compiler {
             ScopeId::MAIN,
         );
 
-        let chunk = match chunk_compiler.compile_main() {
-            Ok(chunk) => chunk,
+        let prototype = match prototype_compiler.compile_main() {
+            Ok(prototype) => prototype,
             Err(error) => {
                 return Err(DustError::compile(error, self.context.source));
             }
         };
 
-        self.context.prototypes[0] = chunk;
+        self.context.prototypes[0] = prototype;
 
         Ok(self.context)
     }
@@ -269,5 +269,5 @@ pub struct CompileContext {
     pub file_trees: Vec<SyntaxTree>,
     pub constants: ConstantTable,
     pub resolver: Resolver,
-    pub prototypes: Vec<Chunk>,
+    pub prototypes: Vec<Prototype>,
 }

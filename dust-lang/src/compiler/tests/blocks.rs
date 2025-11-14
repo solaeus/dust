@@ -1,7 +1,7 @@
 use crate::{
-    chunk::Chunk,
     compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
+    prototype::Prototype,
     tests::block_cases,
     r#type::{FunctionType, Type},
 };
@@ -9,11 +9,11 @@ use crate::{
 #[test]
 fn empty_block() {
     let source = block_cases::EMPTY_BLOCK.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![Instruction::r#return(
                 false,
@@ -28,11 +28,11 @@ fn empty_block() {
 #[test]
 fn block_expression() {
     let source = block_cases::BLOCK_EXPRESSION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 true,
@@ -47,11 +47,11 @@ fn block_expression() {
 #[test]
 fn block_statement() {
     let source = block_cases::BLOCK_STATEMENT.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -66,11 +66,11 @@ fn block_statement() {
 #[test]
 fn block_statement_and_expression() {
     let source = block_cases::BLOCK_STATEMENT_AND_EXPRESSION.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -91,11 +91,11 @@ fn block_statement_and_expression() {
 #[test]
 fn parent_scope_access() {
     let source = block_cases::PARENT_SCOPE_ACCESS.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -110,11 +110,11 @@ fn parent_scope_access() {
 #[test]
 fn nested_parrent_scope_access() {
     let source = block_cases::NESTED_PARRENT_SCOPE_ACCESS.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -136,11 +136,11 @@ fn nested_parrent_scope_access() {
 #[test]
 fn scope_shadowing() {
     let source = block_cases::SCOPE_SHADOWING.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -156,11 +156,11 @@ fn scope_shadowing() {
 #[test]
 fn scope_deshadowing() {
     let source = block_cases::SCOPE_DESHADOWING.to_string();
-    let chunk = compile_main(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
-        chunk,
-        Chunk {
+        prototype,
+        Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

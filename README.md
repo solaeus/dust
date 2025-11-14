@@ -142,9 +142,9 @@ Waldemar Celes was a great resource for understanding register-based virtual mac
 instructions. This paper was recommended by Bob Nystrom in *Crafting Interpreters*.
 
 *A No-Frills Introduction to Lua 5.1 VM Instructions*[^2] by Kein-Hong Man has a wealth of detailed
-information on how Lua uses terse instructions to create dense chunks that execute quickly. This was
-essential in the design of Dust's instructions. Dust uses compile-time optimizations that are based
-on Lua optimizations covered in this paper.
+information on how Lua uses terse instructions to create dense prototypes that execute quickly. This
+was essential in the design of Dust's instructions. Dust uses compile-time optimizations that are
+based on Lua optimizations covered in this paper.
 
 "A Performance Survey on Stack-based and Register-based Virtual Machines"[^3] by Ruijie Fang and
 Siqi Liup was helpful for a quick yet efficient primer on getting stack-based and register-based
