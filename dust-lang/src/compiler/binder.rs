@@ -113,7 +113,9 @@ impl<'a> Binder<'a> {
     fn bind_item(&mut self, node_id: SyntaxId, node: &SyntaxNode) -> Result<(), CompileError> {
         match node.kind {
             SyntaxKind::MainFunctionItem => self.bind_main_function_item(node)?,
+            SyntaxKind::FunctionItem => self.bind_function_item(node_id, node)?,
             SyntaxKind::PublicFunctionItem => self.bind_function_item(node_id, node)?,
+            SyntaxKind::ModuleItem => self.bind_module_item(node)?,
             SyntaxKind::PublicModuleItem => self.bind_module_item(node)?,
             SyntaxKind::UseItem => self.bind_use_item(node)?,
             _ => todo!(),

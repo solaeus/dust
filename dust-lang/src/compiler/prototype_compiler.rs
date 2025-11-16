@@ -2484,7 +2484,9 @@ impl<'a> PrototypeCompiler<'a> {
 
         if !matches!(
             declaration.kind,
-            DeclarationKind::Local { .. } | DeclarationKind::LocalMutable { .. }
+            DeclarationKind::Local { .. }
+                | DeclarationKind::LocalMutable { .. }
+                | DeclarationKind::Function { .. }
         ) {
             todo!("Error");
         }
@@ -2754,14 +2756,11 @@ impl<'a> PrototypeCompiler<'a> {
             }
         };
 
-        let block_id = SyntaxId(node.children.1);
-        let body_node =
-            *self
-                .syntax_tree()?
-                .get_node(block_id)
-                .ok_or(CompileError::MissingSyntaxNode {
-                    syntax_id: block_id,
-                })?;
+        let body_id = SyntaxId(node.children.1);
+        let body_node = *self
+            .syntax_tree()?
+            .get_node(body_id)
+            .ok_or(CompileError::MissingSyntaxNode { syntax_id: body_id })?;
         let (declaration_id, function_scope_id) =
             if let Some((declaration_id, declaration)) = declaration_info {
                 let scope_id = match declaration.kind {
@@ -2789,7 +2788,7 @@ impl<'a> PrototypeCompiler<'a> {
             function_scope_id,
         );
 
-        function_compiler.compile_implicit_return(&body_node)?;
+        function_compiler.compile_main_function_item(&body_node)?;
 
         let function_prototype = function_compiler.finish()?;
         let prototype_index = self.context.prototypes.len() as u16;
@@ -2950,9 +2949,10 @@ impl<'a> PrototypeCompiler<'a> {
 
         handle_call_arguments(self, &mut instructions_emission, &arguments_node)?;
 
-        let destination = target
-            .map(|target| target.register)
-            .unwrap_or_else(|| self.allocate_temporary_register());
+        let target = target.unwrap_or_else(|| TargetRegister {
+            register: self.allocate_temporary_register(),
+            is_temporary: true,
+        });
         let callee_type_node = self.context.resolver.get_type_node(callee_type_id).ok_or(
             CompileError::MissingType {
                 type_id: callee_type_id,
@@ -2976,7 +2976,7 @@ impl<'a> PrototypeCompiler<'a> {
         let argument_count = self.call_arguments.len() as u16 - arguments_start_index;
         let return_type_operand = self.get_operand_type(return_type_id)?;
         let call_instruction = Instruction::call(
-            destination,
+            target.register,
             function_address.index,
             arguments_start_index,
             argument_count,
@@ -2985,7 +2985,7 @@ impl<'a> PrototypeCompiler<'a> {
 
         instructions_emission.push(call_instruction);
         instructions_emission.set_type(return_type_id);
-        instructions_emission.set_target(target);
+        instructions_emission.set_target(Some(target));
 
         Ok(Emission::Instructions(instructions_emission))
     }

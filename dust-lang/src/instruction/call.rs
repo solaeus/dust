@@ -64,11 +64,11 @@ impl Display for Call {
             write!(f, "reg_{destination_index} = ")?;
         }
 
-        let arguments_end = arguments_start + argument_count;
-
-        if *arguments_start == u16::MAX {
+        if *argument_count == 0 {
             write!(f, "proto_{prototype_index}()")
         } else {
+            let arguments_end = arguments_start + argument_count;
+
             write!(
                 f,
                 "proto_{prototype_index}(args_{arguments_start}..args_{arguments_end})"
