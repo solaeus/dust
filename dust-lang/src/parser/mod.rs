@@ -423,6 +423,10 @@ impl<'src> Parser<'src> {
         let mut children = Self::new_child_buffer();
 
         while !self.allow(end_token)? {
+            if self.current_token.kind == TokenKind::Eof {
+                break;
+            }
+
             self.parse_item()?;
 
             children.push(self.syntax_tree.last_node_id());
@@ -565,6 +569,10 @@ impl<'src> Parser<'src> {
         println!("Parsing {}", self.current_token);
 
         while !self.allow(TokenKind::RightParenthesis)? {
+            if self.current_token.kind == TokenKind::Eof {
+                break;
+            }
+
             info!("Parsing function value parameter");
 
             let parameter_start = self.current_token.span.0;
@@ -1034,6 +1042,10 @@ impl<'src> Parser<'src> {
         info!("Parsing call arguments");
 
         while !self.allow(TokenKind::RightParenthesis)? {
+            if self.current_token.kind == TokenKind::Eof {
+                break;
+            }
+
             info!("Parsing call argument");
 
             self.parse_expression()?;
@@ -1096,8 +1108,16 @@ impl<'src> Parser<'src> {
         let mut children = Self::new_child_buffer();
 
         while !self.allow(TokenKind::RightCurlyBrace)? {
+            let position_before = self.current_token.span;
+
             if let Err(error) = self.pratt(Precedence::None) {
                 self.recover(error);
+
+                if self.current_token.kind == TokenKind::Eof
+                    || self.current_token.span == position_before
+                {
+                    break;
+                }
             } else {
                 let child_id = self.syntax_tree.last_node_id();
 
@@ -1321,6 +1341,10 @@ impl<'src> Parser<'src> {
         let mut children = Self::new_child_buffer();
 
         while !self.allow(TokenKind::RightSquareBracket)? {
+            if self.current_token.kind == TokenKind::Eof {
+                break;
+            }
+
             self.parse_expression()?;
 
             let child_id = self.syntax_tree.last_node_id();

@@ -236,14 +236,14 @@ impl AnnotatedError for ParseError {
                     ),
                 )
             }
-            ParseError::UnexpectedToken { position, .. } => {
+            ParseError::UnexpectedToken { position, actual } => {
                 let title = "Unexpected token".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
-                            .label("This token was not expected here"),
+                            .label(format!("{actual} was not expected here")),
                     ),
                 )
             }
