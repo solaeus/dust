@@ -30,4 +30,5 @@ pub struct Prototype {
     pub(crate) drop_lists: Vec<u16>,
 
     pub(crate) register_count: u16,
+    pub(crate) is_recursive: bool,
 }

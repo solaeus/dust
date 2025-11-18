@@ -3,7 +3,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
 use smallvec::SmallVec;
 
@@ -18,6 +18,8 @@ use crate::{
 pub struct Resolver {
     declarations: IndexMap<DeclarationKey, Declaration, FxBuildHasher>,
 
+    parameters: IndexSet<DeclarationId, FxBuildHasher>,
+
     scopes: Vec<Scope>,
 
     types: IndexMap<TypeKey, TypeNode, FxBuildHasher>,
@@ -29,6 +31,7 @@ impl Resolver {
     pub fn new() -> Self {
         let mut resolver = Self {
             declarations: IndexMap::default(),
+            parameters: IndexSet::default(),
             scopes: vec![],
             types: IndexMap::default(),
             type_members: Vec::new(),
@@ -46,6 +49,7 @@ impl Resolver {
                 kind: DeclarationKind::Function {
                     inner_scope_id: ScopeId::MAIN,
                     syntax_id: SyntaxId(0),
+                    parameters: (0, 0),
                 },
                 scope_id: ScopeId::MAIN,
                 type_id: TypeId::NONE,
@@ -106,6 +110,19 @@ impl Resolver {
         self.declarations.insert(key, declaration);
 
         declaration_id
+    }
+
+    pub fn add_parameters(&mut self, parameter_ids: &[DeclarationId]) -> (u32, u32) {
+        let start = self.parameters.len() as u32;
+        let count = parameter_ids.len() as u32;
+
+        self.parameters.extend(parameter_ids);
+
+        (start, count)
+    }
+
+    pub fn get_parameter(&self, index: u32) -> Option<DeclarationId> {
+        self.parameters.get_index(index as usize).copied()
     }
 
     pub fn find_declarations(
@@ -455,6 +472,7 @@ pub enum DeclarationKind {
     Function {
         inner_scope_id: ScopeId,
         syntax_id: SyntaxId,
+        parameters: (u32, u32),
     },
     NativeFunction,
     Local {

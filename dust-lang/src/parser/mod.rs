@@ -562,6 +562,8 @@ impl<'src> Parser<'src> {
 
         let mut children = Self::new_child_buffer();
 
+        println!("Parsing {}", self.current_token);
+
         while !self.allow(TokenKind::RightParenthesis)? {
             info!("Parsing function value parameter");
 
@@ -574,6 +576,7 @@ impl<'src> Parser<'src> {
             };
             let parameter_name_node_id = self.syntax_tree.push_node(parameter_name_node);
 
+            self.advance()?;
             self.expect(TokenKind::Colon)?;
 
             let type_node_id = self.parse_type()?;

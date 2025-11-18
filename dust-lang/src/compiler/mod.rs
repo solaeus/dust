@@ -75,6 +75,7 @@ pub fn compile_main(source_code: String) -> Result<Prototype, DustError> {
     };
     let prototype_compiler = PrototypeCompiler::new(
         None,
+        0,
         SourceFileId(0),
         FunctionTypeNode {
             type_parameters: (0, 0),
@@ -240,6 +241,7 @@ impl Compiler {
 
         let prototype_compiler = PrototypeCompiler::new(
             None,
+            0,
             SourceFileId(0),
             FunctionTypeNode {
                 type_parameters: (0, 0),

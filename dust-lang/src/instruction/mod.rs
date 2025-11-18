@@ -142,9 +142,9 @@ impl Instruction {
     }
 
     pub fn d_field(&self) -> u16 {
-        let bits_5_to_10 = (self.0 >> 5) & 0x3F;
+        let bits_7_to_10 = (self.0 >> 7) & 0xF;
 
-        bits_5_to_10 as u16
+        bits_7_to_10 as u16
     }
 
     pub fn set_a_field(&mut self, bits: u16) {
@@ -673,5 +673,12 @@ mod tests {
         let instruction = create_instruction();
 
         assert_eq!(instruction.c_field(), 2);
+    }
+
+    #[test]
+    fn decode_d_field() {
+        let instruction = Instruction::call(10, 20, 30, 2, OperandType::STRING);
+
+        assert_eq!(instruction.d_field(), 2);
     }
 }

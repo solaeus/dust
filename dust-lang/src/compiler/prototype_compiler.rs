@@ -24,6 +24,8 @@ use super::CompileError;
 pub struct PrototypeCompiler<'a> {
     declaration_id: Option<DeclarationId>,
 
+    prototype_index: u16,
+
     file_id: SourceFileId,
 
     function_type_node: FunctionTypeNode,
@@ -58,18 +60,22 @@ pub struct PrototypeCompiler<'a> {
     next_temporary_register: u16,
 
     maximum_register: u16,
+
+    is_recursive: bool,
 }
 
 impl<'a> PrototypeCompiler<'a> {
     pub fn new(
-        declaration_id: Option<DeclarationId>,
+        declaration_info: Option<(DeclarationId, Declaration)>,
+        prototype_index: u16,
         file_id: SourceFileId,
         function_type: FunctionTypeNode,
         context: &'a mut CompileContext,
         starting_scope_id: ScopeId,
     ) -> Self {
-        Self {
-            declaration_id,
+        let mut prototype_compiler = Self {
+            declaration_id: declaration_info.map(|(id, _)| id),
+            prototype_index,
             file_id,
             function_type_node: function_type,
             context,
@@ -85,7 +91,51 @@ impl<'a> PrototypeCompiler<'a> {
             next_local_register: 0,
             next_temporary_register: 0,
             maximum_register: 0,
+            is_recursive: false,
+        };
+
+        if let Some((declaration_id, declaration)) = &declaration_info {
+            let Declaration { kind, type_id, .. } = declaration;
+
+            prototype_compiler.locals.insert(
+                *declaration_id,
+                Local {
+                    address: Address::constant(prototype_index),
+                    type_id: *type_id,
+                },
+            );
+
+            if let DeclarationKind::Function { parameters, .. } = kind {
+                let (start, count) = *parameters;
+                prototype_compiler.locals.reserve(count as usize);
+
+                for index in 0..count {
+                    let current_parameter_index = start + index;
+                    if let Some(parameter_id) = prototype_compiler
+                        .context
+                        .resolver
+                        .get_parameter(current_parameter_index)
+                        && let Some(parameter_declaration) = prototype_compiler
+                            .context
+                            .resolver
+                            .get_declaration(parameter_id)
+                            .copied()
+                    {
+                        let register = prototype_compiler.allocate_local_register();
+                        let parameter_local = Local {
+                            address: Address::register(register),
+                            type_id: parameter_declaration.type_id,
+                        };
+
+                        prototype_compiler
+                            .locals
+                            .insert(parameter_id, parameter_local);
+                    }
+                }
+            }
         }
+
+        prototype_compiler
     }
 
     pub fn compile_main(mut self) -> Result<Prototype, CompileError> {
@@ -197,6 +247,7 @@ impl<'a> PrototypeCompiler<'a> {
             call_arguments: self.call_arguments,
             drop_lists: self.drop_lists,
             register_count,
+            is_recursive: self.is_recursive,
         })
     }
 
@@ -1130,6 +1181,7 @@ impl<'a> PrototypeCompiler<'a> {
         if let DeclarationKind::Function {
             inner_scope_id,
             syntax_id,
+            ..
         } = final_declaration.kind
         {
             let function_type = self
@@ -1178,8 +1230,10 @@ impl<'a> PrototypeCompiler<'a> {
 
             match function_node.kind {
                 SyntaxKind::PublicFunctionItem => {
+                    let prototype_index = self.context.prototypes.len() as u16;
                     let mut importer = PrototypeCompiler::new(
-                        Some(final_declaration_id),
+                        Some((final_declaration_id, final_declaration)),
+                        prototype_index,
                         final_declaration.position.file_id,
                         function_type,
                         self.context,
@@ -2473,14 +2527,39 @@ impl<'a> PrototypeCompiler<'a> {
             &source_file.source_code.as_ref()[node.span.0 as usize..node.span.1 as usize];
         let variable_name = unsafe { str::from_utf8_unchecked(variable_name_bytes) };
 
-        let (declaration_id, declaration) = self
+        let (declaration_id, declaration) = if let Some((declaration_id, declaration)) = self
             .context
             .resolver
             .find_declaration_in_scope(variable_name, self.current_scope_id)
-            .ok_or(CompileError::UndeclaredVariable {
-                name: variable_name.to_string(),
-                position: Position::new(self.file_id, node.span),
-            })?;
+        {
+            (declaration_id, declaration)
+        } else {
+            let (declaration_id, declaration) = self
+                .context
+                .resolver
+                .find_declarations(variable_name)
+                .ok_or(CompileError::UndeclaredVariable {
+                    name: variable_name.to_string(),
+                    position: Position::new(self.file_id, node.span),
+                })?
+                .first()
+                .copied()
+                .ok_or(CompileError::UndeclaredVariable {
+                    name: variable_name.to_string(),
+                    position: Position::new(self.file_id, node.span),
+                })?;
+
+            if self.declaration_id.is_some_and(|id| id == declaration_id) {
+                self.is_recursive = true;
+
+                return Ok(Emission::Function(
+                    Address::register(self.prototype_index),
+                    declaration.type_id,
+                ));
+            }
+
+            (declaration_id, declaration)
+        };
 
         if !matches!(
             declaration.kind,
@@ -2761,14 +2840,14 @@ impl<'a> PrototypeCompiler<'a> {
             .syntax_tree()?
             .get_node(body_id)
             .ok_or(CompileError::MissingSyntaxNode { syntax_id: body_id })?;
-        let (declaration_id, function_scope_id) =
+        let (new_declaration_info, function_scope_id) =
             if let Some((declaration_id, declaration)) = declaration_info {
                 let scope_id = match declaration.kind {
                     DeclarationKind::Function { inner_scope_id, .. } => inner_scope_id,
                     _ => declaration.scope_id,
                 };
 
-                (Some(declaration_id), scope_id)
+                (Some((declaration_id, declaration)), scope_id)
             } else {
                 let function_scope = self.context.resolver.add_scope(Scope {
                     kind: ScopeKind::Function,
@@ -2780,8 +2859,13 @@ impl<'a> PrototypeCompiler<'a> {
                 (None, function_scope)
             };
 
+        let prototype_index = self.context.prototypes.len();
+
+        self.context.prototypes.push(Prototype::default());
+
         let mut function_compiler = PrototypeCompiler::new(
-            declaration_id,
+            new_declaration_info,
+            prototype_index as u16,
             self.file_id,
             function_type_node,
             self.context,
@@ -2791,14 +2875,13 @@ impl<'a> PrototypeCompiler<'a> {
         function_compiler.compile_main_function_item(&body_node)?;
 
         let function_prototype = function_compiler.finish()?;
-        let prototype_index = self.context.prototypes.len() as u16;
-        let address = Address::constant(prototype_index);
+        let address = Address::constant(prototype_index as u16);
         let type_id = self
             .context
             .resolver
             .add_type_node(TypeNode::Function(function_type_node));
 
-        self.context.prototypes.push(function_prototype);
+        self.context.prototypes[prototype_index] = function_prototype;
 
         Ok(Emission::Function(address, type_id))
     }
@@ -2877,7 +2960,7 @@ impl<'a> PrototypeCompiler<'a> {
 
         debug_assert_eq!(arguments_node.kind, SyntaxKind::CallValueArguments);
 
-        let mut instructions_emission = InstructionsEmission::new();
+        let mut call_emission = InstructionsEmission::new();
 
         if function_node.kind == SyntaxKind::PathExpression {
             let files = self.context.source.read_files();
@@ -2891,63 +2974,61 @@ impl<'a> PrototypeCompiler<'a> {
                 [function_node.span.0 as usize..function_node.span.1 as usize];
             let name = unsafe { str::from_utf8_unchecked(name_bytes) };
 
-            let (_, declaration) = self
+            if let Some((_, declaration)) = self
                 .context
                 .resolver
                 .find_declaration_in_scope(name, self.current_scope_id)
-                .ok_or(CompileError::UndeclaredVariable {
-                    name: name.to_string(),
-                    position: Position::new(self.file_id, function_node.span),
-                })?;
+            {
+                if declaration.kind == DeclarationKind::NativeFunction {
+                    let native_function = NativeFunction::from_str(name).ok_or(
+                        CompileError::MissingNativeFunction {
+                            native_function: name.to_string(),
+                        },
+                    )?;
 
-            if declaration.kind == DeclarationKind::NativeFunction {
-                let native_function =
-                    NativeFunction::from_str(name).ok_or(CompileError::MissingNativeFunction {
-                        native_function: name.to_string(),
-                    })?;
+                    drop(files);
 
-                drop(files);
+                    let arguments_start_index = self.call_arguments.len() as u16;
 
-                let arguments_start_index = self.call_arguments.len() as u16;
+                    handle_call_arguments(self, &mut call_emission, &arguments_node)?;
 
-                handle_call_arguments(self, &mut instructions_emission, &arguments_node)?;
+                    let destination = target
+                        .map(|target| target.register)
+                        .unwrap_or_else(|| self.allocate_temporary_register());
+                    let call_native_instruction = Instruction::call_native(
+                        destination,
+                        native_function,
+                        arguments_start_index,
+                    );
+                    let return_type = self
+                        .context
+                        .resolver
+                        .get_type_node(declaration.type_id)
+                        .ok_or(CompileError::MissingType {
+                            type_id: declaration.type_id,
+                        })?
+                        .into_function_type()
+                        .ok_or(CompileError::ExpectedFunction {
+                            node_kind: function_node.kind,
+                            position: Position::new(self.file_id, function_node.span),
+                        })?
+                        .return_type;
 
-                let destination = target
-                    .map(|target| target.register)
-                    .unwrap_or_else(|| self.allocate_temporary_register());
-                let call_native_instruction =
-                    Instruction::call_native(destination, native_function, arguments_start_index);
-                let return_type = self
-                    .context
-                    .resolver
-                    .get_type_node(declaration.type_id)
-                    .ok_or(CompileError::MissingType {
-                        type_id: declaration.type_id,
-                    })?
-                    .into_function_type()
-                    .ok_or(CompileError::ExpectedFunction {
-                        node_kind: function_node.kind,
-                        position: Position::new(self.file_id, function_node.span),
-                    })?
-                    .return_type;
+                    call_emission.push(call_native_instruction);
+                    call_emission.set_type(return_type);
 
-                instructions_emission.push(call_native_instruction);
-                instructions_emission.set_type(return_type);
-
-                return Ok(Emission::Instructions(instructions_emission));
+                    return Ok(Emission::Instructions(call_emission));
+                }
             }
         }
 
         let function_emission = self.compile_expression(&function_node, None)?;
-        let (function_address, callee_type_id) = self.handle_operand_emission(
-            &mut instructions_emission,
-            function_emission,
-            &function_node,
-        )?;
+        let (function_address, callee_type_id) =
+            self.handle_operand_emission(&mut call_emission, function_emission, &function_node)?;
 
         let arguments_start_index = self.call_arguments.len() as u16;
 
-        handle_call_arguments(self, &mut instructions_emission, &arguments_node)?;
+        handle_call_arguments(self, &mut call_emission, &arguments_node)?;
 
         let target = target.unwrap_or_else(|| TargetRegister {
             register: self.allocate_temporary_register(),
@@ -2974,6 +3055,7 @@ impl<'a> PrototypeCompiler<'a> {
             })?
             .return_type;
         let argument_count = self.call_arguments.len() as u16 - arguments_start_index;
+
         let return_type_operand = self.get_operand_type(return_type_id)?;
         let call_instruction = Instruction::call(
             target.register,
@@ -2983,11 +3065,11 @@ impl<'a> PrototypeCompiler<'a> {
             return_type_operand,
         );
 
-        instructions_emission.push(call_instruction);
-        instructions_emission.set_type(return_type_id);
-        instructions_emission.set_target(Some(target));
+        call_emission.push(call_instruction);
+        call_emission.set_type(return_type_id);
+        call_emission.set_target(Some(target));
 
-        Ok(Emission::Instructions(instructions_emission))
+        Ok(Emission::Instructions(call_emission))
     }
 
     fn compile_as_expression(

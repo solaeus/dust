@@ -14,7 +14,6 @@ use smallvec::SmallVec;
 use tracing::{Level, info, span};
 
 use crate::{
-    prototype::Prototype,
     constant_table::ConstantTable,
     instruction::{
         Address, Call, CallNative, Drop, GetList, Jump, MemoryKind, Move, Negate, NewList,
@@ -26,6 +25,7 @@ use crate::{
         jit_compiler::{FunctionIds, HotRegisters},
         thread::ThreadContext,
     },
+    prototype::Prototype,
     r#type::Type,
 };
 
@@ -1423,12 +1423,20 @@ pub fn compile_stackless_function(
                         function_index: prototype_index,
                         total_function_count: compiler.function_ids.len(),
                     })?;
-                let FunctionIds::Other { direct, .. } = callee_function_ids else {
+                let FunctionIds::Other { direct, stackless } = callee_function_ids else {
                     unreachable!();
                 };
-                let callee_function_reference = compiler
-                    .module
-                    .declare_func_in_func(*direct, function_builder.func);
+                let is_recursive = *stackless == function_id;
+
+                let callee_function_reference = if is_recursive {
+                    compiler
+                        .module
+                        .declare_func_in_func(*stackless, function_builder.func)
+                } else {
+                    compiler
+                        .module
+                        .declare_func_in_func(*direct, function_builder.func)
+                };
                 let arguments_range =
                     arguments_start as usize..(arguments_start as usize + argument_count as usize);
                 let call_arguments_list = prototype.call_arguments.get(arguments_range).ok_or(

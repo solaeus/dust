@@ -4,7 +4,8 @@ use tracing::{Level, info, span};
 use crate::{
     compiler::CompileError,
     resolver::{
-        Declaration, DeclarationKind, ModuleKind, Resolver, Scope, ScopeId, ScopeKind, TypeId,
+        Declaration, DeclarationId, DeclarationKind, ModuleKind, Resolver, Scope, ScopeId,
+        ScopeKind, TypeId,
     },
     source::{Position, Source, SourceFileId, Span},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
@@ -264,42 +265,58 @@ impl<'a> Binder<'a> {
             modules: SmallVec::new(),
         });
         let mut value_parameters = Vec::new();
-        let mut current_parameter_name = "";
+        let mut parameter_ids = SmallVec::<[DeclarationId; 4]>::new();
 
-        for (index, node) in value_parameter_nodes.iter().enumerate() {
-            let is_name = index % 2 == 0;
+        for node in value_parameter_nodes {
+            let parameter_name_node_id = node.children.0;
+            let parameter_name_node = *self
+                .syntax_tree
+                .get_node(SyntaxId(parameter_name_node_id))
+                .ok_or(CompileError::MissingSyntaxNode {
+                    syntax_id: SyntaxId(parameter_name_node_id),
+                })?;
 
-            if is_name {
-                current_parameter_name = unsafe {
-                    str::from_utf8_unchecked(
-                        &file.source_code.as_ref()[node.span.0 as usize..node.span.1 as usize],
-                    )
-                };
-            } else {
-                let r#type = match node.kind {
-                    SyntaxKind::BooleanType => Type::Boolean,
-                    SyntaxKind::ByteType => Type::Byte,
-                    SyntaxKind::CharacterType => Type::Character,
-                    SyntaxKind::FloatType => Type::Float,
-                    SyntaxKind::IntegerType => Type::Integer,
-                    SyntaxKind::StringType => Type::String,
-                    _ => {
-                        todo!()
-                    }
-                };
-                let type_id = self.resolver.add_type(&r#type);
-                let parameter_declaration = Declaration {
-                    kind: DeclarationKind::Local { shadowed: None },
-                    scope_id: function_scope,
-                    type_id,
-                    position: Position::new(self.file_id, node.span),
-                    is_public: false,
-                };
+            let parameter_name = unsafe {
+                str::from_utf8_unchecked(
+                    &file.source_code.as_ref()
+                        [parameter_name_node.span.0 as usize..parameter_name_node.span.1 as usize],
+                )
+            };
 
-                self.resolver
-                    .add_declaration(current_parameter_name, parameter_declaration);
-                value_parameters.push(r#type);
-            }
+            let parameter_type_node_id = node.children.1;
+            let parameter_type_node = *self
+                .syntax_tree
+                .get_node(SyntaxId(parameter_type_node_id))
+                .ok_or(CompileError::MissingSyntaxNode {
+                    syntax_id: SyntaxId(parameter_type_node_id),
+                })?;
+
+            let r#type = match parameter_type_node.kind {
+                SyntaxKind::BooleanType => Type::Boolean,
+                SyntaxKind::ByteType => Type::Byte,
+                SyntaxKind::CharacterType => Type::Character,
+                SyntaxKind::FloatType => Type::Float,
+                SyntaxKind::IntegerType => Type::Integer,
+                SyntaxKind::StringType => Type::String,
+                _ => {
+                    todo!()
+                }
+            };
+            let parameter_declaration = Declaration {
+                kind: DeclarationKind::Local { shadowed: None },
+                scope_id: function_scope,
+                type_id: self.resolver.add_type(&r#type),
+                position: Position::new(self.file_id, parameter_name_node.span),
+                is_public: false,
+            };
+
+            value_parameters.push(r#type);
+
+            let parameter_id = self
+                .resolver
+                .add_declaration(parameter_name, parameter_declaration);
+
+            parameter_ids.push(parameter_id);
         }
 
         let function_return_type_id = SyntaxId(function_signature_node.children.1);
@@ -351,10 +368,13 @@ impl<'a> Binder<'a> {
             .source_code
             .as_ref()[path_node.span.0 as usize..path_node.span.1 as usize];
         let path_str = unsafe { str::from_utf8_unchecked(path_bytes) };
+
+        let parameter_children = self.resolver.add_parameters(&parameter_ids);
         let declaration = Declaration {
             kind: DeclarationKind::Function {
                 inner_scope_id: function_scope,
                 syntax_id: node_id,
+                parameters: parameter_children,
             },
             scope_id: self.current_scope_id,
             type_id: function_type_id,
