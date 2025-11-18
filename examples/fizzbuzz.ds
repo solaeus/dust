@@ -1,17 +1,14 @@
-use std::io::write_line;
-use std::convert::int_to_str;
-
 let mut count = 1;
 
 while count <= 15 {
 	if count % 15 == 0 {
-		write_line("fizzbuzz")
+		write_line("fizzbuzz");
 	} else if count % 3 == 0 {
-		write_line("fizz")
+		write_line("fizz");
 	} else if count % 5 == 0 {
-		write_line("buzz")
+		write_line("buzz");
 	} else {
-	    write_line(count as str)
+	    write_line(count as str);
 	}
 
 	count += 1

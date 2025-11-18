@@ -898,8 +898,10 @@ impl<'a> PrototypeCompiler<'a> {
                     compiler.emit_instruction(move_instruction);
                 }
                 Emission::Instructions(InstructionsEmission { instructions, .. }) => {
-                    for (instruction, jump_anchors) in instructions {
+                    for (instruction, mut jump_anchors) in instructions {
                         compiler.emit_instruction(instruction);
+
+                        jump_anchors.sort();
 
                         for anchor in jump_anchors {
                             match anchor {
@@ -956,14 +958,14 @@ impl<'a> PrototypeCompiler<'a> {
                                     forward_id,
                                     backward_id,
                                 } => {
-                                    let forward_plament =
+                                    let forward_placement =
                                         compiler.jump_placements.get_mut(&forward_id).unwrap();
                                     let next_index = compiler.instructions.len();
 
-                                    forward_plament.distance =
-                                        (next_index - forward_plament.index) as u16;
+                                    forward_placement.distance =
+                                        (next_index - forward_placement.index) as u16;
 
-                                    let forward_index = forward_plament.index;
+                                    let forward_index = forward_placement.index;
                                     let coalesce = if is_instruction_coallescible_with_jump(
                                         instruction,
                                         false,
@@ -2978,47 +2980,42 @@ impl<'a> PrototypeCompiler<'a> {
                 .context
                 .resolver
                 .find_declaration_in_scope(name, self.current_scope_id)
+                && declaration.kind == DeclarationKind::NativeFunction
             {
-                if declaration.kind == DeclarationKind::NativeFunction {
-                    let native_function = NativeFunction::from_str(name).ok_or(
-                        CompileError::MissingNativeFunction {
-                            native_function: name.to_string(),
-                        },
-                    )?;
+                let native_function =
+                    NativeFunction::from_str(name).ok_or(CompileError::MissingNativeFunction {
+                        native_function: name.to_string(),
+                    })?;
 
-                    drop(files);
+                drop(files);
 
-                    let arguments_start_index = self.call_arguments.len() as u16;
+                let arguments_start_index = self.call_arguments.len() as u16;
 
-                    handle_call_arguments(self, &mut call_emission, &arguments_node)?;
+                handle_call_arguments(self, &mut call_emission, &arguments_node)?;
 
-                    let destination = target
-                        .map(|target| target.register)
-                        .unwrap_or_else(|| self.allocate_temporary_register());
-                    let call_native_instruction = Instruction::call_native(
-                        destination,
-                        native_function,
-                        arguments_start_index,
-                    );
-                    let return_type = self
-                        .context
-                        .resolver
-                        .get_type_node(declaration.type_id)
-                        .ok_or(CompileError::MissingType {
-                            type_id: declaration.type_id,
-                        })?
-                        .into_function_type()
-                        .ok_or(CompileError::ExpectedFunction {
-                            node_kind: function_node.kind,
-                            position: Position::new(self.file_id, function_node.span),
-                        })?
-                        .return_type;
+                let destination = target
+                    .map(|target| target.register)
+                    .unwrap_or_else(|| self.allocate_temporary_register());
+                let call_native_instruction =
+                    Instruction::call_native(destination, native_function, arguments_start_index);
+                let return_type = self
+                    .context
+                    .resolver
+                    .get_type_node(declaration.type_id)
+                    .ok_or(CompileError::MissingType {
+                        type_id: declaration.type_id,
+                    })?
+                    .into_function_type()
+                    .ok_or(CompileError::ExpectedFunction {
+                        node_kind: function_node.kind,
+                        position: Position::new(self.file_id, function_node.span),
+                    })?
+                    .return_type;
 
-                    call_emission.push(call_native_instruction);
-                    call_emission.set_type(return_type);
+                call_emission.push(call_native_instruction);
+                call_emission.set_type(return_type);
 
-                    return Ok(Emission::Instructions(call_emission));
-                }
+                return Ok(Emission::Instructions(call_emission));
             }
         }
 
@@ -3100,13 +3097,15 @@ impl<'a> PrototypeCompiler<'a> {
         let value_emission = self.compile_expression(&value_node, None)?;
         let (value_address, value_type_id) =
             self.handle_operand_emission(&mut instructions_emission, value_emission, &value_node)?;
-        let destination = target
-            .map(|target| target.register)
-            .unwrap_or_else(|| self.allocate_temporary_register());
+        let target = target.unwrap_or_else(|| TargetRegister {
+            register: self.allocate_temporary_register(),
+            is_temporary: true,
+        });
         let (convert_type_instruction, target_type_id) = match type_node.kind {
             SyntaxKind::StringType => {
                 let operand_type = self.get_operand_type(value_type_id)?;
-                let instruction = Instruction::to_string(destination, value_address, operand_type);
+                let instruction =
+                    Instruction::to_string(target.register, value_address, operand_type);
 
                 (instruction, TypeId::STRING)
             }
@@ -3117,7 +3116,7 @@ impl<'a> PrototypeCompiler<'a> {
 
         instructions_emission.push(convert_type_instruction);
         instructions_emission.set_type(target_type_id);
-        instructions_emission.set_target(target);
+        instructions_emission.set_target(Some(target));
 
         Ok(Emission::Instructions(instructions_emission))
     }
@@ -3245,8 +3244,8 @@ impl<'a> PrototypeCompiler<'a> {
 
         let end_else_anchor_count = self.jump_over_else_anchor_ids.len();
 
-        for else_anchor_index in start_else_anchor_count..end_else_anchor_count {
-            let jump_over_else_id = self.jump_over_else_anchor_ids[else_anchor_index];
+        for _ in start_else_anchor_count..end_else_anchor_count {
+            let jump_over_else_id = self.jump_over_else_anchor_ids.pop().unwrap();
 
             if_emission
                 .instructions
@@ -3479,11 +3478,11 @@ struct Local {
     type_id: TypeId,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum JumpAnchor {
     ForwardFromHere { id: u16 },
-    ForwardToNext { id: u16 },
     LoopStartHere { forward_id: u16 },
+    ForwardToNext { id: u16 },
     LoopEndOnNext { forward_id: u16, backward_id: u16 },
 }
 

@@ -9,6 +9,7 @@ use smallvec::SmallVec;
 
 use crate::{
     instruction::OperandType,
+    native_function::NativeFunction,
     source::Position,
     syntax_tree::SyntaxId,
     r#type::{FunctionType, Type},
@@ -60,7 +61,26 @@ impl Resolver {
 
         debug_assert_eq!(_main_function_declaration_id, DeclarationId::MAIN);
 
+        resolver.add_native_functions();
+
         resolver
+    }
+
+    pub fn add_native_functions(&mut self) {
+        for native_function in NativeFunction::ALL {
+            let type_id = self.add_type(&Type::Function(Box::new(native_function.r#type())));
+
+            self.add_declaration(
+                native_function.name(),
+                Declaration {
+                    kind: DeclarationKind::NativeFunction,
+                    scope_id: ScopeId::MAIN,
+                    type_id,
+                    position: Position::default(),
+                    is_public: true,
+                },
+            );
+        }
     }
 
     pub fn declarations(&self) -> &IndexMap<DeclarationKey, Declaration, FxBuildHasher> {

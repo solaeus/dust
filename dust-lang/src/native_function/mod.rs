@@ -101,6 +101,12 @@ define_native_function! {
 }
 
 impl NativeFunction {
+    pub const ALL: [NativeFunction; 4] = [
+        NativeFunction::NO_OP,
+        NativeFunction::READ_LINE,
+        NativeFunction::WRITE_LINE,
+        NativeFunction::SPAWN,
+    ];
     pub const NO_OP: NativeFunction = NativeFunction { index: 0 };
     pub const READ_LINE: NativeFunction = NativeFunction { index: 1 };
     pub const WRITE_LINE: NativeFunction = NativeFunction { index: 2 };
