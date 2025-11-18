@@ -1,20 +1,26 @@
+use std::mem::offset_of;
+
+use cranelift::codegen::ir::BlockArg;
 use cranelift::{
     codegen::{CodegenError, ir::FuncRef},
     prelude::{
-        AbiParam, FunctionBuilder, FunctionBuilderContext, InstBuilder, IntCC, Signature,
-        Value as CraneliftValue, types::I64,
+        AbiParam, FloatCC, FunctionBuilder, FunctionBuilderContext, InstBuilder, IntCC, MemFlags,
+        Signature, Value as CraneliftValue,
+        types::{F64, I8, I64},
     },
 };
 use cranelift_module::{FuncId, Module, ModuleError};
 use tracing::{Level, info, span};
 
 use crate::{
-    prototype::Prototype,
     constant_table::ConstantTable,
     instruction::{
-        Add, Address, Call, CallNative, Jump, MemoryKind, Move, OperandType, Operation, Return,
+        Address, Call, CallNative, Jump, MemoryKind, Move, OperandType, Operation, Return,
     },
-    jit_vm::{JitCompiler, JitError, jit_compiler::FunctionIds},
+    jit_vm::{
+        JitCompiler, JitError, ThreadStatus, jit_compiler::FunctionIds, thread::ThreadContext,
+    },
+    prototype::Prototype,
     r#type::Type,
 };
 
@@ -53,20 +59,55 @@ pub fn compile_direct_function(
     let mut function_builder =
         FunctionBuilder::new(&mut compilation_context.func, &mut function_builder_context);
 
-    #[cfg(debug_assertions)]
-    let log_operation_and_ip_function = {
-        use cranelift::prelude::{Signature, types::I8};
+    let allocate_list_function = {
+        let mut allocate_list_signature = Signature::new(compiler.module.isa().default_call_conv());
 
-        let mut log_operation_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        log_operation_signature.params.push(AbiParam::new(I8));
-        log_operation_signature.params.push(AbiParam::new(I64));
-        log_operation_signature.returns = vec![];
+        allocate_list_signature.params.extend([
+            AbiParam::new(I8),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        allocate_list_signature.returns.push(AbiParam::new(I64));
 
         compiler.declare_imported_function(
             &mut function_builder,
-            "log_operation_and_ip",
-            log_operation_signature,
+            "allocate_list",
+            allocate_list_signature,
+        )?
+    };
+
+    let instert_into_list_function = {
+        let mut insert_into_list_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        insert_into_list_signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+        ]);
+        insert_into_list_signature.returns = vec![];
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "insert_into_list",
+            insert_into_list_signature,
+        )?
+    };
+
+    let get_from_list_function = {
+        let mut get_from_list_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        get_from_list_signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        get_from_list_signature.returns.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "get_from_list",
+            get_from_list_signature,
         )?
     };
 
@@ -88,6 +129,156 @@ pub fn compile_direct_function(
         )?
     };
 
+    let concatenate_strings_function = {
+        let mut concatenate_strings_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        concatenate_strings_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
+        concatenate_strings_signature
+            .returns
+            .push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "concatenate_strings",
+            concatenate_strings_signature,
+        )?
+    };
+
+    let concatenate_character_string_function = {
+        let mut concatenate_character_string_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        concatenate_character_string_signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
+        concatenate_character_string_signature
+            .returns
+            .push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "concatenate_character_string",
+            concatenate_character_string_signature,
+        )?
+    };
+
+    let concatenate_string_character_function = {
+        let mut concatenate_string_character_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        concatenate_string_character_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        concatenate_string_character_signature
+            .returns
+            .push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "concatenate_string_character",
+            concatenate_string_character_signature,
+        )?
+    };
+
+    let concatenate_characters_function = {
+        let mut concatenate_characters_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        concatenate_characters_signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        concatenate_characters_signature
+            .returns
+            .push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "concatenate_characters",
+            concatenate_characters_signature,
+        )?
+    };
+
+    let compare_strings_equal_function = {
+        let mut compare_strings_equal_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        compare_strings_equal_signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        compare_strings_equal_signature
+            .returns
+            .push(AbiParam::new(I8));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "compare_strings_equal",
+            compare_strings_equal_signature,
+        )?
+    };
+
+    let compare_strings_less_than_function = {
+        let mut compare_strings_less_than_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        compare_strings_less_than_signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        compare_strings_less_than_signature
+            .returns
+            .push(AbiParam::new(I8));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "compare_strings_less_than",
+            compare_strings_less_than_signature,
+        )?
+    };
+
+    let compare_strings_less_than_equal_function = {
+        let mut compare_strings_less_than_equal_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        compare_strings_less_than_equal_signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        compare_strings_less_than_equal_signature
+            .returns
+            .push(AbiParam::new(I8));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "compare_strings_less_than_equal",
+            compare_strings_less_than_equal_signature,
+        )?
+    };
+
+    let integer_to_string_function = {
+        let mut integer_to_string_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        integer_to_string_signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
+        integer_to_string_signature.returns.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "integer_to_string",
+            integer_to_string_signature,
+        )?
+    };
+
     let read_line_function = {
         let mut read_line_signature = Signature::new(compiler.module.isa().default_call_conv());
 
@@ -101,18 +292,372 @@ pub fn compile_direct_function(
         )?
     };
 
-    let write_line_function = {
+    let write_line_integer_function = {
         let mut write_line_signature = Signature::new(compiler.module.isa().default_call_conv());
 
         write_line_signature
             .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(I64)]);
+            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
         write_line_signature.returns = vec![];
 
         compiler.declare_imported_function(
             &mut function_builder,
-            "write_line",
+            "write_line_integer",
             write_line_signature,
+        )?
+    };
+
+    let write_line_string_function = {
+        let mut write_line_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        write_line_signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        write_line_signature.returns = vec![];
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "write_line_string",
+            write_line_signature,
+        )?
+    };
+
+    let integer_power_function = {
+        let mut integer_power_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        integer_power_signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(I64)]);
+        integer_power_signature.returns.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "integer_power",
+            integer_power_signature,
+        )?
+    };
+
+    let float_power_function = {
+        let mut float_power_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        float_power_signature
+            .params
+            .extend([AbiParam::new(F64), AbiParam::new(F64)]);
+        float_power_signature.returns.push(AbiParam::new(F64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "float_power",
+            float_power_signature,
+        )?
+    };
+    let allocate_list_function = {
+        let mut allocate_list_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        allocate_list_signature.params.extend([
+            AbiParam::new(I8),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        allocate_list_signature.returns.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "allocate_list",
+            allocate_list_signature,
+        )?
+    };
+
+    let instert_into_list_function = {
+        let mut insert_into_list_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        insert_into_list_signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+        ]);
+        insert_into_list_signature.returns = vec![];
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "insert_into_list",
+            insert_into_list_signature,
+        )?
+    };
+
+    let get_from_list_function = {
+        let mut get_from_list_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        get_from_list_signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        get_from_list_signature.returns.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "get_from_list",
+            get_from_list_signature,
+        )?
+    };
+
+    let allocate_string_function = {
+        let mut allocate_string_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        allocate_string_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        allocate_string_signature.returns.push(AbiParam::new(I64)); // return value
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "allocate_string",
+            allocate_string_signature,
+        )?
+    };
+
+    let concatenate_strings_function = {
+        let mut concatenate_strings_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        concatenate_strings_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
+        concatenate_strings_signature
+            .returns
+            .push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "concatenate_strings",
+            concatenate_strings_signature,
+        )?
+    };
+
+    let concatenate_character_string_function = {
+        let mut concatenate_character_string_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        concatenate_character_string_signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
+        concatenate_character_string_signature
+            .returns
+            .push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "concatenate_character_string",
+            concatenate_character_string_signature,
+        )?
+    };
+
+    let concatenate_string_character_function = {
+        let mut concatenate_string_character_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        concatenate_string_character_signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        concatenate_string_character_signature
+            .returns
+            .push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "concatenate_string_character",
+            concatenate_string_character_signature,
+        )?
+    };
+
+    let concatenate_characters_function = {
+        let mut concatenate_characters_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        concatenate_characters_signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        concatenate_characters_signature
+            .returns
+            .push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "concatenate_characters",
+            concatenate_characters_signature,
+        )?
+    };
+
+    let compare_strings_equal_function = {
+        let mut compare_strings_equal_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        compare_strings_equal_signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        compare_strings_equal_signature
+            .returns
+            .push(AbiParam::new(I8));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "compare_strings_equal",
+            compare_strings_equal_signature,
+        )?
+    };
+
+    let compare_strings_less_than_function = {
+        let mut compare_strings_less_than_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        compare_strings_less_than_signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        compare_strings_less_than_signature
+            .returns
+            .push(AbiParam::new(I8));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "compare_strings_less_than",
+            compare_strings_less_than_signature,
+        )?
+    };
+
+    let compare_strings_less_than_equal_function = {
+        let mut compare_strings_less_than_equal_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        compare_strings_less_than_equal_signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        compare_strings_less_than_equal_signature
+            .returns
+            .push(AbiParam::new(I8));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "compare_strings_less_than_equal",
+            compare_strings_less_than_equal_signature,
+        )?
+    };
+
+    let integer_to_string_function = {
+        let mut integer_to_string_signature =
+            Signature::new(compiler.module.isa().default_call_conv());
+
+        integer_to_string_signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
+        integer_to_string_signature.returns.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "integer_to_string",
+            integer_to_string_signature,
+        )?
+    };
+
+    let read_line_function = {
+        let mut read_line_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        read_line_signature.params.push(AbiParam::new(pointer_type));
+        read_line_signature.returns.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "read_line",
+            read_line_signature,
+        )?
+    };
+
+    let write_line_integer_function = {
+        let mut write_line_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        write_line_signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
+        write_line_signature.returns = vec![];
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "write_line_integer",
+            write_line_signature,
+        )?
+    };
+
+    let write_line_string_function = {
+        let mut write_line_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        write_line_signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        write_line_signature.returns = vec![];
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "write_line_string",
+            write_line_signature,
+        )?
+    };
+
+    let integer_power_function = {
+        let mut integer_power_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        integer_power_signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(I64)]);
+        integer_power_signature.returns.push(AbiParam::new(I64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "integer_power",
+            integer_power_signature,
+        )?
+    };
+
+    let float_power_function = {
+        let mut float_power_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        float_power_signature
+            .params
+            .extend([AbiParam::new(F64), AbiParam::new(F64)]);
+        float_power_signature.returns.push(AbiParam::new(F64));
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "float_power",
+            float_power_signature,
+        )?
+    };
+
+    #[cfg(debug_assertions)]
+    let log_operation_and_ip_function = {
+        use cranelift::prelude::{Signature, types::I8};
+
+        let mut log_operation_signature = Signature::new(compiler.module.isa().default_call_conv());
+
+        log_operation_signature.params.push(AbiParam::new(I8));
+        log_operation_signature.params.push(AbiParam::new(I64));
+        log_operation_signature.returns = vec![];
+
+        compiler.declare_imported_function(
+            &mut function_builder,
+            "log_operation_and_ip",
+            log_operation_signature,
         )?
     };
 
@@ -121,10 +666,15 @@ pub fn compile_direct_function(
 
     let function_entry_block = function_builder.create_block();
     let mut instruction_blocks = Vec::with_capacity(instruction_count);
+    let division_by_zero_block = function_builder.create_block();
     let return_block = function_builder.create_block();
 
     for _ in 0..instruction_count {
         let block = function_builder.create_block();
+
+        for _ in 0..prototype.register_count {
+            function_builder.append_block_param(block, I64);
+        }
 
         instruction_blocks.push(block);
     }
@@ -136,13 +686,25 @@ pub fn compile_direct_function(
     let thread_context = *entry_block_params.last().unwrap();
 
     let function_arguments = entry_block_params[..entry_block_params.len() - 1].to_vec();
-    let mut ssa_registers = vec![CraneliftValue::from_u32(0); prototype.register_count as usize];
+    let mut ssa_registers = Vec::with_capacity(prototype.register_count as usize);
 
-    for (index, argument) in function_arguments.iter().enumerate() {
-        ssa_registers[index] = *argument;
+    for register_index in 0..prototype.register_count as usize {
+        if register_index < function_arguments.len() {
+            ssa_registers.push(function_arguments[register_index]);
+        } else {
+            let zero_value = function_builder.ins().iconst(I64, 0);
+            ssa_registers.push(zero_value);
+        }
     }
 
-    function_builder.ins().jump(instruction_blocks[0], &[]);
+    let block_arguments: Vec<BlockArg> = ssa_registers
+        .iter()
+        .map(|value| BlockArg::Value(*value))
+        .collect();
+
+    function_builder
+        .ins()
+        .jump(instruction_blocks[0], &block_arguments);
 
     for ip in 0..instruction_count {
         let current_instruction = &bytecode_instructions[ip];
@@ -150,6 +712,12 @@ pub fn compile_direct_function(
         let instruction_block = instruction_blocks[ip];
 
         function_builder.switch_to_block(instruction_block);
+
+        let block_parameters = function_builder.block_params(instruction_block);
+
+        for (index, parameter) in block_parameters.iter().enumerate() {
+            ssa_registers[index] = *parameter;
+        }
 
         info!("Compiling {operation} at IP {ip} in direct function");
 
@@ -193,18 +761,29 @@ pub fn compile_direct_function(
 
                 if jump_distance > 0 {
                     let distance = (jump_distance + 1) as usize;
+                    let block_arguments: Vec<BlockArg> = ssa_registers
+                        .iter()
+                        .map(|value| BlockArg::Value(*value))
+                        .collect();
 
                     if jump_is_positive {
                         function_builder
                             .ins()
-                            .jump(instruction_blocks[ip + distance], &[]);
+                            .jump(instruction_blocks[ip + distance], &block_arguments);
                     } else {
                         function_builder
                             .ins()
-                            .jump(instruction_blocks[ip - distance], &[]);
+                            .jump(instruction_blocks[ip - distance], &block_arguments);
                     }
                 } else {
-                    function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
+                    let block_arguments: Vec<BlockArg> = ssa_registers
+                        .iter()
+                        .map(|value| BlockArg::Value(*value))
+                        .collect();
+
+                    function_builder
+                        .ins()
+                        .jump(instruction_blocks[ip + 1], &block_arguments);
                 }
 
                 Ok(())
@@ -250,25 +829,84 @@ pub fn compile_direct_function(
                     }
                 };
 
+                let block_arguments: Vec<BlockArg> = ssa_registers
+                    .iter()
+                    .map(|value| BlockArg::Value(*value))
+                    .collect();
+
                 function_builder.ins().brif(
                     comparison_result,
                     instruction_blocks[ip + 2],
-                    &[],
+                    &block_arguments,
                     instruction_blocks[ip + 1],
-                    &[],
+                    &block_arguments,
                 );
 
                 Ok(())
             }?,
-            Operation::ADD => {
-                let Add {
-                    destination,
-                    left,
-                    right,
-                    r#type,
-                } = Add::from(*current_instruction);
-                let destination_index = destination as usize;
-                let sum = match r#type {
+            Operation::ADD
+            | Operation::SUBTRACT
+            | Operation::MULTIPLY
+            | Operation::DIVIDE
+            | Operation::MODULO
+            | Operation::POWER => {
+                let destination = current_instruction.destination();
+                let left = current_instruction.b_address();
+                let right = current_instruction.c_address();
+                let r#type = current_instruction.operand_type();
+
+                let result_value = match r#type {
+                    OperandType::BYTE => {
+                        let left_value = get_byte(left, &ssa_registers, &mut function_builder)?;
+                        let right_value = get_byte(right, &ssa_registers, &mut function_builder)?;
+
+                        match operation {
+                            Operation::ADD => function_builder.ins().iadd(left_value, right_value),
+                            Operation::SUBTRACT => {
+                                function_builder.ins().isub(left_value, right_value)
+                            }
+                            Operation::MULTIPLY => {
+                                function_builder.ins().imul(left_value, right_value)
+                            }
+                            Operation::DIVIDE => {
+                                let division_block = function_builder.create_block();
+                                let right_is_zero =
+                                    function_builder
+                                        .ins()
+                                        .icmp_imm(IntCC::Equal, right_value, 0);
+
+                                function_builder.ins().brif(
+                                    right_is_zero,
+                                    division_by_zero_block,
+                                    &[],
+                                    division_block,
+                                    &[],
+                                );
+                                function_builder.switch_to_block(division_block);
+                                function_builder.ins().udiv(left_value, right_value)
+                            }
+                            Operation::MODULO => {
+                                let modulo_block = function_builder.create_block();
+                                let right_is_zero =
+                                    function_builder
+                                        .ins()
+                                        .icmp_imm(IntCC::Equal, right_value, 0);
+
+                                function_builder.ins().brif(
+                                    right_is_zero,
+                                    division_by_zero_block,
+                                    &[],
+                                    modulo_block,
+                                    &[],
+                                );
+                                function_builder.switch_to_block(modulo_block);
+                                function_builder.ins().urem(left_value, right_value)
+                            }
+                            _ => {
+                                return Err(JitError::UnhandledOperation { operation });
+                            }
+                        }
+                    }
                     OperandType::INTEGER => {
                         let left_value = get_integer(
                             left,
@@ -283,10 +921,142 @@ pub fn compile_direct_function(
                             &mut function_builder,
                         )?;
 
-                        function_builder.ins().iadd(left_value, right_value)
+                        match operation {
+                            Operation::ADD => function_builder.ins().iadd(left_value, right_value),
+                            Operation::SUBTRACT => {
+                                function_builder.ins().isub(left_value, right_value)
+                            }
+                            Operation::MULTIPLY => {
+                                function_builder.ins().imul(left_value, right_value)
+                            }
+                            Operation::DIVIDE => {
+                                let division_block = function_builder.create_block();
+                                let right_is_zero =
+                                    function_builder
+                                        .ins()
+                                        .icmp_imm(IntCC::Equal, right_value, 0);
+
+                                function_builder.ins().brif(
+                                    right_is_zero,
+                                    division_by_zero_block,
+                                    &[],
+                                    division_block,
+                                    &[],
+                                );
+                                function_builder.switch_to_block(division_block);
+                                function_builder.ins().sdiv(left_value, right_value)
+                            }
+                            Operation::MODULO => {
+                                let modulo_block = function_builder.create_block();
+                                let right_is_zero =
+                                    function_builder
+                                        .ins()
+                                        .icmp_imm(IntCC::Equal, right_value, 0);
+
+                                function_builder.ins().brif(
+                                    right_is_zero,
+                                    division_by_zero_block,
+                                    &[],
+                                    modulo_block,
+                                    &[],
+                                );
+                                function_builder.switch_to_block(modulo_block);
+                                function_builder.ins().srem(left_value, right_value)
+                            }
+                            Operation::POWER => {
+                                let call_instruction = function_builder
+                                    .ins()
+                                    .call(integer_power_function, &[left_value, right_value]);
+
+                                function_builder.inst_results(call_instruction)[0]
+                            }
+                            _ => {
+                                return Err(JitError::UnhandledOperation { operation });
+                            }
+                        }
+                    }
+                    OperandType::FLOAT => {
+                        let left_value = get_float(
+                            left,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_float(
+                            right,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+
+                        match operation {
+                            Operation::ADD => function_builder.ins().fadd(left_value, right_value),
+                            Operation::SUBTRACT => {
+                                function_builder.ins().fsub(left_value, right_value)
+                            }
+                            Operation::MULTIPLY => {
+                                function_builder.ins().fmul(left_value, right_value)
+                            }
+                            Operation::DIVIDE => {
+                                let division_block = function_builder.create_block();
+                                let zero = function_builder.ins().f64const(0.0);
+                                let right_is_zero =
+                                    function_builder
+                                        .ins()
+                                        .fcmp(FloatCC::Equal, right_value, zero);
+
+                                function_builder.ins().brif(
+                                    right_is_zero,
+                                    division_by_zero_block,
+                                    &[],
+                                    division_block,
+                                    &[],
+                                );
+                                function_builder.switch_to_block(division_block);
+                                function_builder.ins().fdiv(left_value, right_value)
+                            }
+                            Operation::MODULO => {
+                                let modulo_block = function_builder.create_block();
+                                let zero = function_builder.ins().f64const(0.0);
+                                let right_is_zero =
+                                    function_builder
+                                        .ins()
+                                        .fcmp(FloatCC::Equal, right_value, zero);
+
+                                function_builder.ins().brif(
+                                    right_is_zero,
+                                    division_by_zero_block,
+                                    &[],
+                                    modulo_block,
+                                    &[],
+                                );
+                                function_builder.switch_to_block(modulo_block);
+
+                                let divided = function_builder.ins().fdiv(left_value, right_value);
+                                let truncated = function_builder.ins().floor(divided);
+                                let multiplied =
+                                    function_builder.ins().fmul(truncated, right_value);
+
+                                function_builder.ins().fsub(left_value, multiplied)
+                            }
+                            Operation::POWER => {
+                                let call_instruction = function_builder
+                                    .ins()
+                                    .call(float_power_function, &[left_value, right_value]);
+
+                                function_builder.inst_results(call_instruction)[0]
+                            }
+                            _ => {
+                                return Err(JitError::UnhandledOperation { operation });
+                            }
+                        }
                     }
                     OperandType::STRING => {
-                        let left_value = get_string(
+                        if operation != Operation::ADD {
+                            return Err(JitError::UnhandledOperation { operation });
+                        }
+
+                        let left_pointer = get_string(
                             left,
                             &compiler.program.constants,
                             &ssa_registers,
@@ -294,7 +1064,7 @@ pub fn compile_direct_function(
                             allocate_string_function,
                             thread_context,
                         )?;
-                        let right_value = get_string(
+                        let right_pointer = get_string(
                             right,
                             &compiler.program.constants,
                             &ssa_registers,
@@ -302,29 +1072,85 @@ pub fn compile_direct_function(
                             allocate_string_function,
                             thread_context,
                         )?;
-
-                        let concatenate_strings_function = {
-                            let mut concatenate_strings_signature =
-                                Signature::new(compiler.module.isa().default_call_conv());
-
-                            concatenate_strings_signature.params.extend([
-                                AbiParam::new(pointer_type),
-                                AbiParam::new(pointer_type),
-                                AbiParam::new(pointer_type),
-                            ]);
-                            concatenate_strings_signature
-                                .returns
-                                .push(AbiParam::new(I64));
-
-                            compiler.declare_imported_function(
-                                &mut function_builder,
-                                "concatenate_strings",
-                                concatenate_strings_signature,
-                            )?
-                        };
-
                         let call_instruction = function_builder.ins().call(
                             concatenate_strings_function,
+                            &[left_pointer, right_pointer, thread_context],
+                        );
+
+                        function_builder.inst_results(call_instruction)[0]
+                    }
+                    OperandType::CHARACTER_STRING => {
+                        if operation != Operation::ADD {
+                            return Err(JitError::UnhandledOperation { operation });
+                        }
+
+                        let left_value = get_character(
+                            left,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+                        let right_pointer = get_string(
+                            right,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                            allocate_string_function,
+                            thread_context,
+                        )?;
+                        let call_instruction = function_builder.ins().call(
+                            concatenate_character_string_function,
+                            &[left_value, right_pointer, thread_context],
+                        );
+
+                        function_builder.inst_results(call_instruction)[0]
+                    }
+                    OperandType::STRING_CHARACTER => {
+                        if operation != Operation::ADD {
+                            return Err(JitError::UnhandledOperation { operation });
+                        }
+
+                        let left_pointer = get_string(
+                            left,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                            allocate_string_function,
+                            thread_context,
+                        )?;
+                        let right_value = get_character(
+                            right,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+                        let call_instruction = function_builder.ins().call(
+                            concatenate_string_character_function,
+                            &[left_pointer, right_value, thread_context],
+                        );
+
+                        function_builder.inst_results(call_instruction)[0]
+                    }
+                    OperandType::CHARACTER => {
+                        if operation != Operation::ADD {
+                            return Err(JitError::UnhandledOperation { operation });
+                        }
+
+                        let left_value = get_character(
+                            left,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_character(
+                            right,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+
+                        let call_instruction = function_builder.ins().call(
+                            concatenate_characters_function,
                             &[left_value, right_value, thread_context],
                         );
 
@@ -337,12 +1163,17 @@ pub fn compile_direct_function(
                     }
                 };
 
-                ssa_registers[destination_index] = sum;
+                ssa_registers[destination.index as usize] = result_value;
 
-                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
+                let block_arguments: Vec<BlockArg> = ssa_registers
+                    .iter()
+                    .map(|value| BlockArg::Value(*value))
+                    .collect();
 
-                Ok(())
-            }?,
+                function_builder
+                    .ins()
+                    .jump(instruction_blocks[ip + 1], &block_arguments);
+            }
             Operation::CALL => {
                 let Call {
                     destination_index,
@@ -408,7 +1239,14 @@ pub fn compile_direct_function(
 
                 ssa_registers[destination_index as usize] = return_value;
 
-                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
+                let block_arguments: Vec<BlockArg> = ssa_registers
+                    .iter()
+                    .map(|value| BlockArg::Value(*value))
+                    .collect();
+
+                function_builder
+                    .ins()
+                    .jump(instruction_blocks[ip + 1], &block_arguments);
             }
             Operation::CALL_NATIVE => {
                 let CallNative {
@@ -454,7 +1292,7 @@ pub fn compile_direct_function(
 
                 let function_reference = match function.name() {
                     "read_line" => read_line_function,
-                    "write_line" => write_line_function,
+                    "write_line" => write_line_string_function,
                     _ => {
                         return Err(JitError::UnhandledNativeFunction {
                             function_name: function.name().to_string(),
@@ -470,7 +1308,14 @@ pub fn compile_direct_function(
                     ssa_registers[destination as usize] = return_value;
                 }
 
-                function_builder.ins().jump(instruction_blocks[ip + 1], &[]);
+                let block_arguments: Vec<BlockArg> = ssa_registers
+                    .iter()
+                    .map(|value| BlockArg::Value(*value))
+                    .collect();
+
+                function_builder
+                    .ins()
+                    .jump(instruction_blocks[ip + 1], &block_arguments);
             }
             Operation::JUMP => {
                 let Jump {
@@ -485,9 +1330,14 @@ pub fn compile_direct_function(
                     ip - offset as usize
                 };
 
+                let block_arguments: Vec<BlockArg> = ssa_registers
+                    .iter()
+                    .map(|value| BlockArg::Value(*value))
+                    .collect();
+
                 function_builder
                     .ins()
-                    .jump(instruction_blocks[next_ip], &[]);
+                    .jump(instruction_blocks[next_ip], &block_arguments);
             }
             Operation::RETURN => {
                 let Return {
@@ -522,6 +1372,25 @@ pub fn compile_direct_function(
                 return Err(JitError::UnhandledOperation { operation });
             }
         }
+    }
+
+    {
+        function_builder.switch_to_block(division_by_zero_block);
+
+        let division_by_zero_status = function_builder
+            .ins()
+            .iconst(I8, ThreadStatus::ErrorDivisionByZero as i64);
+
+        function_builder.ins().store(
+            MemFlags::new(),
+            division_by_zero_status,
+            thread_context,
+            offset_of!(ThreadContext, status) as i32,
+        );
+
+        let zero_return_value = function_builder.ins().iconst(I64, 0);
+
+        function_builder.ins().return_(&[zero_return_value]);
     }
 
     function_builder.switch_to_block(return_block);
@@ -564,6 +1433,48 @@ pub fn compile_direct_function(
     Ok(())
 }
 
+fn get_byte(
+    address: Address,
+    ssa_registers: &[CraneliftValue],
+    function_builder: &mut FunctionBuilder,
+) -> Result<CraneliftValue, JitError> {
+    let jit_value = match address.memory {
+        MemoryKind::REGISTER => ssa_registers[address.index as usize],
+        MemoryKind::ENCODED => function_builder.ins().iconst(I64, address.index as i64),
+        _ => {
+            return Err(JitError::UnsupportedMemoryKind {
+                memory_kind: address.memory,
+            });
+        }
+    };
+
+    Ok(jit_value)
+}
+
+fn get_character(
+    address: Address,
+    constants: &ConstantTable,
+    ssa_registers: &[CraneliftValue],
+    function_builder: &mut FunctionBuilder,
+) -> Result<CraneliftValue, JitError> {
+    match address.memory {
+        MemoryKind::REGISTER => Ok(ssa_registers[address.index as usize]),
+        MemoryKind::CONSTANT => {
+            let character = constants.get_character(address.index).ok_or(
+                JitError::ConstantIndexOutOfBounds {
+                    constant_index: address.index,
+                    total_constant_count: constants.len(),
+                },
+            )?;
+
+            Ok(function_builder.ins().iconst(I64, character as i64))
+        }
+        _ => Err(JitError::UnsupportedMemoryKind {
+            memory_kind: address.memory,
+        }),
+    }
+}
+
 fn get_integer(
     address: Address,
     constants: &ConstantTable,
@@ -582,6 +1493,31 @@ fn get_integer(
                     })?;
 
             Ok(function_builder.ins().iconst(I64, integer))
+        }
+        _ => Err(JitError::UnsupportedMemoryKind {
+            memory_kind: address.memory,
+        }),
+    }
+}
+
+fn get_float(
+    address: Address,
+    constants: &ConstantTable,
+    ssa_registers: &[CraneliftValue],
+    function_builder: &mut FunctionBuilder,
+) -> Result<CraneliftValue, JitError> {
+    match address.memory {
+        MemoryKind::REGISTER => Ok(ssa_registers[address.index as usize]),
+        MemoryKind::CONSTANT => {
+            let float =
+                constants
+                    .get_float(address.index)
+                    .ok_or(JitError::ConstantIndexOutOfBounds {
+                        constant_index: address.index,
+                        total_constant_count: constants.len(),
+                    })?;
+
+            Ok(function_builder.ins().f64const(float))
         }
         _ => Err(JitError::UnsupportedMemoryKind {
             memory_kind: address.memory,

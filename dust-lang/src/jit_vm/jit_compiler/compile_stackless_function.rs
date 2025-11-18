@@ -1428,58 +1428,63 @@ pub fn compile_stackless_function(
                 };
                 let is_recursive = *stackless == function_id;
 
-                let callee_function_reference = if is_recursive {
-                    compiler
+                let call_instruction = if is_recursive {
+                    let stackless_function_reference = compiler
                         .module
-                        .declare_func_in_func(*stackless, function_builder.func)
+                        .declare_func_in_func(*stackless, function_builder.func);
+
+                    function_builder
+                        .ins()
+                        .call(stackless_function_reference, &[thread_context])
                 } else {
-                    compiler
+                    let direct_function_reference = compiler
                         .module
-                        .declare_func_in_func(*direct, function_builder.func)
+                        .declare_func_in_func(*direct, function_builder.func);
+                    let arguments_range = arguments_start as usize
+                        ..(arguments_start as usize + argument_count as usize);
+                    let call_arguments_list = prototype.call_arguments.get(arguments_range).ok_or(
+                        JitError::ArgumentsRangeOutOfBounds {
+                            arguments_start,
+                            arguments_end: arguments_start + argument_count,
+                            total_argument_count: prototype.call_arguments.len(),
+                        },
+                    )?;
+
+                    let mut arguments = SmallVec::<[CraneliftValue; 4]>::with_capacity(
+                        call_arguments_list.len() + 1,
+                    );
+
+                    for (address, r#type) in call_arguments_list {
+                        let argument_value = match *r#type {
+                            OperandType::INTEGER => {
+                                let integer_value = get_integer(
+                                    *address,
+                                    current_frame_base_register_address,
+                                    &compiler.program.constants,
+                                    &hot_registers.integer,
+                                    &mut function_builder,
+                                )?;
+
+                                Ok(integer_value)
+                            }?,
+                            _ => {
+                                return Err(JitError::UnsupportedOperandType {
+                                    operand_type: *r#type,
+                                });
+                            }
+                        };
+
+                        arguments.push(argument_value);
+                    }
+
+                    arguments.push(thread_context);
+
+                    function_builder
+                        .ins()
+                        .call(direct_function_reference, &arguments)
                 };
-                let arguments_range =
-                    arguments_start as usize..(arguments_start as usize + argument_count as usize);
-                let call_arguments_list = prototype.call_arguments.get(arguments_range).ok_or(
-                    JitError::ArgumentsRangeOutOfBounds {
-                        arguments_start,
-                        arguments_end: arguments_start + argument_count,
-                        total_argument_count: prototype.call_arguments.len(),
-                    },
-                )?;
 
-                let mut arguments =
-                    SmallVec::<[CraneliftValue; 4]>::with_capacity(call_arguments_list.len() + 1);
-
-                for (address, r#type) in call_arguments_list {
-                    let argument_value = match *r#type {
-                        OperandType::INTEGER => {
-                            let integer_value = get_integer(
-                                *address,
-                                current_frame_base_register_address,
-                                &compiler.program.constants,
-                                &hot_registers.integer,
-                                &mut function_builder,
-                            )?;
-
-                            Ok(integer_value)
-                        }?,
-                        _ => {
-                            return Err(JitError::UnsupportedOperandType {
-                                operand_type: *r#type,
-                            });
-                        }
-                    };
-
-                    arguments.push(argument_value);
-                }
-
-                arguments.push(thread_context);
-
-                let call_instruction = function_builder
-                    .ins()
-                    .call(callee_function_reference, &arguments);
-
-                if return_type != OperandType::NONE {
+                if return_type != OperandType::NONE && !is_recursive {
                     let return_value = function_builder.inst_results(call_instruction)[0];
 
                     JitCompiler::set_register(
