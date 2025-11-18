@@ -41,10 +41,7 @@ pub fn compile_main(source_code: String) -> Result<Prototype, DustError> {
     let file = files.first().unwrap();
     let lexer = Lexer::new(file.source_code.as_ref());
     let parser = Parser::new(SourceFileId(0), lexer);
-    let ParseResult {
-        syntax_tree,
-        errors,
-    } = parser.parse_main();
+    let ParseResult { errors, .. } = parser.parse_main();
 
     drop(files);
 
@@ -52,45 +49,37 @@ pub fn compile_main(source_code: String) -> Result<Prototype, DustError> {
         return Err(DustError::parse(errors, source));
     }
 
-    let mut resolver = Resolver::new();
-    let file_trees = vec![syntax_tree];
-    let binder = Binder::new(
-        SourceFileId(0),
-        source.clone(),
-        &mut resolver,
-        &file_trees[0],
-        ScopeId::MAIN,
-    );
+    let compiler = Compiler::new(source);
+    let mut program = compiler.compile(None)?;
 
-    binder
-        .bind_main()
-        .map_err(|compile_error| DustError::compile(compile_error, source.clone()))?;
+    Ok(program.prototypes.remove(0))
+}
 
-    let mut context = CompileContext {
-        source: source.clone(),
-        resolver,
-        file_trees,
-        constants: ConstantTable::new(),
-        prototypes: Vec::new(),
+pub fn compile(source_code: String) -> Result<Vec<Prototype>, DustError> {
+    let source = Source::new();
+    let mut files = source.write_files();
+    let file = SourceFile {
+        name: "main".to_string(),
+        source_code: SourceCode::String(source_code),
     };
-    let prototype_compiler = PrototypeCompiler::new(
-        None,
-        0,
-        SourceFileId(0),
-        FunctionTypeNode {
-            type_parameters: (0, 0),
-            value_parameters: (0, 0),
-            return_type: TypeId::NONE,
-        },
-        &mut context,
-        ScopeId::MAIN,
-    );
-    let compile_result = prototype_compiler.compile_main();
 
-    match compile_result {
-        Ok(prototype) => Ok(prototype),
-        Err(error) => Err(DustError::compile(error, source)),
+    files.push(file);
+
+    let file = files.first().unwrap();
+    let lexer = Lexer::new(file.source_code.as_ref());
+    let parser = Parser::new(SourceFileId(0), lexer);
+    let ParseResult { errors, .. } = parser.parse_main();
+
+    drop(files);
+
+    if !errors.is_empty() {
+        return Err(DustError::parse(errors, source));
     }
+
+    let compiler = Compiler::new(source);
+    let program = compiler.compile(None)?;
+
+    Ok(program.prototypes)
 }
 
 pub struct Compiler {

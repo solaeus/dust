@@ -1486,10 +1486,18 @@ pub fn compile_stackless_function(
 
                 if return_type != OperandType::NONE && !is_recursive {
                     let return_value = function_builder.inst_results(call_instruction)[0];
+                    let converted_return_value = match return_type {
+                        OperandType::FLOAT => {
+                            function_builder
+                                .ins()
+                                .bitcast(F64, MemFlags::new(), return_value)
+                        }
+                        _ => return_value,
+                    };
 
                     JitCompiler::set_register(
                         destination_index,
-                        return_value,
+                        converted_return_value,
                         return_type,
                         current_frame_base_register_address,
                         current_frame_base_tag_address,

@@ -3244,8 +3244,8 @@ impl<'a> PrototypeCompiler<'a> {
 
         let end_else_anchor_count = self.jump_over_else_anchor_ids.len();
 
-        for _ in start_else_anchor_count..end_else_anchor_count {
-            let jump_over_else_id = self.jump_over_else_anchor_ids.pop().unwrap();
+        for index in start_else_anchor_count..end_else_anchor_count {
+            let jump_over_else_id = self.jump_over_else_anchor_ids[index];
 
             if_emission
                 .instructions

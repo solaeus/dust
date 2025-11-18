@@ -15,7 +15,8 @@ use tracing::{Level, info, span};
 use crate::{
     constant_table::ConstantTable,
     instruction::{
-        Address, Call, CallNative, Jump, MemoryKind, Move, OperandType, Operation, Return,
+        Address, Call, CallNative, Drop, GetList, Jump, MemoryKind, Move, Negate, NewList,
+        OperandType, Operation, Return, SetList, Test, ToString,
     },
     jit_vm::{
         JitCompiler, JitError, ThreadStatus, jit_compiler::FunctionIds, thread::ThreadContext,
@@ -292,313 +293,6 @@ pub fn compile_direct_function(
         )?
     };
 
-    let write_line_integer_function = {
-        let mut write_line_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        write_line_signature
-            .params
-            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
-        write_line_signature.returns = vec![];
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "write_line_integer",
-            write_line_signature,
-        )?
-    };
-
-    let write_line_string_function = {
-        let mut write_line_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        write_line_signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        write_line_signature.returns = vec![];
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "write_line_string",
-            write_line_signature,
-        )?
-    };
-
-    let integer_power_function = {
-        let mut integer_power_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        integer_power_signature
-            .params
-            .extend([AbiParam::new(I64), AbiParam::new(I64)]);
-        integer_power_signature.returns.push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "integer_power",
-            integer_power_signature,
-        )?
-    };
-
-    let float_power_function = {
-        let mut float_power_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        float_power_signature
-            .params
-            .extend([AbiParam::new(F64), AbiParam::new(F64)]);
-        float_power_signature.returns.push(AbiParam::new(F64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "float_power",
-            float_power_signature,
-        )?
-    };
-    let allocate_list_function = {
-        let mut allocate_list_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        allocate_list_signature.params.extend([
-            AbiParam::new(I8),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        allocate_list_signature.returns.push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "allocate_list",
-            allocate_list_signature,
-        )?
-    };
-
-    let instert_into_list_function = {
-        let mut insert_into_list_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        insert_into_list_signature.params.extend([
-            AbiParam::new(I64),
-            AbiParam::new(I64),
-            AbiParam::new(I64),
-        ]);
-        insert_into_list_signature.returns = vec![];
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "insert_into_list",
-            insert_into_list_signature,
-        )?
-    };
-
-    let get_from_list_function = {
-        let mut get_from_list_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        get_from_list_signature.params.extend([
-            AbiParam::new(I64),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        get_from_list_signature.returns.push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "get_from_list",
-            get_from_list_signature,
-        )?
-    };
-
-    let allocate_string_function = {
-        let mut allocate_string_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        allocate_string_signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        allocate_string_signature.returns.push(AbiParam::new(I64)); // return value
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "allocate_string",
-            allocate_string_signature,
-        )?
-    };
-
-    let concatenate_strings_function = {
-        let mut concatenate_strings_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        concatenate_strings_signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
-        concatenate_strings_signature
-            .returns
-            .push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "concatenate_strings",
-            concatenate_strings_signature,
-        )?
-    };
-
-    let concatenate_character_string_function = {
-        let mut concatenate_character_string_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        concatenate_character_string_signature.params.extend([
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
-        concatenate_character_string_signature
-            .returns
-            .push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "concatenate_character_string",
-            concatenate_character_string_signature,
-        )?
-    };
-
-    let concatenate_string_character_function = {
-        let mut concatenate_string_character_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        concatenate_string_character_signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        concatenate_string_character_signature
-            .returns
-            .push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "concatenate_string_character",
-            concatenate_string_character_signature,
-        )?
-    };
-
-    let concatenate_characters_function = {
-        let mut concatenate_characters_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        concatenate_characters_signature.params.extend([
-            AbiParam::new(I64),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        concatenate_characters_signature
-            .returns
-            .push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "concatenate_characters",
-            concatenate_characters_signature,
-        )?
-    };
-
-    let compare_strings_equal_function = {
-        let mut compare_strings_equal_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        compare_strings_equal_signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        compare_strings_equal_signature
-            .returns
-            .push(AbiParam::new(I8));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "compare_strings_equal",
-            compare_strings_equal_signature,
-        )?
-    };
-
-    let compare_strings_less_than_function = {
-        let mut compare_strings_less_than_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        compare_strings_less_than_signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        compare_strings_less_than_signature
-            .returns
-            .push(AbiParam::new(I8));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "compare_strings_less_than",
-            compare_strings_less_than_signature,
-        )?
-    };
-
-    let compare_strings_less_than_equal_function = {
-        let mut compare_strings_less_than_equal_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        compare_strings_less_than_equal_signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        compare_strings_less_than_equal_signature
-            .returns
-            .push(AbiParam::new(I8));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "compare_strings_less_than_equal",
-            compare_strings_less_than_equal_signature,
-        )?
-    };
-
-    let integer_to_string_function = {
-        let mut integer_to_string_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        integer_to_string_signature
-            .params
-            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
-        integer_to_string_signature.returns.push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "integer_to_string",
-            integer_to_string_signature,
-        )?
-    };
-
-    let read_line_function = {
-        let mut read_line_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        read_line_signature.params.push(AbiParam::new(pointer_type));
-        read_line_signature.returns.push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "read_line",
-            read_line_signature,
-        )?
-    };
-
-    let write_line_integer_function = {
-        let mut write_line_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        write_line_signature
-            .params
-            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
-        write_line_signature.returns = vec![];
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "write_line_integer",
-            write_line_signature,
-        )?
-    };
-
     let write_line_string_function = {
         let mut write_line_signature = Signature::new(compiler.module.isa().default_call_conv());
 
@@ -744,12 +438,47 @@ pub fn compile_direct_function(
                     jump_is_positive,
                 } = Move::from(*current_instruction);
                 let value = match r#type {
+                    OperandType::BOOLEAN => get_boolean(
+                        operand,
+                        &compiler.program.constants,
+                        &ssa_registers,
+                        &mut function_builder,
+                    )?,
+                    OperandType::BYTE => get_byte(operand, &ssa_registers, &mut function_builder)?,
+                    OperandType::CHARACTER => get_character(
+                        operand,
+                        &compiler.program.constants,
+                        &ssa_registers,
+                        &mut function_builder,
+                    )?,
+                    OperandType::FLOAT => get_float(
+                        operand,
+                        &compiler.program.constants,
+                        &ssa_registers,
+                        &mut function_builder,
+                    )?,
                     OperandType::INTEGER => self::get_integer(
                         operand,
                         &compiler.program.constants,
                         &ssa_registers,
                         &mut function_builder,
                     )?,
+                    OperandType::STRING => get_string(
+                        operand,
+                        &compiler.program.constants,
+                        &ssa_registers,
+                        &mut function_builder,
+                        allocate_string_function,
+                        thread_context,
+                    )?,
+                    OperandType::LIST_BOOLEAN
+                    | OperandType::LIST_BYTE
+                    | OperandType::LIST_CHARACTER
+                    | OperandType::LIST_FLOAT
+                    | OperandType::LIST_INTEGER
+                    | OperandType::LIST_STRING
+                    | OperandType::LIST_LIST
+                    | OperandType::LIST_FUNCTION => get_list(operand.index, &ssa_registers),
                     _ => {
                         return Err(JitError::UnsupportedOperandType {
                             operand_type: r#type,
@@ -757,7 +486,14 @@ pub fn compile_direct_function(
                     }
                 };
 
-                ssa_registers[destination as usize] = value;
+                let stored_value = match r#type {
+                    OperandType::FLOAT => {
+                        function_builder.ins().bitcast(I64, MemFlags::new(), value)
+                    }
+                    _ => value,
+                };
+
+                ssa_registers[destination as usize] = stored_value;
 
                 if jump_distance > 0 {
                     let distance = (jump_distance + 1) as usize;
@@ -788,6 +524,173 @@ pub fn compile_direct_function(
 
                 Ok(())
             }?,
+            Operation::DROP => {
+                let Drop {
+                    drop_list_start: _,
+                    drop_list_end: _,
+                } = Drop::from(*current_instruction);
+
+                // In SSA-based direct compilation, DROP is a no-op since we don't use register tags
+                // The garbage collector handles cleanup based on liveness analysis
+
+                let block_arguments: Vec<BlockArg> = ssa_registers
+                    .iter()
+                    .map(|value| BlockArg::Value(*value))
+                    .collect();
+
+                function_builder
+                    .ins()
+                    .jump(instruction_blocks[ip + 1], &block_arguments);
+            }
+            Operation::NEW_LIST => {
+                let NewList {
+                    destination,
+                    initial_length,
+                    list_type,
+                } = NewList::from(*current_instruction);
+                let list_type_value = function_builder.ins().iconst(I8, list_type.0 as i64);
+                let list_length_value = function_builder.ins().iconst(I64, initial_length as i64);
+                let zero = function_builder.ins().iconst(I64, 0);
+                let call_allocate_list_instruction = function_builder.ins().call(
+                    allocate_list_function,
+                    &[
+                        list_type_value,
+                        list_length_value,
+                        thread_context,
+                        zero,
+                        zero,
+                    ],
+                );
+                let list_object_pointer =
+                    function_builder.inst_results(call_allocate_list_instruction)[0];
+
+                ssa_registers[destination as usize] = list_object_pointer;
+
+                let block_arguments: Vec<BlockArg> = ssa_registers
+                    .iter()
+                    .map(|value| BlockArg::Value(*value))
+                    .collect();
+
+                function_builder
+                    .ins()
+                    .jump(instruction_blocks[ip + 1], &block_arguments);
+            }
+            Operation::SET_LIST => {
+                let SetList {
+                    destination_list,
+                    item_source,
+                    list_index,
+                    item_type,
+                } = SetList::from(*current_instruction);
+                let list_pointer = get_list(destination_list, &ssa_registers);
+                let item_value = match item_type {
+                    OperandType::INTEGER => get_integer(
+                        item_source,
+                        &compiler.program.constants,
+                        &ssa_registers,
+                        &mut function_builder,
+                    )?,
+                    OperandType::BOOLEAN => get_boolean(
+                        item_source,
+                        &compiler.program.constants,
+                        &ssa_registers,
+                        &mut function_builder,
+                    )?,
+                    OperandType::BYTE => {
+                        get_byte(item_source, &ssa_registers, &mut function_builder)?
+                    }
+                    OperandType::CHARACTER => get_character(
+                        item_source,
+                        &compiler.program.constants,
+                        &ssa_registers,
+                        &mut function_builder,
+                    )?,
+                    OperandType::FLOAT => get_float(
+                        item_source,
+                        &compiler.program.constants,
+                        &ssa_registers,
+                        &mut function_builder,
+                    )?,
+                    OperandType::STRING => get_string(
+                        item_source,
+                        &compiler.program.constants,
+                        &ssa_registers,
+                        &mut function_builder,
+                        allocate_string_function,
+                        thread_context,
+                    )?,
+                    OperandType::LIST_BOOLEAN
+                    | OperandType::LIST_BYTE
+                    | OperandType::LIST_CHARACTER
+                    | OperandType::LIST_FLOAT
+                    | OperandType::LIST_INTEGER
+                    | OperandType::LIST_STRING
+                    | OperandType::LIST_LIST
+                    | OperandType::LIST_FUNCTION => get_list(item_source.index, &ssa_registers),
+                    _ => {
+                        return Err(JitError::UnsupportedOperandType {
+                            operand_type: item_type,
+                        });
+                    }
+                };
+                let list_index = function_builder.ins().iconst(I64, list_index as i64);
+
+                let item_value_as_i64 = match item_type {
+                    OperandType::FLOAT => {
+                        function_builder
+                            .ins()
+                            .bitcast(I64, MemFlags::new(), item_value)
+                    }
+                    _ => item_value,
+                };
+
+                function_builder.ins().call(
+                    instert_into_list_function,
+                    &[list_pointer, list_index, item_value_as_i64],
+                );
+
+                let block_arguments: Vec<BlockArg> = ssa_registers
+                    .iter()
+                    .map(|value| BlockArg::Value(*value))
+                    .collect();
+
+                function_builder
+                    .ins()
+                    .jump(instruction_blocks[ip + 1], &block_arguments);
+            }
+            Operation::GET_LIST => {
+                let GetList {
+                    destination,
+                    list,
+                    list_index,
+                    ..
+                } = GetList::from(*current_instruction);
+
+                let list_pointer = get_list(list.index, &ssa_registers);
+                let list_index = get_integer(
+                    list_index,
+                    &compiler.program.constants,
+                    &ssa_registers,
+                    &mut function_builder,
+                )?;
+
+                let call_get_list_instruction = function_builder.ins().call(
+                    get_from_list_function,
+                    &[list_pointer, list_index, thread_context],
+                );
+                let element_value = function_builder.inst_results(call_get_list_instruction)[0];
+
+                ssa_registers[destination as usize] = element_value;
+
+                let block_arguments: Vec<BlockArg> = ssa_registers
+                    .iter()
+                    .map(|value| BlockArg::Value(*value))
+                    .collect();
+
+                function_builder
+                    .ins()
+                    .jump(instruction_blocks[ip + 1], &block_arguments);
+            }
             Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL => {
                 let comparator = current_instruction.a_field();
                 let left = current_instruction.b_address();
@@ -804,6 +707,79 @@ pub fn compile_direct_function(
                     _ => unreachable!(),
                 };
                 let comparison_result = match r#type {
+                    OperandType::BOOLEAN => {
+                        let left_value = get_boolean(
+                            left,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_boolean(
+                            right,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+
+                        function_builder
+                            .ins()
+                            .icmp(comparison, left_value, right_value)
+                    }
+                    OperandType::BYTE => {
+                        let left_value = get_byte(left, &ssa_registers, &mut function_builder)?;
+                        let right_value = get_byte(right, &ssa_registers, &mut function_builder)?;
+
+                        function_builder
+                            .ins()
+                            .icmp(comparison, left_value, right_value)
+                    }
+                    OperandType::CHARACTER => {
+                        let left_value = get_character(
+                            left,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_character(
+                            right,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+
+                        function_builder
+                            .ins()
+                            .icmp(comparison, left_value, right_value)
+                    }
+                    OperandType::FLOAT => {
+                        let comparison = match comparison {
+                            IntCC::Equal => FloatCC::Equal,
+                            IntCC::NotEqual => FloatCC::NotEqual,
+                            IntCC::SignedLessThan => FloatCC::LessThan,
+                            IntCC::SignedGreaterThanOrEqual => FloatCC::GreaterThanOrEqual,
+                            IntCC::SignedLessThanOrEqual => FloatCC::LessThanOrEqual,
+                            IntCC::SignedGreaterThan => FloatCC::GreaterThan,
+                            _ => {
+                                unreachable!();
+                            }
+                        };
+                        let left_value = get_float(
+                            left,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+                        let right_value = get_float(
+                            right,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+
+                        function_builder
+                            .ins()
+                            .fcmp(comparison, left_value, right_value)
+                    }
                     OperandType::INTEGER => {
                         let left_value = get_integer(
                             left,
@@ -821,6 +797,47 @@ pub fn compile_direct_function(
                         function_builder
                             .ins()
                             .icmp(comparison, left_value, right_value)
+                    }
+                    OperandType::STRING => {
+                        let left_pointer = get_string(
+                            left,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                            allocate_string_function,
+                            thread_context,
+                        )?;
+                        let right_pointer = get_string(
+                            right,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                            allocate_string_function,
+                            thread_context,
+                        )?;
+                        let compare_function = match operation {
+                            Operation::EQUAL => compare_strings_equal_function,
+                            Operation::LESS => compare_strings_less_than_function,
+                            Operation::LESS_EQUAL => compare_strings_less_than_equal_function,
+                            _ => {
+                                return Err(JitError::UnhandledOperation { operation });
+                            }
+                        };
+
+                        let call_instruction = function_builder
+                            .ins()
+                            .call(compare_function, &[left_pointer, right_pointer]);
+                        let comparison_result = function_builder.inst_results(call_instruction)[0];
+
+                        if comparator != 0 {
+                            function_builder
+                                .ins()
+                                .icmp_imm(IntCC::Equal, comparison_result, 1)
+                        } else {
+                            function_builder
+                                .ins()
+                                .icmp_imm(IntCC::Equal, comparison_result, 0)
+                        }
                     }
                     _ => {
                         return Err(JitError::UnsupportedOperandType {
@@ -1163,7 +1180,16 @@ pub fn compile_direct_function(
                     }
                 };
 
-                ssa_registers[destination.index as usize] = result_value;
+                let stored_value = match r#type {
+                    OperandType::FLOAT => {
+                        function_builder
+                            .ins()
+                            .bitcast(I64, MemFlags::new(), result_value)
+                    }
+                    _ => result_value,
+                };
+
+                ssa_registers[destination.index as usize] = stored_value;
 
                 let block_arguments: Vec<BlockArg> = ssa_registers
                     .iter()
@@ -1317,6 +1343,81 @@ pub fn compile_direct_function(
                     .ins()
                     .jump(instruction_blocks[ip + 1], &block_arguments);
             }
+            Operation::TEST => {
+                let Test {
+                    comparator,
+                    operand,
+                    jump_distance,
+                } = Test::from(*current_instruction);
+
+                let operand_value = get_boolean(
+                    operand,
+                    &compiler.program.constants,
+                    &ssa_registers,
+                    &mut function_builder,
+                )?;
+                let comparator_value = function_builder.ins().iconst(I64, comparator as i64);
+                let comparison_result =
+                    function_builder
+                        .ins()
+                        .icmp(IntCC::Equal, operand_value, comparator_value);
+
+                let distance = (jump_distance + 1) as usize;
+                let block_arguments: Vec<BlockArg> = ssa_registers
+                    .iter()
+                    .map(|value| BlockArg::Value(*value))
+                    .collect();
+
+                function_builder.ins().brif(
+                    comparison_result,
+                    instruction_blocks[ip + distance],
+                    &block_arguments,
+                    instruction_blocks[ip + 1],
+                    &block_arguments,
+                );
+            }
+            Operation::NEGATE => {
+                let Negate {
+                    destination,
+                    operand,
+                    r#type,
+                } = Negate::from(*current_instruction);
+
+                let result_value = match r#type {
+                    OperandType::BOOLEAN => {
+                        let boolean_value = get_boolean(
+                            operand,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+                        let is_zero =
+                            function_builder
+                                .ins()
+                                .icmp_imm(IntCC::Equal, boolean_value, 0);
+                        let one = function_builder.ins().iconst(I64, 1);
+                        let zero = function_builder.ins().iconst(I64, 0);
+
+                        function_builder.ins().select(is_zero, one, zero)
+                    }
+                    _ => {
+                        return Err(JitError::UnsupportedOperandType {
+                            operand_type: r#type,
+                        });
+                    }
+                };
+
+                ssa_registers[destination as usize] = result_value;
+
+                let block_arguments: Vec<BlockArg> = ssa_registers
+                    .iter()
+                    .map(|value| BlockArg::Value(*value))
+                    .collect();
+
+                function_builder
+                    .ins()
+                    .jump(instruction_blocks[ip + 1], &block_arguments);
+            }
             Operation::JUMP => {
                 let Jump {
                     offset,
@@ -1348,12 +1449,51 @@ pub fn compile_direct_function(
 
                 if should_return_value {
                     let value_to_return = match r#type {
+                        OperandType::BOOLEAN => get_boolean(
+                            return_value_address,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?,
+                        OperandType::BYTE => {
+                            get_byte(return_value_address, &ssa_registers, &mut function_builder)?
+                        }
+                        OperandType::CHARACTER => get_character(
+                            return_value_address,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?,
+                        OperandType::FLOAT => get_float(
+                            return_value_address,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?,
                         OperandType::INTEGER => get_integer(
                             return_value_address,
                             &compiler.program.constants,
                             &ssa_registers,
                             &mut function_builder,
                         )?,
+                        OperandType::STRING => get_string(
+                            return_value_address,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                            allocate_string_function,
+                            thread_context,
+                        )?,
+                        OperandType::LIST_BOOLEAN
+                        | OperandType::LIST_BYTE
+                        | OperandType::LIST_CHARACTER
+                        | OperandType::LIST_FLOAT
+                        | OperandType::LIST_INTEGER
+                        | OperandType::LIST_STRING
+                        | OperandType::LIST_LIST
+                        | OperandType::LIST_FUNCTION => {
+                            get_list(return_value_address.index, &ssa_registers)
+                        }
                         _ => {
                             return Err(JitError::UnsupportedOperandType {
                                 operand_type: r#type,
@@ -1361,12 +1501,69 @@ pub fn compile_direct_function(
                         }
                     };
 
-                    function_builder.ins().return_(&[value_to_return]);
+                    let return_value = match r#type {
+                        OperandType::FLOAT => {
+                            function_builder
+                                .ins()
+                                .bitcast(I64, MemFlags::new(), value_to_return)
+                        }
+                        _ => value_to_return,
+                    };
+
+                    function_builder.ins().return_(&[return_value]);
                 } else {
                     let zero = function_builder.ins().iconst(I64, 0);
 
                     function_builder.ins().return_(&[zero]);
                 }
+            }
+            Operation::TO_STRING => {
+                let ToString {
+                    destination,
+                    operand,
+                    r#type,
+                } = ToString::from(*current_instruction);
+
+                let string_value = match r#type {
+                    OperandType::INTEGER => {
+                        let integer_operand = get_integer(
+                            operand,
+                            &compiler.program.constants,
+                            &ssa_registers,
+                            &mut function_builder,
+                        )?;
+                        let call_instruction = function_builder.ins().call(
+                            integer_to_string_function,
+                            &[integer_operand, thread_context],
+                        );
+
+                        function_builder.inst_results(call_instruction)[0]
+                    }
+                    OperandType::STRING => get_string(
+                        operand,
+                        &compiler.program.constants,
+                        &ssa_registers,
+                        &mut function_builder,
+                        allocate_string_function,
+                        thread_context,
+                    )?,
+                    _ => {
+                        return Err(JitError::UnsupportedOperandType {
+                            operand_type: r#type,
+                        });
+                    }
+                };
+
+                ssa_registers[destination as usize] = string_value;
+
+                let block_arguments: Vec<BlockArg> = ssa_registers
+                    .iter()
+                    .map(|value| BlockArg::Value(*value))
+                    .collect();
+
+                function_builder
+                    .ins()
+                    .jump(instruction_blocks[ip + 1], &block_arguments);
             }
             _ => {
                 return Err(JitError::UnhandledOperation { operation });
@@ -1507,7 +1704,12 @@ fn get_float(
     function_builder: &mut FunctionBuilder,
 ) -> Result<CraneliftValue, JitError> {
     match address.memory {
-        MemoryKind::REGISTER => Ok(ssa_registers[address.index as usize]),
+        MemoryKind::REGISTER => {
+            let i64_value = ssa_registers[address.index as usize];
+            Ok(function_builder
+                .ins()
+                .bitcast(F64, MemFlags::new(), i64_value))
+        }
         MemoryKind::CONSTANT => {
             let float =
                 constants
@@ -1556,4 +1758,31 @@ fn get_string(
             memory_kind: address.memory,
         }),
     }
+}
+
+fn get_boolean(
+    address: Address,
+    _constants: &ConstantTable,
+    ssa_registers: &[CraneliftValue],
+    function_builder: &mut FunctionBuilder,
+) -> Result<CraneliftValue, JitError> {
+    let jit_value = match address.memory {
+        MemoryKind::REGISTER => ssa_registers[address.index as usize],
+        MemoryKind::ENCODED => {
+            let boolean_value = address.index != 0;
+
+            function_builder.ins().iconst(I64, boolean_value as i64)
+        }
+        _ => {
+            return Err(JitError::UnsupportedMemoryKind {
+                memory_kind: address.memory,
+            });
+        }
+    };
+
+    Ok(jit_value)
+}
+
+fn get_list(register: u16, ssa_registers: &[CraneliftValue]) -> CraneliftValue {
+    ssa_registers[register as usize]
 }
