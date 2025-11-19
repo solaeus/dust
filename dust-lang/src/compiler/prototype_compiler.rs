@@ -2602,9 +2602,8 @@ impl<'a> PrototypeCompiler<'a> {
             let move_instruction =
                 Instruction::r#move(target.register, local.address, operand_type);
 
-            let mut path_emission = InstructionsEmission::new();
+            let mut path_emission = InstructionsEmission::with_instruction(move_instruction);
 
-            path_emission.push(move_instruction);
             path_emission.set_type(local.type_id);
             path_emission.set_target(Some(target));
 
@@ -3379,6 +3378,14 @@ impl InstructionsEmission {
         }
     }
 
+    fn with_instruction(instruction: Instruction) -> Self {
+        Self {
+            instructions: vec![(instruction, SmallVec::new())],
+            type_id: TypeId::NONE,
+            target_register: None,
+        }
+    }
+
     fn length(&self) -> usize {
         self.instructions.len()
     }
@@ -3444,10 +3451,7 @@ impl InstructionsEmission {
     }
 
     fn merge(&mut self, other: InstructionsEmission) {
-        for (instruction, jump_anchors) in other.instructions {
-            self.instructions.push((instruction, jump_anchors));
-        }
-
+        self.instructions.extend(other.instructions);
         self.type_id = other.type_id;
         self.target_register = other.target_register;
     }
