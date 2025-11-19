@@ -30,24 +30,10 @@ use crate::{
 
 pub fn compile_main(source_code: String) -> Result<Prototype, DustError> {
     let source = Source::new();
-    let mut files = source.write_files();
-    let file = SourceFile {
+    source.add_file(SourceFile {
         name: "main".to_string(),
         source_code: SourceCode::String(source_code),
-    };
-
-    files.push(file);
-
-    let file = files.first().unwrap();
-    let lexer = Lexer::new(file.source_code.as_ref());
-    let parser = Parser::new(SourceFileId(0), lexer);
-    let ParseResult { errors, .. } = parser.parse_main();
-
-    drop(files);
-
-    if !errors.is_empty() {
-        return Err(DustError::parse(errors, source));
-    }
+    });
 
     let compiler = Compiler::new(source);
     let mut program = compiler.compile(None)?;
@@ -57,24 +43,10 @@ pub fn compile_main(source_code: String) -> Result<Prototype, DustError> {
 
 pub fn compile(source_code: String) -> Result<Vec<Prototype>, DustError> {
     let source = Source::new();
-    let mut files = source.write_files();
-    let file = SourceFile {
+    source.add_file(SourceFile {
         name: "main".to_string(),
         source_code: SourceCode::String(source_code),
-    };
-
-    files.push(file);
-
-    let file = files.first().unwrap();
-    let lexer = Lexer::new(file.source_code.as_ref());
-    let parser = Parser::new(SourceFileId(0), lexer);
-    let ParseResult { errors, .. } = parser.parse_main();
-
-    drop(files);
-
-    if !errors.is_empty() {
-        return Err(DustError::parse(errors, source));
-    }
+    });
 
     let compiler = Compiler::new(source);
     let program = compiler.compile(None)?;
