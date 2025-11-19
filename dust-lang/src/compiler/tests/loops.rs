@@ -1,7 +1,7 @@
 use crate::{
-    prototype::Prototype,
     compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
+    prototype::Prototype,
     tests::loop_cases,
     r#type::{FunctionType, Type},
 };

@@ -18,6 +18,11 @@ pub fn handle_run_command(
     let compiler = Compiler::new(source.clone());
     let compile_result = compiler.compile(None);
     let compile_time = start_time.elapsed();
+
+    if time {
+        print_times(&[("Compile Time", compile_time, None)]);
+    }
+
     let program = match compile_result {
         Ok(program) => program,
         Err(dust_error) => {

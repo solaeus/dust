@@ -958,14 +958,9 @@ impl<'a> PrototypeCompiler<'a> {
                                     forward_id,
                                     backward_id,
                                 } => {
-                                    let forward_placement =
-                                        compiler.jump_placements.get_mut(&forward_id).unwrap();
                                     let next_index = compiler.instructions.len();
-
-                                    forward_placement.distance =
-                                        (next_index - forward_placement.index) as u16;
-
-                                    let forward_index = forward_placement.index;
+                                    let forward_index =
+                                        compiler.jump_placements.get(&forward_id).unwrap().index;
                                     let coalesce = if is_instruction_coallescible_with_jump(
                                         instruction,
                                         false,
@@ -976,9 +971,24 @@ impl<'a> PrototypeCompiler<'a> {
 
                                         false
                                     };
+
+                                    let forward_distance = if coalesce {
+                                        (next_index - forward_index - 1) as u16
+                                    } else {
+                                        (next_index - forward_index) as u16
+                                    };
+
+                                    compiler
+                                        .jump_placements
+                                        .get_mut(&forward_id)
+                                        .unwrap()
+                                        .distance = forward_distance;
+
+                                    let backward_distance =
+                                        (compiler.instructions.len() - forward_index - 1) as u16;
                                     let backward_placement = JumpPlacement {
                                         index: compiler.instructions.len() - 1,
-                                        distance: (next_index - forward_index) as u16,
+                                        distance: backward_distance,
                                         forward: false,
                                         coalesce,
                                     };

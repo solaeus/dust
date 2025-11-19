@@ -566,8 +566,6 @@ impl<'src> Parser<'src> {
 
         let mut children = Self::new_child_buffer();
 
-        println!("Parsing {}", self.current_token);
-
         while !self.allow(TokenKind::RightParenthesis)? {
             if self.current_token.kind == TokenKind::Eof {
                 break;
