@@ -18,7 +18,8 @@ use cranelift::{
     frontend::Switch,
     prelude::{
         AbiParam, FunctionBuilder, FunctionBuilderContext, IntCC, MemFlags, Signature,
-        Value as CraneliftValue, Variable, types::I64,
+        Value as CraneliftValue, Variable,
+        types::{F64, I8, I64},
     },
 };
 use cranelift_jit::{JITBuilder, JITModule};
@@ -561,6 +562,266 @@ impl<'a> JitCompiler<'a> {
 
         Ok(function_reference)
     }
+
+    fn get_allocate_list_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature.params.extend([
+            AbiParam::new(I8),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        signature.returns.push(AbiParam::new(I64));
+        self.declare_imported_function(function_builder, "allocate_list", signature)
+    }
+
+    fn get_insert_into_list_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(I64), AbiParam::new(I64)]);
+        self.declare_imported_function(function_builder, "insert_into_list", signature)
+    }
+
+    fn get_get_from_list_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        signature.returns.push(AbiParam::new(I64));
+        self.declare_imported_function(function_builder, "get_from_list", signature)
+    }
+
+    fn get_allocate_string_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        signature.returns.push(AbiParam::new(I64));
+        self.declare_imported_function(function_builder, "allocate_string", signature)
+    }
+
+    fn get_concatenate_strings_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
+        signature.returns.push(AbiParam::new(I64));
+        self.declare_imported_function(function_builder, "concatenate_strings", signature)
+    }
+
+    fn get_concatenate_character_string_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
+        signature.returns.push(AbiParam::new(I64));
+        self.declare_imported_function(function_builder, "concatenate_character_string", signature)
+    }
+
+    fn get_concatenate_string_character_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        signature.returns.push(AbiParam::new(I64));
+        self.declare_imported_function(function_builder, "concatenate_string_character", signature)
+    }
+
+    fn get_concatenate_characters_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+        signature.returns.push(AbiParam::new(I64));
+        self.declare_imported_function(function_builder, "concatenate_characters", signature)
+    }
+
+    fn get_compare_strings_equal_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        signature.returns.push(AbiParam::new(I8));
+        self.declare_imported_function(function_builder, "compare_strings_equal", signature)
+    }
+
+    fn get_compare_strings_less_than_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        signature.returns.push(AbiParam::new(I8));
+        self.declare_imported_function(function_builder, "compare_strings_less_than", signature)
+    }
+
+    fn get_compare_strings_less_than_equal_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        signature.returns.push(AbiParam::new(I8));
+        self.declare_imported_function(
+            function_builder,
+            "compare_strings_less_than_equal",
+            signature,
+        )
+    }
+
+    fn get_integer_to_string_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
+        signature.returns.push(AbiParam::new(I64));
+        self.declare_imported_function(function_builder, "integer_to_string", signature)
+    }
+
+    fn get_read_line_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature.params.push(AbiParam::new(pointer_type));
+        signature.returns.push(AbiParam::new(I64));
+        self.declare_imported_function(function_builder, "read_line", signature)
+    }
+
+    fn get_write_line_integer_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
+        self.declare_imported_function(function_builder, "write_line_integer", signature)
+    }
+
+    fn get_write_line_string_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        self.declare_imported_function(function_builder, "write_line_string", signature)
+    }
+
+    fn get_integer_power_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(I64)]);
+        signature.returns.push(AbiParam::new(I64));
+        self.declare_imported_function(function_builder, "integer_power", signature)
+    }
+
+    fn get_float_power_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature
+            .params
+            .extend([AbiParam::new(F64), AbiParam::new(F64)]);
+        signature.returns.push(AbiParam::new(F64));
+        self.declare_imported_function(function_builder, "float_power", signature)
+    }
+
+    #[cfg(debug_assertions)]
+    fn get_log_operation_and_ip_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature.params.push(AbiParam::new(I8));
+        signature.params.push(AbiParam::new(I64));
+        self.declare_imported_function(function_builder, "log_operation_and_ip", signature)
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -579,7 +840,6 @@ pub fn get_compile_order(program: &Program) -> Vec<usize> {
     for (caller, prototype) in program.prototypes.iter().enumerate() {
         for instr in &prototype.instructions {
             if instr.operation() == Operation::CALL {
-                // b_field is the callee prototype index
                 let callee = instr.b_field() as usize;
                 if callee < prototype_count && edges[caller].insert(callee) {
                     indegree[callee] += 1;

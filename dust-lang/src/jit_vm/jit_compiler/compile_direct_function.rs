@@ -2,10 +2,10 @@ use std::mem::offset_of;
 
 use cranelift::codegen::ir::BlockArg;
 use cranelift::{
-    codegen::{CodegenError, ir::FuncRef},
+    codegen::CodegenError,
     prelude::{
         AbiParam, FloatCC, FunctionBuilder, FunctionBuilderContext, InstBuilder, IntCC, MemFlags,
-        Signature, Value as CraneliftValue,
+        Value as CraneliftValue,
         types::{F64, I8, I64},
     },
 };
@@ -59,301 +59,6 @@ pub fn compile_direct_function(
 
     let mut function_builder =
         FunctionBuilder::new(&mut compilation_context.func, &mut function_builder_context);
-
-    let allocate_list_function = {
-        let mut allocate_list_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        allocate_list_signature.params.extend([
-            AbiParam::new(I8),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        allocate_list_signature.returns.push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "allocate_list",
-            allocate_list_signature,
-        )?
-    };
-
-    let instert_into_list_function = {
-        let mut insert_into_list_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        insert_into_list_signature.params.extend([
-            AbiParam::new(I64),
-            AbiParam::new(I64),
-            AbiParam::new(I64),
-        ]);
-        insert_into_list_signature.returns = vec![];
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "insert_into_list",
-            insert_into_list_signature,
-        )?
-    };
-
-    let get_from_list_function = {
-        let mut get_from_list_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        get_from_list_signature.params.extend([
-            AbiParam::new(I64),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        get_from_list_signature.returns.push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "get_from_list",
-            get_from_list_signature,
-        )?
-    };
-
-    let allocate_string_function = {
-        let mut allocate_string_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        allocate_string_signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        allocate_string_signature.returns.push(AbiParam::new(I64)); // return value
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "allocate_string",
-            allocate_string_signature,
-        )?
-    };
-
-    let concatenate_strings_function = {
-        let mut concatenate_strings_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        concatenate_strings_signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
-        concatenate_strings_signature
-            .returns
-            .push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "concatenate_strings",
-            concatenate_strings_signature,
-        )?
-    };
-
-    let concatenate_character_string_function = {
-        let mut concatenate_character_string_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        concatenate_character_string_signature.params.extend([
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
-        concatenate_character_string_signature
-            .returns
-            .push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "concatenate_character_string",
-            concatenate_character_string_signature,
-        )?
-    };
-
-    let concatenate_string_character_function = {
-        let mut concatenate_string_character_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        concatenate_string_character_signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        concatenate_string_character_signature
-            .returns
-            .push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "concatenate_string_character",
-            concatenate_string_character_signature,
-        )?
-    };
-
-    let concatenate_characters_function = {
-        let mut concatenate_characters_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        concatenate_characters_signature.params.extend([
-            AbiParam::new(I64),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        concatenate_characters_signature
-            .returns
-            .push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "concatenate_characters",
-            concatenate_characters_signature,
-        )?
-    };
-
-    let compare_strings_equal_function = {
-        let mut compare_strings_equal_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        compare_strings_equal_signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        compare_strings_equal_signature
-            .returns
-            .push(AbiParam::new(I8));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "compare_strings_equal",
-            compare_strings_equal_signature,
-        )?
-    };
-
-    let compare_strings_less_than_function = {
-        let mut compare_strings_less_than_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        compare_strings_less_than_signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        compare_strings_less_than_signature
-            .returns
-            .push(AbiParam::new(I8));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "compare_strings_less_than",
-            compare_strings_less_than_signature,
-        )?
-    };
-
-    let compare_strings_less_than_equal_function = {
-        let mut compare_strings_less_than_equal_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        compare_strings_less_than_equal_signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        compare_strings_less_than_equal_signature
-            .returns
-            .push(AbiParam::new(I8));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "compare_strings_less_than_equal",
-            compare_strings_less_than_equal_signature,
-        )?
-    };
-
-    let integer_to_string_function = {
-        let mut integer_to_string_signature =
-            Signature::new(compiler.module.isa().default_call_conv());
-
-        integer_to_string_signature
-            .params
-            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
-        integer_to_string_signature.returns.push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "integer_to_string",
-            integer_to_string_signature,
-        )?
-    };
-
-    let read_line_function = {
-        let mut read_line_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        read_line_signature.params.push(AbiParam::new(pointer_type));
-        read_line_signature.returns.push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "read_line",
-            read_line_signature,
-        )?
-    };
-
-    let write_line_string_function = {
-        let mut write_line_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        write_line_signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        write_line_signature.returns = vec![];
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "write_line_string",
-            write_line_signature,
-        )?
-    };
-
-    let integer_power_function = {
-        let mut integer_power_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        integer_power_signature
-            .params
-            .extend([AbiParam::new(I64), AbiParam::new(I64)]);
-        integer_power_signature.returns.push(AbiParam::new(I64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "integer_power",
-            integer_power_signature,
-        )?
-    };
-
-    let float_power_function = {
-        let mut float_power_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        float_power_signature
-            .params
-            .extend([AbiParam::new(F64), AbiParam::new(F64)]);
-        float_power_signature.returns.push(AbiParam::new(F64));
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "float_power",
-            float_power_signature,
-        )?
-    };
-
-    #[cfg(debug_assertions)]
-    let log_operation_and_ip_function = {
-        use cranelift::prelude::{Signature, types::I8};
-
-        let mut log_operation_signature = Signature::new(compiler.module.isa().default_call_conv());
-
-        log_operation_signature.params.push(AbiParam::new(I8));
-        log_operation_signature.params.push(AbiParam::new(I64));
-        log_operation_signature.returns = vec![];
-
-        compiler.declare_imported_function(
-            &mut function_builder,
-            "log_operation_and_ip",
-            log_operation_signature,
-        )?
-    };
 
     let bytecode_instructions = &prototype.instructions;
     let instruction_count = bytecode_instructions.len();
@@ -417,10 +122,10 @@ pub fn compile_direct_function(
 
         #[cfg(debug_assertions)]
         {
-            use cranelift::prelude::types::I8;
-
             let operation_code_instruction = function_builder.ins().iconst(I8, operation.0 as i64);
             let ip_instruction = function_builder.ins().iconst(I64, ip as i64);
+            let log_operation_and_ip_function =
+                compiler.get_log_operation_and_ip_function(&mut function_builder)?;
 
             function_builder.ins().call(
                 log_operation_and_ip_function,
@@ -467,8 +172,8 @@ pub fn compile_direct_function(
                         operand,
                         &compiler.program.constants,
                         &ssa_registers,
+                        compiler,
                         &mut function_builder,
-                        allocate_string_function,
                         thread_context,
                     )?,
                     OperandType::LIST_BOOLEAN
@@ -551,6 +256,9 @@ pub fn compile_direct_function(
                 let list_type_value = function_builder.ins().iconst(I8, list_type.0 as i64);
                 let list_length_value = function_builder.ins().iconst(I64, initial_length as i64);
                 let zero = function_builder.ins().iconst(I64, 0);
+                let allocate_list_function =
+                    compiler.get_allocate_list_function(&mut function_builder)?;
+
                 let call_allocate_list_instruction = function_builder.ins().call(
                     allocate_list_function,
                     &[
@@ -615,8 +323,8 @@ pub fn compile_direct_function(
                         item_source,
                         &compiler.program.constants,
                         &ssa_registers,
+                        compiler,
                         &mut function_builder,
-                        allocate_string_function,
                         thread_context,
                     )?,
                     OperandType::LIST_BOOLEAN
@@ -643,6 +351,8 @@ pub fn compile_direct_function(
                     }
                     _ => item_value,
                 };
+                let instert_into_list_function =
+                    compiler.get_insert_into_list_function(&mut function_builder)?;
 
                 function_builder.ins().call(
                     instert_into_list_function,
@@ -673,6 +383,8 @@ pub fn compile_direct_function(
                     &ssa_registers,
                     &mut function_builder,
                 )?;
+                let get_from_list_function =
+                    compiler.get_get_from_list_function(&mut function_builder)?;
 
                 let call_get_list_instruction = function_builder.ins().call(
                     get_from_list_function,
@@ -803,22 +515,27 @@ pub fn compile_direct_function(
                             left,
                             &compiler.program.constants,
                             &ssa_registers,
+                            compiler,
                             &mut function_builder,
-                            allocate_string_function,
                             thread_context,
                         )?;
                         let right_pointer = get_string(
                             right,
                             &compiler.program.constants,
                             &ssa_registers,
+                            compiler,
                             &mut function_builder,
-                            allocate_string_function,
                             thread_context,
                         )?;
                         let compare_function = match operation {
-                            Operation::EQUAL => compare_strings_equal_function,
-                            Operation::LESS => compare_strings_less_than_function,
-                            Operation::LESS_EQUAL => compare_strings_less_than_equal_function,
+                            Operation::EQUAL => compiler
+                                .get_compare_strings_equal_function(&mut function_builder)?,
+                            Operation::LESS => compiler
+                                .get_compare_strings_less_than_function(&mut function_builder)?,
+                            Operation::LESS_EQUAL => compiler
+                                .get_compare_strings_less_than_equal_function(
+                                    &mut function_builder,
+                                )?,
                             _ => {
                                 return Err(JitError::UnhandledOperation { operation });
                             }
@@ -981,6 +698,8 @@ pub fn compile_direct_function(
                                 function_builder.ins().srem(left_value, right_value)
                             }
                             Operation::POWER => {
+                                let integer_power_function =
+                                    compiler.get_integer_power_function(&mut function_builder)?;
                                 let call_instruction = function_builder
                                     .ins()
                                     .call(integer_power_function, &[left_value, right_value]);
@@ -1057,6 +776,8 @@ pub fn compile_direct_function(
                                 function_builder.ins().fsub(left_value, multiplied)
                             }
                             Operation::POWER => {
+                                let float_power_function =
+                                    compiler.get_float_power_function(&mut function_builder)?;
                                 let call_instruction = function_builder
                                     .ins()
                                     .call(float_power_function, &[left_value, right_value]);
@@ -1077,18 +798,20 @@ pub fn compile_direct_function(
                             left,
                             &compiler.program.constants,
                             &ssa_registers,
+                            compiler,
                             &mut function_builder,
-                            allocate_string_function,
                             thread_context,
                         )?;
                         let right_pointer = get_string(
                             right,
                             &compiler.program.constants,
                             &ssa_registers,
+                            compiler,
                             &mut function_builder,
-                            allocate_string_function,
                             thread_context,
                         )?;
+                        let concatenate_strings_function =
+                            compiler.get_concatenate_strings_function(&mut function_builder)?;
                         let call_instruction = function_builder.ins().call(
                             concatenate_strings_function,
                             &[left_pointer, right_pointer, thread_context],
@@ -1111,10 +834,12 @@ pub fn compile_direct_function(
                             right,
                             &compiler.program.constants,
                             &ssa_registers,
+                            compiler,
                             &mut function_builder,
-                            allocate_string_function,
                             thread_context,
                         )?;
+                        let concatenate_character_string_function = compiler
+                            .get_concatenate_character_string_function(&mut function_builder)?;
                         let call_instruction = function_builder.ins().call(
                             concatenate_character_string_function,
                             &[left_value, right_pointer, thread_context],
@@ -1131,8 +856,8 @@ pub fn compile_direct_function(
                             left,
                             &compiler.program.constants,
                             &ssa_registers,
+                            compiler,
                             &mut function_builder,
-                            allocate_string_function,
                             thread_context,
                         )?;
                         let right_value = get_character(
@@ -1141,6 +866,8 @@ pub fn compile_direct_function(
                             &ssa_registers,
                             &mut function_builder,
                         )?;
+                        let concatenate_string_character_function = compiler
+                            .get_concatenate_string_character_function(&mut function_builder)?;
                         let call_instruction = function_builder.ins().call(
                             concatenate_string_character_function,
                             &[left_pointer, right_value, thread_context],
@@ -1165,6 +892,8 @@ pub fn compile_direct_function(
                             &ssa_registers,
                             &mut function_builder,
                         )?;
+                        let concatenate_characters_function =
+                            compiler.get_concatenate_characters_function(&mut function_builder)?;
 
                         let call_instruction = function_builder.ins().call(
                             concatenate_characters_function,
@@ -1300,8 +1029,8 @@ pub fn compile_direct_function(
                             *address,
                             &compiler.program.constants,
                             &ssa_registers,
+                            compiler,
                             &mut function_builder,
-                            allocate_string_function,
                             thread_context,
                         )?,
                         _ => {
@@ -1317,8 +1046,10 @@ pub fn compile_direct_function(
                 arguments.push(thread_context);
 
                 let function_reference = match function.name() {
-                    "read_line" => read_line_function,
-                    "write_line" => write_line_string_function,
+                    "read_line" => compiler.get_read_line_function(&mut function_builder)?,
+                    "write_line" => {
+                        compiler.get_write_line_string_function(&mut function_builder)?
+                    }
                     _ => {
                         return Err(JitError::UnhandledNativeFunction {
                             function_name: function.name().to_string(),
@@ -1480,8 +1211,8 @@ pub fn compile_direct_function(
                             return_value_address,
                             &compiler.program.constants,
                             &ssa_registers,
+                            compiler,
                             &mut function_builder,
-                            allocate_string_function,
                             thread_context,
                         )?,
                         OperandType::LIST_BOOLEAN
@@ -1532,6 +1263,8 @@ pub fn compile_direct_function(
                             &ssa_registers,
                             &mut function_builder,
                         )?;
+                        let integer_to_string_function =
+                            compiler.get_integer_to_string_function(&mut function_builder)?;
                         let call_instruction = function_builder.ins().call(
                             integer_to_string_function,
                             &[integer_operand, thread_context],
@@ -1543,8 +1276,8 @@ pub fn compile_direct_function(
                         operand,
                         &compiler.program.constants,
                         &ssa_registers,
+                        compiler,
                         &mut function_builder,
-                        allocate_string_function,
                         thread_context,
                     )?,
                     _ => {
@@ -1731,8 +1464,8 @@ fn get_string(
     address: Address,
     constants: &ConstantTable,
     ssa_registers: &[CraneliftValue],
+    compiler: &mut JitCompiler,
     function_builder: &mut FunctionBuilder,
-    allocate_strings_function: FuncRef,
     thread_context: CraneliftValue,
 ) -> Result<CraneliftValue, JitError> {
     match address.memory {
@@ -1746,6 +1479,8 @@ fn get_string(
                 })?;
             let string_pointer = function_builder.ins().iconst(I64, string_pointer as i64);
             let string_length = function_builder.ins().iconst(I64, string_length as i64);
+            let allocate_strings_function =
+                compiler.get_allocate_string_function(function_builder)?;
             let string_object_pointer = function_builder.ins().call(
                 allocate_strings_function,
                 &[string_pointer, string_length, thread_context],
