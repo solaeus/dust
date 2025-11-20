@@ -282,6 +282,7 @@ pub enum SyntaxKind {
     IntegerType,
     StringType,
     TypePath,
+    ListType,
 
     // Ignored
     Trivia,
@@ -445,6 +446,7 @@ impl Display for SyntaxKind {
             SyntaxKind::IntegerType => write!(f, "integer type"),
             SyntaxKind::StringType => write!(f, "string type"),
             SyntaxKind::TypePath => write!(f, "type path"),
+            SyntaxKind::ListType => write!(f, "list type"),
             SyntaxKind::UseItem => write!(f, "use item"),
             SyntaxKind::PublicUseItem => write!(f, "public use item"),
             SyntaxKind::Trivia => write!(f, "whitespace or comment"),

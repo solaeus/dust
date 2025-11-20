@@ -616,14 +616,51 @@ impl<'src> Parser<'src> {
 
         let start = self.current_token.span.0;
 
-        let node_kind = match self.current_token.kind {
-            TokenKind::Bool => SyntaxKind::BooleanType,
-            TokenKind::Byte => SyntaxKind::ByteType,
-            TokenKind::Char => SyntaxKind::CharacterType,
-            TokenKind::Float => SyntaxKind::FloatType,
-            TokenKind::Int => SyntaxKind::IntegerType,
-            TokenKind::Str => SyntaxKind::StringType,
-            TokenKind::Identifier => SyntaxKind::TypePath,
+        let (node_kind, child_id) = match self.current_token.kind {
+            TokenKind::Bool => {
+                self.advance()?;
+
+                (SyntaxKind::BooleanType, 0)
+            }
+            TokenKind::Byte => {
+                self.advance()?;
+
+                (SyntaxKind::ByteType, 0)
+            }
+            TokenKind::Char => {
+                self.advance()?;
+
+                (SyntaxKind::CharacterType, 0)
+            }
+            TokenKind::Float => {
+                self.advance()?;
+
+                (SyntaxKind::FloatType, 0)
+            }
+            TokenKind::Int => {
+                self.advance()?;
+
+                (SyntaxKind::IntegerType, 0)
+            }
+            TokenKind::Str => {
+                self.advance()?;
+
+                (SyntaxKind::StringType, 0)
+            }
+            TokenKind::Identifier => {
+                self.advance()?;
+
+                (SyntaxKind::TypePath, 0)
+            }
+            TokenKind::LeftSquareBracket => {
+                self.advance()?;
+
+                let child_node_id = self.parse_type()?;
+
+                self.expect(TokenKind::RightSquareBracket)?;
+
+                (SyntaxKind::ListType, child_node_id.0)
+            }
             _ => {
                 return Err(ParseError::ExpectedMultipleTokens {
                     expected: &[
@@ -634,6 +671,7 @@ impl<'src> Parser<'src> {
                         TokenKind::Int,
                         TokenKind::Str,
                         TokenKind::Identifier,
+                        TokenKind::LeftSquareBracket,
                     ],
                     actual: self.current_token.kind,
                     position: self.current_position(),
@@ -641,13 +679,11 @@ impl<'src> Parser<'src> {
             }
         };
 
-        self.advance()?;
-
         let end = self.previous_token.span.1;
         let node = SyntaxNode {
             kind: node_kind,
             span: Span(start, end),
-            children: (0, 0),
+            children: (child_id, 0),
         };
         let node_id = self.syntax_tree.push_node(node);
 

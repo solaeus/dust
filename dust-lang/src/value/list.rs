@@ -129,7 +129,7 @@ impl List {
 
 impl Display for List {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "list(")?;
+        write!(f, "[")?;
 
         match self {
             List::Boolean(booleans) => {
@@ -206,7 +206,7 @@ impl Display for List {
             }
         }
 
-        write!(f, ")")
+        write!(f, "]")
     }
 }
 

@@ -348,13 +348,7 @@ pub fn compile_stackless_function(
 
                 let call_allocate_list_instruction = function_builder.ins().call(
                     allocate_list_function,
-                    &[
-                        list_type_value,
-                        list_length_value,
-                        thread_context,
-                        current_frame_register_range_start,
-                        current_frame_register_range_end,
-                    ],
+                    &[list_type_value, list_length_value, thread_context],
                 );
                 let list_object_pointer =
                     function_builder.inst_results(call_allocate_list_instruction)[0];
