@@ -404,13 +404,19 @@ pub fn compile_stackless_function(
                         &hot_registers.character,
                         &mut function_builder,
                     )?,
-                    OperandType::FLOAT => get_float(
-                        item_source,
-                        current_frame_base_register_address,
-                        &compiler.program.constants,
-                        &hot_registers.float,
-                        &mut function_builder,
-                    )?,
+                    OperandType::FLOAT => {
+                        let float_value = get_float(
+                            item_source,
+                            current_frame_base_register_address,
+                            &compiler.program.constants,
+                            &hot_registers.float,
+                            &mut function_builder,
+                        )?;
+
+                        function_builder
+                            .ins()
+                            .bitcast(I64, MemFlags::new(), float_value)
+                    }
                     OperandType::STRING => get_string(
                         item_source,
                         &compiler.program.constants,

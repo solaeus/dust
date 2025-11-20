@@ -1567,7 +1567,7 @@ impl<'a> PrototypeCompiler<'a> {
             SyntaxKind::FloatExpression => self.compile_float_expression(node),
             SyntaxKind::IntegerExpression => self.compile_integer_expression(node),
             SyntaxKind::StringExpression => self.compile_string_expression(node),
-            SyntaxKind::ListExpression => self.compile_list_expression(node, target, None),
+            SyntaxKind::ListExpression => self.compile_list_expression(node, target),
             SyntaxKind::IndexExpression => self.compile_index_expression(node, target),
             SyntaxKind::PathExpression => self.compile_path_expression(node, target),
             SyntaxKind::AdditionExpression
@@ -1687,7 +1687,6 @@ impl<'a> PrototypeCompiler<'a> {
         &mut self,
         node: &SyntaxNode,
         target: Option<TargetRegister>,
-        declared_element_type_id: Option<TypeId>,
     ) -> Result<Emission, CompileError> {
         info!("Compiling list expression");
 
@@ -1728,9 +1727,10 @@ impl<'a> PrototypeCompiler<'a> {
         }
 
         let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
-        let list_destination = target
-            .map(|target| target.register)
-            .unwrap_or_else(|| self.allocate_temporary_register());
+        let target = target.unwrap_or_else(|| TargetRegister {
+            register: self.allocate_temporary_register(),
+            is_temporary: true,
+        });
         let mut list_emission = {
             let mut instructions = InstructionsEmission::with_capacity(child_count + 1);
 
@@ -1738,7 +1738,7 @@ impl<'a> PrototypeCompiler<'a> {
 
             instructions
         };
-        let mut established_element_type_id = declared_element_type_id;
+        let mut established_element_type_id = None;
         let mut current_child_index = start_children;
 
         for list_index in 0..child_count {
@@ -1779,7 +1779,7 @@ impl<'a> PrototypeCompiler<'a> {
             }
 
             let set_list_instruction = Instruction::set_list(
-                list_destination,
+                target.register,
                 element_address,
                 list_index as u16,
                 element_operand_type,
@@ -1801,12 +1801,12 @@ impl<'a> PrototypeCompiler<'a> {
         )?;
 
         let new_list_instruction =
-            Instruction::new_list(list_destination, child_count as u16, list_type_operand);
+            Instruction::new_list(target.register, child_count as u16, list_type_operand);
 
         list_emission.instructions[0].0 = new_list_instruction;
 
         list_emission.set_type(list_type_id);
-        list_emission.set_target(target);
+        list_emission.set_target(Some(target));
 
         Ok(Emission::Instructions(list_emission))
     }

@@ -337,6 +337,7 @@ impl SyntaxKind {
                 | SyntaxKind::NotEqualExpression
                 | SyntaxKind::NegationExpression
                 | SyntaxKind::NotExpression
+                | SyntaxKind::ListExpression
                 | SyntaxKind::IndexExpression
                 | SyntaxKind::BlockExpression
                 | SyntaxKind::CallExpression
