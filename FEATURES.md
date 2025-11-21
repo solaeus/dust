@@ -55,6 +55,7 @@
 | **Multiplication assignment (`*=`)** | ✓ Yes       | ✓ Yes        |
 | **Division assignment (`/=`)**       | ✓ Yes       | ✓ Yes        |
 | **Modulo assignment (`%=`)**         | ✓ Yes       | ✓ Yes        |
+| **Exponent assignment (`^=`)**       | ✓ Yes       | ✓ Yes        |
 
 ## Comparison Operations
 
