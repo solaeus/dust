@@ -108,7 +108,7 @@ impl Display for Object {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum ObjectValue {
     Empty,
     String(String),

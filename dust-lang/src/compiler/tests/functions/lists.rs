@@ -1,19 +1,25 @@
 use crate::{
-    compiler::compile_main,
+    compiler::compile,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
-    tests::list_cases,
+    source::{Position, SourceFileId, Span},
+    tests::{create_function_case, list_cases},
     r#type::{FunctionType, Type},
 };
 
 #[test]
 fn list_boolean() {
-    let source = list_cases::LIST_BOOLEAN.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_BOOLEAN);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::list(Type::Boolean)),
             instructions: vec![
                 Instruction::new_list(0, 3, OperandType::LIST_BOOLEAN),
@@ -30,12 +36,17 @@ fn list_boolean() {
 
 #[test]
 fn list_byte() {
-    let source = list_cases::LIST_BYTE.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_BYTE);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::list(Type::Byte)),
             instructions: vec![
                 Instruction::new_list(0, 3, OperandType::LIST_BYTE),
@@ -52,12 +63,17 @@ fn list_byte() {
 
 #[test]
 fn list_character() {
-    let source = list_cases::LIST_CHARACTER.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_CHARACTER);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::list(Type::Character)),
             instructions: vec![
                 Instruction::new_list(0, 3, OperandType::LIST_CHARACTER),
@@ -74,12 +90,17 @@ fn list_character() {
 
 #[test]
 fn list_float() {
-    let source = list_cases::LIST_FLOAT.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_FLOAT);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::list(Type::Float)),
             instructions: vec![
                 Instruction::new_list(0, 3, OperandType::LIST_FLOAT),
@@ -96,12 +117,17 @@ fn list_float() {
 
 #[test]
 fn list_integer() {
-    let source = list_cases::LIST_INTEGER.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_INTEGER);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::list(Type::Integer)),
             instructions: vec![
                 Instruction::new_list(0, 3, OperandType::LIST_INTEGER),
@@ -117,13 +143,45 @@ fn list_integer() {
 }
 
 #[test]
-fn list_equal() {
-    let source = list_cases::LIST_EQUAL.to_string();
-    let prototype = compile_main(source).unwrap();
+fn list_string() {
+    let source = create_function_case(list_cases::LIST_STRING);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
+            function_type: FunctionType::new([], [], Type::list(Type::String)),
+            instructions: vec![
+                Instruction::new_list(0, 3, OperandType::LIST_STRING),
+                Instruction::set_list(0, Address::constant(0), 0, OperandType::STRING),
+                Instruction::set_list(0, Address::constant(1), 1, OperandType::STRING),
+                Instruction::set_list(0, Address::constant(2), 2, OperandType::STRING),
+                Instruction::r#return(true, Address::register(0), OperandType::LIST_STRING),
+            ],
+            register_count: 1,
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn list_equal() {
+    let source = create_function_case(list_cases::LIST_EQUAL);
+    let prototypes = compile(source).unwrap();
+
+    assert_eq!(prototypes.len(), 2);
+    assert_eq!(
+        prototypes[1],
+        Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, 2, OperandType::LIST_BOOLEAN),
@@ -156,20 +214,25 @@ fn list_equal() {
 
 #[test]
 fn list_not_equal() {
-    let source = list_cases::LIST_NOT_EQUAL.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_NOT_EQUAL);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, 2, OperandType::LIST_BYTE),
-                Instruction::set_list(0, Address::encoded(0x2A), 0, OperandType::BYTE),
-                Instruction::set_list(0, Address::encoded(0x2B), 1, OperandType::BYTE),
+                Instruction::set_list(0, Address::encoded(42), 0, OperandType::BYTE),
+                Instruction::set_list(0, Address::encoded(43), 1, OperandType::BYTE),
                 Instruction::new_list(1, 2, OperandType::LIST_BYTE),
-                Instruction::set_list(1, Address::encoded(0x2B), 0, OperandType::BYTE),
-                Instruction::set_list(1, Address::encoded(0x2A), 1, OperandType::BYTE),
+                Instruction::set_list(1, Address::encoded(43), 0, OperandType::BYTE),
+                Instruction::set_list(1, Address::encoded(42), 1, OperandType::BYTE),
                 Instruction::equal(
                     false,
                     Address::register(0),
@@ -194,12 +257,17 @@ fn list_not_equal() {
 
 #[test]
 fn list_greater_than() {
-    let source = list_cases::LIST_GREATER_THAN.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_GREATER_THAN);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, 2, OperandType::LIST_CHARACTER),
@@ -232,12 +300,17 @@ fn list_greater_than() {
 
 #[test]
 fn list_less_than() {
-    let source = list_cases::LIST_LESS_THAN.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_LESS_THAN);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, 2, OperandType::LIST_FLOAT),
@@ -270,12 +343,17 @@ fn list_less_than() {
 
 #[test]
 fn list_greater_than_or_equal() {
-    let source = list_cases::LIST_GREATER_THAN_OR_EQUAL.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_GREATER_THAN_OR_EQUAL);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, 2, OperandType::LIST_INTEGER),
@@ -308,12 +386,17 @@ fn list_greater_than_or_equal() {
 
 #[test]
 fn list_less_than_or_equal() {
-    let source = list_cases::LIST_LESS_THAN_OR_EQUAL.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_LESS_THAN_OR_EQUAL);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, 2, OperandType::LIST_STRING),
@@ -346,12 +429,17 @@ fn list_less_than_or_equal() {
 
 #[test]
 fn list_index_boolean() {
-    let source = list_cases::LIST_INDEX_BOOLEAN.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_INDEX_BOOLEAN);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, 3, OperandType::LIST_BOOLEAN),
@@ -374,18 +462,23 @@ fn list_index_boolean() {
 
 #[test]
 fn list_index_byte() {
-    let source = list_cases::LIST_INDEX_BYTE.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_INDEX_BYTE);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::new_list(0, 3, OperandType::LIST_BYTE),
-                Instruction::set_list(0, Address::encoded(0x2A), 0, OperandType::BYTE),
-                Instruction::set_list(0, Address::encoded(0x2B), 1, OperandType::BYTE),
-                Instruction::set_list(0, Address::encoded(0x2C), 2, OperandType::BYTE),
+                Instruction::set_list(0, Address::encoded(42), 0, OperandType::BYTE),
+                Instruction::set_list(0, Address::encoded(43), 1, OperandType::BYTE),
+                Instruction::set_list(0, Address::encoded(44), 2, OperandType::BYTE),
                 Instruction::get_list(
                     1,
                     Address::register(0),
@@ -402,12 +495,17 @@ fn list_index_byte() {
 
 #[test]
 fn list_index_character() {
-    let source = list_cases::LIST_INDEX_CHARACTER.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_INDEX_CHARACTER);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Character),
             instructions: vec![
                 Instruction::new_list(0, 3, OperandType::LIST_CHARACTER),
@@ -430,12 +528,17 @@ fn list_index_character() {
 
 #[test]
 fn list_index_float() {
-    let source = list_cases::LIST_INDEX_FLOAT.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_INDEX_FLOAT);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::new_list(0, 3, OperandType::LIST_FLOAT),
@@ -458,12 +561,17 @@ fn list_index_float() {
 
 #[test]
 fn list_index_integer() {
-    let source = list_cases::LIST_INDEX_INTEGER.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_INDEX_INTEGER);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::new_list(0, 3, OperandType::LIST_INTEGER),
@@ -486,12 +594,17 @@ fn list_index_integer() {
 
 #[test]
 fn list_index_string() {
-    let source = list_cases::LIST_INDEX_STRING.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LIST_INDEX_STRING);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::new_list(0, 3, OperandType::LIST_STRING),
@@ -514,12 +627,17 @@ fn list_index_string() {
 
 #[test]
 fn local_list_boolean() {
-    let source = list_cases::LOCAL_LIST_BOOLEAN.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LOCAL_LIST_BOOLEAN);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::list(Type::Boolean)),
             instructions: vec![
                 Instruction::new_list(0, 3, OperandType::LIST_BOOLEAN),
@@ -536,12 +654,17 @@ fn local_list_boolean() {
 
 #[test]
 fn local_list_equal() {
-    let source = list_cases::LOCAL_LIST_EQUAL.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LOCAL_LIST_EQUAL);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, 2, OperandType::LIST_BOOLEAN),
@@ -574,20 +697,25 @@ fn local_list_equal() {
 
 #[test]
 fn local_list_not_equal() {
-    let source = list_cases::LOCAL_LIST_NOT_EQUAL.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LOCAL_LIST_NOT_EQUAL);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, 2, OperandType::LIST_BYTE),
-                Instruction::set_list(0, Address::encoded(0x2A), 0, OperandType::BYTE),
-                Instruction::set_list(0, Address::encoded(0x2B), 1, OperandType::BYTE),
+                Instruction::set_list(0, Address::encoded(42), 0, OperandType::BYTE),
+                Instruction::set_list(0, Address::encoded(43), 1, OperandType::BYTE),
                 Instruction::new_list(1, 2, OperandType::LIST_BYTE),
-                Instruction::set_list(1, Address::encoded(0x2B), 0, OperandType::BYTE),
-                Instruction::set_list(1, Address::encoded(0x2A), 1, OperandType::BYTE),
+                Instruction::set_list(1, Address::encoded(43), 0, OperandType::BYTE),
+                Instruction::set_list(1, Address::encoded(42), 1, OperandType::BYTE),
                 Instruction::equal(
                     false,
                     Address::register(0),
@@ -612,12 +740,17 @@ fn local_list_not_equal() {
 
 #[test]
 fn local_list_greater_than() {
-    let source = list_cases::LOCAL_LIST_GREATER_THAN.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LOCAL_LIST_GREATER_THAN);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, 2, OperandType::LIST_CHARACTER),
@@ -650,12 +783,17 @@ fn local_list_greater_than() {
 
 #[test]
 fn local_list_less_than() {
-    let source = list_cases::LOCAL_LIST_LESS_THAN.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LOCAL_LIST_LESS_THAN);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, 2, OperandType::LIST_FLOAT),
@@ -688,12 +826,17 @@ fn local_list_less_than() {
 
 #[test]
 fn local_list_greater_than_or_equal() {
-    let source = list_cases::LOCAL_LIST_GREATER_THAN_OR_EQUAL.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LOCAL_LIST_GREATER_THAN_OR_EQUAL);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, 2, OperandType::LIST_INTEGER),
@@ -726,12 +869,17 @@ fn local_list_greater_than_or_equal() {
 
 #[test]
 fn local_list_less_than_or_equal() {
-    let source = list_cases::LOCAL_LIST_LESS_THAN_OR_EQUAL.to_string();
-    let prototype = compile_main(source).unwrap();
+    let source = create_function_case(list_cases::LOCAL_LIST_LESS_THAN_OR_EQUAL);
+    let prototypes = compile(source).unwrap();
 
+    assert_eq!(prototypes.len(), 2);
     assert_eq!(
-        prototype,
+        prototypes[1],
         Prototype {
+            name_position: Some(Position {
+                file_id: SourceFileId(0),
+                span: Span(16, 22)
+            }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, 2, OperandType::LIST_STRING),
@@ -757,28 +905,6 @@ fn local_list_less_than_or_equal() {
                 Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
-            ..Default::default()
-        }
-    );
-}
-
-#[test]
-fn list_string() {
-    let source = list_cases::LIST_STRING.to_string();
-    let prototype = compile_main(source).unwrap();
-
-    assert_eq!(
-        prototype,
-        Prototype {
-            function_type: FunctionType::new([], [], Type::list(Type::String)),
-            instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_STRING),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::STRING),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::STRING),
-                Instruction::set_list(0, Address::constant(2), 2, OperandType::STRING),
-                Instruction::r#return(true, Address::register(0), OperandType::LIST_STRING),
-            ],
-            register_count: 1,
             ..Default::default()
         }
     );

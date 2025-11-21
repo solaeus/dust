@@ -204,3 +204,114 @@ pub unsafe extern "C" fn get_from_list(
         _ => panic!("Object is not a list"),
     }
 }
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn compare_lists_equal(
+    left_list_pointer: i64,
+    right_list_pointer: i64,
+) -> i8 {
+    let left = unsafe { &*(left_list_pointer as *mut Object) };
+    let right = unsafe { &*(right_list_pointer as *mut Object) };
+
+    let result = match (&left.value, &right.value) {
+        (ObjectValue::BooleanList(a), ObjectValue::BooleanList(b)) => a == b,
+        (ObjectValue::ByteList(a), ObjectValue::ByteList(b)) => a == b,
+        (ObjectValue::CharacterList(a), ObjectValue::CharacterList(b)) => a == b,
+        (ObjectValue::FloatList(a), ObjectValue::FloatList(b)) => a == b,
+        (ObjectValue::IntegerList(a), ObjectValue::IntegerList(b)) => a == b,
+        (ObjectValue::ObjectList(a), ObjectValue::ObjectList(b)) => {
+            if a.len() != b.len() {
+                return false as i8;
+            }
+
+            for (left, right) in a.iter().zip(b.iter()) {
+                let left_obj = unsafe { &**left };
+                let right_obj = unsafe { &**right };
+
+                if left_obj.value != right_obj.value {
+                    return false as i8;
+                }
+            }
+
+            true
+        }
+        (ObjectValue::FunctionList(a), ObjectValue::FunctionList(b)) => a == b,
+        _ => false,
+    };
+
+    result as i8
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn compare_lists_less_than(
+    left_list_pointer: i64,
+    right_list_pointer: i64,
+) -> i8 {
+    let left = unsafe { &*(left_list_pointer as *mut Object) };
+    let right = unsafe { &*(right_list_pointer as *mut Object) };
+
+    let result = match (&left.value, &right.value) {
+        (ObjectValue::BooleanList(a), ObjectValue::BooleanList(b)) => a < b,
+        (ObjectValue::ByteList(a), ObjectValue::ByteList(b)) => a < b,
+        (ObjectValue::CharacterList(a), ObjectValue::CharacterList(b)) => a < b,
+        (ObjectValue::FloatList(a), ObjectValue::FloatList(b)) => a < b,
+        (ObjectValue::IntegerList(a), ObjectValue::IntegerList(b)) => a < b,
+        (ObjectValue::ObjectList(a), ObjectValue::ObjectList(b)) => {
+            if a.len() != b.len() {
+                return (a.len() < b.len()) as i8;
+            }
+
+            for (left, right) in a.iter().zip(b.iter()) {
+                let left_obj = unsafe { &**left };
+                let right_obj = unsafe { &**right };
+
+                if left_obj.value != right_obj.value {
+                    return (left_obj.value < right_obj.value) as i8;
+                }
+            }
+
+            false
+        }
+        (ObjectValue::FunctionList(a), ObjectValue::FunctionList(b)) => a < b,
+        _ => false,
+    };
+
+    result as i8
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn compare_lists_less_than_equal(
+    left_list_pointer: i64,
+    right_list_pointer: i64,
+) -> i8 {
+    let left = unsafe { &*(left_list_pointer as *mut Object) };
+    let right = unsafe { &*(right_list_pointer as *mut Object) };
+
+    let result = match (&left.value, &right.value) {
+        (ObjectValue::BooleanList(a), ObjectValue::BooleanList(b)) => a <= b,
+        (ObjectValue::ByteList(a), ObjectValue::ByteList(b)) => a <= b,
+        (ObjectValue::CharacterList(a), ObjectValue::CharacterList(b)) => a <= b,
+        (ObjectValue::FloatList(a), ObjectValue::FloatList(b)) => a <= b,
+        (ObjectValue::IntegerList(a), ObjectValue::IntegerList(b)) => a <= b,
+        (ObjectValue::ObjectList(a), ObjectValue::ObjectList(b)) => {
+            if a.len() != b.len() {
+                return (a.len() < b.len()) as i8;
+            }
+
+            for (left, right) in a.iter().zip(b.iter()) {
+                let left_obj = unsafe { &**left };
+                let right_obj = unsafe { &**right };
+
+                if left_obj.value != right_obj.value {
+                    return (left_obj.value < right_obj.value) as i8;
+                }
+            }
+
+            true
+        }
+        (ObjectValue::FunctionList(a), ObjectValue::FunctionList(b)) => a <= b,
+        _ => false,
+    };
+
+    result as i8
+}

@@ -546,6 +546,44 @@ pub fn compile_direct_function(
                                 .icmp_imm(IntCC::Equal, comparison_result, 0)
                         }
                     }
+                    OperandType::LIST_BOOLEAN
+                    | OperandType::LIST_BYTE
+                    | OperandType::LIST_CHARACTER
+                    | OperandType::LIST_FLOAT
+                    | OperandType::LIST_INTEGER
+                    | OperandType::LIST_STRING => {
+                        let left_pointer = get_list(left.index, &ssa_registers);
+                        let right_pointer = get_list(right.index, &ssa_registers);
+                        let compare_function = match operation {
+                            Operation::EQUAL => {
+                                compiler.get_compare_lists_equal_function(&mut function_builder)?
+                            }
+                            Operation::LESS => compiler
+                                .get_compare_lists_less_than_function(&mut function_builder)?,
+                            Operation::LESS_EQUAL => compiler
+                                .get_compare_lists_less_than_equal_function(
+                                    &mut function_builder,
+                                )?,
+                            _ => {
+                                return Err(JitError::UnhandledOperation { operation });
+                            }
+                        };
+
+                        let call_instruction = function_builder
+                            .ins()
+                            .call(compare_function, &[left_pointer, right_pointer]);
+                        let comparison_result = function_builder.inst_results(call_instruction)[0];
+
+                        if comparator != 0 {
+                            function_builder
+                                .ins()
+                                .icmp_imm(IntCC::Equal, comparison_result, 1)
+                        } else {
+                            function_builder
+                                .ins()
+                                .icmp_imm(IntCC::Equal, comparison_result, 0)
+                        }
+                    }
                     _ => {
                         return Err(JitError::UnsupportedOperandType {
                             operand_type: r#type,

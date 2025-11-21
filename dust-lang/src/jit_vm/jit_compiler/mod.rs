@@ -51,6 +51,15 @@ impl<'a> JitCompiler<'a> {
         builder.symbol("allocate_list", allocate_list as *const u8);
         builder.symbol("insert_into_list", insert_into_list as *const u8);
         builder.symbol("get_from_list", get_from_list as *const u8);
+        builder.symbol("compare_lists_equal", compare_lists_equal as *const u8);
+        builder.symbol(
+            "compare_lists_less_than",
+            compare_lists_less_than as *const u8,
+        );
+        builder.symbol(
+            "compare_lists_less_than_equal",
+            compare_lists_less_than_equal as *const u8,
+        );
 
         builder.symbol("allocate_string", allocate_string as *const u8);
         builder.symbol("concatenate_strings", concatenate_strings as *const u8);
@@ -605,6 +614,48 @@ impl<'a> JitCompiler<'a> {
         ]);
         signature.returns.push(AbiParam::new(I64));
         self.declare_imported_function(function_builder, "get_from_list", signature)
+    }
+
+    fn get_compare_lists_equal_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        signature.returns.push(AbiParam::new(I8));
+        self.declare_imported_function(function_builder, "compare_lists_equal", signature)
+    }
+
+    fn get_compare_lists_less_than_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        signature.returns.push(AbiParam::new(I8));
+        self.declare_imported_function(function_builder, "compare_lists_less_than", signature)
+    }
+
+    fn get_compare_lists_less_than_equal_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        signature.returns.push(AbiParam::new(I8));
+        self.declare_imported_function(function_builder, "compare_lists_less_than_equal", signature)
     }
 
     fn get_allocate_string_function(

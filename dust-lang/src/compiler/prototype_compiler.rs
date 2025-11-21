@@ -1874,11 +1874,12 @@ impl<'a> PrototypeCompiler<'a> {
             todo!("Error");
         }
 
-        let destination = target
-            .map(|target| target.register)
-            .unwrap_or_else(|| self.allocate_temporary_register());
+        let target = target.unwrap_or_else(|| TargetRegister {
+            register: self.allocate_temporary_register(),
+            is_temporary: true,
+        });
         let get_list_instruction = Instruction::get_list(
-            destination,
+            target.register,
             list_address,
             index_address,
             element_operand_type,
@@ -1886,7 +1887,7 @@ impl<'a> PrototypeCompiler<'a> {
 
         index_emission.push(get_list_instruction);
         index_emission.set_type(element_type_id);
-        index_emission.set_target(target);
+        index_emission.set_target(Some(target));
 
         Ok(Emission::Instructions(index_emission))
     }

@@ -338,9 +338,29 @@ impl<'a> Binder<'a> {
                     SyntaxKind::FloatType => Type::Float,
                     SyntaxKind::IntegerType => Type::Integer,
                     SyntaxKind::StringType => Type::String,
-                    _ => {
-                        todo!()
+                    SyntaxKind::ListType => {
+                        let element_type_id = SyntaxId(function_return_type_node.children.0);
+                        let element_type_node = *self.syntax_tree.get_node(element_type_id).ok_or(
+                            CompileError::MissingSyntaxNode {
+                                syntax_id: element_type_id,
+                            },
+                        )?;
+
+                        let element_type = match element_type_node.kind {
+                            SyntaxKind::BooleanType => Type::Boolean,
+                            SyntaxKind::ByteType => Type::Byte,
+                            SyntaxKind::CharacterType => Type::Character,
+                            SyntaxKind::FloatType => Type::Float,
+                            SyntaxKind::IntegerType => Type::Integer,
+                            SyntaxKind::StringType => Type::String,
+                            _ => {
+                                todo!()
+                            }
+                        };
+
+                        Type::List(Box::new(element_type))
                     }
+                    _ => todo!(),
                 }
             }
         };
