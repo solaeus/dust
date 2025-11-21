@@ -745,51 +745,6 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_reassign_statement(&mut self) -> Result<(), ParseError> {
-        info!("Parsing reassign statement");
-
-        let operator = self.current_token.kind;
-        let operator_precedence = ParseRule::from(operator).precedence;
-
-        let path_node_id = self.syntax_tree.last_node_id();
-        let path_node = *self
-            .syntax_tree
-            .get_node(path_node_id)
-            .ok_or(ParseError::MissingNode { id: path_node_id })?;
-        let start = path_node.span.0;
-
-        if path_node.kind != SyntaxKind::PathExpression {
-            return Err(ParseError::InvalidAssignmentTarget {
-                found: path_node.kind,
-                position: Position::new(self.file_id, path_node.span),
-            });
-        }
-
-        self.expect(TokenKind::Equal)?;
-        self.parse_sub_expression(operator_precedence)?;
-
-        let expression_id = self.syntax_tree.last_node_id();
-        let expression_node = self
-            .syntax_tree
-            .get_node(expression_id)
-            .ok_or(ParseError::MissingNode { id: expression_id })?;
-
-        if expression_node.kind != SyntaxKind::ExpressionStatement {
-            self.expect(TokenKind::Semicolon)?;
-        }
-
-        let end = self.previous_token.span.1;
-        let node = SyntaxNode {
-            kind: SyntaxKind::ReassignmentStatement,
-            span: Span(start, end),
-            children: (path_node_id.0, expression_id.0),
-        };
-
-        self.syntax_tree.push_node(node);
-
-        Ok(())
-    }
-
     fn parse_boolean_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing boolean expression");
 
@@ -955,8 +910,8 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_binary_expression(&mut self) -> Result<(), ParseError> {
-        info!("Parsing math binary expression");
+    fn parse_binary_operator(&mut self) -> Result<(), ParseError> {
+        info!("Parsing binary operator");
 
         let left_id = self.syntax_tree.last_node_id();
         let left_node = *self
@@ -967,16 +922,17 @@ impl<'src> Parser<'src> {
         let operator = self.current_token.kind;
         let node_kind = match operator {
             TokenKind::Plus => SyntaxKind::AdditionExpression,
-            TokenKind::PlusEqual => SyntaxKind::AdditionAssignmentExpression,
+            TokenKind::PlusEqual => SyntaxKind::AdditionAssignmentStatement,
             TokenKind::Minus => SyntaxKind::SubtractionExpression,
-            TokenKind::MinusEqual => SyntaxKind::SubtractionAssignmentExpression,
+            TokenKind::MinusEqual => SyntaxKind::SubtractionAssignmentStatement,
             TokenKind::Asterisk => SyntaxKind::MultiplicationExpression,
-            TokenKind::AsteriskEqual => SyntaxKind::MultiplicationAssignmentExpression,
+            TokenKind::AsteriskEqual => SyntaxKind::MultiplicationAssignmentStatement,
             TokenKind::Slash => SyntaxKind::DivisionExpression,
-            TokenKind::SlashEqual => SyntaxKind::DivisionAssignmentExpression,
+            TokenKind::SlashEqual => SyntaxKind::DivisionAssignmentStatement,
             TokenKind::Percent => SyntaxKind::ModuloExpression,
-            TokenKind::PercentEqual => SyntaxKind::ModuloAssignmentExpression,
+            TokenKind::PercentEqual => SyntaxKind::ModuloAssignmentStatement,
             TokenKind::Caret => SyntaxKind::ExponentExpression,
+            TokenKind::CaretEqual => SyntaxKind::ExponentAssignmentStatement,
             TokenKind::Greater => SyntaxKind::GreaterThanExpression,
             TokenKind::GreaterEqual => SyntaxKind::GreaterThanOrEqualExpression,
             TokenKind::Less => SyntaxKind::LessThanExpression,

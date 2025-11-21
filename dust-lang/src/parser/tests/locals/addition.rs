@@ -858,7 +858,7 @@ fn local_mut_byte_addition() {
                 span: Span(25, 26)
             },
             SyntaxNode {
-                kind: SyntaxKind::AdditionAssignmentExpression,
+                kind: SyntaxKind::AdditionAssignmentStatement,
                 children: (9, 10),
                 span: Span(25, 34)
             },
@@ -951,7 +951,7 @@ fn local_mut_float_addition() {
                 span: Span(26, 27)
             },
             SyntaxNode {
-                kind: SyntaxKind::AdditionAssignmentExpression,
+                kind: SyntaxKind::AdditionAssignmentStatement,
                 children: (9, 10),
                 span: Span(26, 34)
             },
@@ -1044,7 +1044,7 @@ fn local_mut_integer_addition() {
                 span: Span(22, 23)
             },
             SyntaxNode {
-                kind: SyntaxKind::AdditionAssignmentExpression,
+                kind: SyntaxKind::AdditionAssignmentStatement,
                 children: (9, 10),
                 span: Span(22, 28)
             },
@@ -1138,7 +1138,7 @@ fn local_mut_string_concatenation() {
                 span: Span(25, 26)
             },
             SyntaxNode {
-                kind: SyntaxKind::AdditionAssignmentExpression,
+                kind: SyntaxKind::AdditionAssignmentStatement,
                 children: (9, 10),
                 span: Span(25, 35)
             },
@@ -1232,7 +1232,7 @@ fn local_mut_string_character_concatenation() {
                 span: Span(25, 26)
             },
             SyntaxNode {
-                kind: SyntaxKind::AdditionAssignmentExpression,
+                kind: SyntaxKind::AdditionAssignmentStatement,
                 children: (9, 10),
                 span: Span(25, 33)
             },

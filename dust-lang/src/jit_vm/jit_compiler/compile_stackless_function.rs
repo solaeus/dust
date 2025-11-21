@@ -808,6 +808,15 @@ pub fn compile_stackless_function(
                                 function_builder.switch_to_block(modulo_block);
                                 function_builder.ins().urem(left_value, right_value)
                             }
+                            Operation::POWER => {
+                                let integer_power_function =
+                                    compiler.get_integer_power_function(&mut function_builder)?;
+                                let call_instruction = function_builder
+                                    .ins()
+                                    .call(integer_power_function, &[left_value, right_value]);
+
+                                function_builder.inst_results(call_instruction)[0]
+                            }
                             _ => {
                                 return Err(JitError::UnhandledOperation { operation });
                             }

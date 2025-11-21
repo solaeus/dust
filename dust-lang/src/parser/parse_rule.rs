@@ -42,12 +42,12 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Asterisk => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::PrimaryMath,
             },
             TokenKind::AsteriskEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Assignment,
             },
             TokenKind::Async => ParseRule {
@@ -62,7 +62,7 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::BangEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Comparison,
             },
             TokenKind::BlockComment => ParseRule {
@@ -102,8 +102,13 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Caret => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Exponent,
+            },
+            TokenKind::CaretEqual => ParseRule {
+                prefix: None,
+                infix: Some(Parser::parse_binary_operator),
+                precedence: Precedence::Assignment,
             },
             TokenKind::Cell => ParseRule {
                 prefix: Some(Parser::parse_unexpected),
@@ -142,7 +147,7 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::DoubleAmpersand => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Logic,
             },
             TokenKind::DoubleColon => ParseRule {
@@ -152,12 +157,12 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::DoubleEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Comparison,
             },
             TokenKind::DoublePipe => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Logic,
             },
             TokenKind::DoubleDot => ParseRule {
@@ -172,8 +177,8 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Equal => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_reassign_statement),
-                precedence: Precedence::Assignment,
+                infix: None,
+                precedence: Precedence::None,
             },
             TokenKind::Else => ParseRule {
                 prefix: None,
@@ -197,12 +202,12 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Greater => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Comparison,
             },
             TokenKind::GreaterEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Comparison,
             },
             TokenKind::Identifier => ParseRule {
@@ -252,12 +257,12 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Less => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Comparison,
             },
             TokenKind::LessEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Comparison,
             },
             TokenKind::Let => ParseRule {
@@ -282,12 +287,12 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Minus => ParseRule {
                 prefix: Some(Parser::parse_unary_expression),
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::SecondaryMath,
             },
             TokenKind::MinusEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Assignment,
             },
             TokenKind::Mod => ParseRule {
@@ -312,22 +317,22 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Percent => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::PrimaryMath,
             },
             TokenKind::PercentEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Assignment,
             },
             TokenKind::Plus => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::SecondaryMath,
             },
             TokenKind::PlusEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Assignment,
             },
             TokenKind::Pub => ParseRule {
@@ -362,12 +367,12 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Slash => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::PrimaryMath,
             },
             TokenKind::SlashEqual => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_binary_expression),
+                infix: Some(Parser::parse_binary_operator),
                 precedence: Precedence::Assignment,
             },
             TokenKind::Str => ParseRule {

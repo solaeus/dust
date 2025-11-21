@@ -169,6 +169,30 @@ fn constant_integer_modulo() {
 }
 
 #[test]
+fn constant_byte_exponent() {
+    let source = constant_cases::CONSTANT_BYTE_EXPONENT.to_string();
+    let result = run_main(source).unwrap();
+
+    assert_eq!(result, Some(Value::byte(8)));
+}
+
+#[test]
+fn constant_float_exponent() {
+    let source = constant_cases::CONSTANT_FLOAT_EXPONENT.to_string();
+    let result = run_main(source).unwrap();
+
+    assert_eq!(result, Some(Value::float(8.0)));
+}
+
+#[test]
+fn constant_integer_exponent() {
+    let source = constant_cases::CONSTANT_INTEGER_EXPONENT.to_string();
+    let result = run_main(source).unwrap();
+
+    assert_eq!(result, Some(Value::integer(8)));
+}
+
+#[test]
 fn constant_integer_negation() {
     let source = constant_cases::CONSTANT_INTEGER_NEGATION.to_string();
     let result = run_main(source).unwrap();

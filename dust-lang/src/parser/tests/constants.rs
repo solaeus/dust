@@ -639,6 +639,105 @@ fn constant_integer_modulo() {
 }
 
 #[test]
+fn constant_byte_exponent() {
+    let source = constant_cases::CONSTANT_BYTE_EXPONENT.to_string();
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                span: Span(0, 11),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                children: (2, 0),
+                span: Span(0, 4),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExponentExpression,
+                children: (1, 2),
+                span: Span(0, 11),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ByteExpression,
+                children: (3, 0),
+                span: Span(7, 11),
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_float_exponent() {
+    let source = constant_cases::CONSTANT_FLOAT_EXPONENT.to_string();
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                span: Span(0, 9),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::FloatExpression,
+                children: SyntaxNode::encode_float(2.0),
+                span: Span(0, 3),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExponentExpression,
+                children: (1, 2),
+                span: Span(0, 9),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::FloatExpression,
+                children: SyntaxNode::encode_float(3.0),
+                span: Span(6, 9),
+            }
+        ]
+    );
+}
+
+#[test]
+fn constant_integer_exponent() {
+    let source = constant_cases::CONSTANT_INTEGER_EXPONENT.to_string();
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (0, 1),
+                span: Span(0, 5),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (2, 0),
+                span: Span(0, 1),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExponentExpression,
+                children: (1, 2),
+                span: Span(0, 5),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (3, 0),
+                span: Span(4, 5),
+            }
+        ]
+    );
+}
+
+#[test]
 fn constant_integer_negation() {
     let source = constant_cases::CONSTANT_INTEGER_NEGATION.to_string();
     let (syntax_tree, error) = parse_main(source);

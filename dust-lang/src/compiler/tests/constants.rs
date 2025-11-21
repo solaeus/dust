@@ -406,6 +406,63 @@ fn constant_integer_modulo() {
 }
 
 #[test]
+fn constant_byte_exponent() {
+    let source = constant_cases::CONSTANT_BYTE_EXPONENT.to_string();
+    let prototype = compile_main(source).unwrap();
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            function_type: FunctionType::new([], [], Type::Byte),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::encoded(8),
+                OperandType::BYTE
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_float_exponent() {
+    let source = constant_cases::CONSTANT_FLOAT_EXPONENT.to_string();
+    let prototype = compile_main(source).unwrap();
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            function_type: FunctionType::new([], [], Type::Float),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::FLOAT
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
+fn constant_integer_exponent() {
+    let source = constant_cases::CONSTANT_INTEGER_EXPONENT.to_string();
+    let prototype = compile_main(source).unwrap();
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            function_type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![Instruction::r#return(
+                true,
+                Address::constant(0),
+                OperandType::INTEGER
+            )],
+            ..Default::default()
+        }
+    );
+}
+
+#[test]
 fn constant_integer_negation() {
     let source = constant_cases::CONSTANT_INTEGER_NEGATION.to_string();
     let prototype = compile_main(source).unwrap();

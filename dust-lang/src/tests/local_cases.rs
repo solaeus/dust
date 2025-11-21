@@ -183,6 +183,38 @@ a %= 5;
 a
 "#;
 
+pub const LOCAL_BYTE_EXPONENT: &str = r#"
+let a: byte = 0x02;
+let b: byte = 0x03;
+a ^ b
+"#;
+pub const LOCAL_FLOAT_EXPONENT: &str = r#"
+let a: float = 2.0;
+let b: float = 3.0;
+a ^ b
+"#;
+pub const LOCAL_INTEGER_EXPONENT: &str = r#"
+let a: int = 2;
+let b: int = 3;
+a ^ b
+"#;
+
+pub const LOCAL_MUT_BYTE_EXPONENT: &str = r#"
+let mut a: byte = 0x02;
+a ^= 0x03;
+a
+"#;
+pub const LOCAL_MUT_FLOAT_EXPONENT: &str = r#"
+let mut a: float = 2.0;
+a ^= 3.0;
+a
+"#;
+pub const LOCAL_MUT_INTEGER_EXPONENT: &str = r#"
+let mut a: int = 2;
+a ^= 3;
+a
+"#;
+
 pub const LOCAL_STRING_CONCATENATION: &str = r#"
 let a: str = "foo";
 let b: str = "bar";

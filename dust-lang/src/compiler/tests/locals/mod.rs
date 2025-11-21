@@ -2,6 +2,7 @@ mod addition;
 mod and;
 mod division;
 mod equal;
+mod exponentiation;
 mod greater;
 mod greater_equal;
 mod less;

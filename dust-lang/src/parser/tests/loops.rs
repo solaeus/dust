@@ -105,7 +105,7 @@ fn while_loop() {
                 span: Span(36, 37),
             },
             SyntaxNode {
-                kind: SyntaxKind::AdditionAssignmentExpression,
+                kind: SyntaxKind::AdditionAssignmentStatement,
                 children: (13, 14),
                 span: Span(36, 42),
             },

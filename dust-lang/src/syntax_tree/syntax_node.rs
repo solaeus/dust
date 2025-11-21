@@ -115,8 +115,7 @@ impl SyntaxNode {
             | SyntaxKind::NegationExpression
             | SyntaxKind::NotExpression
             | SyntaxKind::ElseExpression => SyntaxNodeChildren::Single(SyntaxId(self.children.0)),
-            SyntaxKind::ReassignmentStatement
-            | SyntaxKind::LetStatement
+            SyntaxKind::LetStatement
             | SyntaxKind::LetMutStatement
             | SyntaxKind::FunctionExpression
             | SyntaxKind::FunctionValueParameter
@@ -127,11 +126,11 @@ impl SyntaxNode {
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression
             | SyntaxKind::ExponentExpression
-            | SyntaxKind::AdditionAssignmentExpression
-            | SyntaxKind::SubtractionAssignmentExpression
-            | SyntaxKind::MultiplicationAssignmentExpression
-            | SyntaxKind::DivisionAssignmentExpression
-            | SyntaxKind::ModuloAssignmentExpression
+            | SyntaxKind::AdditionAssignmentStatement
+            | SyntaxKind::SubtractionAssignmentStatement
+            | SyntaxKind::MultiplicationAssignmentStatement
+            | SyntaxKind::DivisionAssignmentStatement
+            | SyntaxKind::ModuloAssignmentStatement
             | SyntaxKind::AndExpression
             | SyntaxKind::OrExpression
             | SyntaxKind::EqualExpression
@@ -204,8 +203,13 @@ pub enum SyntaxKind {
     ExpressionStatement,
     LetStatement,
     LetMutStatement,
-    ReassignmentStatement,
     SemicolonStatement,
+    AdditionAssignmentStatement,
+    SubtractionAssignmentStatement,
+    MultiplicationAssignmentStatement,
+    DivisionAssignmentStatement,
+    ModuloAssignmentStatement,
+    ExponentAssignmentStatement,
 
     // Literal Expressions
     BooleanExpression,
@@ -222,13 +226,6 @@ pub enum SyntaxKind {
     DivisionExpression,
     ModuloExpression,
     ExponentExpression,
-
-    // Binary Math Assignment Expressions
-    AdditionAssignmentExpression,
-    SubtractionAssignmentExpression,
-    MultiplicationAssignmentExpression,
-    DivisionAssignmentExpression,
-    ModuloAssignmentExpression,
 
     // Binary Logic Expressions
     AndExpression,
@@ -308,8 +305,13 @@ impl SyntaxKind {
             SyntaxKind::ExpressionStatement
                 | SyntaxKind::LetStatement
                 | SyntaxKind::LetMutStatement
-                | SyntaxKind::ReassignmentStatement
                 | SyntaxKind::SemicolonStatement
+                | SyntaxKind::AdditionAssignmentStatement
+                | SyntaxKind::SubtractionAssignmentStatement
+                | SyntaxKind::MultiplicationAssignmentStatement
+                | SyntaxKind::DivisionAssignmentStatement
+                | SyntaxKind::ModuloAssignmentStatement
+                | SyntaxKind::ExponentAssignmentStatement
         )
     }
 
@@ -375,7 +377,6 @@ impl Display for SyntaxKind {
             SyntaxKind::ExpressionStatement => write!(f, "expression statement"),
             SyntaxKind::LetStatement => write!(f, "let statement"),
             SyntaxKind::LetMutStatement => write!(f, "let mut statement"),
-            SyntaxKind::ReassignmentStatement => write!(f, "reassign statement"),
             SyntaxKind::SemicolonStatement => write!(f, "semicolon statement"),
             SyntaxKind::BooleanExpression => write!(f, "boolean expression"),
             SyntaxKind::ByteExpression => write!(f, "byte expression"),
@@ -389,20 +390,23 @@ impl Display for SyntaxKind {
             SyntaxKind::DivisionExpression => write!(f, "division expression"),
             SyntaxKind::ModuloExpression => write!(f, "modulo expression"),
             SyntaxKind::ExponentExpression => write!(f, "exponent expression"),
-            SyntaxKind::AdditionAssignmentExpression => {
-                write!(f, "addition assignment expression")
+            SyntaxKind::AdditionAssignmentStatement => {
+                write!(f, "addition assignment statement")
             }
-            SyntaxKind::SubtractionAssignmentExpression => {
-                write!(f, "subtraction assignment expression")
+            SyntaxKind::SubtractionAssignmentStatement => {
+                write!(f, "subtraction assignment statement")
             }
-            SyntaxKind::MultiplicationAssignmentExpression => {
-                write!(f, "multiplication assignment expression")
+            SyntaxKind::MultiplicationAssignmentStatement => {
+                write!(f, "multiplication assignment statement")
             }
-            SyntaxKind::DivisionAssignmentExpression => {
-                write!(f, "division assignment expression")
+            SyntaxKind::DivisionAssignmentStatement => {
+                write!(f, "division assignment statement")
             }
-            SyntaxKind::ModuloAssignmentExpression => {
-                write!(f, "modulo assignment expression")
+            SyntaxKind::ModuloAssignmentStatement => {
+                write!(f, "modulo assignment statement")
+            }
+            SyntaxKind::ExponentAssignmentStatement => {
+                write!(f, "exponent assignment statement")
             }
             SyntaxKind::AndExpression => write!(f, "and expression"),
             SyntaxKind::OrExpression => write!(f, "or expression"),

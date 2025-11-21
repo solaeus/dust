@@ -412,6 +412,7 @@ impl<'a> PrototypeCompiler<'a> {
 
                     Constant::Byte(left % right)
                 }
+                SyntaxKind::ExponentExpression => Constant::Byte(left.saturating_pow(right as u32)),
                 SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
                 SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
                 SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
@@ -846,7 +847,12 @@ impl<'a> PrototypeCompiler<'a> {
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
                 self.compile_let_statement(node)
             }
-            SyntaxKind::ReassignmentStatement => self.compile_reassignment_statement(node),
+            SyntaxKind::AdditionAssignmentStatement
+            | SyntaxKind::SubtractionAssignmentStatement
+            | SyntaxKind::MultiplicationAssignmentStatement
+            | SyntaxKind::DivisionAssignmentStatement
+            | SyntaxKind::ModuloAssignmentStatement
+            | SyntaxKind::ExponentAssignmentStatement => self.compile_math_binary(node, None),
             _ => Err(CompileError::ExpectedStatement {
                 node_kind: node.kind,
                 position: Position::new(self.file_id, node.span),
@@ -1275,7 +1281,7 @@ impl<'a> PrototypeCompiler<'a> {
         info!("Compiling expression statement");
 
         let exression_id = SyntaxId(node.children.0);
-        let expression_node =
+        let child_node =
             *self
                 .syntax_tree()?
                 .get_node(exression_id)
@@ -1283,11 +1289,19 @@ impl<'a> PrototypeCompiler<'a> {
                     syntax_id: exression_id,
                 })?;
 
-        let mut emission = self.compile_expression(&expression_node, None)?;
+        if child_node.kind.is_expression() {
+            let mut emission = self.compile_expression(&child_node, None)?;
 
-        emission.set_type(TypeId::NONE);
+            emission.set_type(TypeId::NONE);
 
-        Ok(emission)
+            if let Emission::Instructions(instructions_emission) = &mut emission {
+                instructions_emission.set_target(None);
+            }
+
+            Ok(emission)
+        } else {
+            self.compile_statement(&child_node)
+        }
     }
 
     fn compile_let_statement(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
@@ -1411,77 +1425,6 @@ impl<'a> PrototypeCompiler<'a> {
         Ok(Emission::Instructions(let_statement_emission))
     }
 
-    fn compile_reassignment_statement(
-        &mut self,
-        node: &SyntaxNode,
-    ) -> Result<Emission, CompileError> {
-        info!("Compiling reassignment statement");
-
-        let path_id = SyntaxId(node.children.0);
-        let expression_id = SyntaxId(node.children.1);
-
-        let path_node = *self
-            .syntax_tree()?
-            .get_node(path_id)
-            .ok_or(CompileError::MissingSyntaxNode { syntax_id: path_id })?;
-        let expression = *self.syntax_tree()?.get_node(expression_id).ok_or(
-            CompileError::MissingSyntaxNode {
-                syntax_id: expression_id,
-            },
-        )?;
-
-        let files = self.context.source.read_files();
-        let source_file =
-            files
-                .get(self.file_id.0 as usize)
-                .ok_or(CompileError::MissingSourceFile {
-                    file_id: self.file_id,
-                })?;
-        let variable_name_bytes =
-            &source_file.source_code.as_ref()[path_node.span.0 as usize..path_node.span.1 as usize];
-        let variable_name = unsafe { str::from_utf8_unchecked(variable_name_bytes) };
-
-        let (declaration_id, _) = self
-            .context
-            .resolver
-            .find_declaration_in_scope(variable_name, self.current_scope_id)
-            .ok_or(CompileError::UndeclaredVariable {
-                name: variable_name.to_string(),
-                position: Position::new(self.file_id, path_node.span),
-            })?;
-        let local = self
-            .locals
-            .get(&declaration_id)
-            .ok_or(CompileError::UndeclaredVariable {
-                name: variable_name.to_string(),
-                position: Position::new(self.file_id, path_node.span),
-            })?;
-        let local_register = local.address.index;
-
-        drop(files);
-
-        let mut reassignment_emission = InstructionsEmission::new();
-        let expression_emission = self.compile_expression(&expression, None)?;
-        let (expression_address, expression_type) = self.handle_operand_emission(
-            &mut reassignment_emission,
-            expression_emission,
-            &expression,
-        )?;
-        let operand_type = self
-            .context
-            .resolver
-            .get_operand_type(expression_type)
-            .ok_or(CompileError::MissingType {
-                type_id: expression_type,
-            })?;
-        let move_instruction =
-            Instruction::r#move(local_register, expression_address, operand_type);
-
-        reassignment_emission.push(move_instruction);
-
-        Ok(Emission::Instructions(reassignment_emission))
-    }
-
     fn compile_function_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         info!("Compiling function item");
 
@@ -1575,12 +1518,7 @@ impl<'a> PrototypeCompiler<'a> {
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression
-            | SyntaxKind::AdditionAssignmentExpression
-            | SyntaxKind::SubtractionAssignmentExpression
-            | SyntaxKind::MultiplicationAssignmentExpression
-            | SyntaxKind::DivisionAssignmentExpression
-            | SyntaxKind::ModuloAssignmentExpression
-            | SyntaxKind::ExponentExpression => self.compile_math_expression(node, target),
+            | SyntaxKind::ExponentExpression => self.compile_math_binary(node, target),
             SyntaxKind::GreaterThanExpression
             | SyntaxKind::GreaterThanOrEqualExpression
             | SyntaxKind::LessThanExpression
@@ -1892,7 +1830,7 @@ impl<'a> PrototypeCompiler<'a> {
         Ok(Emission::Instructions(index_emission))
     }
 
-    fn compile_math_expression(
+    fn compile_math_binary(
         &mut self,
         node: &SyntaxNode,
         target: Option<TargetRegister>,
@@ -1962,22 +1900,20 @@ impl<'a> PrototypeCompiler<'a> {
         };
         let math_instruction = match node.kind {
             SyntaxKind::AdditionExpression => {
-                let (destination, is_temporary) = target
-                    .map(|target| (target.register, target.is_temporary))
-                    .unwrap_or_else(|| (self.allocate_temporary_register(), true));
+                let target = target.unwrap_or_else(|| TargetRegister {
+                    register: self.allocate_temporary_register(),
+                    is_temporary: true,
+                });
 
-                math_emission.set_target(Some(TargetRegister {
-                    register: destination,
-                    is_temporary,
-                }));
+                math_emission.set_target(Some(target));
 
-                if type_id == TypeId::STRING && target.is_none_or(|target| target.is_temporary) {
-                    self.pending_drops.last_mut().unwrap().push(destination);
+                if type_id == TypeId::STRING && target.is_temporary {
+                    self.pending_drops.last_mut().unwrap().push(target.register);
                 }
 
-                Instruction::add(destination, left_address, right_address, operand_type)
+                Instruction::add(target.register, left_address, right_address, operand_type)
             }
-            SyntaxKind::AdditionAssignmentExpression => {
+            SyntaxKind::AdditionAssignmentStatement => {
                 math_emission.set_target(left_target);
 
                 Instruction::add(
@@ -1988,18 +1924,16 @@ impl<'a> PrototypeCompiler<'a> {
                 )
             }
             SyntaxKind::SubtractionExpression => {
-                let (destination, is_temporary) = target
-                    .map(|target| (target.register, target.is_temporary))
-                    .unwrap_or_else(|| (self.allocate_temporary_register(), true));
+                let target = target.unwrap_or_else(|| TargetRegister {
+                    register: self.allocate_temporary_register(),
+                    is_temporary: true,
+                });
 
-                math_emission.set_target(Some(TargetRegister {
-                    register: destination,
-                    is_temporary,
-                }));
+                math_emission.set_target(Some(target));
 
-                Instruction::subtract(destination, left_address, right_address, operand_type)
+                Instruction::subtract(target.register, left_address, right_address, operand_type)
             }
-            SyntaxKind::SubtractionAssignmentExpression => {
+            SyntaxKind::SubtractionAssignmentStatement => {
                 math_emission.set_target(left_target);
 
                 Instruction::subtract(
@@ -2010,18 +1944,16 @@ impl<'a> PrototypeCompiler<'a> {
                 )
             }
             SyntaxKind::MultiplicationExpression => {
-                let (destination, is_temporary) = target
-                    .map(|target| (target.register, target.is_temporary))
-                    .unwrap_or_else(|| (self.allocate_temporary_register(), true));
+                let target = target.unwrap_or_else(|| TargetRegister {
+                    register: self.allocate_temporary_register(),
+                    is_temporary: true,
+                });
 
-                math_emission.set_target(Some(TargetRegister {
-                    register: destination,
-                    is_temporary,
-                }));
+                math_emission.set_target(Some(target));
 
-                Instruction::multiply(destination, left_address, right_address, operand_type)
+                Instruction::multiply(target.register, left_address, right_address, operand_type)
             }
-            SyntaxKind::MultiplicationAssignmentExpression => {
+            SyntaxKind::MultiplicationAssignmentStatement => {
                 math_emission.set_target(left_target);
 
                 Instruction::multiply(
@@ -2032,18 +1964,16 @@ impl<'a> PrototypeCompiler<'a> {
                 )
             }
             SyntaxKind::DivisionExpression => {
-                let (destination, is_temporary) = target
-                    .map(|target| (target.register, target.is_temporary))
-                    .unwrap_or_else(|| (self.allocate_temporary_register(), true));
+                let target = target.unwrap_or_else(|| TargetRegister {
+                    register: self.allocate_temporary_register(),
+                    is_temporary: true,
+                });
 
-                math_emission.set_target(Some(TargetRegister {
-                    register: destination,
-                    is_temporary,
-                }));
+                math_emission.set_target(Some(target));
 
-                Instruction::divide(destination, left_address, right_address, operand_type)
+                Instruction::divide(target.register, left_address, right_address, operand_type)
             }
-            SyntaxKind::DivisionAssignmentExpression => {
+            SyntaxKind::DivisionAssignmentStatement => {
                 math_emission.set_target(left_target);
 
                 Instruction::divide(
@@ -2054,18 +1984,16 @@ impl<'a> PrototypeCompiler<'a> {
                 )
             }
             SyntaxKind::ModuloExpression => {
-                let (destination, is_temporary) = target
-                    .map(|target| (target.register, target.is_temporary))
-                    .unwrap_or_else(|| (self.allocate_temporary_register(), true));
+                let target = target.unwrap_or_else(|| TargetRegister {
+                    register: self.allocate_temporary_register(),
+                    is_temporary: true,
+                });
 
-                math_emission.set_target(Some(TargetRegister {
-                    register: destination,
-                    is_temporary,
-                }));
+                math_emission.set_target(Some(target));
 
-                Instruction::modulo(destination, left_address, right_address, operand_type)
+                Instruction::modulo(target.register, left_address, right_address, operand_type)
             }
-            SyntaxKind::ModuloAssignmentExpression => {
+            SyntaxKind::ModuloAssignmentStatement => {
                 math_emission.set_target(left_target);
 
                 Instruction::modulo(
@@ -2076,16 +2004,24 @@ impl<'a> PrototypeCompiler<'a> {
                 )
             }
             SyntaxKind::ExponentExpression => {
-                let (destination, is_temporary) = target
-                    .map(|target| (target.register, target.is_temporary))
-                    .unwrap_or_else(|| (self.allocate_temporary_register(), true));
+                let target = target.unwrap_or_else(|| TargetRegister {
+                    register: self.allocate_temporary_register(),
+                    is_temporary: true,
+                });
 
-                math_emission.set_target(Some(TargetRegister {
-                    register: destination,
-                    is_temporary,
-                }));
+                math_emission.set_target(Some(target));
 
-                Instruction::power(destination, left_address, right_address, operand_type)
+                Instruction::power(target.register, left_address, right_address, operand_type)
+            }
+            SyntaxKind::ExponentAssignmentStatement => {
+                math_emission.set_target(left_target);
+
+                Instruction::power(
+                    left_address.index,
+                    left_address,
+                    right_address,
+                    operand_type,
+                )
             }
             _ => unreachable!("Expected binary expression, found {}", node.kind),
         };
@@ -2441,10 +2377,8 @@ impl<'a> PrototypeCompiler<'a> {
         if final_node.kind.is_statement() {
             let statement_emission = self.compile_statement(&final_node)?;
 
-            if let Emission::Instructions(InstructionsEmission { instructions, .. }) =
-                statement_emission
-            {
-                block_emission.instructions.extend(instructions);
+            if let Emission::Instructions(instructions) = statement_emission {
+                block_emission.merge(instructions);
             }
 
             self.enter_parent_scope(parent_scope_id, parent_next_local_register);

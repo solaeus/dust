@@ -739,6 +739,7 @@ fn classify_two_operator_u16(op: u16) -> Option<TokenKind> {
         0x3E2D => TokenKind::ArrowThin,
         0x3D2A => TokenKind::AsteriskEqual,
         0x3D21 => TokenKind::BangEqual,
+        0x3D5E => TokenKind::CaretEqual,
         0x2626 => TokenKind::DoubleAmpersand,
         0x3A3A => TokenKind::DoubleColon,
         0x2E2E => TokenKind::DoubleDot,

@@ -279,6 +279,8 @@ fn operators_and_punctuation() {
         ("*=", TokenKind::AsteriskEqual),
         ("!=", TokenKind::BangEqual),
         ("!", TokenKind::Bang),
+        ("^", TokenKind::Caret),
+        ("^=", TokenKind::CaretEqual),
         (":", TokenKind::Colon),
         (",", TokenKind::Comma),
         (".", TokenKind::Dot),

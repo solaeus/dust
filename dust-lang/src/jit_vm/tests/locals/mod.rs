@@ -2,6 +2,7 @@ mod addition;
 mod and;
 mod comparisons;
 mod division;
+mod exponentiation;
 mod modulo;
 mod multiplication;
 mod not;

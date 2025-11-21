@@ -404,7 +404,7 @@ fn local_mut_byte_multiplication() {
                 span: Span(25, 26),
             },
             SyntaxNode {
-                kind: SyntaxKind::MultiplicationAssignmentExpression,
+                kind: SyntaxKind::MultiplicationAssignmentStatement,
                 children: (9, 10),
                 span: Span(25, 34),
             },
@@ -497,7 +497,7 @@ fn local_mut_float_multiplication() {
                 span: Span(26, 27),
             },
             SyntaxNode {
-                kind: SyntaxKind::MultiplicationAssignmentExpression,
+                kind: SyntaxKind::MultiplicationAssignmentStatement,
                 children: (9, 10),
                 span: Span(26, 34),
             },
@@ -590,7 +590,7 @@ fn local_mut_integer_multiplication() {
                 span: Span(22, 23),
             },
             SyntaxNode {
-                kind: SyntaxKind::MultiplicationAssignmentExpression,
+                kind: SyntaxKind::MultiplicationAssignmentStatement,
                 children: (9, 10),
                 span: Span(22, 28),
             },
