@@ -10,7 +10,7 @@
 | **Float (`float`)**    | ✓ Yes       | ✓ Yes        |
 | **Integer (`int`)**    | ✓ Yes       | ✓ Yes        |
 | **String (`str`)**     | ✓ Yes       | ✓ Yes        |
-| **List/Array**         | ✓ Yes       | Ｘ No        |
+| **List/Array**         | ✓ Yes       | ✓ Yes        |
 | **Function Types**     | ✓ Yes       | ✓ Yes        |
 
 ## Literals & Constants
@@ -23,7 +23,7 @@
 | **Float literals**      | ✓ Yes       | ✓ Yes        |
 | **Integer literals**    | ✓ Yes       | ✓ Yes        |
 | **String literals**     | ✓ Yes       | ✓ Yes        |
-| **List literals**       | ✓ Yes       | X No         |
+| **List literals**       | ✓ Yes       | ✓ Yes        |
 
 ## Variables & Declarations
 
@@ -50,11 +50,11 @@
 
 | Feature                              | Implemented | Fully Tested |
 | ------------------------------------ | ----------- | ------------ |
-| **Addition assignment (`+=`)**       | ✓ Yes       | ? Partial    |
-| **Subtraction assignment (`-=`)**    | ✓ Yes       | ? Partial    |
-| **Multiplication assignment (`*=`)** | ✓ Yes       | ? Partial    |
-| **Division assignment (`/=`)**       | ✓ Yes       | ? Partial    |
-| **Modulo assignment (`%=`)**         | ✓ Yes       | ? Partial    |
+| **Addition assignment (`+=`)**       | ✓ Yes       | ✓ Yes        |
+| **Subtraction assignment (`-=`)**    | ✓ Yes       | ✓ Yes        |
+| **Multiplication assignment (`*=`)** | ✓ Yes       | ✓ Yes        |
+| **Division assignment (`/=`)**       | ✓ Yes       | ✓ Yes        |
+| **Modulo assignment (`%=`)**         | ✓ Yes       | ✓ Yes        |
 
 ## Comparison Operations
 
@@ -84,7 +84,7 @@
 | **`else if` chains**       | ✓ Yes       | ✓ Yes        |
 | **`while` loop**           | ✓ Yes       | ✓ Yes        |
 | **`loop` (infinite loop)** | ? Partial   | X No         |
-| **`break` statement**      | ✓ Yes       | ? Partial    |
+| **`break` statement**      | ✓ Yes       | X No         |
 | **`return` statement**     | ✓ Yes       | ✓ Yes        |
 
 ## Functions
@@ -117,7 +117,7 @@
 | **Block expressions**         | ✓ Yes       | ✓ Yes        |
 | **Grouped expressions `()`**  | ✓ Yes       | ? Partial    |
 | **Type casting (`as`)**       | ✓ Yes       | ? Partial    |
-| **List indexing**             | ✓ Yes       | X No         |
+| **List indexing**             | ✓ Yes       | ✓ Yes        |
 | **String concatenation**      | ✓ Yes       | ✓ Yes        |
 | **Scope and shadowing**       | ✓ Yes       | ✓ Yes        |
 | **Public visibility (`pub`)** | ✓ Yes       | X No         |
