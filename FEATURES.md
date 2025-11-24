@@ -43,7 +43,7 @@
 | **Multiplication (`*`)** | ✓ Yes       | ✓ Yes        |
 | **Division (`/`)**       | ✓ Yes       | ✓ Yes        |
 | **Modulo (`%`)**         | ✓ Yes       | ✓ Yes        |
-| **Exponentiation (`^`)** | ✓ Yes       | X No         |
+| **Exponentiation (`^`)** | ✓ Yes       | ✓ Yes        |
 | **Negation (unary `-`)** | ✓ Yes       | ✓ Yes        |
 
 ## Compound Assignment Operators
