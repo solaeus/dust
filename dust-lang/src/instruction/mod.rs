@@ -448,12 +448,18 @@ impl Instruction {
     pub fn call_native(
         destination: u16,
         function: NativeFunction,
-        arguments_index: u16,
+        arguments_start: u16,
     ) -> Instruction {
+        let function_type = function.r#type();
+        let argument_count = function_type.value_parameters.len() as u16;
+        let return_type = function_type.return_type.as_operand_type();
+
         Instruction::from(CallNative {
             destination,
             function,
-            arguments_index,
+            arguments_start,
+            argument_count,
+            return_type,
         })
     }
 
@@ -677,6 +683,10 @@ mod tests {
 
     #[test]
     fn decode_d_field() {
+        let instruction = Instruction::call(5, 15, 25, 0, OperandType::FLOAT);
+
+        assert_eq!(instruction.d_field(), 0);
+
         let instruction = Instruction::call(10, 20, 30, 2, OperandType::STRING);
 
         assert_eq!(instruction.d_field(), 2);

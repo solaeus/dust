@@ -26,7 +26,6 @@ use crate::{
         thread::ThreadContext,
     },
     prototype::Prototype,
-    r#type::Type,
 };
 
 pub fn compile_stackless_function(
@@ -1287,17 +1286,17 @@ pub fn compile_stackless_function(
                 let CallNative {
                     destination,
                     function,
-                    arguments_index,
+                    arguments_start,
+                    argument_count,
+                    return_type,
                 } = CallNative::from(*current_instruction);
 
-                let function_type = function.r#type();
-                let argument_count = function_type.value_parameters.len();
-                let arguments_range =
-                    arguments_index as usize..(arguments_index as usize + argument_count);
+                let arguments_end = arguments_start + argument_count;
+                let arguments_range = arguments_start as usize..arguments_end as usize;
                 let call_arguments_list = prototype.call_arguments.get(arguments_range).ok_or(
                     JitError::ArgumentsRangeOutOfBounds {
-                        arguments_start: arguments_index,
-                        arguments_end: arguments_index + argument_count as u16,
+                        arguments_start,
+                        arguments_end,
                         total_argument_count: prototype.call_arguments.len(),
                     },
                 )?;
@@ -1355,13 +1354,13 @@ pub fn compile_stackless_function(
 
                 let call_instruction = function_builder.ins().call(function_reference, &arguments);
 
-                if function_type.return_type != Type::None {
+                if return_type != OperandType::NONE {
                     let return_value = function_builder.inst_results(call_instruction)[0];
 
                     JitCompiler::set_register(
                         destination,
                         return_value,
-                        function_type.return_type.as_operand_type(),
+                        return_type,
                         current_frame_base_register_address,
                         current_frame_base_tag_address,
                         &hot_registers,
