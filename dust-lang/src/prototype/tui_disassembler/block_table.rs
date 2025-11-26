@@ -76,6 +76,7 @@ where
             .header(Row::new(self.headers).add_modifier(Modifier::BOLD))
             .column_spacing(COLUMN_SPACING)
             .flex(Flex::SpaceAround)
+            .row_highlight_style(Style::default().bold())
             .block(block);
 
         StatefulWidget::render(table, table_area, buffer, &mut self.table_state);

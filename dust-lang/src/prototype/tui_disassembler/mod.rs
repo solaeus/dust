@@ -119,11 +119,34 @@ impl<'a> TuiDisassembler<'a> {
                     self.selection_state.section = PrototypeSection::Instructions;
                 }
                 KeyCode::Up | KeyCode::Char('k') => {
+                    if self.selection_state.tab >= self.file_trees.len()
+                        && self.selection_state.row > 0
+                    {
+                        self.selection_state.row -= 1;
+                    }
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    if self.selection_state.tab >= self.file_trees.len() {
+                        let prototype_index = self.selection_state.tab - self.file_trees.len();
+                        let prototype = &self.program.prototypes[prototype_index];
+                        let section_length = match self.selection_state.section {
+                            PrototypeSection::Instructions => prototype.instructions.len(),
+                            PrototypeSection::Constants => self.program.constants.len(),
+                            PrototypeSection::CallArguments => prototype.call_arguments.len(),
+                            PrototypeSection::DropLists => prototype.drop_lists.len(),
+                        };
+
+                        if self.selection_state.row + 1 < section_length {
+                            self.selection_state.row += 1;
+                        }
+                    }
+                }
+                KeyCode::PageUp | KeyCode::Char('K') => {
                     if self.selection_state.tab >= self.file_trees.len() {
                         self.selection_state.section = self.selection_state.section.previous();
                     }
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
+                KeyCode::PageDown | KeyCode::Char('J') => {
                     if self.selection_state.tab >= self.file_trees.len() {
                         self.selection_state.section = self.selection_state.section.next();
                     }
