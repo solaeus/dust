@@ -70,7 +70,7 @@ impl<'a> TuiDisassembler<'a> {
             state: TuiState::Run,
             selection_state: SelectionState {
                 tab: files.len(),
-                section: PrototypeSection::Instructions,
+                section: None,
                 row: 0,
             },
             tabs,
@@ -107,7 +107,7 @@ impl<'a> TuiDisassembler<'a> {
                         self.selection_state.tab = 0;
                     }
 
-                    self.selection_state.section = PrototypeSection::Instructions;
+                    self.selection_state.section = None;
                 }
                 KeyCode::Left | KeyCode::Char('h') => {
                     if self.selection_state.tab > 0 {
@@ -116,13 +116,51 @@ impl<'a> TuiDisassembler<'a> {
                         self.selection_state.tab = self.tabs.len() - 1;
                     }
 
-                    self.selection_state.section = PrototypeSection::Instructions;
+                    self.selection_state.section = None;
                 }
                 KeyCode::Up | KeyCode::Char('k') => {
-                    if self.selection_state.tab >= self.file_trees.len()
-                        && self.selection_state.row > 0
-                    {
-                        self.selection_state.row -= 1;
+                    if self.selection_state.tab >= self.file_trees.len() {
+                        let prototype_index = self.selection_state.tab - self.file_trees.len();
+                        let prototype = &self.program.prototypes[prototype_index];
+                        if self.selection_state.row > 0 {
+                            self.selection_state.row -= 1;
+                        } else {
+                            match self.selection_state.section {
+                                Some(section) => {
+                                    self.selection_state.section = Some(section.previous());
+                                    let section_length = match self.selection_state.section {
+                                        Some(PrototypeSection::Instructions) => {
+                                            prototype.instructions.len()
+                                        }
+                                        Some(PrototypeSection::Constants) => {
+                                            self.program.constants.len()
+                                        }
+                                        Some(PrototypeSection::CallArguments) => {
+                                            prototype.call_arguments.len()
+                                        }
+                                        Some(PrototypeSection::DropLists) => {
+                                            prototype.drop_lists.len()
+                                        }
+                                        None => 0,
+                                    };
+                                    if section_length > 0 {
+                                        self.selection_state.row = section_length - 1;
+                                    } else {
+                                        self.selection_state.row = 0;
+                                    }
+                                }
+                                None => {
+                                    self.selection_state.section =
+                                        Some(PrototypeSection::DropLists);
+                                    let section_length = prototype.drop_lists.len();
+                                    if section_length > 0 {
+                                        self.selection_state.row = section_length - 1;
+                                    } else {
+                                        self.selection_state.row = 0;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
@@ -130,25 +168,28 @@ impl<'a> TuiDisassembler<'a> {
                         let prototype_index = self.selection_state.tab - self.file_trees.len();
                         let prototype = &self.program.prototypes[prototype_index];
                         let section_length = match self.selection_state.section {
-                            PrototypeSection::Instructions => prototype.instructions.len(),
-                            PrototypeSection::Constants => self.program.constants.len(),
-                            PrototypeSection::CallArguments => prototype.call_arguments.len(),
-                            PrototypeSection::DropLists => prototype.drop_lists.len(),
+                            Some(PrototypeSection::Instructions) => prototype.instructions.len(),
+                            Some(PrototypeSection::Constants) => self.program.constants.len(),
+                            Some(PrototypeSection::CallArguments) => prototype.call_arguments.len(),
+                            Some(PrototypeSection::DropLists) => prototype.drop_lists.len(),
+                            None => 0,
                         };
 
                         if self.selection_state.row + 1 < section_length {
                             self.selection_state.row += 1;
+                        } else {
+                            match self.selection_state.section {
+                                Some(section) => {
+                                    self.selection_state.section = Some(section.next());
+                                    self.selection_state.row = 0;
+                                }
+                                None => {
+                                    self.selection_state.section =
+                                        Some(PrototypeSection::Instructions);
+                                    self.selection_state.row = 0;
+                                }
+                            }
                         }
-                    }
-                }
-                KeyCode::PageUp | KeyCode::Char('K') => {
-                    if self.selection_state.tab >= self.file_trees.len() {
-                        self.selection_state.section = self.selection_state.section.previous();
-                    }
-                }
-                KeyCode::PageDown | KeyCode::Char('J') => {
-                    if self.selection_state.tab >= self.file_trees.len() {
-                        self.selection_state.section = self.selection_state.section.next();
                     }
                 }
                 KeyCode::Esc | KeyCode::Char('q') => {
@@ -265,11 +306,12 @@ impl<'a> TuiDisassembler<'a> {
                     ]
                 })
                 .collect::<Vec<_>>();
-            let selected_row = if self.selection_state.section == PrototypeSection::Instructions {
-                Some(self.selection_state.row)
-            } else {
-                None
-            };
+            let selected_row =
+                if self.selection_state.section == Some(PrototypeSection::Instructions) {
+                    Some(self.selection_state.row)
+                } else {
+                    None
+                };
             let instruction_section = BlockTable::new(
                 "Instructions",
                 ["IP", "Operation", "Info"],
@@ -295,7 +337,8 @@ impl<'a> TuiDisassembler<'a> {
                     ]
                 })
                 .collect::<Vec<_>>();
-            let selected_row = if self.selection_state.section == PrototypeSection::Constants {
+            let selected_row = if self.selection_state.section == Some(PrototypeSection::Constants)
+            {
                 Some(self.selection_state.row)
             } else {
                 None
@@ -324,11 +367,12 @@ impl<'a> TuiDisassembler<'a> {
                     ]
                 })
                 .collect::<Vec<_>>();
-            let selected_row = if self.selection_state.section == PrototypeSection::CallArguments {
-                Some(self.selection_state.row)
-            } else {
-                None
-            };
+            let selected_row =
+                if self.selection_state.section == Some(PrototypeSection::CallArguments) {
+                    Some(self.selection_state.row)
+                } else {
+                    None
+                };
             let arguments_section = BlockTable::new(
                 "Call Arguments",
                 ["i", "Address", "Type"],
@@ -347,7 +391,8 @@ impl<'a> TuiDisassembler<'a> {
                 .enumerate()
                 .map(|(index, register)| [index.to_string(), format!("reg_{register}")])
                 .collect::<Vec<_>>();
-            let selected_row = if self.selection_state.section == PrototypeSection::DropLists {
+            let selected_row = if self.selection_state.section == Some(PrototypeSection::DropLists)
+            {
                 Some(self.selection_state.row)
             } else {
                 None
@@ -451,7 +496,7 @@ enum TuiState {
 
 struct SelectionState {
     tab: usize,
-    section: PrototypeSection,
+    section: Option<PrototypeSection>,
     row: usize,
 }
 
