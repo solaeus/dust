@@ -203,6 +203,7 @@ pub enum SyntaxKind {
     ExpressionStatement,
     LetStatement,
     LetMutStatement,
+    ReassignmentStatement,
     SemicolonStatement,
     AdditionAssignmentStatement,
     SubtractionAssignmentStatement,
@@ -305,6 +306,7 @@ impl SyntaxKind {
             SyntaxKind::ExpressionStatement
                 | SyntaxKind::LetStatement
                 | SyntaxKind::LetMutStatement
+                | SyntaxKind::ReassignmentStatement
                 | SyntaxKind::SemicolonStatement
                 | SyntaxKind::AdditionAssignmentStatement
                 | SyntaxKind::SubtractionAssignmentStatement
@@ -377,6 +379,7 @@ impl Display for SyntaxKind {
             SyntaxKind::ExpressionStatement => write!(f, "expression statement"),
             SyntaxKind::LetStatement => write!(f, "let statement"),
             SyntaxKind::LetMutStatement => write!(f, "let mut statement"),
+            SyntaxKind::ReassignmentStatement => write!(f, "reassignment statement"),
             SyntaxKind::SemicolonStatement => write!(f, "semicolon statement"),
             SyntaxKind::BooleanExpression => write!(f, "boolean expression"),
             SyntaxKind::ByteExpression => write!(f, "byte expression"),

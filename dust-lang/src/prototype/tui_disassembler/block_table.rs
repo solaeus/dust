@@ -3,16 +3,17 @@ use ratatui::{
     layout::{Alignment, Constraint, Flex, Layout, Rect},
     style::{Modifier, Style, Stylize},
     text::Span,
-    widgets::{Block, BorderType, Borders, Row, Table, Widget},
+    widgets::{Block, BorderType, Borders, Row, ScrollbarState, Table, Widget},
 };
+
+const COLUMN_SPACING: u16 = 2;
 
 pub struct BlockTable<const COLUMN_COUNT: usize> {
     title: &'static str,
     headers: [&'static str; COLUMN_COUNT],
     rows: Vec<[String; COLUMN_COUNT]>,
+    scrollbar_state: ScrollbarState,
 }
-
-const COLUMN_SPACING: u16 = 2;
 
 impl<const COLUMN_COUNT: usize> BlockTable<COLUMN_COUNT> {
     pub fn new(
@@ -23,6 +24,7 @@ impl<const COLUMN_COUNT: usize> BlockTable<COLUMN_COUNT> {
         Self {
             title,
             headers,
+            scrollbar_state: ScrollbarState::new(rows.len()),
             rows,
         }
     }

@@ -69,11 +69,11 @@ fn block_statement() {
                 span: Span(16, 22)
             }),
             function_type: FunctionType::new([], [], Type::None),
-            instructions: vec![Instruction::r#return(
-                false,
-                Address::default(),
-                OperandType::NONE
-            ),],
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#return(false, Address::default(), OperandType::NONE),
+            ],
+            register_count: 1,
             ..Default::default()
         }
     );

@@ -17,7 +17,7 @@ use tracing::{Level, error, info, span, warn};
 use crate::{
     dust_error::DustError,
     lexer::Lexer,
-    parser::parse_rule::{ParseRule, Precedence},
+    parser::parse_rule::{Associativity, ParseRule, Precedence},
     source::{Position, Source, SourceCode, SourceFile, SourceFileId, Span},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
     token::{Token, TokenKind},
@@ -300,7 +300,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn _parse_statement(&mut self) -> Result<(), ParseError> {
+    fn parse_statement(&mut self) -> Result<(), ParseError> {
         self.pratt(Precedence::None)?;
 
         if let Some(node) = self.syntax_tree.last_node()
@@ -745,6 +745,44 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
+    fn parse_reassignment_statement(&mut self) -> Result<(), ParseError> {
+        info!("Parsing reassignment statement");
+
+        let start = self.previous_token.span.0;
+        let path_id = self.syntax_tree.last_node_id();
+
+        self.expect(TokenKind::Equal)?;
+        self.parse_expression()?;
+        self.expect(TokenKind::Semicolon)?;
+
+        let end = self.previous_token.span.1;
+        let expression_statement_id = self.syntax_tree.last_node_id();
+        let expression_statement_node =
+            self.syntax_tree
+                .get_node(expression_statement_id)
+                .ok_or(ParseError::MissingNode {
+                    id: expression_statement_id,
+                })?;
+
+        if expression_statement_node.kind != SyntaxKind::ExpressionStatement {
+            return Err(ParseError::ExpectedToken {
+                actual: self.current_token.kind,
+                expected: TokenKind::Semicolon,
+                position: self.current_position(),
+            });
+        }
+
+        let node = SyntaxNode {
+            kind: SyntaxKind::ReassignmentStatement,
+            span: Span(start, end),
+            children: (path_id.0, expression_statement_id.0),
+        };
+
+        self.syntax_tree.push_node(node);
+
+        Ok(())
+    }
+
     fn parse_boolean_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing boolean expression");
 
@@ -970,10 +1008,15 @@ impl<'src> Parser<'src> {
             }
         };
 
-        let operator_precedence = ParseRule::from(operator).precedence;
+        let parse_rule = ParseRule::from(operator);
+        let operator_precedence = parse_rule.precedence;
+        let right_precedence = match parse_rule.associativity {
+            Associativity::Left => operator_precedence.increment(),
+            Associativity::Right => operator_precedence,
+        };
 
         self.advance()?;
-        self.parse_sub_expression(operator_precedence)?;
+        self.parse_sub_expression(right_precedence)?;
 
         let right_id = self.syntax_tree.last_node_id();
         let end = self.previous_token.span.1;
