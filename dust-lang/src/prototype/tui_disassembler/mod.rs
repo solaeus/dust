@@ -11,10 +11,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph, Tabs, Widget, Wrap},
 };
 
-use crate::{
-    dust_crate::Program, prototype::Prototype, resolver::Resolver, source::Source,
-    syntax_tree::SyntaxTree,
-};
+use crate::{dust_crate::Program, prototype::Prototype, source::Source, syntax_tree::SyntaxTree};
 
 use block_table::BlockTable;
 
@@ -22,20 +19,18 @@ pub struct TuiDisassembler<'a> {
     program: &'a Program,
     source: &'a Source,
     file_trees: &'a [SyntaxTree],
-    _resolver: &'a Resolver,
+
+    show_constants: bool,
+    show_arguments: bool,
+    show_drops: bool,
 
     state: TuiState,
-    selected_tab: usize,
+    selection_state: SelectionState,
     tabs: Vec<String>,
 }
 
 impl<'a> TuiDisassembler<'a> {
-    pub fn new(
-        program: &'a Program,
-        source: &'a Source,
-        file_trees: &'a [SyntaxTree],
-        resolver: &'a Resolver,
-    ) -> Self {
+    pub fn new(program: &'a Program, source: &'a Source, file_trees: &'a [SyntaxTree]) -> Self {
         let files = source.read_files();
         let mut tabs = Vec::with_capacity(files.len() + program.prototypes.len());
 
@@ -64,13 +59,21 @@ impl<'a> TuiDisassembler<'a> {
         }
 
         Self {
-            selected_tab: files.len(),
             program,
             source,
             file_trees,
-            _resolver: resolver,
-            tabs,
+
+            show_constants: !program.constants.is_empty(),
+            show_arguments: false,
+            show_drops: false,
+
             state: TuiState::Run,
+            selection_state: SelectionState {
+                tab: files.len(),
+                section: PrototypeSection::Instructions,
+                row: 0,
+            },
+            tabs,
         }
     }
 
@@ -78,7 +81,8 @@ impl<'a> TuiDisassembler<'a> {
         let mut terminal = ratatui::init();
 
         while self.state == TuiState::Run {
-            if let Err(error) = terminal.draw(|frame| frame.render_widget(&self, frame.area())) {
+            if let Err(error) = terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))
+            {
                 ratatui::restore();
 
                 return Err(error);
@@ -96,21 +100,35 @@ impl<'a> TuiDisassembler<'a> {
             && key.kind == KeyEventKind::Press
         {
             match key.code {
-                KeyCode::Char('l') | KeyCode::Right => {
-                    if self.selected_tab < self.tabs.len() - 1 {
-                        self.selected_tab += 1;
+                KeyCode::Right | KeyCode::Char('l') => {
+                    if self.selection_state.tab < self.tabs.len() - 1 {
+                        self.selection_state.tab += 1;
                     } else {
-                        self.selected_tab = 0;
+                        self.selection_state.tab = 0;
+                    }
+
+                    self.selection_state.section = PrototypeSection::Instructions;
+                }
+                KeyCode::Left | KeyCode::Char('h') => {
+                    if self.selection_state.tab > 0 {
+                        self.selection_state.tab -= 1;
+                    } else {
+                        self.selection_state.tab = self.tabs.len() - 1;
+                    }
+
+                    self.selection_state.section = PrototypeSection::Instructions;
+                }
+                KeyCode::Up | KeyCode::Char('k') => {
+                    if self.selection_state.tab >= self.file_trees.len() {
+                        self.selection_state.section = self.selection_state.section.previous();
                     }
                 }
-                KeyCode::Char('h') | KeyCode::Left => {
-                    if self.selected_tab > 0 {
-                        self.selected_tab -= 1;
-                    } else {
-                        self.selected_tab = self.tabs.len() - 1;
+                KeyCode::Down | KeyCode::Char('j') => {
+                    if self.selection_state.tab >= self.file_trees.len() {
+                        self.selection_state.section = self.selection_state.section.next();
                     }
                 }
-                KeyCode::Char('q') | KeyCode::Esc => {
+                KeyCode::Esc | KeyCode::Char('q') => {
                     self.state = TuiState::Quit;
                 }
                 _ => {}
@@ -224,17 +242,23 @@ impl<'a> TuiDisassembler<'a> {
                     ]
                 })
                 .collect::<Vec<_>>();
+            let selected_row = if self.selection_state.section == PrototypeSection::Instructions {
+                Some(self.selection_state.row)
+            } else {
+                None
+            };
             let instruction_section = BlockTable::new(
                 "Instructions",
                 ["IP", "Operation", "Info"],
                 instruction_rows,
+                selected_row,
             );
 
             instruction_section.render(instructions_area, buffer);
         }
 
         // Constants section
-        if !self.program.constants.is_empty() {
+        if self.show_constants {
             let constant_rows = self
                 .program
                 .constants
@@ -248,14 +272,23 @@ impl<'a> TuiDisassembler<'a> {
                     ]
                 })
                 .collect::<Vec<_>>();
-            let constants_section =
-                BlockTable::new("Constants", ["Address", "Value", "Type"], constant_rows);
+            let selected_row = if self.selection_state.section == PrototypeSection::Constants {
+                Some(self.selection_state.row)
+            } else {
+                None
+            };
+            let constants_section = BlockTable::new(
+                "Constants",
+                ["Address", "Value", "Type"],
+                constant_rows,
+                selected_row,
+            );
 
             constants_section.render(constants_area, buffer);
         }
 
         // Arguments section
-        if !prototype.call_arguments.is_empty() {
+        if self.show_arguments {
             let argument_rows = prototype
                 .call_arguments
                 .iter()
@@ -268,29 +301,47 @@ impl<'a> TuiDisassembler<'a> {
                     ]
                 })
                 .collect::<Vec<_>>();
-            let arguments_section =
-                BlockTable::new("Call Arguments", ["i", "Address", "Type"], argument_rows);
+            let selected_row = if self.selection_state.section == PrototypeSection::CallArguments {
+                Some(self.selection_state.row)
+            } else {
+                None
+            };
+            let arguments_section = BlockTable::new(
+                "Call Arguments",
+                ["i", "Address", "Type"],
+                argument_rows,
+                selected_row,
+            );
 
             arguments_section.render(arguments_area, buffer);
         }
 
         // Drops section
-        if !prototype.drop_lists.is_empty() {
+        if self.show_drops {
             let drop_list_rows = prototype
                 .drop_lists
                 .iter()
                 .enumerate()
                 .map(|(index, register)| [index.to_string(), format!("reg_{register}")])
                 .collect::<Vec<_>>();
-            let drop_lists_section =
-                BlockTable::new("Drop List", ["i", "Drop List"], drop_list_rows);
+            let selected_row = if self.selection_state.section == PrototypeSection::DropLists {
+                Some(self.selection_state.row)
+            } else {
+                None
+            };
+            let drop_lists_section = BlockTable::new(
+                "Drop List",
+                ["i", "Drop List"],
+                drop_list_rows,
+                selected_row,
+            );
 
             drop_lists_section.render(drop_lists_area, buffer);
         }
     }
 }
 
-impl Widget for &TuiDisassembler<'_> {
+impl Widget for &mut TuiDisassembler<'_> {
     fn render(self, area: Rect, buffer: &mut Buffer)
     where
         Self: Sized,
@@ -344,22 +395,25 @@ impl Widget for &TuiDisassembler<'_> {
 
         Tabs::new(self.tabs.clone())
             .highlight_style(Style::default().cyan().bold())
-            .select(self.selected_tab)
+            .select(self.selection_state.tab)
             .render(prototype_tabs_header_area, buffer);
 
-        if self.selected_tab < files.len() {
-            let source_file = files.get(self.selected_tab).unwrap();
+        if self.selection_state.tab < files.len() {
+            let source_file = files.get(self.selection_state.tab).unwrap();
 
             self.draw_source_tab(
                 &source_file.name,
                 unsafe { str::from_utf8_unchecked(source_file.source_code.as_ref()) },
-                &self.file_trees[self.selected_tab],
+                &self.file_trees[self.selection_state.tab],
                 tab_content_area,
                 buffer,
             );
         } else {
-            let prototype_index = self.selected_tab - files.len();
+            let prototype_index = self.selection_state.tab - files.len();
             let prototype = &self.program.prototypes[prototype_index];
+
+            self.show_arguments = !prototype.call_arguments.is_empty();
+            self.show_drops = !prototype.drop_lists.is_empty();
 
             self.draw_prototype_tab(prototype_index, prototype, tab_content_area, buffer);
         }
@@ -370,4 +424,38 @@ impl Widget for &TuiDisassembler<'_> {
 enum TuiState {
     Run,
     Quit,
+}
+
+struct SelectionState {
+    tab: usize,
+    section: PrototypeSection,
+    row: usize,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PrototypeSection {
+    Instructions,
+    Constants,
+    CallArguments,
+    DropLists,
+}
+
+impl PrototypeSection {
+    fn next(&self) -> PrototypeSection {
+        match self {
+            PrototypeSection::Instructions => PrototypeSection::Constants,
+            PrototypeSection::Constants => PrototypeSection::CallArguments,
+            PrototypeSection::CallArguments => PrototypeSection::DropLists,
+            PrototypeSection::DropLists => PrototypeSection::Instructions,
+        }
+    }
+
+    fn previous(&self) -> PrototypeSection {
+        match self {
+            PrototypeSection::Instructions => PrototypeSection::DropLists,
+            PrototypeSection::Constants => PrototypeSection::Instructions,
+            PrototypeSection::CallArguments => PrototypeSection::Constants,
+            PrototypeSection::DropLists => PrototypeSection::CallArguments,
+        }
+    }
 }

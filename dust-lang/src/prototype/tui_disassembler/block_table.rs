@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Flex, Layout, Rect},
     style::{Modifier, Style, Stylize},
     text::Span,
-    widgets::{Block, BorderType, Borders, Row, ScrollbarState, Table, Widget},
+    widgets::{Block, BorderType, Borders, Row, StatefulWidget, Table, TableState, Widget},
 };
 
 const COLUMN_SPACING: u16 = 2;
@@ -12,7 +12,8 @@ pub struct BlockTable<const COLUMN_COUNT: usize> {
     title: &'static str,
     headers: [&'static str; COLUMN_COUNT],
     rows: Vec<[String; COLUMN_COUNT]>,
-    scrollbar_state: ScrollbarState,
+    table_state: TableState,
+    is_selected: bool,
 }
 
 impl<const COLUMN_COUNT: usize> BlockTable<COLUMN_COUNT> {
@@ -20,12 +21,14 @@ impl<const COLUMN_COUNT: usize> BlockTable<COLUMN_COUNT> {
         title: &'static str,
         headers: [&'static str; COLUMN_COUNT],
         rows: Vec<[String; COLUMN_COUNT]>,
+        selected_row: Option<usize>,
     ) -> Self {
         Self {
             title,
             headers,
-            scrollbar_state: ScrollbarState::new(rows.len()),
             rows,
+            table_state: TableState::new().with_selected(selected_row),
+            is_selected: selected_row.is_some(),
         }
     }
 }
@@ -34,7 +37,7 @@ impl<const COLUMN_COUNT: usize> Widget for BlockTable<COLUMN_COUNT>
 where
     [&'static str; COLUMN_COUNT * 2 + 1]: Sized,
 {
-    fn render(self, area: Rect, buffer: &mut Buffer) {
+    fn render(mut self, area: Rect, buffer: &mut Buffer) {
         let mut column_widths = [0; COLUMN_COUNT];
 
         for (index, header) in self.headers.iter().enumerate() {
@@ -60,7 +63,11 @@ where
             .title_alignment(Alignment::Center)
             .title_style(Style::default().bold())
             .borders(Borders::ALL)
-            .border_type(BorderType::Rounded);
+            .border_type(if self.is_selected {
+                BorderType::Thick
+            } else {
+                BorderType::Rounded
+            });
         let rows = self.rows.into_iter().map(Row::new);
         let columns = column_widths
             .into_iter()
@@ -71,6 +78,6 @@ where
             .flex(Flex::SpaceAround)
             .block(block);
 
-        table.render(table_area, buffer);
+        StatefulWidget::render(table, table_area, buffer, &mut self.table_state);
     }
 }

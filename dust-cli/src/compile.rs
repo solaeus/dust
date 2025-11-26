@@ -15,7 +15,7 @@ pub fn handle_compile_command(
     let compiler = Compiler::new(source.clone());
     let compile_result = compiler.compile_with_extras(None);
     let compile_time = start_time.elapsed();
-    let (program, syntax_trees, resolver) = match compile_result {
+    let (program, syntax_trees, _resolver) = match compile_result {
         Ok((program, resolver, syntax_trees)) => (program, resolver, syntax_trees),
         Err(dust_error) => {
             if !no_output {
@@ -27,7 +27,7 @@ pub fn handle_compile_command(
     };
 
     if !no_output {
-        let disassembler = TuiDisassembler::new(&program, &source, &syntax_trees, &resolver);
+        let disassembler = TuiDisassembler::new(&program, &source, &syntax_trees);
 
         disassembler.disassemble().unwrap();
     }
