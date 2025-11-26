@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 use crate::{
     instruction::OperandType,
     native_function::NativeFunction,
-    source::Position,
+    source::{Position, SourceFileId},
     syntax_tree::SyntaxId,
     r#type::{FunctionType, Type},
 };
@@ -38,6 +38,12 @@ impl Resolver {
             type_members: Vec::new(),
         };
 
+        let _native_scope_id = resolver.add_scope(Scope {
+            kind: ScopeKind::Module,
+            parent: ScopeId::MAIN,
+            imports: SmallVec::new(),
+            modules: SmallVec::new(),
+        });
         let _main_scope_id = resolver.add_scope(Scope {
             kind: ScopeKind::Function,
             parent: ScopeId::MAIN,
@@ -49,8 +55,10 @@ impl Resolver {
             Declaration {
                 kind: DeclarationKind::Function {
                     inner_scope_id: ScopeId::MAIN,
+                    file_id: SourceFileId::MAIN,
                     syntax_id: SyntaxId(0),
                     parameters: (0, 0),
+                    prototype_index: Some(0),
                 },
                 scope_id: ScopeId::MAIN,
                 type_id: TypeId::NONE,
@@ -59,6 +67,8 @@ impl Resolver {
             },
         );
 
+        debug_assert_eq!(_native_scope_id, ScopeId::NATIVE);
+        debug_assert_eq!(_main_scope_id, ScopeId::MAIN);
         debug_assert_eq!(_main_function_declaration_id, DeclarationId::MAIN);
 
         resolver.add_native_functions();
@@ -74,7 +84,7 @@ impl Resolver {
                 native_function.name(),
                 Declaration {
                     kind: DeclarationKind::NativeFunction,
-                    scope_id: ScopeId::MAIN,
+                    scope_id: ScopeId::NATIVE,
                     type_id,
                     position: Position::default(),
                     is_public: true,
@@ -130,6 +140,15 @@ impl Resolver {
         self.declarations.insert(key, declaration);
 
         declaration_id
+    }
+
+    pub fn get_declaration_mut(
+        &mut self,
+        declaration_id: &DeclarationId,
+    ) -> Option<&mut Declaration> {
+        self.declarations
+            .get_index_mut(declaration_id.0 as usize)
+            .map(|(_, declaration)| declaration)
     }
 
     pub fn add_parameters(&mut self, parameter_ids: &[DeclarationId]) -> (u32, u32) {
@@ -449,7 +468,8 @@ pub struct Symbol {
 pub struct ScopeId(pub u32);
 
 impl ScopeId {
-    pub const MAIN: Self = ScopeId(0);
+    pub const NATIVE: Self = ScopeId(0);
+    pub const MAIN: Self = ScopeId(1);
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -472,7 +492,6 @@ pub struct DeclarationId(pub u32);
 
 impl DeclarationId {
     pub const MAIN: Self = DeclarationId(0);
-    pub const NATIVE: Self = DeclarationId(u32::MAX - 1);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -491,8 +510,10 @@ pub struct Declaration {
 pub enum DeclarationKind {
     Function {
         inner_scope_id: ScopeId,
+        file_id: SourceFileId,
         syntax_id: SyntaxId,
         parameters: (u32, u32),
+        prototype_index: Option<u16>,
     },
     NativeFunction,
     Local {

@@ -50,6 +50,10 @@ impl Default for Source {
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct SourceFileId(pub u32);
 
+impl SourceFileId {
+    pub const MAIN: Self = SourceFileId(0);
+}
+
 #[derive(Debug)]
 pub struct SourceFile {
     pub name: String,

@@ -394,7 +394,9 @@ impl<'a> Binder<'a> {
             kind: DeclarationKind::Function {
                 inner_scope_id: function_scope,
                 syntax_id: node_id,
+                file_id: self.file_id,
                 parameters: parameter_children,
+                prototype_index: None,
             },
             scope_id: self.current_scope_id,
             type_id: function_type_id,
@@ -482,11 +484,6 @@ impl<'a> Binder<'a> {
             })?
             .imports
             .push(current_declaration_id);
-
-        println!(
-            "Importing module declaration ID {:?} into scope ID {:?}",
-            current_declaration_id, self.current_scope_id
-        );
 
         Ok(())
     }

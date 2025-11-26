@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
-use tracing::{debug, info, span, trace};
+use tracing::{debug, info, trace};
 
 use crate::{
-    compiler::{CompileContext, binder::Binder},
+    compiler::CompileContext,
     instruction::{Address, Drop, Instruction, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
     prototype::Prototype,
@@ -830,7 +830,7 @@ impl<'a> PrototypeCompiler<'a> {
 
     fn compile_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
         match node.kind {
-            SyntaxKind::MainFunctionItem => self.compile_main_function_item(node),
+            SyntaxKind::MainFunctionItem => self.compile_function(node),
             SyntaxKind::ModuleItem => self.compile_module_item(node),
             SyntaxKind::FunctionItem => self.compile_function_item(node),
             SyntaxKind::UseItem => self.compile_use_item(node),
@@ -860,8 +860,8 @@ impl<'a> PrototypeCompiler<'a> {
         }
     }
 
-    fn compile_main_function_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
-        info!("Compiling main function");
+    fn compile_function(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
+        info!("Compiling function");
 
         fn handle_emission(
             compiler: &mut PrototypeCompiler,
@@ -1013,7 +1013,29 @@ impl<'a> PrototypeCompiler<'a> {
             Ok(())
         }
 
-        let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
+        let (start_children, child_count) = match node.kind {
+            SyntaxKind::MainFunctionItem => (node.children.0 as usize, node.children.1 as usize),
+            SyntaxKind::ExpressionStatement => {
+                let expression_id = SyntaxId(node.children.0);
+                let expression_node = *self.syntax_tree()?.get_node(expression_id).ok_or(
+                    CompileError::MissingSyntaxNode {
+                        syntax_id: expression_id,
+                    },
+                )?;
+
+                debug_assert!(
+                    expression_node.kind == SyntaxKind::BlockExpression,
+                    "Expected block expression"
+                );
+
+                (
+                    expression_node.children.0 as usize,
+                    expression_node.children.1 as usize,
+                )
+            }
+            SyntaxKind::BlockExpression => (node.children.0 as usize, node.children.1 as usize),
+            _ => todo!("Error: {}", node.kind),
+        };
         let end_children = start_children + child_count;
 
         if child_count == 0 {
@@ -1195,80 +1217,118 @@ impl<'a> PrototypeCompiler<'a> {
         };
 
         drop(path_segments_nodes);
+        drop(files);
 
-        if let DeclarationKind::Function {
-            inner_scope_id,
-            syntax_id,
-            ..
-        } = final_declaration.kind
-        {
-            let function_type = self
-                .context
-                .resolver
-                .get_type_node(final_declaration.type_id)
-                .ok_or(CompileError::MissingType {
-                    type_id: final_declaration.type_id,
-                })?
-                .into_function_type()
-                .ok_or(CompileError::ExpectedFunctionType {
-                    type_id: final_declaration.type_id,
-                })?;
-
-            drop(files);
-
-            let function_node = *self
-                .context
-                .file_trees
-                .get(final_declaration.position.file_id.0 as usize)
-                .ok_or(CompileError::MissingSyntaxTree {
-                    file_id: final_declaration.position.file_id,
-                })?
-                .get_node(syntax_id)
-                .ok_or(CompileError::MissingSyntaxNode { syntax_id })?;
-
-            let span = span!(tracing::Level::INFO, "bind_import_function");
-            let _enter = span.enter();
-
-            let mut binder = Binder::new(
-                final_declaration.position.file_id,
-                self.context.source.clone(),
-                &mut self.context.resolver,
-                self.context
-                    .file_trees
-                    .get(final_declaration.position.file_id.0 as usize)
-                    .ok_or(CompileError::MissingSyntaxTree {
-                        file_id: final_declaration.position.file_id,
-                    })?,
+        match final_declaration.kind {
+            DeclarationKind::Function {
+                prototype_index,
+                file_id,
                 inner_scope_id,
-            );
+                syntax_id,
+                ..
+            } => {
+                let prototype_index = if let Some(prototype_index) = prototype_index {
+                    prototype_index
+                } else {
+                    let prototype_index = self.context.prototypes.len();
 
-            binder.bind_function_item(syntax_id, &function_node)?;
+                    self.context.prototypes.push(Prototype::default());
 
-            drop(_enter);
+                    if let DeclarationKind::Function {
+                        prototype_index: old_index,
+                        ..
+                    } = &mut self
+                        .context
+                        .resolver
+                        .get_declaration_mut(&final_declaration_id)
+                        .unwrap()
+                        .kind
+                    {
+                        *old_index = Some(prototype_index as u16);
+                    }
 
-            match function_node.kind {
-                SyntaxKind::PublicFunctionItem => {
-                    let prototype_index = self.context.prototypes.len() as u16;
+                    let function_type_node = self
+                        .context
+                        .resolver
+                        .get_type_node(final_declaration.type_id)
+                        .ok_or(CompileError::MissingType {
+                            type_id: final_declaration.type_id,
+                        })?
+                        .into_function_type()
+                        .ok_or(CompileError::ExpectedFunctionType {
+                            type_id: final_declaration.type_id,
+                        })?;
+                    let function_file = self
+                        .context
+                        .file_trees
+                        .get(file_id.0 as usize)
+                        .ok_or(CompileError::MissingSourceFile { file_id })?;
+                    let function_item_node = *function_file
+                        .get_node(syntax_id)
+                        .ok_or(CompileError::MissingSyntaxNode { syntax_id })?;
+                    let function_expression_node_id = SyntaxId(function_item_node.children.1);
+                    let function_expression_node = *function_file
+                        .get_node(function_expression_node_id)
+                        .ok_or(CompileError::MissingSyntaxNode {
+                            syntax_id: function_expression_node_id,
+                        })?;
+                    let function_body_node_id = SyntaxId(function_expression_node.children.1);
+                    let function_body_node = *function_file.get_node(function_body_node_id).ok_or(
+                        CompileError::MissingSyntaxNode {
+                            syntax_id: function_body_node_id,
+                        },
+                    )?;
                     let mut importer = PrototypeCompiler::new(
                         Some((final_declaration_id, final_declaration)),
-                        prototype_index,
-                        final_declaration.position.file_id,
-                        function_type,
+                        prototype_index as u16,
+                        file_id,
+                        function_type_node,
                         self.context,
                         inner_scope_id,
                     );
 
-                    importer.compile_function_item(&function_node)?;
-                }
-                _ => {
-                    return Err(CompileError::ExpectedFunction {
-                        node_kind: function_node.kind,
-                        position: final_declaration.position,
-                    });
-                }
+                    importer.compile_function(&function_body_node)?;
+
+                    let prototype = importer.finish()?;
+                    self.context.prototypes[prototype_index] = prototype;
+
+                    prototype_index as u16
+                };
+
+                self.locals.insert(
+                    final_declaration_id,
+                    Local {
+                        type_id: final_declaration.type_id,
+                        address: Address::constant(prototype_index),
+                    },
+                );
             }
-        } else {
-            todo!()
+            _ => {
+                let files = self.context.source.read_files();
+                let file =
+                    files
+                        .get(self.file_id.0 as usize)
+                        .ok_or(CompileError::MissingSourceFile {
+                            file_id: self.file_id,
+                        })?;
+                let path_segments_nodes: SmallVec<[_; 4]> = path_segments_node_ids
+                    .iter()
+                    .map(|id| {
+                        syntax_tree
+                            .get_node(*id)
+                            .ok_or(CompileError::MissingSyntaxNode { syntax_id: *id })
+                    })
+                    .collect::<Result<_, _>>()?;
+                let module_name_node = path_segments_nodes.first().unwrap();
+                let module_name_bytes = &file.source_code.as_ref()
+                    [module_name_node.span.0 as usize..module_name_node.span.1 as usize];
+                let module_name = unsafe { std::str::from_utf8_unchecked(module_name_bytes) };
+
+                return Err(CompileError::CannotImport {
+                    name: module_name.to_string(),
+                    position: Position::new(self.file_id, path_node.span),
+                });
+            }
         }
 
         Ok(())
@@ -2474,12 +2534,12 @@ impl<'a> PrototypeCompiler<'a> {
             &source_file.source_code.as_ref()[node.span.0 as usize..node.span.1 as usize];
         let variable_name = unsafe { str::from_utf8_unchecked(variable_name_bytes) };
 
-        let (declaration_id, declaration) = if let Some((declaration_id, declaration)) = self
+        let declaration_id = if let Some((declaration_id, _)) = self
             .context
             .resolver
             .find_declaration_in_scope(variable_name, self.current_scope_id)
         {
-            (declaration_id, declaration)
+            declaration_id
         } else {
             let (declaration_id, declaration) = self
                 .context
@@ -2505,17 +2565,8 @@ impl<'a> PrototypeCompiler<'a> {
                 ));
             }
 
-            (declaration_id, declaration)
+            declaration_id
         };
-
-        if !matches!(
-            declaration.kind,
-            DeclarationKind::Local { .. }
-                | DeclarationKind::LocalMutable { .. }
-                | DeclarationKind::Function { .. }
-        ) {
-            todo!("Error");
-        }
 
         let Some(local) = self.locals.get(&declaration_id).cloned() else {
             return Err(CompileError::UndeclaredVariable {
@@ -2786,12 +2837,38 @@ impl<'a> PrototypeCompiler<'a> {
             .syntax_tree()?
             .get_node(body_id)
             .ok_or(CompileError::MissingSyntaxNode { syntax_id: body_id })?;
+        let prototype_index = self.context.prototypes.len();
+
+        self.context.prototypes.push(Prototype::default());
+
         let (new_declaration_info, function_scope_id) =
-            if let Some((declaration_id, declaration)) = declaration_info {
-                let scope_id = match declaration.kind {
-                    DeclarationKind::Function { inner_scope_id, .. } => inner_scope_id,
-                    _ => declaration.scope_id,
+            if let Some((declaration_id, mut declaration)) = declaration_info {
+                let (new_declaration_kind, scope_id) = match declaration.kind {
+                    DeclarationKind::Function {
+                        inner_scope_id,
+                        syntax_id,
+                        parameters,
+                        ..
+                    } => (
+                        DeclarationKind::Function {
+                            inner_scope_id,
+                            syntax_id,
+                            file_id: self.file_id,
+                            parameters,
+                            prototype_index: Some(prototype_index as u16),
+                        },
+                        inner_scope_id,
+                    ),
+                    _ => todo!("Error"),
                 };
+
+                declaration.kind = new_declaration_kind;
+
+                *self
+                    .context
+                    .resolver
+                    .get_declaration_mut(&declaration_id)
+                    .unwrap() = declaration;
 
                 (Some((declaration_id, declaration)), scope_id)
             } else {
@@ -2804,11 +2881,6 @@ impl<'a> PrototypeCompiler<'a> {
 
                 (None, function_scope)
             };
-
-        let prototype_index = self.context.prototypes.len();
-
-        self.context.prototypes.push(Prototype::default());
-
         let mut function_compiler = PrototypeCompiler::new(
             new_declaration_info,
             prototype_index as u16,
@@ -2818,9 +2890,10 @@ impl<'a> PrototypeCompiler<'a> {
             function_scope_id,
         );
 
-        function_compiler.compile_main_function_item(&body_node)?;
+        function_compiler.compile_function(&body_node)?;
 
         let function_prototype = function_compiler.finish()?;
+
         let address = Address::constant(prototype_index as u16);
         let type_id = self
             .context
@@ -2923,7 +2996,7 @@ impl<'a> PrototypeCompiler<'a> {
             if let Some((_, declaration)) = self
                 .context
                 .resolver
-                .find_declaration_in_scope(name, self.current_scope_id)
+                .find_declaration_in_scope(name, ScopeId::NATIVE)
                 && declaration.kind == DeclarationKind::NativeFunction
             {
                 let native_function =

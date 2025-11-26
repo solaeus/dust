@@ -3,4 +3,4 @@ write_line("Enter your name...");
 
 let name = read_line();
 
-write_line("Hello ", name, "!");
+write_line("Hello " + name + "!");
