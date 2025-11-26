@@ -84,9 +84,9 @@
 | **`else` expression**      | ✓ Yes       | ✓ Yes        |
 | **`else if` chains**       | ✓ Yes       | ✓ Yes        |
 | **`while` loop**           | ✓ Yes       | ✓ Yes        |
-| **`loop` (infinite loop)** | ? Partial   | X No         |
-| **`break` statement**      | ✓ Yes       | X No         |
-| **`return` statement**     | ✓ Yes       | ✓ Yes        |
+| **`loop` (infinite loop)** | X No        | X No         |
+| **`break` statement**      | X No        | X No         |
+| **`return` statement**     | X No        | X No         |
 
 ## Functions
 
@@ -97,7 +97,7 @@
 | **Function parameters**         | ✓ Yes       | ✓ Yes        |
 | **Function return types**       | ✓ Yes       | ✓ Yes        |
 | **Type parameters (generics)**  | ✓ Yes       | ? Partial    |
-| **Anonymous/closure functions** | ✓ Yes       | ? Partial    |
+| **Anonymous functions**         | ✓ Yes       | ? Partial    |
 | **Recursion**                   | ✓ Yes       | ? Partial    |
 | **Native functions**            | ✓ Yes       | ? Partial    |
 
