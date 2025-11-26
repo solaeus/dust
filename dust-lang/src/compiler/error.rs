@@ -138,6 +138,10 @@ pub enum CompileError {
     MissingNativeFunction {
         native_function: String,
     },
+    CannotMutate {
+        name: String,
+        position: Position,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -179,11 +183,25 @@ impl AnnotatedError for CompileError {
             CompileError::MismatchedConstantTypes { .. } => SourceFileId::default(),
             CompileError::CannotInferListType { position } => position.file_id,
             CompileError::MissingNativeFunction { .. } => SourceFileId::default(),
+            CompileError::CannotMutate { position, .. } => position.file_id,
         }
     }
 
     fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a> {
         match self {
+            CompileError::CannotMutate { name, position } => {
+                let title = format!("Cannot mutate immutable variable: {name}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!(
+                                "Attempted mutation of immutable variable {name} here"
+                            )),
+                    ),
+                )
+            }
             CompileError::ChildIndexOutOfBounds {
                 parent_kind,
                 children_start,

@@ -847,6 +847,7 @@ impl<'a> PrototypeCompiler<'a> {
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
                 self.compile_let_statement(node)
             }
+            SyntaxKind::ReassignmentStatement => self.compile_reassignment_statement(node),
             SyntaxKind::AdditionAssignmentStatement
             | SyntaxKind::SubtractionAssignmentStatement
             | SyntaxKind::MultiplicationAssignmentStatement
@@ -1483,6 +1484,77 @@ impl<'a> PrototypeCompiler<'a> {
         let_statement_emission.set_target(None);
 
         Ok(Emission::Instructions(let_statement_emission))
+    }
+
+    fn compile_reassignment_statement(
+        &mut self,
+        node: &SyntaxNode,
+    ) -> Result<Emission, CompileError> {
+        info!("Compiling reassignment statement");
+
+        let path_id = SyntaxId(node.children.0);
+        let path_node = *self
+            .syntax_tree()?
+            .get_node(path_id)
+            .ok_or(CompileError::MissingSyntaxNode { syntax_id: path_id })?;
+        let expression_statement_id = SyntaxId(node.children.1);
+        let expression_statement_node = *self
+            .syntax_tree()?
+            .get_node(expression_statement_id)
+            .ok_or(CompileError::MissingSyntaxNode {
+                syntax_id: expression_statement_id,
+            })?;
+        let expression_id = SyntaxId(expression_statement_node.children.0);
+        let expression_node = *self.syntax_tree()?.get_node(expression_id).ok_or(
+            CompileError::MissingSyntaxNode {
+                syntax_id: expression_id,
+            },
+        )?;
+
+        let files = self.context.source.read_files();
+        let source_file =
+            files
+                .get(self.file_id.0 as usize)
+                .ok_or(CompileError::MissingSourceFile {
+                    file_id: self.file_id,
+                })?;
+        let variable_name_bytes =
+            &source_file.source_code.as_ref()[path_node.span.0 as usize..path_node.span.1 as usize];
+        let variable_name = unsafe { str::from_utf8_unchecked(variable_name_bytes) };
+
+        let (declaration_id, declaration) = self
+            .context
+            .resolver
+            .find_declaration_in_scope(variable_name, self.current_scope_id)
+            .ok_or(CompileError::UndeclaredVariable {
+                name: variable_name.to_string(),
+                position: Position::new(self.file_id, path_node.span),
+            })?;
+
+        if !matches!(declaration.kind, DeclarationKind::LocalMutable { .. }) {
+            return Err(CompileError::CannotMutate {
+                name: variable_name.to_string(),
+                position: Position::new(self.file_id, path_node.span),
+            });
+        }
+
+        let local = self
+            .locals
+            .get(&declaration_id)
+            .ok_or(CompileError::UndeclaredVariable {
+                name: variable_name.to_string(),
+                position: Position::new(self.file_id, path_node.span),
+            })?;
+
+        drop(files);
+
+        self.compile_expression(
+            &expression_node,
+            Some(TargetRegister {
+                register: local.address.index,
+                is_temporary: false,
+            }),
+        )
     }
 
     fn compile_function_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {

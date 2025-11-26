@@ -752,8 +752,7 @@ impl<'src> Parser<'src> {
         let path_id = self.syntax_tree.last_node_id();
 
         self.expect(TokenKind::Equal)?;
-        self.parse_expression()?;
-        self.expect(TokenKind::Semicolon)?;
+        self.parse_statement()?;
 
         let end = self.previous_token.span.1;
         let expression_statement_id = self.syntax_tree.last_node_id();
