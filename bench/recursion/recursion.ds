@@ -1,9 +1,0 @@
-fn decrement(i: int) -> str {
-    if i == 0 {
-        "Done!";
-    } else {
-        decrement(i - 1);
-    }
-}
-
-write_line(decrement(10_000))

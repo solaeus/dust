@@ -37,7 +37,7 @@ impl From<CallNative> for Instruction {
         let a_field = call_native.destination;
         let b_field = call_native.function.index;
         let c_field = call_native.arguments_start;
-        let d_field = Some(call_native.argument_count as u16);
+        let d_field = Some(call_native.argument_count);
         let operand_type = call_native.return_type;
 
         InstructionFields {
