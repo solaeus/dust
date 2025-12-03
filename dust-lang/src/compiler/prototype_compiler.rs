@@ -3478,7 +3478,7 @@ impl Emission {
 
 #[derive(Clone, Debug)]
 struct InstructionsEmission {
-    instructions: Vec<(Instruction, SmallVec<[JumpAnchor; 2]>)>,
+    instructions: Vec<(Instruction, Vec<JumpAnchor>)>,
     type_id: TypeId,
     target_register: Option<TargetRegister>,
 }
@@ -3502,7 +3502,7 @@ impl InstructionsEmission {
 
     fn with_instruction(instruction: Instruction) -> Self {
         Self {
-            instructions: vec![(instruction, SmallVec::new())],
+            instructions: vec![(instruction, Vec::new())],
             type_id: TypeId::NONE,
             target_register: None,
         }
@@ -3517,7 +3517,7 @@ impl InstructionsEmission {
     }
 
     fn push(&mut self, instruction: Instruction) {
-        self.instructions.push((instruction, SmallVec::new()));
+        self.instructions.push((instruction, Vec::new()));
     }
 
     fn set_type(&mut self, type_id: TypeId) {

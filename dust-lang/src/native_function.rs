@@ -6,18 +6,32 @@ use serde::{Deserialize, Serialize};
 
 use crate::r#type::{FunctionType, Type};
 
-macro_rules! define_native_function {
-    ($(($index: literal, $name:expr, $type:expr)),*) => {
-        /// A Dust-native function.
-        ///
-        /// See the [module-level documentation](index.html) for more information.
-        #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-        pub struct NativeFunction {
-            pub index: u16,
+/// A Dust-native function.
+///
+/// See the [module-level documentation](index.html) for more information.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct NativeFunction {
+    pub index: u16,
+}
 
-        }
+macro_rules! define_native_functions {
+    (
+        $count: literal,
+        $(($index: literal, $name: expr, $const_name: ident, $type: expr)),
+        *
+    ) => {
 
         impl NativeFunction {
+            $(
+                pub const $const_name: NativeFunction = NativeFunction { index: $index };
+            )*
+
+            pub const ALL: [NativeFunction; $count] = [
+                $(
+                    NativeFunction { index: $index },
+                )*
+            ];
+
             pub fn from_index(index: u16) -> Self {
                 NativeFunction {
                     index,
@@ -77,38 +91,30 @@ macro_rules! define_native_function {
     }
 }
 
-define_native_function! {
+define_native_functions! {
+    4,
     (
         0,
         "no_op",
+        NO_OP,
         FunctionType::new([], [], Type::None)
     ),
     (
         1,
         "read_line",
+        READ_LINE,
         FunctionType::new([], [], Type::String)
     ),
     (
         2,
         "write_line",
+        WRITE_LINE,
         FunctionType::new([], [Type::String], Type::None)
     ),
     (
         4,
         "spawn",
+        SPAWN,
         FunctionType::new([], [ Type::function([], [], Type::None)], Type::None)
     )
-}
-
-impl NativeFunction {
-    pub const ALL: [NativeFunction; 4] = [
-        NativeFunction::NO_OP,
-        NativeFunction::READ_LINE,
-        NativeFunction::WRITE_LINE,
-        NativeFunction::SPAWN,
-    ];
-    pub const NO_OP: NativeFunction = NativeFunction { index: 0 };
-    pub const READ_LINE: NativeFunction = NativeFunction { index: 1 };
-    pub const WRITE_LINE: NativeFunction = NativeFunction { index: 2 };
-    pub const SPAWN: NativeFunction = NativeFunction { index: 4 };
 }
