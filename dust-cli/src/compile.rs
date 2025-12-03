@@ -1,6 +1,6 @@
 use std::{path::PathBuf, time::Instant};
 
-use dust_lang::{compiler::Compiler, prototype::TuiDisassembler};
+use dust_lang::{compiler::Compiler, disassembler::Disassembler};
 
 use crate::{handle_source, print_times};
 
@@ -27,7 +27,7 @@ pub fn handle_compile_command(
     };
 
     if !no_output {
-        let disassembler = TuiDisassembler::new(&program, &source, &syntax_trees);
+        let disassembler = Disassembler::new(&program, &source, &syntax_trees);
 
         disassembler.disassemble().unwrap();
     }

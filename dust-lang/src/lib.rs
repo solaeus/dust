@@ -12,6 +12,7 @@
 
 pub mod compiler;
 pub mod constant_table;
+pub mod disassembler;
 pub mod dust_crate;
 pub mod dust_error;
 pub mod instruction;

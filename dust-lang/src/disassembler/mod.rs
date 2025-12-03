@@ -15,7 +15,7 @@ use crate::{dust_crate::Program, prototype::Prototype, source::Source, syntax_tr
 
 use block_table::BlockTable;
 
-pub struct TuiDisassembler<'a> {
+pub struct Disassembler<'a> {
     program: &'a Program,
     source: &'a Source,
     file_trees: &'a [SyntaxTree],
@@ -29,7 +29,7 @@ pub struct TuiDisassembler<'a> {
     tabs: Vec<String>,
 }
 
-impl<'a> TuiDisassembler<'a> {
+impl<'a> Disassembler<'a> {
     pub fn new(program: &'a Program, source: &'a Source, file_trees: &'a [SyntaxTree]) -> Self {
         let files = source.read_files();
         let mut tabs = Vec::with_capacity(files.len() + program.prototypes.len());
@@ -87,6 +87,7 @@ impl<'a> TuiDisassembler<'a> {
 
                 return Err(error);
             }
+
             self.handle_events()?;
         }
 
@@ -409,7 +410,7 @@ impl<'a> TuiDisassembler<'a> {
     }
 }
 
-impl Widget for &mut TuiDisassembler<'_> {
+impl Widget for &mut Disassembler<'_> {
     fn render(self, area: Rect, buffer: &mut Buffer)
     where
         Self: Sized,

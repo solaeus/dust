@@ -3,11 +3,6 @@
 //! A prototype is output by the compiler to represent all the information needed to execute a function.
 //! Each function in the source is compiled into its own prototype and stored in the global `prototypes`
 //! collection.
-// mod disassembler;
-mod tui_disassembler;
-
-// pub use disassembler::Disassembler;
-pub use tui_disassembler::TuiDisassembler;
 
 use std::fmt::Debug;
 
