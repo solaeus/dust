@@ -46,12 +46,12 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::WhileExpression,
-                children: (10, 18),
+                children: (10, 17),
                 span: Span(17, 45),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (19, 0),
+                children: (18, 0),
                 span: Span(17, 45),
             },
             SyntaxNode {
@@ -86,7 +86,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (17, 0),
+                children: (16, 0),
                 span: Span(30, 45),
             },
             SyntaxNode {
@@ -107,11 +107,6 @@ fn while_loop() {
             SyntaxNode {
                 kind: SyntaxKind::AdditionAssignmentStatement,
                 children: (13, 14),
-                span: Span(36, 42),
-            },
-            SyntaxNode {
-                kind: SyntaxKind::ExpressionStatement,
-                children: (15, 0),
                 span: Span(36, 43),
             },
             SyntaxNode {
@@ -131,7 +126,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (22, 0),
+                children: (21, 0),
                 span: Span(47, 48),
             },
         ]

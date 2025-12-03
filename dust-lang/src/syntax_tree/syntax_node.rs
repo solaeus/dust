@@ -117,6 +117,7 @@ impl SyntaxNode {
             | SyntaxKind::ElseExpression => SyntaxNodeChildren::Single(SyntaxId(self.children.0)),
             SyntaxKind::LetStatement
             | SyntaxKind::LetMutStatement
+            | SyntaxKind::ReassignmentStatement
             | SyntaxKind::FunctionExpression
             | SyntaxKind::FunctionValueParameter
             | SyntaxKind::FunctionSignature

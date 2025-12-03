@@ -11,5 +11,5 @@ while count <= 15 {
 	    write_line(count as str);
 	}
 
-	count += 1
+	count += 1;
 }

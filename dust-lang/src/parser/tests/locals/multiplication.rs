@@ -406,11 +406,6 @@ fn local_mut_byte_multiplication() {
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationAssignmentStatement,
                 children: (9, 10),
-                span: Span(25, 34),
-            },
-            SyntaxNode {
-                kind: SyntaxKind::ExpressionStatement,
-                children: (11, 0),
                 span: Span(25, 35),
             },
             SyntaxNode {
@@ -430,7 +425,7 @@ fn local_mut_byte_multiplication() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (14, 0),
+                children: (13, 0),
                 span: Span(36, 37),
             },
         ]
@@ -499,11 +494,6 @@ fn local_mut_float_multiplication() {
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationAssignmentStatement,
                 children: (9, 10),
-                span: Span(26, 34),
-            },
-            SyntaxNode {
-                kind: SyntaxKind::ExpressionStatement,
-                children: (11, 0),
                 span: Span(26, 35),
             },
             SyntaxNode {
@@ -523,7 +513,7 @@ fn local_mut_float_multiplication() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (14, 0),
+                children: (13, 0),
                 span: Span(36, 37),
             },
         ]
@@ -592,11 +582,6 @@ fn local_mut_integer_multiplication() {
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationAssignmentStatement,
                 children: (9, 10),
-                span: Span(22, 28),
-            },
-            SyntaxNode {
-                kind: SyntaxKind::ExpressionStatement,
-                children: (11, 0),
                 span: Span(22, 29),
             },
             SyntaxNode {
@@ -616,7 +601,7 @@ fn local_mut_integer_multiplication() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (14, 0),
+                children: (13, 0),
                 span: Span(30, 31),
             },
         ]

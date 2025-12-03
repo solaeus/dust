@@ -406,11 +406,6 @@ fn local_mut_byte_exponent() {
             SyntaxNode {
                 kind: SyntaxKind::ExponentAssignmentStatement,
                 children: (9, 10),
-                span: Span(25, 34),
-            },
-            SyntaxNode {
-                kind: SyntaxKind::ExpressionStatement,
-                children: (11, 0),
                 span: Span(25, 35),
             },
             SyntaxNode {
@@ -430,7 +425,7 @@ fn local_mut_byte_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (14, 0),
+                children: (13, 0),
                 span: Span(36, 37),
             },
         ]
@@ -499,11 +494,6 @@ fn local_mut_float_exponent() {
             SyntaxNode {
                 kind: SyntaxKind::ExponentAssignmentStatement,
                 children: (9, 10),
-                span: Span(25, 33),
-            },
-            SyntaxNode {
-                kind: SyntaxKind::ExpressionStatement,
-                children: (11, 0),
                 span: Span(25, 34),
             },
             SyntaxNode {
@@ -523,7 +513,7 @@ fn local_mut_float_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (14, 0),
+                children: (13, 0),
                 span: Span(35, 36),
             },
         ]
@@ -592,11 +582,6 @@ fn local_mut_integer_exponent() {
             SyntaxNode {
                 kind: SyntaxKind::ExponentAssignmentStatement,
                 children: (9, 10),
-                span: Span(21, 27),
-            },
-            SyntaxNode {
-                kind: SyntaxKind::ExpressionStatement,
-                children: (11, 0),
                 span: Span(21, 28),
             },
             SyntaxNode {
@@ -616,7 +601,7 @@ fn local_mut_integer_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (14, 0),
+                children: (13, 0),
                 span: Span(29, 30),
             },
         ]

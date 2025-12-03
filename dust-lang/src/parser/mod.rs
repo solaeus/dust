@@ -957,27 +957,27 @@ impl<'src> Parser<'src> {
             .ok_or(ParseError::MissingNode { id: left_id })?;
         let start = left_node.span.0;
         let operator = self.current_token.kind;
-        let node_kind = match operator {
-            TokenKind::Plus => SyntaxKind::AdditionExpression,
-            TokenKind::PlusEqual => SyntaxKind::AdditionAssignmentStatement,
-            TokenKind::Minus => SyntaxKind::SubtractionExpression,
-            TokenKind::MinusEqual => SyntaxKind::SubtractionAssignmentStatement,
-            TokenKind::Asterisk => SyntaxKind::MultiplicationExpression,
-            TokenKind::AsteriskEqual => SyntaxKind::MultiplicationAssignmentStatement,
-            TokenKind::Slash => SyntaxKind::DivisionExpression,
-            TokenKind::SlashEqual => SyntaxKind::DivisionAssignmentStatement,
-            TokenKind::Percent => SyntaxKind::ModuloExpression,
-            TokenKind::PercentEqual => SyntaxKind::ModuloAssignmentStatement,
-            TokenKind::Caret => SyntaxKind::ExponentExpression,
-            TokenKind::CaretEqual => SyntaxKind::ExponentAssignmentStatement,
-            TokenKind::Greater => SyntaxKind::GreaterThanExpression,
-            TokenKind::GreaterEqual => SyntaxKind::GreaterThanOrEqualExpression,
-            TokenKind::Less => SyntaxKind::LessThanExpression,
-            TokenKind::LessEqual => SyntaxKind::LessThanOrEqualExpression,
-            TokenKind::DoubleEqual => SyntaxKind::EqualExpression,
-            TokenKind::BangEqual => SyntaxKind::NotEqualExpression,
-            TokenKind::DoubleAmpersand => SyntaxKind::AndExpression,
-            TokenKind::DoublePipe => SyntaxKind::OrExpression,
+        let (node_kind, is_statement) = match operator {
+            TokenKind::Plus => (SyntaxKind::AdditionExpression, false),
+            TokenKind::PlusEqual => (SyntaxKind::AdditionAssignmentStatement, true),
+            TokenKind::Minus => (SyntaxKind::SubtractionExpression, false),
+            TokenKind::MinusEqual => (SyntaxKind::SubtractionAssignmentStatement, true),
+            TokenKind::Asterisk => (SyntaxKind::MultiplicationExpression, false),
+            TokenKind::AsteriskEqual => (SyntaxKind::MultiplicationAssignmentStatement, true),
+            TokenKind::Slash => (SyntaxKind::DivisionExpression, false),
+            TokenKind::SlashEqual => (SyntaxKind::DivisionAssignmentStatement, true),
+            TokenKind::Percent => (SyntaxKind::ModuloExpression, false),
+            TokenKind::PercentEqual => (SyntaxKind::ModuloAssignmentStatement, true),
+            TokenKind::Caret => (SyntaxKind::ExponentExpression, false),
+            TokenKind::CaretEqual => (SyntaxKind::ExponentAssignmentStatement, true),
+            TokenKind::Greater => (SyntaxKind::GreaterThanExpression, false),
+            TokenKind::GreaterEqual => (SyntaxKind::GreaterThanOrEqualExpression, false),
+            TokenKind::Less => (SyntaxKind::LessThanExpression, false),
+            TokenKind::LessEqual => (SyntaxKind::LessThanOrEqualExpression, false),
+            TokenKind::DoubleEqual => (SyntaxKind::EqualExpression, false),
+            TokenKind::BangEqual => (SyntaxKind::NotEqualExpression, false),
+            TokenKind::DoubleAmpersand => (SyntaxKind::AndExpression, false),
+            TokenKind::DoublePipe => (SyntaxKind::OrExpression, false),
             _ => {
                 return Err(ParseError::ExpectedMultipleTokens {
                     expected: &[
@@ -1016,6 +1016,10 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
         self.parse_sub_expression(right_precedence)?;
+
+        if is_statement {
+            self.expect(TokenKind::Semicolon)?;
+        }
 
         let right_id = self.syntax_tree.last_node_id();
         let end = self.previous_token.span.1;

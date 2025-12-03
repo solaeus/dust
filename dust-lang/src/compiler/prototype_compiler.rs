@@ -1538,23 +1538,65 @@ impl<'a> PrototypeCompiler<'a> {
             });
         }
 
-        let local = self
+        let local_register = self
             .locals
             .get(&declaration_id)
             .ok_or(CompileError::UndeclaredVariable {
                 name: variable_name.to_string(),
                 position: Position::new(self.file_id, path_node.span),
-            })?;
+            })?
+            .address
+            .index;
 
         drop(files);
 
-        self.compile_expression(
+        let mut reassignment_emission = InstructionsEmission::new();
+        let expression_emission = self.compile_expression(
             &expression_node,
             Some(TargetRegister {
-                register: local.address.index,
+                register: local_register,
                 is_temporary: false,
             }),
-        )
+        )?;
+
+        match expression_emission {
+            Emission::Constant(constant, type_id) => {
+                let address = self.get_constant_address(constant);
+                let operand_type = self.get_operand_type(type_id)?;
+                let move_instruction = Instruction::r#move(local_register, address, operand_type);
+
+                reassignment_emission.push(move_instruction);
+                reassignment_emission.set_target(None);
+
+                Ok(Emission::Instructions(reassignment_emission))
+            }
+            Emission::Function(address, type_id) => {
+                let operand_type = self.get_operand_type(type_id)?;
+                let move_instruction = Instruction::r#move(local_register, address, operand_type);
+
+                reassignment_emission.push(move_instruction);
+                reassignment_emission.set_target(None);
+
+                Ok(Emission::Instructions(reassignment_emission))
+            }
+            Emission::Local(local) => {
+                let operand_type = self.get_operand_type(local.type_id)?;
+                let move_instruction =
+                    Instruction::r#move(local_register, local.address, operand_type);
+
+                reassignment_emission.push(move_instruction);
+                reassignment_emission.set_target(None);
+
+                Ok(Emission::Instructions(reassignment_emission))
+            }
+            Emission::Instructions(instructions_emission) => {
+                reassignment_emission.merge(instructions_emission);
+                reassignment_emission.set_target(None);
+
+                Ok(Emission::Instructions(reassignment_emission))
+            }
+            Emission::None => todo!(),
+        }
     }
 
     fn compile_function_item(&mut self, node: &SyntaxNode) -> Result<(), CompileError> {
