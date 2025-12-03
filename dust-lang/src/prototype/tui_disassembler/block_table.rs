@@ -1,7 +1,7 @@
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Constraint, Flex, Layout, Rect},
-    style::{Modifier, Style, Stylize},
+    style::{Color, Modifier, Style, Stylize},
     text::Span,
     widgets::{Block, BorderType, Borders, Row, StatefulWidget, Table, TableState, Widget},
 };
@@ -76,7 +76,7 @@ where
             .header(Row::new(self.headers).add_modifier(Modifier::BOLD))
             .column_spacing(COLUMN_SPACING)
             .flex(Flex::SpaceAround)
-            .row_highlight_style(Style::default().bold())
+            .row_highlight_style(Style::default().bg(Color::White).fg(Color::Black))
             .block(block);
 
         StatefulWidget::render(table, table_area, buffer, &mut self.table_state);
