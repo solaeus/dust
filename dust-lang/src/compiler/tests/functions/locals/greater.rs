@@ -2,8 +2,8 @@ use crate::{
     compiler::compile,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
-    tests::{create_function_case, local_cases},
     source::{Position, SourceFileId, Span},
+    tests::{create_function_case, local_cases},
     r#type::{FunctionType, Type},
 };
 
@@ -16,6 +16,7 @@ fn local_boolean_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -55,6 +56,7 @@ fn local_byte_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -94,6 +96,7 @@ fn local_character_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -133,6 +136,7 @@ fn local_float_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -172,6 +176,7 @@ fn local_integer_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -211,6 +216,7 @@ fn local_string_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)

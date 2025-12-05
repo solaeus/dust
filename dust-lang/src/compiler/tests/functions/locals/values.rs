@@ -1,9 +1,9 @@
 use crate::{
-    prototype::Prototype,
     compiler::compile,
     instruction::{Address, Instruction, OperandType},
-    tests::{create_function_case, local_cases},
+    prototype::Prototype,
     source::{Position, SourceFileId, Span},
+    tests::{create_function_case, local_cases},
     r#type::{FunctionType, Type},
 };
 
@@ -16,6 +16,7 @@ fn local_boolean() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -40,6 +41,7 @@ fn local_byte() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -64,6 +66,7 @@ fn local_character() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -88,6 +91,7 @@ fn local_float() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -112,6 +116,7 @@ fn local_integer() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -136,6 +141,7 @@ fn local_string() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)

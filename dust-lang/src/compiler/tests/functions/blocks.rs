@@ -16,6 +16,7 @@ fn empty_block() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -40,6 +41,7 @@ fn block_expression() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -64,6 +66,7 @@ fn block_statement() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -88,6 +91,7 @@ fn block_statement_and_expression() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -118,6 +122,7 @@ fn parent_scope_access() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -142,6 +147,7 @@ fn nested_parrent_scope_access() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -173,6 +179,7 @@ fn scope_shadowing() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
@@ -198,6 +205,7 @@ fn scope_deshadowing() {
     assert_eq!(
         prototypes[1],
         Prototype {
+            index: 1,
             name_position: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
