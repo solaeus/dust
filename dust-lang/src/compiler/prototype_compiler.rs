@@ -148,10 +148,10 @@ impl<'a> PrototypeCompiler<'a> {
                 })?;
 
         self.compile_item(&root_node)?;
-        self.finish()
+        self.finish(0)
     }
 
-    pub fn finish(mut self) -> Result<Prototype, CompileError> {
+    pub fn finish(mut self, index: u16) -> Result<Prototype, CompileError> {
         // self.context.constants.finalize_string_pool();
 
         let name_position = if let Some(declaration_id) = self.declaration_id {
@@ -241,6 +241,7 @@ impl<'a> PrototypeCompiler<'a> {
         }
 
         Ok(Prototype {
+            index,
             name_position,
             function_type,
             instructions: self.instructions,
@@ -1231,7 +1232,8 @@ impl<'a> PrototypeCompiler<'a> {
                 let prototype_index = if let Some(prototype_index) = prototype_index {
                     prototype_index
                 } else {
-                    let prototype_index = self.context.prototypes.len();
+                    let prototype_index_usize = self.context.prototypes.len();
+                    let prototype_index_u16 = prototype_index_usize as u16;
 
                     self.context.prototypes.push(Prototype::default());
 
@@ -1245,7 +1247,7 @@ impl<'a> PrototypeCompiler<'a> {
                         .unwrap()
                         .kind
                     {
-                        *old_index = Some(prototype_index as u16);
+                        *old_index = Some(prototype_index_u16);
                     }
 
                     let function_type_node = self
@@ -1281,7 +1283,7 @@ impl<'a> PrototypeCompiler<'a> {
                     )?;
                     let mut importer = PrototypeCompiler::new(
                         Some((final_declaration_id, final_declaration)),
-                        prototype_index as u16,
+                        prototype_index_usize as u16,
                         file_id,
                         function_type_node,
                         self.context,
@@ -1290,10 +1292,10 @@ impl<'a> PrototypeCompiler<'a> {
 
                     importer.compile_function(&function_body_node)?;
 
-                    let prototype = importer.finish()?;
-                    self.context.prototypes[prototype_index] = prototype;
+                    let prototype = importer.finish(prototype_index_u16)?;
+                    self.context.prototypes[prototype_index_usize] = prototype;
 
-                    prototype_index as u16
+                    prototype_index_u16
                 };
 
                 self.locals.insert(
@@ -2951,7 +2953,8 @@ impl<'a> PrototypeCompiler<'a> {
             .syntax_tree()?
             .get_node(body_id)
             .ok_or(CompileError::MissingSyntaxNode { syntax_id: body_id })?;
-        let prototype_index = self.context.prototypes.len();
+        let prototype_index_usize = self.context.prototypes.len();
+        let prototype_index_u16 = prototype_index_usize as u16;
 
         self.context.prototypes.push(Prototype::default());
 
@@ -2969,7 +2972,7 @@ impl<'a> PrototypeCompiler<'a> {
                             syntax_id,
                             file_id: self.file_id,
                             parameters,
-                            prototype_index: Some(prototype_index as u16),
+                            prototype_index: Some(prototype_index_u16),
                         },
                         inner_scope_id,
                     ),
@@ -2997,7 +3000,7 @@ impl<'a> PrototypeCompiler<'a> {
             };
         let mut function_compiler = PrototypeCompiler::new(
             new_declaration_info,
-            prototype_index as u16,
+            prototype_index_u16,
             self.file_id,
             function_type_node,
             self.context,
@@ -3006,15 +3009,14 @@ impl<'a> PrototypeCompiler<'a> {
 
         function_compiler.compile_function(&body_node)?;
 
-        let function_prototype = function_compiler.finish()?;
-
-        let address = Address::constant(prototype_index as u16);
+        let function_prototype = function_compiler.finish(prototype_index_u16)?;
+        let address = Address::constant(prototype_index_usize as u16);
         let type_id = self
             .context
             .resolver
             .add_type_node(TypeNode::Function(function_type_node));
 
-        self.context.prototypes[prototype_index] = function_prototype;
+        self.context.prototypes[prototype_index_usize] = function_prototype;
 
         Ok(Emission::Function(address, type_id))
     }

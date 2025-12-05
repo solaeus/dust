@@ -17,6 +17,7 @@ use crate::{
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Prototype {
+    pub(crate) index: u16,
     pub(crate) name_position: Option<Position>,
     pub(crate) function_type: FunctionType,
 
