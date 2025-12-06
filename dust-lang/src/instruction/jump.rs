@@ -11,8 +11,8 @@ pub struct Jump {
     pub drop_list_end: u16,
 }
 
-impl From<Instruction> for Jump {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Jump {
+    fn from(instruction: &Instruction) -> Self {
         Jump {
             offset: instruction.a_field(),
             is_positive: instruction.b_memory_kind().0 != 0,

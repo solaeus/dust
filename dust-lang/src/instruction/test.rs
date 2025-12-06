@@ -10,8 +10,8 @@ pub struct Test {
     pub jump_distance: u16,
 }
 
-impl From<Instruction> for Test {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Test {
+    fn from(instruction: &Instruction) -> Self {
         let comparator = instruction.a_field() != 0;
         let operand = instruction.b_address();
         let jump_distance = instruction.c_field();

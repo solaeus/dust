@@ -8,8 +8,8 @@ pub struct ToString {
     pub r#type: OperandType,
 }
 
-impl From<Instruction> for ToString {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for ToString {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.a_field();
         let operand = Address {
             index: instruction.b_field(),

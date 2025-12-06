@@ -191,7 +191,7 @@ impl<'a> PrototypeCompiler<'a> {
                         let Drop {
                             drop_list_start,
                             drop_list_end,
-                        } = Drop::from(*instruction);
+                        } = Drop::from(&*instruction);
 
                         *instruction = Instruction::jump_with_drops(
                             distance,
@@ -207,7 +207,7 @@ impl<'a> PrototypeCompiler<'a> {
                             r#type,
                             jump_distance,
                             ..
-                        } = Move::from(*instruction);
+                        } = Move::from(&*instruction);
                         let total_distance = jump_distance + distance;
 
                         *instruction = Instruction::move_with_jump(
@@ -224,7 +224,7 @@ impl<'a> PrototypeCompiler<'a> {
                             operand,
                             jump_distance,
                             ..
-                        } = Test::from(*instruction);
+                        } = Test::from(&*instruction);
                         let total_distance = jump_distance + distance;
 
                         *instruction = Instruction::test(operand, comparator, total_distance);
@@ -914,15 +914,13 @@ impl<'a> PrototypeCompiler<'a> {
                         for anchor in jump_anchors {
                             match anchor {
                                 JumpAnchor::ForwardFromHere { id } => {
-                                    let coalesce =
-                                        if is_instruction_coallescible_with_jump(instruction, true)
-                                        {
-                                            true
-                                        } else {
-                                            compiler.emit_instruction(Instruction::no_op());
+                                    let coalesce = if instruction.is_coallescible_with_jump(true) {
+                                        true
+                                    } else {
+                                        compiler.emit_instruction(Instruction::no_op());
 
-                                            false
-                                        };
+                                        false
+                                    };
 
                                     compiler.jump_placements.insert(
                                         id,
@@ -941,10 +939,7 @@ impl<'a> PrototypeCompiler<'a> {
                                     placement.distance = (next_index - placement.index - 1) as u16;
                                 }
                                 JumpAnchor::LoopStartHere { forward_id } => {
-                                    let coalesce = if is_instruction_coallescible_with_jump(
-                                        instruction,
-                                        false,
-                                    ) {
+                                    let coalesce = if instruction.is_coallescible_with_jump(false) {
                                         true
                                     } else {
                                         compiler.emit_instruction(Instruction::no_op());
@@ -969,10 +964,7 @@ impl<'a> PrototypeCompiler<'a> {
                                     let next_index = compiler.instructions.len();
                                     let forward_index =
                                         compiler.jump_placements.get(&forward_id).unwrap().index;
-                                    let coalesce = if is_instruction_coallescible_with_jump(
-                                        instruction,
-                                        false,
-                                    ) {
+                                    let coalesce = if instruction.is_coallescible_with_jump(false) {
                                         true
                                     } else {
                                         compiler.emit_instruction(Instruction::no_op());
@@ -3630,25 +3622,4 @@ struct JumpPlacement {
     distance: u16,
     forward: bool,
     coalesce: bool,
-}
-
-fn is_instruction_coallescible_with_jump(instruction: Instruction, forward: bool) -> bool {
-    match instruction.operation() {
-        Operation::DROP => true,
-        Operation::MOVE => {
-            let Move {
-                jump_distance,
-                jump_is_positive,
-                ..
-            } = Move::from(instruction);
-
-            jump_distance == 0 || (forward == jump_is_positive)
-        }
-        Operation::TEST => {
-            let Test { jump_distance, .. } = Test::from(instruction);
-
-            jump_distance == 0 && forward
-        }
-        _ => false,
-    }
 }

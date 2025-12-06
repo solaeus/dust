@@ -7,8 +7,8 @@ pub struct Drop {
     pub drop_list_end: u16,
 }
 
-impl From<Instruction> for Drop {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Drop {
+    fn from(instruction: &Instruction) -> Self {
         let drop_list_start = instruction.a_field();
         let drop_list_end = instruction.b_field();
 

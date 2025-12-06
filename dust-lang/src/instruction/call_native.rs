@@ -12,8 +12,8 @@ pub struct CallNative {
     pub return_type: OperandType,
 }
 
-impl From<Instruction> for CallNative {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for CallNative {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.a_field();
         let function = NativeFunction::from_index(instruction.b_field());
         let arguments_start = instruction.c_field();

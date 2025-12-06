@@ -8,8 +8,8 @@ pub struct NewList {
     pub list_type: OperandType,
 }
 
-impl From<Instruction> for NewList {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for NewList {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.a_field();
         let initial_length = instruction.b_field();
         let list_type = instruction.operand_type();

@@ -140,7 +140,7 @@ pub fn compile_direct_function(
                     r#type,
                     jump_distance,
                     jump_is_positive,
-                } = Move::from(*current_instruction);
+                } = Move::from(current_instruction);
                 let value = match r#type {
                     OperandType::BOOLEAN => get_boolean(
                         operand,
@@ -232,7 +232,7 @@ pub fn compile_direct_function(
                 let Drop {
                     drop_list_start: _,
                     drop_list_end: _,
-                } = Drop::from(*current_instruction);
+                } = Drop::from(current_instruction);
 
                 let block_arguments: Vec<BlockArg> = ssa_registers
                     .iter()
@@ -248,7 +248,7 @@ pub fn compile_direct_function(
                     destination,
                     initial_length,
                     list_type,
-                } = NewList::from(*current_instruction);
+                } = NewList::from(current_instruction);
                 let list_type_value = function_builder.ins().iconst(I8, list_type.0 as i64);
                 let list_length_value = function_builder.ins().iconst(I64, initial_length as i64);
                 let allocate_list_function =
@@ -278,7 +278,7 @@ pub fn compile_direct_function(
                     item_source,
                     list_index,
                     item_type,
-                } = SetList::from(*current_instruction);
+                } = SetList::from(current_instruction);
                 let list_pointer = get_list(destination_list, &ssa_registers);
                 let item_value = match item_type {
                     OperandType::INTEGER => get_integer(
@@ -363,7 +363,7 @@ pub fn compile_direct_function(
                     list,
                     list_index,
                     ..
-                } = GetList::from(*current_instruction);
+                } = GetList::from(current_instruction);
 
                 let list_pointer = get_list(list.index, &ssa_registers);
                 let list_index = get_integer(
@@ -963,7 +963,7 @@ pub fn compile_direct_function(
                     arguments_start,
                     argument_count,
                     return_type: _,
-                } = Call::from(*current_instruction);
+                } = Call::from(current_instruction);
                 let callee_function_ids = compiler
                     .function_ids
                     .get(prototype_index as usize)
@@ -1037,7 +1037,7 @@ pub fn compile_direct_function(
                     arguments_start,
                     argument_count,
                     return_type,
-                } = CallNative::from(*current_instruction);
+                } = CallNative::from(current_instruction);
 
                 let arguments_end = arguments_start + argument_count;
                 let arguments_range = arguments_start as usize..arguments_end as usize;
@@ -1106,7 +1106,7 @@ pub fn compile_direct_function(
                     comparator,
                     operand,
                     jump_distance,
-                } = Test::from(*current_instruction);
+                } = Test::from(current_instruction);
 
                 let operand_value = get_boolean(
                     operand,
@@ -1139,7 +1139,7 @@ pub fn compile_direct_function(
                     destination,
                     operand,
                     r#type,
-                } = Negate::from(*current_instruction);
+                } = Negate::from(current_instruction);
 
                 let result_value = match r#type {
                     OperandType::BOOLEAN => {
@@ -1181,7 +1181,7 @@ pub fn compile_direct_function(
                     offset,
                     is_positive,
                     ..
-                } = Jump::from(*current_instruction);
+                } = Jump::from(current_instruction);
                 let offset = offset + 1;
                 let next_ip = if is_positive {
                     ip + offset as usize
@@ -1203,7 +1203,7 @@ pub fn compile_direct_function(
                     should_return_value,
                     return_value_address,
                     r#type,
-                } = Return::from(*current_instruction);
+                } = Return::from(current_instruction);
 
                 if should_return_value {
                     let value_to_return = match r#type {
@@ -1280,7 +1280,7 @@ pub fn compile_direct_function(
                     destination,
                     operand,
                     r#type,
-                } = ToString::from(*current_instruction);
+                } = ToString::from(current_instruction);
 
                 let string_value = match r#type {
                     OperandType::INTEGER => {

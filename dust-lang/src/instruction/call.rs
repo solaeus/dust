@@ -10,8 +10,8 @@ pub struct Call {
     pub return_type: OperandType,
 }
 
-impl From<Instruction> for Call {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Call {
+    fn from(instruction: &Instruction) -> Self {
         let destination_index = instruction.a_field();
         let prototype_index = instruction.b_field();
         let arguments_start = instruction.c_field();

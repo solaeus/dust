@@ -9,8 +9,8 @@ pub struct Subtract {
     pub r#type: OperandType,
 }
 
-impl From<Instruction> for Subtract {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Subtract {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.a_field();
         let left = instruction.b_address();
         let right = instruction.c_address();

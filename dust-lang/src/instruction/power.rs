@@ -9,8 +9,8 @@ pub struct Power {
     pub r#type: OperandType,
 }
 
-impl From<Instruction> for Power {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Power {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.a_field();
         let base = instruction.b_address();
         let exponent = instruction.c_address();

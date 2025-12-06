@@ -12,8 +12,8 @@ pub struct Move {
     pub jump_is_positive: bool,
 }
 
-impl From<Instruction> for Move {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Move {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.a_field();
         let operand = instruction.b_address();
         let r#type = instruction.operand_type();

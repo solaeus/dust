@@ -8,8 +8,8 @@ pub struct Return {
     pub r#type: OperandType,
 }
 
-impl From<Instruction> for Return {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for Return {
+    fn from(instruction: &Instruction) -> Self {
         let should_return_value = instruction.a_field() != 0;
         let return_value_address = instruction.b_address();
         let r#type = instruction.operand_type();

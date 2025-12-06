@@ -9,8 +9,8 @@ pub struct GetList {
     pub item_type: OperandType,
 }
 
-impl From<Instruction> for GetList {
-    fn from(instruction: Instruction) -> Self {
+impl From<&Instruction> for GetList {
+    fn from(instruction: &Instruction) -> Self {
         let destination = instruction.a_field();
         let item_source = instruction.b_address();
         let list_index = instruction.c_address();

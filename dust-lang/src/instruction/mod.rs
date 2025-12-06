@@ -465,12 +465,12 @@ impl Instruction {
 
     pub fn r#return(
         should_return_value: bool,
-        return_address: Address,
+        return_value_address: Address,
         r#type: OperandType,
     ) -> Instruction {
         Instruction::from(Return {
             should_return_value,
-            return_value_address: return_address,
+            return_value_address,
             r#type,
         })
     }
@@ -481,6 +481,27 @@ impl Instruction {
             operand,
             r#type,
         })
+    }
+
+    pub fn is_coallescible_with_jump(&self, forward: bool) -> bool {
+        match self.operation() {
+            Operation::DROP => true,
+            Operation::MOVE => {
+                let Move {
+                    jump_distance,
+                    jump_is_positive,
+                    ..
+                } = Move::from(self);
+
+                jump_distance == 0 || (forward == jump_is_positive)
+            }
+            Operation::TEST => {
+                let Test { jump_distance, .. } = Test::from(self);
+
+                jump_distance == 0 && forward
+            }
+            _ => false,
+        }
     }
 
     pub fn is_math(&self) -> bool {
@@ -523,7 +544,7 @@ impl Instruction {
         }
     }
 
-    pub fn disassembly_info(self) -> String {
+    pub fn disassembly_info(&self) -> String {
         let operation = self.operation();
 
         match operation {
