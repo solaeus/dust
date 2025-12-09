@@ -74,6 +74,7 @@ impl<'a> JitCompiler<'a> {
             .symbol("read_line", read_line as *const u8)
             .symbol("write_line_integer", write_line_integer as *const u8)
             .symbol("write_line_string", write_line_string as *const u8)
+            .symbol("byte_power", byte_power as *const u8)
             .symbol("integer_power", integer_power as *const u8)
             .symbol("float_power", float_power as *const u8);
 

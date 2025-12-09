@@ -16,7 +16,7 @@ use crate::{
     constant_table::ConstantTable,
     instruction::{
         Add, Address, Divide, GetList, Instruction, Jump, MemoryKind, Modulo, Move, Multiply,
-        NewList, OperandType, Operation, Power, Return, SetList, Subtract,
+        Negate, NewList, OperandType, Operation, Power, Return, SetList, Subtract, Test,
     },
     jit_vm::{JitError, RegisterTag, thread::ThreadContext},
 };
@@ -60,9 +60,11 @@ impl<'a> InstructionCompiler<'a> {
 
         match operation {
             Operation::MOVE => self.compile_move(instruction, ip, builder),
+            Operation::TEST => self.compile_test(instruction, ip, builder),
             Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL => {
                 self.compile_comparison(instruction, ip, operation, builder)
             }
+            Operation::NEGATE => self.compile_negate(instruction, ip, builder),
             Operation::ADD => self.compile_add(instruction, ip, builder),
             Operation::SUBTRACT => self.compile_subtract(instruction, ip, builder),
             Operation::MULTIPLY => self.compile_multiply(instruction, ip, builder),
@@ -115,6 +117,39 @@ impl<'a> InstructionCompiler<'a> {
         Ok(())
     }
 
+    fn compile_test(
+        &mut self,
+        instruction: &Instruction,
+        ip: usize,
+        builder: &mut FunctionBuilder,
+    ) -> Result<(), JitError> {
+        let Test {
+            comparator,
+            operand,
+            jump_distance,
+        } = Test::from(instruction);
+
+        let operand_value = self.get_boolean(operand, builder)?;
+        let false_value = builder.ins().iconst(I8, 0);
+        let condition = if comparator {
+            IntCC::NotEqual
+        } else {
+            IntCC::Equal
+        };
+        let comparison_result = builder.ins().icmp(condition, operand_value, false_value);
+        let target_ip = ip + (jump_distance as usize) + 1;
+
+        builder.ins().brif(
+            comparison_result,
+            self.instruction_blocks[target_ip],
+            &[],
+            self.instruction_blocks[ip + 1],
+            &[],
+        );
+
+        Ok(())
+    }
+
     fn compile_comparison(
         &mut self,
         instruction: &Instruction,
@@ -127,6 +162,7 @@ impl<'a> InstructionCompiler<'a> {
         let right = instruction.c_address();
         let r#type = instruction.operand_type();
 
+        let comparator_value = builder.ins().iconst(I8, if comparator { 1 } else { 0 });
         let left_value = self.get_value(left, r#type, builder)?;
         let right_value = self.get_value(right, r#type, builder)?;
         let comparison_result = match r#type {
@@ -141,16 +177,12 @@ impl<'a> InstructionCompiler<'a> {
                         return Err(JitError::UnsupportedOperation { operation });
                     }
                 };
-                let call_compare_strings = builder
-                    .ins()
-                    .call(compare_strings_function, &[left_value, right_value]);
-                let compare_result = builder.inst_results(call_compare_strings)[0];
+                let call_compare_strings = builder.ins().call(
+                    compare_strings_function,
+                    &[comparator_value, left_value, right_value],
+                );
 
-                if comparator {
-                    compare_result
-                } else {
-                    builder.ins().bnot(compare_result)
-                }
+                builder.inst_results(call_compare_strings)[0]
             }
             OperandType::LIST_BOOLEAN
             | OperandType::LIST_BYTE
@@ -209,6 +241,50 @@ impl<'a> InstructionCompiler<'a> {
         Ok(())
     }
 
+    fn compile_negate(
+        &mut self,
+        instruction: &Instruction,
+        ip: usize,
+        builder: &mut FunctionBuilder,
+    ) -> Result<(), JitError> {
+        let Negate {
+            destination,
+            operand,
+            r#type,
+        } = Negate::from(instruction);
+
+        let negated_value = match r#type {
+            OperandType::BOOLEAN => {
+                let boolean_value = self.get_boolean(operand, builder)?;
+                let one = builder.ins().iconst(I8, 1);
+                let negated_boolean = builder.ins().bxor(boolean_value, one);
+
+                builder.ins().uextend(I64, negated_boolean)
+            }
+            OperandType::INTEGER => {
+                let integer_value = self.get_integer(operand, builder)?;
+
+                builder.ins().ineg(integer_value)
+            }
+            OperandType::FLOAT => {
+                let float_value = self.get_float(operand, builder)?;
+                let negated_float = builder.ins().fneg(float_value);
+
+                builder.ins().bitcast(I64, MemFlags::new(), negated_float)
+            }
+            _ => {
+                return Err(JitError::UnsupportedOperandType {
+                    operand_type: r#type,
+                });
+            }
+        };
+
+        self.set_register_and_tag(destination, negated_value, r#type, builder)?;
+        builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
+
+        Ok(())
+    }
+
     fn compile_add(
         &mut self,
         instruction: &Instruction,
@@ -228,7 +304,7 @@ impl<'a> InstructionCompiler<'a> {
                 let right_byte = self.get_byte(right, builder)?;
                 let sum_byte = builder.ins().iadd(left_byte, right_byte);
 
-                builder.ins().bitcast(I64, MemFlags::new(), sum_byte)
+                builder.ins().uextend(I64, sum_byte)
             }
             OperandType::INTEGER => {
                 let left_integer = self.get_integer(left, builder)?;
@@ -324,7 +400,7 @@ impl<'a> InstructionCompiler<'a> {
                 let right_byte = self.get_byte(right, builder)?;
                 let difference_byte = builder.ins().isub(left_byte, right_byte);
 
-                builder.ins().bitcast(I64, MemFlags::new(), difference_byte)
+                builder.ins().uextend(I64, difference_byte)
             }
             OperandType::INTEGER => {
                 let left_integer = self.get_integer(left, builder)?;
@@ -373,7 +449,7 @@ impl<'a> InstructionCompiler<'a> {
                 let right_byte = self.get_byte(right, builder)?;
                 let product_byte = builder.ins().imul(left_byte, right_byte);
 
-                builder.ins().bitcast(I64, MemFlags::new(), product_byte)
+                builder.ins().uextend(I64, product_byte)
             }
             OperandType::INTEGER => {
                 let left_integer = self.get_integer(left, builder)?;
@@ -420,7 +496,7 @@ impl<'a> InstructionCompiler<'a> {
                 let right_byte = self.get_byte(right, builder)?;
                 let quotient_byte = builder.ins().udiv(left_byte, right_byte);
 
-                builder.ins().bitcast(I64, MemFlags::new(), quotient_byte)
+                builder.ins().uextend(I64, quotient_byte)
             }
             OperandType::INTEGER => {
                 let left_integer = self.get_integer(left, builder)?;
@@ -467,7 +543,7 @@ impl<'a> InstructionCompiler<'a> {
                 let right_byte = self.get_byte(right, builder)?;
                 let remainder_byte = builder.ins().urem(left_byte, right_byte);
 
-                builder.ins().bitcast(I64, MemFlags::new(), remainder_byte)
+                builder.ins().uextend(I64, remainder_byte)
             }
             OperandType::FLOAT => {
                 let left_float = self.get_float(left, builder)?;
@@ -512,6 +588,16 @@ impl<'a> InstructionCompiler<'a> {
         } = Power::from(instruction);
 
         let power_value = match r#type {
+            OperandType::BYTE => {
+                let base_byte = self.get_byte(base, builder)?;
+                let exponent_byte = self.get_byte(exponent, builder)?;
+                let byte_power_function = self.get_byte_power_function(builder)?;
+                let call_byte_power = builder
+                    .ins()
+                    .call(byte_power_function, &[base_byte, exponent_byte]);
+
+                builder.inst_results(call_byte_power)[0]
+            }
             OperandType::FLOAT => {
                 let base_float = self.get_float(base, builder)?;
                 let exponent_float = self.get_float(exponent, builder)?;
@@ -519,9 +605,8 @@ impl<'a> InstructionCompiler<'a> {
                 let call_float_power = builder
                     .ins()
                     .call(float_power_function, &[base_float, exponent_float]);
-                let float_power = builder.inst_results(call_float_power)[0];
 
-                builder.ins().bitcast(I64, MemFlags::new(), float_power)
+                builder.inst_results(call_float_power)[0]
             }
             OperandType::INTEGER => {
                 let base_integer = self.get_integer(base, builder)?;
@@ -718,20 +803,69 @@ impl<'a> InstructionCompiler<'a> {
         builder: &mut FunctionBuilder,
     ) -> Result<CraneliftValue, JitError> {
         match r#type {
-            OperandType::BOOLEAN => self.get_boolean(address, builder),
-            OperandType::BYTE => {
-                let byte_value = self.get_byte(address, builder)?;
-                let byte_bits = builder.ins().bitcast(I64, MemFlags::new(), byte_value);
+            OperandType::BOOLEAN => match address.memory {
+                MemoryKind::REGISTER => self
+                    .ssa_registers
+                    .get(address.index as usize)
+                    .map(|ssa_variable| builder.use_var(*ssa_variable))
+                    .ok_or(JitError::RegisterIndexOutOfBounds {
+                        register_index: address.index,
+                        total_register_count: self.ssa_registers.len(),
+                    }),
+                MemoryKind::ENCODED => {
+                    let boolean = address.index != 0;
+                    let value = builder.ins().iconst(I64, if boolean { 1 } else { 0 });
 
-                Ok(byte_bits)
-            }
+                    Ok(value)
+                }
+                _ => Err(JitError::UnsupportedMemoryKind {
+                    memory_kind: address.memory,
+                }),
+            },
+            OperandType::BYTE => match address.memory {
+                MemoryKind::REGISTER => self
+                    .ssa_registers
+                    .get(address.index as usize)
+                    .map(|ssa_variable| builder.use_var(*ssa_variable))
+                    .ok_or(JitError::RegisterIndexOutOfBounds {
+                        register_index: address.index,
+                        total_register_count: self.ssa_registers.len(),
+                    }),
+                MemoryKind::ENCODED => {
+                    let byte = address.index as u8;
+                    let byte_value = builder.ins().iconst(I64, byte as i64);
+
+                    Ok(byte_value)
+                }
+                _ => Err(JitError::UnsupportedMemoryKind {
+                    memory_kind: address.memory,
+                }),
+            },
             OperandType::CHARACTER => self.get_character(address, builder),
-            OperandType::FLOAT => {
-                let float_value = self.get_float(address, builder)?;
-                let float_bits = builder.ins().bitcast(I64, MemFlags::new(), float_value);
+            OperandType::FLOAT => match address.memory {
+                MemoryKind::REGISTER => self
+                    .ssa_registers
+                    .get(address.index as usize)
+                    .map(|ssa_variable| builder.use_var(*ssa_variable))
+                    .ok_or(JitError::RegisterIndexOutOfBounds {
+                        register_index: address.index,
+                        total_register_count: self.ssa_registers.len(),
+                    }),
+                MemoryKind::CONSTANT => {
+                    let float = self.constants.get_float(address.index).ok_or(
+                        JitError::ConstantIndexOutOfBounds {
+                            constant_index: address.index,
+                            total_constant_count: self.constants.len(),
+                        },
+                    )?;
+                    let value = builder.ins().iconst(I64, float.to_bits() as i64);
 
-                Ok(float_bits)
-            }
+                    Ok(value)
+                }
+                _ => Err(JitError::UnsupportedMemoryKind {
+                    memory_kind: address.memory,
+                }),
+            },
             OperandType::INTEGER => self.get_integer(address, builder),
             OperandType::STRING => self.get_string(address, builder),
             OperandType::LIST_BOOLEAN
@@ -764,14 +898,18 @@ impl<'a> InstructionCompiler<'a> {
             MemoryKind::REGISTER => self
                 .ssa_registers
                 .get(address.index as usize)
-                .map(|ssa_variable| builder.use_var(*ssa_variable))
+                .map(|ssa_variable| {
+                    let i64_value = builder.use_var(*ssa_variable);
+
+                    builder.ins().ireduce(I8, i64_value)
+                })
                 .ok_or(JitError::RegisterIndexOutOfBounds {
                     register_index: address.index,
                     total_register_count: self.ssa_registers.len(),
                 }),
             MemoryKind::ENCODED => {
                 let boolean = address.index != 0;
-                let value = builder.ins().iconst(I64, if boolean { 1 } else { 0 });
+                let value = builder.ins().iconst(I8, if boolean { 1 } else { 0 });
 
                 Ok(value)
             }
@@ -790,14 +928,18 @@ impl<'a> InstructionCompiler<'a> {
             MemoryKind::REGISTER => self
                 .ssa_registers
                 .get(address.index as usize)
-                .map(|ssa_variable| builder.use_var(*ssa_variable))
+                .map(|ssa_variable| {
+                    let i64_value = builder.use_var(*ssa_variable);
+
+                    builder.ins().ireduce(I8, i64_value)
+                })
                 .ok_or(JitError::RegisterIndexOutOfBounds {
                     register_index: address.index,
                     total_register_count: self.ssa_registers.len(),
                 }),
             MemoryKind::ENCODED => {
                 let byte = address.index as u8;
-                let value = builder.ins().iconst(I64, byte as i64);
+                let value = builder.ins().iconst(I8, byte as i64);
 
                 Ok(value)
             }
@@ -1212,9 +1354,11 @@ impl<'a> InstructionCompiler<'a> {
         let pointer_type = self.module.isa().pointer_type();
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
-        signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        signature.params.extend([
+            AbiParam::new(I8),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
         signature.returns.push(AbiParam::new(I8));
         self.declare_imported_function("compare_strings_equal", signature, function_builder)
     }
@@ -1226,9 +1370,11 @@ impl<'a> InstructionCompiler<'a> {
         let pointer_type = self.module.isa().pointer_type();
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
-        signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        signature.params.extend([
+            AbiParam::new(I8),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
         signature.returns.push(AbiParam::new(I8));
         self.declare_imported_function("compare_strings_less_than", signature, function_builder)
     }
@@ -1240,9 +1386,11 @@ impl<'a> InstructionCompiler<'a> {
         let pointer_type = self.module.isa().pointer_type();
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
-        signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        signature.params.extend([
+            AbiParam::new(I8),
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+        ]);
         signature.returns.push(AbiParam::new(I8));
         self.declare_imported_function(
             "compare_strings_less_than_equal",
@@ -1303,6 +1451,19 @@ impl<'a> InstructionCompiler<'a> {
         self.declare_imported_function("write_line_string", signature, function_builder)
     }
 
+    fn get_byte_power_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature
+            .params
+            .extend([AbiParam::new(I8), AbiParam::new(I8)]);
+        signature.returns.push(AbiParam::new(I64));
+        self.declare_imported_function("byte_power", signature, function_builder)
+    }
+
     fn get_integer_power_function(
         &mut self,
         function_builder: &mut FunctionBuilder,
@@ -1325,7 +1486,7 @@ impl<'a> InstructionCompiler<'a> {
         signature
             .params
             .extend([AbiParam::new(F64), AbiParam::new(F64)]);
-        signature.returns.push(AbiParam::new(F64));
+        signature.returns.push(AbiParam::new(I64));
         self.declare_imported_function("float_power", signature, function_builder)
     }
 
