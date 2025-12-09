@@ -1,6 +1,6 @@
 use std::{ptr, slice};
 
-use crate::jit_vm::{Object, jit_compiler::ERROR_REPLACEMENT_STR, thread::ThreadContext};
+use crate::jit_vm::{ERROR_REPLACEMENT_STR, Object, thread::ThreadContext};
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn allocate_string(
@@ -11,11 +11,10 @@ pub unsafe extern "C" fn allocate_string(
     let thread_context = unsafe { &mut *thread_context };
 
     let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
-    let register_stack = unsafe { &mut *thread_context.register_stack_vec_pointer };
-    let register_tags = unsafe { &mut *thread_context.register_tags_vec_pointer };
-    let register_stack_used_length = unsafe { *thread_context.register_stack_used_length_pointer };
-    let register_window = &register_stack[0..register_stack_used_length];
-    let register_tags_window = &register_tags[0..register_stack_used_length];
+    let register_stack = unsafe { &mut *thread_context.register_vec_pointer };
+    let register_tags = unsafe { &mut *thread_context.register_tag_vec_pointer };
+    let register_window = &register_stack[0..thread_context.registers_used];
+    let register_tags_window = &register_tags[0..thread_context.registers_used];
 
     let bytes = unsafe { slice::from_raw_parts(string_pointer, string_length).to_vec() };
     let string = unsafe { String::from_utf8_unchecked(bytes) };
@@ -34,11 +33,10 @@ pub unsafe extern "C" fn concatenate_strings(
 ) -> i64 {
     let thread_context = unsafe { &*thread_context };
     let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
-    let register_stack = unsafe { &mut *thread_context.register_stack_vec_pointer };
-    let register_tags = unsafe { &mut *thread_context.register_tags_vec_pointer };
-    let register_stack_used_length = unsafe { *thread_context.register_stack_used_length_pointer };
-    let register_window = &register_stack[0..register_stack_used_length];
-    let register_tags_window = &register_tags[0..register_stack_used_length];
+    let register_stack = unsafe { &mut *thread_context.register_vec_pointer };
+    let register_tags = unsafe { &mut *thread_context.register_tag_vec_pointer };
+    let register_window = &register_stack[0..thread_context.registers_used];
+    let register_tags_window = &register_tags[0..thread_context.registers_used];
 
     let concatenated = if ptr::eq(left, right) {
         let right_string = unsafe { &*right }
@@ -85,11 +83,10 @@ pub unsafe extern "C" fn concatenate_character_string(
 ) -> i64 {
     let thread_context = unsafe { &*thread_context };
     let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
-    let register_stack = unsafe { &mut *thread_context.register_stack_vec_pointer };
-    let register_tags = unsafe { &mut *thread_context.register_tags_vec_pointer };
-    let register_stack_used_length = unsafe { *thread_context.register_stack_used_length_pointer };
-    let register_window = &register_stack[0..register_stack_used_length];
-    let register_tags_window = &register_tags[0..register_stack_used_length];
+    let register_stack = unsafe { &mut *thread_context.register_vec_pointer };
+    let register_tags = unsafe { &mut *thread_context.register_tag_vec_pointer };
+    let register_window = &register_stack[0..thread_context.registers_used];
+    let register_tags_window = &register_tags[0..thread_context.registers_used];
 
     let left_char = std::char::from_u32(left as u32).unwrap_or_default();
     let right_string = unsafe { &*right }
@@ -115,11 +112,10 @@ pub unsafe extern "C" fn concatenate_string_character(
 ) -> i64 {
     let thread_context = unsafe { &*thread_context };
     let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
-    let register_stack = unsafe { &mut *thread_context.register_stack_vec_pointer };
-    let register_tags = unsafe { &mut *thread_context.register_tags_vec_pointer };
-    let register_stack_used_length = unsafe { *thread_context.register_stack_used_length_pointer };
-    let register_window = &register_stack[0..register_stack_used_length];
-    let register_tags_window = &register_tags[0..register_stack_used_length];
+    let register_stack = unsafe { &mut *thread_context.register_vec_pointer };
+    let register_tags = unsafe { &mut *thread_context.register_tag_vec_pointer };
+    let register_window = &register_stack[0..thread_context.registers_used];
+    let register_tags_window = &register_tags[0..thread_context.registers_used];
 
     let left_string = unsafe { &*left }
         .as_string()
@@ -145,11 +141,10 @@ pub unsafe extern "C" fn concatenate_characters(
 ) -> i64 {
     let thread_context = unsafe { &*thread_context };
     let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
-    let register_stack = unsafe { &mut *thread_context.register_stack_vec_pointer };
-    let register_tags = unsafe { &mut *thread_context.register_tags_vec_pointer };
-    let register_stack_used_length = unsafe { *thread_context.register_stack_used_length_pointer };
-    let register_window = &register_stack[0..register_stack_used_length];
-    let register_tags_window = &register_tags[0..register_stack_used_length];
+    let register_stack = unsafe { &mut *thread_context.register_vec_pointer };
+    let register_tags = unsafe { &mut *thread_context.register_tag_vec_pointer };
+    let register_window = &register_stack[0..thread_context.registers_used];
+    let register_tags_window = &register_tags[0..thread_context.registers_used];
 
     let left_char = std::char::from_u32(left as u32).unwrap_or_default();
     let right_char = std::char::from_u32(right as u32).unwrap_or_default();
@@ -216,11 +211,10 @@ pub unsafe extern "C" fn compare_strings_less_than_equal(
 pub unsafe extern "C" fn integer_to_string(value: i64, thread_context: *mut ThreadContext) -> i64 {
     let thread_context = unsafe { &*thread_context };
     let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
-    let register_stack = unsafe { &mut *thread_context.register_stack_vec_pointer };
-    let register_tags = unsafe { &mut *thread_context.register_tags_vec_pointer };
-    let register_stack_used_length = unsafe { *thread_context.register_stack_used_length_pointer };
-    let register_window = &register_stack[0..register_stack_used_length];
-    let register_tags_window = &register_tags[0..register_stack_used_length];
+    let register_stack = unsafe { &mut *thread_context.register_vec_pointer };
+    let register_tags = unsafe { &mut *thread_context.register_tag_vec_pointer };
+    let register_window = &register_stack[0..thread_context.registers_used];
+    let register_tags_window = &register_tags[0..thread_context.registers_used];
 
     let string = value.to_string();
     let object = Object::string(string);

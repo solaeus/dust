@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use super::{Instruction, InstructionFields, OperandType, Operation};
 
 pub struct Call {
-    pub destination_index: u16,
+    pub destination: u16,
     pub prototype_index: u16,
     pub arguments_start: u16,
     pub argument_count: u16,
@@ -12,14 +12,14 @@ pub struct Call {
 
 impl From<&Instruction> for Call {
     fn from(instruction: &Instruction) -> Self {
-        let destination_index = instruction.a_field();
+        let destination = instruction.a_field();
         let prototype_index = instruction.b_field();
         let arguments_start = instruction.c_field();
         let argument_count = instruction.d_field();
         let return_type = instruction.operand_type();
 
         Call {
-            destination_index,
+            destination,
             prototype_index,
             arguments_start,
             argument_count,
@@ -31,7 +31,7 @@ impl From<&Instruction> for Call {
 impl From<Call> for Instruction {
     fn from(call: Call) -> Self {
         let operation = Operation::CALL;
-        let a_field = call.destination_index;
+        let a_field = call.destination;
         let b_field = call.prototype_index;
         let c_field = call.arguments_start;
         let d_field = Some(call.argument_count);
@@ -53,7 +53,7 @@ impl From<Call> for Instruction {
 impl Display for Call {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Call {
-            destination_index,
+            destination,
             prototype_index,
             arguments_start,
             argument_count,
@@ -61,7 +61,7 @@ impl Display for Call {
         } = self;
 
         if *return_type != OperandType::NONE {
-            write!(f, "reg_{destination_index} = ")?;
+            write!(f, "reg_{destination} = ")?;
         }
 
         if *argument_count == 0 {

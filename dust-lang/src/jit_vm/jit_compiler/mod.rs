@@ -1,107 +1,103 @@
-mod compile_direct_function;
-mod compile_stackless_function;
-mod ffi_functions;
-mod jit_error;
+mod instruction_compiler;
 
-use std::{
-    collections::{HashSet, VecDeque},
-    mem::{offset_of, transmute},
-};
-
-use compile_direct_function::compile_direct_function;
-use compile_stackless_function::compile_stackless_function;
-use ffi_functions::*;
-pub use jit_error::JitError;
+use std::mem::{offset_of, transmute};
 
 use cranelift::{
     codegen::ir::{FuncRef, InstBuilder},
-    frontend::Switch,
     prelude::{
-        AbiParam, FunctionBuilder, FunctionBuilderContext, IntCC, MemFlags, Signature,
+        AbiParam, FunctionBuilder, FunctionBuilderContext, MemFlags, Signature,
         Value as CraneliftValue, Variable,
+        isa::CallConv,
         types::{F64, I8, I64},
     },
 };
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module};
+use rustc_hash::FxHashSet;
 use tracing::Level;
 
 use crate::{
     dust_crate::Program,
-    instruction::{OperandType, Operation},
+    instruction::Operation,
     jit_vm::{
-        Register, RegisterTag, ThreadStatus,
-        call_stack::{get_frame_function_index, push_call_frame},
-        thread::ThreadContext,
+        JitError, Register, ffi_functions::*,
+        jit_compiler::instruction_compiler::InstructionCompiler, thread::ThreadContext,
     },
+    prototype::Prototype,
 };
-
-const ERROR_REPLACEMENT_STR: &str = "<dust_vm_error>";
 
 pub struct JitCompiler<'a> {
     module: JITModule,
     program: &'a Program,
-    function_ids: Vec<FunctionIds>,
+    continuation_signature: Signature,
 }
 
 impl<'a> JitCompiler<'a> {
     pub fn new(program: &'a Program) -> Self {
         let mut builder = JITBuilder::new(cranelift_module::default_libcall_names()).unwrap();
 
-        builder.symbol("allocate_list", allocate_list as *const u8);
-        builder.symbol("insert_into_list", insert_into_list as *const u8);
-        builder.symbol("get_from_list", get_from_list as *const u8);
-        builder.symbol("compare_lists_equal", compare_lists_equal as *const u8);
-        builder.symbol(
-            "compare_lists_less_than",
-            compare_lists_less_than as *const u8,
-        );
-        builder.symbol(
-            "compare_lists_less_than_equal",
-            compare_lists_less_than_equal as *const u8,
-        );
-
-        builder.symbol("allocate_string", allocate_string as *const u8);
-        builder.symbol("concatenate_strings", concatenate_strings as *const u8);
-        builder.symbol(
-            "concatenate_character_string",
-            concatenate_character_string as *const u8,
-        );
-        builder.symbol(
-            "concatenate_string_character",
-            concatenate_string_character as *const u8,
-        );
-        builder.symbol(
-            "concatenate_characters",
-            concatenate_characters as *const u8,
-        );
-        builder.symbol("compare_strings_equal", compare_strings_equal as *const u8);
-        builder.symbol(
-            "compare_strings_less_than",
-            compare_strings_less_than as *const u8,
-        );
-        builder.symbol(
-            "compare_strings_less_than_equal",
-            compare_strings_less_than_equal as *const u8,
-        );
-        builder.symbol("integer_to_string", integer_to_string as *const u8);
-
-        builder.symbol("read_line", read_line as *const u8);
-        builder.symbol("write_line_integer", write_line_integer as *const u8);
-        builder.symbol("write_line_string", write_line_string as *const u8);
-
-        builder.symbol("integer_power", integer_power as *const u8);
-        builder.symbol("float_power", float_power as *const u8);
+        builder
+            .symbol("allocate_list", allocate_list as *const u8)
+            .symbol("insert_into_list", insert_into_list as *const u8)
+            .symbol("get_from_list", get_from_list as *const u8)
+            .symbol("compare_lists_equal", compare_lists_equal as *const u8)
+            .symbol(
+                "compare_lists_less_than",
+                compare_lists_less_than as *const u8,
+            )
+            .symbol(
+                "compare_lists_less_than_equal",
+                compare_lists_less_than_equal as *const u8,
+            )
+            .symbol("allocate_string", allocate_string as *const u8)
+            .symbol("concatenate_strings", concatenate_strings as *const u8)
+            .symbol(
+                "concatenate_character_string",
+                concatenate_character_string as *const u8,
+            )
+            .symbol(
+                "concatenate_string_character",
+                concatenate_string_character as *const u8,
+            )
+            .symbol(
+                "concatenate_characters",
+                concatenate_characters as *const u8,
+            )
+            .symbol("compare_strings_equal", compare_strings_equal as *const u8)
+            .symbol(
+                "compare_strings_less_than",
+                compare_strings_less_than as *const u8,
+            )
+            .symbol(
+                "compare_strings_less_than_equal",
+                compare_strings_less_than_equal as *const u8,
+            )
+            .symbol("integer_to_string", integer_to_string as *const u8)
+            .symbol("read_line", read_line as *const u8)
+            .symbol("write_line_integer", write_line_integer as *const u8)
+            .symbol("write_line_string", write_line_string as *const u8)
+            .symbol("integer_power", integer_power as *const u8)
+            .symbol("float_power", float_power as *const u8);
 
         #[cfg(debug_assertions)]
         builder.symbol("log_operation_and_ip", log_operation_and_ip as *const u8);
 
         let module = JITModule::new(builder);
 
+        let continuation_signature = {
+            let pointer_type = module.isa().pointer_type();
+            let mut signature = Signature::new(CallConv::Tail);
+
+            signature.params.push(AbiParam::new(pointer_type)); // ThreadContext
+            signature.params.push(AbiParam::new(I64)); // Return value
+
+            signature
+        };
+
         Self {
             module,
             program,
-            function_ids: Vec::with_capacity(program.prototypes.len()),
+            continuation_signature,
         }
     }
 
@@ -109,454 +105,293 @@ impl<'a> JitCompiler<'a> {
         let span = tracing::span!(Level::INFO, "JIT_Compiler");
         let _enter = span.enter();
 
-        self.compile_loop()
+        self.compile_program()
     }
 
-    fn compile_loop(&mut self) -> Result<JitLogic, JitError> {
-        let mut context = self.module.make_context();
-        let pointer_type = self.module.isa().pointer_type();
-        let mut stackless_signature = Signature::new(self.module.isa().default_call_conv());
-
-        stackless_signature.params.push(AbiParam::new(pointer_type));
-
-        while self.function_ids.len() < self.program.prototypes.len() {
-            self.function_ids.push(FunctionIds::Other {
-                direct: FuncId::from_u32(0),
-                stackless: FuncId::from_u32(0),
-            });
-        }
-
+    fn compile_program(&mut self) -> Result<JitLogic, JitError> {
+        let mut main_function_id = FuncId::from_u32(0);
         let compile_order = get_compile_order(self.program);
 
         for index in compile_order {
+            let function_id = self.compile_prototype(index)?;
+
             if index == 0 {
-                let stackless_function_id = self
-                    .module
-                    .declare_function("main_stackless", Linkage::Local, &stackless_signature)
-                    .map_err(|error| JitError::CraneliftModuleError {
-                        error: Box::new(error),
-                        cranelift_ir: context.func.display().to_string(),
-                    })?;
-                let main_function_ids = FunctionIds::Main {
-                    stackless: stackless_function_id,
-                };
-
-                self.function_ids[index] = main_function_ids;
-
-                continue;
-            }
-
-            let prototype = &self.program.prototypes[index];
-            let direct_name = format!("proto_{index}_direct");
-            let stackless_name = format!("proto_{index}_stackless");
-            let value_parameters_count = prototype.function_type.value_parameters.len();
-
-            let mut direct_signature = Signature::new(self.module.isa().default_call_conv());
-
-            for _ in 0..value_parameters_count {
-                direct_signature.params.push(AbiParam::new(I64));
-            }
-
-            direct_signature.params.push(AbiParam::new(pointer_type));
-            direct_signature.returns.push(AbiParam::new(I64));
-
-            let direct_function_id = self
-                .module
-                .declare_function(&direct_name, Linkage::Local, &direct_signature)
-                .map_err(|error| JitError::CraneliftModuleError {
-                    error: Box::new(error),
-                    cranelift_ir: context.func.display().to_string(),
-                })?;
-            let stackless_function_id = self
-                .module
-                .declare_function(&stackless_name, Linkage::Local, &stackless_signature)
-                .map_err(|error| JitError::CraneliftModuleError {
-                    error: Box::new(error),
-                    cranelift_ir: context.func.display().to_string(),
-                })?;
-
-            self.function_ids[index] = FunctionIds::Other {
-                direct: direct_function_id,
-                stackless: stackless_function_id,
-            };
-        }
-
-        let main_prototype = &self.program.prototypes[0];
-        let function_references = {
-            let mut references = Vec::with_capacity(self.program.prototypes.len());
-
-            for index in 0..self.program.prototypes.len() {
-                match self.function_ids[index] {
-                    FunctionIds::Main { stackless } => {
-                        let main_reference = self
-                            .module
-                            .declare_func_in_func(stackless, &mut context.func);
-
-                        references.push(main_reference);
-                        compile_stackless_function(stackless, main_prototype, true, self)?;
-
-                        continue;
-                    }
-                    FunctionIds::Other { direct, stackless } => {
-                        let stackless_reference = self
-                            .module
-                            .declare_func_in_func(stackless, &mut context.func);
-                        let prototype = &self.program.prototypes[index];
-
-                        references.push(stackless_reference);
-                        compile_direct_function(self, direct, prototype)?;
-                        compile_stackless_function(stackless, prototype, false, self)?;
-
-                        continue;
-                    }
-                }
-            }
-
-            references
-        };
-
-        context.func.signature = stackless_signature;
-        context
-            .func
-            .signature
-            .returns
-            .push(AbiParam::new(ThreadStatus::CRANELIFT_TYPE));
-
-        let loop_function_id = self
-            .module
-            .declare_function("loop", Linkage::Local, &context.func.signature)
-            .map_err(|error| JitError::CraneliftModuleError {
-                error: Box::new(error),
-                cranelift_ir: context.func.display().to_string(),
-            })?;
-        let mut function_builder_context = FunctionBuilderContext::new();
-        let mut function_builder =
-            FunctionBuilder::new(&mut context.func, &mut function_builder_context);
-        let mut switch = Switch::new();
-
-        let entry_block = {
-            let block = function_builder.create_block();
-
-            function_builder.append_block_params_for_function_params(block);
-
-            block
-        };
-        let check_for_empty_call_stack_block = function_builder.create_block();
-        let check_for_error_function_index_out_of_bounds_block = function_builder.create_block();
-        let loop_block = function_builder.create_block();
-        let function_blocks = {
-            let mut blocks = Vec::with_capacity(self.program.prototypes.len());
-
-            for index in 0..function_references.len() {
-                let block = function_builder.create_block();
-
-                blocks.push(block);
-                switch.set_entry(index as u128, block);
-            }
-
-            blocks
-        };
-        let return_block = function_builder.create_block();
-
-        let (thread_context_pointer, call_stack_buffer_pointer, call_stack_used_length_pointer) = {
-            function_builder.switch_to_block(entry_block);
-
-            let thread_context = function_builder.block_params(entry_block)[0];
-
-            let call_stack_buffer_pointer = function_builder.ins().load(
-                pointer_type,
-                MemFlags::new(),
-                thread_context,
-                offset_of!(ThreadContext, call_stack_buffer_pointer) as i32,
-            );
-            let call_stack_used_length_pointer = function_builder.ins().load(
-                pointer_type,
-                MemFlags::new(),
-                thread_context,
-                offset_of!(ThreadContext, call_stack_used_length_pointer) as i32,
-            );
-
-            let zero = function_builder.ins().iconst(I64, 0);
-            let register_count = function_builder
-                .ins()
-                .iconst(I64, main_prototype.register_count as i64);
-            let null_function_index = function_builder.ins().iconst(I64, u32::MAX as i64);
-
-            push_call_frame(
-                zero,
-                zero,
-                null_function_index,
-                zero,
-                register_count,
-                zero,
-                zero,
-                call_stack_buffer_pointer,
-                call_stack_used_length_pointer,
-                &mut function_builder,
-            );
-            function_builder
-                .ins()
-                .jump(check_for_empty_call_stack_block, &[]);
-
-            (
-                thread_context,
-                call_stack_buffer_pointer,
-                call_stack_used_length_pointer,
-            )
-        };
-
-        {
-            function_builder.switch_to_block(check_for_empty_call_stack_block);
-
-            let call_stack_length = function_builder.ins().load(
-                I64,
-                MemFlags::new(),
-                call_stack_used_length_pointer,
-                0,
-            );
-            let call_stack_is_empty =
-                function_builder
-                    .ins()
-                    .icmp_imm(IntCC::Equal, call_stack_length, 0);
-            let return_thread_status = function_builder
-                .ins()
-                .iconst(ThreadStatus::CRANELIFT_TYPE, ThreadStatus::Return as i64);
-
-            function_builder.ins().brif(
-                call_stack_is_empty,
-                return_block,
-                &[return_thread_status.into()],
-                check_for_error_function_index_out_of_bounds_block,
-                &[],
-            );
-        }
-
-        {
-            function_builder.switch_to_block(check_for_error_function_index_out_of_bounds_block);
-
-            let call_stack_length = function_builder.ins().load(
-                I64,
-                MemFlags::new(),
-                call_stack_used_length_pointer,
-                0,
-            );
-            let call_stack_is_empty =
-                function_builder
-                    .ins()
-                    .icmp_imm(IntCC::Equal, call_stack_length, 0);
-            let return_thread_status = function_builder.ins().iconst(
-                ThreadStatus::CRANELIFT_TYPE,
-                ThreadStatus::ErrorFunctionIndexOutOfBounds as i64,
-            );
-
-            function_builder.ins().brif(
-                call_stack_is_empty,
-                return_block,
-                &[return_thread_status.into()],
-                loop_block,
-                &[],
-            );
-        }
-
-        {
-            function_builder.switch_to_block(loop_block);
-
-            let top_call_frame_index = {
-                let call_stack_length = function_builder.ins().load(
-                    I64,
-                    MemFlags::new(),
-                    call_stack_used_length_pointer,
-                    0,
-                );
-                let one = function_builder.ins().iconst(I64, 1);
-
-                function_builder.ins().isub(call_stack_length, one)
-            };
-            let function_index = get_frame_function_index(
-                top_call_frame_index,
-                call_stack_buffer_pointer,
-                &mut function_builder,
-            );
-
-            switch.emit(&mut function_builder, function_index, function_blocks[0]);
-        }
-
-        {
-            for (block, stackless_reference) in function_blocks
-                .into_iter()
-                .zip(function_references.into_iter())
-            {
-                function_builder.switch_to_block(block);
-                function_builder
-                    .ins()
-                    .call(stackless_reference, &[thread_context_pointer]);
-
-                let thread_status = function_builder.ins().load(
-                    ThreadStatus::CRANELIFT_TYPE,
-                    MemFlags::new(),
-                    thread_context_pointer,
-                    offset_of!(ThreadContext, status) as i32,
-                );
-                let is_ok = function_builder.ins().icmp_imm(
-                    IntCC::Equal,
-                    thread_status,
-                    ThreadStatus::Continue as i64,
-                );
-
-                function_builder.ins().brif(
-                    is_ok,
-                    check_for_empty_call_stack_block,
-                    &[],
-                    return_block,
-                    &[thread_status.into()],
-                );
+                main_function_id = function_id;
             }
         }
 
-        {
-            function_builder.switch_to_block(return_block);
-            function_builder.append_block_param(return_block, ThreadStatus::CRANELIFT_TYPE);
-
-            let return_thread_status = function_builder.block_params(return_block)[0];
-
-            function_builder.ins().nop();
-            function_builder.ins().return_(&[return_thread_status]);
-        }
-
-        function_builder.seal_all_blocks();
-        function_builder.finalize();
-        self.module
-            .define_function(loop_function_id, &mut context)
-            .map_err(|error| JitError::CraneliftModuleError {
-                error: Box::new(error),
-                cranelift_ir: context.func.display().to_string(),
-            })?;
-        self.module
-            .finalize_definitions()
-            .map_err(|error| JitError::CraneliftModuleError {
-                error: Box::new(error),
-                cranelift_ir: context.func.display().to_string(),
-            })?;
-
-        let loop_function_pointer = self.module.get_finalized_function(loop_function_id);
-        let jit_logic = unsafe { transmute::<*const u8, JitLogic>(loop_function_pointer) };
+        let program_function_pointer = self.module.get_finalized_function(main_function_id);
+        let jit_logic = unsafe { transmute::<*const u8, JitLogic>(program_function_pointer) };
 
         Ok(jit_logic)
     }
 
-    fn set_register(
-        destination_index: u16,
-        value: CraneliftValue,
-        r#type: OperandType,
-        frame_base_register_address: CraneliftValue,
-        frame_base_tag_address: CraneliftValue,
-        hot_registers: &HotRegisters,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<(), JitError> {
-        match r#type {
-            OperandType::BOOLEAN => {
-                if let Some(variable) = hot_registers.boolean.get(destination_index as usize) {
-                    function_builder.def_var(*variable, value);
-                }
-            }
-            OperandType::BYTE => {
-                if let Some(variable) = hot_registers.byte.get(destination_index as usize) {
-                    function_builder.def_var(*variable, value);
-                }
-            }
-            OperandType::CHARACTER => {
-                if let Some(variable) = hot_registers.character.get(destination_index as usize) {
-                    function_builder.def_var(*variable, value);
-                }
-            }
-            OperandType::FLOAT => {
-                if let Some(variable) = hot_registers.float.get(destination_index as usize) {
-                    function_builder.def_var(*variable, value);
-                }
-            }
-            OperandType::INTEGER => {
-                if let Some(variable) = hot_registers.integer.get(destination_index as usize) {
-                    function_builder.def_var(*variable, value);
-                }
-            }
-            OperandType::FUNCTION => {
-                if let Some(variable) = hot_registers.function.get(destination_index as usize) {
-                    function_builder.def_var(*variable, value);
-                }
-            }
-            _ => {}
+    fn compile_prototype(&mut self, prototype_index: usize) -> Result<FuncId, JitError> {
+        let prototype =
+            self.program
+                .prototypes
+                .get(prototype_index)
+                .ok_or(JitError::MissingPrototype {
+                    index: prototype_index,
+                    total: self.program.prototypes.len(),
+                })?;
+
+        let segments = self.create_execution_segments(prototype)?;
+
+        for segment in &segments {
+            self.compile_segment(prototype, segment, &segments)?;
         }
 
-        let destination_index_value = function_builder.ins().iconst(I64, destination_index as i64);
-        let register_offset = function_builder
-            .ins()
-            .imul_imm(destination_index_value, size_of::<Register>() as i64);
-        let register_address = function_builder
-            .ins()
-            .iadd(frame_base_register_address, register_offset);
+        let entry_function_id = segments.iter().last().unwrap().function_id;
 
-        function_builder
-            .ins()
-            .store(MemFlags::new(), value, register_address, 0);
-
-        Self::set_register_tag(
-            destination_index_value,
-            r#type,
-            frame_base_tag_address,
-            function_builder,
-        )
+        Ok(entry_function_id)
     }
 
-    fn set_register_tag(
-        relative_index: CraneliftValue,
-        r#type: OperandType,
-        frame_base_tag_address: CraneliftValue,
-        function_builder: &mut FunctionBuilder,
+    fn compile_segment(
+        &mut self,
+        prototype: &Prototype,
+        segment: &ExecutionSegment,
+        segments: &[ExecutionSegment],
     ) -> Result<(), JitError> {
-        let tag = match r#type {
-            OperandType::BOOLEAN
-            | OperandType::BYTE
-            | OperandType::CHARACTER
-            | OperandType::FLOAT
-            | OperandType::INTEGER
-            | OperandType::FUNCTION => RegisterTag::SCALAR,
-            OperandType::STRING
-            | OperandType::LIST_BOOLEAN
-            | OperandType::LIST_BYTE
-            | OperandType::LIST_CHARACTER
-            | OperandType::LIST_FLOAT
-            | OperandType::LIST_INTEGER
-            | OperandType::LIST_FUNCTION
-            | OperandType::LIST_STRING
-            | OperandType::LIST_LIST => RegisterTag::OBJECT,
-            _ => {
-                return Err(JitError::UnsupportedOperandType {
-                    operand_type: r#type,
-                });
-            }
-        };
-        let tag_value = function_builder
-            .ins()
-            .iconst(RegisterTag::CRANELIFT_TYPE, tag.0 as i64);
-        let tag_offset = function_builder
-            .ins()
-            .imul_imm(relative_index, size_of::<RegisterTag>() as i64);
-        let tag_address = function_builder
-            .ins()
-            .iadd(frame_base_tag_address, tag_offset);
+        let mut context = self.module.make_context();
+        let mut builder_context = FunctionBuilderContext::new();
 
-        function_builder
+        context.func.signature = if segment.is_entry {
+            self.entry_signature(prototype)
+        } else {
+            self.continuation_signature.clone()
+        };
+
+        let mut builder = FunctionBuilder::new(&mut context.func, &mut builder_context);
+        let entry_block = {
+            let block = builder.create_block();
+
+            builder.append_block_params_for_function_params(block);
+            builder.switch_to_block(block);
+
+            block
+        };
+        let instruction_blocks = {
+            let block_count = segment.end_ip - segment.start_ip;
+            let mut blocks = Vec::with_capacity(block_count);
+
+            for _ in 0..block_count {
+                blocks.push(builder.create_block());
+            }
+
+            blocks
+        };
+
+        let pointer_type = self.module.isa().pointer_type();
+        let parameters = builder.block_params(entry_block).to_vec();
+        let thread_context = parameters[0];
+        let register_tags_buffer_pointer = builder.ins().load(
+            pointer_type,
+            MemFlags::new(),
+            thread_context,
+            offset_of!(ThreadContext, register_tag_buffer_pointer) as i32,
+        );
+        let continuation_buffer = builder.ins().load(
+            pointer_type,
+            MemFlags::new(),
+            thread_context,
+            offset_of!(ThreadContext, continuation_buffer_pointer) as i32,
+        );
+        let continuations_used = builder.ins().load(
+            I64,
+            MemFlags::new(),
+            thread_context,
+            offset_of!(ThreadContext, continuations_used) as i32,
+        );
+        let last_index = builder.ins().iadd_imm(continuations_used, -1);
+        let last_continuation_offset = builder
             .ins()
-            .store(MemFlags::new(), tag_value, tag_address, 0);
+            .imul_imm(last_index, size_of::<Continuation>() as i64);
+        let last_continuation_address = builder
+            .ins()
+            .iadd(continuation_buffer, last_continuation_offset);
+        let base_register_index = builder.ins().load(
+            I64,
+            MemFlags::new(),
+            last_continuation_address,
+            offset_of!(Continuation, base_register_index) as i32,
+        );
+        let continuation_function = builder.ins().load(
+            pointer_type,
+            MemFlags::new(),
+            last_continuation_address,
+            offset_of!(Continuation, function) as i32,
+        );
+
+        let mut ssa_registers = {
+            let mut variables = Vec::with_capacity(prototype.register_count as usize);
+
+            if segment.is_entry {
+                let argument_count = prototype.function_type.value_parameters.len();
+
+                for index in 0..argument_count {
+                    let parameter = parameters[2 + index];
+                    let variable = builder.declare_var(I64);
+
+                    builder.def_var(variable, parameter);
+                    variables.push(variable);
+                }
+
+                for _ in argument_count..prototype.register_count as usize {
+                    variables.push(builder.declare_var(I64));
+                }
+
+                // TODO: Check the capacity of the register stack and grow if necessary
+            } else {
+                for register_index in 0..prototype.register_count {
+                    let absolute_register_index = builder
+                        .ins()
+                        .iadd_imm(base_register_index, register_index as i64);
+                    let offset = builder
+                        .ins()
+                        .imul_imm(absolute_register_index, size_of::<Register>() as i64);
+                    let address = builder.ins().iadd(thread_context, offset);
+                    let value = builder.ins().load(I64, MemFlags::new(), address, 0);
+                    let variable = builder.declare_var(I64);
+
+                    builder.def_var(variable, value);
+                    variables.push(variable);
+                }
+            }
+
+            variables
+        };
+
+        builder.ins().jump(instruction_blocks[0], &[]);
+
+        let mut instruction_compiler = InstructionCompiler {
+            is_entry_segment: segment.is_entry,
+            instruction_blocks: &instruction_blocks,
+            ssa_registers: &mut ssa_registers,
+            register_tags_buffer_pointer,
+            base_register_index,
+            continuation_function,
+            thread_context,
+            pointer_type,
+            continuation_signature: &self.continuation_signature,
+        };
+
+        for (block_index, ip) in (segment.start_ip..segment.end_ip).enumerate() {
+            let instruction =
+                prototype
+                    .instructions
+                    .get(ip)
+                    .ok_or(JitError::InstructionIndexOutOfBounds {
+                        instruction_index: ip,
+                        total_instruction_count: prototype.instructions.len(),
+                    })?;
+
+            instruction_compiler.compile(instruction, ip, block_index, &mut builder)?;
+        }
+
+        builder.seal_all_blocks();
+        builder.finalize();
+
+        self.module
+            .define_function(segment.function_id, &mut context)
+            .map_err(|error| JitError::CraneliftModuleError {
+                error: Box::new(error),
+                cranelift_ir: context.func.display().to_string(),
+            })?;
+        self.module.clear_context(&mut context);
 
         Ok(())
     }
 
+    fn create_execution_segments(
+        &mut self,
+        prototype: &Prototype,
+    ) -> Result<Vec<ExecutionSegment>, JitError> {
+        let mut segments = Vec::new();
+        let mut current_start = 0;
+
+        {
+            for (ip, instruction) in prototype.instructions.iter().enumerate() {
+                if instruction.operation() == Operation::CALL {
+                    let name = format!("proto_{}_ip_{ip}", prototype.index);
+                    let function_id = self
+                        .module
+                        .declare_function(&name, Linkage::Local, &self.continuation_signature)
+                        .map_err(|error| JitError::CraneliftModuleError {
+                            error: Box::new(error),
+                            cranelift_ir: String::new(),
+                        })?;
+
+                    segments.push(ExecutionSegment {
+                        start_ip: current_start,
+                        end_ip: ip,
+                        function_id,
+                        is_entry: false,
+                    });
+
+                    current_start = ip + 1;
+                }
+            }
+        }
+
+        let entry_id = {
+            let name = format!("proto_{}_entry", prototype.index);
+            let signature = self.entry_signature(prototype);
+
+            self.module
+                .declare_function(&name, Linkage::Local, &signature)
+                .map_err(|error| JitError::CraneliftModuleError {
+                    error: Box::new(error),
+                    cranelift_ir: String::new(),
+                })?
+        };
+
+        segments.push(ExecutionSegment {
+            start_ip: current_start,
+            end_ip: prototype.instructions.len(),
+            function_id: entry_id,
+            is_entry: true,
+        });
+
+        Ok(segments)
+    }
+
+    fn entry_signature(&self, prototype: &Prototype) -> Signature {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(CallConv::Tail);
+
+        signature.params.push(AbiParam::new(pointer_type)); // ThreadContext
+        signature.params.push(AbiParam::new(pointer_type)); // Continuation
+
+        for _ in 0..prototype.function_type.value_parameters.len() {
+            signature.params.push(AbiParam::new(I64));
+        }
+
+        signature.returns.push(AbiParam::new(I64)); // Return value
+
+        signature
+    }
+
+    fn save_ssa_registers(
+        builder: &mut FunctionBuilder,
+        ssa_variables: &[Variable],
+        register_buffer: CraneliftValue,
+        frame_base: CraneliftValue,
+    ) {
+        for (i, var) in ssa_variables.iter().enumerate() {
+            let value = builder.use_var(*var);
+            let index = builder.ins().iadd_imm(frame_base, i as i64);
+            let offset = builder.ins().imul_imm(index, size_of::<Register>() as i64);
+            let addr = builder.ins().iadd(register_buffer, offset);
+            builder.ins().store(MemFlags::new(), value, addr, 0);
+        }
+    }
+
     fn declare_imported_function(
         &mut self,
-        function_builder: &mut FunctionBuilder,
         name: &str,
         signature: Signature,
+        function_builder: &mut FunctionBuilder,
     ) -> Result<FuncRef, JitError> {
         let function_id = self
             .module
@@ -585,7 +420,7 @@ impl<'a> JitCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function(function_builder, "allocate_list", signature)
+        self.declare_imported_function("allocate_list", signature, function_builder)
     }
 
     fn get_insert_into_list_function(
@@ -597,7 +432,7 @@ impl<'a> JitCompiler<'a> {
         signature
             .params
             .extend([AbiParam::new(I64), AbiParam::new(I64), AbiParam::new(I64)]);
-        self.declare_imported_function(function_builder, "insert_into_list", signature)
+        self.declare_imported_function("insert_into_list", signature, function_builder)
     }
 
     fn get_get_from_list_function(
@@ -613,7 +448,7 @@ impl<'a> JitCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function(function_builder, "get_from_list", signature)
+        self.declare_imported_function("get_from_list", signature, function_builder)
     }
 
     fn get_compare_lists_equal_function(
@@ -627,7 +462,7 @@ impl<'a> JitCompiler<'a> {
             .params
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
-        self.declare_imported_function(function_builder, "compare_lists_equal", signature)
+        self.declare_imported_function("compare_lists_equal", signature, function_builder)
     }
 
     fn get_compare_lists_less_than_function(
@@ -641,7 +476,7 @@ impl<'a> JitCompiler<'a> {
             .params
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
-        self.declare_imported_function(function_builder, "compare_lists_less_than", signature)
+        self.declare_imported_function("compare_lists_less_than", signature, function_builder)
     }
 
     fn get_compare_lists_less_than_equal_function(
@@ -655,7 +490,7 @@ impl<'a> JitCompiler<'a> {
             .params
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
-        self.declare_imported_function(function_builder, "compare_lists_less_than_equal", signature)
+        self.declare_imported_function("compare_lists_less_than_equal", signature, function_builder)
     }
 
     fn get_allocate_string_function(
@@ -671,7 +506,7 @@ impl<'a> JitCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function(function_builder, "allocate_string", signature)
+        self.declare_imported_function("allocate_string", signature, function_builder)
     }
 
     fn get_concatenate_strings_function(
@@ -687,7 +522,7 @@ impl<'a> JitCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function(function_builder, "concatenate_strings", signature)
+        self.declare_imported_function("concatenate_strings", signature, function_builder)
     }
 
     fn get_concatenate_character_string_function(
@@ -703,7 +538,7 @@ impl<'a> JitCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function(function_builder, "concatenate_character_string", signature)
+        self.declare_imported_function("concatenate_character_string", signature, function_builder)
     }
 
     fn get_concatenate_string_character_function(
@@ -719,7 +554,7 @@ impl<'a> JitCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function(function_builder, "concatenate_string_character", signature)
+        self.declare_imported_function("concatenate_string_character", signature, function_builder)
     }
 
     fn get_concatenate_characters_function(
@@ -735,7 +570,7 @@ impl<'a> JitCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function(function_builder, "concatenate_characters", signature)
+        self.declare_imported_function("concatenate_characters", signature, function_builder)
     }
 
     fn get_compare_strings_equal_function(
@@ -749,7 +584,7 @@ impl<'a> JitCompiler<'a> {
             .params
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
-        self.declare_imported_function(function_builder, "compare_strings_equal", signature)
+        self.declare_imported_function("compare_strings_equal", signature, function_builder)
     }
 
     fn get_compare_strings_less_than_function(
@@ -763,7 +598,7 @@ impl<'a> JitCompiler<'a> {
             .params
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
-        self.declare_imported_function(function_builder, "compare_strings_less_than", signature)
+        self.declare_imported_function("compare_strings_less_than", signature, function_builder)
     }
 
     fn get_compare_strings_less_than_equal_function(
@@ -778,9 +613,9 @@ impl<'a> JitCompiler<'a> {
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
         self.declare_imported_function(
-            function_builder,
             "compare_strings_less_than_equal",
             signature,
+            function_builder,
         )
     }
 
@@ -795,7 +630,7 @@ impl<'a> JitCompiler<'a> {
             .params
             .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function(function_builder, "integer_to_string", signature)
+        self.declare_imported_function("integer_to_string", signature, function_builder)
     }
 
     fn get_read_line_function(
@@ -807,7 +642,7 @@ impl<'a> JitCompiler<'a> {
 
         signature.params.push(AbiParam::new(pointer_type));
         signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function(function_builder, "read_line", signature)
+        self.declare_imported_function("read_line", signature, function_builder)
     }
 
     fn get_write_line_integer_function(
@@ -820,7 +655,7 @@ impl<'a> JitCompiler<'a> {
         signature
             .params
             .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
-        self.declare_imported_function(function_builder, "write_line_integer", signature)
+        self.declare_imported_function("write_line_integer", signature, function_builder)
     }
 
     fn get_write_line_string_function(
@@ -833,7 +668,7 @@ impl<'a> JitCompiler<'a> {
         signature
             .params
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        self.declare_imported_function(function_builder, "write_line_string", signature)
+        self.declare_imported_function("write_line_string", signature, function_builder)
     }
 
     fn get_integer_power_function(
@@ -846,7 +681,7 @@ impl<'a> JitCompiler<'a> {
             .params
             .extend([AbiParam::new(I64), AbiParam::new(I64)]);
         signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function(function_builder, "integer_power", signature)
+        self.declare_imported_function("integer_power", signature, function_builder)
     }
 
     fn get_float_power_function(
@@ -859,7 +694,7 @@ impl<'a> JitCompiler<'a> {
             .params
             .extend([AbiParam::new(F64), AbiParam::new(F64)]);
         signature.returns.push(AbiParam::new(F64));
-        self.declare_imported_function(function_builder, "float_power", signature)
+        self.declare_imported_function("float_power", signature, function_builder)
     }
 
     #[cfg(debug_assertions)]
@@ -871,76 +706,65 @@ impl<'a> JitCompiler<'a> {
 
         signature.params.push(AbiParam::new(I8));
         signature.params.push(AbiParam::new(I64));
-        self.declare_imported_function(function_builder, "log_operation_and_ip", signature)
+        self.declare_imported_function("log_operation_and_ip", signature, function_builder)
     }
 }
 
+pub type JitLogic = extern "C" fn(&mut ThreadContext) -> Register;
+
 #[derive(Clone, Copy)]
-enum FunctionIds {
-    Main { stackless: FuncId },
-    Other { direct: FuncId, stackless: FuncId },
+pub struct Continuation {
+    pub function: *const u8,
+    pub base_register_index: usize,
 }
 
-pub type JitLogic = extern "C" fn(&mut ThreadContext) -> ThreadStatus;
+#[derive(Clone, Copy)]
+struct ExecutionSegment {
+    function_id: FuncId,
+    start_ip: usize,
+    end_ip: usize,
+    is_entry: bool,
+}
 
-pub fn get_compile_order(program: &Program) -> Vec<usize> {
+fn get_compile_order(program: &Program) -> Vec<usize> {
+    fn depth_first_search(
+        caller_index: usize,
+        edges: &[FxHashSet<usize>],
+        visited: &mut [bool],
+        order: &mut Vec<usize>,
+    ) {
+        if visited[caller_index] {
+            return;
+        }
+
+        visited[caller_index] = true;
+
+        for callee_index in &edges[caller_index] {
+            depth_first_search(*callee_index, edges, visited, order);
+        }
+
+        order.push(caller_index);
+    }
+
     let prototype_count = program.prototypes.len();
-    let mut edges: Vec<HashSet<usize>> = vec![HashSet::new(); prototype_count];
-    let mut indegree = vec![0; prototype_count];
+    let mut edges = vec![FxHashSet::default(); prototype_count];
 
-    for (caller, prototype) in program.prototypes.iter().enumerate() {
-        for instr in &prototype.instructions {
-            if instr.operation() == Operation::CALL {
-                let callee = instr.b_field() as usize;
-                if callee < prototype_count && edges[caller].insert(callee) {
-                    indegree[callee] += 1;
+    for (caller_index, prototype) in program.prototypes.iter().enumerate() {
+        for instruction in &prototype.instructions {
+            if instruction.operation() == Operation::CALL {
+                let callee_index = instruction.b_field() as usize;
+
+                if callee_index < prototype_count {
+                    edges[caller_index].insert(callee_index);
                 }
             }
         }
     }
 
-    // Kahn's algorithm: enqueue nodes (indices) with indegree == 0
-    let mut queue = VecDeque::new();
-    for (index, indegree) in indegree.iter().enumerate() {
-        if *indegree == 0 {
-            queue.push_back(index);
-        }
-    }
-
     let mut order = Vec::with_capacity(prototype_count);
+    let mut visited = vec![false; prototype_count];
 
-    while let Some(u) = queue.pop_front() {
-        order.push(u);
-
-        for &v in &edges[u] {
-            indegree[v] -= 1;
-
-            if indegree[v] == 0 {
-                queue.push_back(v);
-            }
-        }
-    }
-
-    if order.len() != prototype_count {
-        let in_topo: HashSet<_> = order.iter().copied().collect();
-
-        for i in 0..prototype_count {
-            if !in_topo.contains(&i) {
-                order.push(i);
-            }
-        }
-    }
-
-    order.reverse();
+    depth_first_search(0, &edges, &mut visited, &mut order);
 
     order
-}
-
-struct HotRegisters {
-    boolean: [Variable; 8],
-    byte: [Variable; 8],
-    character: [Variable; 8],
-    float: [Variable; 8],
-    integer: [Variable; 8],
-    function: [Variable; 8],
 }

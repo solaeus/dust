@@ -437,7 +437,7 @@ impl Instruction {
         return_type: OperandType,
     ) -> Instruction {
         Instruction::from(Call {
-            destination_index,
+            destination: destination_index,
             prototype_index,
             arguments_start,
             argument_count,

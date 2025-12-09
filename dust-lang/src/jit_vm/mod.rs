@@ -1,6 +1,5 @@
-#[macro_use]
-mod call_stack;
-mod cell;
+pub mod error;
+mod ffi_functions;
 mod jit_compiler;
 mod object;
 mod object_pool;
@@ -9,8 +8,8 @@ mod register;
 mod tests;
 pub mod thread;
 
-pub use cell::{Cell, CellValue};
-pub use jit_compiler::{JitCompiler, JitError, JitLogic};
+pub use error::JitError;
+pub use jit_compiler::{JitCompiler, JitLogic};
 pub use object::Object;
 pub use object_pool::ObjectPool;
 pub use register::{Register, RegisterTag};
@@ -36,6 +35,8 @@ pub const MINIMUM_OBJECT_SWEEP_DEFAULT: usize = if cfg!(debug_assertions) {
 } else {
     1024 * 1024
 };
+
+const ERROR_REPLACEMENT_STR: &str = "<dust_vm_error>";
 
 pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 

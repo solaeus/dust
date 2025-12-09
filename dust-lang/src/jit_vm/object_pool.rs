@@ -138,14 +138,14 @@ impl<'a> ObjectPool<'a> {
         format!(
             "Object Pool Report:\n\
              {INDENT}- Current Allocations:\n\
-             {INDENT}    - {} objects\n\
-             {INDENT}    - {} bytes\n\
+             {INDENT}{INDENT}- {} objects\n\
+             {INDENT}{INDENT}- {} bytes\n\
              {INDENT}- Runtime Allocations:\n\
-             {INDENT}    - {} objects\n\
-             {INDENT}    - {} bytes\n\
+             {INDENT}{INDENT}- {} objects\n\
+             {INDENT}{INDENT}- {} bytes\n\
              {INDENT}- Runtime Deallocations:\n\
-             {INDENT}    - {} objects\n\
-             {INDENT}    - {} bytes\n\
+             {INDENT}{INDENT}- {} objects\n\
+             {INDENT}{INDENT}- {} bytes\n\
              {INDENT}Spent {}ms on {} collections",
             self.objects.len(),
             self.allocated,

@@ -1,4 +1,5 @@
 use std::{
+    ptr,
     sync::Arc,
     thread::{Builder as ThreadBuilder, JoinHandle},
 };
@@ -13,14 +14,13 @@ use tracing::{Level, debug, info, span};
 use crate::{
     dust_crate::Program,
     instruction::OperandType,
-    jit_vm::{ObjectPool, RegisterTag, call_stack::new_call_stack, object::ObjectValue},
+    jit_vm::{
+        JitError, ObjectPool, Register, RegisterTag,
+        jit_compiler::{Continuation, JitCompiler},
+        object::ObjectValue,
+    },
     r#type::Type,
     value::{List, Value},
-};
-
-use super::{
-    Register,
-    jit_compiler::{JitCompiler, JitError},
 };
 
 pub struct Thread {
@@ -59,124 +59,102 @@ fn run(
 
     info!("JIT compilation complete");
 
-    let mut call_stack_used_length = 0;
-    let mut call_stack_allocated_length = if program.prototypes.len() == 1 { 1 } else { 64 };
-    let mut call_stack = new_call_stack(call_stack_allocated_length);
-
-    let mut register_stack_used_length = 0;
-    let mut register_stack_allocated_length = if program.prototypes.len() == 1 {
-        program.main_prototype().register_count as usize
+    let (registers_allocated, continuations_allocated) = if program.prototypes.len() == 1 {
+        (program.prototypes[0].register_count as usize, 0)
     } else {
-        1024 * 1024 * 4
+        (1024, program.prototypes.len() + 16)
     };
-    let mut register_stack = vec![Register { empty: () }; register_stack_allocated_length];
-    let mut register_tags = vec![RegisterTag::EMPTY; register_stack_allocated_length];
+    let mut registers = vec![Register { empty: () }; registers_allocated];
+    let mut register_tags = vec![RegisterTag::EMPTY; registers_allocated];
+    let mut continuations = vec![
+        Continuation {
+            function: ptr::null_mut(),
+            base_register_index: 0,
+        };
+        continuations_allocated
+    ];
     let bump_arena = Bump::with_capacity(minimum_object_heap);
-
     let mut object_pool = ObjectPool::new(&bump_arena, minimum_object_sweep, minimum_object_heap);
 
-    let mut return_register = Register { empty: () };
-    let mut return_type = OperandType::NONE;
-
     let mut thread_context = ThreadContext {
-        call_stack_vec_pointer: &mut call_stack,
-        call_stack_buffer_pointer: call_stack.as_mut_ptr(),
-        call_stack_allocated_length_pointer: &mut call_stack_allocated_length,
-        call_stack_used_length_pointer: &mut call_stack_used_length,
-
-        register_stack_vec_pointer: &mut register_stack,
-        register_stack_buffer_pointer: register_stack.as_mut_ptr(),
-        register_stack_allocated_length_pointer: &mut register_stack_allocated_length,
-        register_stack_used_length_pointer: &mut register_stack_used_length,
-
-        register_tags_vec_pointer: &mut register_tags,
-        register_tags_buffer_pointer: register_tags.as_mut_ptr(),
-
+        register_vec_pointer: &mut registers,
+        register_buffer_pointer: registers.as_mut_ptr(),
+        register_tag_vec_pointer: &mut register_tags,
+        register_tag_buffer_pointer: register_tags.as_mut_ptr(),
+        registers_allocated,
+        registers_used: 0,
+        continuation_vec_pointer: &mut continuations,
+        continuation_buffer_pointer: continuations.as_mut_ptr(),
+        continuations_allocated,
+        continuations_used: 0,
         object_pool_pointer: &mut object_pool,
-
-        return_register_pointer: &mut return_register,
-        return_type_pointer: &mut return_type,
-
-        status: ThreadStatus::Continue,
+        status: ThreadStatus::Ok,
     };
 
-    loop {
-        let thread_status = (jit_logic)(&mut thread_context);
+    let return_register = (jit_logic)(&mut thread_context);
+    let return_type = &program.prototypes[0].function_type.return_type;
+    let return_value = match *return_type {
+        Type::None => None,
+        Type::Boolean => {
+            let boolean = unsafe { return_register.boolean };
 
-        match thread_status {
-            ThreadStatus::Continue => continue,
-            ThreadStatus::Return => break,
-            ThreadStatus::ErrorFunctionIndexOutOfBounds => {
-                return Err(JitError::ThreadErrorFunctionIndexOutOfBounds);
-            }
-            ThreadStatus::ErrorListIndexOutOfBounds => {
-                return Err(JitError::ThreadErrorListIndexOutOfBounds);
-            }
-            ThreadStatus::ErrorDivisionByZero => {
-                return Err(JitError::ThreadErrorDivisionByZero);
-            }
+            Some(Value::Boolean(boolean))
         }
-    }
+        Type::Byte => {
+            let byte = unsafe { return_register.byte };
 
-    info!("JIT execution completed with type {return_type}");
+            Some(Value::Byte(byte))
+        }
+        Type::Character => {
+            let character = unsafe { return_register.character };
+
+            Some(Value::Character(character))
+        }
+        Type::Float => {
+            let float = unsafe { return_register.float };
+
+            Some(Value::Float(float))
+        }
+        Type::Integer => {
+            let integer = unsafe { return_register.integer };
+
+            Some(Value::Integer(integer))
+        }
+        Type::String => {
+            let string = {
+                let object_pointer = unsafe { return_register.object_pointer };
+                let object = unsafe { &*object_pointer };
+
+                object
+                    .as_string()
+                    .cloned()
+                    .ok_or(JitError::InvalidConstantType {
+                        expected_type: OperandType::STRING,
+                    })
+            }?;
+
+            Some(Value::String(string))
+        }
+        Type::List(_) => {
+            let list = get_list_from_register(return_register, return_type)?;
+
+            Some(Value::List(list))
+        }
+        Type::Function(_) => todo!("Error"),
+    };
+
+    info!("JIT execution completed, returning {return_value:?} with type {return_type}");
     debug!("{}", object_pool.report());
 
-    match return_type {
-        OperandType::NONE => Ok(None),
-        OperandType::BOOLEAN => {
-            let boolean = get_boolean_from_register(return_register);
-
-            Ok(Some(Value::Boolean(boolean)))
-        }
-        OperandType::BYTE => {
-            let byte = get_byte_from_register(return_register);
-
-            Ok(Some(Value::Byte(byte)))
-        }
-        OperandType::CHARACTER => {
-            let character = get_character_from_register(return_register);
-
-            Ok(Some(Value::Character(character)))
-        }
-        OperandType::FLOAT => {
-            let float = get_float_from_register(return_register);
-
-            Ok(Some(Value::Float(float)))
-        }
-        OperandType::INTEGER => {
-            let integer = get_integer_from_register(return_register);
-
-            Ok(Some(Value::Integer(integer)))
-        }
-        OperandType::STRING => {
-            let string = get_string_from_register(return_register)?;
-
-            Ok(Some(Value::String(string)))
-        }
-        OperandType::LIST_BOOLEAN
-        | OperandType::LIST_BYTE
-        | OperandType::LIST_CHARACTER
-        | OperandType::LIST_FLOAT
-        | OperandType::LIST_INTEGER
-        | OperandType::LIST_STRING
-        | OperandType::LIST_LIST
-        | OperandType::LIST_FUNCTION => {
-            let list_type = &program.main_prototype().function_type.return_type;
-            let list = get_list_from_register(return_register, list_type)?;
-
-            Ok(Some(Value::List(list)))
-        }
-        _ => todo!(),
-    }
+    Ok(return_value)
 }
 
 #[repr(C)]
 pub enum ThreadStatus {
-    Continue = 0,
-    Return = 1,
+    Ok = 0,
+    ErrorDivisionByZero = 1,
     ErrorFunctionIndexOutOfBounds = 2,
     ErrorListIndexOutOfBounds = 3,
-    ErrorDivisionByZero = 4,
 }
 
 impl ThreadStatus {
@@ -189,57 +167,24 @@ impl ThreadStatus {
 
 #[repr(C)]
 pub struct ThreadContext<'a> {
-    pub call_stack_vec_pointer: *mut Vec<u8>,
-    pub call_stack_buffer_pointer: *mut u8,
-    pub call_stack_allocated_length_pointer: *mut usize,
-    pub call_stack_used_length_pointer: *mut usize,
+    pub register_vec_pointer: *mut Vec<Register>,
+    pub register_buffer_pointer: *mut Register,
 
-    pub register_stack_vec_pointer: *mut Vec<Register>,
-    pub register_stack_buffer_pointer: *mut Register,
-    pub register_stack_allocated_length_pointer: *mut usize,
-    pub register_stack_used_length_pointer: *mut usize,
+    pub register_tag_vec_pointer: *mut Vec<RegisterTag>,
+    pub register_tag_buffer_pointer: *mut RegisterTag,
 
-    pub register_tags_vec_pointer: *mut Vec<RegisterTag>,
-    pub register_tags_buffer_pointer: *mut RegisterTag,
+    pub registers_allocated: usize,
+    pub registers_used: usize,
+
+    pub continuation_vec_pointer: *mut Vec<Continuation>,
+    pub continuation_buffer_pointer: *mut Continuation,
+
+    pub continuations_allocated: usize,
+    pub continuations_used: usize,
 
     pub object_pool_pointer: *mut ObjectPool<'a>,
 
-    pub return_register_pointer: *mut Register,
-    pub return_type_pointer: *mut OperandType,
-
     pub status: ThreadStatus,
-}
-
-fn get_boolean_from_register(register: Register) -> bool {
-    unsafe { register.boolean }
-}
-
-fn get_byte_from_register(register: Register) -> u8 {
-    unsafe { register.byte }
-}
-
-fn get_character_from_register(register: Register) -> char {
-    unsafe { register.character }
-}
-
-fn get_float_from_register(register: Register) -> f64 {
-    unsafe { register.float }
-}
-
-fn get_integer_from_register(register: Register) -> i64 {
-    unsafe { register.integer }
-}
-
-fn get_string_from_register(register: Register) -> Result<String, JitError> {
-    let object_pointer = unsafe { register.object_pointer };
-    let object = unsafe { &*object_pointer };
-
-    object
-        .as_string()
-        .cloned()
-        .ok_or(JitError::InvalidConstantType {
-            expected_type: OperandType::STRING,
-        })
 }
 
 fn get_list_from_register(register: Register, full_type: &Type) -> Result<List, JitError> {
@@ -269,8 +214,8 @@ fn get_list_from_register(register: Register, full_type: &Type) -> Result<List, 
                     let string = match &object.value {
                         ObjectValue::String(string) => string.clone(),
                         _ => {
-                            return Err(JitError::InvalidConstantType {
-                                expected_type: OperandType::LIST_STRING,
+                            return Err(JitError::InvalidObjectValue {
+                                expected: OperandType::STRING,
                             });
                         }
                     };
@@ -300,8 +245,8 @@ fn get_list_from_register(register: Register, full_type: &Type) -> Result<List, 
                             let inner_list_type = if let Type::List(inner_item_type) = item_type {
                                 inner_item_type.as_ref()
                             } else {
-                                return Err(JitError::InvalidConstantType {
-                                    expected_type: item_type.as_operand_type(),
+                                return Err(JitError::InvalidObjectType {
+                                    expected: item_type.clone(),
                                 });
                             };
 

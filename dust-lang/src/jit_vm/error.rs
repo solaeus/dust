@@ -6,6 +6,7 @@ use crate::{
     instruction::{MemoryKind, OperandType, Operation},
     resolver::TypeId,
     source::SourceFileId,
+    r#type::Type,
 };
 
 #[derive(Debug)]
@@ -29,10 +30,10 @@ pub enum JitError {
         drop_list_end: u16,
         total_safepoint_count: usize,
     },
-    UnhandledOperation {
+    UnsupportedOperation {
         operation: Operation,
     },
-    UnhandledNativeFunction {
+    UnsopportedNativeFunction {
         function_name: String,
     },
     UnsupportedMemoryKind {
@@ -55,6 +56,12 @@ pub enum JitError {
     InvalidConstantType {
         expected_type: OperandType,
     },
+    InvalidObjectType {
+        expected: Type,
+    },
+    InvalidObjectValue {
+        expected: OperandType,
+    },
     RegisterIndexOutOfBounds {
         register_index: u16,
         total_register_count: usize,
@@ -74,6 +81,14 @@ pub enum JitError {
     ThreadErrorFunctionIndexOutOfBounds,
     ThreadErrorListIndexOutOfBounds,
     ThreadErrorDivisionByZero,
+    MissingPrototype {
+        index: usize,
+        total: usize,
+    },
+    InstructionIndexOutOfBounds {
+        instruction_index: usize,
+        total_instruction_count: usize,
+    },
 }
 
 impl AnnotatedError for JitError {
@@ -93,6 +108,21 @@ impl AnnotatedError for JitError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
+            JitError::UnsupportedOperation { operation } => {
+                let title = format!("Unsupported operation in JIT: {:?}", operation);
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::UnsopportedNativeFunction { function_name } => {
+                let title = format!("Unsupported native function in JIT: {}", function_name);
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::UnsupportedMemoryKind { memory_kind } => {
+                let title = format!("Unsupported memory kind in JIT: {:?}", memory_kind);
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
             JitError::DropListRangeOutOfBounds {
                 drop_list_start,
                 drop_list_end,
@@ -102,21 +132,6 @@ impl AnnotatedError for JitError {
                     "Drop list range [{}, {}) is out of bounds (safepoints: {})",
                     drop_list_start, drop_list_end, total_safepoint_count
                 );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            JitError::UnhandledOperation { operation } => {
-                let title = format!("Unhandled operation in JIT: {:?}", operation);
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            JitError::UnhandledNativeFunction { function_name } => {
-                let title = format!("Unhandled native function in JIT: {}", function_name);
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            JitError::UnsupportedMemoryKind { memory_kind } => {
-                let title = format!("Unsupported memory kind in JIT: {:?}", memory_kind);
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
@@ -157,6 +172,16 @@ impl AnnotatedError for JitError {
             }
             JitError::InvalidConstantType { expected_type } => {
                 let title = format!("Invalid constant type; expected {:?}", expected_type);
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::InvalidObjectType { expected } => {
+                let title = format!("Invalid object type; expected {:?}", expected);
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::InvalidObjectValue { expected } => {
+                let title = format!("Invalid object value; expected {:?}", expected);
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
@@ -204,6 +229,14 @@ impl AnnotatedError for JitError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
+            JitError::MissingPrototype { index, total } => {
+                let title = format!(
+                    "Missing prototype at index {} (total prototypes: {})",
+                    index, total
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
             JitError::ThreadErrorFunctionIndexOutOfBounds => {
                 let title = "Function index out of bounds".to_string();
 
@@ -216,6 +249,17 @@ impl AnnotatedError for JitError {
             }
             JitError::ThreadErrorDivisionByZero => {
                 let title = "Division by zero".to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::InstructionIndexOutOfBounds {
+                instruction_index,
+                total_instruction_count,
+            } => {
+                let title = format!(
+                    "Instruction index {} out of bounds (total instructions: {})",
+                    instruction_index, total_instruction_count
+                );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }

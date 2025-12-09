@@ -11,11 +11,10 @@ pub unsafe extern "C" fn allocate_list(
 ) -> i64 {
     let thread_context = unsafe { &mut *thread_context };
     let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
-    let register_stack = unsafe { &mut *thread_context.register_stack_vec_pointer };
-    let register_tags = unsafe { &mut *thread_context.register_tags_vec_pointer };
-    let register_stack_used_length = unsafe { *thread_context.register_stack_used_length_pointer };
-    let register_window = &register_stack[0..register_stack_used_length];
-    let register_tags_window = &register_tags[0..register_stack_used_length];
+    let register_stack = unsafe { &mut *thread_context.register_vec_pointer };
+    let register_tags = unsafe { &mut *thread_context.register_tag_vec_pointer };
+    let register_window = &register_stack[0..thread_context.registers_used];
+    let register_tags_window = &register_tags[0..thread_context.registers_used];
     let object = match OperandType(list_type as u8) {
         OperandType::LIST_BOOLEAN => Object::boolean_list(Vec::with_capacity(list_length)),
         OperandType::LIST_BYTE => Object::byte_list(Vec::with_capacity(list_length)),
