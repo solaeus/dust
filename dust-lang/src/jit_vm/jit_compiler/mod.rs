@@ -3,12 +3,10 @@ mod instruction_compiler;
 use std::mem::{offset_of, transmute};
 
 use cranelift::{
-    codegen::ir::{FuncRef, InstBuilder},
+    codegen::ir::InstBuilder,
     prelude::{
         AbiParam, FunctionBuilder, FunctionBuilderContext, MemFlags, Signature,
-        Value as CraneliftValue, Variable,
-        isa::CallConv,
-        types::{F64, I8, I64},
+        Value as CraneliftValue, Variable, isa::CallConv, types::I64,
     },
 };
 use cranelift_jit::{JITBuilder, JITModule};
@@ -109,8 +107,8 @@ impl<'a> JitCompiler<'a> {
     }
 
     fn compile_program(&mut self) -> Result<JitLogic, JitError> {
-        let mut main_function_id = FuncId::from_u32(0);
         let compile_order = get_compile_order(self.program);
+        let mut main_function_id = FuncId::from_u32(0);
 
         for index in compile_order {
             let function_id = self.compile_prototype(index)?;
@@ -119,6 +117,13 @@ impl<'a> JitCompiler<'a> {
                 main_function_id = function_id;
             }
         }
+
+        self.module
+            .finalize_definitions()
+            .map_err(|error| JitError::CraneliftModuleError {
+                error: Box::new(error),
+                cranelift_ir: String::new(),
+            })?;
 
         let program_function_pointer = self.module.get_finalized_function(main_function_id);
         let jit_logic = unsafe { transmute::<*const u8, JitLogic>(program_function_pointer) };
@@ -139,7 +144,7 @@ impl<'a> JitCompiler<'a> {
         let segments = self.create_execution_segments(prototype)?;
 
         for segment in &segments {
-            self.compile_segment(prototype, segment, &segments)?;
+            self.compile_segment(segment, prototype)?;
         }
 
         let entry_function_id = segments.iter().last().unwrap().function_id;
@@ -149,9 +154,8 @@ impl<'a> JitCompiler<'a> {
 
     fn compile_segment(
         &mut self,
-        prototype: &Prototype,
         segment: &ExecutionSegment,
-        segments: &[ExecutionSegment],
+        prototype: &Prototype,
     ) -> Result<(), JitError> {
         let mut context = self.module.make_context();
         let mut builder_context = FunctionBuilderContext::new();
@@ -197,31 +201,40 @@ impl<'a> JitCompiler<'a> {
             thread_context,
             offset_of!(ThreadContext, continuation_buffer_pointer) as i32,
         );
-        let continuations_used = builder.ins().load(
-            I64,
-            MemFlags::new(),
-            thread_context,
-            offset_of!(ThreadContext, continuations_used) as i32,
-        );
-        let last_index = builder.ins().iadd_imm(continuations_used, -1);
-        let last_continuation_offset = builder
-            .ins()
-            .imul_imm(last_index, size_of::<Continuation>() as i64);
-        let last_continuation_address = builder
-            .ins()
-            .iadd(continuation_buffer, last_continuation_offset);
-        let base_register_index = builder.ins().load(
-            I64,
-            MemFlags::new(),
-            last_continuation_address,
-            offset_of!(Continuation, base_register_index) as i32,
-        );
-        let continuation_function = builder.ins().load(
-            pointer_type,
-            MemFlags::new(),
-            last_continuation_address,
-            offset_of!(Continuation, function) as i32,
-        );
+        let (base_register_index, continuation_function) =
+            if prototype.index == 0 && segment.is_entry {
+                let zero = builder.ins().iconst(pointer_type, 0);
+
+                (zero, None)
+            } else {
+                let continuations_used = builder.ins().load(
+                    I64,
+                    MemFlags::new(),
+                    thread_context,
+                    offset_of!(ThreadContext, continuations_used) as i32,
+                );
+                let last_index = builder.ins().iadd_imm(continuations_used, -1);
+                let last_continuation_offset = builder
+                    .ins()
+                    .imul_imm(last_index, size_of::<Continuation>() as i64);
+                let last_continuation_address = builder
+                    .ins()
+                    .iadd(continuation_buffer, last_continuation_offset);
+                let base_register_index = builder.ins().load(
+                    I64,
+                    MemFlags::new(),
+                    last_continuation_address,
+                    offset_of!(Continuation, base_register_index) as i32,
+                );
+                let continuation_function = builder.ins().load(
+                    pointer_type,
+                    MemFlags::new(),
+                    last_continuation_address,
+                    offset_of!(Continuation, function) as i32,
+                );
+
+                (base_register_index, Some(continuation_function))
+            };
 
         let mut ssa_registers = {
             let mut variables = Vec::with_capacity(prototype.register_count as usize);
@@ -265,15 +278,15 @@ impl<'a> JitCompiler<'a> {
         builder.ins().jump(instruction_blocks[0], &[]);
 
         let mut instruction_compiler = InstructionCompiler {
-            is_entry_segment: segment.is_entry,
             instruction_blocks: &instruction_blocks,
+            constants: &self.program.constants,
             ssa_registers: &mut ssa_registers,
             register_tags_buffer_pointer,
             base_register_index,
             continuation_function,
-            thread_context,
-            pointer_type,
             continuation_signature: &self.continuation_signature,
+            thread_context,
+            module: &mut self.module,
         };
 
         for (block_index, ip) in (segment.start_ip..segment.end_ip).enumerate() {
@@ -386,331 +399,9 @@ impl<'a> JitCompiler<'a> {
             builder.ins().store(MemFlags::new(), value, addr, 0);
         }
     }
-
-    fn declare_imported_function(
-        &mut self,
-        name: &str,
-        signature: Signature,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let function_id = self
-            .module
-            .declare_function(name, Linkage::Import, &signature)
-            .map_err(|error| JitError::CraneliftModuleError {
-                error: Box::new(error),
-                cranelift_ir: function_builder.func.display().to_string(),
-            })?;
-        let function_reference = self
-            .module
-            .declare_func_in_func(function_id, function_builder.func);
-
-        Ok(function_reference)
-    }
-
-    fn get_allocate_list_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature.params.extend([
-            AbiParam::new(I8),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function("allocate_list", signature, function_builder)
-    }
-
-    fn get_insert_into_list_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature
-            .params
-            .extend([AbiParam::new(I64), AbiParam::new(I64), AbiParam::new(I64)]);
-        self.declare_imported_function("insert_into_list", signature, function_builder)
-    }
-
-    fn get_get_from_list_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature.params.extend([
-            AbiParam::new(I64),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function("get_from_list", signature, function_builder)
-    }
-
-    fn get_compare_lists_equal_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        signature.returns.push(AbiParam::new(I8));
-        self.declare_imported_function("compare_lists_equal", signature, function_builder)
-    }
-
-    fn get_compare_lists_less_than_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        signature.returns.push(AbiParam::new(I8));
-        self.declare_imported_function("compare_lists_less_than", signature, function_builder)
-    }
-
-    fn get_compare_lists_less_than_equal_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        signature.returns.push(AbiParam::new(I8));
-        self.declare_imported_function("compare_lists_less_than_equal", signature, function_builder)
-    }
-
-    fn get_allocate_string_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function("allocate_string", signature, function_builder)
-    }
-
-    fn get_concatenate_strings_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
-        signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function("concatenate_strings", signature, function_builder)
-    }
-
-    fn get_concatenate_character_string_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature.params.extend([
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
-        signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function("concatenate_character_string", signature, function_builder)
-    }
-
-    fn get_concatenate_string_character_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function("concatenate_string_character", signature, function_builder)
-    }
-
-    fn get_concatenate_characters_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature.params.extend([
-            AbiParam::new(I64),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
-        signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function("concatenate_characters", signature, function_builder)
-    }
-
-    fn get_compare_strings_equal_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        signature.returns.push(AbiParam::new(I8));
-        self.declare_imported_function("compare_strings_equal", signature, function_builder)
-    }
-
-    fn get_compare_strings_less_than_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        signature.returns.push(AbiParam::new(I8));
-        self.declare_imported_function("compare_strings_less_than", signature, function_builder)
-    }
-
-    fn get_compare_strings_less_than_equal_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        signature.returns.push(AbiParam::new(I8));
-        self.declare_imported_function(
-            "compare_strings_less_than_equal",
-            signature,
-            function_builder,
-        )
-    }
-
-    fn get_integer_to_string_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature
-            .params
-            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
-        signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function("integer_to_string", signature, function_builder)
-    }
-
-    fn get_read_line_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature.params.push(AbiParam::new(pointer_type));
-        signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function("read_line", signature, function_builder)
-    }
-
-    fn get_write_line_integer_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature
-            .params
-            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
-        self.declare_imported_function("write_line_integer", signature, function_builder)
-    }
-
-    fn get_write_line_string_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        self.declare_imported_function("write_line_string", signature, function_builder)
-    }
-
-    fn get_integer_power_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature
-            .params
-            .extend([AbiParam::new(I64), AbiParam::new(I64)]);
-        signature.returns.push(AbiParam::new(I64));
-        self.declare_imported_function("integer_power", signature, function_builder)
-    }
-
-    fn get_float_power_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature
-            .params
-            .extend([AbiParam::new(F64), AbiParam::new(F64)]);
-        signature.returns.push(AbiParam::new(F64));
-        self.declare_imported_function("float_power", signature, function_builder)
-    }
-
-    #[cfg(debug_assertions)]
-    fn get_log_operation_and_ip_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature.params.push(AbiParam::new(I8));
-        signature.params.push(AbiParam::new(I64));
-        self.declare_imported_function("log_operation_and_ip", signature, function_builder)
-    }
 }
 
-pub type JitLogic = extern "C" fn(&mut ThreadContext) -> Register;
+pub type JitLogic = extern "C" fn(&mut ThreadContext) -> i64;
 
 #[derive(Clone, Copy)]
 pub struct Continuation {

@@ -6,9 +6,10 @@ use crate::{
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn allocate_list(
     list_type: i8,
-    list_length: usize,
+    list_length: i64,
     thread_context: *mut ThreadContext,
 ) -> i64 {
+    let list_length = list_length as usize;
     let thread_context = unsafe { &mut *thread_context };
     let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
     let register_stack = unsafe { &mut *thread_context.register_vec_pointer };
@@ -36,8 +37,8 @@ pub unsafe extern "C" fn allocate_list(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn insert_into_list(list_pointer: i64, index: i64, item: i64) {
-    let object = unsafe { &mut *(list_pointer as *mut Object) };
+pub unsafe extern "C" fn insert_into_list(list: *mut Object, index: i64, item: i64) {
+    let object = unsafe { &mut *list };
     let index = index as usize;
 
     match &mut object.value {

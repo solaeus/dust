@@ -5,7 +5,7 @@ use super::{Address, Instruction, InstructionFields, OperandType, Operation};
 pub struct SetList {
     pub destination_list: u16,
     pub item_source: Address,
-    pub list_index: u16,
+    pub index: Address,
     pub item_type: OperandType,
 }
 
@@ -13,13 +13,13 @@ impl From<&Instruction> for SetList {
     fn from(instruction: &Instruction) -> Self {
         let destination_list = instruction.a_field();
         let item_source = instruction.b_address();
-        let list_index = instruction.c_field();
+        let index = instruction.c_address();
         let item_type = instruction.operand_type();
 
         SetList {
             destination_list,
             item_source,
-            list_index,
+            index,
             item_type,
         }
     }
@@ -33,7 +33,10 @@ impl From<SetList> for Instruction {
             index: b_field,
             memory: b_memory_kind,
         } = set_list.item_source;
-        let c_field = set_list.list_index;
+        let Address {
+            index: c_field,
+            memory: c_memory_kind,
+        } = set_list.index;
         let operand_type = set_list.item_type;
 
         InstructionFields {
@@ -42,6 +45,7 @@ impl From<SetList> for Instruction {
             b_field,
             b_memory_kind,
             c_field,
+            c_memory_kind,
             operand_type,
             ..Default::default()
         }
@@ -54,11 +58,13 @@ impl Display for SetList {
         let SetList {
             destination_list,
             item_source,
-            list_index,
+            index,
             item_type,
         } = self;
 
-        write!(f, "reg_{destination_list}[{list_index}] = ")?;
+        write!(f, "reg_{destination_list}[")?;
+        index.display(f, OperandType::INTEGER)?;
+        write!(f, "] = ")?;
         item_source.display(f, *item_type)
     }
 }

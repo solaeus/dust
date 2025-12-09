@@ -15,7 +15,7 @@ use crate::{
     dust_crate::Program,
     instruction::OperandType,
     jit_vm::{
-        JitError, ObjectPool, Register, RegisterTag,
+        JitError, Object, ObjectPool, Register, RegisterTag,
         jit_compiler::{Continuation, JitCompiler},
         object::ObjectValue,
     },
@@ -91,38 +91,34 @@ fn run(
         status: ThreadStatus::Ok,
     };
 
-    let return_register = (jit_logic)(&mut thread_context);
+    let encoded_return_value = (jit_logic)(&mut thread_context);
     let return_type = &program.prototypes[0].function_type.return_type;
     let return_value = match *return_type {
         Type::None => None,
         Type::Boolean => {
-            let boolean = unsafe { return_register.boolean };
+            let boolean = encoded_return_value != 0;
 
             Some(Value::Boolean(boolean))
         }
         Type::Byte => {
-            let byte = unsafe { return_register.byte };
+            let byte = encoded_return_value as u8;
 
             Some(Value::Byte(byte))
         }
         Type::Character => {
-            let character = unsafe { return_register.character };
+            let character = char::from_u32(encoded_return_value as u32).unwrap_or_default();
 
             Some(Value::Character(character))
         }
         Type::Float => {
-            let float = unsafe { return_register.float };
+            let float = f64::from_bits(encoded_return_value as u64);
 
             Some(Value::Float(float))
         }
-        Type::Integer => {
-            let integer = unsafe { return_register.integer };
-
-            Some(Value::Integer(integer))
-        }
+        Type::Integer => Some(Value::Integer(encoded_return_value)),
         Type::String => {
             let string = {
-                let object_pointer = unsafe { return_register.object_pointer };
+                let object_pointer = encoded_return_value as *const Object;
                 let object = unsafe { &*object_pointer };
 
                 object
@@ -136,7 +132,8 @@ fn run(
             Some(Value::String(string))
         }
         Type::List(_) => {
-            let list = get_list_from_register(return_register, return_type)?;
+            let object_pointer = encoded_return_value as *const Object;
+            let list = get_list_from_object_pointer(object_pointer, return_type)?;
 
             Some(Value::List(list))
         }
@@ -187,8 +184,10 @@ pub struct ThreadContext<'a> {
     pub status: ThreadStatus,
 }
 
-fn get_list_from_register(register: Register, full_type: &Type) -> Result<List, JitError> {
-    let object_pointer = unsafe { register.object_pointer };
+fn get_list_from_object_pointer(
+    object_pointer: *const Object,
+    full_type: &Type,
+) -> Result<List, JitError> {
     let object = unsafe { &*object_pointer };
 
     match &object.value {
@@ -250,10 +249,8 @@ fn get_list_from_register(register: Register, full_type: &Type) -> Result<List, 
                                 });
                             };
 
-                            let inner_list = get_list_from_register(
-                                Register {
-                                    object_pointer: *inner_object_pointer as *mut _,
-                                },
+                            let inner_list = get_list_from_object_pointer(
+                                *inner_object_pointer,
                                 inner_list_type,
                             )?;
 

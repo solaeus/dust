@@ -16,10 +16,25 @@ fn list_boolean() {
         Prototype {
             function_type: FunctionType::new([], [], Type::list(Type::Boolean)),
             instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_BOOLEAN),
-                Instruction::set_list(0, Address::encoded(true as u16), 0, OperandType::BOOLEAN),
-                Instruction::set_list(0, Address::encoded(false as u16), 1, OperandType::BOOLEAN),
-                Instruction::set_list(0, Address::encoded(true as u16), 2, OperandType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(3), OperandType::LIST_BOOLEAN),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(true as u16),
+                    Address::constant(0),
+                    OperandType::BOOLEAN
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(false as u16),
+                    Address::constant(1),
+                    OperandType::BOOLEAN
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(true as u16),
+                    Address::constant(2),
+                    OperandType::BOOLEAN
+                ),
                 Instruction::r#return(true, Address::register(0), OperandType::LIST_BOOLEAN),
             ],
             register_count: 1,
@@ -38,10 +53,25 @@ fn list_byte() {
         Prototype {
             function_type: FunctionType::new([], [], Type::list(Type::Byte)),
             instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_BYTE),
-                Instruction::set_list(0, Address::encoded(42), 0, OperandType::BYTE),
-                Instruction::set_list(0, Address::encoded(43), 1, OperandType::BYTE),
-                Instruction::set_list(0, Address::encoded(44), 2, OperandType::BYTE),
+                Instruction::new_list(0, Address::constant(3), OperandType::LIST_BYTE),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(42),
+                    Address::constant(0),
+                    OperandType::BYTE
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(43),
+                    Address::constant(1),
+                    OperandType::BYTE
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(44),
+                    Address::constant(2),
+                    OperandType::BYTE
+                ),
                 Instruction::r#return(true, Address::register(0), OperandType::LIST_BYTE),
             ],
             register_count: 1,
@@ -60,10 +90,25 @@ fn list_character() {
         Prototype {
             function_type: FunctionType::new([], [], Type::list(Type::Character)),
             instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_CHARACTER),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::CHARACTER),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::CHARACTER),
-                Instruction::set_list(0, Address::constant(2), 2, OperandType::CHARACTER),
+                Instruction::new_list(0, Address::constant(6), OperandType::LIST_CHARACTER),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::CHARACTER
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::CHARACTER
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(4),
+                    Address::constant(5),
+                    OperandType::CHARACTER
+                ),
                 Instruction::r#return(true, Address::register(0), OperandType::LIST_CHARACTER),
             ],
             register_count: 1,
@@ -82,10 +127,25 @@ fn list_float() {
         Prototype {
             function_type: FunctionType::new([], [], Type::list(Type::Float)),
             instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_FLOAT),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::FLOAT),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::FLOAT),
-                Instruction::set_list(0, Address::constant(2), 2, OperandType::FLOAT),
+                Instruction::new_list(0, Address::constant(6), OperandType::LIST_FLOAT),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::FLOAT
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::FLOAT
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(4),
+                    Address::constant(5),
+                    OperandType::FLOAT
+                ),
                 Instruction::r#return(true, Address::register(0), OperandType::LIST_FLOAT),
             ],
             register_count: 1,
@@ -104,10 +164,25 @@ fn list_integer() {
         Prototype {
             function_type: FunctionType::new([], [], Type::list(Type::Integer)),
             instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_INTEGER),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::INTEGER),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::INTEGER),
-                Instruction::set_list(0, Address::constant(2), 2, OperandType::INTEGER),
+                Instruction::new_list(0, Address::constant(3), OperandType::LIST_INTEGER),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(0),
+                    OperandType::INTEGER
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(3),
+                    Address::constant(2),
+                    OperandType::INTEGER
+                ),
                 Instruction::r#return(true, Address::register(0), OperandType::LIST_INTEGER),
             ],
             register_count: 1,
@@ -126,12 +201,32 @@ fn list_equal() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::new_list(0, 2, OperandType::LIST_BOOLEAN),
-                Instruction::set_list(0, Address::encoded(true as u16), 0, OperandType::BOOLEAN),
-                Instruction::set_list(0, Address::encoded(false as u16), 1, OperandType::BOOLEAN),
-                Instruction::new_list(1, 2, OperandType::LIST_BOOLEAN),
-                Instruction::set_list(1, Address::encoded(true as u16), 0, OperandType::BOOLEAN),
-                Instruction::set_list(1, Address::encoded(false as u16), 1, OperandType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(2), OperandType::LIST_BOOLEAN),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(true as u16),
+                    Address::constant(0),
+                    OperandType::BOOLEAN
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(false as u16),
+                    Address::constant(1),
+                    OperandType::BOOLEAN
+                ),
+                Instruction::new_list(1, Address::constant(2), OperandType::LIST_BOOLEAN),
+                Instruction::set_list(
+                    1,
+                    Address::encoded(true as u16),
+                    Address::constant(0),
+                    OperandType::BOOLEAN
+                ),
+                Instruction::set_list(
+                    1,
+                    Address::encoded(false as u16),
+                    Address::constant(1),
+                    OperandType::BOOLEAN
+                ),
                 Instruction::equal(
                     true,
                     Address::register(0),
@@ -164,12 +259,32 @@ fn list_not_equal() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::new_list(0, 2, OperandType::LIST_BYTE),
-                Instruction::set_list(0, Address::encoded(0x2A), 0, OperandType::BYTE),
-                Instruction::set_list(0, Address::encoded(0x2B), 1, OperandType::BYTE),
-                Instruction::new_list(1, 2, OperandType::LIST_BYTE),
-                Instruction::set_list(1, Address::encoded(0x2B), 0, OperandType::BYTE),
-                Instruction::set_list(1, Address::encoded(0x2A), 1, OperandType::BYTE),
+                Instruction::new_list(0, Address::constant(2), OperandType::LIST_BYTE),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(0x2A),
+                    Address::constant(0),
+                    OperandType::BYTE
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(0x2B),
+                    Address::constant(1),
+                    OperandType::BYTE
+                ),
+                Instruction::new_list(1, Address::constant(2), OperandType::LIST_BYTE),
+                Instruction::set_list(
+                    1,
+                    Address::encoded(0x2B),
+                    Address::constant(0),
+                    OperandType::BYTE
+                ),
+                Instruction::set_list(
+                    1,
+                    Address::encoded(0x2A),
+                    Address::constant(1),
+                    OperandType::BYTE
+                ),
                 Instruction::equal(
                     false,
                     Address::register(0),
@@ -202,12 +317,32 @@ fn list_greater_than() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::new_list(0, 2, OperandType::LIST_CHARACTER),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::CHARACTER),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::CHARACTER),
-                Instruction::new_list(1, 2, OperandType::LIST_CHARACTER),
-                Instruction::set_list(1, Address::constant(1), 0, OperandType::CHARACTER),
-                Instruction::set_list(1, Address::constant(0), 1, OperandType::CHARACTER),
+                Instruction::new_list(0, Address::constant(4), OperandType::LIST_CHARACTER),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::CHARACTER
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::CHARACTER
+                ),
+                Instruction::new_list(1, Address::constant(4), OperandType::LIST_CHARACTER),
+                Instruction::set_list(
+                    1,
+                    Address::constant(2),
+                    Address::constant(1),
+                    OperandType::CHARACTER
+                ),
+                Instruction::set_list(
+                    1,
+                    Address::constant(0),
+                    Address::constant(3),
+                    OperandType::CHARACTER
+                ),
                 Instruction::less_equal(
                     false,
                     Address::register(0),
@@ -240,12 +375,32 @@ fn list_less_than() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::new_list(0, 2, OperandType::LIST_FLOAT),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::FLOAT),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::FLOAT),
-                Instruction::new_list(1, 2, OperandType::LIST_FLOAT),
-                Instruction::set_list(1, Address::constant(1), 0, OperandType::FLOAT),
-                Instruction::set_list(1, Address::constant(0), 1, OperandType::FLOAT),
+                Instruction::new_list(0, Address::constant(4), OperandType::LIST_FLOAT),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::FLOAT
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::FLOAT
+                ),
+                Instruction::new_list(1, Address::constant(4), OperandType::LIST_FLOAT),
+                Instruction::set_list(
+                    1,
+                    Address::constant(2),
+                    Address::constant(1),
+                    OperandType::FLOAT
+                ),
+                Instruction::set_list(
+                    1,
+                    Address::constant(0),
+                    Address::constant(3),
+                    OperandType::FLOAT
+                ),
                 Instruction::less(
                     true,
                     Address::register(0),
@@ -278,12 +433,32 @@ fn list_greater_than_or_equal() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::new_list(0, 2, OperandType::LIST_INTEGER),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::INTEGER),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::INTEGER),
-                Instruction::new_list(1, 2, OperandType::LIST_INTEGER),
-                Instruction::set_list(1, Address::constant(0), 0, OperandType::INTEGER),
-                Instruction::set_list(1, Address::constant(1), 1, OperandType::INTEGER),
+                Instruction::new_list(0, Address::constant(2), OperandType::LIST_INTEGER),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(0),
+                    OperandType::INTEGER
+                ),
+                Instruction::new_list(1, Address::constant(2), OperandType::LIST_INTEGER),
+                Instruction::set_list(
+                    1,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::set_list(
+                    1,
+                    Address::constant(2),
+                    Address::constant(0),
+                    OperandType::INTEGER
+                ),
                 Instruction::less(
                     false,
                     Address::register(0),
@@ -316,12 +491,32 @@ fn list_less_than_or_equal() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::new_list(0, 2, OperandType::LIST_STRING),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::STRING),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::STRING),
-                Instruction::new_list(1, 2, OperandType::LIST_STRING),
-                Instruction::set_list(1, Address::constant(0), 0, OperandType::STRING),
-                Instruction::set_list(1, Address::constant(1), 1, OperandType::STRING),
+                Instruction::new_list(0, Address::constant(4), OperandType::LIST_STRING),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::STRING
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::STRING
+                ),
+                Instruction::new_list(1, Address::constant(4), OperandType::LIST_STRING),
+                Instruction::set_list(
+                    1,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::STRING
+                ),
+                Instruction::set_list(
+                    1,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::STRING
+                ),
                 Instruction::less_equal(
                     true,
                     Address::register(0),
@@ -354,10 +549,25 @@ fn list_index_boolean() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_BOOLEAN),
-                Instruction::set_list(0, Address::encoded(true as u16), 0, OperandType::BOOLEAN),
-                Instruction::set_list(0, Address::encoded(false as u16), 1, OperandType::BOOLEAN),
-                Instruction::set_list(0, Address::encoded(true as u16), 2, OperandType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(3), OperandType::LIST_BOOLEAN),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(true as u16),
+                    Address::constant(0),
+                    OperandType::BOOLEAN
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(false as u16),
+                    Address::constant(1),
+                    OperandType::BOOLEAN
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(true as u16),
+                    Address::constant(2),
+                    OperandType::BOOLEAN
+                ),
                 Instruction::get_list(
                     1,
                     Address::register(0),
@@ -382,14 +592,29 @@ fn list_index_byte() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_BYTE),
-                Instruction::set_list(0, Address::encoded(0x2A), 0, OperandType::BYTE),
-                Instruction::set_list(0, Address::encoded(0x2B), 1, OperandType::BYTE),
-                Instruction::set_list(0, Address::encoded(0x2C), 2, OperandType::BYTE),
+                Instruction::new_list(0, Address::constant(3), OperandType::LIST_BYTE),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(0x2A),
+                    Address::constant(0),
+                    OperandType::BYTE
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(0x2B),
+                    Address::constant(1),
+                    OperandType::BYTE
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(0x2C),
+                    Address::constant(2),
+                    OperandType::BYTE
+                ),
                 Instruction::get_list(
                     1,
                     Address::register(0),
-                    Address::constant(0),
+                    Address::constant(1),
                     OperandType::BYTE
                 ),
                 Instruction::r#return(true, Address::register(1), OperandType::BYTE),
@@ -410,14 +635,29 @@ fn list_index_character() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Character),
             instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_CHARACTER),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::CHARACTER),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::CHARACTER),
-                Instruction::set_list(0, Address::constant(2), 2, OperandType::CHARACTER),
+                Instruction::new_list(0, Address::constant(6), OperandType::LIST_CHARACTER),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::CHARACTER
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::CHARACTER
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(4),
+                    Address::constant(5),
+                    OperandType::CHARACTER
+                ),
                 Instruction::get_list(
                     1,
                     Address::register(0),
-                    Address::constant(3),
+                    Address::constant(5),
                     OperandType::CHARACTER
                 ),
                 Instruction::r#return(true, Address::register(1), OperandType::CHARACTER),
@@ -438,10 +678,25 @@ fn list_index_float() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_FLOAT),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::FLOAT),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::FLOAT),
-                Instruction::set_list(0, Address::constant(2), 2, OperandType::FLOAT),
+                Instruction::new_list(0, Address::constant(6), OperandType::LIST_FLOAT),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::FLOAT
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::FLOAT
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(4),
+                    Address::constant(5),
+                    OperandType::FLOAT
+                ),
                 Instruction::get_list(
                     1,
                     Address::register(0),
@@ -466,14 +721,29 @@ fn list_index_integer() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_INTEGER),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::INTEGER),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::INTEGER),
-                Instruction::set_list(0, Address::constant(2), 2, OperandType::INTEGER),
+                Instruction::new_list(0, Address::constant(3), OperandType::LIST_INTEGER),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(0),
+                    OperandType::INTEGER
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(3),
+                    Address::constant(2),
+                    OperandType::INTEGER
+                ),
                 Instruction::get_list(
                     1,
                     Address::register(0),
-                    Address::constant(3),
+                    Address::constant(1),
                     OperandType::INTEGER
                 ),
                 Instruction::r#return(true, Address::register(1), OperandType::INTEGER),
@@ -494,14 +764,29 @@ fn list_index_string() {
         Prototype {
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_STRING),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::STRING),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::STRING),
-                Instruction::set_list(0, Address::constant(2), 2, OperandType::STRING),
+                Instruction::new_list(0, Address::constant(6), OperandType::LIST_STRING),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::STRING
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::STRING
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(4),
+                    Address::constant(5),
+                    OperandType::STRING
+                ),
                 Instruction::get_list(
                     1,
                     Address::register(0),
-                    Address::constant(3),
+                    Address::constant(5),
                     OperandType::STRING
                 ),
                 Instruction::r#return(true, Address::register(1), OperandType::STRING),
@@ -522,10 +807,25 @@ fn local_list_boolean() {
         Prototype {
             function_type: FunctionType::new([], [], Type::list(Type::Boolean)),
             instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_BOOLEAN),
-                Instruction::set_list(0, Address::encoded(true as u16), 0, OperandType::BOOLEAN),
-                Instruction::set_list(0, Address::encoded(false as u16), 1, OperandType::BOOLEAN),
-                Instruction::set_list(0, Address::encoded(true as u16), 2, OperandType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(3), OperandType::LIST_BOOLEAN),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(true as u16),
+                    Address::constant(0),
+                    OperandType::BOOLEAN
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(false as u16),
+                    Address::constant(1),
+                    OperandType::BOOLEAN
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(true as u16),
+                    Address::constant(2),
+                    OperandType::BOOLEAN
+                ),
                 Instruction::r#return(true, Address::register(0), OperandType::LIST_BOOLEAN),
             ],
             register_count: 1,
@@ -544,12 +844,32 @@ fn local_list_equal() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::new_list(0, 2, OperandType::LIST_BOOLEAN),
-                Instruction::set_list(0, Address::encoded(true as u16), 0, OperandType::BOOLEAN),
-                Instruction::set_list(0, Address::encoded(false as u16), 1, OperandType::BOOLEAN),
-                Instruction::new_list(1, 2, OperandType::LIST_BOOLEAN),
-                Instruction::set_list(1, Address::encoded(true as u16), 0, OperandType::BOOLEAN),
-                Instruction::set_list(1, Address::encoded(false as u16), 1, OperandType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(2), OperandType::LIST_BOOLEAN),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(true as u16),
+                    Address::constant(0),
+                    OperandType::BOOLEAN
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(false as u16),
+                    Address::constant(1),
+                    OperandType::BOOLEAN
+                ),
+                Instruction::new_list(1, Address::constant(2), OperandType::LIST_BOOLEAN),
+                Instruction::set_list(
+                    1,
+                    Address::encoded(true as u16),
+                    Address::constant(0),
+                    OperandType::BOOLEAN
+                ),
+                Instruction::set_list(
+                    1,
+                    Address::encoded(false as u16),
+                    Address::constant(1),
+                    OperandType::BOOLEAN
+                ),
                 Instruction::equal(
                     true,
                     Address::register(0),
@@ -582,12 +902,32 @@ fn local_list_not_equal() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::new_list(0, 2, OperandType::LIST_BYTE),
-                Instruction::set_list(0, Address::encoded(0x2A), 0, OperandType::BYTE),
-                Instruction::set_list(0, Address::encoded(0x2B), 1, OperandType::BYTE),
-                Instruction::new_list(1, 2, OperandType::LIST_BYTE),
-                Instruction::set_list(1, Address::encoded(0x2B), 0, OperandType::BYTE),
-                Instruction::set_list(1, Address::encoded(0x2A), 1, OperandType::BYTE),
+                Instruction::new_list(0, Address::constant(2), OperandType::LIST_BYTE),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(0x2A),
+                    Address::constant(0),
+                    OperandType::BYTE
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::encoded(0x2B),
+                    Address::constant(1),
+                    OperandType::BYTE
+                ),
+                Instruction::new_list(1, Address::constant(2), OperandType::LIST_BYTE),
+                Instruction::set_list(
+                    1,
+                    Address::encoded(0x2B),
+                    Address::constant(0),
+                    OperandType::BYTE
+                ),
+                Instruction::set_list(
+                    1,
+                    Address::encoded(0x2A),
+                    Address::constant(1),
+                    OperandType::BYTE
+                ),
                 Instruction::equal(
                     false,
                     Address::register(0),
@@ -620,12 +960,32 @@ fn local_list_greater_than() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::new_list(0, 2, OperandType::LIST_CHARACTER),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::CHARACTER),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::CHARACTER),
-                Instruction::new_list(1, 2, OperandType::LIST_CHARACTER),
-                Instruction::set_list(1, Address::constant(1), 0, OperandType::CHARACTER),
-                Instruction::set_list(1, Address::constant(0), 1, OperandType::CHARACTER),
+                Instruction::new_list(0, Address::constant(4), OperandType::LIST_CHARACTER),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::CHARACTER
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::CHARACTER
+                ),
+                Instruction::new_list(1, Address::constant(4), OperandType::LIST_CHARACTER),
+                Instruction::set_list(
+                    1,
+                    Address::constant(2),
+                    Address::constant(1),
+                    OperandType::CHARACTER
+                ),
+                Instruction::set_list(
+                    1,
+                    Address::constant(0),
+                    Address::constant(3),
+                    OperandType::CHARACTER
+                ),
                 Instruction::less_equal(
                     false,
                     Address::register(0),
@@ -658,12 +1018,32 @@ fn local_list_less_than() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::new_list(0, 2, OperandType::LIST_FLOAT),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::FLOAT),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::FLOAT),
-                Instruction::new_list(1, 2, OperandType::LIST_FLOAT),
-                Instruction::set_list(1, Address::constant(1), 0, OperandType::FLOAT),
-                Instruction::set_list(1, Address::constant(0), 1, OperandType::FLOAT),
+                Instruction::new_list(0, Address::constant(4), OperandType::LIST_FLOAT),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::FLOAT
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::FLOAT
+                ),
+                Instruction::new_list(1, Address::constant(4), OperandType::LIST_FLOAT),
+                Instruction::set_list(
+                    1,
+                    Address::constant(2),
+                    Address::constant(1),
+                    OperandType::FLOAT
+                ),
+                Instruction::set_list(
+                    1,
+                    Address::constant(0),
+                    Address::constant(3),
+                    OperandType::FLOAT
+                ),
                 Instruction::less(
                     true,
                     Address::register(1),
@@ -696,12 +1076,32 @@ fn local_list_greater_than_or_equal() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::new_list(0, 2, OperandType::LIST_INTEGER),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::INTEGER),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::INTEGER),
-                Instruction::new_list(1, 2, OperandType::LIST_INTEGER),
-                Instruction::set_list(1, Address::constant(0), 0, OperandType::INTEGER),
-                Instruction::set_list(1, Address::constant(1), 1, OperandType::INTEGER),
+                Instruction::new_list(0, Address::constant(2), OperandType::LIST_INTEGER),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(0),
+                    OperandType::INTEGER
+                ),
+                Instruction::new_list(1, Address::constant(2), OperandType::LIST_INTEGER),
+                Instruction::set_list(
+                    1,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::INTEGER
+                ),
+                Instruction::set_list(
+                    1,
+                    Address::constant(2),
+                    Address::constant(0),
+                    OperandType::INTEGER
+                ),
                 Instruction::less(
                     false,
                     Address::register(0),
@@ -734,12 +1134,32 @@ fn local_list_less_than_or_equal() {
         Prototype {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
-                Instruction::new_list(0, 2, OperandType::LIST_STRING),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::STRING),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::STRING),
-                Instruction::new_list(1, 2, OperandType::LIST_STRING),
-                Instruction::set_list(1, Address::constant(0), 0, OperandType::STRING),
-                Instruction::set_list(1, Address::constant(1), 1, OperandType::STRING),
+                Instruction::new_list(0, Address::constant(4), OperandType::LIST_STRING),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::STRING
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::STRING
+                ),
+                Instruction::new_list(1, Address::constant(4), OperandType::LIST_STRING),
+                Instruction::set_list(
+                    1,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::STRING
+                ),
+                Instruction::set_list(
+                    1,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::STRING
+                ),
                 Instruction::less_equal(
                     true,
                     Address::register(0),
@@ -772,10 +1192,25 @@ fn list_string() {
         Prototype {
             function_type: FunctionType::new([], [], Type::list(Type::String)),
             instructions: vec![
-                Instruction::new_list(0, 3, OperandType::LIST_STRING),
-                Instruction::set_list(0, Address::constant(0), 0, OperandType::STRING),
-                Instruction::set_list(0, Address::constant(1), 1, OperandType::STRING),
-                Instruction::set_list(0, Address::constant(2), 2, OperandType::STRING),
+                Instruction::new_list(0, Address::constant(6), OperandType::LIST_STRING),
+                Instruction::set_list(
+                    0,
+                    Address::constant(0),
+                    Address::constant(1),
+                    OperandType::STRING
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(2),
+                    Address::constant(3),
+                    OperandType::STRING
+                ),
+                Instruction::set_list(
+                    0,
+                    Address::constant(4),
+                    Address::constant(5),
+                    OperandType::STRING
+                ),
                 Instruction::r#return(true, Address::register(0), OperandType::LIST_STRING),
             ],
             register_count: 1,

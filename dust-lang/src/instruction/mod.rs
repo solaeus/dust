@@ -228,7 +228,11 @@ impl Instruction {
         })
     }
 
-    pub fn new_list(destination: u16, initial_length: u16, list_type: OperandType) -> Instruction {
+    pub fn new_list(
+        destination: u16,
+        initial_length: Address,
+        list_type: OperandType,
+    ) -> Instruction {
         Instruction::from(NewList {
             destination,
             initial_length,
@@ -239,13 +243,13 @@ impl Instruction {
     pub fn set_list(
         destination_list: u16,
         item_source: Address,
-        list_index: u16,
+        index: Address,
         item_type: OperandType,
     ) -> Instruction {
         Instruction::from(SetList {
             destination_list,
             item_source,
-            list_index,
+            index,
             item_type,
         })
     }

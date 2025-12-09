@@ -1884,10 +1884,12 @@ impl<'a> PrototypeCompiler<'a> {
                 established_element_type_id = Some(element_type_id);
             }
 
+            let list_index_constant_index = self.context.constants.add_integer(list_index as i64);
+            let list_index_address = Address::constant(list_index_constant_index);
             let set_list_instruction = Instruction::set_list(
                 target.register,
                 element_address,
-                list_index as u16,
+                list_index_address,
                 element_operand_type,
             );
 
@@ -1905,9 +1907,11 @@ impl<'a> PrototypeCompiler<'a> {
                 type_id: list_type_id,
             },
         )?;
+        let child_count_constant_index = self.context.constants.add_integer(child_count as i64);
+        let child_count_address = Address::constant(child_count_constant_index);
 
         let new_list_instruction =
-            Instruction::new_list(target.register, child_count as u16, list_type_operand);
+            Instruction::new_list(target.register, child_count_address, list_type_operand);
 
         list_emission.instructions[0].0 = new_list_instruction;
 
