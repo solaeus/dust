@@ -44,9 +44,8 @@ pub enum JitError {
         function_index: u16,
         total_function_count: usize,
     },
-    ArgumentsRangeOutOfBounds {
-        arguments_start: u16,
-        arguments_end: u16,
+    CallArgumentIndexOutOfBounds {
+        argument_index: usize,
         total_argument_count: usize,
     },
     ConstantIndexOutOfBounds {
@@ -147,14 +146,13 @@ impl AnnotatedError for JitError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
-            JitError::ArgumentsRangeOutOfBounds {
-                arguments_start,
-                arguments_end,
+            JitError::CallArgumentIndexOutOfBounds {
+                argument_index,
                 total_argument_count,
             } => {
                 let title = format!(
-                    "Arguments list range {}..{} is out of bounds (total arguments: {})",
-                    arguments_start, arguments_end, total_argument_count
+                    "Call argument index {} out of bounds (total arguments: {})",
+                    argument_index, total_argument_count
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

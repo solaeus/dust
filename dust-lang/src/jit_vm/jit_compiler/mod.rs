@@ -5,8 +5,10 @@ use std::mem::{offset_of, transmute};
 use cranelift::{
     codegen::ir::InstBuilder,
     prelude::{
-        AbiParam, FunctionBuilder, FunctionBuilderContext, MemFlags, Signature,
-        Value as CraneliftValue, Variable, isa::CallConv, types::I64,
+        AbiParam, Configurable, FunctionBuilder, FunctionBuilderContext, MemFlags, Signature,
+        isa::CallConv,
+        settings::{self, Flags},
+        types::I64,
     },
 };
 use cranelift_jit::{JITBuilder, JITModule};
@@ -28,11 +30,24 @@ pub struct JitCompiler<'a> {
     module: JITModule,
     program: &'a Program,
     continuation_signature: Signature,
+    function_ids: Vec<FuncId>,
 }
 
 impl<'a> JitCompiler<'a> {
     pub fn new(program: &'a Program) -> Self {
-        let mut builder = JITBuilder::new(cranelift_module::default_libcall_names()).unwrap();
+        let mut settings_builder = settings::builder();
+
+        settings_builder
+            .set("preserve_frame_pointers", "true")
+            .expect("Failed to configure JIT frame pointers");
+
+        let flags = Flags::new(settings_builder);
+        let isa = cranelift_native::builder()
+            .expect("Failed to create native Cranelift ISA builder")
+            .finish(flags)
+            .expect("Failed to finish Cranelift ISA");
+
+        let mut builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
 
         builder
             .symbol("allocate_list", allocate_list as *const u8)
@@ -89,6 +104,7 @@ impl<'a> JitCompiler<'a> {
 
             signature.params.push(AbiParam::new(pointer_type)); // ThreadContext
             signature.params.push(AbiParam::new(I64)); // Return value
+            signature.returns.push(AbiParam::new(I64)); // Return value
 
             signature
         };
@@ -97,6 +113,7 @@ impl<'a> JitCompiler<'a> {
             module,
             program,
             continuation_signature,
+            function_ids: vec![FuncId::from_u32(0); program.prototypes.len()],
         }
     }
 
@@ -109,14 +126,9 @@ impl<'a> JitCompiler<'a> {
 
     fn compile_program(&mut self) -> Result<JitLogic, JitError> {
         let compile_order = get_compile_order(self.program);
-        let mut main_function_id = FuncId::from_u32(0);
 
         for index in compile_order {
-            let function_id = self.compile_prototype(index)?;
-
-            if index == 0 {
-                main_function_id = function_id;
-            }
+            self.function_ids[index] = self.compile_prototype(index)?;
         }
 
         self.module
@@ -126,6 +138,7 @@ impl<'a> JitCompiler<'a> {
                 cranelift_ir: String::new(),
             })?;
 
+        let main_function_id = self.function_ids[0];
         let program_function_pointer = self.module.get_finalized_function(main_function_id);
         let jit_logic = unsafe { transmute::<*const u8, JitLogic>(program_function_pointer) };
 
@@ -148,7 +161,7 @@ impl<'a> JitCompiler<'a> {
             self.compile_segment(segment, prototype)?;
         }
 
-        let entry_function_id = segments.iter().last().unwrap().function_id;
+        let entry_function_id = segments.first().unwrap().function_id;
 
         Ok(entry_function_id)
     }
@@ -177,7 +190,7 @@ impl<'a> JitCompiler<'a> {
             block
         };
         let instruction_blocks = {
-            let block_count = segment.end_ip - segment.start_ip;
+            let block_count = (segment.start_ip..segment.end_ip).len();
             let mut blocks = Vec::with_capacity(block_count);
 
             for _ in 0..block_count {
@@ -190,7 +203,13 @@ impl<'a> JitCompiler<'a> {
         let pointer_type = self.module.isa().pointer_type();
         let parameters = builder.block_params(entry_block).to_vec();
         let thread_context = parameters[0];
-        let register_tags_buffer_pointer = builder.ins().load(
+        let register_buffer_pointer = builder.ins().load(
+            pointer_type,
+            MemFlags::new(),
+            thread_context,
+            offset_of!(ThreadContext, register_buffer_pointer) as i32,
+        );
+        let register_tag_buffer_pointer = builder.ins().load(
             pointer_type,
             MemFlags::new(),
             thread_context,
@@ -202,40 +221,30 @@ impl<'a> JitCompiler<'a> {
             thread_context,
             offset_of!(ThreadContext, continuation_buffer_pointer) as i32,
         );
-        let (base_register_index, continuation_function) =
-            if prototype.index == 0 && segment.is_entry {
-                let zero = builder.ins().iconst(pointer_type, 0);
+        let base_register_index = if prototype.index == 0 {
+            builder.ins().iconst(pointer_type, 0)
+        } else {
+            let continuations_used = builder.ins().load(
+                I64,
+                MemFlags::new(),
+                thread_context,
+                offset_of!(ThreadContext, continuations_used) as i32,
+            );
+            let last_index = builder.ins().iadd_imm(continuations_used, -1);
+            let last_continuation_offset = builder
+                .ins()
+                .imul_imm(last_index, size_of::<Continuation>() as i64);
+            let last_continuation_address = builder
+                .ins()
+                .iadd(continuation_buffer, last_continuation_offset);
 
-                (zero, None)
-            } else {
-                let continuations_used = builder.ins().load(
-                    I64,
-                    MemFlags::new(),
-                    thread_context,
-                    offset_of!(ThreadContext, continuations_used) as i32,
-                );
-                let last_index = builder.ins().iadd_imm(continuations_used, -1);
-                let last_continuation_offset = builder
-                    .ins()
-                    .imul_imm(last_index, size_of::<Continuation>() as i64);
-                let last_continuation_address = builder
-                    .ins()
-                    .iadd(continuation_buffer, last_continuation_offset);
-                let base_register_index = builder.ins().load(
-                    I64,
-                    MemFlags::new(),
-                    last_continuation_address,
-                    offset_of!(Continuation, base_register_index) as i32,
-                );
-                let continuation_function = builder.ins().load(
-                    pointer_type,
-                    MemFlags::new(),
-                    last_continuation_address,
-                    offset_of!(Continuation, function) as i32,
-                );
-
-                (base_register_index, Some(continuation_function))
-            };
+            builder.ins().load(
+                I64,
+                MemFlags::new(),
+                last_continuation_address,
+                offset_of!(Continuation, base_register_index) as i32,
+            )
+        };
 
         let mut ssa_registers = {
             let mut variables = Vec::with_capacity(prototype.register_count as usize);
@@ -243,11 +252,10 @@ impl<'a> JitCompiler<'a> {
             if segment.is_entry {
                 let argument_count = prototype.function_type.value_parameters.len();
 
-                for index in 0..argument_count {
-                    let parameter = parameters[2 + index];
+                for argument_value in parameters.into_iter().skip(1) {
                     let variable = builder.declare_var(I64);
 
-                    builder.def_var(variable, parameter);
+                    builder.def_var(variable, argument_value);
                     variables.push(variable);
                 }
 
@@ -264,12 +272,19 @@ impl<'a> JitCompiler<'a> {
                     let offset = builder
                         .ins()
                         .imul_imm(absolute_register_index, size_of::<Register>() as i64);
-                    let address = builder.ins().iadd(thread_context, offset);
+                    let address = builder.ins().iadd(register_buffer_pointer, offset);
                     let value = builder.ins().load(I64, MemFlags::new(), address, 0);
                     let variable = builder.declare_var(I64);
 
                     builder.def_var(variable, value);
                     variables.push(variable);
+                }
+
+                if let Some(call_destination) = segment.call_destination {
+                    let return_value = parameters[1];
+                    let variable = variables[call_destination as usize];
+
+                    builder.def_var(variable, return_value);
                 }
             }
 
@@ -279,28 +294,23 @@ impl<'a> JitCompiler<'a> {
         builder.ins().jump(instruction_blocks[0], &[]);
 
         let mut instruction_compiler = InstructionCompiler {
+            prototype,
+            segment,
             instruction_blocks: &instruction_blocks,
             constants: &self.program.constants,
             ssa_registers: &mut ssa_registers,
-            register_tags_buffer_pointer,
+            register_buffer_pointer,
+            register_tag_buffer_pointer,
             base_register_index,
-            continuation_function,
             continuation_signature: &self.continuation_signature,
+            function_ids: &self.function_ids,
+            pointer_type,
             thread_context,
             module: &mut self.module,
         };
 
         for (block_index, ip) in (segment.start_ip..segment.end_ip).enumerate() {
-            let instruction =
-                prototype
-                    .instructions
-                    .get(ip)
-                    .ok_or(JitError::InstructionIndexOutOfBounds {
-                        instruction_index: ip,
-                        total_instruction_count: prototype.instructions.len(),
-                    })?;
-
-            instruction_compiler.compile(instruction, ip, block_index, &mut builder)?;
+            instruction_compiler.compile(ip, block_index, &mut builder)?;
         }
 
         builder.seal_all_blocks();
@@ -323,49 +333,68 @@ impl<'a> JitCompiler<'a> {
     ) -> Result<Vec<ExecutionSegment>, JitError> {
         let mut segments = Vec::new();
         let mut current_start = 0;
+        let mut continuation_function = None;
+        let mut pending_call_destination: Option<u16> = None;
+        let mut create_segment =
+            |ip: usize, pending_call_destination: &mut Option<u16>| -> Result<(), JitError> {
+                let is_entry = current_start == 0;
+                let function_id = if is_entry {
+                    let name = format!("proto_{}_entry", prototype.index);
+                    let signature = self.entry_signature(prototype);
 
-        {
-            for (ip, instruction) in prototype.instructions.iter().enumerate() {
-                if instruction.operation() == Operation::CALL {
-                    let name = format!("proto_{}_ip_{ip}", prototype.index);
-                    let function_id = self
-                        .module
+                    self.module
+                        .declare_function(&name, Linkage::Local, &signature)
+                        .map_err(|error| JitError::CraneliftModuleError {
+                            error: Box::new(error),
+                            cranelift_ir: String::new(),
+                        })?
+                } else {
+                    let name = format!("proto_{}_ip_{}", prototype.index, ip);
+
+                    self.module
                         .declare_function(&name, Linkage::Local, &self.continuation_signature)
                         .map_err(|error| JitError::CraneliftModuleError {
                             error: Box::new(error),
                             cranelift_ir: String::new(),
-                        })?;
+                        })?
+                };
 
-                    segments.push(ExecutionSegment {
-                        start_ip: current_start,
-                        end_ip: ip,
-                        function_id,
-                        is_entry: false,
-                    });
+                let call_destination = pending_call_destination.take();
 
-                    current_start = ip + 1;
-                }
+                segments.push(ExecutionSegment {
+                    start_ip: current_start,
+                    end_ip: ip + 1,
+                    function_id,
+                    is_entry,
+                    continuation_function,
+                    call_destination,
+                });
+
+                current_start = ip + 1;
+                continuation_function = Some(function_id);
+
+                Ok(())
+            };
+
+        for (ip, instruction) in prototype.instructions.iter().enumerate() {
+            if instruction.operation() == Operation::CALL {
+                create_segment(ip, &mut pending_call_destination)?;
+
+                pending_call_destination = Some(instruction.a_field());
             }
         }
 
-        let entry_id = {
-            let name = format!("proto_{}_entry", prototype.index);
-            let signature = self.entry_signature(prototype);
+        create_segment(
+            prototype.instructions.len() - 1,
+            &mut pending_call_destination,
+        )?;
 
-            self.module
-                .declare_function(&name, Linkage::Local, &signature)
-                .map_err(|error| JitError::CraneliftModuleError {
-                    error: Box::new(error),
-                    cranelift_ir: String::new(),
-                })?
-        };
+        for index in 1..segments.len() {
+            let right_function_id = segments[index].function_id;
+            let left = &mut segments[index - 1];
 
-        segments.push(ExecutionSegment {
-            start_ip: current_start,
-            end_ip: prototype.instructions.len(),
-            function_id: entry_id,
-            is_entry: true,
-        });
+            left.continuation_function = Some(right_function_id);
+        }
 
         Ok(segments)
     }
@@ -375,7 +404,6 @@ impl<'a> JitCompiler<'a> {
         let mut signature = Signature::new(CallConv::Tail);
 
         signature.params.push(AbiParam::new(pointer_type)); // ThreadContext
-        signature.params.push(AbiParam::new(pointer_type)); // Continuation
 
         for _ in 0..prototype.function_type.value_parameters.len() {
             signature.params.push(AbiParam::new(I64));
@@ -385,37 +413,25 @@ impl<'a> JitCompiler<'a> {
 
         signature
     }
-
-    fn save_ssa_registers(
-        builder: &mut FunctionBuilder,
-        ssa_variables: &[Variable],
-        register_buffer: CraneliftValue,
-        frame_base: CraneliftValue,
-    ) {
-        for (i, var) in ssa_variables.iter().enumerate() {
-            let value = builder.use_var(*var);
-            let index = builder.ins().iadd_imm(frame_base, i as i64);
-            let offset = builder.ins().imul_imm(index, size_of::<Register>() as i64);
-            let addr = builder.ins().iadd(register_buffer, offset);
-            builder.ins().store(MemFlags::new(), value, addr, 0);
-        }
-    }
 }
 
 pub type JitLogic = extern "C" fn(&mut ThreadContext) -> i64;
 
 #[derive(Clone, Copy)]
+#[repr(C)]
 pub struct Continuation {
     pub function: *const u8,
     pub base_register_index: usize,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct ExecutionSegment {
     function_id: FuncId,
     start_ip: usize,
     end_ip: usize,
     is_entry: bool,
+    continuation_function: Option<FuncId>,
+    call_destination: Option<u16>,
 }
 
 fn get_compile_order(program: &Program) -> Vec<usize> {

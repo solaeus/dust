@@ -1,4 +1,5 @@
 use std::{
+    mem::offset_of,
     ptr,
     sync::Arc,
     thread::{Builder as ThreadBuilder, JoinHandle},
@@ -6,7 +7,7 @@ use std::{
 
 use bumpalo::Bump;
 use cranelift::prelude::{
-    Type as CraneliftType,
+    FunctionBuilder, InstBuilder, Type as CraneliftType, Value as CraneliftValue,
     types::{I32, I64},
 };
 use tracing::{Level, debug, info, span};
