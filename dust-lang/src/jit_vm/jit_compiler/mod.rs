@@ -6,7 +6,6 @@ use cranelift::{
     codegen::ir::InstBuilder,
     prelude::{
         AbiParam, Configurable, FunctionBuilder, FunctionBuilderContext, Signature,
-        isa::CallConv,
         settings::{self, Flags},
         types::I64,
     },
@@ -33,12 +32,25 @@ pub struct JitCompiler<'a> {
 }
 
 impl<'a> JitCompiler<'a> {
-    pub fn new(program: &'a Program) -> Self {
+    pub fn new(program: &'a Program) -> Result<Self, JitError> {
         let mut settings_builder = settings::builder();
 
         settings_builder
-            .set("preserve_frame_pointers", "true")
-            .expect("Failed to configure JIT frame pointers");
+            .set("opt_level", "speed")
+            .expect("Failed to set Cranelift optimization level");
+        settings_builder
+            .set("is_pic", "false")
+            .expect("Failed to set Cranelift PIC setting");
+
+        #[cfg(debug_assertions)]
+        {
+            settings_builder
+                .set("enable_verifier", "true")
+                .expect("Failed to set Cranelift verifier setting");
+            settings_builder
+                .set("regalloc_checker", "true")
+                .expect("Failed to set Cranelift register allocator checker setting");
+        }
 
         let flags = Flags::new(settings_builder);
         let isa = cranelift_native::builder()
@@ -96,11 +108,11 @@ impl<'a> JitCompiler<'a> {
 
         let module = JITModule::new(builder);
 
-        Self {
+        Ok(Self {
             module,
             program,
             function_ids: vec![FuncId::from_u32(0); program.prototypes.len()],
-        }
+        })
     }
 
     pub fn compile(&mut self) -> Result<JitLogic, JitError> {
@@ -121,7 +133,7 @@ impl<'a> JitCompiler<'a> {
             .finalize_definitions()
             .map_err(|error| JitError::CraneliftModuleError {
                 error: Box::new(error),
-                cranelift_ir: String::new(),
+                cranelift_ir: None,
             })?;
 
         let main_function_id = self.function_ids[0];
@@ -154,7 +166,7 @@ impl<'a> JitCompiler<'a> {
             )
             .map_err(|error| JitError::CraneliftModuleError {
                 error: Box::new(error),
-                cranelift_ir: context.func.display().to_string(),
+                cranelift_ir: Some(context.func.display().to_string()),
             })?;
         self.function_ids[prototype_index] = function_id;
 
@@ -239,7 +251,7 @@ impl<'a> JitCompiler<'a> {
             .define_function(function_id, &mut context)
             .map_err(|error| JitError::CraneliftModuleError {
                 error: Box::new(error),
-                cranelift_ir: context.func.display().to_string(),
+                cranelift_ir: Some(context.func.display().to_string()),
             })?;
         self.module.clear_context(&mut context);
 
@@ -248,7 +260,7 @@ impl<'a> JitCompiler<'a> {
 
     fn prototype_signature(&self, prototype: &Prototype) -> Signature {
         let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(CallConv::Tail);
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
 
         signature.params.push(AbiParam::new(pointer_type)); // ThreadContext
         signature.params.push(AbiParam::new(I64)); // Base register index

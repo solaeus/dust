@@ -53,7 +53,7 @@ fn run(
     let span = span!(Level::TRACE, "Thread");
     let _enter = span.enter();
 
-    let mut jit = JitCompiler::new(&program);
+    let mut jit = JitCompiler::new(&program)?;
     let jit_logic = jit.compile()?;
 
     info!("JIT compilation complete");

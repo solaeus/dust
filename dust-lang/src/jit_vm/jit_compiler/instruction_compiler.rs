@@ -52,7 +52,10 @@ impl<'a> InstructionCompiler<'a> {
 
         #[cfg(debug_assertions)]
         {
-            trace!("JIT compiling {operation} at IP {ip}");
+            trace!(
+                "JIT compiling {operation} at IP {ip} for proto_{}",
+                self.prototype.index
+            );
 
             let log_function = self.get_log_operation_and_ip_function(builder)?;
             let operation_value = builder.ins().iconst(I8, operation.0 as i64);
@@ -1220,7 +1223,7 @@ impl<'a> InstructionCompiler<'a> {
             .declare_function(name, Linkage::Import, &signature)
             .map_err(|error| JitError::CraneliftModuleError {
                 error: Box::new(error),
-                cranelift_ir: function_builder.func.display().to_string(),
+                cranelift_ir: Some(function_builder.func.display().to_string()),
             })?;
         let function_reference = self
             .module

@@ -18,7 +18,7 @@ pub enum JitError {
     },
     CraneliftModuleError {
         error: Box<ModuleError>,
-        cranelift_ir: String,
+        cranelift_ir: Option<String>,
     },
 
     // Missing and out-of-bounds errors
@@ -199,9 +199,13 @@ impl AnnotatedError for JitError {
                 cranelift_ir,
             } => {
                 let title = format!("Cranelift module error: {}", error);
+                let info = match cranelift_ir {
+                    Some(ir) => ir,
+                    None => "<no Cranelift IR available>",
+                };
 
                 Group::with_title(Level::ERROR.primary_title(title))
-                    .element(Level::INFO.message(cranelift_ir))
+                    .element(Level::INFO.message(info))
             }
             JitError::TypeIndexOutOfBounds {
                 type_id,
