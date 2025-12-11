@@ -2,7 +2,7 @@ use cranelift::{
     codegen::ir::FuncRef,
     prelude::{
         AbiParam, Block, FunctionBuilder, InstBuilder, IntCC, MemFlags, Signature,
-        Type as CraneliftType, Value as CraneliftValue, Variable,
+        Value as CraneliftValue, Variable,
         types::{F64, I8, I64},
     },
 };
@@ -33,7 +33,6 @@ pub struct InstructionCompiler<'a> {
     pub thread_context_fields: ThreadContextFields,
     pub base_register_index: CraneliftValue,
 
-    pub pointer_type: CraneliftType,
     pub module: &'a mut JITModule,
 }
 
@@ -169,7 +168,6 @@ impl<'a> InstructionCompiler<'a> {
         let right = instruction.c_address();
         let r#type = instruction.operand_type();
 
-        let comparator_value = builder.ins().iconst(I8, if comparator { 1 } else { 0 });
         let left_value = self.get_value(left, r#type, builder)?;
         let right_value = self.get_value(right, r#type, builder)?;
         let comparison_result = match r#type {
@@ -184,12 +182,16 @@ impl<'a> InstructionCompiler<'a> {
                         return Err(JitError::UnsupportedOperation { operation });
                     }
                 };
-                let call_compare_strings = builder.ins().call(
-                    compare_strings_function,
-                    &[comparator_value, left_value, right_value],
-                );
+                let call_compare_strings = builder
+                    .ins()
+                    .call(compare_strings_function, &[left_value, right_value]);
+                let compare_result = builder.inst_results(call_compare_strings)[0];
 
-                builder.inst_results(call_compare_strings)[0]
+                if comparator {
+                    compare_result
+                } else {
+                    builder.ins().bxor_imm(compare_result, 1)
+                }
             }
             OperandType::LIST_BOOLEAN
             | OperandType::LIST_BYTE
@@ -217,7 +219,7 @@ impl<'a> InstructionCompiler<'a> {
                 if comparator {
                     compare_result
                 } else {
-                    builder.ins().bnot(compare_result)
+                    builder.ins().bxor_imm(compare_result, 1)
                 }
             }
             _ => {
@@ -1403,11 +1405,9 @@ impl<'a> InstructionCompiler<'a> {
         let pointer_type = self.module.isa().pointer_type();
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
-        signature.params.extend([
-            AbiParam::new(I8),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
+        signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
         self.declare_imported_function("compare_strings_equal", signature, function_builder)
     }
@@ -1419,11 +1419,9 @@ impl<'a> InstructionCompiler<'a> {
         let pointer_type = self.module.isa().pointer_type();
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
-        signature.params.extend([
-            AbiParam::new(I8),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
+        signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
         self.declare_imported_function("compare_strings_less_than", signature, function_builder)
     }
@@ -1435,11 +1433,9 @@ impl<'a> InstructionCompiler<'a> {
         let pointer_type = self.module.isa().pointer_type();
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
-        signature.params.extend([
-            AbiParam::new(I8),
-            AbiParam::new(pointer_type),
-            AbiParam::new(pointer_type),
-        ]);
+        signature
+            .params
+            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
         self.declare_imported_function(
             "compare_strings_less_than_equal",
@@ -1474,20 +1470,7 @@ impl<'a> InstructionCompiler<'a> {
         self.declare_imported_function("read_line", signature, function_builder)
     }
 
-    fn get_write_line_integer_function(
-        &mut self,
-        function_builder: &mut FunctionBuilder,
-    ) -> Result<FuncRef, JitError> {
-        let pointer_type = self.module.isa().pointer_type();
-        let mut signature = Signature::new(self.module.isa().default_call_conv());
-
-        signature
-            .params
-            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
-        self.declare_imported_function("write_line_integer", signature, function_builder)
-    }
-
-    fn get_write_line_string_function(
+    fn get_write_line_function(
         &mut self,
         function_builder: &mut FunctionBuilder,
     ) -> Result<FuncRef, JitError> {
@@ -1497,7 +1480,7 @@ impl<'a> InstructionCompiler<'a> {
         signature
             .params
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
-        self.declare_imported_function("write_line_string", signature, function_builder)
+        self.declare_imported_function("write_line", signature, function_builder)
     }
 
     fn get_byte_power_function(

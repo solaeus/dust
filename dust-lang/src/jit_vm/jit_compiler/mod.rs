@@ -1,14 +1,11 @@
 mod instruction_compiler;
 
-use std::{
-    array,
-    mem::{offset_of, transmute},
-};
+use std::mem::transmute;
 
 use cranelift::{
     codegen::ir::InstBuilder,
     prelude::{
-        AbiParam, Configurable, FunctionBuilder, FunctionBuilderContext, MemFlags, Signature,
+        AbiParam, Configurable, FunctionBuilder, FunctionBuilderContext, Signature,
         isa::CallConv,
         settings::{self, Flags},
         types::I64,
@@ -23,8 +20,8 @@ use crate::{
     dust_crate::Program,
     instruction::Operation,
     jit_vm::{
-        JitError, Register, ffi_functions::*,
-        jit_compiler::instruction_compiler::InstructionCompiler, thread::ThreadContext,
+        JitError, ffi_functions::*, jit_compiler::instruction_compiler::InstructionCompiler,
+        thread::ThreadContext,
     },
     prototype::Prototype,
 };
@@ -89,8 +86,7 @@ impl<'a> JitCompiler<'a> {
             )
             .symbol("integer_to_string", integer_to_string as *const u8)
             .symbol("read_line", read_line as *const u8)
-            .symbol("write_line_integer", write_line_integer as *const u8)
-            .symbol("write_line_string", write_line_string as *const u8)
+            .symbol("write_line", write_line as *const u8)
             .symbol("byte_power", byte_power as *const u8)
             .symbol("integer_power", integer_power as *const u8)
             .symbol("float_power", float_power as *const u8);
@@ -230,7 +226,6 @@ impl<'a> JitCompiler<'a> {
             thread_context,
             thread_context_fields,
             base_register_index,
-            pointer_type,
             module: &mut self.module,
         };
 

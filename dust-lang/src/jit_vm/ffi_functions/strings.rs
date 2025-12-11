@@ -160,12 +160,7 @@ pub unsafe extern "C" fn concatenate_characters(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn compare_strings_equal(
-    comparator: i8,
-    left: *const Object,
-    right: *const Object,
-) -> i8 {
-    let comparator = comparator != 0;
+pub unsafe extern "C" fn compare_strings_equal(left: *const Object, right: *const Object) -> i8 {
     let left_string = unsafe { &*left }
         .as_string()
         .map(|string| string.as_str())
@@ -175,20 +170,14 @@ pub unsafe extern "C" fn compare_strings_equal(
         .map(|string| string.as_str())
         .unwrap_or(ERROR_REPLACEMENT_STR);
 
-    if comparator {
-        (left_string == right_string) as i8
-    } else {
-        (left_string != right_string) as i8
-    }
+    (left_string == right_string) as i8
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn compare_strings_less_than(
-    comparator: i8,
     left: *const Object,
     right: *const Object,
 ) -> i8 {
-    let comparator = comparator != 0;
     let left_string = unsafe { &*left }
         .as_string()
         .map(|string| string.as_str())
@@ -198,20 +187,14 @@ pub unsafe extern "C" fn compare_strings_less_than(
         .map(|string| string.as_str())
         .unwrap_or(ERROR_REPLACEMENT_STR);
 
-    if comparator {
-        (left_string < right_string) as i8
-    } else {
-        (left_string >= right_string) as i8
-    }
+    (left_string < right_string) as i8
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn compare_strings_less_than_equal(
-    comparator: i8,
     left: *const Object,
     right: *const Object,
 ) -> i8 {
-    let comparator = comparator != 0;
     let left_string = unsafe { &*left }
         .as_string()
         .map(|string| string.as_str())
@@ -221,11 +204,7 @@ pub unsafe extern "C" fn compare_strings_less_than_equal(
         .map(|string| string.as_str())
         .unwrap_or(ERROR_REPLACEMENT_STR);
 
-    if comparator {
-        (left_string <= right_string) as i8
-    } else {
-        (left_string > right_string) as i8
-    }
+    (left_string <= right_string) as i8
 }
 
 #[unsafe(no_mangle)]
