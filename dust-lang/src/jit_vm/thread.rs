@@ -1,13 +1,12 @@
 use std::{
     mem::offset_of,
-    ptr,
     sync::Arc,
     thread::{Builder as ThreadBuilder, JoinHandle},
 };
 
 use bumpalo::Bump;
 use cranelift::prelude::{
-    FunctionBuilder, InstBuilder, Type as CraneliftType, Value as CraneliftValue,
+    FunctionBuilder, InstBuilder, MemFlags, Type as CraneliftType, Value as CraneliftValue,
     types::{I32, I64},
 };
 use tracing::{Level, debug, info, span};
@@ -16,8 +15,7 @@ use crate::{
     dust_crate::Program,
     instruction::OperandType,
     jit_vm::{
-        JitError, Object, ObjectPool, Register, RegisterTag,
-        jit_compiler::{Continuation, JitCompiler},
+        JitError, Object, ObjectPool, Register, RegisterTag, jit_compiler::JitCompiler,
         object::ObjectValue,
     },
     r#type::Type,
@@ -60,20 +58,13 @@ fn run(
 
     info!("JIT compilation complete");
 
-    let (registers_allocated, continuations_allocated) = if program.prototypes.len() == 1 {
-        (program.prototypes[0].register_count as usize, 0)
+    let registers_allocated = if program.prototypes.len() == 1 {
+        program.prototypes[0].register_count as usize
     } else {
-        (1024, program.prototypes.len() + 16)
+        1024
     };
     let mut registers = vec![Register { empty: () }; registers_allocated];
     let mut register_tags = vec![RegisterTag::EMPTY; registers_allocated];
-    let mut continuations = vec![
-        Continuation {
-            function: ptr::null_mut(),
-            base_register_index: 0,
-        };
-        continuations_allocated
-    ];
     let bump_arena = Bump::with_capacity(minimum_object_heap);
     let mut object_pool = ObjectPool::new(&bump_arena, minimum_object_sweep, minimum_object_heap);
 
@@ -84,15 +75,12 @@ fn run(
         register_tag_buffer_pointer: register_tags.as_mut_ptr(),
         registers_allocated,
         registers_used: 0,
-        continuation_vec_pointer: &mut continuations,
-        continuation_buffer_pointer: continuations.as_mut_ptr(),
-        continuations_allocated,
-        continuations_used: 0,
         object_pool_pointer: &mut object_pool,
         status: ThreadStatus::Ok,
+        recursive_return_register: 0,
     };
 
-    let encoded_return_value = (jit_logic)(&mut thread_context);
+    let encoded_return_value = (jit_logic)(&mut thread_context, 0);
     let return_type = &program.prototypes[0].function_type.return_type;
     let return_value = match *return_type {
         Type::None => None,
@@ -151,8 +139,7 @@ fn run(
 pub enum ThreadStatus {
     Ok = 0,
     ErrorDivisionByZero = 1,
-    ErrorFunctionIndexOutOfBounds = 2,
-    ErrorListIndexOutOfBounds = 3,
+    ErrorListIndexOutOfBounds = 2,
 }
 
 impl ThreadStatus {
@@ -165,6 +152,8 @@ impl ThreadStatus {
 
 #[repr(C)]
 pub struct ThreadContext<'a> {
+    pub status: ThreadStatus,
+
     pub register_vec_pointer: *mut Vec<Register>,
     pub register_buffer_pointer: *mut Register,
 
@@ -174,15 +163,73 @@ pub struct ThreadContext<'a> {
     pub registers_allocated: usize,
     pub registers_used: usize,
 
-    pub continuation_vec_pointer: *mut Vec<Continuation>,
-    pub continuation_buffer_pointer: *mut Continuation,
-
-    pub continuations_allocated: usize,
-    pub continuations_used: usize,
-
     pub object_pool_pointer: *mut ObjectPool<'a>,
 
-    pub status: ThreadStatus,
+    pub recursive_return_register: i64,
+}
+
+impl<'a> ThreadContext<'a> {
+    pub fn get_fields(
+        thread_context: CraneliftValue,
+        pointer_type: CraneliftType,
+        builder: &mut FunctionBuilder,
+    ) -> ThreadContextFields {
+        let mut get_field = |field_type: CraneliftType, offset: usize| {
+            builder
+                .ins()
+                .load(field_type, MemFlags::new(), thread_context, offset as i32)
+        };
+
+        ThreadContextFields {
+            status: get_field(
+                ThreadStatus::CRANELIFT_TYPE,
+                offset_of!(ThreadContext, status),
+            ),
+            register_vec_pointer: get_field(
+                pointer_type,
+                offset_of!(ThreadContext, register_vec_pointer),
+            ),
+            register_buffer_pointer: get_field(
+                pointer_type,
+                offset_of!(ThreadContext, register_buffer_pointer),
+            ),
+            register_tag_vec_pointer: get_field(
+                pointer_type,
+                offset_of!(ThreadContext, register_tag_vec_pointer),
+            ),
+            register_tag_buffer_pointer: get_field(
+                pointer_type,
+                offset_of!(ThreadContext, register_tag_buffer_pointer),
+            ),
+            registers_allocated: get_field(I64, offset_of!(ThreadContext, registers_allocated)),
+            registers_used: get_field(I64, offset_of!(ThreadContext, registers_used)),
+            object_pool_pointer: get_field(
+                pointer_type,
+                offset_of!(ThreadContext, object_pool_pointer),
+            ),
+            recursive_return_register: get_field(
+                I64,
+                offset_of!(ThreadContext, recursive_return_register),
+            ),
+        }
+    }
+}
+
+pub struct ThreadContextFields {
+    pub status: CraneliftValue,
+
+    pub register_vec_pointer: CraneliftValue,
+    pub register_buffer_pointer: CraneliftValue,
+
+    pub register_tag_vec_pointer: CraneliftValue,
+    pub register_tag_buffer_pointer: CraneliftValue,
+
+    pub registers_allocated: CraneliftValue,
+    pub registers_used: CraneliftValue,
+
+    pub object_pool_pointer: CraneliftValue,
+
+    pub recursive_return_register: CraneliftValue,
 }
 
 fn get_list_from_object_pointer(

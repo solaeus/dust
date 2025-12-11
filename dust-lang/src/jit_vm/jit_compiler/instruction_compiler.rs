@@ -1,5 +1,3 @@
-use std::mem::offset_of;
-
 use cranelift::{
     codegen::ir::FuncRef,
     prelude::{
@@ -19,38 +17,29 @@ use crate::{
         Add, Address, Call, Divide, GetList, Instruction, Jump, MemoryKind, Modulo, Move, Multiply,
         Negate, NewList, OperandType, Operation, Power, Return, SetList, Subtract, Test,
     },
-    jit_vm::{
-        JitError, Register, RegisterTag,
-        jit_compiler::{Continuation, ExecutionSegment},
-        thread::ThreadContext,
-    },
+    jit_vm::{JitError, RegisterTag, thread::ThreadContextFields},
     prototype::Prototype,
 };
 
 pub struct InstructionCompiler<'a> {
     pub prototype: &'a Prototype,
-    pub segment: &'a ExecutionSegment,
     pub instruction_blocks: &'a [Block],
+    pub function_ids: &'a [FuncId],
+
     pub constants: &'a ConstantTable,
     pub ssa_registers: &'a mut [Variable],
-    pub register_buffer_pointer: CraneliftValue,
-    pub register_tag_buffer_pointer: CraneliftValue,
-    pub base_register_index: CraneliftValue,
-    pub continuation_signature: &'a Signature,
-    pub function_ids: &'a [FuncId],
-    pub pointer_type: CraneliftType,
+
     pub thread_context: CraneliftValue,
+    pub thread_context_fields: ThreadContextFields,
+    pub base_register_index: CraneliftValue,
+
+    pub pointer_type: CraneliftType,
     pub module: &'a mut JITModule,
 }
 
 impl<'a> InstructionCompiler<'a> {
-    pub fn compile(
-        &mut self,
-        ip: usize,
-        block_index: usize,
-        builder: &mut FunctionBuilder,
-    ) -> Result<(), JitError> {
-        builder.switch_to_block(self.instruction_blocks[block_index]);
+    pub fn compile(&mut self, ip: usize, builder: &mut FunctionBuilder) -> Result<(), JitError> {
+        builder.switch_to_block(self.instruction_blocks[ip]);
 
         let instruction =
             self.prototype
@@ -273,8 +262,6 @@ impl<'a> InstructionCompiler<'a> {
             return_type,
         } = Call::from(instruction);
 
-        self.save_ssa_registers(builder);
-
         let callee_id =
             self.function_ids
                 .get(prototype_index as usize)
@@ -283,9 +270,10 @@ impl<'a> InstructionCompiler<'a> {
                     total: self.function_ids.len(),
                 })?;
         let callee_reference = self.module.declare_func_in_func(*callee_id, builder.func);
-
-        let caller_id = self.segment.continuation_function.unwrap();
-        let caller_reference = self.module.declare_func_in_func(caller_id, builder.func);
+        let callee_base_register_index = builder.ins().iadd_imm(
+            self.base_register_index,
+            self.prototype.register_count as i64,
+        );
 
         let arguments_end = (arguments_start + argument_count) as usize;
         let argument_range = arguments_start as usize..arguments_end;
@@ -293,6 +281,7 @@ impl<'a> InstructionCompiler<'a> {
             SmallVec::<[CraneliftValue; 8]>::with_capacity(argument_count as usize + 1);
 
         argument_values.push(self.thread_context);
+        argument_values.push(callee_base_register_index);
 
         for argument_index in argument_range {
             let (address, r#type) = self.prototype.call_arguments.get(argument_index).ok_or(
@@ -306,53 +295,14 @@ impl<'a> InstructionCompiler<'a> {
             argument_values.push(argument_value);
         }
 
-        // Push a continuation for this call to the continuation stack
-        let continuations_used = builder.ins().load(
-            I64,
-            MemFlags::new(),
-            self.thread_context,
-            offset_of!(ThreadContext, continuations_used) as i32,
-        );
-        let continuation_buffer_pointer = builder.ins().load(
-            I64,
-            MemFlags::new(),
-            self.thread_context,
-            offset_of!(ThreadContext, continuation_buffer_pointer) as i32,
-        );
-        let new_continuation_offset = builder
-            .ins()
-            .imul_imm(continuations_used, size_of::<Continuation>() as i64);
-        let new_continuation_address = builder
-            .ins()
-            .iadd(continuation_buffer_pointer, new_continuation_offset);
-        let caller_address = builder.ins().func_addr(self.pointer_type, caller_reference);
-        let new_base_register_index = builder.ins().iadd_imm(
-            self.base_register_index,
-            self.prototype.register_count as i64,
-        );
-        let new_continuations_used = builder.ins().iadd_imm(continuations_used, 1);
+        let call_callee = builder.ins().call(callee_reference, &argument_values);
+        let return_value = builder.inst_results(call_callee)[0];
 
-        builder.ins().store(
-            MemFlags::new(),
-            caller_address,
-            new_continuation_address,
-            offset_of!(Continuation, function) as i32,
-        );
-        builder.ins().store(
-            MemFlags::new(),
-            new_base_register_index,
-            new_continuation_address,
-            offset_of!(Continuation, base_register_index) as i32,
-        );
-        builder.ins().store(
-            MemFlags::new(),
-            new_continuations_used,
-            self.thread_context,
-            offset_of!(ThreadContext, continuations_used) as i32,
-        );
-        builder
-            .ins()
-            .return_call(callee_reference, &argument_values);
+        if return_type != OperandType::NONE {
+            self.set_register_and_tag(destination, return_value, return_type, builder)?;
+        }
+
+        builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
 
         Ok(())
     }
@@ -861,13 +811,13 @@ impl<'a> InstructionCompiler<'a> {
             ip - (offset as usize) - 1
         };
 
-        builder.ins().jump(self.instruction_blocks[target_ip], &[]);
-
         if drop_list_end != 0 {
             for register_index in drop_list_start..drop_list_end {
                 self.set_register_tag(register_index, OperandType::NONE, builder)?;
             }
         }
+
+        builder.ins().jump(self.instruction_blocks[target_ip], &[]);
 
         Ok(())
     }
@@ -889,82 +839,9 @@ impl<'a> InstructionCompiler<'a> {
             self.get_value(return_value_address, r#type, builder)?
         };
 
-        // Pop registers from the register stack
-        builder.ins().store(
-            MemFlags::new(),
-            self.base_register_index,
-            self.thread_context,
-            offset_of!(ThreadContext, registers_used) as i32,
-        );
-
-        // Check if there are continuations to return to and diverge accordingly
-        let continuations_used = builder.ins().load(
-            I64,
-            MemFlags::new(),
-            self.thread_context,
-            offset_of!(ThreadContext, continuations_used) as i32,
-        );
-        let zero = builder.ins().iconst(I64, 0);
-        let is_empty = builder.ins().icmp(IntCC::Equal, continuations_used, zero);
-
-        let direct_return_block = builder.create_block();
-        let return_call_block = builder.create_block();
-
-        builder
-            .ins()
-            .brif(is_empty, direct_return_block, &[], return_call_block, &[]);
-
-        builder.switch_to_block(direct_return_block);
         builder.ins().return_(&[return_value]);
 
-        builder.switch_to_block(return_call_block);
-
-        // Pop a continuation from the continuation stack
-        let continuation_buffer_pointer = builder.ins().load(
-            I64,
-            MemFlags::new(),
-            self.thread_context,
-            offset_of!(ThreadContext, continuation_buffer_pointer) as i32,
-        );
-        let top_continuation_index = builder.ins().iadd_imm(continuations_used, -1);
-        let top_continuation_offset = builder
-            .ins()
-            .imul_imm(top_continuation_index, size_of::<Continuation>() as i64);
-        let top_continuation_address = builder
-            .ins()
-            .iadd(continuation_buffer_pointer, top_continuation_offset);
-        let continuation_function_pointer = builder.ins().load(
-            self.pointer_type,
-            MemFlags::new(),
-            top_continuation_address,
-            offset_of!(Continuation, function) as i32,
-        );
-        let continuation_signature = builder.import_signature(self.continuation_signature.clone());
-
-        builder.ins().store(
-            MemFlags::new(),
-            top_continuation_index,
-            self.thread_context,
-            offset_of!(ThreadContext, continuations_used) as i32,
-        );
-        builder.ins().return_call_indirect(
-            continuation_signature,
-            continuation_function_pointer,
-            &[self.thread_context, return_value],
-        );
-
         Ok(())
-    }
-
-    fn save_ssa_registers(&self, builder: &mut FunctionBuilder) {
-        for (i, var) in self.ssa_registers.iter().enumerate() {
-            let value = builder.use_var(*var);
-            let index = builder.ins().iadd_imm(self.base_register_index, i as i64);
-            let offset = builder.ins().imul_imm(index, size_of::<Register>() as i64);
-            let addr = builder.ins().iadd(self.register_buffer_pointer, offset);
-
-            builder.ins().store(MemFlags::new(), value, addr, 0);
-        }
     }
 
     fn get_value(
@@ -1318,9 +1195,10 @@ impl<'a> InstructionCompiler<'a> {
         let tag_offset = builder
             .ins()
             .imul_imm(absolute_register_index, size_of::<RegisterTag>() as i64);
-        let tag_address = builder
-            .ins()
-            .iadd(self.register_tag_buffer_pointer, tag_offset);
+        let tag_address = builder.ins().iadd(
+            self.thread_context_fields.register_tag_buffer_pointer,
+            tag_offset,
+        );
 
         builder
             .ins()
