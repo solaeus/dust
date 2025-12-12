@@ -408,7 +408,6 @@ impl<'src> Parser<'src> {
 
         self.syntax_tree.push_node(placeholder_node);
 
-        // Allows for nested modules and whole file modules
         let end_token = if self.current_token.kind == TokenKind::Mod {
             self.advance()?;
 
@@ -576,7 +575,7 @@ impl<'src> Parser<'src> {
             let parameter_start = self.current_token.span.0;
             let identifier_position = Position::new(self.file_id, self.current_token.span);
             let parameter_name_node = SyntaxNode {
-                kind: SyntaxKind::FunctionValueParameterName,
+                kind: SyntaxKind::ValueParameterName,
                 span: identifier_position.span,
                 children: (0, 0),
             };
@@ -588,7 +587,7 @@ impl<'src> Parser<'src> {
             let type_node_id = self.parse_type()?;
             let parameter_end = self.previous_token.span.1;
             let node = SyntaxNode {
-                kind: SyntaxKind::FunctionValueParameter,
+                kind: SyntaxKind::ValueParameterDefinition,
                 span: Span(parameter_start, parameter_end),
                 children: (parameter_name_node_id.0, type_node_id.0),
             };
@@ -602,7 +601,7 @@ impl<'src> Parser<'src> {
         let children = self.syntax_tree.add_children(&children);
         let end = self.previous_token.span.1;
         let node = SyntaxNode {
-            kind: SyntaxKind::FunctionValueParameters,
+            kind: SyntaxKind::ValueParametersDefinition,
             span: Span(start, end),
             children,
         };
@@ -616,41 +615,41 @@ impl<'src> Parser<'src> {
 
         let start = self.current_token.span.0;
 
-        let (node_kind, child_id) = match self.current_token.kind {
+        let (node_kind, children) = match self.current_token.kind {
             TokenKind::Bool => {
                 self.advance()?;
 
-                (SyntaxKind::BooleanType, 0)
+                (SyntaxKind::BooleanType, (0, 0))
             }
             TokenKind::Byte => {
                 self.advance()?;
 
-                (SyntaxKind::ByteType, 0)
+                (SyntaxKind::ByteType, (0, 0))
             }
             TokenKind::Char => {
                 self.advance()?;
 
-                (SyntaxKind::CharacterType, 0)
+                (SyntaxKind::CharacterType, (0, 0))
             }
             TokenKind::Float => {
                 self.advance()?;
 
-                (SyntaxKind::FloatType, 0)
+                (SyntaxKind::FloatType, (0, 0))
             }
             TokenKind::Int => {
                 self.advance()?;
 
-                (SyntaxKind::IntegerType, 0)
+                (SyntaxKind::IntegerType, (0, 0))
             }
             TokenKind::Str => {
                 self.advance()?;
 
-                (SyntaxKind::StringType, 0)
+                (SyntaxKind::StringType, (0, 0))
             }
             TokenKind::Identifier => {
                 self.advance()?;
 
-                (SyntaxKind::TypePath, 0)
+                (SyntaxKind::TypePath, (0, 0))
             }
             TokenKind::LeftSquareBracket => {
                 self.advance()?;
@@ -659,7 +658,45 @@ impl<'src> Parser<'src> {
 
                 self.expect(TokenKind::RightSquareBracket)?;
 
-                (SyntaxKind::ListType, child_node_id.0)
+                (SyntaxKind::ListType, (child_node_id.0, 0))
+            }
+            TokenKind::Fn => {
+                self.advance()?;
+                self.expect(TokenKind::LeftParenthesis)?;
+
+                let mut children = Self::new_child_buffer();
+
+                while !self.allow(TokenKind::RightParenthesis)? {
+                    if self.current_token.kind == TokenKind::Eof {
+                        break;
+                    }
+
+                    let child_node_id = self.parse_type()?;
+
+                    children.push(child_node_id);
+
+                    self.allow(TokenKind::Comma)?;
+                }
+
+                let children = self.syntax_tree.add_children(&children);
+                let value_parameter_types_node = SyntaxNode {
+                    kind: SyntaxKind::ValueParameterTypes,
+                    span: Span(start, self.previous_token.span.1),
+                    children,
+                };
+                let value_parameter_types_node_id =
+                    self.syntax_tree.push_node(value_parameter_types_node);
+
+                let return_type_node_id = if self.allow(TokenKind::ArrowThin)? {
+                    self.parse_type()?
+                } else {
+                    SyntaxId::NONE
+                };
+
+                (
+                    SyntaxKind::FunctionType,
+                    (value_parameter_types_node_id.0, return_type_node_id.0),
+                )
             }
             _ => {
                 return Err(ParseError::ExpectedMultipleTokens {
@@ -683,7 +720,7 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: node_kind,
             span: Span(start, end),
-            children: (child_id, 0),
+            children,
         };
         let node_id = self.syntax_tree.push_node(node);
 

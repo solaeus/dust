@@ -41,7 +41,7 @@ const ERROR_REPLACEMENT_STR: &str = "<dust_vm_error>";
 pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
 
 pub fn run_main(source_code: String) -> Result<Option<Value>, DustError> {
-    let source = Source::new();
+    let mut source = Source::new();
 
     source.add_file(SourceFile {
         name: "main.ds".to_string(),
@@ -91,8 +91,8 @@ impl JitVm {
             .map_err(DustError::jit)?;
         let mut threads = self.thread_pool.write().expect("Failed to lock threads");
 
-        for thread_handle in threads.drain(..) {
-            thread_handle
+        for thread in threads.drain(..) {
+            thread
                 .handle
                 .join()
                 .expect("Thread panicked")

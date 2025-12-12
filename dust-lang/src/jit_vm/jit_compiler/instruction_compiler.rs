@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use cranelift::{
     codegen::ir::FuncRef,
     prelude::{
@@ -8,6 +10,7 @@ use cranelift::{
 };
 use cranelift_jit::JITModule;
 use cranelift_module::{FuncId, Linkage, Module};
+use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 use tracing::trace;
 
@@ -32,6 +35,7 @@ pub struct InstructionCompiler<'a> {
     pub thread_context: CraneliftValue,
     pub thread_context_fields: ThreadContextFields,
     pub base_register_index: CraneliftValue,
+    pub recursive_calls: &'a HashSet<(u16, u16), FxBuildHasher>,
 
     pub module: &'a mut JITModule,
 }
@@ -267,47 +271,58 @@ impl<'a> InstructionCompiler<'a> {
             return_type,
         } = Call::from(instruction);
 
-        let callee_id =
-            self.function_ids
-                .get(prototype_index as usize)
-                .ok_or(JitError::MissingPrototype {
-                    index: prototype_index as usize,
-                    total: self.function_ids.len(),
-                })?;
+        let caller_prototype_index = self.prototype.index;
+        let callee_prototype_index = prototype_index;
+
+        let callee_id = self
+            .function_ids
+            .get(callee_prototype_index as usize)
+            .ok_or(JitError::MissingPrototype {
+                index: callee_prototype_index as usize,
+                total: self.function_ids.len(),
+            })?;
         let callee_reference = self.module.declare_func_in_func(*callee_id, builder.func);
         let callee_base_register_index = builder.ins().iadd_imm(
             self.base_register_index,
             self.prototype.register_count as i64,
         );
 
-        let arguments_end = (arguments_start + argument_count) as usize;
-        let argument_range = arguments_start as usize..arguments_end;
-        let mut argument_values =
-            SmallVec::<[CraneliftValue; 8]>::with_capacity(argument_count as usize + 1);
+        let is_recursive = self
+            .recursive_calls
+            .contains(&(caller_prototype_index, callee_prototype_index));
 
-        argument_values.push(self.thread_context);
-        argument_values.push(callee_base_register_index);
+        if is_recursive {
+            todo!()
+        } else {
+            let arguments_end = (arguments_start + argument_count) as usize;
+            let argument_range = arguments_start as usize..arguments_end;
+            let mut argument_values =
+                SmallVec::<[CraneliftValue; 8]>::with_capacity(argument_count as usize + 1);
 
-        for argument_index in argument_range {
-            let (address, r#type) = self.prototype.call_arguments.get(argument_index).ok_or(
-                JitError::CallArgumentIndexOutOfBounds {
-                    argument_index,
-                    total_argument_count: self.prototype.call_arguments.len(),
-                },
-            )?;
-            let argument_value = self.get_value(*address, *r#type, builder)?;
+            argument_values.push(self.thread_context);
+            argument_values.push(callee_base_register_index);
 
-            argument_values.push(argument_value);
+            for argument_index in argument_range {
+                let (address, r#type) = self.prototype.call_arguments.get(argument_index).ok_or(
+                    JitError::CallArgumentIndexOutOfBounds {
+                        argument_index,
+                        total_argument_count: self.prototype.call_arguments.len(),
+                    },
+                )?;
+                let argument_value = self.get_value(*address, *r#type, builder)?;
+
+                argument_values.push(argument_value);
+            }
+
+            let call_callee = builder.ins().call(callee_reference, &argument_values);
+            let return_value = builder.inst_results(call_callee)[0];
+
+            if return_type != OperandType::NONE {
+                self.set_register_and_tag(destination, return_value, return_type, builder)?;
+            }
+
+            builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
         }
-
-        let call_callee = builder.ins().call(callee_reference, &argument_values);
-        let return_value = builder.inst_results(call_callee)[0];
-
-        if return_type != OperandType::NONE {
-            self.set_register_and_tag(destination, return_value, return_type, builder)?;
-        }
-
-        builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
 
         Ok(())
     }

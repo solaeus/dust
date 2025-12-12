@@ -10,13 +10,26 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone)]
 pub struct Source {
     files: Arc<RwLock<Vec<SourceFile>>>,
+    file_count: usize,
 }
 
 impl Source {
     pub fn new() -> Self {
         Self {
             files: Arc::new(RwLock::new(Vec::new())),
+            file_count: 0,
         }
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            files: Arc::new(RwLock::new(Vec::with_capacity(capacity))),
+            file_count: 0,
+        }
+    }
+
+    pub fn file_count(&self) -> usize {
+        self.file_count
     }
 
     pub fn read_files(&self) -> RwLockReadGuard<'_, Vec<SourceFile>> {
@@ -31,7 +44,9 @@ impl Source {
             .expect("Failed to acquire write lock on source files")
     }
 
-    pub fn add_file(&self, file: SourceFile) -> SourceFileId {
+    pub fn add_file(&mut self, file: SourceFile) -> SourceFileId {
+        self.file_count += 1;
+
         let mut files = self.write_files();
         let id = SourceFileId(files.len() as u32);
 

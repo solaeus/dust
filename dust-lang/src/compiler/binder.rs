@@ -4,12 +4,11 @@ use tracing::{Level, info, span};
 use crate::{
     compiler::CompileError,
     resolver::{
-        Declaration, DeclarationId, DeclarationKind, ModuleKind, Resolver, Scope, ScopeId,
-        ScopeKind, TypeId,
+        Declaration, DeclarationId, DeclarationKind, FunctionTypeNode, ModuleKind, Resolver, Scope,
+        ScopeId, ScopeKind, TypeId, TypeNode,
     },
     source::{Position, Source, SourceFileId, Span},
     syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
-    r#type::{FunctionType, Type},
 };
 
 pub struct Binder<'a> {
@@ -228,7 +227,7 @@ impl<'a> Binder<'a> {
 
         debug_assert_eq!(
             value_parameter_list_node.kind,
-            SyntaxKind::FunctionValueParameters
+            SyntaxKind::ValueParametersDefinition
         );
 
         let value_parameter_node_ids = self
@@ -291,26 +290,16 @@ impl<'a> Binder<'a> {
                     syntax_id: SyntaxId(parameter_type_node_id),
                 })?;
 
-            let r#type = match parameter_type_node.kind {
-                SyntaxKind::BooleanType => Type::Boolean,
-                SyntaxKind::ByteType => Type::Byte,
-                SyntaxKind::CharacterType => Type::Character,
-                SyntaxKind::FloatType => Type::Float,
-                SyntaxKind::IntegerType => Type::Integer,
-                SyntaxKind::StringType => Type::String,
-                _ => {
-                    todo!()
-                }
-            };
+            let type_id = Self::get_type_id(&parameter_type_node, self.syntax_tree, self.resolver)?;
             let parameter_declaration = Declaration {
                 kind: DeclarationKind::Local { shadowed: None },
                 scope_id: function_scope,
-                type_id: self.resolver.add_type(&r#type),
+                type_id,
                 position: Position::new(self.file_id, parameter_name_node.span),
                 is_public: false,
             };
 
-            value_parameters.push(r#type);
+            value_parameters.push(type_id);
 
             let parameter_id = self
                 .resolver
@@ -319,58 +308,28 @@ impl<'a> Binder<'a> {
             parameter_ids.push(parameter_id);
         }
 
-        let function_return_type_id = SyntaxId(function_signature_node.children.1);
-        let return_type = {
-            if function_return_type_id == SyntaxId::NONE {
-                Type::None
-            } else {
-                let function_return_type_node = *self
-                    .syntax_tree
-                    .get_node(function_return_type_id)
-                    .ok_or(CompileError::MissingSyntaxNode {
-                        syntax_id: function_return_type_id,
-                    })?;
+        let function_return_type_node_id = SyntaxId(function_signature_node.children.1);
+        let return_type_id = if function_return_type_node_id == SyntaxId::NONE {
+            TypeId::NONE
+        } else {
+            let function_return_type_node = *self
+                .syntax_tree
+                .get_node(function_return_type_node_id)
+                .ok_or(CompileError::MissingSyntaxNode {
+                    syntax_id: function_return_type_node_id,
+                })?;
 
-                match function_return_type_node.kind {
-                    SyntaxKind::BooleanType => Type::Boolean,
-                    SyntaxKind::ByteType => Type::Byte,
-                    SyntaxKind::CharacterType => Type::Character,
-                    SyntaxKind::FloatType => Type::Float,
-                    SyntaxKind::IntegerType => Type::Integer,
-                    SyntaxKind::StringType => Type::String,
-                    SyntaxKind::ListType => {
-                        let element_type_id = SyntaxId(function_return_type_node.children.0);
-                        let element_type_node = *self.syntax_tree.get_node(element_type_id).ok_or(
-                            CompileError::MissingSyntaxNode {
-                                syntax_id: element_type_id,
-                            },
-                        )?;
-
-                        let element_type = match element_type_node.kind {
-                            SyntaxKind::BooleanType => Type::Boolean,
-                            SyntaxKind::ByteType => Type::Byte,
-                            SyntaxKind::CharacterType => Type::Character,
-                            SyntaxKind::FloatType => Type::Float,
-                            SyntaxKind::IntegerType => Type::Integer,
-                            SyntaxKind::StringType => Type::String,
-                            _ => {
-                                todo!()
-                            }
-                        };
-
-                        Type::List(Box::new(element_type))
-                    }
-                    _ => todo!(),
-                }
-            }
+            Self::get_type_id(&function_return_type_node, self.syntax_tree, self.resolver)?
         };
 
-        let function_type = FunctionType {
-            type_parameters: Vec::new(),
-            value_parameters,
-            return_type,
+        let function_type_node = FunctionTypeNode {
+            type_parameters: (0, 0),
+            value_parameters: self.resolver.add_type_members(&value_parameters),
+            return_type: return_type_id,
         };
-        let function_type_id = self.resolver.add_function_type(&function_type);
+        let function_type_id = self
+            .resolver
+            .add_type_node(TypeNode::Function(function_type_node));
 
         let path_id = SyntaxId(node.children.0);
         let path_node = *self
@@ -486,5 +445,110 @@ impl<'a> Binder<'a> {
             .push(current_declaration_id);
 
         Ok(())
+    }
+
+    fn get_type_id(
+        node: &SyntaxNode,
+        syntax_tree: &SyntaxTree,
+        resolver: &mut Resolver,
+    ) -> Result<TypeId, CompileError> {
+        match node.kind {
+            SyntaxKind::BooleanType => Ok(TypeId::BOOLEAN),
+            SyntaxKind::ByteType => Ok(TypeId::BYTE),
+            SyntaxKind::CharacterType => Ok(TypeId::CHARACTER),
+            SyntaxKind::FloatType => Ok(TypeId::FLOAT),
+            SyntaxKind::IntegerType => Ok(TypeId::INTEGER),
+            SyntaxKind::StringType => Ok(TypeId::STRING),
+            SyntaxKind::ListType => {
+                let element_type_id = SyntaxId(node.children.0);
+                let element_type_node = syntax_tree.get_node(element_type_id).ok_or(
+                    CompileError::MissingSyntaxNode {
+                        syntax_id: element_type_id,
+                    },
+                )?;
+
+                let element_type_id = Self::get_type_id(element_type_node, syntax_tree, resolver)?;
+                let lise_type_id = resolver.add_type_node(TypeNode::List(element_type_id));
+
+                Ok(lise_type_id)
+            }
+            SyntaxKind::FunctionType => {
+                let function_value_parameters_id = SyntaxId(node.children.0);
+                let type_node_value_parameters = if function_value_parameters_id == SyntaxId::NONE {
+                    (0, 0)
+                } else {
+                    let function_value_parameters_node = syntax_tree
+                        .get_node(function_value_parameters_id)
+                        .ok_or(CompileError::MissingSyntaxNode {
+                            syntax_id: function_value_parameters_id,
+                        })?;
+
+                    let value_parameter_type_node_ids = syntax_tree
+                        .get_children(
+                            function_value_parameters_node.children.0,
+                            function_value_parameters_node.children.1,
+                        )
+                        .ok_or(CompileError::MissingChildren {
+                            parent_kind: function_value_parameters_node.kind,
+                            start_index: function_value_parameters_node.children.0,
+                            count: function_value_parameters_node.children.1,
+                        })?;
+
+                    let mut value_parameter_type_ids =
+                        SmallVec::<[TypeId; 4]>::with_capacity(value_parameter_type_node_ids.len());
+
+                    for type_node_id in value_parameter_type_node_ids {
+                        let type_id = if *type_node_id == SyntaxId::NONE {
+                            TypeId::NONE
+                        } else {
+                            let type_node = syntax_tree.get_node(*type_node_id).ok_or(
+                                CompileError::MissingSyntaxNode {
+                                    syntax_id: *type_node_id,
+                                },
+                            )?;
+
+                            Self::get_type_id(type_node, syntax_tree, resolver)?
+                        };
+
+                        value_parameter_type_ids.push(type_id);
+                    }
+
+                    resolver.add_type_members(&value_parameter_type_ids)
+                };
+
+                println!(
+                    "function_value_parameters_id: {:?}",
+                    function_value_parameters_id
+                );
+
+                let function_return_type_id = SyntaxId(node.children.1);
+                let return_type_id = if function_return_type_id == SyntaxId::NONE {
+                    TypeId::NONE
+                } else {
+                    let function_return_type_node = syntax_tree
+                        .get_node(function_return_type_id)
+                        .ok_or(CompileError::MissingSyntaxNode {
+                        syntax_id: function_return_type_id,
+                    })?;
+
+                    Self::get_type_id(function_return_type_node, syntax_tree, resolver)?
+                };
+
+                println!("function_return_type_id: {:?}", function_return_type_id);
+
+                let function_type_node = FunctionTypeNode {
+                    type_parameters: (0, 0),
+                    value_parameters: type_node_value_parameters,
+                    return_type: return_type_id,
+                };
+                let function_type_id =
+                    resolver.add_type_node(TypeNode::Function(function_type_node));
+
+                Ok(function_type_id)
+            }
+            _ => {
+                todo!()
+            }
+        }
     }
 }

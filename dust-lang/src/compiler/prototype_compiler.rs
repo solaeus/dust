@@ -2833,7 +2833,7 @@ impl<'a> PrototypeCompiler<'a> {
 
             debug_assert_eq!(
                 value_parameter_list_node.kind,
-                SyntaxKind::FunctionValueParameters
+                SyntaxKind::ValueParametersDefinition
             );
 
             let function_scope = self.context.resolver.add_scope(Scope {

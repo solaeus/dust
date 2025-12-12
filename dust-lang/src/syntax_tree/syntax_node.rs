@@ -102,7 +102,7 @@ impl SyntaxNode {
             | SyntaxKind::ListExpression
             | SyntaxKind::Path
             | SyntaxKind::CallValueArguments
-            | SyntaxKind::FunctionValueParameters
+            | SyntaxKind::ValueParametersDefinition
             | SyntaxKind::IfExpression => {
                 SyntaxNodeChildren::Multiple(self.children.0, self.children.1)
             }
@@ -119,7 +119,7 @@ impl SyntaxNode {
             | SyntaxKind::LetMutStatement
             | SyntaxKind::ReassignmentStatement
             | SyntaxKind::FunctionExpression
-            | SyntaxKind::FunctionValueParameter
+            | SyntaxKind::ValueParameterDefinition
             | SyntaxKind::FunctionSignature
             | SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
@@ -143,7 +143,8 @@ impl SyntaxNode {
             | SyntaxKind::WhileExpression
             | SyntaxKind::CallExpression
             | SyntaxKind::IndexExpression
-            | SyntaxKind::AsExpression => {
+            | SyntaxKind::AsExpression
+            | SyntaxKind::FunctionType => {
                 SyntaxNodeChildren::Double(SyntaxId(self.children.0), SyntaxId(self.children.1))
             }
             _ => SyntaxNodeChildren::None,
@@ -265,11 +266,12 @@ pub enum SyntaxKind {
     // Sub-Syntax
     CallValueArguments,
     FunctionSignature,
-    FunctionValueParameters,
-    FunctionValueParameter,
-    FunctionValueParameterName,
-    FunctionValueParameterType,
-    FunctionTypeParameters,
+    ValueParametersDefinition,
+    ValueParameterDefinition,
+    ValueParameterName,
+    ValueParameterType,
+    ValueParameterTypes,
+
     Path,
     PathSegment,
 
@@ -282,6 +284,7 @@ pub enum SyntaxKind {
     StringType,
     TypePath,
     ListType,
+    FunctionType,
 
     // Ignored
     Trivia,
@@ -440,11 +443,16 @@ impl Display for SyntaxKind {
             SyntaxKind::BreakExpression => write!(f, "break expression"),
             SyntaxKind::AsExpression => write!(f, "as expression"),
             SyntaxKind::FunctionSignature => write!(f, "function signature"),
-            SyntaxKind::FunctionValueParameters => write!(f, "function value parameters"),
-            SyntaxKind::FunctionValueParameter => write!(f, "function value parameter"),
-            SyntaxKind::FunctionValueParameterName => write!(f, "function value parameter name"),
-            SyntaxKind::FunctionValueParameterType => write!(f, "function value parameter type"),
-            SyntaxKind::FunctionTypeParameters => write!(f, "function type parameters"),
+            SyntaxKind::ValueParametersDefinition => {
+                write!(f, "value parameters definition")
+            }
+            SyntaxKind::ValueParameterDefinition => {
+                write!(f, "value parameter definition")
+            }
+            SyntaxKind::ValueParameterName => write!(f, "value parameter name"),
+            SyntaxKind::ValueParameterType => write!(f, "value parameter type"),
+            SyntaxKind::ValueParameterTypes => write!(f, "value parameter types"),
+            SyntaxKind::FunctionType => write!(f, "function type"),
             SyntaxKind::CallValueArguments => write!(f, "call value arguments"),
             SyntaxKind::Path => write!(f, "path"),
             SyntaxKind::PathSegment => write!(f, "path segment"),

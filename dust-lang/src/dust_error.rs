@@ -8,7 +8,7 @@ use crate::{
     compiler::CompileError,
     jit_vm::JitError,
     parser::ParseError,
-    source::{Source, SourceCode, SourceFileId},
+    source::{Source, SourceCode, SourceFile, SourceFileId},
 };
 
 const SOURCE_NOT_AVAILABLE: &str = "<source not available>";
@@ -36,9 +36,9 @@ impl DustError {
     }
 
     pub fn jit(error: JitError) -> Self {
-        let source = Source::new();
+        let mut source = Source::new();
 
-        source.add_file(crate::source::SourceFile {
+        source.add_file(SourceFile {
             name: SOURCE_NOT_AVAILABLE.to_string(),
             source_code: SourceCode::String(SOURCE_NOT_AVAILABLE.to_string()),
         });

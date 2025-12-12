@@ -29,7 +29,7 @@ use crate::{
 };
 
 pub fn compile_main(source_code: String) -> Result<Prototype, DustError> {
-    let source = Source::new();
+    let mut source = Source::new();
     source.add_file(SourceFile {
         name: "main".to_string(),
         source_code: SourceCode::String(source_code),
@@ -42,7 +42,7 @@ pub fn compile_main(source_code: String) -> Result<Prototype, DustError> {
 }
 
 pub fn compile(source_code: String) -> Result<Vec<Prototype>, DustError> {
-    let source = Source::new();
+    let mut source = Source::new();
     source.add_file(SourceFile {
         name: "main".to_string(),
         source_code: SourceCode::String(source_code),
@@ -62,8 +62,8 @@ impl Compiler {
     pub fn new(source: Source) -> Self {
         Self {
             context: CompileContext {
+                file_trees: Vec::with_capacity(source.file_count()),
                 source,
-                file_trees: Vec::new(),
                 constants: ConstantTable::new(),
                 resolver: Resolver::new(),
                 prototypes: Vec::new(),

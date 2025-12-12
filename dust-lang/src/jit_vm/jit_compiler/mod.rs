@@ -1,6 +1,6 @@
 mod instruction_compiler;
 
-use std::mem::transmute;
+use std::{collections::HashSet, mem::transmute};
 
 use cranelift::{
     codegen::ir::InstBuilder,
@@ -12,7 +12,7 @@ use cranelift::{
 };
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Module};
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxBuildHasher, FxHashSet};
 use tracing::Level;
 
 use crate::{
@@ -123,10 +123,10 @@ impl<'a> JitCompiler<'a> {
     }
 
     fn compile_program(&mut self) -> Result<JitLogic, JitError> {
-        let compile_order = get_compile_order(self.program);
+        let (compile_order, recursive_calls) = get_compile_order_and_recursive_calls(self.program);
 
         for index in compile_order {
-            self.function_ids[index] = self.compile_prototype(index)?;
+            self.function_ids[index] = self.compile_prototype(index, &recursive_calls)?;
         }
 
         self.module
@@ -143,7 +143,11 @@ impl<'a> JitCompiler<'a> {
         Ok(jit_logic)
     }
 
-    fn compile_prototype(&mut self, prototype_index: usize) -> Result<FuncId, JitError> {
+    fn compile_prototype(
+        &mut self,
+        prototype_index: usize,
+        recursive_calls: &FxHashSet<(u16, u16)>,
+    ) -> Result<FuncId, JitError> {
         let prototype =
             self.program
                 .prototypes
@@ -237,6 +241,7 @@ impl<'a> JitCompiler<'a> {
             ssa_registers: &mut ssa_registers,
             thread_context,
             thread_context_fields,
+            recursive_calls,
             base_register_index,
             module: &mut self.module,
         };
@@ -277,26 +282,8 @@ impl<'a> JitCompiler<'a> {
 
 pub type JitLogic = extern "C" fn(&mut ThreadContext, usize) -> i64;
 
-fn get_compile_order(program: &Program) -> Vec<usize> {
-    fn depth_first_search(
-        caller_index: usize,
-        edges: &[FxHashSet<usize>],
-        visited: &mut [bool],
-        order: &mut Vec<usize>,
-    ) {
-        if visited[caller_index] {
-            return;
-        }
-
-        visited[caller_index] = true;
-
-        for callee_index in &edges[caller_index] {
-            depth_first_search(*callee_index, edges, visited, order);
-        }
-
-        order.push(caller_index);
-    }
-
+// https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
+fn get_compile_order_and_recursive_calls(program: &Program) -> (Vec<usize>, FxHashSet<(u16, u16)>) {
     let prototype_count = program.prototypes.len();
     let mut edges = vec![FxHashSet::default(); prototype_count];
 
@@ -312,10 +299,72 @@ fn get_compile_order(program: &Program) -> Vec<usize> {
         }
     }
 
-    let mut order = Vec::with_capacity(prototype_count);
-    let mut visited = vec![false; prototype_count];
+    struct Tarjan<'a> {
+        edges: &'a [HashSet<usize, FxBuildHasher>],
+        index_counter: usize,
+        call_stack: Vec<usize>,
+        on_stack: Vec<bool>,
+        indices: Vec<usize>,
+        lowlinks: Vec<usize>,
+        scc_id: Vec<usize>,
+        scc_count: usize,
+        order: Vec<usize>,
+    }
 
-    depth_first_search(0, &edges, &mut visited, &mut order);
+    impl Tarjan<'_> {
+        fn visit(&mut self, node: usize) {
+            self.indices[node] = self.index_counter;
+            self.lowlinks[node] = self.index_counter;
+            self.index_counter += 1;
+            self.call_stack.push(node);
+            self.on_stack[node] = true;
 
-    order
+            for &neighbor in &self.edges[node] {
+                if self.indices[neighbor] == usize::MAX {
+                    self.visit(neighbor);
+                    self.lowlinks[node] = self.lowlinks[node].min(self.lowlinks[neighbor]);
+                } else if self.on_stack[neighbor] {
+                    self.lowlinks[node] = self.lowlinks[node].min(self.indices[neighbor]);
+                }
+            }
+
+            if self.lowlinks[node] == self.indices[node] {
+                while let Some(top) = self.call_stack.pop() {
+                    self.on_stack[top] = false;
+                    self.scc_id[top] = self.scc_count;
+                    self.order.push(top);
+                    if top == node {
+                        break;
+                    }
+                }
+                self.scc_count += 1;
+            }
+        }
+    }
+
+    let mut tarjan = Tarjan {
+        edges: &edges,
+        index_counter: 0,
+        call_stack: Vec::new(),
+        on_stack: vec![false; prototype_count],
+        indices: vec![usize::MAX; prototype_count],
+        lowlinks: vec![usize::MAX; prototype_count],
+        scc_id: vec![usize::MAX; prototype_count],
+        scc_count: 0,
+        order: Vec::with_capacity(prototype_count),
+    };
+
+    tarjan.visit(0);
+
+    let mut recursive_calls = HashSet::default();
+
+    for (caller, callees) in edges.iter().enumerate() {
+        for &callee in callees {
+            if tarjan.scc_id[caller] == tarjan.scc_id[callee] {
+                recursive_calls.insert((caller as u16, callee as u16));
+            }
+        }
+    }
+
+    (tarjan.order, recursive_calls)
 }
