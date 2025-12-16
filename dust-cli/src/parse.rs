@@ -1,56 +1,54 @@
-use std::time::Instant;
+use std::{path::PathBuf, time::Instant};
 
 use dust_lang::{
     dust_error::DustError,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{Source, SourceCode, SourceFile, SourceFileId},
+    source::SourceFileId,
 };
 
-use crate::print_times;
+use crate::{handle_source, print_times};
 
 pub fn handle_parse_command(
     eval: Option<String>,
+    path: Option<PathBuf>,
+    stdin: bool,
     no_output: bool,
     time: bool,
     start_time: Instant,
 ) {
-    let source = Source::new();
-    let mut files = source.write_files();
-    let file = match eval {
-        Some(code) => SourceFile {
-            name: "eval".to_string(),
-            source_code: SourceCode::String(code),
-        },
-        _ => panic!("No source code provided"),
-    };
+    let source = handle_source(eval, path, stdin);
+    let files = source.read_files();
+    let mut errors = Vec::new();
 
-    files.push(file);
+    for file in files.iter() {
+        let lexer = Lexer::new(file.source_code.as_ref());
+        let parser = Parser::new(SourceFileId(0), lexer);
+        let ParseResult {
+            syntax_tree,
+            errors: parse_errors,
+        } = parser.parse_main();
 
-    let file = files.first().unwrap();
-    let lexer = Lexer::new(file.source_code.as_ref());
-    let parser = Parser::new(SourceFileId(0), lexer);
-    let ParseResult {
-        syntax_tree,
-        errors,
-    } = parser.parse_main();
-    let parse_time = start_time.elapsed();
+        if !errors.is_empty() {
+            errors.extend(parse_errors.into_iter());
+
+            continue;
+        }
+
+        if !no_output {
+            println!("{syntax_tree}");
+        }
+    }
 
     drop(files);
 
     if !errors.is_empty() {
-        let dust_error = DustError::parse(errors, source);
-
-        eprintln!("{}", dust_error.report());
-
-        return;
-    }
-
-    if !no_output {
-        println!("{syntax_tree}");
+        eprintln!("{}", DustError::parse(errors, source).report());
     }
 
     if time {
+        let parse_time = start_time.elapsed();
+
         print_times(&[("Parse Time", parse_time, None)]);
     }
 }

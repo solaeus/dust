@@ -15,7 +15,7 @@ pub fn handle_run_command(
     start_time: Instant,
 ) {
     let source = handle_source(eval, path, false);
-    let compiler = Compiler::new(source.clone());
+    let compiler = Compiler::new(source);
     let compile_result = compiler.compile(None);
     let compile_time = start_time.elapsed();
 

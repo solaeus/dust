@@ -65,7 +65,7 @@ fn main() {
     }
 
     if mode == Mode::Parse {
-        handle_parse_command(eval, no_output, time, start_time);
+        handle_parse_command(eval, path, stdin, no_output, time, start_time);
 
         return;
     }
@@ -324,6 +324,7 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
         io::stdin()
             .read_to_end(&mut buffer)
             .expect("Failed to read from stdin");
+
         let file = SourceFile {
             name: "stdin".to_string(),
             source_code: SourceCode::Bytes(buffer),
