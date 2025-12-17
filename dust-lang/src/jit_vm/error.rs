@@ -25,10 +25,10 @@ pub enum JitError {
     UnsupportedOperandType {
         operand_type: OperandType,
     },
-    DropListRangeOutOfBounds {
-        drop_list_start: u16,
-        drop_list_end: u16,
-        total_safepoint_count: usize,
+    DropListIndexOutOfBounds {
+        drop_list_index: u16,
+
+        drop_list_length: usize,
     },
     UnsupportedOperation {
         operation: Operation,
@@ -122,14 +122,12 @@ impl AnnotatedError for JitError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
-            JitError::DropListRangeOutOfBounds {
-                drop_list_start,
-                drop_list_end,
-                total_safepoint_count,
+            JitError::DropListIndexOutOfBounds {
+                drop_list_index,
+                drop_list_length,
             } => {
                 let title = format!(
-                    "Drop list range [{}, {}) is out of bounds (safepoints: {})",
-                    drop_list_start, drop_list_end, total_safepoint_count
+                    "Drop list index {drop_list_index} is out of bounds (drop list length: {drop_list_length})"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

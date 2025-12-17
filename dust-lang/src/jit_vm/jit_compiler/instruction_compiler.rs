@@ -17,9 +17,9 @@ use tracing::trace;
 use crate::{
     constant_table::ConstantTable,
     instruction::{
-        Add, Address, Call, CallNative, Divide, GetList, Instruction, Jump, MemoryKind, Modulo,
-        Move, Multiply, Negate, NewList, OperandType, Operation, Power, Return, SetList, Subtract,
-        Test, ToString,
+        Add, Address, Call, CallNative, Divide, Drop, GetList, Instruction, Jump, MemoryKind,
+        Modulo, Move, Multiply, Negate, NewList, OperandType, Operation, Power, Return, SetList,
+        Subtract, Test, ToString,
     },
     jit_vm::{JitError, RegisterTag, thread::ThreadContextFields},
     native_function::NativeFunction,
@@ -92,6 +92,7 @@ impl<'a> InstructionCompiler<'a> {
             Operation::SET_LIST => self.compile_set_list(instruction, ip, builder),
             Operation::TO_STRING => self.compile_to_string(instruction, ip, builder),
             Operation::JUMP => self.compile_jump(instruction, ip, builder),
+            Operation::DROP => self.compile_drop(instruction, ip, builder),
             Operation::RETURN => self.compile_return(instruction, builder),
             _ => Err(JitError::UnsupportedOperation { operation }),
         }
@@ -928,12 +929,46 @@ impl<'a> InstructionCompiler<'a> {
         };
 
         if drop_list_end != 0 {
-            for register_index in drop_list_start..drop_list_end {
+            for drop_index in drop_list_start..drop_list_end {
+                let register_index = *self.prototype.drop_lists.get(drop_index as usize).ok_or(
+                    JitError::DropListIndexOutOfBounds {
+                        drop_list_index: drop_index,
+                        drop_list_length: self.prototype.drop_lists.len(),
+                    },
+                )?;
+
                 self.set_register_tag(register_index, OperandType::NONE, builder)?;
             }
         }
 
         builder.ins().jump(self.instruction_blocks[target_ip], &[]);
+
+        Ok(())
+    }
+
+    fn compile_drop(
+        &mut self,
+        instruction: &Instruction,
+        ip: usize,
+        builder: &mut FunctionBuilder,
+    ) -> Result<(), JitError> {
+        let Drop {
+            drop_list_start,
+            drop_list_end,
+        } = Drop::from(instruction);
+
+        for drop_index in drop_list_start..drop_list_end {
+            let register_index = *self.prototype.drop_lists.get(drop_index as usize).ok_or(
+                JitError::DropListIndexOutOfBounds {
+                    drop_list_index: drop_index,
+                    drop_list_length: self.prototype.drop_lists.len(),
+                },
+            )?;
+
+            self.set_register_tag(register_index, OperandType::NONE, builder)?;
+        }
+
+        builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
 
         Ok(())
     }
