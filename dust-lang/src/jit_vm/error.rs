@@ -33,8 +33,8 @@ pub enum JitError {
     UnsupportedOperation {
         operation: Operation,
     },
-    UnsopportedNativeFunction {
-        function_name: String,
+    UnsupportedNativeFunction {
+        function_name: &'static str,
     },
     UnsupportedMemoryKind {
         memory_kind: MemoryKind,
@@ -112,7 +112,7 @@ impl AnnotatedError for JitError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
-            JitError::UnsopportedNativeFunction { function_name } => {
+            JitError::UnsupportedNativeFunction { function_name } => {
                 let title = format!("Unsupported native function in JIT: {}", function_name);
 
                 Group::with_title(Level::ERROR.primary_title(title))

@@ -37,7 +37,7 @@ pub unsafe extern "C" fn read_line(thread_context: *mut ThreadContext) -> i64 {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn write_line(message: *const Object, _thread_context: *const ThreadContext) {
+pub unsafe extern "C" fn write_line(message: *const Object) {
     let string = unsafe { &*message }
         .as_string()
         .map(|string| string.as_str())

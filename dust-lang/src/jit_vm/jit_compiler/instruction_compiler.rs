@@ -17,10 +17,12 @@ use tracing::trace;
 use crate::{
     constant_table::ConstantTable,
     instruction::{
-        Add, Address, Call, Divide, GetList, Instruction, Jump, MemoryKind, Modulo, Move, Multiply,
-        Negate, NewList, OperandType, Operation, Power, Return, SetList, Subtract, Test,
+        Add, Address, Call, CallNative, Divide, GetList, Instruction, Jump, MemoryKind, Modulo,
+        Move, Multiply, Negate, NewList, OperandType, Operation, Power, Return, SetList, Subtract,
+        Test, ToString,
     },
     jit_vm::{JitError, RegisterTag, thread::ThreadContextFields},
+    native_function::NativeFunction,
     prototype::Prototype,
 };
 
@@ -77,6 +79,7 @@ impl<'a> InstructionCompiler<'a> {
                 self.compile_comparison(instruction, ip, operation, builder)
             }
             Operation::CALL => self.compile_call(instruction, ip, builder),
+            Operation::CALL_NATIVE => self.compile_call_native(instruction, ip, builder),
             Operation::NEGATE => self.compile_negate(instruction, ip, builder),
             Operation::ADD => self.compile_add(instruction, ip, builder),
             Operation::SUBTRACT => self.compile_subtract(instruction, ip, builder),
@@ -87,6 +90,7 @@ impl<'a> InstructionCompiler<'a> {
             Operation::NEW_LIST => self.compile_new_list(instruction, ip, builder),
             Operation::GET_LIST => self.compile_get_list(instruction, ip, builder),
             Operation::SET_LIST => self.compile_set_list(instruction, ip, builder),
+            Operation::TO_STRING => self.compile_to_string(instruction, ip, builder),
             Operation::JUMP => self.compile_jump(instruction, ip, builder),
             Operation::RETURN => self.compile_return(instruction, builder),
             _ => Err(JitError::UnsupportedOperation { operation }),
@@ -315,14 +319,74 @@ impl<'a> InstructionCompiler<'a> {
             }
 
             let call_callee = builder.ins().call(callee_reference, &argument_values);
-            let return_value = builder.inst_results(call_callee)[0];
 
             if return_type != OperandType::NONE {
+                let return_value = builder.inst_results(call_callee)[0];
+
                 self.set_register_and_tag(destination, return_value, return_type, builder)?;
             }
 
             builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
         }
+
+        Ok(())
+    }
+
+    fn compile_call_native(
+        &mut self,
+        instruction: &Instruction,
+        ip: usize,
+        builder: &mut FunctionBuilder,
+    ) -> Result<(), JitError> {
+        let CallNative {
+            destination,
+            function,
+            arguments_start,
+            argument_count,
+            return_type,
+        } = CallNative::from(instruction);
+
+        let arguments_end = (arguments_start + argument_count) as usize;
+        let argument_range = arguments_start as usize..arguments_end;
+        let mut argument_values =
+            SmallVec::<[CraneliftValue; 8]>::with_capacity(argument_count as usize + 1);
+
+        for argument_index in argument_range {
+            let (address, r#type) = self.prototype.call_arguments.get(argument_index).ok_or(
+                JitError::CallArgumentIndexOutOfBounds {
+                    argument_index,
+                    total_argument_count: self.prototype.call_arguments.len(),
+                },
+            )?;
+            let argument_value = self.get_value(*address, *r#type, builder)?;
+
+            argument_values.push(argument_value);
+        }
+
+        let callee_reference = match function {
+            NativeFunction::READ_LINE => {
+                let function = self.get_read_line_function(builder)?;
+
+                argument_values.push(self.thread_context);
+
+                function
+            }
+            NativeFunction::WRITE_LINE => self.get_write_line_function(builder)?,
+            _ => {
+                return Err(JitError::UnsupportedNativeFunction {
+                    function_name: function.name(),
+                });
+            }
+        };
+        let call_callee = builder.ins().call(callee_reference, &argument_values);
+
+        if return_type != OperandType::NONE {
+            let return_value = builder.inst_results(call_callee)[0];
+
+            self.set_register_and_tag(destination, return_value, return_type, builder)?;
+        }
+
+        builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
 
         Ok(())
     }
@@ -813,6 +877,38 @@ impl<'a> InstructionCompiler<'a> {
         Ok(())
     }
 
+    fn compile_to_string(
+        &mut self,
+        instruction: &Instruction,
+        ip: usize,
+        builder: &mut FunctionBuilder,
+    ) -> Result<(), JitError> {
+        let ToString {
+            destination,
+            operand,
+            r#type,
+        } = ToString::from(instruction);
+
+        let operand_value = self.get_value(operand, r#type, builder)?;
+        let to_string_function = match r#type {
+            OperandType::INTEGER => self.get_integer_to_string_function(builder)?,
+            _ => {
+                return Err(JitError::UnsupportedOperandType {
+                    operand_type: r#type,
+                });
+            }
+        };
+        let call_to_string = builder
+            .ins()
+            .call(to_string_function, &[operand_value, self.thread_context]);
+        let string_value = builder.inst_results(call_to_string)[0];
+
+        self.set_register_and_tag(destination, string_value, OperandType::STRING, builder)?;
+        builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
+
+        Ok(())
+    }
+
     fn compile_jump(
         &mut self,
         instruction: &Instruction,
@@ -1260,6 +1356,7 @@ impl<'a> InstructionCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
+
         self.declare_imported_function("allocate_list", signature, function_builder)
     }
 
@@ -1275,6 +1372,7 @@ impl<'a> InstructionCompiler<'a> {
             AbiParam::new(I64),
             AbiParam::new(I64),
         ]);
+
         self.declare_imported_function("insert_into_list", signature, function_builder)
     }
 
@@ -1291,6 +1389,7 @@ impl<'a> InstructionCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
+
         self.declare_imported_function("get_from_list", signature, function_builder)
     }
 
@@ -1305,6 +1404,7 @@ impl<'a> InstructionCompiler<'a> {
             .params
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
+
         self.declare_imported_function("compare_lists_equal", signature, function_builder)
     }
 
@@ -1319,6 +1419,7 @@ impl<'a> InstructionCompiler<'a> {
             .params
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
+
         self.declare_imported_function("compare_lists_less_than", signature, function_builder)
     }
 
@@ -1333,6 +1434,7 @@ impl<'a> InstructionCompiler<'a> {
             .params
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
+
         self.declare_imported_function("compare_lists_less_than_equal", signature, function_builder)
     }
 
@@ -1349,6 +1451,7 @@ impl<'a> InstructionCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
+
         self.declare_imported_function("allocate_string", signature, function_builder)
     }
 
@@ -1365,6 +1468,7 @@ impl<'a> InstructionCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
+
         self.declare_imported_function("concatenate_strings", signature, function_builder)
     }
 
@@ -1381,6 +1485,7 @@ impl<'a> InstructionCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
+
         self.declare_imported_function("concatenate_character_string", signature, function_builder)
     }
 
@@ -1397,6 +1502,7 @@ impl<'a> InstructionCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
+
         self.declare_imported_function("concatenate_string_character", signature, function_builder)
     }
 
@@ -1413,6 +1519,7 @@ impl<'a> InstructionCompiler<'a> {
             AbiParam::new(pointer_type),
         ]);
         signature.returns.push(AbiParam::new(I64));
+
         self.declare_imported_function("concatenate_characters", signature, function_builder)
     }
 
@@ -1427,6 +1534,7 @@ impl<'a> InstructionCompiler<'a> {
             .params
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
+
         self.declare_imported_function("compare_strings_equal", signature, function_builder)
     }
 
@@ -1441,6 +1549,7 @@ impl<'a> InstructionCompiler<'a> {
             .params
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
+
         self.declare_imported_function("compare_strings_less_than", signature, function_builder)
     }
 
@@ -1455,6 +1564,7 @@ impl<'a> InstructionCompiler<'a> {
             .params
             .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I8));
+
         self.declare_imported_function(
             "compare_strings_less_than_equal",
             signature,
@@ -1473,6 +1583,7 @@ impl<'a> InstructionCompiler<'a> {
             .params
             .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
         signature.returns.push(AbiParam::new(I64));
+
         self.declare_imported_function("integer_to_string", signature, function_builder)
     }
 
@@ -1485,6 +1596,7 @@ impl<'a> InstructionCompiler<'a> {
 
         signature.params.push(AbiParam::new(pointer_type));
         signature.returns.push(AbiParam::new(I64));
+
         self.declare_imported_function("read_line", signature, function_builder)
     }
 
@@ -1495,9 +1607,8 @@ impl<'a> InstructionCompiler<'a> {
         let pointer_type = self.module.isa().pointer_type();
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
-        signature
-            .params
-            .extend([AbiParam::new(pointer_type), AbiParam::new(pointer_type)]);
+        signature.params.push(AbiParam::new(pointer_type));
+
         self.declare_imported_function("write_line", signature, function_builder)
     }
 
@@ -1511,6 +1622,7 @@ impl<'a> InstructionCompiler<'a> {
             .params
             .extend([AbiParam::new(I8), AbiParam::new(I8)]);
         signature.returns.push(AbiParam::new(I64));
+
         self.declare_imported_function("byte_power", signature, function_builder)
     }
 
@@ -1524,6 +1636,7 @@ impl<'a> InstructionCompiler<'a> {
             .params
             .extend([AbiParam::new(I64), AbiParam::new(I64)]);
         signature.returns.push(AbiParam::new(I64));
+
         self.declare_imported_function("integer_power", signature, function_builder)
     }
 
@@ -1537,6 +1650,7 @@ impl<'a> InstructionCompiler<'a> {
             .params
             .extend([AbiParam::new(F64), AbiParam::new(F64)]);
         signature.returns.push(AbiParam::new(I64));
+
         self.declare_imported_function("float_power", signature, function_builder)
     }
 
@@ -1549,6 +1663,7 @@ impl<'a> InstructionCompiler<'a> {
 
         signature.params.push(AbiParam::new(I8));
         signature.params.push(AbiParam::new(I64));
+
         self.declare_imported_function("log_operation_and_ip", signature, function_builder)
     }
 }
