@@ -35,7 +35,7 @@ fn list_boolean() {
                     Address::constant(2),
                     OperandType::BOOLEAN
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::LIST_BOOLEAN),
+                Instruction::r#return(Address::register(0), OperandType::LIST_BOOLEAN),
             ],
             register_count: 1,
             ..Default::default()
@@ -72,7 +72,7 @@ fn list_byte() {
                     Address::constant(2),
                     OperandType::BYTE
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::LIST_BYTE),
+                Instruction::r#return(Address::register(0), OperandType::LIST_BYTE),
             ],
             register_count: 1,
             ..Default::default()
@@ -109,7 +109,7 @@ fn list_character() {
                     Address::constant(5),
                     OperandType::CHARACTER
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::LIST_CHARACTER),
+                Instruction::r#return(Address::register(0), OperandType::LIST_CHARACTER),
             ],
             register_count: 1,
             ..Default::default()
@@ -146,7 +146,7 @@ fn list_float() {
                     Address::constant(5),
                     OperandType::FLOAT
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::LIST_FLOAT),
+                Instruction::r#return(Address::register(0), OperandType::LIST_FLOAT),
             ],
             register_count: 1,
             ..Default::default()
@@ -183,7 +183,7 @@ fn list_integer() {
                     Address::constant(2),
                     OperandType::INTEGER
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::LIST_INTEGER),
+                Instruction::r#return(Address::register(0), OperandType::LIST_INTEGER),
             ],
             register_count: 1,
             ..Default::default()
@@ -241,7 +241,7 @@ fn list_equal() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
             ..Default::default()
@@ -299,7 +299,7 @@ fn list_not_equal() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
             ..Default::default()
@@ -357,7 +357,7 @@ fn list_greater_than() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
             ..Default::default()
@@ -415,7 +415,7 @@ fn list_less_than() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
             ..Default::default()
@@ -473,7 +473,7 @@ fn list_greater_than_or_equal() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
             ..Default::default()
@@ -531,7 +531,7 @@ fn list_less_than_or_equal() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
             ..Default::default()
@@ -574,7 +574,7 @@ fn list_index_boolean() {
                     Address::constant(0),
                     OperandType::BOOLEAN
                 ),
-                Instruction::r#return(true, Address::register(1), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(1), OperandType::BOOLEAN),
             ],
             register_count: 2,
             ..Default::default()
@@ -617,7 +617,7 @@ fn list_index_byte() {
                     Address::constant(1),
                     OperandType::BYTE
                 ),
-                Instruction::r#return(true, Address::register(1), OperandType::BYTE),
+                Instruction::r#return(Address::register(1), OperandType::BYTE),
             ],
             register_count: 2,
             ..Default::default()
@@ -660,7 +660,7 @@ fn list_index_character() {
                     Address::constant(5),
                     OperandType::CHARACTER
                 ),
-                Instruction::r#return(true, Address::register(1), OperandType::CHARACTER),
+                Instruction::r#return(Address::register(1), OperandType::CHARACTER),
             ],
             register_count: 2,
             ..Default::default()
@@ -703,7 +703,7 @@ fn list_index_float() {
                     Address::constant(3),
                     OperandType::FLOAT
                 ),
-                Instruction::r#return(true, Address::register(1), OperandType::FLOAT),
+                Instruction::r#return(Address::register(1), OperandType::FLOAT),
             ],
             register_count: 2,
             ..Default::default()
@@ -746,7 +746,7 @@ fn list_index_integer() {
                     Address::constant(1),
                     OperandType::INTEGER
                 ),
-                Instruction::r#return(true, Address::register(1), OperandType::INTEGER),
+                Instruction::r#return(Address::register(1), OperandType::INTEGER),
             ],
             register_count: 2,
             ..Default::default()
@@ -789,7 +789,7 @@ fn list_index_string() {
                     Address::constant(5),
                     OperandType::STRING
                 ),
-                Instruction::r#return(true, Address::register(1), OperandType::STRING),
+                Instruction::r#return(Address::register(1), OperandType::STRING),
             ],
             register_count: 2,
             ..Default::default()
@@ -826,7 +826,7 @@ fn local_list_boolean() {
                     Address::constant(2),
                     OperandType::BOOLEAN
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::LIST_BOOLEAN),
+                Instruction::r#return(Address::register(0), OperandType::LIST_BOOLEAN),
             ],
             register_count: 1,
             ..Default::default()
@@ -884,7 +884,7 @@ fn local_list_equal() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
             ..Default::default()
@@ -942,7 +942,7 @@ fn local_list_not_equal() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
             ..Default::default()
@@ -1000,7 +1000,7 @@ fn local_list_greater_than() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
             ..Default::default()
@@ -1058,7 +1058,7 @@ fn local_list_less_than() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
             ..Default::default()
@@ -1116,7 +1116,7 @@ fn local_list_greater_than_or_equal() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
             ..Default::default()
@@ -1174,7 +1174,7 @@ fn local_list_less_than_or_equal() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN),
             ],
             register_count: 3,
             ..Default::default()
@@ -1211,7 +1211,7 @@ fn list_string() {
                     Address::constant(5),
                     OperandType::STRING
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::LIST_STRING),
+                Instruction::r#return(Address::register(0), OperandType::LIST_STRING),
             ],
             register_count: 1,
             ..Default::default()

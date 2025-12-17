@@ -1,7 +1,7 @@
 use crate::{
-    prototype::Prototype,
     compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
+    prototype::Prototype,
     tests::local_cases,
     r#type::{FunctionType, Type},
 };
@@ -23,7 +23,7 @@ fn local_mut_byte_multiplication() {
                     Address::encoded(3),
                     OperandType::BYTE
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::BYTE)
+                Instruction::r#return(Address::register(0), OperandType::BYTE)
             ],
             register_count: 1,
             ..Default::default()
@@ -48,7 +48,7 @@ fn local_mut_float_multiplication() {
                     Address::constant(1),
                     OperandType::FLOAT
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::FLOAT)
+                Instruction::r#return(Address::register(0), OperandType::FLOAT)
             ],
             register_count: 1,
             ..Default::default()
@@ -73,7 +73,7 @@ fn local_mut_integer_multiplication() {
                     Address::constant(1),
                     OperandType::INTEGER
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::INTEGER)
+                Instruction::r#return(Address::register(0), OperandType::INTEGER)
             ],
             register_count: 1,
             ..Default::default()
@@ -99,7 +99,7 @@ fn local_byte_multiplication() {
                     Address::register(1),
                     OperandType::BYTE
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::BYTE)
+                Instruction::r#return(Address::register(2), OperandType::BYTE)
             ],
             register_count: 3,
             ..Default::default()
@@ -125,7 +125,7 @@ fn local_float_multiplication() {
                     Address::register(1),
                     OperandType::FLOAT
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::FLOAT)
+                Instruction::r#return(Address::register(2), OperandType::FLOAT)
             ],
             register_count: 3,
             ..Default::default()
@@ -151,7 +151,7 @@ fn local_integer_multiplication() {
                     Address::register(1),
                     OperandType::INTEGER
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER)
+                Instruction::r#return(Address::register(2), OperandType::INTEGER)
             ],
             register_count: 3,
             ..Default::default()

@@ -20,7 +20,7 @@ fn if_else_true() {
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(0, Address::constant(0), OperandType::INTEGER, 1, true),
                 Instruction::r#move(0, Address::constant(1), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
+                Instruction::r#return(Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
             ..Default::default()
@@ -44,7 +44,7 @@ fn if_else_logical_and() {
                 Instruction::test(Address::register(1), false, 1),
                 Instruction::move_with_jump(2, Address::constant(0), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(1), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
             ..Default::default()
@@ -68,7 +68,7 @@ fn if_else_logical_or() {
                 Instruction::test(Address::register(1), false, 1),
                 Instruction::move_with_jump(2, Address::constant(0), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(1), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
             ..Default::default()
@@ -90,7 +90,7 @@ fn if_else_false() {
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(0, Address::constant(0), OperandType::INTEGER, 1, true),
                 Instruction::r#move(0, Address::constant(1), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
+                Instruction::r#return(Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
             ..Default::default()
@@ -119,7 +119,7 @@ fn if_else_equal() {
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(2, Address::constant(1), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
             ..Default::default()
@@ -148,7 +148,7 @@ fn if_else_not_equal() {
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
             ..Default::default()
@@ -177,7 +177,7 @@ fn if_else_less_than() {
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
             ..Default::default()
@@ -206,7 +206,7 @@ fn if_else_greater_than() {
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(1), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
             ..Default::default()
@@ -235,7 +235,7 @@ fn if_else_less_than_equal() {
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(2, Address::constant(1), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
             ..Default::default()
@@ -264,7 +264,7 @@ fn if_else_greater_than_equal() {
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(1), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
             ..Default::default()
@@ -301,7 +301,7 @@ fn if_else_if_chain_end() {
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(2, Address::constant(1), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(3), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
             ..Default::default()
@@ -338,7 +338,7 @@ fn if_else_if_chain_middle() {
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
             ..Default::default()
@@ -375,7 +375,7 @@ fn if_else_nested() {
                 Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 2, true),
                 Instruction::move_with_jump(2, Address::constant(3), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(3), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
             ..Default::default()
@@ -420,7 +420,7 @@ fn if_else_double_nested() {
                 Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 2, true),
                 Instruction::move_with_jump(2, Address::constant(2), OperandType::INTEGER, 1, true),
                 Instruction::r#move(2, Address::constant(2), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
             ..Default::default()

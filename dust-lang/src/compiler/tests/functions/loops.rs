@@ -38,7 +38,7 @@ fn while_loop() {
                     OperandType::INTEGER
                 ),
                 Instruction::jump(2, false),
-                Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
+                Instruction::r#return(Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
             ..Default::default()

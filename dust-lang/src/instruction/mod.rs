@@ -7,7 +7,7 @@
 //! Bits  | Description
 //! ----- | -----------
 //! 0-6   | Operation
-//! 7-8   | Memory kind (for the B field)  ─┬― D field (for CALL instruction only)
+//! 7-8   | Memory kind (for the B field)  ─┬― D field (for CALL and CALL_NATIVE instructions)
 //! 9-10  | Memory kind (for the C field)  ─┘
 //! 11-15 | Operand type info
 //! 16-31 | A field (unsigned 16-bit integer), usually the destination index
@@ -467,16 +467,8 @@ impl Instruction {
         })
     }
 
-    pub fn r#return(
-        should_return_value: bool,
-        return_value_address: Address,
-        r#type: OperandType,
-    ) -> Instruction {
-        Instruction::from(Return {
-            should_return_value,
-            return_value_address,
-            r#type,
-        })
+    pub fn r#return(operand: Address, r#type: OperandType) -> Instruction {
+        Instruction::from(Return { operand, r#type })
     }
 
     pub fn to_string(destination: u16, operand: Address, r#type: OperandType) -> Instruction {

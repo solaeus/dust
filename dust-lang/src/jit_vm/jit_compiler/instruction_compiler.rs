@@ -978,16 +978,12 @@ impl<'a> InstructionCompiler<'a> {
         instruction: &Instruction,
         builder: &mut FunctionBuilder,
     ) -> Result<(), JitError> {
-        let Return {
-            should_return_value: _,
-            return_value_address,
-            r#type,
-        } = Return::from(instruction);
+        let Return { operand, r#type } = Return::from(instruction);
 
         let return_value = if r#type == OperandType::NONE {
             builder.ins().iconst(I64, 0)
         } else {
-            self.get_value(return_value_address, r#type, builder)?
+            self.get_value(operand, r#type, builder)?
         };
 
         builder.ins().return_(&[return_value]);

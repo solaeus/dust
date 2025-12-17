@@ -816,8 +816,7 @@ impl<'a> PrototypeCompiler<'a> {
             .resolver
             .get_operand_type(type_id)
             .ok_or(CompileError::MissingType { type_id })?;
-        let return_instruction =
-            Instruction::r#return(type_id != TypeId::NONE, address, operand_type);
+        let return_instruction = Instruction::r#return(address, operand_type);
         self.function_type_node.return_type = type_id;
 
         return_instructions.push(return_instruction);
@@ -1029,8 +1028,7 @@ impl<'a> PrototypeCompiler<'a> {
         let end_children = start_children + child_count;
 
         if child_count == 0 {
-            let return_instruction =
-                Instruction::r#return(false, Address::default(), OperandType::NONE);
+            let return_instruction = Instruction::r#return(Address::default(), OperandType::NONE);
 
             self.emit_instruction(return_instruction);
 
@@ -3417,8 +3415,7 @@ impl<'a> PrototypeCompiler<'a> {
         if node.kind.is_item() {
             self.compile_item(node)?;
 
-            let return_instruction =
-                Instruction::r#return(false, Address::default(), OperandType::NONE);
+            let return_instruction = Instruction::r#return(Address::default(), OperandType::NONE);
 
             return_emission.push(return_instruction);
         } else if node.kind.is_statement() {

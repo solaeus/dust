@@ -23,7 +23,6 @@ fn boolean() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -48,7 +47,6 @@ fn byte() {
             }),
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(42),
                 OperandType::BYTE
             )],
@@ -73,7 +71,6 @@ fn character() {
             }),
             function_type: FunctionType::new([], [], Type::Character),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::CHARACTER
             )],
@@ -98,7 +95,6 @@ fn float() {
             }),
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::FLOAT
             )],
@@ -123,7 +119,6 @@ fn integer() {
             }),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::INTEGER
             )],
@@ -148,7 +143,6 @@ fn string() {
             }),
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::STRING
             )],
@@ -173,7 +167,6 @@ fn constant_byte_addition() {
             }),
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(42),
                 OperandType::BYTE
             )],
@@ -198,7 +191,6 @@ fn constant_float_addition() {
             }),
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::FLOAT
             )],
@@ -223,7 +215,6 @@ fn constant_integer_addition() {
             }),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::INTEGER
             )],
@@ -248,7 +239,6 @@ fn constant_byte_subtraction() {
             }),
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(42),
                 OperandType::BYTE
             )],
@@ -273,7 +263,6 @@ fn constant_float_subtraction() {
             }),
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::FLOAT
             )],
@@ -298,7 +287,6 @@ fn constant_integer_subtraction() {
             }),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::INTEGER
             )],
@@ -323,7 +311,6 @@ fn constant_byte_multiplication() {
             }),
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(42),
                 OperandType::BYTE
             )],
@@ -348,7 +335,6 @@ fn constant_float_multiplication() {
             }),
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::FLOAT
             )],
@@ -373,7 +359,6 @@ fn constant_integer_multiplication() {
             }),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::INTEGER
             )],
@@ -398,7 +383,6 @@ fn constant_byte_division() {
             }),
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(42),
                 OperandType::BYTE
             )],
@@ -423,7 +407,6 @@ fn constant_float_division() {
             }),
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::FLOAT
             )],
@@ -448,7 +431,6 @@ fn constant_integer_division() {
             }),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::INTEGER
             )],
@@ -473,7 +455,6 @@ fn constant_byte_modulo() {
             }),
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(4),
                 OperandType::BYTE
             )],
@@ -498,7 +479,6 @@ fn constant_float_modulo() {
             }),
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::FLOAT
             )],
@@ -523,7 +503,6 @@ fn constant_integer_modulo() {
             }),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::INTEGER
             )],
@@ -548,7 +527,6 @@ fn constant_integer_negation() {
             }),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::INTEGER
             )],
@@ -573,7 +551,6 @@ fn constant_float_negation() {
             }),
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::FLOAT
             )],
@@ -598,7 +575,6 @@ fn constant_string_concatenation() {
             }),
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::STRING
             )],
@@ -623,7 +599,6 @@ fn constant_character_concatentation() {
             }),
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::STRING
             )],
@@ -648,7 +623,6 @@ fn constant_string_character_concatenation() {
             }),
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::STRING
             )],
@@ -673,7 +647,6 @@ fn constant_character_string_concatenation() {
             }),
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::STRING
             )],
@@ -698,7 +671,6 @@ fn constant_boolean_and() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(false as u16),
                 OperandType::BOOLEAN
             )],
@@ -723,7 +695,6 @@ fn constant_boolean_or() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -748,7 +719,6 @@ fn constant_boolean_not() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(false as u16),
                 OperandType::BOOLEAN
             )],
@@ -773,7 +743,6 @@ fn constant_boolean_greater_than() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -798,7 +767,6 @@ fn constant_boolean_less_than() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -823,7 +791,6 @@ fn constant_boolean_greater_than_or_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -848,7 +815,6 @@ fn constant_boolean_less_than_or_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -873,7 +839,6 @@ fn constant_boolean_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -898,7 +863,6 @@ fn constant_boolean_not_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -923,7 +887,6 @@ fn constant_byte_greater_than() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -948,7 +911,6 @@ fn constant_byte_less_than() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -973,7 +935,6 @@ fn constant_byte_greater_than_or_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -998,7 +959,6 @@ fn constant_byte_less_than_or_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1023,7 +983,6 @@ fn constant_byte_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1048,7 +1007,6 @@ fn constant_byte_not_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1073,7 +1031,6 @@ fn constant_character_greater_than() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1098,7 +1055,6 @@ fn constant_character_less_than() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1123,7 +1079,6 @@ fn constant_character_greater_than_or_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1148,7 +1103,6 @@ fn constant_character_less_than_or_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1173,7 +1127,6 @@ fn constant_character_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1198,7 +1151,6 @@ fn constant_character_not_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1223,7 +1175,6 @@ fn constant_float_greater_than() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1248,7 +1199,6 @@ fn constant_float_less_than() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1273,7 +1223,6 @@ fn constant_float_greater_than_or_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1298,7 +1247,6 @@ fn constant_float_less_than_or_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1323,7 +1271,6 @@ fn constant_float_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1348,7 +1295,6 @@ fn constant_float_not_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1373,7 +1319,6 @@ fn constant_integer_greater_than() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1398,7 +1343,6 @@ fn constant_integer_less_than() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1423,7 +1367,6 @@ fn constant_integer_greater_than_or_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1448,7 +1391,6 @@ fn constant_integer_less_than_or_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1473,7 +1415,6 @@ fn constant_integer_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1498,7 +1439,6 @@ fn constant_integer_not_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1523,7 +1463,6 @@ fn constant_string_greater_than() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(false as u16),
                 OperandType::BOOLEAN
             )],
@@ -1548,7 +1487,6 @@ fn constant_string_less_than() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(false as u16),
                 OperandType::BOOLEAN
             )],
@@ -1573,7 +1511,6 @@ fn constant_string_greater_than_or_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1598,7 +1535,6 @@ fn constant_string_less_than_or_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1623,7 +1559,6 @@ fn constant_string_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
@@ -1648,7 +1583,6 @@ fn constant_string_not_equal() {
             }),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],

@@ -31,7 +31,7 @@ fn local_byte_division() {
                     Address::register(1),
                     OperandType::BYTE
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::BYTE)
+                Instruction::r#return(Address::register(2), OperandType::BYTE)
             ],
             register_count: 3,
             ..Default::default()
@@ -63,7 +63,7 @@ fn local_float_division() {
                     Address::register(1),
                     OperandType::FLOAT
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::FLOAT)
+                Instruction::r#return(Address::register(2), OperandType::FLOAT)
             ],
             register_count: 3,
             ..Default::default()
@@ -95,7 +95,7 @@ fn local_integer_division() {
                     Address::register(1),
                     OperandType::INTEGER
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER)
+                Instruction::r#return(Address::register(2), OperandType::INTEGER)
             ],
             register_count: 3,
             ..Default::default()
@@ -126,7 +126,7 @@ fn local_mut_byte_division() {
                     Address::encoded(2),
                     OperandType::BYTE
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::BYTE)
+                Instruction::r#return(Address::register(0), OperandType::BYTE)
             ],
             register_count: 1,
             ..Default::default()
@@ -157,7 +157,7 @@ fn local_mut_float_division() {
                     Address::constant(1),
                     OperandType::FLOAT
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::FLOAT)
+                Instruction::r#return(Address::register(0), OperandType::FLOAT)
             ],
             register_count: 1,
             ..Default::default()
@@ -188,7 +188,7 @@ fn local_mut_integer_division() {
                     Address::constant(1),
                     OperandType::INTEGER
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::INTEGER)
+                Instruction::r#return(Address::register(0), OperandType::INTEGER)
             ],
             register_count: 1,
             ..Default::default()

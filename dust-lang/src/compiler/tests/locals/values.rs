@@ -1,7 +1,7 @@
 use crate::{
-    prototype::Prototype,
     compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
+    prototype::Prototype,
     tests::local_cases,
     r#type::{FunctionType, Type},
 };
@@ -17,7 +17,7 @@ fn local_boolean() {
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(0), OperandType::BOOLEAN),
+                Instruction::r#return(Address::register(0), OperandType::BOOLEAN),
             ],
             register_count: 1,
             ..Default::default()
@@ -36,7 +36,7 @@ fn local_byte() {
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(42), OperandType::BYTE),
-                Instruction::r#return(true, Address::register(0), OperandType::BYTE),
+                Instruction::r#return(Address::register(0), OperandType::BYTE),
             ],
             register_count: 1,
             ..Default::default()
@@ -55,7 +55,7 @@ fn local_character() {
             function_type: FunctionType::new([], [], Type::Character),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
-                Instruction::r#return(true, Address::register(0), OperandType::CHARACTER),
+                Instruction::r#return(Address::register(0), OperandType::CHARACTER),
             ],
             register_count: 1,
             ..Default::default()
@@ -74,7 +74,7 @@ fn local_float() {
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
-                Instruction::r#return(true, Address::register(0), OperandType::FLOAT),
+                Instruction::r#return(Address::register(0), OperandType::FLOAT),
             ],
             register_count: 1,
             ..Default::default()
@@ -93,7 +93,7 @@ fn local_integer() {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
+                Instruction::r#return(Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
             ..Default::default()
@@ -112,7 +112,7 @@ fn local_string() {
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
-                Instruction::r#return(true, Address::register(0), OperandType::STRING),
+                Instruction::r#return(Address::register(0), OperandType::STRING),
             ],
             register_count: 1,
             ..Default::default()

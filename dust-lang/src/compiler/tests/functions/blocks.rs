@@ -22,11 +22,7 @@ fn empty_block() {
                 span: Span(16, 22)
             }),
             function_type: FunctionType::new([], [], Type::None),
-            instructions: vec![Instruction::r#return(
-                false,
-                Address::default(),
-                OperandType::NONE
-            )],
+            instructions: vec![Instruction::r#return(Address::default(), OperandType::NONE)],
             ..Default::default()
         }
     );
@@ -48,7 +44,6 @@ fn block_expression() {
             }),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
-                true,
                 Address::constant(0),
                 OperandType::INTEGER
             )],
@@ -74,7 +69,7 @@ fn block_statement() {
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(false, Address::default(), OperandType::NONE),
+                Instruction::r#return(Address::default(), OperandType::NONE),
             ],
             register_count: 1,
             ..Default::default()
@@ -105,7 +100,7 @@ fn block_statement_and_expression() {
                     Address::constant(1),
                     OperandType::INTEGER
                 ),
-                Instruction::r#return(true, Address::register(1), OperandType::INTEGER),
+                Instruction::r#return(Address::register(1), OperandType::INTEGER),
             ],
             register_count: 2,
             ..Default::default()
@@ -130,7 +125,7 @@ fn parent_scope_access() {
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
+                Instruction::r#return(Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
             ..Default::default()
@@ -162,7 +157,7 @@ fn nested_parrent_scope_access() {
                     Address::register(1),
                     OperandType::INTEGER
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
             ..Default::default()
@@ -188,7 +183,7 @@ fn scope_shadowing() {
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(1), OperandType::INTEGER),
+                Instruction::r#return(Address::register(1), OperandType::INTEGER),
             ],
             register_count: 2,
             ..Default::default()
@@ -214,7 +209,7 @@ fn scope_deshadowing() {
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
-                Instruction::r#return(true, Address::register(0), OperandType::INTEGER),
+                Instruction::r#return(Address::register(0), OperandType::INTEGER),
             ],
             register_count: 2,
             ..Default::default()

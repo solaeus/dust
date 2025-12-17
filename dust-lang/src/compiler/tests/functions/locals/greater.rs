@@ -39,7 +39,7 @@ fn local_boolean_greater_than() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
             ..Default::default()
@@ -79,7 +79,7 @@ fn local_byte_greater_than() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
             ..Default::default()
@@ -119,7 +119,7 @@ fn local_character_greater_than() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
             ..Default::default()
@@ -159,7 +159,7 @@ fn local_float_greater_than() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
             ..Default::default()
@@ -199,7 +199,7 @@ fn local_integer_greater_than() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
             ..Default::default()
@@ -239,7 +239,7 @@ fn local_string_greater_than() {
                     true
                 ),
                 Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(true, Address::register(2), OperandType::BOOLEAN)
+                Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
             ..Default::default()

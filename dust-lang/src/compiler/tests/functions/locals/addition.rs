@@ -31,7 +31,7 @@ fn local_byte_addition() {
                     Address::register(1),
                     OperandType::BYTE
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::BYTE)
+                Instruction::r#return(Address::register(2), OperandType::BYTE)
             ],
             register_count: 3,
             ..Default::default()
@@ -63,7 +63,7 @@ fn local_float_addition() {
                     Address::register(1),
                     OperandType::FLOAT
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::FLOAT)
+                Instruction::r#return(Address::register(2), OperandType::FLOAT)
             ],
             register_count: 3,
             ..Default::default()
@@ -95,7 +95,7 @@ fn local_integer_addition() {
                     Address::register(1),
                     OperandType::INTEGER
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::INTEGER)
+                Instruction::r#return(Address::register(2), OperandType::INTEGER)
             ],
             register_count: 3,
             ..Default::default()
@@ -127,7 +127,7 @@ fn local_string_concatenation() {
                     Address::register(1),
                     OperandType::STRING
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::STRING)
+                Instruction::r#return(Address::register(2), OperandType::STRING)
             ],
             register_count: 3,
             ..Default::default()
@@ -159,7 +159,7 @@ fn local_character_concatenation() {
                     Address::register(1),
                     OperandType::CHARACTER
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::STRING)
+                Instruction::r#return(Address::register(2), OperandType::STRING)
             ],
             register_count: 3,
             ..Default::default()
@@ -191,7 +191,7 @@ fn local_string_character_concatenation() {
                     Address::register(1),
                     OperandType::STRING_CHARACTER
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::STRING)
+                Instruction::r#return(Address::register(2), OperandType::STRING)
             ],
             register_count: 3,
             ..Default::default()
@@ -223,7 +223,7 @@ fn local_character_string_concatenation() {
                     Address::register(1),
                     OperandType::CHARACTER_STRING
                 ),
-                Instruction::r#return(true, Address::register(2), OperandType::STRING)
+                Instruction::r#return(Address::register(2), OperandType::STRING)
             ],
             register_count: 3,
             ..Default::default()
@@ -254,7 +254,7 @@ fn local_mut_byte_addition() {
                     Address::encoded(2),
                     OperandType::BYTE
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::BYTE)
+                Instruction::r#return(Address::register(0), OperandType::BYTE)
             ],
             register_count: 1,
             ..Default::default()
@@ -285,7 +285,7 @@ fn local_mut_float_addition() {
                     Address::constant(1),
                     OperandType::FLOAT
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::FLOAT)
+                Instruction::r#return(Address::register(0), OperandType::FLOAT)
             ],
             register_count: 1,
             ..Default::default()
@@ -316,7 +316,7 @@ fn local_mut_integer_addition() {
                     Address::constant(1),
                     OperandType::INTEGER
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::INTEGER)
+                Instruction::r#return(Address::register(0), OperandType::INTEGER)
             ],
             register_count: 1,
             ..Default::default()
@@ -347,7 +347,7 @@ fn local_mut_string_concatenation() {
                     Address::constant(1),
                     OperandType::STRING
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::STRING)
+                Instruction::r#return(Address::register(0), OperandType::STRING)
             ],
             register_count: 1,
             ..Default::default()
@@ -378,7 +378,7 @@ fn local_mut_string_character_concatenation() {
                     Address::constant(1),
                     OperandType::STRING_CHARACTER
                 ),
-                Instruction::r#return(true, Address::register(0), OperandType::STRING)
+                Instruction::r#return(Address::register(0), OperandType::STRING)
             ],
             register_count: 1,
             ..Default::default()
