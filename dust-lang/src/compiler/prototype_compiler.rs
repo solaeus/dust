@@ -60,8 +60,6 @@ pub struct PrototypeCompiler<'a> {
     next_temporary_register: u16,
 
     maximum_register: u16,
-
-    is_recursive: bool,
 }
 
 impl<'a> PrototypeCompiler<'a> {
@@ -91,7 +89,6 @@ impl<'a> PrototypeCompiler<'a> {
             next_local_register: 0,
             next_temporary_register: 0,
             maximum_register: 0,
-            is_recursive: false,
         };
 
         if let Some((declaration_id, declaration)) = &declaration_info {
@@ -248,7 +245,6 @@ impl<'a> PrototypeCompiler<'a> {
             call_arguments: self.call_arguments,
             drop_lists: self.drop_lists,
             register_count,
-            is_recursive: self.is_recursive,
         })
     }
 
@@ -2653,7 +2649,7 @@ impl<'a> PrototypeCompiler<'a> {
         {
             declaration_id
         } else {
-            let (declaration_id, declaration) = self
+            let (declaration_id, declaration) = *self
                 .context
                 .resolver
                 .find_declarations(variable_name)
@@ -2662,15 +2658,12 @@ impl<'a> PrototypeCompiler<'a> {
                     position: Position::new(self.file_id, node.span),
                 })?
                 .first()
-                .copied()
                 .ok_or(CompileError::UndeclaredVariable {
                     name: variable_name.to_string(),
                     position: Position::new(self.file_id, node.span),
                 })?;
 
             if self.declaration_id.is_some_and(|id| id == declaration_id) {
-                self.is_recursive = true;
-
                 return Ok(Emission::Function(
                     Address::register(self.prototype_index),
                     declaration.type_id,
