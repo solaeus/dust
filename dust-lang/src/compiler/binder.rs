@@ -516,11 +516,6 @@ impl<'a> Binder<'a> {
                     resolver.add_type_members(&value_parameter_type_ids)
                 };
 
-                println!(
-                    "function_value_parameters_id: {:?}",
-                    function_value_parameters_id
-                );
-
                 let function_return_type_id = SyntaxId(node.children.1);
                 let return_type_id = if function_return_type_id == SyntaxId::NONE {
                     TypeId::NONE
@@ -533,8 +528,6 @@ impl<'a> Binder<'a> {
 
                     Self::get_type_id(function_return_type_node, syntax_tree, resolver)?
                 };
-
-                println!("function_return_type_id: {:?}", function_return_type_id);
 
                 let function_type_node = FunctionTypeNode {
                     type_parameters: (0, 0),

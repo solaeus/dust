@@ -91,43 +91,42 @@ impl<'a> PrototypeCompiler<'a> {
             maximum_register: 0,
         };
 
-        if let Some((declaration_id, declaration)) = &declaration_info {
-            let Declaration { kind, type_id, .. } = declaration;
-
+        if let Some((declaration_id, declaration)) = &declaration_info
+            && let DeclarationKind::Function { parameters, .. } = &declaration.kind
+        {
             prototype_compiler.locals.insert(
                 *declaration_id,
                 Local {
                     address: Address::constant(prototype_index),
-                    type_id: *type_id,
+                    type_id: declaration.type_id,
                 },
             );
 
-            if let DeclarationKind::Function { parameters, .. } = kind {
-                let (start, count) = *parameters;
-                prototype_compiler.locals.reserve(count as usize);
+            let (start, count) = *parameters;
 
-                for index in 0..count {
-                    let current_parameter_index = start + index;
-                    if let Some(parameter_id) = prototype_compiler
+            prototype_compiler.locals.reserve(count as usize);
+
+            for index in 0..count {
+                let current_parameter_index = start + index;
+                if let Some(parameter_id) = prototype_compiler
+                    .context
+                    .resolver
+                    .get_parameter(current_parameter_index)
+                    && let Some(parameter_declaration) = prototype_compiler
                         .context
                         .resolver
-                        .get_parameter(current_parameter_index)
-                        && let Some(parameter_declaration) = prototype_compiler
-                            .context
-                            .resolver
-                            .get_declaration(parameter_id)
-                            .copied()
-                    {
-                        let register = prototype_compiler.allocate_local_register();
-                        let parameter_local = Local {
-                            address: Address::register(register),
-                            type_id: parameter_declaration.type_id,
-                        };
+                        .get_declaration(parameter_id)
+                        .copied()
+                {
+                    let register = prototype_compiler.allocate_local_register();
+                    let parameter_local = Local {
+                        address: Address::register(register),
+                        type_id: parameter_declaration.type_id,
+                    };
 
-                        prototype_compiler
-                            .locals
-                            .insert(parameter_id, parameter_local);
-                    }
+                    prototype_compiler
+                        .locals
+                        .insert(parameter_id, parameter_local);
                 }
             }
         }
