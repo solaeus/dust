@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, mem::offset_of};
 
 use cranelift::{
     codegen::ir::FuncRef,
@@ -21,7 +21,10 @@ use crate::{
         Modulo, Move, Multiply, Negate, NewList, OperandType, Operation, Power, Return, SetList,
         Subtract, Test, ToString,
     },
-    jit_vm::{JitError, RegisterTag, thread::ThreadContextFields},
+    jit_vm::{
+        JitError, RegisterTag,
+        thread::{JitPrototype, ThreadContextFields},
+    },
     native_function::NativeFunction,
     prototype::Prototype,
 };
@@ -40,6 +43,7 @@ pub struct InstructionCompiler<'a> {
     pub recursive_calls: &'a HashSet<(u16, u16), FxBuildHasher>,
 
     pub module: &'a mut JITModule,
+    pub signature: Signature,
 }
 
 impl<'a> InstructionCompiler<'a> {
@@ -270,65 +274,113 @@ impl<'a> InstructionCompiler<'a> {
     ) -> Result<(), JitError> {
         let Call {
             destination,
-            prototype_index,
+            callee,
             arguments_start,
             argument_count,
-            return_type,
         } = Call::from(instruction);
 
-        let caller_prototype_index = self.prototype.index;
-        let callee_prototype_index = prototype_index;
-
-        let callee_id = self
-            .function_ids
-            .get(callee_prototype_index as usize)
-            .ok_or(JitError::MissingPrototype {
-                index: callee_prototype_index as usize,
-                total: self.function_ids.len(),
-            })?;
-        let callee_reference = self.module.declare_func_in_func(*callee_id, builder.func);
-        let callee_base_register_index = builder.ins().iadd_imm(
-            self.base_register_index,
-            self.prototype.register_count as i64,
+        // let caller_prototype_index = builder.ins().iconst(I64, self.prototype.index as i64);
+        let callee_prototype_index = self.get_prototype_index(callee, builder)?;
+        let jit_prototype_offset = builder
+            .ins()
+            .imul_imm(callee_prototype_index, size_of::<JitPrototype>() as i64);
+        let compiled_prototype_address = builder.ins().iadd(
+            self.thread_context_fields.jit_prototype_buffer_pointer,
+            jit_prototype_offset,
+        );
+        let callee_pointer = builder.ins().load(
+            I64,
+            MemFlags::new(),
+            compiled_prototype_address,
+            offset_of!(JitPrototype, function_pointer) as i32,
+        );
+        let return_value_tag = builder.ins().load(
+            I8,
+            MemFlags::new(),
+            compiled_prototype_address,
+            offset_of!(JitPrototype, return_value_tag) as i32,
         );
 
-        let is_recursive = self
-            .recursive_calls
-            .contains(&(caller_prototype_index, callee_prototype_index));
+        // let recursive_block = builder.create_block();
+        // let non_recursive_block = builder.create_block();
 
-        if is_recursive {
-            todo!()
-        } else {
-            let arguments_end = (arguments_start + argument_count) as usize;
-            let argument_range = arguments_start as usize..arguments_end;
-            let mut argument_values =
-                SmallVec::<[CraneliftValue; 8]>::with_capacity(argument_count as usize + 1);
+        // let is_recursive =
+        //     builder
+        //         .ins()
+        //         .icmp(IntCC::Equal, caller_prototype_index, callee_prototype_index);
 
-            argument_values.push(self.thread_context);
-            argument_values.push(callee_base_register_index);
+        // builder
+        //     .ins()
+        //     .brif(is_recursive, recursive_block, &[], non_recursive_block, &[]);
 
-            for argument_index in argument_range {
-                let (address, r#type) = self.prototype.call_arguments.get(argument_index).ok_or(
-                    JitError::CallArgumentIndexOutOfBounds {
-                        argument_index,
-                        total_argument_count: self.prototype.call_arguments.len(),
-                    },
-                )?;
-                let argument_value = self.get_value(*address, *r#type, builder)?;
+        // builder.switch_to_block(non_recursive_block);
 
-                argument_values.push(argument_value);
-            }
+        let arguments_end = (arguments_start + argument_count) as usize;
+        let argument_range = arguments_start as usize..arguments_end;
 
-            let call_callee = builder.ins().call(callee_reference, &argument_values);
+        for argument_index in argument_range {
+            let (address, r#type) = self.prototype.call_arguments.get(argument_index).ok_or(
+                JitError::CallArgumentIndexOutOfBounds {
+                    argument_index,
+                    total_argument_count: self.prototype.call_arguments.len(),
+                },
+            )?;
+            let argument_value = self.get_value(*address, *r#type, builder)?;
 
-            if return_type != OperandType::NONE {
-                let return_value = builder.inst_results(call_callee)[0];
+            let argument_index_value = builder.ins().iconst(I64, argument_index as i64);
+            let argument_register_offset = builder
+                .ins()
+                .imul_imm(argument_index_value, size_of::<CraneliftValue>() as i64);
+            let argument_register_address = builder.ins().iadd(
+                self.thread_context_fields.function_arguments,
+                argument_register_offset,
+            );
 
-                self.set_register_and_tag(destination, return_value, return_type, builder)?;
-            }
-
-            builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
+            builder.ins().store(
+                MemFlags::new(),
+                argument_value,
+                argument_register_address,
+                0,
+            );
         }
+
+        let signature_reference = builder.import_signature(self.signature.clone());
+        let call_callee = builder.ins().call_indirect(
+            signature_reference,
+            callee_pointer,
+            &[self.thread_context, self.base_register_index],
+        );
+
+        let empty_tag = builder.ins().iconst(I8, RegisterTag::EMPTY.0 as i64);
+        let function_returns_value =
+            builder
+                .ins()
+                .icmp(IntCC::NotEqual, return_value_tag, empty_tag);
+        let set_return_value_block = builder.create_block();
+
+        builder.ins().brif(
+            function_returns_value,
+            set_return_value_block,
+            &[],
+            self.instruction_blocks[ip + 1],
+            &[],
+        );
+        builder.switch_to_block(set_return_value_block);
+
+        if destination != u16::MAX {
+            let return_value = builder.inst_results(call_callee)[0];
+
+            self.ssa_registers
+                .get(destination as usize)
+                .map(|ssa_variable| builder.def_var(*ssa_variable, return_value))
+                .ok_or(JitError::RegisterIndexOutOfBounds {
+                    register_index: destination,
+                    total_register_count: self.ssa_registers.len(),
+                })?;
+            self.set_register_tag(destination, return_value_tag, builder)?;
+        }
+
+        builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
 
         Ok(())
     }
@@ -936,8 +988,9 @@ impl<'a> InstructionCompiler<'a> {
                         drop_list_length: self.prototype.drop_lists.len(),
                     },
                 )?;
+                let tag_value = builder.ins().iconst(I8, RegisterTag::EMPTY.0 as i64);
 
-                self.set_register_tag(register_index, OperandType::NONE, builder)?;
+                self.set_register_tag(register_index, tag_value, builder)?;
             }
         }
 
@@ -964,8 +1017,9 @@ impl<'a> InstructionCompiler<'a> {
                     drop_list_length: self.prototype.drop_lists.len(),
                 },
             )?;
+            let tag_value = builder.ins().iconst(I8, RegisterTag::EMPTY.0 as i64);
 
-            self.set_register_tag(register_index, OperandType::NONE, builder)?;
+            self.set_register_tag(register_index, tag_value, builder)?;
         }
 
         builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
@@ -1282,6 +1336,27 @@ impl<'a> InstructionCompiler<'a> {
         }
     }
 
+    fn get_prototype_index(
+        &self,
+        address: Address,
+        builder: &mut FunctionBuilder,
+    ) -> Result<CraneliftValue, JitError> {
+        match address.memory {
+            MemoryKind::REGISTER => Ok(self
+                .ssa_registers
+                .get(address.index as usize)
+                .map(|ssa_variable| builder.use_var(*ssa_variable))
+                .ok_or(JitError::RegisterIndexOutOfBounds {
+                    register_index: address.index,
+                    total_register_count: self.ssa_registers.len(),
+                })?),
+            MemoryKind::CONSTANT => Ok(builder.ins().iconst(I64, address.index as i64)),
+            _ => Err(JitError::UnsupportedMemoryKind {
+                memory_kind: address.memory,
+            }),
+        }
+    }
+
     fn set_register_and_tag(
         &mut self,
         index: u16,
@@ -1296,19 +1371,6 @@ impl<'a> InstructionCompiler<'a> {
                     register_index: index,
                     total_register_count: self.ssa_registers.len(),
                 })?;
-
-        builder.def_var(*destination_register, value);
-        self.set_register_tag(index, r#type, builder)?;
-
-        Ok(())
-    }
-
-    fn set_register_tag(
-        &mut self,
-        index: u16,
-        r#type: OperandType,
-        builder: &mut FunctionBuilder,
-    ) -> Result<(), JitError> {
         let tag = match r#type {
             OperandType::NONE => RegisterTag::EMPTY,
             OperandType::BOOLEAN
@@ -1335,6 +1397,19 @@ impl<'a> InstructionCompiler<'a> {
         let tag_value = builder
             .ins()
             .iconst(RegisterTag::CRANELIFT_TYPE, tag.0 as i64);
+
+        builder.def_var(*destination_register, value);
+        self.set_register_tag(index, tag_value, builder)?;
+
+        Ok(())
+    }
+
+    fn set_register_tag(
+        &mut self,
+        index: u16,
+        tag_value: CraneliftValue,
+        builder: &mut FunctionBuilder,
+    ) -> Result<(), JitError> {
         let destination_value = builder.ins().iconst(I64, index as i64);
         let absolute_register_index = builder
             .ins()

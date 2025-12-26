@@ -54,7 +54,7 @@ fn run(
     let _enter = span.enter();
 
     let mut jit = JitCompiler::new(&program)?;
-    let jit_logic = jit.compile()?;
+    let (jit_logic, mut jit_prototypes) = jit.compile()?;
 
     info!("JIT compilation complete");
 
@@ -76,6 +76,8 @@ fn run(
         registers_allocated,
         registers_used: 0,
         object_pool_pointer: &mut object_pool,
+        jit_prototype_buffer_pointer: jit_prototypes.as_mut_ptr(),
+        function_arguments: [0; 10],
         status: ThreadStatus::Ok,
         recursive_return_register: 0,
     };
@@ -151,6 +153,14 @@ impl ThreadStatus {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct JitPrototype {
+    pub function_pointer: *mut u8,
+    pub return_value_tag: RegisterTag,
+    pub is_recursive: bool,
+}
+
+#[repr(C)]
 pub struct ThreadContext<'a> {
     pub status: ThreadStatus,
 
@@ -165,6 +175,10 @@ pub struct ThreadContext<'a> {
 
     pub object_pool_pointer: *mut ObjectPool<'a>,
 
+    pub jit_prototype_buffer_pointer: *mut JitPrototype,
+
+    pub function_arguments: [i64; 10],
+
     pub recursive_return_register: i64,
 }
 
@@ -174,43 +188,73 @@ impl<'a> ThreadContext<'a> {
         pointer_type: CraneliftType,
         builder: &mut FunctionBuilder,
     ) -> ThreadContextFields {
-        let mut get_field = |field_type: CraneliftType, offset: usize| {
-            builder
-                .ins()
-                .load(field_type, MemFlags::new(), thread_context, offset as i32)
-        };
+        let status;
+        let register_vec_pointer;
+        let register_buffer_pointer;
+        let register_tag_vec_pointer;
+        let register_tag_buffer_pointer;
+        let registers_allocated;
+        let registers_used;
+        let object_pool_pointer;
+        let jit_prototype_buffer_pointer;
+        let recursive_return_register;
 
-        ThreadContextFields {
-            status: get_field(
+        {
+            let mut get_field = |field_type: CraneliftType, offset: usize| {
+                builder
+                    .ins()
+                    .load(field_type, MemFlags::new(), thread_context, offset as i32)
+            };
+
+            status = get_field(
                 ThreadStatus::CRANELIFT_TYPE,
                 offset_of!(ThreadContext, status),
-            ),
-            register_vec_pointer: get_field(
+            );
+            register_vec_pointer = get_field(
                 pointer_type,
                 offset_of!(ThreadContext, register_vec_pointer),
-            ),
-            register_buffer_pointer: get_field(
+            );
+            register_buffer_pointer = get_field(
                 pointer_type,
                 offset_of!(ThreadContext, register_buffer_pointer),
-            ),
-            register_tag_vec_pointer: get_field(
+            );
+            register_tag_vec_pointer = get_field(
                 pointer_type,
                 offset_of!(ThreadContext, register_tag_vec_pointer),
-            ),
-            register_tag_buffer_pointer: get_field(
+            );
+            register_tag_buffer_pointer = get_field(
                 pointer_type,
                 offset_of!(ThreadContext, register_tag_buffer_pointer),
-            ),
-            registers_allocated: get_field(I64, offset_of!(ThreadContext, registers_allocated)),
-            registers_used: get_field(I64, offset_of!(ThreadContext, registers_used)),
-            object_pool_pointer: get_field(
+            );
+            registers_allocated = get_field(I64, offset_of!(ThreadContext, registers_allocated));
+            registers_used = get_field(I64, offset_of!(ThreadContext, registers_used));
+            object_pool_pointer =
+                get_field(pointer_type, offset_of!(ThreadContext, object_pool_pointer));
+            jit_prototype_buffer_pointer = get_field(
                 pointer_type,
-                offset_of!(ThreadContext, object_pool_pointer),
-            ),
-            recursive_return_register: get_field(
-                I64,
-                offset_of!(ThreadContext, recursive_return_register),
-            ),
+                offset_of!(ThreadContext, jit_prototype_buffer_pointer),
+            );
+            recursive_return_register =
+                get_field(I64, offset_of!(ThreadContext, recursive_return_register));
+        }
+
+        let function_arguments = builder.ins().iadd_imm(
+            thread_context,
+            offset_of!(ThreadContext, function_arguments) as i64,
+        );
+
+        ThreadContextFields {
+            status,
+            register_vec_pointer,
+            register_buffer_pointer,
+            register_tag_vec_pointer,
+            register_tag_buffer_pointer,
+            registers_allocated,
+            registers_used,
+            object_pool_pointer,
+            jit_prototype_buffer_pointer,
+            function_arguments,
+            recursive_return_register,
         }
     }
 }
@@ -228,6 +272,10 @@ pub struct ThreadContextFields {
     pub registers_used: CraneliftValue,
 
     pub object_pool_pointer: CraneliftValue,
+
+    pub jit_prototype_buffer_pointer: CraneliftValue,
+
+    pub function_arguments: CraneliftValue,
 
     pub recursive_return_register: CraneliftValue,
 }

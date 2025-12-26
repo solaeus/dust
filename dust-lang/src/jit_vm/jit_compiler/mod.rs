@@ -1,11 +1,18 @@
 mod instruction_compiler;
 
-use std::{collections::HashSet, mem::transmute};
+use std::{
+    collections::HashSet,
+    mem::{offset_of, transmute},
+};
+
+use super::thread::JitPrototype;
+use crate::jit_vm::RegisterTag;
+use crate::r#type::Type;
 
 use cranelift::{
     codegen::ir::InstBuilder,
     prelude::{
-        AbiParam, Configurable, FunctionBuilder, FunctionBuilderContext, Signature,
+        AbiParam, Configurable, FunctionBuilder, FunctionBuilderContext, MemFlags, Signature,
         settings::{self, Flags},
         types::I64,
     },
@@ -115,14 +122,14 @@ impl<'a> JitCompiler<'a> {
         })
     }
 
-    pub fn compile(&mut self) -> Result<JitLogic, JitError> {
+    pub fn compile(&mut self) -> Result<(JitLogic, Vec<JitPrototype>), JitError> {
         let span = tracing::span!(Level::INFO, "JIT_Compiler");
         let _enter = span.enter();
 
         self.compile_program()
     }
 
-    fn compile_program(&mut self) -> Result<JitLogic, JitError> {
+    fn compile_program(&mut self) -> Result<(JitLogic, Vec<JitPrototype>), JitError> {
         let (compile_order, recursive_calls) = get_compile_order_and_recursive_calls(self.program);
 
         for index in compile_order {
@@ -136,11 +143,34 @@ impl<'a> JitCompiler<'a> {
                 cranelift_ir: None,
             })?;
 
+        let mut jit_prototypes = Vec::with_capacity(self.program.prototypes.len());
+
+        for (index, func_id) in self.function_ids.iter().enumerate() {
+            let function_pointer = self.module.get_finalized_function(*func_id);
+            let return_type = &self.program.prototypes[index].function_type.return_type;
+            let return_value_tag = match return_type {
+                Type::None => RegisterTag::EMPTY,
+                Type::Boolean
+                | Type::Byte
+                | Type::Character
+                | Type::Float
+                | Type::Integer
+                | Type::Function(_) => RegisterTag::SCALAR,
+                Type::String | Type::List(_) => RegisterTag::OBJECT,
+            };
+
+            jit_prototypes.push(JitPrototype {
+                function_pointer: function_pointer as *mut u8,
+                return_value_tag,
+                is_recursive: recursive_calls.contains(&(index as u16, index as u16)),
+            });
+        }
+
         let main_function_id = self.function_ids[0];
         let program_function_pointer = self.module.get_finalized_function(main_function_id);
         let jit_logic = unsafe { transmute::<*const u8, JitLogic>(program_function_pointer) };
 
-        Ok(jit_logic)
+        Ok((jit_logic, jit_prototypes))
     }
 
     fn compile_prototype(
@@ -158,8 +188,9 @@ impl<'a> JitCompiler<'a> {
                 })?;
 
         let mut context = self.module.make_context();
+        let signature = self.prototype_signature(prototype);
 
-        context.func.signature = self.prototype_signature(prototype);
+        context.func.signature = signature.clone();
 
         let function_id = self
             .module
@@ -197,21 +228,26 @@ impl<'a> JitCompiler<'a> {
         let parameters = builder.block_params(entry_block).to_vec();
         let thread_context = parameters[0];
         let base_register_index = parameters[1];
-        let function_parameters = parameters[2..].to_vec();
-
-        debug_assert_eq!(
-            function_parameters.len(),
-            prototype.function_type.value_parameters.len()
-        );
 
         builder.switch_to_block(entry_block);
 
+        let arguments = builder.ins().iadd_imm(
+            thread_context,
+            offset_of!(ThreadContext, function_arguments) as i64,
+        );
+
         let mut ssa_registers = {
-            let function_parameter_count = function_parameters.len();
+            let function_parameter_count = prototype.function_type.value_parameters.len();
             let mut variables = Vec::with_capacity(prototype.register_count as usize);
 
-            for argument_value in function_parameters {
+            for argument_index in 0..function_parameter_count {
                 let variable = builder.declare_var(I64);
+                let argument_value = builder.ins().load(
+                    I64,
+                    MemFlags::new(),
+                    arguments,
+                    (argument_index * 8) as i32,
+                );
 
                 builder.def_var(variable, argument_value);
                 variables.push(variable);
@@ -244,11 +280,14 @@ impl<'a> JitCompiler<'a> {
             recursive_calls,
             base_register_index,
             module: &mut self.module,
+            signature,
         };
 
         for ip in 0..prototype.instructions.len() {
             instruction_compiler.compile(ip, &mut builder)?;
         }
+
+        drop(instruction_compiler);
 
         builder.seal_all_blocks();
         builder.finalize();

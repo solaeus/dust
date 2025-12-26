@@ -7,9 +7,9 @@
 //! Bits  | Description
 //! ----- | -----------
 //! 0-6   | Operation
-//! 7-8   | Memory kind (for the B field)  ─┬― D field (for CALL and CALL_NATIVE instructions)
-//! 9-10  | Memory kind (for the C field)  ─┘
-//! 11-15 | Operand type info
+//! 7-8   | Memory kind (for the B field)
+//! 9-10  | Memory kind (for the C field) ─┬─ D field (for CALL and CALL_NATIVE instructions)
+//! 11-15 | Operand type info             ─┘
 //! 16-31 | A field (unsigned 16-bit integer), usually the destination index
 //! 32-47 | B field (unsigned 16-bit integer), usually an operand index
 //! 48-63 | C field (unsigned 16-bit integer), usually an operand index
@@ -142,9 +142,9 @@ impl Instruction {
     }
 
     pub fn d_field(&self) -> u16 {
-        let bits_7_to_10 = (self.0 >> 7) & 0xF;
+        let bits_11_to_15 = (self.0 >> 11) & 0x1F;
 
-        bits_7_to_10 as u16
+        bits_11_to_15 as u16
     }
 
     pub fn set_a_field(&mut self, bits: u16) {
@@ -434,18 +434,16 @@ impl Instruction {
     }
 
     pub fn call(
-        destination_index: u16,
-        prototype_index: u16,
+        destination: Option<u16>,
+        callee: Address,
         arguments_start: u16,
         argument_count: u16,
-        return_type: OperandType,
     ) -> Instruction {
         Instruction::from(Call {
-            destination: destination_index,
-            prototype_index,
+            destination: destination.unwrap_or(u16::MAX),
+            callee,
             arguments_start,
             argument_count,
-            return_type,
         })
     }
 
@@ -600,15 +598,15 @@ impl InstructionFields {
         let mut bits = 0_u64;
 
         bits |= self.operation.0 as u64;
+        bits |= (self.b_memory_kind.0 as u64) << 7;
 
         if let Some(d_field) = self.d_field {
-            bits |= (d_field as u64) << 7;
+            bits |= (d_field as u64) << 11;
         } else {
-            bits |= (self.b_memory_kind.0 as u64) << 7;
             bits |= (self.c_memory_kind.0 as u64) << 9;
+            bits |= (self.operand_type.0 as u64) << 11;
         }
 
-        bits |= (self.operand_type.0 as u64) << 11;
         bits |= (self.a_field as u64) << 16;
         bits |= (self.b_field as u64) << 32;
         bits |= (self.c_field as u64) << 48;
@@ -700,11 +698,11 @@ mod tests {
 
     #[test]
     fn decode_d_field() {
-        let instruction = Instruction::call(5, 15, 25, 0, OperandType::FLOAT);
+        let instruction = Instruction::call(Some(5), Address::constant(10), 25, 0);
 
         assert_eq!(instruction.d_field(), 0);
 
-        let instruction = Instruction::call(10, 20, 30, 2, OperandType::STRING);
+        let instruction = Instruction::call(None, Address::register(42), 30, 2);
 
         assert_eq!(instruction.d_field(), 2);
     }

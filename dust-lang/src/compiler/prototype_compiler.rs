@@ -3172,13 +3172,16 @@ impl<'a> PrototypeCompiler<'a> {
             .return_type;
         let argument_count = self.call_arguments.len() as u16 - arguments_start_index;
 
-        let return_type_operand = self.get_operand_type(return_type_id)?;
+        let destination = if return_type_id == TypeId::NONE {
+            None
+        } else {
+            Some(target.register)
+        };
         let call_instruction = Instruction::call(
-            target.register,
-            function_address.index,
+            destination,
+            function_address,
             arguments_start_index,
             argument_count,
-            return_type_operand,
         );
 
         call_emission.push(call_instruction);
