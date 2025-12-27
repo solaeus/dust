@@ -344,12 +344,37 @@ impl<'a> InstructionCompiler<'a> {
             );
         }
 
-        let signature_reference = builder.import_signature(self.signature.clone());
-        let call_callee = builder.ins().call_indirect(
-            signature_reference,
-            callee_pointer,
-            &[self.thread_context, self.base_register_index],
-        );
+        let call_callee = match callee.memory {
+            MemoryKind::CONSTANT => {
+                let function_id = self.function_ids.get(callee.index as usize).ok_or(
+                    JitError::FunctionIndexOutOfBounds {
+                        ip,
+                        function_index: callee.index,
+                        total_function_count: self.function_ids.len(),
+                    },
+                )?;
+                let callee_reference = self.module.declare_func_in_func(*function_id, builder.func);
+
+                builder.ins().call(
+                    callee_reference,
+                    &[self.thread_context, self.base_register_index],
+                )
+            }
+            MemoryKind::REGISTER => {
+                let signature_reference = builder.import_signature(self.signature.clone());
+
+                builder.ins().call_indirect(
+                    signature_reference,
+                    callee_pointer,
+                    &[self.thread_context, self.base_register_index],
+                )
+            }
+            _ => {
+                return Err(JitError::UnsupportedMemoryKind {
+                    memory_kind: callee.memory,
+                });
+            }
+        };
 
         let empty_tag = builder.ins().iconst(I8, RegisterTag::EMPTY.0 as i64);
         let function_returns_value =
