@@ -1117,6 +1117,7 @@ impl<'a> InstructionCompiler<'a> {
             },
             OperandType::INTEGER => self.get_integer(address, builder),
             OperandType::STRING => self.get_string(address, builder),
+            OperandType::FUNCTION => self.get_prototype_index(address, builder),
             OperandType::LIST_BOOLEAN
             | OperandType::LIST_BYTE
             | OperandType::LIST_CHARACTER

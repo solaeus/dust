@@ -29,7 +29,6 @@ use crate::{
         JitError, ffi_functions::*, jit_compiler::instruction_compiler::InstructionCompiler,
         thread::ThreadContext,
     },
-    prototype::Prototype,
 };
 
 pub struct JitCompiler<'a> {
@@ -132,8 +131,17 @@ impl<'a> JitCompiler<'a> {
     fn compile_program(&mut self) -> Result<(JitLogic, Vec<JitPrototype>), JitError> {
         let (compile_order, recursive_calls) = get_compile_order_and_recursive_calls(self.program);
 
+        let mut compiled = FxHashSet::default();
+
         for index in compile_order {
             self.function_ids[index] = self.compile_prototype(index, &recursive_calls)?;
+            compiled.insert(index);
+        }
+
+        for index in 0..self.program.prototypes.len() {
+            if !compiled.contains(&index) {
+                self.function_ids[index] = self.compile_prototype(index, &recursive_calls)?;
+            }
         }
 
         self.module
@@ -188,7 +196,7 @@ impl<'a> JitCompiler<'a> {
                 })?;
 
         let mut context = self.module.make_context();
-        let signature = self.prototype_signature(prototype);
+        let signature = self.prototype_signature();
 
         context.func.signature = signature.clone();
 
@@ -302,17 +310,12 @@ impl<'a> JitCompiler<'a> {
         Ok(function_id)
     }
 
-    fn prototype_signature(&self, prototype: &Prototype) -> Signature {
+    fn prototype_signature(&self) -> Signature {
         let pointer_type = self.module.isa().pointer_type();
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
         signature.params.push(AbiParam::new(pointer_type)); // ThreadContext
         signature.params.push(AbiParam::new(I64)); // Base register index
-
-        for _ in 0..prototype.function_type.value_parameters.len() {
-            signature.params.push(AbiParam::new(I64));
-        }
-
         signature.returns.push(AbiParam::new(I64)); // Return value
 
         signature

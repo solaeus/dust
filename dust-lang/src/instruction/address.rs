@@ -57,7 +57,7 @@ impl Address {
             OperandType::BOOLEAN if self.memory == MemoryKind::ENCODED => {
                 write!(f, "{}", self.index != 0)
             }
-            OperandType::FUNCTION => {
+            OperandType::FUNCTION if self.memory == MemoryKind::CONSTANT => {
                 if self.index == u16::MAX {
                     write!(f, "self")
                 } else {
