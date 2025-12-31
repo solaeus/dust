@@ -80,7 +80,7 @@ impl JitVm {
 
         self.thread_pool
             .lock_spawner()
-            .spawn_thread("Dust Program".to_string(), 0, spawner_clone)
+            .spawn_named_thread("Dust Program".to_string(), 0, spawner_clone)
             .map_err(DustError::jit)?;
 
         let receiver = self.thread_pool.lock_spawner().clone_receiver();
@@ -96,7 +96,7 @@ impl JitVm {
 
                     self.thread_pool
                         .lock_spawner()
-                        .spawn_thread(thread_name, prototype_index, spawner_clone)
+                        .spawn_named_thread(thread_name, prototype_index, spawner_clone)
                         .map_err(DustError::jit)?;
                 }
                 Ok(ThreadMessage::Complete {

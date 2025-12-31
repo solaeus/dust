@@ -115,6 +115,6 @@ define_native_functions! {
         4,
         "spawn",
         SPAWN,
-        FunctionType::new([], [Type::String, Type::function([], [], Type::None)], Type::None)
+        FunctionType::new([], [Type::function([], [], Type::None)], Type::None)
     )
 }

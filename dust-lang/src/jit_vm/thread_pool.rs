@@ -76,6 +76,42 @@ impl ThreadSpawner {
 
     pub fn spawn_thread(
         &mut self,
+        prototype_index: u16,
+        spawner: Arc<Mutex<ThreadSpawner>>,
+    ) -> Result<(), JitError> {
+        let join_handle = ThreadBuilder::new()
+            .spawn({
+                let result_sender = Arc::clone(&self.sender);
+                let program = Arc::clone(&self.program);
+                let minimum_object_heap = self.minimum_object_heap;
+                let minimum_object_sweep = self.minimum_object_sweep;
+
+                move || {
+                    let result = run_thread(
+                        program,
+                        prototype_index,
+                        minimum_object_heap,
+                        minimum_object_sweep,
+                        spawner,
+                    );
+
+                    let thread_message = ThreadMessage::Complete {
+                        thread_id: thread::current().id(),
+                        result,
+                        prototype_index,
+                    };
+                    let _ = result_sender.send(thread_message);
+                }
+            })
+            .expect("Failed to spawn thread");
+
+        self.threads.insert(join_handle.thread().id(), join_handle);
+
+        Ok(())
+    }
+
+    pub fn spawn_named_thread(
+        &mut self,
         thread_name: String,
         prototype_index: u16,
         spawner: Arc<Mutex<ThreadSpawner>>,
@@ -148,11 +184,7 @@ fn run_thread(
 
     info!("JIT compilation complete");
 
-    let registers_allocated = if program.prototypes.len() == 1 {
-        program.prototypes[0].register_count as usize
-    } else {
-        1024
-    };
+    let registers_allocated = 1024;
     let mut registers = vec![Register { empty: () }; registers_allocated];
     let mut register_tags = vec![RegisterTag::EMPTY; registers_allocated];
     let bump_arena = Bump::with_capacity(minimum_object_heap);

@@ -1758,11 +1758,9 @@ impl<'a> InstructionCompiler<'a> {
         let pointer_type = self.module.isa().pointer_type();
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
-        signature.params.extend([
-            AbiParam::new(pointer_type),
-            AbiParam::new(I64),
-            AbiParam::new(pointer_type),
-        ]);
+        signature
+            .params
+            .extend([AbiParam::new(I64), AbiParam::new(pointer_type)]);
 
         self.declare_imported_function("spawn", signature, function_builder)
     }
