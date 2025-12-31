@@ -6,21 +6,24 @@ mod object_pool;
 mod register;
 #[cfg(test)]
 mod tests;
-pub mod thread;
+pub mod thread_pool;
 
 pub use error::JitError;
 pub use jit_compiler::{JitCompiler, JitLogic};
 pub use object::Object;
 pub use object_pool::ObjectPool;
 pub use register::{Register, RegisterTag};
-pub use thread::{Thread, ThreadStatus};
+pub use thread_pool::ThreadStatus;
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+
+use tracing::error;
 
 use crate::{
     compiler::Compiler,
     dust_crate::Program,
     dust_error::DustError,
+    jit_vm::thread_pool::{ThreadMessage, ThreadPool},
     source::{Source, SourceCode, SourceFile},
     value::Value,
 };
@@ -38,8 +41,6 @@ pub const MINIMUM_OBJECT_SWEEP_DEFAULT: usize = if cfg!(debug_assertions) {
 
 const ERROR_REPLACEMENT_STR: &str = "<dust_vm_error>";
 
-pub type ThreadPool = Arc<RwLock<Vec<Thread>>>;
-
 pub fn run_main(source_code: String) -> Result<Option<Value>, DustError> {
     let mut source = Source::new();
 
@@ -50,13 +51,13 @@ pub fn run_main(source_code: String) -> Result<Option<Value>, DustError> {
 
     let compiler = Compiler::new(source);
     let program = compiler.compile(Some("Dust Program".to_string()))?;
-    let vm = JitVm::new();
-
-    vm.run(
+    let vm = JitVm::new(
         Arc::new(program),
         MINIMUM_OBJECT_HEAP_DEFAULT,
         MINIMUM_OBJECT_SWEEP_DEFAULT,
-    )
+    );
+
+    vm.run()
 }
 
 pub struct JitVm {
@@ -64,47 +65,62 @@ pub struct JitVm {
 }
 
 impl JitVm {
-    pub fn new() -> Self {
-        let thread_pool = Arc::new(RwLock::new(Vec::with_capacity(1)));
-
-        Self { thread_pool }
-    }
-
-    pub fn run(
-        self,
+    pub fn new(
         program: Arc<Program>,
         minimum_object_heap: usize,
         minimum_object_sweep: usize,
-    ) -> Result<Option<Value>, DustError> {
-        let main_thread = Thread::spawn(
-            program.name.clone(),
-            program,
-            0,
-            minimum_object_heap,
-            minimum_object_sweep,
-        )
-        .map_err(DustError::jit)?;
-        let return_result = main_thread
-            .handle
-            .join()
-            .expect("Main thread panicked")
-            .map_err(DustError::jit)?;
-        let mut threads = self.thread_pool.write().expect("Failed to lock threads");
+    ) -> Self {
+        Self {
+            thread_pool: ThreadPool::new(program, minimum_object_heap, minimum_object_sweep),
+        }
+    }
 
-        for thread in threads.drain(..) {
-            thread
-                .handle
-                .join()
-                .expect("Thread panicked")
-                .map_err(DustError::jit)?;
+    pub fn run(self) -> Result<Option<Value>, DustError> {
+        let spawner_clone = self.thread_pool.clone_spawner();
+
+        self.thread_pool
+            .lock_spawner()
+            .spawn_thread("Dust Program".to_string(), 0, spawner_clone)
+            .map_err(DustError::jit)?;
+
+        let receiver = self.thread_pool.lock_spawner().clone_receiver();
+        let mut return_result = None;
+
+        while !self.thread_pool.lock_spawner().is_emply() {
+            match receiver.recv() {
+                Ok(ThreadMessage::Spawn {
+                    thread_name,
+                    prototype_index,
+                }) => {
+                    let spawner_clone = self.thread_pool.clone_spawner();
+
+                    self.thread_pool
+                        .lock_spawner()
+                        .spawn_thread(thread_name, prototype_index, spawner_clone)
+                        .map_err(DustError::jit)?;
+                }
+                Ok(ThreadMessage::Complete {
+                    thread_id,
+                    result,
+                    prototype_index,
+                }) => {
+                    let result = result.map_err(DustError::jit)?;
+
+                    if prototype_index == 0 {
+                        return_result = result;
+                    }
+
+                    self.thread_pool
+                        .lock_spawner()
+                        .threads_mut()
+                        .remove(&thread_id);
+                }
+                Err(error) => {
+                    error!("JIT VM Thread Pool Error: {}", error);
+                }
+            }
         }
 
         Ok(return_result)
-    }
-}
-
-impl Default for JitVm {
-    fn default() -> Self {
-        Self::new()
     }
 }

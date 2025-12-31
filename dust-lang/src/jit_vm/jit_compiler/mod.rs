@@ -5,7 +5,7 @@ use std::{
     mem::{offset_of, transmute},
 };
 
-use super::thread::JitPrototype;
+use super::thread_pool::JitPrototype;
 use crate::jit_vm::RegisterTag;
 use crate::r#type::Type;
 
@@ -27,18 +27,19 @@ use crate::{
     instruction::Operation,
     jit_vm::{
         JitError, ffi_functions::*, jit_compiler::instruction_compiler::InstructionCompiler,
-        thread::ThreadContext,
+        thread_pool::ThreadContext,
     },
 };
 
 pub struct JitCompiler<'a> {
     module: JITModule,
     program: &'a Program,
+    main_prototype_index: u16,
     function_ids: Vec<FuncId>,
 }
 
 impl<'a> JitCompiler<'a> {
-    pub fn new(program: &'a Program) -> Result<Self, JitError> {
+    pub fn new(program: &'a Program, main_prototype_index: u16) -> Result<Self, JitError> {
         let mut settings_builder = settings::builder();
 
         settings_builder
@@ -105,6 +106,7 @@ impl<'a> JitCompiler<'a> {
             .symbol("integer_to_string", integer_to_string as *const u8)
             .symbol("read_line", read_line as *const u8)
             .symbol("write_line", write_line as *const u8)
+            .symbol("spawn", spawn as *const u8)
             .symbol("byte_power", byte_power as *const u8)
             .symbol("integer_power", integer_power as *const u8)
             .symbol("float_power", float_power as *const u8);
@@ -117,6 +119,7 @@ impl<'a> JitCompiler<'a> {
         Ok(Self {
             module,
             program,
+            main_prototype_index,
             function_ids: vec![FuncId::from_u32(0); program.prototypes.len()],
         })
     }
@@ -174,7 +177,7 @@ impl<'a> JitCompiler<'a> {
             });
         }
 
-        let main_function_id = self.function_ids[0];
+        let main_function_id = self.function_ids[self.main_prototype_index as usize];
         let program_function_pointer = self.module.get_finalized_function(main_function_id);
         let jit_logic = unsafe { transmute::<*const u8, JitLogic>(program_function_pointer) };
 

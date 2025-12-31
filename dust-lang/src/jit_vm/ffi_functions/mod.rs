@@ -2,11 +2,13 @@ pub mod io;
 pub mod lists;
 pub mod math;
 pub mod strings;
+pub mod threads;
 
 pub use io::*;
 pub use lists::*;
 pub use math::*;
 pub use strings::*;
+pub use threads::*;
 
 use tracing::info;
 

@@ -23,7 +23,7 @@ use crate::{
     },
     jit_vm::{
         JitError, RegisterTag,
-        thread::{JitPrototype, ThreadContextFields},
+        thread_pool::{JitPrototype, ThreadContextFields},
     },
     native_function::NativeFunction,
     prototype::Prototype,
@@ -450,6 +450,13 @@ impl<'a> InstructionCompiler<'a> {
                 function
             }
             NativeFunction::WRITE_LINE => self.get_write_line_function(builder)?,
+            NativeFunction::SPAWN => {
+                let function = self.get_spawn_function(builder)?;
+
+                argument_values.push(self.thread_context);
+
+                function
+            }
             _ => {
                 return Err(JitError::UnsupportedNativeFunction {
                     function_name: function.name(),
@@ -1742,6 +1749,22 @@ impl<'a> InstructionCompiler<'a> {
         signature.params.push(AbiParam::new(pointer_type));
 
         self.declare_imported_function("write_line", signature, function_builder)
+    }
+
+    fn get_spawn_function(
+        &mut self,
+        function_builder: &mut FunctionBuilder,
+    ) -> Result<FuncRef, JitError> {
+        let pointer_type = self.module.isa().pointer_type();
+        let mut signature = Signature::new(self.module.isa().default_call_conv());
+
+        signature.params.extend([
+            AbiParam::new(pointer_type),
+            AbiParam::new(I64),
+            AbiParam::new(pointer_type),
+        ]);
+
+        self.declare_imported_function("spawn", signature, function_builder)
     }
 
     fn get_byte_power_function(

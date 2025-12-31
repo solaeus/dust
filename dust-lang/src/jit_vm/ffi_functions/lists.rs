@@ -1,6 +1,6 @@
 use crate::{
     instruction::OperandType,
-    jit_vm::{Object, ThreadStatus, object::ObjectValue, thread::ThreadContext},
+    jit_vm::{Object, ThreadStatus, object::ObjectValue, thread_pool::ThreadContext},
 };
 
 #[unsafe(no_mangle)]

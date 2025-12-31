@@ -1,6 +1,6 @@
 use std::io::{Write, stdin, stdout};
 
-use crate::jit_vm::{ERROR_REPLACEMENT_STR, Object, thread::ThreadContext};
+use crate::jit_vm::{ERROR_REPLACEMENT_STR, Object, thread_pool::ThreadContext};
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn read_line(thread_context: *mut ThreadContext) -> i64 {

@@ -33,13 +33,13 @@ pub fn handle_run_command(
             return;
         }
     };
-    let jit_vm = JitVm::new();
-
-    let run_result = jit_vm.run(
+    let jit_vm = JitVm::new(
         Arc::new(program),
         MINIMUM_OBJECT_HEAP_DEFAULT,
         MINIMUM_OBJECT_HEAP_DEFAULT,
     );
+
+    let run_result = jit_vm.run();
     let run_time = start_time.elapsed() - compile_time;
     let return_value = match run_result {
         Ok(return_value) => return_value,

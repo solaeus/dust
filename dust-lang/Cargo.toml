@@ -20,6 +20,7 @@ cranelift = "0.126.1"
 cranelift-jit = "0.126.1"
 cranelift-module = "0.126.1"
 cranelift-native = "0.126.1"
+crossbeam = { version = "0.8.4", features = ["crossbeam-channel", "nightly"] }
 crossbeam-channel = "0.5.15"
 getrandom = "0.3" # Indirect dependency, for WASM builds
 indexmap = { version = "2.11.0", features = ["serde"] }

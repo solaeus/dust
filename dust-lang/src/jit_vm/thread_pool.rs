@@ -1,7 +1,8 @@
 use std::{
+    collections::HashMap,
     mem::offset_of,
-    sync::Arc,
-    thread::{Builder as ThreadBuilder, JoinHandle},
+    sync::{Arc, Mutex, MutexGuard},
+    thread::{self, Builder as ThreadBuilder, JoinHandle, ThreadId},
 };
 
 use bumpalo::Bump;
@@ -9,6 +10,8 @@ use cranelift::prelude::{
     FunctionBuilder, InstBuilder, MemFlags, Type as CraneliftType, Value as CraneliftValue,
     types::{I32, I64},
 };
+use crossbeam_channel::{Receiver, Sender};
+use rustc_hash::FxBuildHasher;
 use tracing::{Level, debug, info, span};
 
 use crate::{
@@ -22,38 +25,125 @@ use crate::{
     value::{List, Value},
 };
 
-pub struct Thread {
-    pub handle: JoinHandle<Result<Option<Value>, JitError>>,
+pub struct ThreadPool {
+    spawner: Arc<Mutex<ThreadSpawner>>,
 }
 
-impl Thread {
-    pub fn spawn(
-        thread_name: String,
+impl ThreadPool {
+    pub fn new(
         program: Arc<Program>,
-        prototype_index: u16,
         minimum_object_heap: usize,
         minimum_object_sweep: usize,
-    ) -> Result<Self, JitError> {
-        info!("Spawning thread for proto_{prototype_index}");
+    ) -> Self {
+        let (sender, receiver) = crossbeam_channel::unbounded();
 
-        let handle = ThreadBuilder::new()
-            .name(thread_name)
-            .spawn(move || run(program, minimum_object_heap, minimum_object_sweep))
-            .expect("Failed to spawn thread");
+        ThreadPool {
+            spawner: Arc::new(Mutex::new(ThreadSpawner {
+                program,
+                threads: HashMap::default(),
+                sender: Arc::new(sender),
+                receiver,
+                minimum_object_heap,
+                minimum_object_sweep,
+            })),
+        }
+    }
 
-        Ok(Thread { handle })
+    pub fn lock_spawner(&self) -> MutexGuard<'_, ThreadSpawner> {
+        self.spawner
+            .lock()
+            .expect("Failed to lock ThreadSpawner mutex")
+    }
+
+    pub fn clone_spawner(&self) -> Arc<Mutex<ThreadSpawner>> {
+        Arc::clone(&self.spawner)
     }
 }
 
-fn run(
+pub struct ThreadSpawner {
     program: Arc<Program>,
+    threads: HashMap<ThreadId, JoinHandle<()>, FxBuildHasher>,
+    sender: Arc<Sender<ThreadMessage>>,
+    receiver: Receiver<ThreadMessage>,
     minimum_object_heap: usize,
     minimum_object_sweep: usize,
+}
+
+impl ThreadSpawner {
+    pub fn is_emply(&self) -> bool {
+        self.threads.is_empty()
+    }
+
+    pub fn spawn_thread(
+        &mut self,
+        thread_name: String,
+        prototype_index: u16,
+        spawner: Arc<Mutex<ThreadSpawner>>,
+    ) -> Result<(), JitError> {
+        let join_handle = ThreadBuilder::new()
+            .name(thread_name)
+            .spawn({
+                let result_sender = Arc::clone(&self.sender);
+                let program = Arc::clone(&self.program);
+                let minimum_object_heap = self.minimum_object_heap;
+                let minimum_object_sweep = self.minimum_object_sweep;
+
+                move || {
+                    let result = run_thread(
+                        program,
+                        prototype_index,
+                        minimum_object_heap,
+                        minimum_object_sweep,
+                        spawner,
+                    );
+
+                    let thread_message = ThreadMessage::Complete {
+                        thread_id: thread::current().id(),
+                        result,
+                        prototype_index,
+                    };
+                    let _ = result_sender.send(thread_message);
+                }
+            })
+            .expect("Failed to spawn thread");
+
+        self.threads.insert(join_handle.thread().id(), join_handle);
+
+        Ok(())
+    }
+
+    pub fn clone_receiver(&self) -> Receiver<ThreadMessage> {
+        self.receiver.clone()
+    }
+
+    pub fn threads_mut(&mut self) -> &mut HashMap<ThreadId, JoinHandle<()>, FxBuildHasher> {
+        &mut self.threads
+    }
+}
+
+pub enum ThreadMessage {
+    Spawn {
+        thread_name: String,
+        prototype_index: u16,
+    },
+    Complete {
+        thread_id: ThreadId,
+        result: Result<Option<Value>, JitError>,
+        prototype_index: u16,
+    },
+}
+
+fn run_thread(
+    program: Arc<Program>,
+    prototype_index: u16,
+    minimum_object_heap: usize,
+    minimum_object_sweep: usize,
+    thread_spawner: Arc<Mutex<ThreadSpawner>>,
 ) -> Result<Option<Value>, JitError> {
     let span = span!(Level::TRACE, "Thread");
     let _enter = span.enter();
 
-    let mut jit = JitCompiler::new(&program)?;
+    let mut jit = JitCompiler::new(&program, prototype_index)?;
     let (jit_logic, mut jit_prototypes) = jit.compile()?;
 
     info!("JIT compilation complete");
@@ -76,6 +166,7 @@ fn run(
         registers_allocated,
         registers_used: 0,
         object_pool_pointer: &mut object_pool,
+        thread_spawner_pointer: &thread_spawner,
         jit_prototype_buffer_pointer: jit_prototypes.as_mut_ptr(),
         function_arguments: [0; 10],
         status: ThreadStatus::Ok,
@@ -174,6 +265,7 @@ pub struct ThreadContext<'a> {
     pub registers_used: usize,
 
     pub object_pool_pointer: *mut ObjectPool<'a>,
+    pub thread_spawner_pointer: *const Arc<Mutex<ThreadSpawner>>,
 
     pub jit_prototype_buffer_pointer: *mut JitPrototype,
 
@@ -188,95 +280,68 @@ impl<'a> ThreadContext<'a> {
         pointer_type: CraneliftType,
         builder: &mut FunctionBuilder,
     ) -> ThreadContextFields {
-        let status;
-        let register_vec_pointer;
-        let register_buffer_pointer;
-        let register_tag_vec_pointer;
-        let register_tag_buffer_pointer;
-        let registers_allocated;
-        let registers_used;
-        let object_pool_pointer;
-        let jit_prototype_buffer_pointer;
-        let recursive_return_register;
-
-        {
-            let mut get_field = |field_type: CraneliftType, offset: usize| {
-                builder
-                    .ins()
-                    .load(field_type, MemFlags::new(), thread_context, offset as i32)
-            };
-
-            status = get_field(
-                ThreadStatus::CRANELIFT_TYPE,
-                offset_of!(ThreadContext, status),
-            );
-            register_vec_pointer = get_field(
-                pointer_type,
-                offset_of!(ThreadContext, register_vec_pointer),
-            );
-            register_buffer_pointer = get_field(
-                pointer_type,
-                offset_of!(ThreadContext, register_buffer_pointer),
-            );
-            register_tag_vec_pointer = get_field(
-                pointer_type,
-                offset_of!(ThreadContext, register_tag_vec_pointer),
-            );
-            register_tag_buffer_pointer = get_field(
-                pointer_type,
-                offset_of!(ThreadContext, register_tag_buffer_pointer),
-            );
-            registers_allocated = get_field(I64, offset_of!(ThreadContext, registers_allocated));
-            registers_used = get_field(I64, offset_of!(ThreadContext, registers_used));
-            object_pool_pointer =
-                get_field(pointer_type, offset_of!(ThreadContext, object_pool_pointer));
-            jit_prototype_buffer_pointer = get_field(
-                pointer_type,
-                offset_of!(ThreadContext, jit_prototype_buffer_pointer),
-            );
-            recursive_return_register =
-                get_field(I64, offset_of!(ThreadContext, recursive_return_register));
-        }
-
-        let function_arguments = builder.ins().iadd_imm(
-            thread_context,
-            offset_of!(ThreadContext, function_arguments) as i64,
-        );
+        let mut get_field = |field_type: CraneliftType, offset: usize| {
+            builder
+                .ins()
+                .load(field_type, MemFlags::new(), thread_context, offset as i32)
+        };
 
         ThreadContextFields {
-            status,
-            register_vec_pointer,
-            register_buffer_pointer,
-            register_tag_vec_pointer,
-            register_tag_buffer_pointer,
-            registers_allocated,
-            registers_used,
-            object_pool_pointer,
-            jit_prototype_buffer_pointer,
-            function_arguments,
-            recursive_return_register,
+            status: get_field(
+                ThreadStatus::CRANELIFT_TYPE,
+                offset_of!(ThreadContext, status),
+            ),
+            register_vec_pointer: get_field(
+                pointer_type,
+                offset_of!(ThreadContext, register_vec_pointer),
+            ),
+            register_buffer_pointer: get_field(
+                pointer_type,
+                offset_of!(ThreadContext, register_buffer_pointer),
+            ),
+            register_tag_vec_pointer: get_field(
+                pointer_type,
+                offset_of!(ThreadContext, register_tag_vec_pointer),
+            ),
+            register_tag_buffer_pointer: get_field(
+                pointer_type,
+                offset_of!(ThreadContext, register_tag_buffer_pointer),
+            ),
+            registers_allocated: get_field(I64, offset_of!(ThreadContext, registers_allocated)),
+            registers_used: get_field(I64, offset_of!(ThreadContext, registers_used)),
+            object_pool_pointer: get_field(
+                pointer_type,
+                offset_of!(ThreadContext, object_pool_pointer),
+            ),
+            thread_pool_pointer: get_field(
+                pointer_type,
+                offset_of!(ThreadContext, thread_spawner_pointer),
+            ),
+            jit_prototype_buffer_pointer: get_field(
+                pointer_type,
+                offset_of!(ThreadContext, jit_prototype_buffer_pointer),
+            ),
+            function_arguments: get_field(I64, offset_of!(ThreadContext, function_arguments)),
+            recursive_return_register: get_field(
+                I64,
+                offset_of!(ThreadContext, recursive_return_register),
+            ),
         }
     }
 }
 
 pub struct ThreadContextFields {
     pub status: CraneliftValue,
-
     pub register_vec_pointer: CraneliftValue,
     pub register_buffer_pointer: CraneliftValue,
-
     pub register_tag_vec_pointer: CraneliftValue,
     pub register_tag_buffer_pointer: CraneliftValue,
-
     pub registers_allocated: CraneliftValue,
     pub registers_used: CraneliftValue,
-
     pub object_pool_pointer: CraneliftValue,
-
+    pub thread_pool_pointer: CraneliftValue,
     pub jit_prototype_buffer_pointer: CraneliftValue,
-
     pub function_arguments: CraneliftValue,
-
     pub recursive_return_register: CraneliftValue,
 }
 

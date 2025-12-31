@@ -1,6 +1,6 @@
 use std::{ptr, slice};
 
-use crate::jit_vm::{ERROR_REPLACEMENT_STR, Object, thread::ThreadContext};
+use crate::jit_vm::{ERROR_REPLACEMENT_STR, Object, thread_pool::ThreadContext};
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn allocate_string(
