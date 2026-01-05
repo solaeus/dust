@@ -1055,7 +1055,7 @@ impl<'a> PrototypeCompiler<'a> {
             current_child_index += 1;
 
             if current_child_index == end_children {
-                let final_emission = self.compile_implicit_return(&child_node)?;
+                let final_emission = self.compile_implicit_return(child_id, &child_node)?;
 
                 handle_emission(self, final_emission)?;
             } else if child_node.kind.is_statement() {
@@ -1328,17 +1328,15 @@ impl<'a> PrototypeCompiler<'a> {
     ) -> Result<Emission, CompileError> {
         info!("Compiling expression statement");
 
-        let exression_id = SyntaxId(node.children.0);
-        let child_node =
-            *self
-                .syntax_tree()?
-                .get_node(exression_id)
-                .ok_or(CompileError::MissingSyntaxNode {
-                    syntax_id: exression_id,
-                })?;
+        let expression_id = SyntaxId(node.children.0);
+        let expression_node = *self.syntax_tree()?.get_node(expression_id).ok_or(
+            CompileError::MissingSyntaxNode {
+                syntax_id: expression_id,
+            },
+        )?;
 
-        if child_node.kind.is_expression() {
-            let mut emission = self.compile_expression(&child_node, None)?;
+        if expression_node.kind.is_expression() {
+            let mut emission = self.compile_expression(expression_id, &expression_node, None)?;
 
             emission.set_type(TypeId::NONE);
 
@@ -1348,7 +1346,7 @@ impl<'a> PrototypeCompiler<'a> {
 
             Ok(emission)
         } else {
-            self.compile_statement(&child_node)
+            self.compile_statement(&expression_node)
         }
     }
 
@@ -1356,6 +1354,11 @@ impl<'a> PrototypeCompiler<'a> {
         info!("Compiling let statement");
 
         let path_id = SyntaxId(node.children.0);
+        let path_node = *self
+            .syntax_tree()?
+            .get_node(path_id)
+            .ok_or(CompileError::MissingSyntaxNode { syntax_id: path_id })?;
+
         let expression_statement_id = SyntaxId(node.children.1);
         let expression_statement = *self
             .syntax_tree()?
@@ -1363,12 +1366,13 @@ impl<'a> PrototypeCompiler<'a> {
             .ok_or(CompileError::MissingSyntaxNode {
                 syntax_id: expression_statement_id,
             })?;
-        let expression = *self
-            .syntax_tree()?
-            .get_node(SyntaxId(expression_statement.children.0))
-            .ok_or(CompileError::MissingSyntaxNode {
+
+        let expression_id = SyntaxId(expression_statement.children.0);
+        let expression_node = *self.syntax_tree()?.get_node(expression_id).ok_or(
+            CompileError::MissingSyntaxNode {
                 syntax_id: SyntaxId(expression_statement.children.0),
-            })?;
+            },
+        )?;
 
         let mut let_statement_emission = InstructionsEmission::new();
         let local_register = self.allocate_local_register();
@@ -1377,7 +1381,8 @@ impl<'a> PrototypeCompiler<'a> {
             is_temporary: false,
         };
 
-        let expression_emission = self.compile_expression(&expression, Some(local_target))?;
+        let expression_emission =
+            self.compile_expression(expression_id, &expression_node, Some(local_target))?;
         let local_type_id = match expression_emission {
             Emission::Constant(constant, type_id) => {
                 let address = self.get_constant_address(constant);
@@ -1413,16 +1418,12 @@ impl<'a> PrototypeCompiler<'a> {
             }
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
-                    node_kind: expression.kind,
-                    position: Position::new(self.file_id, expression.span),
+                    node_kind: expression_node.kind,
+                    position: Position::new(self.file_id, expression_node.span),
                 });
             }
         };
 
-        let path_node = *self
-            .syntax_tree()?
-            .get_node(path_id)
-            .ok_or(CompileError::MissingSyntaxNode { syntax_id: path_id })?;
         let files = self.context.source.read_files();
         let source_file =
             files
@@ -1430,30 +1431,18 @@ impl<'a> PrototypeCompiler<'a> {
                 .ok_or(CompileError::MissingSourceFile {
                     file_id: self.file_id,
                 })?;
-        let variable_name_bytes =
-            &source_file.source_code.as_ref()[path_node.span.0 as usize..path_node.span.1 as usize];
-        let variable_name = unsafe { str::from_utf8_unchecked(variable_name_bytes) };
+        let variable_name = source_file
+            .source_code
+            .get(path_node.span.0 as usize, path_node.span.1 as usize);
 
-        let shadowed = self
+        let (declaration_id, _) = self
             .context
             .resolver
             .find_declaration_in_scope(variable_name, self.current_scope_id)
-            .map(|(id, _)| id);
-        let declaration_kind = if node.kind == SyntaxKind::LetStatement {
-            DeclarationKind::Local { shadowed }
-        } else {
-            DeclarationKind::LocalMutable { shadowed }
-        };
-        let declaration_id = self.context.resolver.add_declaration(
-            variable_name,
-            Declaration {
-                kind: declaration_kind,
-                scope_id: self.current_scope_id,
-                type_id: local_type_id,
-                position: Position::new(self.file_id, node.span),
-                is_public: false,
-            },
-        );
+            .ok_or(CompileError::UndeclaredVariable {
+                name: variable_name.to_string(),
+                position: Position::new(self.file_id, path_node.span),
+            })?;
 
         drop(files);
 
@@ -1484,6 +1473,7 @@ impl<'a> PrototypeCompiler<'a> {
             .syntax_tree()?
             .get_node(path_id)
             .ok_or(CompileError::MissingSyntaxNode { syntax_id: path_id })?;
+
         let expression_statement_id = SyntaxId(node.children.1);
         let expression_statement_node = *self
             .syntax_tree()?
@@ -1491,6 +1481,7 @@ impl<'a> PrototypeCompiler<'a> {
             .ok_or(CompileError::MissingSyntaxNode {
                 syntax_id: expression_statement_id,
             })?;
+
         let expression_id = SyntaxId(expression_statement_node.children.0);
         let expression_node = *self.syntax_tree()?.get_node(expression_id).ok_or(
             CompileError::MissingSyntaxNode {
@@ -1539,6 +1530,7 @@ impl<'a> PrototypeCompiler<'a> {
 
         let mut reassignment_emission = InstructionsEmission::new();
         let expression_emission = self.compile_expression(
+            expression_id,
             &expression_node,
             Some(TargetRegister {
                 register: local_register,
@@ -1661,6 +1653,7 @@ impl<'a> PrototypeCompiler<'a> {
 
     fn compile_expression(
         &mut self,
+        node_id: SyntaxId,
         node: &SyntaxNode,
         target: Option<TargetRegister>,
     ) -> Result<Emission, CompileError> {
@@ -1693,7 +1686,7 @@ impl<'a> PrototypeCompiler<'a> {
                 self.compile_unary_expression(node, target)
             }
             SyntaxKind::GroupedExpression => self.compile_grouped_expression(node, target),
-            SyntaxKind::BlockExpression => self.compile_block_expression(node, target),
+            SyntaxKind::BlockExpression => self.compile_block_expression(node_id, node, target),
             SyntaxKind::WhileExpression => self.compile_while_expression(node),
             SyntaxKind::FunctionExpression => self.compile_function_expression(node, None, None),
             SyntaxKind::CallExpression => self.compile_call_expression(node, target),
@@ -1787,8 +1780,6 @@ impl<'a> PrototypeCompiler<'a> {
         node: &SyntaxNode,
         target: Option<TargetRegister>,
     ) -> Result<Emission, CompileError> {
-        info!("Compiling list expression");
-
         fn handle_element_emission(
             compiler: &mut PrototypeCompiler,
             instructions: &mut InstructionsEmission,
@@ -1825,6 +1816,8 @@ impl<'a> PrototypeCompiler<'a> {
             }
         }
 
+        info!("Compiling list expression");
+
         let (start_children, child_count) = (node.children.0 as usize, node.children.1 as usize);
         let target = target.unwrap_or_else(|| TargetRegister {
             register: self.allocate_temporary_register(),
@@ -1858,7 +1851,7 @@ impl<'a> PrototypeCompiler<'a> {
                     })?;
             current_child_index += 1;
 
-            let element_emission = self.compile_expression(&child_node, None)?;
+            let element_emission = self.compile_expression(child_id, &child_node, None)?;
             let (element_address, element_type_id) =
                 handle_element_emission(self, &mut list_emission, element_emission, &child_node)?;
             let element_operand_type = self
@@ -1921,31 +1914,31 @@ impl<'a> PrototypeCompiler<'a> {
     ) -> Result<Emission, CompileError> {
         info!("Compiling index expression");
 
-        let list_index = SyntaxId(node.children.0);
-        let list_node =
-            *self
-                .syntax_tree()?
-                .get_node(list_index)
-                .ok_or(CompileError::MissingSyntaxNode {
-                    syntax_id: list_index,
-                })?;
-        let index_index = SyntaxId(node.children.1);
+        let list_id = SyntaxId(node.children.0);
+        let list_node = *self
+            .syntax_tree()?
+            .get_node(list_id)
+            .ok_or(CompileError::MissingSyntaxNode { syntax_id: list_id })?;
+
+        let index_id = SyntaxId(node.children.1);
         let index_node =
             *self
                 .syntax_tree()?
-                .get_node(index_index)
+                .get_node(index_id)
                 .ok_or(CompileError::MissingSyntaxNode {
-                    syntax_id: index_index,
+                    syntax_id: index_id,
                 })?;
 
         let mut index_emission = InstructionsEmission::new();
 
-        let list_emission = self.compile_expression(&list_node, None)?;
+        let list_emission = self.compile_expression(list_id, &list_node, None)?;
         let (list_address, list_type_id) =
             self.handle_operand_emission(&mut index_emission, list_emission, &list_node)?;
-        let integer_emission = self.compile_expression(&index_node, None)?;
+
+        let integer_emission = self.compile_expression(index_id, &index_node, None)?;
         let (index_address, index_type) =
             self.handle_operand_emission(&mut index_emission, integer_emission, &index_node)?;
+
         let list_type_node =
             self.context
                 .resolver
@@ -2007,6 +2000,7 @@ impl<'a> PrototypeCompiler<'a> {
             .syntax_tree()?
             .get_node(left_id)
             .ok_or(CompileError::MissingSyntaxNode { syntax_id: left_id })?;
+
         let right_id = SyntaxId(node.children.1);
         let right_node =
             *self
@@ -2016,8 +2010,8 @@ impl<'a> PrototypeCompiler<'a> {
                     syntax_id: right_id,
                 })?;
 
-        let left_emission = self.compile_expression(&left_node, None)?;
-        let right_emission = self.compile_expression(&right_node, None)?;
+        let left_emission = self.compile_expression(left_id, &left_node, None)?;
+        let right_emission = self.compile_expression(right_id, &right_node, None)?;
 
         if target.is_none()
             && let (
@@ -2204,23 +2198,23 @@ impl<'a> PrototypeCompiler<'a> {
     ) -> Result<Emission, CompileError> {
         info!("Compiling comparison expression");
 
-        let left_index = SyntaxId(node.children.0);
-        let left_node = *self.syntax_tree()?.nodes.get(left_index.0 as usize).ok_or(
-            CompileError::MissingSyntaxNode {
-                syntax_id: left_index,
-            },
-        )?;
-        let right_index = SyntaxId(node.children.1);
-        let right_node = *self
+        let left_id = SyntaxId(node.children.0);
+        let left_node = *self
             .syntax_tree()?
             .nodes
-            .get(right_index.0 as usize)
-            .ok_or(CompileError::MissingSyntaxNode {
-                syntax_id: right_index,
-            })?;
+            .get(left_id.0 as usize)
+            .ok_or(CompileError::MissingSyntaxNode { syntax_id: left_id })?;
 
-        let left_emission = self.compile_expression(&left_node, None)?;
-        let right_emission = self.compile_expression(&right_node, None)?;
+        let left_emission = self.compile_expression(left_id, &left_node, None)?;
+
+        let right_id = SyntaxId(node.children.1);
+        let right_node = *self.syntax_tree()?.nodes.get(right_id.0 as usize).ok_or(
+            CompileError::MissingSyntaxNode {
+                syntax_id: right_id,
+            },
+        )?;
+
+        let right_emission = self.compile_expression(right_id, &right_node, None)?;
 
         if let (
             Emission::Constant(left_value, _left_type),
@@ -2307,33 +2301,31 @@ impl<'a> PrototypeCompiler<'a> {
     ) -> Result<Emission, CompileError> {
         info!("Compiling logical expression");
 
+        let left_id = SyntaxId(node.children.0);
+        let left_node =
+            *self
+                .syntax_tree()?
+                .get_node(left_id)
+                .ok_or(CompileError::MissingSyntaxNode {
+                    syntax_id: SyntaxId(node.children.0),
+                })?;
+        let left_emission = self.compile_expression(left_id, &left_node, None)?;
+
+        let right_index = SyntaxId(node.children.1);
+        let right_node =
+            *self
+                .syntax_tree()?
+                .get_node(right_index)
+                .ok_or(CompileError::MissingSyntaxNode {
+                    syntax_id: SyntaxId(node.children.1),
+                })?;
+        let right_emission = self.compile_expression(right_index, &right_node, None)?;
+
         let comparator = match node.kind {
             SyntaxKind::AndExpression => false,
             SyntaxKind::OrExpression => true,
             _ => unreachable!("Expected logic expression, found {}", node.kind),
         };
-
-        let left_index = node.children.0 as usize;
-        let left_node =
-            *self
-                .syntax_tree()?
-                .nodes
-                .get(left_index)
-                .ok_or(CompileError::MissingSyntaxNode {
-                    syntax_id: SyntaxId(node.children.0),
-                })?;
-        let right_index = node.children.1 as usize;
-        let right_node =
-            *self
-                .syntax_tree()?
-                .nodes
-                .get(right_index)
-                .ok_or(CompileError::MissingSyntaxNode {
-                    syntax_id: SyntaxId(node.children.1),
-                })?;
-
-        let left_emission = self.compile_expression(&left_node, None)?;
-        let right_emission = self.compile_expression(&right_node, None)?;
 
         if let (
             Emission::Constant(left_value, left_type_id),
@@ -2401,7 +2393,7 @@ impl<'a> PrototypeCompiler<'a> {
                 .ok_or(CompileError::MissingSyntaxNode {
                     syntax_id: operand_id,
                 })?;
-        let operand_emission = self.compile_expression(&operand_node, None)?;
+        let operand_emission = self.compile_expression(operand_id, &operand_node, None)?;
 
         if let Emission::Constant(child_value, child_type_id) = &operand_emission {
             let evaluated = match (node.kind, child_value) {
@@ -2458,11 +2450,12 @@ impl<'a> PrototypeCompiler<'a> {
                     syntax_id: child_id,
                 })?;
 
-        self.compile_expression(&child_node, target)
+        self.compile_expression(child_id, &child_node, target)
     }
 
     fn compile_block_expression(
         &mut self,
+        node_id: SyntaxId,
         node: &SyntaxNode,
         target: Option<TargetRegister>,
     ) -> Result<Emission, CompileError> {
@@ -2478,12 +2471,11 @@ impl<'a> PrototypeCompiler<'a> {
         let parent_scope_id = self.current_scope_id;
         let parent_next_local_register = self.next_local_register;
 
-        let child_scope_id = self.context.resolver.add_scope(Scope {
-            kind: ScopeKind::Block,
-            parent: parent_scope_id,
-            imports: SmallVec::new(),
-            modules: SmallVec::new(),
-        });
+        let child_scope_id = *self
+            .context
+            .resolver
+            .get_scope_binding(&node_id)
+            .ok_or(CompileError::MissingScopeBinding { syntax_id: node_id })?;
 
         self.enter_child_scope(child_scope_id);
 
@@ -2519,15 +2511,15 @@ impl<'a> PrototypeCompiler<'a> {
             }
         }
 
-        let final_expression_id = *self.syntax_tree()?.children.get(end_children - 1).ok_or(
+        let final_node_id = *self.syntax_tree()?.children.get(end_children - 1).ok_or(
             CompileError::MissingChild {
                 parent_kind: node.kind,
                 child_index: end_children as u32,
             },
         )?;
-        let final_node = *self.syntax_tree()?.get_node(final_expression_id).ok_or(
+        let final_node = *self.syntax_tree()?.get_node(final_node_id).ok_or(
             CompileError::MissingSyntaxNode {
-                syntax_id: final_expression_id,
+                syntax_id: final_node_id,
             },
         )?;
 
@@ -2552,7 +2544,8 @@ impl<'a> PrototypeCompiler<'a> {
             return Ok(Emission::Instructions(block_emission));
         }
 
-        let final_expression_emission = self.compile_expression(&final_node, target)?;
+        let final_expression_emission =
+            self.compile_expression(final_node_id, &final_node, target)?;
 
         match final_expression_emission {
             Emission::Constant(constant, type_id) => {
@@ -2705,8 +2698,6 @@ impl<'a> PrototypeCompiler<'a> {
         info!("Compiling while expression");
 
         let condition_id = SyntaxId(node.children.0);
-        let body_id = SyntaxId(node.children.1);
-
         let condition_node =
             *self
                 .syntax_tree()?
@@ -2714,13 +2705,15 @@ impl<'a> PrototypeCompiler<'a> {
                 .ok_or(CompileError::MissingSyntaxNode {
                     syntax_id: condition_id,
                 })?;
+
+        let body_id = SyntaxId(node.children.1);
         let body_node = *self
             .syntax_tree()?
             .get_node(body_id)
             .ok_or(CompileError::MissingSyntaxNode { syntax_id: body_id })?;
 
         let mut while_emission = InstructionsEmission::new();
-        let condition_emission = self.compile_expression(&condition_node, None)?;
+        let condition_emission = self.compile_expression(condition_id, &condition_node, None)?;
 
         self.handle_condition_emission(&mut while_emission, condition_emission, &condition_node)?;
 
@@ -3035,18 +3028,21 @@ impl<'a> PrototypeCompiler<'a> {
                         parent_kind: arguments_node.kind,
                         child_index: current_child_index as u32,
                     })?;
-                current_child_index += 1;
                 let argument_node = *compiler.syntax_tree()?.get_node(argument_id).ok_or(
                     CompileError::MissingSyntaxNode {
                         syntax_id: argument_id,
                     },
                 )?;
-                let argument_emission = compiler.compile_expression(&argument_node, None)?;
+                current_child_index += 1;
+
+                let argument_emission =
+                    compiler.compile_expression(argument_id, &argument_node, None)?;
                 let (argument_address, argument_type_id) = compiler.handle_operand_emission(
                     instructions_emission,
                     argument_emission,
                     &argument_node,
                 )?;
+
                 let operand_type = compiler
                     .context
                     .resolver
@@ -3066,13 +3062,13 @@ impl<'a> PrototypeCompiler<'a> {
         info!("Compiling call expression");
 
         let function_node_id = SyntaxId(node.children.0);
-        let arguments_node_id = SyntaxId(node.children.1);
-
         let function_node = *self.syntax_tree()?.get_node(function_node_id).ok_or(
             CompileError::MissingSyntaxNode {
                 syntax_id: function_node_id,
             },
         )?;
+
+        let arguments_node_id = SyntaxId(node.children.1);
         let arguments_node = *self.syntax_tree()?.get_node(arguments_node_id).ok_or(
             CompileError::MissingSyntaxNode {
                 syntax_id: arguments_node_id,
@@ -3138,7 +3134,7 @@ impl<'a> PrototypeCompiler<'a> {
             }
         }
 
-        let function_emission = self.compile_expression(&function_node, None)?;
+        let function_emission = self.compile_expression(function_node_id, &function_node, None)?;
         let (function_address, callee_type_id) =
             self.handle_operand_emission(&mut call_emission, function_emission, &function_node)?;
 
@@ -3199,13 +3195,13 @@ impl<'a> PrototypeCompiler<'a> {
         info!("Compiling 'as' expression");
 
         let value_node_id = SyntaxId(node.children.0);
-        let type_node_id = SyntaxId(node.children.1);
-
         let value_node = *self.syntax_tree()?.get_node(value_node_id).ok_or(
             CompileError::MissingSyntaxNode {
                 syntax_id: value_node_id,
             },
         )?;
+
+        let type_node_id = SyntaxId(node.children.1);
         let type_node =
             *self
                 .syntax_tree()?
@@ -3216,7 +3212,7 @@ impl<'a> PrototypeCompiler<'a> {
 
         let mut instructions_emission = InstructionsEmission::new();
 
-        let value_emission = self.compile_expression(&value_node, None)?;
+        let value_emission = self.compile_expression(value_node_id, &value_node, None)?;
         let (value_address, value_type_id) =
             self.handle_operand_emission(&mut instructions_emission, value_emission, &value_node)?;
         let target = target.unwrap_or_else(|| TargetRegister {
@@ -3250,7 +3246,7 @@ impl<'a> PrototypeCompiler<'a> {
     ) -> Result<Emission, CompileError> {
         info!("Compiling if expression");
 
-        let children_ids = self
+        let child_ids = self
             .syntax_tree()?
             .get_children(node.children.0, node.children.1)
             .ok_or(CompileError::MissingChildren {
@@ -3261,7 +3257,8 @@ impl<'a> PrototypeCompiler<'a> {
             .iter()
             .cloned()
             .collect::<SmallVec<[SyntaxId; 3]>>();
-        let condition_id = children_ids[0];
+
+        let condition_id = child_ids[0];
         let condition_node =
             *self
                 .syntax_tree()?
@@ -3269,7 +3266,8 @@ impl<'a> PrototypeCompiler<'a> {
                 .ok_or(CompileError::MissingSyntaxNode {
                     syntax_id: condition_id,
                 })?;
-        let then_block_id = children_ids[1];
+
+        let then_block_id = child_ids[1];
         let then_block_node = *self.syntax_tree()?.get_node(then_block_id).ok_or(
             CompileError::MissingSyntaxNode {
                 syntax_id: then_block_id,
@@ -3281,8 +3279,8 @@ impl<'a> PrototypeCompiler<'a> {
             is_temporary: true,
         });
 
+        let condition_emission = self.compile_expression(condition_id, &condition_node, None)?;
         let mut if_emission = InstructionsEmission::new();
-        let condition_emission = self.compile_expression(&condition_node, None)?;
 
         self.handle_condition_emission(&mut if_emission, condition_emission, &condition_node)?;
 
@@ -3300,7 +3298,7 @@ impl<'a> PrototypeCompiler<'a> {
         let start_else_anchor_count = self.jump_over_else_anchor_ids.len();
         let then_emission = match then_block_node.kind {
             SyntaxKind::BlockExpression => {
-                self.compile_block_expression(&then_block_node, Some(target))?
+                self.compile_block_expression(then_block_id, &then_block_node, Some(target))?
             }
             SyntaxKind::ExpressionStatement => {
                 self.compile_expression_statement(&then_block_node)?
@@ -3321,7 +3319,7 @@ impl<'a> PrototypeCompiler<'a> {
                 id: jump_over_then_id,
             });
 
-        if children_ids.len() == 3 {
+        if child_ids.len() == 3 {
             let jump_over_else_id = self.create_jump_id();
 
             if_emission
@@ -3334,7 +3332,7 @@ impl<'a> PrototypeCompiler<'a> {
                 });
             self.jump_over_else_anchor_ids.push(jump_over_else_id);
 
-            let else_block_id = children_ids[2];
+            let else_block_id = child_ids[2];
             let else_block_node = *self.syntax_tree()?.get_node(else_block_id).ok_or(
                 CompileError::MissingSyntaxNode {
                     syntax_id: else_block_id,
@@ -3403,7 +3401,9 @@ impl<'a> PrototypeCompiler<'a> {
 
         match child_node.kind {
             SyntaxKind::IfExpression => self.compile_if_expression(&child_node, target),
-            SyntaxKind::BlockExpression => self.compile_block_expression(&child_node, target),
+            SyntaxKind::BlockExpression => {
+                self.compile_block_expression(child_id, &child_node, target)
+            }
             SyntaxKind::ExpressionStatement => self.compile_expression_statement(&child_node),
             _ => {
                 todo!("Error")
@@ -3411,7 +3411,11 @@ impl<'a> PrototypeCompiler<'a> {
         }
     }
 
-    fn compile_implicit_return(&mut self, node: &SyntaxNode) -> Result<Emission, CompileError> {
+    fn compile_implicit_return(
+        &mut self,
+        node_id: SyntaxId,
+        node: &SyntaxNode,
+    ) -> Result<Emission, CompileError> {
         let mut return_emission = InstructionsEmission::new();
 
         if node.kind.is_item() {
@@ -3425,7 +3429,7 @@ impl<'a> PrototypeCompiler<'a> {
 
             self.handle_return_emission(&mut return_emission, statement_emission, node)?;
         } else {
-            let expression_emission = self.compile_expression(node, None)?;
+            let expression_emission = self.compile_expression(node_id, node, None)?;
 
             self.handle_return_emission(&mut return_emission, expression_emission, node)?;
         }

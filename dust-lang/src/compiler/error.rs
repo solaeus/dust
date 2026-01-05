@@ -66,6 +66,10 @@ pub enum CompileError {
         left: Type,
         right: Type,
     },
+    CannotMutate {
+        name: String,
+        position: Position,
+    },
 
     // Internal Errors (from incorrect Parser output)
     ChildIndexOutOfBounds {
@@ -138,9 +142,8 @@ pub enum CompileError {
     MissingNativeFunction {
         native_function: String,
     },
-    CannotMutate {
-        name: String,
-        position: Position,
+    MissingScopeBinding {
+        syntax_id: SyntaxId,
     },
 }
 
@@ -184,6 +187,7 @@ impl AnnotatedError for CompileError {
             CompileError::CannotInferListType { position } => position.file_id,
             CompileError::MissingNativeFunction { .. } => SourceFileId::default(),
             CompileError::CannotMutate { position, .. } => position.file_id,
+            CompileError::MissingScopeBinding { .. } => SourceFileId::default(),
         }
     }
 
@@ -519,6 +523,13 @@ impl AnnotatedError for CompileError {
                 let title = format!(
                     "Native function {native_function} was missing, this is a bug in the parser or
                     compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingScopeBinding { syntax_id } => {
+                let title = format!(
+                    "Scope binding for syntax id {syntax_id:?} was missing, this is a bug in the parser or compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

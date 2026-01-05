@@ -82,6 +82,14 @@ pub enum SourceCode {
     Mmap(Mmap),
 }
 
+impl SourceCode {
+    pub fn get(&self, start: usize, end: usize) -> &str {
+        unsafe { str::from_utf8_unchecked(self.as_ref()) }
+            .get(start..end)
+            .unwrap_or("")
+    }
+}
+
 impl AsRef<[u8]> for SourceCode {
     fn as_ref(&self) -> &[u8] {
         match self {

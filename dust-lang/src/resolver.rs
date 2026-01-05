@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fmt::{self, Display, Formatter},
     hash::{Hash, Hasher},
 };
@@ -23,19 +24,25 @@ pub struct Resolver {
 
     scopes: Vec<Scope>,
 
-    types: IndexMap<TypeKey, TypeNode, FxBuildHasher>,
+    scope_bindings: HashMap<SyntaxId, ScopeId, FxBuildHasher>,
+
+    type_nodes: IndexMap<TypeKey, TypeNode, FxBuildHasher>,
 
     type_members: Vec<TypeId>,
+
+    next_inferred_type_id: u32,
 }
 
 impl Resolver {
     pub fn new() -> Self {
         let mut resolver = Self {
+            scope_bindings: HashMap::default(),
             declarations: IndexMap::default(),
             parameters: IndexSet::default(),
             scopes: vec![],
-            types: IndexMap::default(),
+            type_nodes: IndexMap::default(),
             type_members: Vec::new(),
+            next_inferred_type_id: 0,
         };
 
         let _native_scope_id = resolver.add_scope(Scope {
@@ -98,7 +105,7 @@ impl Resolver {
     }
 
     pub fn type_count(&self) -> usize {
-        self.types.len()
+        self.type_nodes.len()
     }
 
     pub fn add_scope(&mut self, scope: Scope) -> ScopeId {
@@ -115,6 +122,14 @@ impl Resolver {
 
     pub fn get_scope_mut(&mut self, id: ScopeId) -> Option<&mut Scope> {
         self.scopes.get_mut(id.0 as usize)
+    }
+
+    pub fn add_scope_binding(&mut self, syntax_id: SyntaxId, scope_id: ScopeId) {
+        self.scope_bindings.insert(syntax_id, scope_id);
+    }
+
+    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Option<&ScopeId> {
+        self.scope_bindings.get(syntax_id)
     }
 
     pub fn get_declaration(&self, id: DeclarationId) -> Option<&Declaration> {
@@ -257,7 +272,7 @@ impl Resolver {
             }
         };
 
-        if let Some(existing) = self.types.get_index_of(&type_key) {
+        if let Some(existing) = self.type_nodes.get_index_of(&type_key) {
             return TypeId(existing as u32);
         }
 
@@ -272,9 +287,9 @@ impl Resolver {
             Type::List(element_type) => {
                 let element_type_id = self.add_type(element_type);
                 let type_node = TypeNode::List(element_type_id);
-                let type_id = TypeId(self.types.len() as u32);
+                let type_id = TypeId(self.type_nodes.len() as u32);
 
-                self.types.insert(type_key, type_node);
+                self.type_nodes.insert(type_key, type_node);
 
                 type_id
             }
@@ -325,13 +340,13 @@ impl Resolver {
             }
         };
 
-        if let Some(existing) = self.types.get_index_of(&type_key) {
+        if let Some(existing) = self.type_nodes.get_index_of(&type_key) {
             return TypeId(existing as u32);
         }
 
-        let type_id = TypeId(self.types.len() as u32);
+        let type_id = TypeId(self.type_nodes.len() as u32);
 
-        self.types.insert(type_key, type_node);
+        self.type_nodes.insert(type_key, type_node);
 
         type_id
     }
@@ -346,7 +361,7 @@ impl Resolver {
             TypeId::INTEGER => Some(Type::Integer),
             TypeId::STRING => Some(Type::String),
             TypeId(index) => {
-                let (_, type_node) = self.types.get_index(index as usize)?;
+                let (_, type_node) = self.type_nodes.get_index(index as usize)?;
 
                 match type_node {
                     TypeNode::List(element_type_id) => {
@@ -359,6 +374,7 @@ impl Resolver {
 
                         Some(Type::Function(Box::new(function_type)))
                     }
+                    TypeNode::Inferred(_) => None,
                 }
             }
         }
@@ -387,7 +403,7 @@ impl Resolver {
     }
 
     pub fn get_type_node(&self, id: TypeId) -> Option<&TypeNode> {
-        self.types
+        self.type_nodes
             .get_index(id.0 as usize)
             .map(|(_, type_node)| type_node)
     }
@@ -426,6 +442,7 @@ impl Resolver {
                 }
             }
             TypeNode::Function(_) => OperandType::FUNCTION,
+            TypeNode::Inferred(_) => return None,
         };
 
         Some(operand_type)
@@ -438,6 +455,126 @@ impl Resolver {
         self.type_members.extend_from_slice(members);
 
         (start, count)
+    }
+
+    pub fn get_type_members(&self, start_index: u32, count: u32) -> Option<&[TypeId]> {
+        let range = start_index as usize..(start_index + count) as usize;
+
+        self.type_members.get(range)
+    }
+
+    pub fn create_inferred_type(&mut self) -> TypeId {
+        let inferred_type_node = TypeNode::Inferred(InferredTypeNode {
+            id: self.next_inferred_type_id,
+            resolved: None,
+        });
+        let type_id = self.add_type_node(inferred_type_node);
+
+        self.next_inferred_type_id += 1;
+
+        type_id
+    }
+
+    pub fn infer_type(&mut self, inferred_type_id: TypeId) -> TypeId {
+        if let TypeId::NONE
+        | TypeId::BOOLEAN
+        | TypeId::BYTE
+        | TypeId::CHARACTER
+        | TypeId::FLOAT
+        | TypeId::INTEGER
+        | TypeId::STRING = inferred_type_id
+        {
+            return inferred_type_id;
+        }
+
+        match self.get_type_node(inferred_type_id) {
+            Some(TypeNode::Inferred(InferredTypeNode {
+                resolved: Some(resolved),
+                ..
+            })) => self.infer_type(*resolved),
+            _ => inferred_type_id,
+        }
+    }
+
+    pub fn unify_types(&mut self, left: TypeId, right: TypeId) -> Option<TypeId> {
+        let left = self.infer_type(left);
+        let right = self.infer_type(right);
+
+        if left == right {
+            return Some(left);
+        }
+
+        let left_node = *self.get_type_node(left)?;
+        let right_node = *self.get_type_node(right)?;
+
+        match (left_node, right_node) {
+            (TypeNode::Inferred(InferredTypeNode { id, resolved: None }), _) => {
+                if let Some((_, node)) = self.type_nodes.get_index_mut(left.0 as usize) {
+                    *node = TypeNode::Inferred(InferredTypeNode {
+                        id,
+                        resolved: Some(right),
+                    });
+                }
+
+                Some(right)
+            }
+            (_, TypeNode::Inferred(InferredTypeNode { id, resolved: None })) => {
+                if let Some((_, node)) = self.type_nodes.get_index_mut(right.0 as usize) {
+                    *node = TypeNode::Inferred(InferredTypeNode {
+                        id,
+                        resolved: Some(left),
+                    });
+                }
+
+                Some(left)
+            }
+            (TypeNode::List(left_element_type), TypeNode::List(right_element_type)) => {
+                self.unify_types(left_element_type, right_element_type)?;
+
+                Some(left)
+            }
+            (TypeNode::Function(left_function_type), TypeNode::Function(right_function_type)) => {
+                let mut unify_members = |left: (u32, u32), right: (u32, u32)| -> Option<()> {
+                    let left_members = self
+                        .get_type_members(left.0, left.1)?
+                        .iter()
+                        .copied()
+                        .collect::<SmallVec<[TypeId; 8]>>();
+                    let right_members = self
+                        .get_type_members(right.0, right.1)?
+                        .iter()
+                        .copied()
+                        .collect::<SmallVec<[TypeId; 8]>>();
+
+                    if left_members.len() != right_members.len() {
+                        return None;
+                    }
+
+                    for (left_member, right_member) in left_members.iter().zip(right_members.iter())
+                    {
+                        self.unify_types(*left_member, *right_member)?;
+                    }
+
+                    Some(())
+                };
+
+                unify_members(
+                    left_function_type.type_parameters,
+                    right_function_type.type_parameters,
+                )?;
+                unify_members(
+                    left_function_type.value_parameters,
+                    right_function_type.value_parameters,
+                )?;
+                self.unify_types(
+                    left_function_type.return_type,
+                    right_function_type.return_type,
+                )?;
+
+                Some(left)
+            }
+            _ => None,
+        }
     }
 
     fn resolve_type_members(
@@ -585,6 +722,7 @@ pub struct TypeKey {
 pub enum TypeNode {
     List(TypeId),
     Function(FunctionTypeNode),
+    Inferred(InferredTypeNode),
 }
 
 impl TypeNode {
@@ -610,4 +748,10 @@ pub struct FunctionTypeNode {
     pub type_parameters: (u32, u32),
     pub value_parameters: (u32, u32),
     pub return_type: TypeId,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InferredTypeNode {
+    id: u32,
+    resolved: Option<TypeId>,
 }
