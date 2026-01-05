@@ -312,51 +312,87 @@ impl<'a> ThreadContext<'a> {
         pointer_type: CraneliftType,
         builder: &mut FunctionBuilder,
     ) -> ThreadContextFields {
-        let mut get_field = |field_type: CraneliftType, offset: usize| {
+        fn get_field(
+            field_type: CraneliftType,
+            offset: usize,
+            thread_context: &CraneliftValue,
+            builder: &mut FunctionBuilder<'_>,
+        ) -> CraneliftValue {
             builder
                 .ins()
-                .load(field_type, MemFlags::new(), thread_context, offset as i32)
-        };
+                .load(field_type, MemFlags::new(), *thread_context, offset as i32)
+        }
 
         ThreadContextFields {
             status: get_field(
                 ThreadStatus::CRANELIFT_TYPE,
                 offset_of!(ThreadContext, status),
+                &thread_context,
+                builder,
             ),
             register_vec_pointer: get_field(
                 pointer_type,
                 offset_of!(ThreadContext, register_vec_pointer),
+                &thread_context,
+                builder,
             ),
             register_buffer_pointer: get_field(
                 pointer_type,
                 offset_of!(ThreadContext, register_buffer_pointer),
+                &thread_context,
+                builder,
             ),
             register_tag_vec_pointer: get_field(
                 pointer_type,
                 offset_of!(ThreadContext, register_tag_vec_pointer),
+                &thread_context,
+                builder,
             ),
             register_tag_buffer_pointer: get_field(
                 pointer_type,
                 offset_of!(ThreadContext, register_tag_buffer_pointer),
+                &thread_context,
+                builder,
             ),
-            registers_allocated: get_field(I64, offset_of!(ThreadContext, registers_allocated)),
-            registers_used: get_field(I64, offset_of!(ThreadContext, registers_used)),
+            registers_allocated: get_field(
+                I64,
+                offset_of!(ThreadContext, registers_allocated),
+                &thread_context,
+                builder,
+            ),
+            registers_used: get_field(
+                I64,
+                offset_of!(ThreadContext, registers_used),
+                &thread_context,
+                builder,
+            ),
             object_pool_pointer: get_field(
                 pointer_type,
                 offset_of!(ThreadContext, object_pool_pointer),
+                &thread_context,
+                builder,
             ),
             thread_pool_pointer: get_field(
                 pointer_type,
                 offset_of!(ThreadContext, thread_spawner_pointer),
+                &thread_context,
+                builder,
             ),
             jit_prototype_buffer_pointer: get_field(
                 pointer_type,
                 offset_of!(ThreadContext, jit_prototype_buffer_pointer),
+                &thread_context,
+                builder,
             ),
-            function_arguments: get_field(I64, offset_of!(ThreadContext, function_arguments)),
+            function_arguments: builder.ins().iadd_imm(
+                thread_context,
+                offset_of!(ThreadContext, function_arguments) as i64,
+            ),
             recursive_return_register: get_field(
                 I64,
                 offset_of!(ThreadContext, recursive_return_register),
+                &thread_context,
+                builder,
             ),
         }
     }

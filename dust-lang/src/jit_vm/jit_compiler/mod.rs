@@ -1,9 +1,6 @@
 mod instruction_compiler;
 
-use std::{
-    collections::HashSet,
-    mem::{offset_of, transmute},
-};
+use std::{collections::HashSet, mem::transmute};
 
 use super::thread_pool::JitPrototype;
 use crate::jit_vm::RegisterTag;
@@ -242,10 +239,9 @@ impl<'a> JitCompiler<'a> {
 
         builder.switch_to_block(entry_block);
 
-        let arguments = builder.ins().iadd_imm(
-            thread_context,
-            offset_of!(ThreadContext, function_arguments) as i64,
-        );
+        let pointer_type = self.module.isa().pointer_type();
+        let thread_context_fields =
+            ThreadContext::get_fields(thread_context, pointer_type, &mut builder);
 
         let mut ssa_registers = {
             let function_parameter_count = prototype.function_type.value_parameters.len();
@@ -256,7 +252,7 @@ impl<'a> JitCompiler<'a> {
                 let argument_value = builder.ins().load(
                     I64,
                     MemFlags::new(),
-                    arguments,
+                    thread_context_fields.function_arguments,
                     (argument_index * 8) as i32,
                 );
 
@@ -270,10 +266,6 @@ impl<'a> JitCompiler<'a> {
 
             variables
         };
-
-        let pointer_type = self.module.isa().pointer_type();
-        let thread_context_fields =
-            ThreadContext::get_fields(thread_context, pointer_type, &mut builder);
 
         // TODO: Check the current ThreadStatus and call an error function if necessary
         // TODO: Check the capacity of the register stack and grow if necessary

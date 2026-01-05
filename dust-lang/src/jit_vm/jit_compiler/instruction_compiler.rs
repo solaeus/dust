@@ -318,15 +318,16 @@ impl<'a> InstructionCompiler<'a> {
         let arguments_end = (arguments_start + argument_count) as usize;
         let argument_range = arguments_start as usize..arguments_end;
 
-        for argument_index in argument_range {
-            let (address, r#type) = self.prototype.call_arguments.get(argument_index).ok_or(
+        for index in argument_range {
+            let (address, r#type) = self.prototype.call_arguments.get(index).ok_or(
                 JitError::CallArgumentIndexOutOfBounds {
-                    argument_index,
+                    argument_index: index,
                     total_argument_count: self.prototype.call_arguments.len(),
                 },
             )?;
             let argument_value = self.get_value(*address, *r#type, builder)?;
 
+            let argument_index = index - arguments_start as usize;
             let argument_index_value = builder.ins().iconst(I64, argument_index as i64);
             let argument_register_offset = builder
                 .ins()
