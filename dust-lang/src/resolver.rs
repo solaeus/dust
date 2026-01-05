@@ -7,6 +7,7 @@ use std::{
 use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
 use smallvec::SmallVec;
+use tracing::trace;
 
 use crate::{
     instruction::OperandType,
@@ -125,6 +126,8 @@ impl Resolver {
     }
 
     pub fn add_scope_binding(&mut self, syntax_id: SyntaxId, scope_id: ScopeId) {
+        trace!("Binding syntax ID {syntax_id:?} to scope ID {scope_id:?}");
+
         self.scope_bindings.insert(syntax_id, scope_id);
     }
 

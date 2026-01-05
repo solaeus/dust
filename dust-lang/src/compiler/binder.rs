@@ -917,6 +917,7 @@ impl<'a> Binder<'a> {
         let parent_scope_id = self.current_scope_id;
         self.current_scope_id = function_scope;
 
+        self.resolver.add_scope_binding(body_id, function_scope);
         self.bind_function(body_id, &body_node)?;
 
         self.current_scope_id = parent_scope_id;

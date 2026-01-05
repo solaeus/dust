@@ -2968,12 +2968,11 @@ impl<'a> PrototypeCompiler<'a> {
 
                 (Some((declaration_id, declaration)), scope_id)
             } else {
-                let function_scope = self.context.resolver.add_scope(Scope {
-                    kind: ScopeKind::Function,
-                    parent: self.current_scope_id,
-                    imports: SmallVec::new(),
-                    modules: SmallVec::new(),
-                });
+                let function_scope = *self
+                    .context
+                    .resolver
+                    .get_scope_binding(&body_id)
+                    .ok_or(CompileError::MissingScopeBinding { syntax_id: body_id })?;
 
                 (None, function_scope)
             };
