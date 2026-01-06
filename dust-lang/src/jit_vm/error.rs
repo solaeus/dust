@@ -75,6 +75,7 @@ pub enum JitError {
     MissingDeclaration {
         declaration_id: crate::resolver::DeclarationId,
     },
+    MissingReturnValue,
 
     // Execution errors
     ThreadErrorFunctionIndexOutOfBounds,
@@ -260,6 +261,11 @@ impl AnnotatedError for JitError {
                     "Instruction index {} out of bounds (total instructions: {})",
                     instruction_index, total_instruction_count
                 );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            JitError::MissingReturnValue => {
+                let title = "Missing return value from function".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }

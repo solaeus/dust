@@ -421,10 +421,10 @@ impl<'a> InstructionCompiler<'a> {
             destination,
             function,
             arguments_start,
-            argument_count,
             return_type,
         } = CallNative::from(instruction);
 
+        let argument_count = function.argument_count();
         let arguments_end = (arguments_start + argument_count) as usize;
         let argument_range = arguments_start as usize..arguments_end;
         let mut argument_values =
@@ -467,7 +467,10 @@ impl<'a> InstructionCompiler<'a> {
         let call_callee = builder.ins().call(callee_reference, &argument_values);
 
         if return_type != OperandType::NONE {
-            let return_value = builder.inst_results(call_callee)[0];
+            let return_value = *builder
+                .inst_results(call_callee)
+                .first()
+                .ok_or(JitError::MissingReturnValue)?;
 
             self.set_register_and_tag(destination, return_value, return_type, builder)?;
         }

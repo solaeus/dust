@@ -451,16 +451,12 @@ impl Instruction {
         destination: u16,
         function: NativeFunction,
         arguments_start: u16,
+        return_type: OperandType,
     ) -> Instruction {
-        let function_type = function.r#type();
-        let argument_count = function_type.value_parameters.len() as u16;
-        let return_type = function_type.return_type.as_operand_type();
-
         Instruction::from(CallNative {
             destination,
             function,
             arguments_start,
-            argument_count,
             return_type,
         })
     }
@@ -520,11 +516,6 @@ impl Instruction {
             | Operation::NEGATE
             | Operation::CALL
             | Operation::TO_STRING => true,
-            Operation::CALL_NATIVE => {
-                let function = NativeFunction::from_index(self.b_field());
-
-                function.returns_value()
-            }
             Operation::DROP
             | Operation::SET_LIST
             | Operation::EQUAL
@@ -534,6 +525,7 @@ impl Instruction {
             | Operation::JUMP
             | Operation::RETURN
             | Operation::NO_OP => false,
+            Operation::CALL_NATIVE => self.operand_type() != OperandType::NONE,
             unknown => panic!("Unknown operation: {}", unknown.0),
         }
     }

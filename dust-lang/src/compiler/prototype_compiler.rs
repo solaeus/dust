@@ -3110,9 +3110,7 @@ impl<'a> PrototypeCompiler<'a> {
                 let destination = target
                     .map(|target| target.register)
                     .unwrap_or_else(|| self.allocate_temporary_register());
-                let call_native_instruction =
-                    Instruction::call_native(destination, native_function, arguments_start_index);
-                let return_type = self
+                let return_type_id = self
                     .context
                     .resolver
                     .get_type_node(declaration.type_id)
@@ -3125,9 +3123,22 @@ impl<'a> PrototypeCompiler<'a> {
                         position: Position::new(self.file_id, function_node.span),
                     })?
                     .return_type;
+                let return_type = self
+                    .context
+                    .resolver
+                    .get_operand_type(return_type_id)
+                    .ok_or(CompileError::MissingType {
+                        type_id: return_type_id,
+                    })?;
+                let call_native_instruction = Instruction::call_native(
+                    destination,
+                    native_function,
+                    arguments_start_index,
+                    return_type,
+                );
 
                 call_emission.push(call_native_instruction);
-                call_emission.set_type(return_type);
+                call_emission.set_type(return_type_id);
 
                 return Ok(Emission::Instructions(call_emission));
             }

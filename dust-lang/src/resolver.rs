@@ -85,20 +85,51 @@ impl Resolver {
     }
 
     pub fn add_native_functions(&mut self) {
-        for native_function in NativeFunction::ALL {
-            let type_id = self.add_type(&Type::Function(Box::new(native_function.r#type())));
+        let no_op_type_id = NativeFunction::no_op_signature(self);
+        let read_line_type_id = NativeFunction::read_line_signature(self);
+        let write_line_type_id = NativeFunction::write_line_signature(self);
+        let spawn_type_id = NativeFunction::spawn_signature(self);
 
-            self.add_declaration(
-                native_function.name(),
-                Declaration {
-                    kind: DeclarationKind::NativeFunction,
-                    scope_id: ScopeId::NATIVE,
-                    type_id,
-                    position: Position::default(),
-                    is_public: true,
-                },
-            );
-        }
+        self.add_declaration(
+            NativeFunction::NO_OP.name(),
+            Declaration {
+                kind: DeclarationKind::NativeFunction,
+                scope_id: ScopeId::NATIVE,
+                type_id: no_op_type_id,
+                position: Position::default(),
+                is_public: true,
+            },
+        );
+        self.add_declaration(
+            NativeFunction::READ_LINE.name(),
+            Declaration {
+                kind: DeclarationKind::NativeFunction,
+                scope_id: ScopeId::NATIVE,
+                type_id: read_line_type_id,
+                position: Position::default(),
+                is_public: true,
+            },
+        );
+        self.add_declaration(
+            NativeFunction::WRITE_LINE.name(),
+            Declaration {
+                kind: DeclarationKind::NativeFunction,
+                scope_id: ScopeId::NATIVE,
+                type_id: write_line_type_id,
+                position: Position::default(),
+                is_public: true,
+            },
+        );
+        self.add_declaration(
+            NativeFunction::SPAWN.name(),
+            Declaration {
+                kind: DeclarationKind::NativeFunction,
+                scope_id: ScopeId::NATIVE,
+                type_id: spawn_type_id,
+                position: Position::default(),
+                is_public: true,
+            },
+        );
     }
 
     pub fn declarations(&self) -> &IndexMap<DeclarationKey, Declaration, FxBuildHasher> {

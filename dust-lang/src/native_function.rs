@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::r#type::{FunctionType, Type};
+use crate::resolver::{FunctionTypeNode, Resolver, TypeId, TypeNode};
 
 /// A Dust-native function.
 ///
@@ -14,10 +14,54 @@ pub struct NativeFunction {
     pub index: u16,
 }
 
+impl NativeFunction {
+    pub fn no_op_signature(resolver: &mut Resolver) -> TypeId {
+        resolver.add_type_node(TypeNode::Function(FunctionTypeNode {
+            type_parameters: (0, 0),
+            value_parameters: (0, 0),
+            return_type: TypeId::NONE,
+        }))
+    }
+
+    pub fn read_line_signature(resolver: &mut Resolver) -> TypeId {
+        resolver.add_type_node(TypeNode::Function(FunctionTypeNode {
+            type_parameters: (0, 0),
+            value_parameters: (0, 0),
+            return_type: TypeId::STRING,
+        }))
+    }
+
+    pub fn write_line_signature(resolver: &mut Resolver) -> TypeId {
+        let value_parameters = resolver.add_type_members(&[TypeId::STRING]);
+
+        resolver.add_type_node(TypeNode::Function(FunctionTypeNode {
+            type_parameters: (0, 0),
+            value_parameters,
+            return_type: TypeId::NONE,
+        }))
+    }
+
+    pub fn spawn_signature(resolver: &mut Resolver) -> TypeId {
+        let function_argument_type_id =
+            resolver.add_type_node(TypeNode::Function(FunctionTypeNode {
+                type_parameters: (0, 0),
+                value_parameters: (0, 0),
+                return_type: TypeId::NONE,
+            }));
+        let value_parameters = resolver.add_type_members(&[function_argument_type_id]);
+
+        resolver.add_type_node(TypeNode::Function(FunctionTypeNode {
+            type_parameters: (0, 0),
+            value_parameters,
+            return_type: TypeId::NONE,
+        }))
+    }
+}
+
 macro_rules! define_native_functions {
     (
         $count: literal,
-        $(($index: literal, $name: expr, $const_name: ident, $type: expr)),
+        $(($index: literal, $name: expr, $const_name: ident, $argument_count: literal)),
         *
     ) => {
 
@@ -47,6 +91,15 @@ macro_rules! define_native_functions {
                 }
             }
 
+            pub fn argument_count(&self) -> u16 {
+                match self.index {
+                    $(
+                        $index => $argument_count,
+                    )*
+                    _ => unreachable!(),
+                }
+            }
+
             #[allow(clippy::should_implement_trait)]
             pub fn from_str(string: &str) -> Option<Self> {
                 match string {
@@ -56,24 +109,6 @@ macro_rules! define_native_functions {
                         }),
                     )*
                     _ => None,
-                }
-            }
-
-            pub fn r#type(&self) -> FunctionType {
-                match self.index {
-                    $(
-                        $index => $type,
-                    )*
-                    _ => unreachable!(),
-                }
-            }
-
-            pub fn returns_value(&self) -> bool {
-                match self.index {
-                    $(
-                        $index => $type.return_type != Type::None,
-                    )*
-                    _ => unreachable!(),
                 }
             }
         }
@@ -97,24 +132,24 @@ define_native_functions! {
         0,
         "no_op",
         NO_OP,
-        FunctionType::new([], [], Type::None)
+        0
     ),
     (
         1,
         "read_line",
         READ_LINE,
-        FunctionType::new([], [], Type::String)
+        0
     ),
     (
         2,
         "write_line",
         WRITE_LINE,
-        FunctionType::new([], [Type::String], Type::None)
+        1
     ),
     (
         4,
         "spawn",
         SPAWN,
-        FunctionType::new([], [Type::function([], [], Type::None)], Type::None)
+        1
     )
 }
