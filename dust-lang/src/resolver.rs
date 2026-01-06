@@ -4,7 +4,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use indexmap::{IndexMap, IndexSet};
+use indexmap::{IndexMap, IndexSet, set::MutableValues};
 use rustc_hash::{FxBuildHasher, FxHasher};
 use smallvec::SmallVec;
 use tracing::trace;
@@ -27,7 +27,7 @@ pub struct Resolver {
 
     scope_bindings: HashMap<SyntaxId, ScopeId, FxBuildHasher>,
 
-    type_nodes: IndexMap<TypeKey, TypeNode, FxBuildHasher>,
+    type_nodes: IndexSet<TypeNode, FxBuildHasher>,
 
     type_members: Vec<TypeId>,
 
@@ -41,7 +41,7 @@ impl Resolver {
             declarations: IndexMap::default(),
             parameters: IndexSet::default(),
             scopes: vec![],
-            type_nodes: IndexMap::default(),
+            type_nodes: IndexSet::default(),
             type_members: Vec::new(),
             next_inferred_type_id: 0,
         };
@@ -296,39 +296,23 @@ impl Resolver {
     }
 
     pub fn add_type(&mut self, new_type: &Type) -> TypeId {
-        let type_key = {
-            let mut hasher = FxHasher::default();
-
-            new_type.hash(&mut hasher);
-
-            TypeKey {
-                hash: hasher.finish(),
-            }
-        };
-
-        if let Some(existing) = self.type_nodes.get_index_of(&type_key) {
-            return TypeId(existing as u32);
-        }
-
-        match new_type {
-            Type::None => TypeId::NONE,
-            Type::Boolean => TypeId::BOOLEAN,
-            Type::Byte => TypeId::BYTE,
-            Type::Character => TypeId::CHARACTER,
-            Type::Float => TypeId::FLOAT,
-            Type::Integer => TypeId::INTEGER,
-            Type::String => TypeId::STRING,
+        let node = match new_type {
+            Type::None => return TypeId::NONE,
+            Type::Boolean => return TypeId::BOOLEAN,
+            Type::Byte => return TypeId::BYTE,
+            Type::Character => return TypeId::CHARACTER,
+            Type::Float => return TypeId::FLOAT,
+            Type::Integer => return TypeId::INTEGER,
+            Type::String => return TypeId::STRING,
             Type::List(element_type) => {
                 let element_type_id = self.add_type(element_type);
-                let type_node = TypeNode::List(element_type_id);
-                let type_id = TypeId(self.type_nodes.len() as u32);
 
-                self.type_nodes.insert(type_key, type_node);
-
-                type_id
+                TypeNode::List(element_type_id)
             }
-            Type::Function(function_type) => self.add_function_type(function_type),
-        }
+            Type::Function(function_type) => return self.add_function_type(function_type),
+        };
+
+        self.add_type_node(node)
     }
 
     pub fn add_function_type(&mut self, function_type: &FunctionType) -> TypeId {
@@ -364,23 +348,13 @@ impl Resolver {
     }
 
     pub fn add_type_node(&mut self, type_node: TypeNode) -> TypeId {
-        let type_key = {
-            let mut hasher = FxHasher::default();
-
-            type_node.hash(&mut hasher);
-
-            TypeKey {
-                hash: hasher.finish(),
-            }
-        };
-
-        if let Some(existing) = self.type_nodes.get_index_of(&type_key) {
+        if let Some(existing) = self.type_nodes.get_index_of(&type_node) {
             return TypeId(existing as u32);
         }
 
         let type_id = TypeId(self.type_nodes.len() as u32);
 
-        self.type_nodes.insert(type_key, type_node);
+        self.type_nodes.insert(type_node);
 
         type_id
     }
@@ -395,7 +369,7 @@ impl Resolver {
             TypeId::INTEGER => Some(Type::Integer),
             TypeId::STRING => Some(Type::String),
             TypeId(index) => {
-                let (_, type_node) = self.type_nodes.get_index(index as usize)?;
+                let type_node = self.type_nodes.get_index(index as usize)?;
 
                 match type_node {
                     TypeNode::List(element_type_id) => {
@@ -437,9 +411,7 @@ impl Resolver {
     }
 
     pub fn get_type_node(&self, id: TypeId) -> Option<&TypeNode> {
-        self.type_nodes
-            .get_index(id.0 as usize)
-            .map(|(_, type_node)| type_node)
+        self.type_nodes.get_index(id.0 as usize)
     }
 
     pub fn get_operand_type(&self, id: TypeId) -> Option<OperandType> {
@@ -543,7 +515,7 @@ impl Resolver {
 
         match (left_node, right_node) {
             (TypeNode::Inferred(InferredTypeNode { id, resolved: None }), _) => {
-                if let Some((_, node)) = self.type_nodes.get_index_mut(left.0 as usize) {
+                if let Some(node) = self.type_nodes.get_index_mut2(left.0 as usize) {
                     *node = TypeNode::Inferred(InferredTypeNode {
                         id,
                         resolved: Some(right),
@@ -553,7 +525,7 @@ impl Resolver {
                 Some(right)
             }
             (_, TypeNode::Inferred(InferredTypeNode { id, resolved: None })) => {
-                if let Some((_, node)) = self.type_nodes.get_index_mut(right.0 as usize) {
+                if let Some(node) = self.type_nodes.get_index_mut2(right.0 as usize) {
                     *node = TypeNode::Inferred(InferredTypeNode {
                         id,
                         resolved: Some(left),
@@ -745,11 +717,6 @@ impl Default for TypeId {
     fn default() -> Self {
         TypeId::NONE
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypeKey {
-    hash: u64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
