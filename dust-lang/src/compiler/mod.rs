@@ -1,32 +1,33 @@
 mod binder;
+mod code_generator;
+mod context;
 mod error;
-mod prototype_compiler;
 
 #[cfg(test)]
 mod tests;
 
+pub use context::{
+    CompileContext, Declaration, DeclarationKind, FunctionTypeNode, ModuleKind, Scope, ScopeId,
+    ScopeKind, TypeId, TypeNode,
+};
+
+pub use code_generator::CodeGenerator;
 pub use error::CompileError;
-pub use prototype_compiler::PrototypeCompiler;
 use smallvec::SmallVec;
 use tracing::{Level, span};
 
-pub use std::{cell::RefCell, rc::Rc};
-
 use crate::{
     compiler::binder::Binder,
-    constant_table::ConstantTable,
     dust_crate::Program,
     dust_error::DustError,
     lexer::Lexer,
     parser::{ParseResult, Parser},
     prototype::Prototype,
-    resolver::{
-        Declaration, DeclarationKind, FunctionTypeNode, ModuleKind, Resolver, Scope, ScopeId,
-        ScopeKind, TypeId,
-    },
     source::{Position, Source, SourceCode, SourceFile, SourceFileId, Span},
-    syntax_tree::SyntaxTree,
+    syntax::Syntax,
 };
+
+pub const DEFAULT_PROGRAM_NAME: &str = "Dust Program";
 
 pub fn compile_main(source_code: String) -> Result<Prototype, DustError> {
     let mut source = Source::new();
@@ -56,59 +57,55 @@ pub fn compile(source_code: String) -> Result<Vec<Prototype>, DustError> {
 
 pub struct Compiler {
     context: CompileContext,
+    source: Source,
+    syntax: Syntax,
 }
 
 impl Compiler {
     pub fn new(source: Source) -> Self {
         Self {
-            context: CompileContext {
-                file_trees: Vec::with_capacity(source.file_count()),
-                source,
-                constants: ConstantTable::new(),
-                resolver: Resolver::new(),
-                prototypes: Vec::new(),
-            },
+            syntax: Syntax::with_capacity(source.file_count()),
+            source,
+            context: CompileContext::new(),
         }
     }
 
-    pub fn resolver(&self) -> &Resolver {
-        &self.context.resolver
+    pub fn context(&self) -> &CompileContext {
+        &self.context
     }
 
     pub fn compile(self, name: Option<String>) -> Result<Program, DustError> {
-        let context = self.compile_inner()?;
+        let (context, _, _) = self.compile_inner()?;
 
         Ok(Program {
-            name: name.unwrap_or_else(|| "anonymous".to_string()),
-            source: context.source,
+            name: name.unwrap_or_else(|| DEFAULT_PROGRAM_NAME.to_string()),
             constants: context.constants,
             prototypes: context.prototypes,
         })
     }
 
-    pub fn compile_with_extras(
+    pub fn compile_with_context(
         self,
         name: Option<String>,
-    ) -> Result<(Program, Vec<SyntaxTree>, Resolver), DustError> {
-        let context = self.compile_inner()?;
+    ) -> Result<(Program, Source, Syntax), DustError> {
+        let (context, source, syntax) = self.compile_inner()?;
 
         Ok((
             Program {
-                name: name.unwrap_or_else(|| "anonymous".to_string()),
-                source: context.source,
+                name: name.unwrap_or_else(|| DEFAULT_PROGRAM_NAME.to_string()),
                 constants: context.constants,
                 prototypes: context.prototypes,
             },
-            context.file_trees,
-            context.resolver,
+            source,
+            syntax,
         ))
     }
 
-    fn compile_inner(mut self) -> Result<CompileContext, DustError> {
+    fn compile_inner(mut self) -> Result<(CompileContext, Source, Syntax), DustError> {
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
 
-        let source = self.context.source.clone();
+        let source = self.source.clone();
         let files = source.read_files();
         let mut errors = Vec::new();
 
@@ -120,7 +117,7 @@ impl Compiler {
             errors: main_errors,
         } = parser.parse_main();
 
-        self.context.file_trees.push(syntax_tree);
+        self.syntax.add_tree(syntax_tree);
         errors.extend(main_errors);
 
         for (index, file) in files.iter().enumerate().skip(1) {
@@ -130,9 +127,9 @@ impl Compiler {
                 imports: SmallVec::new(),
                 modules: SmallVec::new(),
             };
-            let file_scope_id = self.context.resolver.add_scope(file_scope);
+            let file_scope_id = self.context.add_scope(file_scope);
             let file_module_name = file.name.trim_end_matches(".ds");
-            let module_id = self.context.resolver.add_declaration(
+            let module_id = self.context.add_declaration(
                 file_module_name,
                 Declaration {
                     kind: DeclarationKind::Module {
@@ -162,53 +159,53 @@ impl Compiler {
 
             let binder = Binder::new(
                 file_id,
-                self.context.source.clone(),
-                &mut self.context.resolver,
+                self.source.clone(),
+                &mut self.context,
                 &syntax_tree,
                 file_scope_id,
             );
 
             binder
                 .bind_file_module(file_module_name)
-                .map_err(|compile_error| {
-                    DustError::compile(compile_error, self.context.source.clone())
-                })?;
-            self.context.file_trees.push(syntax_tree);
+                .map_err(|compile_error| DustError::compile(compile_error, self.source.clone()))?;
+            self.syntax.add_tree(syntax_tree);
             self.context
-                .resolver
                 .get_scope_mut(ScopeId::MAIN)
                 .unwrap()
                 .modules
                 .push(module_id);
         }
 
+        let main_syntax = self.syntax.get_tree(SourceFileId::MAIN).unwrap();
         let main_binder = Binder::new(
             SourceFileId(0),
-            self.context.source.clone(),
-            &mut self.context.resolver,
-            &self.context.file_trees[0],
+            self.source.clone(),
+            &mut self.context,
+            main_syntax,
             ScopeId::MAIN,
         );
 
-        main_binder.bind_main().map_err(|compile_error| {
-            DustError::compile(compile_error, self.context.source.clone())
-        })?;
+        main_binder
+            .bind_main()
+            .map_err(|compile_error| DustError::compile(compile_error, self.source.clone()))?;
 
         if !errors.is_empty() {
-            return Err(DustError::parse(errors, self.context.source));
+            return Err(DustError::parse(errors, self.source));
         }
 
         self.context.prototypes.push(Prototype::default()); // Insert a placeholder
 
-        let prototype_compiler = PrototypeCompiler::new(
+        let prototype_compiler = CodeGenerator::new(
             None,
             0,
-            SourceFileId(0),
+            SourceFileId::MAIN,
             FunctionTypeNode {
                 type_parameters: (0, 0),
                 value_parameters: (0, 0),
                 return_type: TypeId::NONE,
             },
+            self.source.clone(),
+            &self.syntax,
             &mut self.context,
             ScopeId::MAIN,
         );
@@ -216,21 +213,12 @@ impl Compiler {
         let prototype = match prototype_compiler.compile_main() {
             Ok(prototype) => prototype,
             Err(error) => {
-                return Err(DustError::compile(error, self.context.source));
+                return Err(DustError::compile(error, self.source));
             }
         };
 
         self.context.prototypes[0] = prototype;
 
-        Ok(self.context)
+        Ok((self.context, self.source, self.syntax))
     }
-}
-
-#[derive(Debug)]
-pub struct CompileContext {
-    pub source: Source,
-    pub file_trees: Vec<SyntaxTree>,
-    pub constants: ConstantTable,
-    pub resolver: Resolver,
-    pub prototypes: Vec<Prototype>,
 }

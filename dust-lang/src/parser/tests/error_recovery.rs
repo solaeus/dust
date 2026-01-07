@@ -1,4 +1,4 @@
-use crate::{parser::parse_main, syntax_tree::SyntaxKind};
+use crate::{parser::parse_main, syntax::SyntaxKind};
 
 #[test]
 fn unclosed_block() {

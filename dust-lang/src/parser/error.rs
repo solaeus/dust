@@ -3,9 +3,8 @@ use smallvec::SmallVec;
 
 use crate::{
     dust_error::AnnotatedError,
-    resolver::{DeclarationId, DeclarationKind, ScopeId, TypeId},
     source::{Position, SourceFileId},
-    syntax_tree::{SyntaxId, SyntaxKind},
+    syntax::{SyntaxId, SyntaxKind},
     token::TokenKind,
     r#type::Type,
 };
@@ -64,10 +63,6 @@ pub enum ParseError {
         left_position: Position,
         right_type: Type,
         right_position: Position,
-        position: Position,
-    },
-    AssignmentToImmutable {
-        found: DeclarationKind,
         position: Position,
     },
     BinaryOperandTypeMismatch {
@@ -129,15 +124,6 @@ pub enum ParseError {
         children_start: u32,
         children_end: u32,
     },
-    MissingScope {
-        id: ScopeId,
-    },
-    MissingDeclaration {
-        id: DeclarationId,
-    },
-    MissingType {
-        id: TypeId,
-    },
     MissingPosition {
         identifier: String,
         position: Position,
@@ -161,7 +147,6 @@ impl AnnotatedError for ParseError {
             ParseError::ExpectedModule { position, .. } => position.file_id,
             ParseError::PrivateImport { position, .. } => position.file_id,
             ParseError::AdditionTypeMismatch { position, .. } => position.file_id,
-            ParseError::AssignmentToImmutable { position, .. } => position.file_id,
             ParseError::BinaryOperandTypeMismatch { position, .. } => position.file_id,
             ParseError::ExpectedBooleanCondition {
                 condition_position, ..
@@ -178,9 +163,6 @@ impl AnnotatedError for ParseError {
             ParseError::UndeclaredModule { position, .. } => position.file_id,
             ParseError::MissingNode { .. } => SourceFileId::default(),
             ParseError::MissingChildren { .. } => SourceFileId::default(),
-            ParseError::MissingScope { .. } => SourceFileId::default(),
-            ParseError::MissingDeclaration { .. } => SourceFileId::default(),
-            ParseError::MissingType { .. } => SourceFileId::default(),
             ParseError::MissingPosition { position, .. } => position.file_id,
             ParseError::MissingSourceFile { .. } => SourceFileId::default(),
         }
@@ -332,17 +314,6 @@ impl AnnotatedError for ParseError {
                                 .span(right_position.span.as_usize_range())
                                 .label(format!("Right operand is of type {right_type}")),
                         ),
-                )
-            }
-            ParseError::AssignmentToImmutable { found, position } => {
-                let title = format!("Cannot assign to immutable {found}");
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!("This {found} is not mutable")),
-                    ),
                 )
             }
             ParseError::BinaryOperandTypeMismatch {
@@ -530,24 +501,6 @@ impl AnnotatedError for ParseError {
                     "Internal error: Missing children nodes {} to {} for parent node with ID {}",
                     children_start, children_end, parent_node.0
                 );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            ParseError::MissingScope { id } => {
-                let title = format!("Internal error: Missing scope with ID {}", id.0);
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            ParseError::MissingDeclaration { id } => {
-                let title = format!(
-                    "Internal error: Missing scope for declaration with ID {}",
-                    id.0
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            ParseError::MissingType { id } => {
-                let title = format!("Internal error: Missing type with ID {}", id.0);
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }

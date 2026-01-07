@@ -19,7 +19,7 @@ use crate::{
     lexer::Lexer,
     parser::parse_rule::{Associativity, ParseRule, Precedence},
     source::{Position, Source, SourceCode, SourceFile, SourceFileId, Span},
-    syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
+    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
     token::{Token, TokenKind},
 };
 

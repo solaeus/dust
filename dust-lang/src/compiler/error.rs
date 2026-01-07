@@ -1,10 +1,10 @@
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
+    compiler::context::{DeclarationId, ScopeId, TypeId},
     dust_error::AnnotatedError,
-    resolver::{DeclarationId, ScopeId, TypeId},
     source::{Position, SourceFileId},
-    syntax_tree::{SyntaxId, SyntaxKind},
+    syntax::{SyntaxId, SyntaxKind},
     r#type::Type,
 };
 
@@ -57,18 +57,15 @@ pub enum CompileError {
         name: String,
         position: Position,
     },
-    MismatchedIfElseTypes {
-        if_type: Type,
-        else_type: Type,
-        position: Position,
-    },
-    MismatchedConstantTypes {
-        left: Type,
-        right: Type,
-    },
     CannotMutate {
         name: String,
         position: Position,
+    },
+    TypeMismatch {
+        expected: Type,
+        expected_position: Position,
+        found: Type,
+        found_position: Position,
     },
 
     // Internal Errors (from incorrect Parser output)
@@ -145,6 +142,10 @@ pub enum CompileError {
     MissingScopeBinding {
         syntax_id: SyntaxId,
     },
+    MissingTypeMembers {
+        start_index: u32,
+        count: u32,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -173,6 +174,7 @@ impl AnnotatedError for CompileError {
             CompileError::MissingLocal { .. } => SourceFileId::default(),
             CompileError::MissingSyntaxNode { .. } => SourceFileId::default(),
             CompileError::MissingType { .. } => SourceFileId::default(),
+            CompileError::MissingTypeMembers { .. } => SourceFileId::default(),
             CompileError::MissingScope { .. } => SourceFileId::default(),
             CompileError::MissingPrototype { .. } => SourceFileId::default(),
             CompileError::MissingSourceFile { file_id } => *file_id,
@@ -182,12 +184,13 @@ impl AnnotatedError for CompileError {
             CompileError::UndeclaredVariable { position, .. } => position.file_id,
             CompileError::UnresolvedFunctionType { .. } => SourceFileId::default(),
             CompileError::CannotImport { position, .. } => position.file_id,
-            CompileError::MismatchedIfElseTypes { position, .. } => position.file_id,
-            CompileError::MismatchedConstantTypes { .. } => SourceFileId::default(),
             CompileError::CannotInferListType { position } => position.file_id,
             CompileError::MissingNativeFunction { .. } => SourceFileId::default(),
             CompileError::CannotMutate { position, .. } => position.file_id,
             CompileError::MissingScopeBinding { .. } => SourceFileId::default(),
+            CompileError::TypeMismatch {
+                expected_position, ..
+            } => expected_position.file_id,
         }
     }
 
@@ -492,25 +495,6 @@ impl AnnotatedError for CompileError {
                     ),
                 )
             }
-            CompileError::MismatchedIfElseTypes {
-                if_type,
-                else_type,
-                position,
-            } => {
-                let title = format!(
-                    "Mismatched types in if-else branches: if branch has type {if_type}, else branch has type {else_type}"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
-                )
-            }
-            CompileError::MismatchedConstantTypes { left, right } => {
-                let title = format!("Mismatched constant types: left is {left}, right is {right}");
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
             CompileError::CannotInferListType { position } => {
                 let title = "Cannot infer list type, please provide an explicit type".to_string();
 
@@ -533,6 +517,34 @@ impl AnnotatedError for CompileError {
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingTypeMembers { start_index, count } => {
+                let title = format!(
+                    "Expected {count} type members starting at {start_index}, but they were missing, this is a bug in the parser or compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::TypeMismatch {
+                expected,
+                expected_position,
+                found,
+                found_position,
+            } => {
+                let title = format!("Type mismatch: expected {expected}, found {found}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).elements(vec![
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(found_position.span.as_usize_range())
+                            .label(format!("Found type {found} here")),
+                    ),
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Context
+                            .span(expected_position.span.as_usize_range())
+                            .label(format!("Expected type {expected} here")),
+                    ),
+                ])
             }
         }
     }

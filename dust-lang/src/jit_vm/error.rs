@@ -4,7 +4,6 @@ use cranelift_module::ModuleError;
 use crate::{
     dust_error::AnnotatedError,
     instruction::{MemoryKind, OperandType, Operation},
-    resolver::TypeId,
     source::SourceFileId,
     r#type::Type,
 };
@@ -64,16 +63,6 @@ pub enum JitError {
     RegisterIndexOutOfBounds {
         register_index: u16,
         total_register_count: usize,
-    },
-    TypeIndexOutOfBounds {
-        type_id: TypeId,
-        total_type_count: usize,
-    },
-    ExpectedFunctionType {
-        type_id: TypeId,
-    },
-    MissingDeclaration {
-        declaration_id: crate::resolver::DeclarationId,
     },
     MissingReturnValue,
 
@@ -205,30 +194,6 @@ impl AnnotatedError for JitError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
                     .element(Level::INFO.message(info))
-            }
-            JitError::TypeIndexOutOfBounds {
-                type_id,
-                total_type_count,
-            } => {
-                let title = format!(
-                    "Type ID {} out of bounds (total types: {})",
-                    type_id.0, total_type_count
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            JitError::ExpectedFunctionType { type_id } => {
-                let title = format!("Expected function type for Type ID {}", type_id.0);
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            JitError::MissingDeclaration { declaration_id } => {
-                let title = format!(
-                    "Missing declaration for Declaration ID {}",
-                    declaration_id.0
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::MissingPrototype { index, total } => {
                 let title = format!(

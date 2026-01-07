@@ -4,18 +4,18 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::resolver::{FunctionTypeNode, Resolver, TypeId, TypeNode};
+use crate::compiler::{CompileContext, FunctionTypeNode, TypeId, TypeNode};
 
 /// A Dust-native function.
 ///
 /// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct NativeFunction {
-    pub index: u16,
+    pub id: u16,
 }
 
 impl NativeFunction {
-    pub fn no_op_signature(resolver: &mut Resolver) -> TypeId {
+    pub fn no_op_signature(resolver: &mut CompileContext) -> TypeId {
         resolver.add_type_node(TypeNode::Function(FunctionTypeNode {
             type_parameters: (0, 0),
             value_parameters: (0, 0),
@@ -23,7 +23,7 @@ impl NativeFunction {
         }))
     }
 
-    pub fn read_line_signature(resolver: &mut Resolver) -> TypeId {
+    pub fn read_line_signature(resolver: &mut CompileContext) -> TypeId {
         resolver.add_type_node(TypeNode::Function(FunctionTypeNode {
             type_parameters: (0, 0),
             value_parameters: (0, 0),
@@ -31,7 +31,7 @@ impl NativeFunction {
         }))
     }
 
-    pub fn write_line_signature(resolver: &mut Resolver) -> TypeId {
+    pub fn write_line_signature(resolver: &mut CompileContext) -> TypeId {
         let value_parameters = resolver.add_type_members(&[TypeId::STRING]);
 
         resolver.add_type_node(TypeNode::Function(FunctionTypeNode {
@@ -41,7 +41,7 @@ impl NativeFunction {
         }))
     }
 
-    pub fn spawn_signature(resolver: &mut Resolver) -> TypeId {
+    pub fn spawn_signature(resolver: &mut CompileContext) -> TypeId {
         let function_argument_type_id =
             resolver.add_type_node(TypeNode::Function(FunctionTypeNode {
                 type_parameters: (0, 0),
@@ -61,40 +61,34 @@ impl NativeFunction {
 macro_rules! define_native_functions {
     (
         $count: literal,
-        $(($index: literal, $name: expr, $const_name: ident, $argument_count: literal)),
+        $(($id: literal, $name: expr, $const_name: ident, $argument_count: literal)),
         *
     ) => {
 
         impl NativeFunction {
             $(
-                pub const $const_name: NativeFunction = NativeFunction { index: $index };
+                pub const $const_name: NativeFunction = NativeFunction { id: $id };
             )*
 
             pub const ALL: [NativeFunction; $count] = [
                 $(
-                    NativeFunction { index: $index },
+                    NativeFunction { id: $id },
                 )*
             ];
 
-            pub fn from_index(index: u16) -> Self {
-                NativeFunction {
-                    index,
-                }
-            }
-
             pub fn name(&self) -> &'static str {
-                match self.index {
+                match self.id {
                     $(
-                        $index => $name,
+                        $id => $name,
                     )*
                     _ => unreachable!(),
                 }
             }
 
             pub fn argument_count(&self) -> u16 {
-                match self.index {
+                match self.id {
                     $(
-                        $index => $argument_count,
+                        $id => $argument_count,
                     )*
                     _ => unreachable!(),
                 }
@@ -105,7 +99,7 @@ macro_rules! define_native_functions {
                 match string {
                     $(
                         $name => Some(NativeFunction {
-                            index: $index,
+                            id: $id,
                         }),
                     )*
                     _ => None,
@@ -115,9 +109,9 @@ macro_rules! define_native_functions {
 
         impl Display for NativeFunction {
             fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-                match self.index {
+                match self.id {
                     $(
-                        $index => write!(f, "{}", $name),
+                        $id => write!(f, "{}", $name),
                     )*
                     _ => unreachable!(),
                 }

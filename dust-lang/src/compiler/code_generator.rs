@@ -5,23 +5,25 @@ use smallvec::SmallVec;
 use tracing::{debug, info, trace};
 
 use crate::{
-    compiler::CompileContext,
+    compiler::{
+        CompileContext,
+        context::{
+            Declaration, DeclarationId, DeclarationKind, FunctionTypeNode, Scope, ScopeId,
+            ScopeKind, TypeId, TypeNode,
+        },
+    },
     instruction::{Address, Drop, Instruction, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
     prototype::Prototype,
-    resolver::{
-        Declaration, DeclarationId, DeclarationKind, FunctionTypeNode, Scope, ScopeId, ScopeKind,
-        TypeId, TypeNode,
-    },
-    source::{Position, SourceFileId},
-    syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
+    source::{Position, Source, SourceFileId, Span},
+    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
     r#type::Type,
 };
 
 use super::CompileError;
 
 #[derive(Debug)]
-pub struct PrototypeCompiler<'a> {
+pub struct CodeGenerator<'a> {
     declaration_id: Option<DeclarationId>,
 
     prototype_index: u16,
@@ -29,6 +31,10 @@ pub struct PrototypeCompiler<'a> {
     file_id: SourceFileId,
 
     function_type_node: FunctionTypeNode,
+
+    source: Source,
+
+    syntax: &'a Syntax,
 
     context: &'a mut CompileContext,
 
@@ -62,12 +68,14 @@ pub struct PrototypeCompiler<'a> {
     maximum_register: u16,
 }
 
-impl<'a> PrototypeCompiler<'a> {
+impl<'a> CodeGenerator<'a> {
     pub fn new(
         declaration_info: Option<(DeclarationId, Declaration)>,
         prototype_index: u16,
         file_id: SourceFileId,
         function_type: FunctionTypeNode,
+        source: Source,
+        syntax: &'a Syntax,
         context: &'a mut CompileContext,
         starting_scope_id: ScopeId,
     ) -> Self {
@@ -76,6 +84,8 @@ impl<'a> PrototypeCompiler<'a> {
             prototype_index,
             file_id,
             function_type_node: function_type,
+            source,
+            syntax,
             context,
             instructions: Vec::new(),
             locals: HashMap::default(),
@@ -110,11 +120,9 @@ impl<'a> PrototypeCompiler<'a> {
                 let current_parameter_index = start + index;
                 if let Some(parameter_id) = prototype_compiler
                     .context
-                    .resolver
                     .get_parameter(current_parameter_index)
                     && let Some(parameter_declaration) = prototype_compiler
                         .context
-                        .resolver
                         .get_declaration(parameter_id)
                         .copied()
                 {
@@ -153,7 +161,6 @@ impl<'a> PrototypeCompiler<'a> {
         let name_position = if let Some(declaration_id) = self.declaration_id {
             let declaration = self
                 .context
-                .resolver
                 .get_declaration(declaration_id)
                 .ok_or(CompileError::MissingDeclaration { declaration_id })?;
 
@@ -164,12 +171,10 @@ impl<'a> PrototypeCompiler<'a> {
         let register_count = self.maximum_register;
         let type_id = self
             .context
-            .resolver
             .add_type_node(TypeNode::Function(self.function_type_node));
         let function_type = self
             .context
-            .resolver
-            .resolve_function_type(&self.function_type_node)
+            .get_full_function_type(&self.function_type_node)
             .ok_or(CompileError::MissingType { type_id })?;
 
         for JumpPlacement {
@@ -247,18 +252,18 @@ impl<'a> PrototypeCompiler<'a> {
         })
     }
 
+    fn syntax_tree(&self) -> Result<&SyntaxTree, CompileError> {
+        self.syntax
+            .get_tree(self.file_id)
+            .ok_or(CompileError::MissingSyntaxTree {
+                file_id: self.file_id,
+            })
+    }
+
     fn emit_instruction(&mut self, instruction: Instruction) {
         trace!("Emitting {} instruction", instruction.operation());
 
         self.instructions.push(instruction);
-    }
-
-    fn syntax_tree(&self) -> Result<&SyntaxTree, CompileError> {
-        self.context.file_trees.get(self.file_id.0 as usize).ok_or(
-            CompileError::MissingSyntaxTree {
-                file_id: self.file_id,
-            },
-        )
     }
 
     fn create_jump_id(&mut self) -> u16 {
@@ -326,16 +331,8 @@ impl<'a> PrototypeCompiler<'a> {
         self.next_temporary_register = next_local_register;
     }
 
-    fn get_type(&mut self, type_id: TypeId) -> Result<Type, CompileError> {
-        self.context
-            .resolver
-            .resolve_type(type_id)
-            .ok_or(CompileError::MissingType { type_id })
-    }
-
     fn get_operand_type(&mut self, type_id: TypeId) -> Result<OperandType, CompileError> {
         self.context
-            .resolver
             .get_operand_type(type_id)
             .ok_or(CompileError::MissingType { type_id })
     }
@@ -361,10 +358,11 @@ impl<'a> PrototypeCompiler<'a> {
 
     fn combine_constants(
         &mut self,
-        left: Constant,
-        right: Constant,
         operation: SyntaxKind,
-        position: Position,
+        left: Constant,
+        left_node: &SyntaxNode,
+        right: Constant,
+        right_node: &SyntaxNode,
     ) -> Result<Constant, CompileError> {
         debug!(
             "Combining constants: {:?} {:?} {:?}",
@@ -376,7 +374,12 @@ impl<'a> PrototypeCompiler<'a> {
                 right,
                 Constant::Byte(0) | Constant::Integer(0) | Constant::Float(0.0)
             ) {
-                Err(CompileError::DivisionByZero { position })
+                Err(CompileError::DivisionByZero {
+                    position: Position::new(
+                        self.file_id,
+                        Span::new(left_node.span.0, right_node.span.1),
+                    ),
+                })
             } else {
                 Ok(())
             }
@@ -603,9 +606,11 @@ impl<'a> PrototypeCompiler<'a> {
                 }
             }
             _ => {
-                return Err(CompileError::MismatchedConstantTypes {
-                    left: self.get_type(left.type_id())?,
-                    right: self.get_type(right.type_id())?,
+                return Err(CompileError::TypeMismatch {
+                    expected: left.full_type(),
+                    expected_position: Position::new(self.file_id, left_node.span),
+                    found: right.full_type(),
+                    found_position: Position::new(self.file_id, right_node.span),
                 });
             }
         };
@@ -812,7 +817,6 @@ impl<'a> PrototypeCompiler<'a> {
         };
         let operand_type = self
             .context
-            .resolver
             .get_operand_type(type_id)
             .ok_or(CompileError::MissingType { type_id })?;
         let return_instruction = Instruction::r#return(address, operand_type);
@@ -860,7 +864,7 @@ impl<'a> PrototypeCompiler<'a> {
         info!("Compiling function");
 
         fn handle_emission(
-            compiler: &mut PrototypeCompiler,
+            compiler: &mut CodeGenerator,
             emission: Emission,
         ) -> Result<(), CompileError> {
             match emission {
@@ -869,7 +873,6 @@ impl<'a> PrototypeCompiler<'a> {
                     let address = compiler.get_constant_address(constant);
                     let operand_type = compiler
                         .context
-                        .resolver
                         .get_operand_type(type_id)
                         .ok_or(CompileError::MissingType { type_id })?;
                     let move_instruction = Instruction::r#move(destination, address, operand_type);
@@ -880,7 +883,6 @@ impl<'a> PrototypeCompiler<'a> {
                     let destination = compiler.allocate_temporary_register();
                     let operand_type = compiler
                         .context
-                        .resolver
                         .get_operand_type(type_id)
                         .ok_or(CompileError::MissingType { type_id })?;
                     let move_instruction =
@@ -892,7 +894,6 @@ impl<'a> PrototypeCompiler<'a> {
                     let destination = compiler.allocate_temporary_register();
                     let operand_type = compiler
                         .context
-                        .resolver
                         .get_operand_type(type_id)
                         .ok_or(CompileError::MissingType { type_id })?;
                     let move_instruction = Instruction::r#move(destination, address, operand_type);
@@ -1136,7 +1137,7 @@ impl<'a> PrototypeCompiler<'a> {
             })
             .collect::<Result<_, _>>()?;
 
-        let files = self.context.source.read_files();
+        let files = self.source.read_files();
         let file = files
             .get(self.file_id.0 as usize)
             .ok_or(CompileError::MissingSourceFile {
@@ -1149,7 +1150,6 @@ impl<'a> PrototypeCompiler<'a> {
         let module_name = unsafe { std::str::from_utf8_unchecked(module_name_bytes) };
         let (module_import_id, module_import) = self
             .context
-            .resolver
             .find_declarations(module_name)
             .ok_or(CompileError::MissingDeclarations {
                 name: module_name.to_string(),
@@ -1177,7 +1177,6 @@ impl<'a> PrototypeCompiler<'a> {
                 let segment_name = unsafe { std::str::from_utf8_unchecked(segment_bytes) };
                 let (declaration_id, declaration) = self
                     .context
-                    .resolver
                     .find_declaration_in_scope(segment_name, current_scope_id)
                     .ok_or(CompileError::UndeclaredVariable {
                         name: segment_name.to_string(),
@@ -1227,7 +1226,6 @@ impl<'a> PrototypeCompiler<'a> {
                         ..
                     } = &mut self
                         .context
-                        .resolver
                         .get_declaration_mut(&final_declaration_id)
                         .unwrap()
                         .kind
@@ -1237,7 +1235,6 @@ impl<'a> PrototypeCompiler<'a> {
 
                     let function_type_node = self
                         .context
-                        .resolver
                         .get_type_node(final_declaration.type_id)
                         .ok_or(CompileError::MissingType {
                             type_id: final_declaration.type_id,
@@ -1247,9 +1244,8 @@ impl<'a> PrototypeCompiler<'a> {
                             type_id: final_declaration.type_id,
                         })?;
                     let function_file = self
-                        .context
-                        .file_trees
-                        .get(file_id.0 as usize)
+                        .syntax
+                        .get_tree(file_id)
                         .ok_or(CompileError::MissingSourceFile { file_id })?;
                     let function_item_node = *function_file
                         .get_node(syntax_id)
@@ -1266,11 +1262,13 @@ impl<'a> PrototypeCompiler<'a> {
                             syntax_id: function_body_node_id,
                         },
                     )?;
-                    let mut importer = PrototypeCompiler::new(
+                    let mut importer = CodeGenerator::new(
                         Some((final_declaration_id, final_declaration)),
                         prototype_index_usize as u16,
                         file_id,
                         function_type_node,
+                        self.source.clone(),
+                        self.syntax,
                         self.context,
                         inner_scope_id,
                     );
@@ -1292,7 +1290,7 @@ impl<'a> PrototypeCompiler<'a> {
                 );
             }
             _ => {
-                let files = self.context.source.read_files();
+                let files = self.source.read_files();
                 let file =
                     files
                         .get(self.file_id.0 as usize)
@@ -1424,7 +1422,7 @@ impl<'a> PrototypeCompiler<'a> {
             }
         };
 
-        let files = self.context.source.read_files();
+        let files = self.source.read_files();
         let source_file =
             files
                 .get(self.file_id.0 as usize)
@@ -1437,7 +1435,6 @@ impl<'a> PrototypeCompiler<'a> {
 
         let (declaration_id, _) = self
             .context
-            .resolver
             .find_declaration_in_scope(variable_name, self.current_scope_id)
             .ok_or(CompileError::UndeclaredVariable {
                 name: variable_name.to_string(),
@@ -1489,7 +1486,7 @@ impl<'a> PrototypeCompiler<'a> {
             },
         )?;
 
-        let files = self.context.source.read_files();
+        let files = self.source.read_files();
         let source_file =
             files
                 .get(self.file_id.0 as usize)
@@ -1502,7 +1499,6 @@ impl<'a> PrototypeCompiler<'a> {
 
         let (declaration_id, declaration) = self
             .context
-            .resolver
             .find_declaration_in_scope(variable_name, self.current_scope_id)
             .ok_or(CompileError::UndeclaredVariable {
                 name: variable_name.to_string(),
@@ -1595,7 +1591,7 @@ impl<'a> PrototypeCompiler<'a> {
                 syntax_id: function_expression_id,
             })?;
 
-        let files = self.context.source.read_files();
+        let files = self.source.read_files();
         let source_file =
             files
                 .get(self.file_id.0 as usize)
@@ -1610,7 +1606,6 @@ impl<'a> PrototypeCompiler<'a> {
 
         let (declaration_id, declaration) = self
             .context
-            .resolver
             .find_declaration_in_scope(function_name, self.current_scope_id)
             .ok_or(CompileError::UndeclaredVariable {
                 name: function_name.to_string(),
@@ -1618,7 +1613,6 @@ impl<'a> PrototypeCompiler<'a> {
             })?;
         let function_type = self
             .context
-            .resolver
             .get_type_node(declaration.type_id)
             .ok_or(CompileError::MissingType {
                 type_id: declaration.type_id,
@@ -1755,7 +1749,7 @@ impl<'a> PrototypeCompiler<'a> {
 
         let string_start = node.span.0 + 1;
         let string_end = node.span.1 - 1;
-        let files = self.context.source.read_files();
+        let files = self.source.read_files();
         let source_file =
             files
                 .get(self.file_id.0 as usize)
@@ -1781,7 +1775,7 @@ impl<'a> PrototypeCompiler<'a> {
         target: Option<TargetRegister>,
     ) -> Result<Emission, CompileError> {
         fn handle_element_emission(
-            compiler: &mut PrototypeCompiler,
+            compiler: &mut CodeGenerator,
             instructions: &mut InstructionsEmission,
             element_emission: Emission,
             element_node: &SyntaxNode,
@@ -1854,13 +1848,11 @@ impl<'a> PrototypeCompiler<'a> {
             let element_emission = self.compile_expression(child_id, &child_node, None)?;
             let (element_address, element_type_id) =
                 handle_element_emission(self, &mut list_emission, element_emission, &child_node)?;
-            let element_operand_type = self
-                .context
-                .resolver
-                .get_operand_type(element_type_id)
-                .ok_or(CompileError::MissingType {
+            let element_operand_type = self.context.get_operand_type(element_type_id).ok_or(
+                CompileError::MissingType {
                     type_id: element_type_id,
-                })?;
+                },
+            )?;
 
             if let Some(delcared) = &established_element_type_id
                 && delcared != &element_type_id
@@ -1887,12 +1879,13 @@ impl<'a> PrototypeCompiler<'a> {
                 position: Position::new(self.file_id, node.span),
             })?;
         let list_type = TypeNode::List(element_type_id);
-        let list_type_id = self.context.resolver.add_type_node(list_type);
-        let list_type_operand = self.context.resolver.get_operand_type(list_type_id).ok_or(
-            CompileError::MissingType {
-                type_id: list_type_id,
-            },
-        )?;
+        let list_type_id = self.context.add_type_node(list_type);
+        let list_type_operand =
+            self.context
+                .get_operand_type(list_type_id)
+                .ok_or(CompileError::MissingType {
+                    type_id: list_type_id,
+                })?;
         let child_count_constant_index = self.context.constants.add_integer(child_count as i64);
         let child_count_address = Address::constant(child_count_constant_index);
 
@@ -1941,30 +1934,31 @@ impl<'a> PrototypeCompiler<'a> {
 
         let list_type_node =
             self.context
-                .resolver
                 .get_type_node(list_type_id)
                 .ok_or(CompileError::MissingType {
                     type_id: list_type_id,
                 })?;
-        let element_type_id = list_type_node.into_list_element_type().ok_or_else(|| {
-            let found_type = self
-                .context
-                .resolver
-                .resolve_type(list_type_id)
-                .unwrap_or(Type::None);
+        let element_type_id = if let TypeNode::List(element_type_id) = list_type_node {
+            *element_type_id
+        } else {
+            let found_type =
+                self.context
+                    .get_full_type(list_type_id)
+                    .ok_or(CompileError::MissingType {
+                        type_id: list_type_id,
+                    })?;
 
-            CompileError::ExpectedList {
+            return Err(CompileError::ExpectedList {
                 found_type,
                 position: Position::new(self.file_id, list_node.span),
-            }
-        })?;
-        let element_operand_type = self
-            .context
-            .resolver
-            .get_operand_type(element_type_id)
-            .ok_or(CompileError::MissingType {
-                type_id: element_type_id,
-            })?;
+            });
+        };
+        let element_operand_type =
+            self.context
+                .get_operand_type(element_type_id)
+                .ok_or(CompileError::MissingType {
+                    type_id: element_type_id,
+                })?;
 
         if index_type != TypeId::INTEGER {
             todo!("Error");
@@ -2020,10 +2014,11 @@ impl<'a> PrototypeCompiler<'a> {
             ) = (&left_emission, &right_emission)
         {
             let combined = self.combine_constants(
-                *left_value,
-                *right_value,
                 node.kind,
-                Position::new(self.file_id, node.span),
+                *left_value,
+                &left_node,
+                *right_value,
+                &right_node,
             )?;
             let combined_type = if left_type_id == &TypeId::CHARACTER {
                 TypeId::STRING
@@ -2222,10 +2217,11 @@ impl<'a> PrototypeCompiler<'a> {
         ) = (&left_emission, &right_emission)
         {
             let combined = self.combine_constants(
-                *left_value,
-                *right_value,
                 node.kind,
-                Position::new(self.file_id, node.span),
+                *left_value,
+                &left_node,
+                *right_value,
+                &right_node,
             )?;
 
             return Ok(Emission::Constant(combined, TypeId::BOOLEAN));
@@ -2246,11 +2242,12 @@ impl<'a> PrototypeCompiler<'a> {
             register: self.allocate_temporary_register(),
             is_temporary: true,
         });
-        let operand_type = self.context.resolver.get_operand_type(left_type_id).ok_or(
-            CompileError::MissingType {
-                type_id: left_type_id,
-            },
-        )?;
+        let operand_type =
+            self.context
+                .get_operand_type(left_type_id)
+                .ok_or(CompileError::MissingType {
+                    type_id: left_type_id,
+                })?;
         let comparison_instruction = match node.kind {
             SyntaxKind::GreaterThanExpression => {
                 Instruction::less_equal(false, left_address, right_address, operand_type)
@@ -2333,10 +2330,11 @@ impl<'a> PrototypeCompiler<'a> {
         ) = (&left_emission, &right_emission)
         {
             let combined = self.combine_constants(
-                *left_value,
-                *right_value,
                 node.kind,
-                Position::new(self.file_id, node.span),
+                *left_value,
+                &left_node,
+                *right_value,
+                &right_node,
             )?;
 
             return Ok(Emission::Constant(combined, *left_type_id));
@@ -2415,13 +2413,12 @@ impl<'a> PrototypeCompiler<'a> {
             .unwrap_or_else(|| (self.allocate_temporary_register(), true));
         let (child_address, child_type_id) =
             self.handle_operand_emission(&mut unary_emission, operand_emission, &operand_node)?;
-        let operand_type = self
-            .context
-            .resolver
-            .get_operand_type(child_type_id)
-            .ok_or(CompileError::MissingType {
-                type_id: child_type_id,
-            })?;
+        let operand_type =
+            self.context
+                .get_operand_type(child_type_id)
+                .ok_or(CompileError::MissingType {
+                    type_id: child_type_id,
+                })?;
         let negate_instruction = Instruction::negate(destination, child_address, operand_type);
 
         unary_emission.push(negate_instruction);
@@ -2473,7 +2470,6 @@ impl<'a> PrototypeCompiler<'a> {
 
         let child_scope_id = *self
             .context
-            .resolver
             .get_scope_binding(&node_id)
             .ok_or(CompileError::MissingScopeBinding { syntax_id: node_id })?;
 
@@ -2560,7 +2556,6 @@ impl<'a> PrototypeCompiler<'a> {
                 let address = self.get_constant_address(constant);
                 let operand_type = self
                     .context
-                    .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
                 let move_instruction = Instruction::r#move(target.register, address, operand_type);
@@ -2580,7 +2575,6 @@ impl<'a> PrototypeCompiler<'a> {
                 });
                 let operand_type = self
                     .context
-                    .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
                 let move_instruction = Instruction::r#move(target.register, address, operand_type);
@@ -2621,7 +2615,7 @@ impl<'a> PrototypeCompiler<'a> {
     ) -> Result<Emission, CompileError> {
         info!("Compiling path expression");
 
-        let files = self.context.source.read_files();
+        let files = self.source.read_files();
         let source_file =
             files
                 .get(self.file_id.0 as usize)
@@ -2634,14 +2628,12 @@ impl<'a> PrototypeCompiler<'a> {
 
         let declaration_id = if let Some((declaration_id, _)) = self
             .context
-            .resolver
             .find_declaration_in_scope(variable_name, self.current_scope_id)
         {
             declaration_id
         } else {
             let (declaration_id, declaration) = *self
                 .context
-                .resolver
                 .find_declarations(variable_name)
                 .ok_or(CompileError::UndeclaredVariable {
                     name: variable_name.to_string(),
@@ -2673,13 +2665,12 @@ impl<'a> PrototypeCompiler<'a> {
         if let Some(target) = target
             && target.register != local.address.index
         {
-            let operand_type = self
-                .context
-                .resolver
-                .get_operand_type(local.type_id)
-                .ok_or(CompileError::MissingType {
-                    type_id: local.type_id,
-                })?;
+            let operand_type =
+                self.context
+                    .get_operand_type(local.type_id)
+                    .ok_or(CompileError::MissingType {
+                        type_id: local.type_id,
+                    })?;
             let move_instruction =
                 Instruction::r#move(target.register, local.address, operand_type);
 
@@ -2736,7 +2727,6 @@ impl<'a> PrototypeCompiler<'a> {
                 let destination = self.allocate_temporary_register();
                 let operand_type = self
                     .context
-                    .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
                 let move_instruction = Instruction::r#move(destination, address, operand_type);
@@ -2748,7 +2738,6 @@ impl<'a> PrototypeCompiler<'a> {
                 let address = self.get_constant_address(constant);
                 let operand_type = self
                     .context
-                    .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
                 let move_instruction = Instruction::r#move(destination, address, operand_type);
@@ -2759,7 +2748,6 @@ impl<'a> PrototypeCompiler<'a> {
                 let destination = self.allocate_temporary_register();
                 let operand_type = self
                     .context
-                    .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
                 let move_instruction = Instruction::r#move(destination, address, operand_type);
@@ -2819,7 +2807,7 @@ impl<'a> PrototypeCompiler<'a> {
                 SyntaxKind::ValueParametersDefinition
             );
 
-            let function_scope = self.context.resolver.add_scope(Scope {
+            let function_scope = self.context.add_scope(Scope {
                 kind: ScopeKind::Function,
                 parent: self.current_scope_id,
                 imports: SmallVec::new(),
@@ -2846,7 +2834,7 @@ impl<'a> PrototypeCompiler<'a> {
                 })
                 .collect::<Result<SmallVec<[SyntaxNode; 4]>, CompileError>>()?;
 
-            let files = &self.context.source.read_files();
+            let files = &self.source.read_files();
             let file =
                 files
                     .get(self.file_id.0 as usize)
@@ -2878,7 +2866,7 @@ impl<'a> PrototypeCompiler<'a> {
                             todo!()
                         }
                     };
-                    let type_id = self.context.resolver.add_type(&type_id);
+                    let type_id = self.context.add_type(&type_id);
                     let parameter_declaration = Declaration {
                         kind: DeclarationKind::Local { shadowed: None },
                         scope_id: function_scope,
@@ -2888,13 +2876,12 @@ impl<'a> PrototypeCompiler<'a> {
                     };
 
                     self.context
-                        .resolver
                         .add_declaration(current_parameter_name, parameter_declaration);
                     value_parameters.push(type_id);
                 }
             }
 
-            let value_parameters = self.context.resolver.add_type_members(&value_parameters);
+            let value_parameters = self.context.add_type_members(&value_parameters);
 
             let return_type_node_id = SyntaxId(function_signature_node.children.1);
             let return_type_id = if return_type_node_id == SyntaxId::NONE {
@@ -2960,27 +2947,24 @@ impl<'a> PrototypeCompiler<'a> {
 
                 declaration.kind = new_declaration_kind;
 
-                *self
-                    .context
-                    .resolver
-                    .get_declaration_mut(&declaration_id)
-                    .unwrap() = declaration;
+                *self.context.get_declaration_mut(&declaration_id).unwrap() = declaration;
 
                 (Some((declaration_id, declaration)), scope_id)
             } else {
                 let function_scope = *self
                     .context
-                    .resolver
                     .get_scope_binding(&body_id)
                     .ok_or(CompileError::MissingScopeBinding { syntax_id: body_id })?;
 
                 (None, function_scope)
             };
-        let mut function_compiler = PrototypeCompiler::new(
+        let mut function_compiler = CodeGenerator::new(
             new_declaration_info,
             prototype_index_u16,
             self.file_id,
             function_type_node,
+            self.source.clone(),
+            self.syntax,
             self.context,
             function_scope_id,
         );
@@ -2991,7 +2975,6 @@ impl<'a> PrototypeCompiler<'a> {
         let address = Address::constant(prototype_index_usize as u16);
         let type_id = self
             .context
-            .resolver
             .add_type_node(TypeNode::Function(function_type_node));
 
         self.context.prototypes[prototype_index_usize] = function_prototype;
@@ -3005,7 +2988,7 @@ impl<'a> PrototypeCompiler<'a> {
         target: Option<TargetRegister>,
     ) -> Result<Emission, CompileError> {
         fn handle_call_arguments(
-            compiler: &mut PrototypeCompiler,
+            compiler: &mut CodeGenerator,
             instructions_emission: &mut InstructionsEmission,
             arguments_node: &SyntaxNode,
         ) -> Result<(), CompileError> {
@@ -3042,13 +3025,11 @@ impl<'a> PrototypeCompiler<'a> {
                     &argument_node,
                 )?;
 
-                let operand_type = compiler
-                    .context
-                    .resolver
-                    .get_operand_type(argument_type_id)
-                    .ok_or(CompileError::MissingType {
+                let operand_type = compiler.context.get_operand_type(argument_type_id).ok_or(
+                    CompileError::MissingType {
                         type_id: argument_type_id,
-                    })?;
+                    },
+                )?;
 
                 compiler
                     .call_arguments
@@ -3079,7 +3060,7 @@ impl<'a> PrototypeCompiler<'a> {
         let mut call_emission = InstructionsEmission::new();
 
         if function_node.kind == SyntaxKind::PathExpression {
-            let files = self.context.source.read_files();
+            let files = self.source.read_files();
             let source_file =
                 files
                     .get(self.file_id.0 as usize)
@@ -3092,7 +3073,6 @@ impl<'a> PrototypeCompiler<'a> {
 
             if let Some((_, declaration)) = self
                 .context
-                .resolver
                 .find_declaration_in_scope(name, ScopeId::NATIVE)
                 && declaration.kind == DeclarationKind::NativeFunction
             {
@@ -3112,7 +3092,6 @@ impl<'a> PrototypeCompiler<'a> {
                     .unwrap_or_else(|| self.allocate_temporary_register());
                 let return_type_id = self
                     .context
-                    .resolver
                     .get_type_node(declaration.type_id)
                     .ok_or(CompileError::MissingType {
                         type_id: declaration.type_id,
@@ -3123,13 +3102,11 @@ impl<'a> PrototypeCompiler<'a> {
                         position: Position::new(self.file_id, function_node.span),
                     })?
                     .return_type;
-                let return_type = self
-                    .context
-                    .resolver
-                    .get_operand_type(return_type_id)
-                    .ok_or(CompileError::MissingType {
+                let return_type = self.context.get_operand_type(return_type_id).ok_or(
+                    CompileError::MissingType {
                         type_id: return_type_id,
-                    })?;
+                    },
+                )?;
                 let call_native_instruction = Instruction::call_native(
                     destination,
                     native_function,
@@ -3156,11 +3133,12 @@ impl<'a> PrototypeCompiler<'a> {
             register: self.allocate_temporary_register(),
             is_temporary: true,
         });
-        let callee_type_node = self.context.resolver.get_type_node(callee_type_id).ok_or(
-            CompileError::MissingType {
-                type_id: callee_type_id,
-            },
-        )?;
+        let callee_type_node =
+            self.context
+                .get_type_node(callee_type_id)
+                .ok_or(CompileError::MissingType {
+                    type_id: callee_type_id,
+                })?;
 
         if !matches!(callee_type_node, TypeNode::Function(_)) {
             return Err(CompileError::ExpectedFunction {
@@ -3353,21 +3331,24 @@ impl<'a> PrototypeCompiler<'a> {
                 self.handle_branch_emission(&mut if_emission, else_emission, target.register)?;
 
             if then_type_id != else_type_id {
-                let if_type = self.context.resolver.resolve_type(then_type_id).ok_or(
-                    CompileError::MissingType {
-                        type_id: then_type_id,
-                    },
-                )?;
-                let else_type = self.context.resolver.resolve_type(else_type_id).ok_or(
-                    CompileError::MissingType {
-                        type_id: else_type_id,
-                    },
-                )?;
+                let then_type =
+                    self.context
+                        .get_full_type(then_type_id)
+                        .ok_or(CompileError::MissingType {
+                            type_id: then_type_id,
+                        })?;
+                let else_type =
+                    self.context
+                        .get_full_type(else_type_id)
+                        .ok_or(CompileError::MissingType {
+                            type_id: else_type_id,
+                        })?;
 
-                return Err(CompileError::MismatchedIfElseTypes {
-                    if_type,
-                    else_type,
-                    position: Position::new(self.file_id, node.span),
+                return Err(CompileError::TypeMismatch {
+                    expected: then_type,
+                    expected_position: Position::new(self.file_id, then_block_node.span),
+                    found: else_type,
+                    found_position: Position::new(self.file_id, else_block_node.span),
                 });
             }
         }
@@ -3532,11 +3513,7 @@ impl InstructionsEmission {
         self.target_register = target;
     }
 
-    fn add_drop(
-        &mut self,
-        compiler: &mut PrototypeCompiler,
-        target_register: Option<TargetRegister>,
-    ) {
+    fn add_drop(&mut self, compiler: &mut CodeGenerator, target_register: Option<TargetRegister>) {
         let start = compiler.drop_lists.len() as u16;
         let mut pending_drops_for_scope = compiler.pending_drops.pop().unwrap();
 
@@ -3608,6 +3585,17 @@ impl Constant {
             Constant::Float(_) => TypeId::FLOAT,
             Constant::Integer(_) => TypeId::INTEGER,
             Constant::String { .. } => TypeId::STRING,
+        }
+    }
+
+    fn full_type(&self) -> Type {
+        match self {
+            Constant::Boolean(_) => Type::Boolean,
+            Constant::Byte(_) => Type::Byte,
+            Constant::Character(_) => Type::Character,
+            Constant::Float(_) => Type::Float,
+            Constant::Integer(_) => Type::Integer,
+            Constant::String { .. } => Type::String,
         }
     }
 }

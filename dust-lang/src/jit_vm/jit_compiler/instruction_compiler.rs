@@ -419,11 +419,12 @@ impl<'a> InstructionCompiler<'a> {
     ) -> Result<(), JitError> {
         let CallNative {
             destination,
-            function,
+            function_id,
             arguments_start,
             return_type,
         } = CallNative::from(instruction);
 
+        let function = NativeFunction { id: function_id };
         let argument_count = function.argument_count();
         let arguments_end = (arguments_start + argument_count) as usize;
         let argument_range = arguments_start as usize..arguments_end;
@@ -442,16 +443,16 @@ impl<'a> InstructionCompiler<'a> {
             argument_values.push(argument_value);
         }
 
-        let callee_reference = match function {
-            NativeFunction::READ_LINE => {
+        let callee_reference = match function.name() {
+            "read_line" => {
                 let function = self.get_read_line_function(builder)?;
 
                 argument_values.push(self.thread_context);
 
                 function
             }
-            NativeFunction::WRITE_LINE => self.get_write_line_function(builder)?,
-            NativeFunction::SPAWN => {
+            "write_line" => self.get_write_line_function(builder)?,
+            "spawn" => {
                 let function = self.get_spawn_function(builder)?;
 
                 argument_values.push(self.thread_context);

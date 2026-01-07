@@ -10,15 +10,21 @@ use smallvec::SmallVec;
 use tracing::trace;
 
 use crate::{
+    constant_table::ConstantTable,
     instruction::OperandType,
     native_function::NativeFunction,
+    prototype::Prototype,
     source::{Position, SourceFileId},
-    syntax_tree::SyntaxId,
+    syntax::SyntaxId,
     r#type::{FunctionType, Type},
 };
 
 #[derive(Debug)]
-pub struct Resolver {
+pub struct CompileContext {
+    pub constants: ConstantTable,
+
+    pub prototypes: Vec<Prototype>,
+
     declarations: IndexMap<DeclarationKey, Declaration, FxBuildHasher>,
 
     parameters: IndexSet<DeclarationId, FxBuildHasher>,
@@ -34,9 +40,11 @@ pub struct Resolver {
     next_inferred_type_id: u32,
 }
 
-impl Resolver {
+impl CompileContext {
     pub fn new() -> Self {
         let mut resolver = Self {
+            constants: ConstantTable::new(),
+            prototypes: Vec::new(),
             scope_bindings: HashMap::default(),
             declarations: IndexMap::default(),
             parameters: IndexSet::default(),
@@ -359,7 +367,7 @@ impl Resolver {
         type_id
     }
 
-    pub fn resolve_type(&self, id: TypeId) -> Option<Type> {
+    pub fn get_full_type(&self, id: TypeId) -> Option<Type> {
         match id {
             TypeId::NONE => Some(Type::None),
             TypeId::BOOLEAN => Some(Type::Boolean),
@@ -373,12 +381,12 @@ impl Resolver {
 
                 match type_node {
                     TypeNode::List(element_type_id) => {
-                        let element_type = self.resolve_type(*element_type_id)?;
+                        let element_type = self.get_full_type(*element_type_id)?;
 
                         Some(Type::list(element_type))
                     }
                     TypeNode::Function(function_type_node) => {
-                        let function_type = self.resolve_function_type(function_type_node)?;
+                        let function_type = self.get_full_function_type(function_type_node)?;
 
                         Some(Type::Function(Box::new(function_type)))
                     }
@@ -388,7 +396,7 @@ impl Resolver {
         }
     }
 
-    pub fn resolve_function_type(&self, function_type: &FunctionTypeNode) -> Option<FunctionType> {
+    pub fn get_full_function_type(&self, function_type: &FunctionTypeNode) -> Option<FunctionType> {
         let type_parameters = self
             .resolve_type_members(
                 function_type.type_parameters.0,
@@ -401,7 +409,7 @@ impl Resolver {
                 function_type.value_parameters.1,
             )
             .try_collect::<Vec<Type>>()?;
-        let return_type = self.resolve_type(function_type.return_type)?;
+        let return_type = self.get_full_type(function_type.return_type)?;
 
         Some(FunctionType {
             type_parameters,
@@ -592,11 +600,11 @@ impl Resolver {
 
         self.type_members[range]
             .iter()
-            .map(|type_id| self.resolve_type(*type_id))
+            .map(|type_id| self.get_full_type(*type_id))
     }
 }
 
-impl Default for Resolver {
+impl Default for CompileContext {
     fn default() -> Self {
         Self::new()
     }

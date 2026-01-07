@@ -11,14 +11,19 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph, Tabs, Widget, Wrap},
 };
 
-use crate::{dust_crate::Program, prototype::Prototype, source::Source, syntax_tree::SyntaxTree};
+use crate::{
+    dust_crate::Program,
+    prototype::Prototype,
+    source::{Source, SourceFileId},
+    syntax::{Syntax, SyntaxTree},
+};
 
 use block_table::BlockTable;
 
 pub struct Disassembler<'a> {
     program: &'a Program,
     source: &'a Source,
-    file_trees: &'a [SyntaxTree],
+    syntax: &'a Syntax,
 
     show_constants: bool,
     show_arguments: bool,
@@ -30,7 +35,7 @@ pub struct Disassembler<'a> {
 }
 
 impl<'a> Disassembler<'a> {
-    pub fn new(program: &'a Program, source: &'a Source, file_trees: &'a [SyntaxTree]) -> Self {
+    pub fn new(program: &'a Program, source: &'a Source, syntax: &'a Syntax) -> Self {
         let files = source.read_files();
         let mut tabs = Vec::with_capacity(files.len() + program.prototypes.len());
 
@@ -61,7 +66,7 @@ impl<'a> Disassembler<'a> {
         Self {
             program,
             source,
-            file_trees,
+            syntax,
 
             show_constants: !program.constants.is_empty(),
             show_arguments: false,
@@ -120,8 +125,8 @@ impl<'a> Disassembler<'a> {
                     self.selection_state.section = None;
                 }
                 KeyCode::Up | KeyCode::Char('k') => {
-                    if self.selection_state.tab >= self.file_trees.len() {
-                        let prototype_index = self.selection_state.tab - self.file_trees.len();
+                    if self.selection_state.tab >= self.syntax.file_count() {
+                        let prototype_index = self.selection_state.tab - self.syntax.file_count();
                         let prototype = &self.program.prototypes[prototype_index];
                         if self.selection_state.row > 0 {
                             self.selection_state.row -= 1;
@@ -165,8 +170,8 @@ impl<'a> Disassembler<'a> {
                     }
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
-                    if self.selection_state.tab >= self.file_trees.len() {
-                        let prototype_index = self.selection_state.tab - self.file_trees.len();
+                    if self.selection_state.tab >= self.syntax.file_count() {
+                        let prototype_index = self.selection_state.tab - self.syntax.file_count();
                         let prototype = &self.program.prototypes[prototype_index];
                         let section_length = match self.selection_state.section {
                             Some(PrototypeSection::Instructions) => prototype.instructions.len(),
@@ -473,7 +478,9 @@ impl Widget for &mut Disassembler<'_> {
             self.draw_source_tab(
                 &source_file.name,
                 unsafe { str::from_utf8_unchecked(source_file.source_code.as_ref()) },
-                &self.file_trees[self.selection_state.tab],
+                self.syntax
+                    .get_tree(SourceFileId(self.selection_state.tab as u32))
+                    .unwrap(),
                 tab_content_area,
                 buffer,
             );

@@ -1,7 +1,7 @@
 use crate::{
     parser::parse_main,
     source::Span,
-    syntax_tree::{SyntaxKind, SyntaxNode},
+    syntax::{SyntaxKind, SyntaxNode},
     tests::loop_cases,
 };
 

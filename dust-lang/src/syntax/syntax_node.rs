@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{source::Span, syntax_tree::SyntaxId};
+use crate::{source::Span, syntax::SyntaxId};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SyntaxNode {

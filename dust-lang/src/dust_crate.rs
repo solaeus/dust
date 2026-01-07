@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{constant_table::ConstantTable, prototype::Prototype, source::Source};
+use crate::{constant_table::ConstantTable, prototype::Prototype};
 
 pub enum DustCrate {
     Program(Arc<Program>),
@@ -8,7 +8,6 @@ pub enum DustCrate {
 
 pub struct Program {
     pub name: String,
-    pub source: Source,
     pub constants: ConstantTable,
     pub prototypes: Vec<Prototype>,
 }

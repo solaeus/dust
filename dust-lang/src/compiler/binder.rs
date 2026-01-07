@@ -2,13 +2,15 @@ use smallvec::SmallVec;
 use tracing::{Level, info, span};
 
 use crate::{
-    compiler::CompileError,
-    resolver::{
-        Declaration, DeclarationId, DeclarationKind, FunctionTypeNode, ModuleKind, Resolver, Scope,
-        ScopeId, ScopeKind, TypeId, TypeNode,
+    compiler::{
+        CompileError,
+        context::{
+            CompileContext, Declaration, DeclarationId, DeclarationKind, FunctionTypeNode,
+            ModuleKind, Scope, ScopeId, ScopeKind, TypeId, TypeNode,
+        },
     },
     source::{Position, Source, SourceFileId, Span},
-    syntax_tree::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
+    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
 pub struct Binder<'a> {
@@ -16,7 +18,7 @@ pub struct Binder<'a> {
 
     source: Source,
 
-    resolver: &'a mut Resolver,
+    context: &'a mut CompileContext,
 
     syntax_tree: &'a SyntaxTree,
 
@@ -27,14 +29,14 @@ impl<'a> Binder<'a> {
     pub fn new(
         file_id: SourceFileId,
         source: Source,
-        resolver: &'a mut Resolver,
+        context: &'a mut CompileContext,
         syntax_tree: &'a SyntaxTree,
         current_scope_id: ScopeId,
     ) -> Self {
         Self {
             file_id,
             source,
-            resolver,
+            context,
             syntax_tree,
             current_scope_id,
         }
@@ -104,7 +106,7 @@ impl<'a> Binder<'a> {
             }
         }
 
-        self.resolver.add_declaration(module_name, declaration);
+        self.context.add_declaration(module_name, declaration);
         self.bind_module_item(&root_node)?;
 
         Ok(())
@@ -253,7 +255,7 @@ impl<'a> Binder<'a> {
             })
             .collect::<Result<SmallVec<[&SyntaxNode; 4]>, CompileError>>()?;
 
-        let function_scope = self.resolver.add_scope(Scope {
+        let function_scope = self.context.add_scope(Scope {
             kind: ScopeKind::Function,
             parent: self.current_scope_id,
             imports: SmallVec::new(),
@@ -296,7 +298,7 @@ impl<'a> Binder<'a> {
                     })?;
 
                 let type_id =
-                    Self::get_type_id(&parameter_type_node, self.syntax_tree, self.resolver)?;
+                    Self::get_type_id(&parameter_type_node, self.syntax_tree, self.context)?;
                 let parameter_declaration = Declaration {
                     kind: DeclarationKind::Local { shadowed: None },
                     scope_id: function_scope,
@@ -308,7 +310,7 @@ impl<'a> Binder<'a> {
                 value_parameters.push(type_id);
 
                 let parameter_id = self
-                    .resolver
+                    .context
                     .add_declaration(parameter_name, parameter_declaration);
 
                 parameter_ids.push(parameter_id);
@@ -326,16 +328,16 @@ impl<'a> Binder<'a> {
                     syntax_id: function_return_type_node_id,
                 })?;
 
-            Self::get_type_id(&function_return_type_node, self.syntax_tree, self.resolver)?
+            Self::get_type_id(&function_return_type_node, self.syntax_tree, self.context)?
         };
 
         let function_type_node = FunctionTypeNode {
             type_parameters: (0, 0),
-            value_parameters: self.resolver.add_type_members(&value_parameters),
+            value_parameters: self.context.add_type_members(&value_parameters),
             return_type: return_type_id,
         };
         let function_type_id = self
-            .resolver
+            .context
             .add_type_node(TypeNode::Function(function_type_node));
 
         let path_id = SyntaxId(node.children.0);
@@ -358,7 +360,7 @@ impl<'a> Binder<'a> {
             unsafe { str::from_utf8_unchecked(path_bytes) }.to_string()
         };
 
-        let parameter_children = self.resolver.add_parameters(&parameter_ids);
+        let parameter_children = self.context.add_parameters(&parameter_ids);
         let declaration = Declaration {
             kind: DeclarationKind::Function {
                 inner_scope_id: function_scope,
@@ -373,7 +375,7 @@ impl<'a> Binder<'a> {
             is_public: true,
         };
 
-        self.resolver.add_declaration(&path_str, declaration);
+        self.context.add_declaration(&path_str, declaration);
 
         // Bind the function body
         let function_body_id = SyntaxId(function_expression_node.children.1);
@@ -438,7 +440,7 @@ impl<'a> Binder<'a> {
             let segment_name = unsafe { str::from_utf8_unchecked(segment_name_bytes) };
 
             let (declaration_id, declaration) = self
-                .resolver
+                .context
                 .find_declaration_in_scope(segment_name, current_scope_id)
                 .ok_or(CompileError::UndeclaredVariable {
                     name: segment_name.to_string(),
@@ -461,7 +463,7 @@ impl<'a> Binder<'a> {
             }
         }
 
-        self.resolver
+        self.context
             .get_scope_mut(self.current_scope_id)
             .ok_or(CompileError::MissingScope {
                 scope_id: self.current_scope_id,
@@ -603,6 +605,7 @@ impl<'a> Binder<'a> {
 
         self.bind_expression(expression_id, &expression)?;
 
+        let local_type_id = self.context.create_inferred_type();
         let path_node = *self
             .syntax_tree
             .get_node(path_id)
@@ -619,7 +622,7 @@ impl<'a> Binder<'a> {
         let variable_name = unsafe { str::from_utf8_unchecked(variable_name_bytes) };
 
         let shadowed = self
-            .resolver
+            .context
             .find_declaration_in_scope(variable_name, self.current_scope_id)
             .map(|(id, _)| id);
         let declaration_kind = if node.kind == SyntaxKind::LetStatement {
@@ -628,9 +631,7 @@ impl<'a> Binder<'a> {
             DeclarationKind::LocalMutable { shadowed }
         };
 
-        let local_type_id = self.resolver.create_inferred_type();
-
-        self.resolver.add_declaration(
+        self.context.add_declaration(
             variable_name,
             Declaration {
                 kind: declaration_kind,
@@ -753,14 +754,14 @@ impl<'a> Binder<'a> {
         }
 
         let parent_scope_id = self.current_scope_id;
-        let block_scope_id = self.resolver.add_scope(Scope {
+        let block_scope_id = self.context.add_scope(Scope {
             kind: ScopeKind::Block,
             parent: parent_scope_id,
             imports: SmallVec::new(),
             modules: SmallVec::new(),
         });
 
-        self.resolver.add_scope_binding(syntax_id, block_scope_id);
+        self.context.add_scope_binding(syntax_id, block_scope_id);
 
         self.current_scope_id = block_scope_id;
 
@@ -820,7 +821,7 @@ impl<'a> Binder<'a> {
             SyntaxKind::ValueParametersDefinition
         );
 
-        let function_scope = self.resolver.add_scope(Scope {
+        let function_scope = self.context.add_scope(Scope {
             kind: ScopeKind::Function,
             parent: self.current_scope_id,
             imports: SmallVec::new(),
@@ -860,33 +861,34 @@ impl<'a> Binder<'a> {
             let mut value_parameters = SmallVec::<[TypeId; 8]>::new();
             let mut current_parameter_name = "";
 
-            for (index, param_node) in value_parameter_nodes.iter().enumerate() {
+            for (index, parameter_node) in value_parameter_nodes.iter().enumerate() {
                 let is_name = index % 2 == 0;
 
                 if is_name {
                     current_parameter_name = unsafe {
                         str::from_utf8_unchecked(
                             &file.source_code.as_ref()
-                                [param_node.span.0 as usize..param_node.span.1 as usize],
+                                [parameter_node.span.0 as usize..parameter_node.span.1 as usize],
                         )
                     };
                 } else {
-                    let type_id = Self::get_type_id(param_node, self.syntax_tree, self.resolver)?;
+                    let type_id =
+                        Self::get_type_id(parameter_node, self.syntax_tree, self.context)?;
                     let parameter_declaration = Declaration {
                         kind: DeclarationKind::Local { shadowed: None },
                         scope_id: function_scope,
                         type_id,
-                        position: Position::new(self.file_id, param_node.span),
+                        position: Position::new(self.file_id, parameter_node.span),
                         is_public: false,
                     };
 
-                    self.resolver
+                    self.context
                         .add_declaration(current_parameter_name, parameter_declaration);
                     value_parameters.push(type_id);
                 }
             }
 
-            self.resolver.add_type_members(&value_parameters)
+            self.context.add_type_members(&value_parameters)
         };
 
         let return_type_node_id = SyntaxId(function_signature_node.children.1);
@@ -899,7 +901,7 @@ impl<'a> Binder<'a> {
                 },
             )?;
 
-            Self::get_type_id(&function_return_type_node, self.syntax_tree, self.resolver)?
+            Self::get_type_id(&function_return_type_node, self.syntax_tree, self.context)?
         };
 
         let _function_type_node = FunctionTypeNode {
@@ -917,7 +919,7 @@ impl<'a> Binder<'a> {
         let parent_scope_id = self.current_scope_id;
         self.current_scope_id = function_scope;
 
-        self.resolver.add_scope_binding(body_id, function_scope);
+        self.context.add_scope_binding(body_id, function_scope);
         self.bind_function(body_id, &body_node)?;
 
         self.current_scope_id = parent_scope_id;
@@ -1218,7 +1220,7 @@ impl<'a> Binder<'a> {
     fn get_type_id(
         node: &SyntaxNode,
         syntax_tree: &SyntaxTree,
-        resolver: &mut Resolver,
+        context: &mut CompileContext,
     ) -> Result<TypeId, CompileError> {
         match node.kind {
             SyntaxKind::BooleanType => Ok(TypeId::BOOLEAN),
@@ -1228,82 +1230,90 @@ impl<'a> Binder<'a> {
             SyntaxKind::IntegerType => Ok(TypeId::INTEGER),
             SyntaxKind::StringType => Ok(TypeId::STRING),
             SyntaxKind::ListType => {
-                let element_type_id = SyntaxId(node.children.0);
-                let element_type_node = syntax_tree.get_node(element_type_id).ok_or(
-                    CompileError::MissingSyntaxNode {
-                        syntax_id: element_type_id,
-                    },
-                )?;
+                let element_type_node = {
+                    let element_type_id = SyntaxId(node.children.0);
 
-                let element_type_id = Self::get_type_id(element_type_node, syntax_tree, resolver)?;
-                let lise_type_id = resolver.add_type_node(TypeNode::List(element_type_id));
+                    syntax_tree.get_node(element_type_id).ok_or(
+                        CompileError::MissingSyntaxNode {
+                            syntax_id: element_type_id,
+                        },
+                    )?
+                };
+
+                let element_type_id = Self::get_type_id(element_type_node, syntax_tree, context)?;
+                let lise_type_id = context.add_type_node(TypeNode::List(element_type_id));
 
                 Ok(lise_type_id)
             }
             SyntaxKind::FunctionType => {
-                let function_value_parameters_id = SyntaxId(node.children.0);
-                let type_node_value_parameters = if function_value_parameters_id == SyntaxId::NONE {
-                    (0, 0)
-                } else {
-                    let function_value_parameters_node = syntax_tree
-                        .get_node(function_value_parameters_id)
-                        .ok_or(CompileError::MissingSyntaxNode {
-                            syntax_id: function_value_parameters_id,
-                        })?;
+                let function_type_node = {
+                    let function_value_parameters_id = SyntaxId(node.children.0);
+                    let type_node_value_parameters = if function_value_parameters_id
+                        == SyntaxId::NONE
+                    {
+                        (0, 0)
+                    } else {
+                        let function_value_parameters_node = syntax_tree
+                            .get_node(function_value_parameters_id)
+                            .ok_or(CompileError::MissingSyntaxNode {
+                                syntax_id: function_value_parameters_id,
+                            })?;
 
-                    let value_parameter_type_node_ids = syntax_tree
-                        .get_children(
-                            function_value_parameters_node.children.0,
-                            function_value_parameters_node.children.1,
-                        )
-                        .ok_or(CompileError::MissingChildren {
-                            parent_kind: function_value_parameters_node.kind,
-                            start_index: function_value_parameters_node.children.0,
-                            count: function_value_parameters_node.children.1,
-                        })?;
+                        let value_parameter_type_node_ids = syntax_tree
+                            .get_children(
+                                function_value_parameters_node.children.0,
+                                function_value_parameters_node.children.1,
+                            )
+                            .ok_or(CompileError::MissingChildren {
+                                parent_kind: function_value_parameters_node.kind,
+                                start_index: function_value_parameters_node.children.0,
+                                count: function_value_parameters_node.children.1,
+                            })?;
 
-                    let mut value_parameter_type_ids =
-                        SmallVec::<[TypeId; 4]>::with_capacity(value_parameter_type_node_ids.len());
+                        let mut value_parameter_type_ids = SmallVec::<[TypeId; 4]>::with_capacity(
+                            value_parameter_type_node_ids.len(),
+                        );
 
-                    for type_node_id in value_parameter_type_node_ids {
-                        let type_id = if *type_node_id == SyntaxId::NONE {
-                            TypeId::NONE
-                        } else {
-                            let type_node = syntax_tree.get_node(*type_node_id).ok_or(
-                                CompileError::MissingSyntaxNode {
-                                    syntax_id: *type_node_id,
-                                },
-                            )?;
+                        for type_node_id in value_parameter_type_node_ids {
+                            let type_id = if *type_node_id == SyntaxId::NONE {
+                                TypeId::NONE
+                            } else {
+                                let type_node = syntax_tree.get_node(*type_node_id).ok_or(
+                                    CompileError::MissingSyntaxNode {
+                                        syntax_id: *type_node_id,
+                                    },
+                                )?;
 
-                            Self::get_type_id(type_node, syntax_tree, resolver)?
-                        };
+                                Self::get_type_id(type_node, syntax_tree, context)?
+                            };
 
-                        value_parameter_type_ids.push(type_id);
+                            value_parameter_type_ids.push(type_id);
+                        }
+
+                        context.add_type_members(&value_parameter_type_ids)
+                    };
+
+                    let function_return_type_id = SyntaxId(node.children.1);
+                    let return_type_id = if function_return_type_id == SyntaxId::NONE {
+                        TypeId::NONE
+                    } else {
+                        let function_return_type_node = syntax_tree
+                            .get_node(function_return_type_id)
+                            .ok_or(CompileError::MissingSyntaxNode {
+                                syntax_id: function_return_type_id,
+                            })?;
+
+                        Self::get_type_id(function_return_type_node, syntax_tree, context)?
+                    };
+
+                    FunctionTypeNode {
+                        type_parameters: (0, 0),
+                        value_parameters: type_node_value_parameters,
+                        return_type: return_type_id,
                     }
-
-                    resolver.add_type_members(&value_parameter_type_ids)
-                };
-
-                let function_return_type_id = SyntaxId(node.children.1);
-                let return_type_id = if function_return_type_id == SyntaxId::NONE {
-                    TypeId::NONE
-                } else {
-                    let function_return_type_node = syntax_tree
-                        .get_node(function_return_type_id)
-                        .ok_or(CompileError::MissingSyntaxNode {
-                        syntax_id: function_return_type_id,
-                    })?;
-
-                    Self::get_type_id(function_return_type_node, syntax_tree, resolver)?
-                };
-
-                let function_type_node = FunctionTypeNode {
-                    type_parameters: (0, 0),
-                    value_parameters: type_node_value_parameters,
-                    return_type: return_type_id,
                 };
                 let function_type_id =
-                    resolver.add_type_node(TypeNode::Function(function_type_node));
+                    context.add_type_node(TypeNode::Function(function_type_node));
 
                 Ok(function_type_id)
             }

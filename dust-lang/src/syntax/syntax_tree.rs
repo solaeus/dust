@@ -1,20 +1,8 @@
-mod syntax_node;
-
 use std::fmt::{self, Display, Formatter};
 
-pub use syntax_node::{SyntaxKind, SyntaxNode, SyntaxNodeChildren};
 use termtree::Tree;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SyntaxId(pub u32);
-
-impl SyntaxId {
-    pub const NONE: SyntaxId = SyntaxId(u32::MAX);
-
-    pub fn is_none(&self) -> bool {
-        *self == SyntaxId::NONE
-    }
-}
+use crate::syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxNodeChildren};
 
 /// Lossless abstract syntax tree representing a Dust source code file.
 #[derive(Debug)]
