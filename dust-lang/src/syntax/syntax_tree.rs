@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use termtree::Tree;
 
-use crate::syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxNodeChildren};
+use crate::syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxReader};
 
 /// Lossless abstract syntax tree representing a Dust source code file.
 #[derive(Debug)]
@@ -54,11 +54,18 @@ impl SyntaxTree {
         SyntaxId(index)
     }
 
-    pub fn top_node(&self) -> Option<&SyntaxNode> {
-        self.nodes.first()
+    pub fn root(&self) -> Option<SyntaxReader<'_>> {
+        let root_id = SyntaxId(0);
+        let root_node = self.nodes.first()?;
+
+        Some(SyntaxReader::new(root_id, root_node, self))
     }
 
     pub fn get_node(&self, id: SyntaxId) -> Option<&SyntaxNode> {
+        if id == SyntaxId::NONE {
+            return None;
+        }
+
         self.nodes.get(id.0 as usize)
     }
 
@@ -127,20 +134,14 @@ impl SyntaxTree {
             }
         }
 
-        let top_node = match self.top_node() {
+        let top_node = match self.root() {
             Some(node) => node,
             None => return "<empty>".to_string(),
         };
-        let mut root = Tree::new(*top_node);
+        let mut root = Tree::new(*top_node.node);
 
         build_tree(&mut root, SyntaxId(0), self);
         root.to_string()
-    }
-}
-
-impl Default for SyntaxTree {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

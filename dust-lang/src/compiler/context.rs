@@ -4,19 +4,18 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use indexmap::{IndexMap, IndexSet, set::MutableValues};
+use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxBuildHasher, FxHasher};
 use smallvec::SmallVec;
 use tracing::trace;
 
 use crate::{
+    compiler::type_graph::{TypeGraph, TypeId},
     constant_table::ConstantTable,
-    instruction::OperandType,
     native_function::NativeFunction,
     prototype::Prototype,
     source::{Position, SourceFileId},
     syntax::SyntaxId,
-    r#type::{FunctionType, Type},
 };
 
 #[derive(Debug)]
@@ -25,6 +24,8 @@ pub struct CompileContext {
 
     pub prototypes: Vec<Prototype>,
 
+    pub types: TypeGraph,
+
     declarations: IndexMap<DeclarationKey, Declaration, FxBuildHasher>,
 
     parameters: IndexSet<DeclarationId, FxBuildHasher>,
@@ -32,71 +33,46 @@ pub struct CompileContext {
     scopes: Vec<Scope>,
 
     scope_bindings: HashMap<SyntaxId, ScopeId, FxBuildHasher>,
-
-    type_nodes: IndexSet<TypeNode, FxBuildHasher>,
-
-    type_members: Vec<TypeId>,
-
-    next_inferred_type_id: u32,
 }
 
 impl CompileContext {
     pub fn new() -> Self {
-        let mut resolver = Self {
+        let mut context = Self {
             constants: ConstantTable::new(),
             prototypes: Vec::new(),
+            types: TypeGraph::new(),
             scope_bindings: HashMap::default(),
             declarations: IndexMap::default(),
             parameters: IndexSet::default(),
             scopes: vec![],
-            type_nodes: IndexSet::default(),
-            type_members: Vec::new(),
-            next_inferred_type_id: 0,
         };
 
-        let _native_scope_id = resolver.add_scope(Scope {
+        let _project_scope_id = context.add_scope(Scope {
             kind: ScopeKind::Module,
-            parent: ScopeId::MAIN,
+            parent: ScopeId::PROJECT,
             imports: SmallVec::new(),
             modules: SmallVec::new(),
         });
-        let _main_scope_id = resolver.add_scope(Scope {
-            kind: ScopeKind::Function,
-            parent: ScopeId::MAIN,
+        let _native_scope_id = context.add_scope(Scope {
+            kind: ScopeKind::Module,
+            parent: ScopeId::PROJECT,
             imports: SmallVec::new(),
             modules: SmallVec::new(),
         });
-        let _main_function_declaration_id = resolver.add_declaration(
-            "main",
-            Declaration {
-                kind: DeclarationKind::Function {
-                    inner_scope_id: ScopeId::MAIN,
-                    file_id: SourceFileId::MAIN,
-                    syntax_id: SyntaxId(0),
-                    parameters: (0, 0),
-                    prototype_index: Some(0),
-                },
-                scope_id: ScopeId::MAIN,
-                type_id: TypeId::NONE,
-                position: Position::default(),
-                is_public: true,
-            },
-        );
 
+        debug_assert_eq!(_project_scope_id, ScopeId::PROJECT);
         debug_assert_eq!(_native_scope_id, ScopeId::NATIVE);
-        debug_assert_eq!(_main_scope_id, ScopeId::MAIN);
-        debug_assert_eq!(_main_function_declaration_id, DeclarationId::MAIN);
 
-        resolver.add_native_functions();
+        context.add_native_functions();
 
-        resolver
+        context
     }
 
     pub fn add_native_functions(&mut self) {
-        let no_op_type_id = NativeFunction::no_op_signature(self);
-        let read_line_type_id = NativeFunction::read_line_signature(self);
-        let write_line_type_id = NativeFunction::write_line_signature(self);
-        let spawn_type_id = NativeFunction::spawn_signature(self);
+        let no_op_type_id = NativeFunction::no_op_signature(&mut self.types);
+        let read_line_type_id = NativeFunction::read_line_signature(&mut self.types);
+        let write_line_type_id = NativeFunction::write_line_signature(&mut self.types);
+        let spawn_type_id = NativeFunction::spawn_signature(&mut self.types);
 
         self.add_declaration(
             NativeFunction::NO_OP.name(),
@@ -142,10 +118,6 @@ impl CompileContext {
 
     pub fn declarations(&self) -> &IndexMap<DeclarationKey, Declaration, FxBuildHasher> {
         &self.declarations
-    }
-
-    pub fn type_count(&self) -> usize {
-        self.type_nodes.len()
     }
 
     pub fn add_scope(&mut self, scope: Scope) -> ScopeId {
@@ -302,306 +274,6 @@ impl CompileContext {
 
         None
     }
-
-    pub fn add_type(&mut self, new_type: &Type) -> TypeId {
-        let node = match new_type {
-            Type::None => return TypeId::NONE,
-            Type::Boolean => return TypeId::BOOLEAN,
-            Type::Byte => return TypeId::BYTE,
-            Type::Character => return TypeId::CHARACTER,
-            Type::Float => return TypeId::FLOAT,
-            Type::Integer => return TypeId::INTEGER,
-            Type::String => return TypeId::STRING,
-            Type::List(element_type) => {
-                let element_type_id = self.add_type(element_type);
-
-                TypeNode::List(element_type_id)
-            }
-            Type::Function(function_type) => return self.add_function_type(function_type),
-        };
-
-        self.add_type_node(node)
-    }
-
-    pub fn add_function_type(&mut self, function_type: &FunctionType) -> TypeId {
-        let mut type_parameters: SmallVec<[TypeId; 4]> =
-            SmallVec::with_capacity(function_type.type_parameters.len());
-
-        for type_parameter in &function_type.type_parameters {
-            let type_parameter_id = self.add_type(type_parameter);
-
-            type_parameters.push(type_parameter_id);
-        }
-
-        let mut value_parameters: SmallVec<[TypeId; 4]> =
-            SmallVec::with_capacity(function_type.value_parameters.len());
-
-        for value_parameter in &function_type.value_parameters {
-            let value_parameter_id = self.add_type(value_parameter);
-
-            value_parameters.push(value_parameter_id);
-        }
-
-        let type_parameters = self.add_type_members(&type_parameters);
-        let value_parameters = self.add_type_members(&value_parameters);
-        let return_type_id = self.add_type(&function_type.return_type);
-        let function_type_node = FunctionTypeNode {
-            type_parameters,
-            value_parameters,
-            return_type: return_type_id,
-        };
-        let type_node = TypeNode::Function(function_type_node);
-
-        self.add_type_node(type_node)
-    }
-
-    pub fn add_type_node(&mut self, type_node: TypeNode) -> TypeId {
-        if let Some(existing) = self.type_nodes.get_index_of(&type_node) {
-            return TypeId(existing as u32);
-        }
-
-        let type_id = TypeId(self.type_nodes.len() as u32);
-
-        self.type_nodes.insert(type_node);
-
-        type_id
-    }
-
-    pub fn get_full_type(&self, id: TypeId) -> Option<Type> {
-        match id {
-            TypeId::NONE => Some(Type::None),
-            TypeId::BOOLEAN => Some(Type::Boolean),
-            TypeId::BYTE => Some(Type::Byte),
-            TypeId::CHARACTER => Some(Type::Character),
-            TypeId::FLOAT => Some(Type::Float),
-            TypeId::INTEGER => Some(Type::Integer),
-            TypeId::STRING => Some(Type::String),
-            TypeId(index) => {
-                let type_node = self.type_nodes.get_index(index as usize)?;
-
-                match type_node {
-                    TypeNode::List(element_type_id) => {
-                        let element_type = self.get_full_type(*element_type_id)?;
-
-                        Some(Type::list(element_type))
-                    }
-                    TypeNode::Function(function_type_node) => {
-                        let function_type = self.get_full_function_type(function_type_node)?;
-
-                        Some(Type::Function(Box::new(function_type)))
-                    }
-                    TypeNode::Inferred(_) => None,
-                }
-            }
-        }
-    }
-
-    pub fn get_full_function_type(&self, function_type: &FunctionTypeNode) -> Option<FunctionType> {
-        let type_parameters = self
-            .resolve_type_members(
-                function_type.type_parameters.0,
-                function_type.type_parameters.1,
-            )
-            .try_collect::<Vec<Type>>()?;
-        let value_parameters = self
-            .resolve_type_members(
-                function_type.value_parameters.0,
-                function_type.value_parameters.1,
-            )
-            .try_collect::<Vec<Type>>()?;
-        let return_type = self.get_full_type(function_type.return_type)?;
-
-        Some(FunctionType {
-            type_parameters,
-            value_parameters,
-            return_type,
-        })
-    }
-
-    pub fn get_type_node(&self, id: TypeId) -> Option<&TypeNode> {
-        self.type_nodes.get_index(id.0 as usize)
-    }
-
-    pub fn get_operand_type(&self, id: TypeId) -> Option<OperandType> {
-        match id {
-            TypeId::NONE => return Some(OperandType::NONE),
-            TypeId::BOOLEAN => return Some(OperandType::BOOLEAN),
-            TypeId::BYTE => return Some(OperandType::BYTE),
-            TypeId::CHARACTER => return Some(OperandType::CHARACTER),
-            TypeId::FLOAT => return Some(OperandType::FLOAT),
-            TypeId::INTEGER => return Some(OperandType::INTEGER),
-            TypeId::STRING => return Some(OperandType::STRING),
-            _ => {}
-        }
-
-        let type_node = self.get_type_node(id)?;
-        let operand_type = match type_node {
-            TypeNode::List(element_type_id) => {
-                let element_operand_type = self.get_operand_type(*element_type_id)?;
-
-                match element_operand_type {
-                    OperandType::BOOLEAN => OperandType::LIST_BOOLEAN,
-                    OperandType::BYTE => OperandType::LIST_BYTE,
-                    OperandType::CHARACTER => OperandType::LIST_CHARACTER,
-                    OperandType::FLOAT => OperandType::LIST_FLOAT,
-                    OperandType::INTEGER => OperandType::LIST_INTEGER,
-                    OperandType::STRING => OperandType::LIST_STRING,
-                    OperandType::LIST_BOOLEAN
-                    | OperandType::LIST_BYTE
-                    | OperandType::LIST_CHARACTER
-                    | OperandType::LIST_FLOAT
-                    | OperandType::LIST_INTEGER
-                    | OperandType::LIST_STRING => OperandType::LIST_LIST,
-                    _ => return None,
-                }
-            }
-            TypeNode::Function(_) => OperandType::FUNCTION,
-            TypeNode::Inferred(_) => return None,
-        };
-
-        Some(operand_type)
-    }
-
-    pub fn add_type_members(&mut self, members: &[TypeId]) -> (u32, u32) {
-        let start = self.type_members.len() as u32;
-        let count = members.len() as u32;
-
-        self.type_members.extend_from_slice(members);
-
-        (start, count)
-    }
-
-    pub fn get_type_members(&self, start_index: u32, count: u32) -> Option<&[TypeId]> {
-        let range = start_index as usize..(start_index + count) as usize;
-
-        self.type_members.get(range)
-    }
-
-    pub fn create_inferred_type(&mut self) -> TypeId {
-        let inferred_type_node = TypeNode::Inferred(InferredTypeNode {
-            id: self.next_inferred_type_id,
-            resolved: None,
-        });
-        let type_id = self.add_type_node(inferred_type_node);
-
-        self.next_inferred_type_id += 1;
-
-        type_id
-    }
-
-    pub fn infer_type(&mut self, inferred_type_id: TypeId) -> TypeId {
-        if let TypeId::NONE
-        | TypeId::BOOLEAN
-        | TypeId::BYTE
-        | TypeId::CHARACTER
-        | TypeId::FLOAT
-        | TypeId::INTEGER
-        | TypeId::STRING = inferred_type_id
-        {
-            return inferred_type_id;
-        }
-
-        match self.get_type_node(inferred_type_id) {
-            Some(TypeNode::Inferred(InferredTypeNode {
-                resolved: Some(resolved),
-                ..
-            })) => self.infer_type(*resolved),
-            _ => inferred_type_id,
-        }
-    }
-
-    pub fn unify_types(&mut self, left: TypeId, right: TypeId) -> Option<TypeId> {
-        let left = self.infer_type(left);
-        let right = self.infer_type(right);
-
-        if left == right {
-            return Some(left);
-        }
-
-        let left_node = *self.get_type_node(left)?;
-        let right_node = *self.get_type_node(right)?;
-
-        match (left_node, right_node) {
-            (TypeNode::Inferred(InferredTypeNode { id, resolved: None }), _) => {
-                if let Some(node) = self.type_nodes.get_index_mut2(left.0 as usize) {
-                    *node = TypeNode::Inferred(InferredTypeNode {
-                        id,
-                        resolved: Some(right),
-                    });
-                }
-
-                Some(right)
-            }
-            (_, TypeNode::Inferred(InferredTypeNode { id, resolved: None })) => {
-                if let Some(node) = self.type_nodes.get_index_mut2(right.0 as usize) {
-                    *node = TypeNode::Inferred(InferredTypeNode {
-                        id,
-                        resolved: Some(left),
-                    });
-                }
-
-                Some(left)
-            }
-            (TypeNode::List(left_element_type), TypeNode::List(right_element_type)) => {
-                self.unify_types(left_element_type, right_element_type)?;
-
-                Some(left)
-            }
-            (TypeNode::Function(left_function_type), TypeNode::Function(right_function_type)) => {
-                let mut unify_members = |left: (u32, u32), right: (u32, u32)| -> Option<()> {
-                    let left_members = self
-                        .get_type_members(left.0, left.1)?
-                        .iter()
-                        .copied()
-                        .collect::<SmallVec<[TypeId; 8]>>();
-                    let right_members = self
-                        .get_type_members(right.0, right.1)?
-                        .iter()
-                        .copied()
-                        .collect::<SmallVec<[TypeId; 8]>>();
-
-                    if left_members.len() != right_members.len() {
-                        return None;
-                    }
-
-                    for (left_member, right_member) in left_members.iter().zip(right_members.iter())
-                    {
-                        self.unify_types(*left_member, *right_member)?;
-                    }
-
-                    Some(())
-                };
-
-                unify_members(
-                    left_function_type.type_parameters,
-                    right_function_type.type_parameters,
-                )?;
-                unify_members(
-                    left_function_type.value_parameters,
-                    right_function_type.value_parameters,
-                )?;
-                self.unify_types(
-                    left_function_type.return_type,
-                    right_function_type.return_type,
-                )?;
-
-                Some(left)
-            }
-            _ => None,
-        }
-    }
-
-    fn resolve_type_members(
-        &self,
-        start_index: u32,
-        count: u32,
-    ) -> impl Iterator<Item = Option<Type>> {
-        let range = start_index as usize..(start_index + count) as usize;
-
-        self.type_members[range]
-            .iter()
-            .map(|type_id| self.get_full_type(*type_id))
-    }
 }
 
 impl Default for CompileContext {
@@ -619,8 +291,8 @@ pub struct Symbol {
 pub struct ScopeId(pub u32);
 
 impl ScopeId {
-    pub const NATIVE: Self = ScopeId(0);
-    pub const MAIN: Self = ScopeId(1);
+    pub const PROJECT: Self = ScopeId(0);
+    pub const NATIVE: Self = ScopeId(1);
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -640,10 +312,6 @@ pub enum ScopeKind {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DeclarationId(pub u32);
-
-impl DeclarationId {
-    pub const MAIN: Self = DeclarationId(0);
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DeclarationKey(Symbol, ScopeId);
@@ -706,61 +374,4 @@ impl Display for DeclarationKind {
 pub enum ModuleKind {
     File,
     Inline,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypeId(pub u32);
-
-impl TypeId {
-    pub const NONE: Self = TypeId(u32::MAX);
-    pub const BOOLEAN: Self = TypeId(u32::MAX - 1);
-    pub const BYTE: Self = TypeId(u32::MAX - 2);
-    pub const CHARACTER: Self = TypeId(u32::MAX - 3);
-    pub const FLOAT: Self = TypeId(u32::MAX - 4);
-    pub const INTEGER: Self = TypeId(u32::MAX - 5);
-    pub const STRING: Self = TypeId(u32::MAX - 6);
-}
-
-impl Default for TypeId {
-    fn default() -> Self {
-        TypeId::NONE
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum TypeNode {
-    List(TypeId),
-    Function(FunctionTypeNode),
-    Inferred(InferredTypeNode),
-}
-
-impl TypeNode {
-    pub fn into_function_type(self) -> Option<FunctionTypeNode> {
-        if let TypeNode::Function(function_type_node) = self {
-            Some(function_type_node)
-        } else {
-            None
-        }
-    }
-
-    pub fn into_list_element_type(self) -> Option<TypeId> {
-        if let TypeNode::List(element_type_id) = self {
-            Some(element_type_id)
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FunctionTypeNode {
-    pub type_parameters: (u32, u32),
-    pub value_parameters: (u32, u32),
-    pub return_type: TypeId,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct InferredTypeNode {
-    id: u32,
-    resolved: Option<TypeId>,
 }

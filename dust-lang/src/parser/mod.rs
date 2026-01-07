@@ -744,8 +744,7 @@ impl<'src> Parser<'src> {
         } else {
             SyntaxKind::LetStatement
         };
-
-        if self.allow(TokenKind::Colon)? {
+        let type_notation_id = if self.allow(TokenKind::Colon)? {
             self.parse_type()?
         } else {
             SyntaxId::NONE
@@ -774,7 +773,11 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind,
             span: Span(start, end),
-            children: (path_id.0, expression_statement_id.0),
+            children: self.syntax_tree.add_children(&[
+                path_id,
+                expression_statement_id,
+                type_notation_id,
+            ]),
         };
 
         self.syntax_tree.push_node(node);

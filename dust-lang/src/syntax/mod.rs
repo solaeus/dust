@@ -1,8 +1,12 @@
+mod reader;
 mod syntax_node;
 mod syntax_tree;
+mod visitor;
 
+pub use reader::SyntaxReader;
 pub use syntax_node::{SyntaxKind, SyntaxNode, SyntaxNodeChildren};
 pub use syntax_tree::SyntaxTree;
+pub use visitor::SyntaxVisitor;
 
 use crate::source::SourceFileId;
 
@@ -47,6 +51,7 @@ impl Default for Syntax {
 pub struct SyntaxId(pub u32);
 
 impl SyntaxId {
+    pub const ROOT: SyntaxId = SyntaxId(0);
     pub const NONE: SyntaxId = SyntaxId(u32::MAX);
 
     pub fn is_none(&self) -> bool {

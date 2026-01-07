@@ -1,7 +1,10 @@
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
-    compiler::context::{DeclarationId, ScopeId, TypeId},
+    compiler::{
+        context::{DeclarationId, ScopeId},
+        type_graph::TypeId,
+    },
     dust_error::AnnotatedError,
     source::{Position, SourceFileId},
     syntax::{SyntaxId, SyntaxKind},
@@ -15,7 +18,7 @@ pub enum CompileError {
         name: String,
         position: Position,
     },
-    CannotInferListType {
+    CannotInferType {
         position: Position,
     },
     DivisionByZero {
@@ -146,6 +149,9 @@ pub enum CompileError {
         start_index: u32,
         count: u32,
     },
+    InvalidSyntaxNode {
+        kind: SyntaxKind,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -184,13 +190,14 @@ impl AnnotatedError for CompileError {
             CompileError::UndeclaredVariable { position, .. } => position.file_id,
             CompileError::UnresolvedFunctionType { .. } => SourceFileId::default(),
             CompileError::CannotImport { position, .. } => position.file_id,
-            CompileError::CannotInferListType { position } => position.file_id,
+            CompileError::CannotInferType { position } => position.file_id,
             CompileError::MissingNativeFunction { .. } => SourceFileId::default(),
             CompileError::CannotMutate { position, .. } => position.file_id,
             CompileError::MissingScopeBinding { .. } => SourceFileId::default(),
             CompileError::TypeMismatch {
                 expected_position, ..
             } => expected_position.file_id,
+            CompileError::InvalidSyntaxNode { .. } => SourceFileId::default(),
         }
     }
 
@@ -363,7 +370,7 @@ impl AnnotatedError for CompileError {
                 child_index,
             } => {
                 let title = format!(
-                    "Expected child {child_index} on {parent_kind}, but it was missing, this is a bug in the parser or compiler"
+                    "Expected child {child_index} on {parent_kind}, but it was missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
@@ -374,76 +381,74 @@ impl AnnotatedError for CompileError {
                 count,
             } => {
                 let title = format!(
-                    "Expected {count} children starting at {start_index} on {parent_kind}, but they were missing, this is a bug in the parser or compiler"
+                    "Expected {count} children starting at {start_index} on {parent_kind}, but they were missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingConstant { constant_index: _ } => {
-                let title =
-                    "A constant was missing, this is a bug in the parser or compiler".to_string();
+                let title = "A constant was missing, this is a bug in the compiler".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingDeclaration { declaration_id: id } => {
                 let title = format!(
-                    "Declaration with id {id:?} was missing, this is a bug in the parser or compiler"
+                    "Declaration with id {id:?} was missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingDeclarations { name } => {
                 let title = format!(
-                    "Declarations with name {name} were missing, this is a bug in the parser or compiler"
+                    "Declarations with name {name} were missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingLocal { declaration_id } => {
                 let title = format!(
-                    "Local for declaration id {declaration_id:?} was missing, this is a bug in the parser or compiler"
+                    "Local for declaration id {declaration_id:?} was missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingSyntaxNode { syntax_id: id } => {
                 let title = format!(
-                    "Syntax node with id {id:?} was missing, this is a bug in the parser or compiler"
+                    "Syntax node with id {id:?} was missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingType { type_id } => {
                 let title = format!(
-                    "Type node with id {type_id:?} was missing, this is a bug in the parser or compiler"
+                    "Type node with id {type_id:?} was missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingScope { scope_id: id } => {
-                let title = format!(
-                    "Scope with id {id:?} was missing, this is a bug in the parser or compiler"
-                );
+                let title =
+                    format!("Scope with id {id:?} was missing, this is a bug in the compiler");
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingPrototype { declaration_id } => {
                 let title = format!(
-                    "Function prototype for declaration id {declaration_id:?} was missing, this is a bug in the parser or compiler"
+                    "Function prototype for declaration id {declaration_id:?} was missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingSourceFile { file_id } => {
                 let title = format!(
-                    "Source file with id {file_id:?} was missing, this is a bug in the parser or compiler"
+                    "Source file with id {file_id:?} was missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingSyntaxTree { file_id } => {
                 let title = format!(
-                    "Syntax tree for file id {file_id:?} was missing, this is a bug in the parser or compiler"
+                    "Syntax tree for file id {file_id:?} was missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
@@ -453,14 +458,14 @@ impl AnnotatedError for CompileError {
                 payload_count,
             } => {
                 let title = format!(
-                    "Expected {payload_count} payloads starting at {payload_start}, but they were missing, this is a bug in the parser or compiler"
+                    "Expected {payload_count} payloads starting at {payload_start}, but they were missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingPosition { declaration_id } => {
                 let title = format!(
-                    "Position for declaration id {declaration_id:?} was missing, this is a bug in the parser or compiler"
+                    "Position for declaration id {declaration_id:?} was missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
@@ -478,7 +483,7 @@ impl AnnotatedError for CompileError {
             }
             CompileError::UnresolvedFunctionType { function_type } => {
                 let title = format!(
-                    "Function type {function_type:?} could not be resolved, this is a bug in the parser or compiler"
+                    "Function type {function_type:?} could not be resolved, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
@@ -495,8 +500,8 @@ impl AnnotatedError for CompileError {
                     ),
                 )
             }
-            CompileError::CannotInferListType { position } => {
-                let title = "Cannot infer list type, please provide an explicit type".to_string();
+            CompileError::CannotInferType { position } => {
+                let title = "Cannot infer type, please provide an explicit type".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(source)
@@ -505,22 +510,21 @@ impl AnnotatedError for CompileError {
             }
             CompileError::MissingNativeFunction { native_function } => {
                 let title = format!(
-                    "Native function {native_function} was missing, this is a bug in the parser or
-                    compiler"
+                    "Native function {native_function} was missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingScopeBinding { syntax_id } => {
                 let title = format!(
-                    "Scope binding for syntax id {syntax_id:?} was missing, this is a bug in the parser or compiler"
+                    "Scope binding for syntax id {syntax_id:?} was missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::MissingTypeMembers { start_index, count } => {
                 let title = format!(
-                    "Expected {count} type members starting at {start_index}, but they were missing, this is a bug in the parser or compiler"
+                    "Expected {count} type members starting at {start_index}, but they were missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
@@ -545,6 +549,13 @@ impl AnnotatedError for CompileError {
                             .label(format!("Expected type {expected} here")),
                     ),
                 ])
+            }
+            CompileError::InvalidSyntaxNode { kind } => {
+                let title = format!(
+                    "Invalid syntax node: {kind} is in an invalid position, this is a bug in the compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
             }
         }
     }

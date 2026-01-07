@@ -1,18 +1,19 @@
 mod binder;
-mod code_generator;
 mod context;
+mod emitter;
 mod error;
+mod type_graph;
 
 #[cfg(test)]
 mod tests;
 
 pub use context::{
-    CompileContext, Declaration, DeclarationKind, FunctionTypeNode, ModuleKind, Scope, ScopeId,
-    ScopeKind, TypeId, TypeNode,
+    CompileContext, Declaration, DeclarationKind, ModuleKind, Scope, ScopeId, ScopeKind,
 };
-
-pub use code_generator::CodeGenerator;
+pub use emitter::Emitter;
 pub use error::CompileError;
+pub use type_graph::{TypeGraph, TypeId, TypeNode};
+
 use smallvec::SmallVec;
 use tracing::{Level, span};
 
@@ -123,7 +124,7 @@ impl Compiler {
         for (index, file) in files.iter().enumerate().skip(1) {
             let file_scope = Scope {
                 kind: ScopeKind::Module,
-                parent: ScopeId::MAIN,
+                parent: ScopeId::PROJECT,
                 imports: SmallVec::new(),
                 modules: SmallVec::new(),
             };
@@ -136,7 +137,7 @@ impl Compiler {
                         kind: ModuleKind::File,
                         inner_scope_id: file_scope_id,
                     },
-                    scope_id: ScopeId::MAIN,
+                    scope_id: ScopeId::PROJECT,
                     type_id: TypeId::NONE,
                     position: Position::new(SourceFileId(index as u32), Span::default()),
                     is_public: true,
@@ -158,6 +159,7 @@ impl Compiler {
             }
 
             let binder = Binder::new(
+                file_module_name,
                 file_id,
                 self.source.clone(),
                 &mut self.context,
@@ -166,11 +168,11 @@ impl Compiler {
             );
 
             binder
-                .bind_file_module(file_module_name)
+                .bind()
                 .map_err(|compile_error| DustError::compile(compile_error, self.source.clone()))?;
             self.syntax.add_tree(syntax_tree);
             self.context
-                .get_scope_mut(ScopeId::MAIN)
+                .get_scope_mut(ScopeId::PROJECT)
                 .unwrap()
                 .modules
                 .push(module_id);
@@ -178,46 +180,44 @@ impl Compiler {
 
         let main_syntax = self.syntax.get_tree(SourceFileId::MAIN).unwrap();
         let main_binder = Binder::new(
+            "main",
             SourceFileId(0),
             self.source.clone(),
             &mut self.context,
             main_syntax,
-            ScopeId::MAIN,
+            ScopeId::PROJECT,
         );
 
         main_binder
-            .bind_main()
+            .bind()
             .map_err(|compile_error| DustError::compile(compile_error, self.source.clone()))?;
 
         if !errors.is_empty() {
             return Err(DustError::parse(errors, self.source));
         }
 
-        self.context.prototypes.push(Prototype::default()); // Insert a placeholder
+        self.context.prototypes.push(Prototype::default()); // Placeholder for main prototype
 
-        let prototype_compiler = CodeGenerator::new(
+        let inferred_type = self.context.types.create_inferred_type();
+        let main_function_type_id = self.context.types.add_type(TypeNode::Function {
+            type_parameters: (0, 0),
+            value_parameters: (0, 0),
+            return_type_id: inferred_type,
+        });
+        let main_emitter = Emitter::new(
             None,
             0,
             SourceFileId::MAIN,
-            FunctionTypeNode {
-                type_parameters: (0, 0),
-                value_parameters: (0, 0),
-                return_type: TypeId::NONE,
-            },
+            main_function_type_id,
             self.source.clone(),
             &self.syntax,
             &mut self.context,
-            ScopeId::MAIN,
+            ScopeId::PROJECT,
         );
 
-        let prototype = match prototype_compiler.compile_main() {
-            Ok(prototype) => prototype,
-            Err(error) => {
-                return Err(DustError::compile(error, self.source));
-            }
-        };
-
-        self.context.prototypes[0] = prototype;
+        self.context.prototypes[0] = main_emitter
+            .emit_main()
+            .map_err(|error| DustError::compile(error, self.source.clone()))?;
 
         Ok((self.context, self.source, self.syntax))
     }
