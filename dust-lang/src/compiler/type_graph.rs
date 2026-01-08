@@ -181,7 +181,11 @@ impl TypeGraph {
                 }
             }
             TypeNode::Function { .. } => OperandType::FUNCTION,
-            TypeNode::Inferred { .. } => return None,
+            TypeNode::Inferred {
+                resolved: Some(inferred),
+                ..
+            } => self.get_operand_type(*inferred)?,
+            _ => return None,
         };
 
         Some(operand_type)

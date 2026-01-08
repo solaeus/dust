@@ -152,6 +152,12 @@ pub enum CompileError {
     InvalidSyntaxNode {
         kind: SyntaxKind,
     },
+    MissingDeclarationBinding {
+        syntax_id: SyntaxId,
+    },
+    MissingTypeBinding {
+        syntax_id: SyntaxId,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -198,6 +204,8 @@ impl AnnotatedError for CompileError {
                 expected_position, ..
             } => expected_position.file_id,
             CompileError::InvalidSyntaxNode { .. } => SourceFileId::default(),
+            CompileError::MissingDeclarationBinding { .. } => SourceFileId::default(),
+            CompileError::MissingTypeBinding { .. } => SourceFileId::default(),
         }
     }
 
@@ -553,6 +561,20 @@ impl AnnotatedError for CompileError {
             CompileError::InvalidSyntaxNode { kind } => {
                 let title = format!(
                     "Invalid syntax node: {kind} is in an invalid position, this is a bug in the compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingDeclarationBinding { syntax_id } => {
+                let title = format!(
+                    "Declaration binding for syntax id {syntax_id:?} was missing, this is a bug in the compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingTypeBinding { syntax_id } => {
+                let title = format!(
+                    "Type binding for syntax id {syntax_id:?} was missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

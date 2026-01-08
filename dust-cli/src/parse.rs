@@ -18,10 +18,9 @@ pub fn handle_parse_command(
     start_time: Instant,
 ) {
     let source = handle_source(eval, path, stdin);
-    let files = source.read_files();
     let mut errors = Vec::new();
 
-    for file in files.iter() {
+    for file in source.files() {
         let lexer = Lexer::new(file.source_code.as_ref());
         let parser = Parser::new(SourceFileId(0), lexer);
         let ParseResult {
@@ -39,8 +38,6 @@ pub fn handle_parse_command(
             println!("{syntax_tree}");
         }
     }
-
-    drop(files);
 
     if !errors.is_empty() {
         eprintln!("{}", DustError::parse(errors, source).report());

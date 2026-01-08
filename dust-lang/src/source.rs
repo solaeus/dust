@@ -1,58 +1,49 @@
 use std::{
     fmt::{self, Display, Formatter},
     ops::Range,
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Source {
-    files: Arc<RwLock<Vec<SourceFile>>>,
-    file_count: usize,
+    files: Vec<SourceFile>,
 }
 
 impl Source {
     pub fn new() -> Self {
-        Self {
-            files: Arc::new(RwLock::new(Vec::new())),
-            file_count: 0,
-        }
+        Self { files: Vec::new() }
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            files: Arc::new(RwLock::new(Vec::with_capacity(capacity))),
-            file_count: 0,
+            files: Vec::with_capacity(capacity),
         }
     }
 
     pub fn file_count(&self) -> usize {
-        self.file_count
+        self.files.len()
     }
 
-    pub fn read_files(&self) -> RwLockReadGuard<'_, Vec<SourceFile>> {
-        self.files
-            .read()
-            .expect("Failed to acquire read lock on source files")
+    pub fn files(&self) -> &Vec<SourceFile> {
+        &self.files
     }
 
-    pub fn write_files(&self) -> RwLockWriteGuard<'_, Vec<SourceFile>> {
-        self.files
-            .write()
-            .expect("Failed to acquire write lock on source files")
+    pub fn files_mut(&mut self) -> &mut Vec<SourceFile> {
+        &mut self.files
     }
 
     pub fn add_file(&mut self, file: SourceFile) -> SourceFileId {
-        self.file_count += 1;
+        let id = SourceFileId(self.files.len() as u32);
 
-        let mut files = self.write_files();
-        let id = SourceFileId(files.len() as u32);
-
-        files.push(file);
+        self.files.push(file);
 
         id
+    }
+
+    pub fn get_file(&self, file_id: SourceFileId) -> Option<&SourceFile> {
+        self.files.get(file_id.0 as usize)
     }
 }
 
@@ -87,6 +78,10 @@ impl SourceCode {
         unsafe { str::from_utf8_unchecked(self.as_ref()) }
             .get(start..end)
             .unwrap_or("")
+    }
+
+    pub fn get_span(&self, span: Span) -> &str {
+        self.get(span.0 as usize, span.1 as usize)
     }
 }
 

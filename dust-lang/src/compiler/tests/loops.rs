@@ -1,5 +1,5 @@
 use crate::{
-    compiler::compile_main,
+    compiler::compile_main_prototype,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::loop_cases,
@@ -9,7 +9,7 @@ use crate::{
 #[test]
 fn while_loop() {
     let source = loop_cases::WHILE_LOOP.to_string();
-    let prototype = compile_main(source).unwrap();
+    let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
         prototype,

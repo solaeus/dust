@@ -4,68 +4,57 @@ use tracing::{Level, info, span};
 use crate::{
     compiler::{
         CompileError,
-        context::{CompileContext, Declaration, DeclarationKind, Scope, ScopeId, ScopeKind},
+        context::{
+            CompileContext, Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind,
+        },
         type_graph::{TypeId, TypeNode},
     },
     source::{Position, Source, SourceFileId},
-    syntax::{SyntaxId, SyntaxKind, SyntaxReader, SyntaxTree, SyntaxVisitor},
+    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
 };
 
 pub struct Binder<'a> {
-    file_identifier: &'a str,
-
     file_id: SourceFileId,
 
-    source: Source,
+    source: &'a Source,
+
+    syntax: &'a Syntax,
 
     context: &'a mut CompileContext,
-
-    syntax_tree: &'a SyntaxTree,
 
     current_scope_id: ScopeId,
 }
 
 impl<'a> Binder<'a> {
     pub fn new(
-        module_identifier: &'a str,
         file_id: SourceFileId,
-        source: Source,
+        source: &'a Source,
+        syntax: &'a Syntax,
         context: &'a mut CompileContext,
-        syntax_tree: &'a SyntaxTree,
         current_scope_id: ScopeId,
     ) -> Self {
         Self {
-            file_identifier: module_identifier,
             file_id,
             source,
+            syntax,
             context,
-            syntax_tree,
             current_scope_id,
         }
     }
 
-    pub fn bind(mut self) -> Result<(), CompileError> {
-        let span = span!(Level::INFO, "bind");
-        let _enter = span.enter();
-
-        let root = self
-            .syntax_tree
+    pub fn bind_main(mut self) -> Result<(), CompileError> {
+        let main_root = self
+            .syntax
+            .get_tree(SourceFileId::MAIN)
+            .ok_or(CompileError::MissingSyntaxTree {
+                file_id: SourceFileId::MAIN,
+            })?
             .root()
             .ok_or(CompileError::MissingSyntaxNode {
                 syntax_id: SyntaxId::ROOT,
             })?;
 
-        match root.kind() {
-            SyntaxKind::MainFunctionItem => self.visit_main_function_item(root)?,
-            SyntaxKind::ModuleItem | SyntaxKind::PublicModuleItem => {
-                self.visit_module_item(root)?
-            }
-            _ => {
-                return Err(CompileError::InvalidSyntaxNode { kind: root.kind() });
-            }
-        }
-
-        Ok(())
+        self.visit_main_function_item(main_root)
     }
 
     fn get_type_id(
@@ -261,7 +250,50 @@ impl<'a> SyntaxVisitor for Binder<'a> {
         Ok(())
     }
 
-    fn visit_path_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_path_expression(
+        &mut self,
+        node: SyntaxReader<'_>,
+    ) -> Result<Self::Output, Self::Error> {
+        let path = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let path_segments = path
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: path.kind(),
+                start_index: path.node.children.0,
+                count: path.node.children.1,
+            })?;
+
+        let mut current_declaration_id = DeclarationId(0);
+        let mut current_type_id = TypeId::NONE;
+        let mut current_scope_id = self.current_scope_id;
+
+        for segment in path_segments {
+            let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
+                CompileError::MissingSourceFile {
+                    file_id: self.file_id,
+                },
+            )?;
+            let segment_name = source_file.source_code.get_span(segment.span());
+            let (next_declaration_id, next_declaration) = self
+                .context
+                .find_declaration_in_scope(segment_name, current_scope_id)
+                .ok_or(CompileError::UndeclaredVariable {
+                    name: segment_name.to_string(),
+                    position: Position::new(self.file_id, segment.span()),
+                })?;
+
+            current_declaration_id = next_declaration_id;
+            current_type_id = next_declaration.type_id;
+            current_scope_id = next_declaration.scope_id;
+        }
+
+        self.context
+            .add_declaration_binding(node.id, current_declaration_id);
+        self.context.add_type_binding(node.id, current_type_id);
+
         Ok(())
     }
 
@@ -305,13 +337,11 @@ impl<'a> SyntaxVisitor for Binder<'a> {
 
         self.visit_expression(expression)?;
 
-        let files = self.source.read_files();
-        let source_file =
-            files
-                .get(self.file_id.0 as usize)
-                .ok_or(CompileError::MissingSourceFile {
-                    file_id: self.file_id,
-                })?;
+        let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
+            CompileError::MissingSourceFile {
+                file_id: self.file_id,
+            },
+        )?;
         let variable_name = source_file
             .source_code
             .get(path.span().0 as usize, path.span().1 as usize);
@@ -337,8 +367,10 @@ impl<'a> SyntaxVisitor for Binder<'a> {
             position: Position::new(self.file_id, node.node.span),
             is_public: false,
         };
+        let declaration_id = self.context.add_declaration(variable_name, declaration);
 
-        self.context.add_declaration(variable_name, declaration);
+        self.context
+            .add_declaration_binding(node.id, declaration_id);
 
         Ok(())
     }

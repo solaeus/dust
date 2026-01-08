@@ -26,9 +26,13 @@ pub struct CompileContext {
 
     pub types: TypeGraph,
 
+    type_bindings: HashMap<SyntaxId, TypeId, FxBuildHasher>,
+
     declarations: IndexMap<DeclarationKey, Declaration, FxBuildHasher>,
 
     parameters: IndexSet<DeclarationId, FxBuildHasher>,
+
+    declaration_bindings: HashMap<SyntaxId, DeclarationId, FxBuildHasher>,
 
     scopes: Vec<Scope>,
 
@@ -41,10 +45,12 @@ impl CompileContext {
             constants: ConstantTable::new(),
             prototypes: Vec::new(),
             types: TypeGraph::new(),
-            scope_bindings: HashMap::default(),
+            type_bindings: HashMap::default(),
             declarations: IndexMap::default(),
             parameters: IndexSet::default(),
+            declaration_bindings: HashMap::default(),
             scopes: vec![],
+            scope_bindings: HashMap::default(),
         };
 
         let _project_scope_id = context.add_scope(Scope {
@@ -178,6 +184,22 @@ impl CompileContext {
         self.declarations
             .get_index_mut(declaration_id.0 as usize)
             .map(|(_, declaration)| declaration)
+    }
+
+    pub fn add_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
+        self.declaration_bindings.insert(syntax_id, declaration_id);
+    }
+
+    pub fn get_declaration_binding(&self, syntax_id: &SyntaxId) -> Option<&DeclarationId> {
+        self.declaration_bindings.get(syntax_id)
+    }
+
+    pub fn add_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {
+        self.type_bindings.insert(syntax_id, type_id);
+    }
+
+    pub fn get_type_binding(&self, syntax_id: &SyntaxId) -> Option<&TypeId> {
+        self.type_bindings.get(syntax_id)
     }
 
     pub fn add_parameters(&mut self, parameter_ids: &[DeclarationId]) -> (u32, u32) {

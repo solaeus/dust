@@ -1,5 +1,5 @@
 use crate::{
-    compiler::compile_main,
+    compiler::compile_main_prototype,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::local_cases,
@@ -9,7 +9,7 @@ use crate::{
 #[test]
 fn local_mut_byte_multiplication() {
     let source = local_cases::LOCAL_MUT_BYTE_MULTIPLICATION.to_string();
-    let prototype = compile_main(source).unwrap();
+    let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -34,7 +34,7 @@ fn local_mut_byte_multiplication() {
 #[test]
 fn local_mut_float_multiplication() {
     let source = local_cases::LOCAL_MUT_FLOAT_MULTIPLICATION.to_string();
-    let prototype = compile_main(source).unwrap();
+    let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -59,7 +59,7 @@ fn local_mut_float_multiplication() {
 #[test]
 fn local_mut_integer_multiplication() {
     let source = local_cases::LOCAL_MUT_INTEGER_MULTIPLICATION.to_string();
-    let prototype = compile_main(source).unwrap();
+    let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -84,7 +84,7 @@ fn local_mut_integer_multiplication() {
 #[test]
 fn local_byte_multiplication() {
     let source = local_cases::LOCAL_BYTE_MULTIPLICATION.to_string();
-    let prototype = compile_main(source).unwrap();
+    let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -110,7 +110,7 @@ fn local_byte_multiplication() {
 #[test]
 fn local_float_multiplication() {
     let source = local_cases::LOCAL_FLOAT_MULTIPLICATION.to_string();
-    let prototype = compile_main(source).unwrap();
+    let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -136,7 +136,7 @@ fn local_float_multiplication() {
 #[test]
 fn local_integer_multiplication() {
     let source = local_cases::LOCAL_INTEGER_MULTIPLICATION.to_string();
-    let prototype = compile_main(source).unwrap();
+    let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
         prototype,

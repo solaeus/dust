@@ -2,6 +2,7 @@ mod binder;
 mod context;
 mod emitter;
 mod error;
+mod resolver;
 mod type_graph;
 
 #[cfg(test)]
@@ -18,7 +19,7 @@ use smallvec::SmallVec;
 use tracing::{Level, span};
 
 use crate::{
-    compiler::binder::Binder,
+    compiler::{binder::Binder, resolver::Resolver},
     dust_crate::Program,
     dust_error::DustError,
     lexer::Lexer,
@@ -30,7 +31,7 @@ use crate::{
 
 pub const DEFAULT_PROGRAM_NAME: &str = "Dust Program";
 
-pub fn compile_main(source_code: String) -> Result<Prototype, DustError> {
+pub fn compile_main_prototype(source_code: String) -> Result<Prototype, DustError> {
     let mut source = Source::new();
     source.add_file(SourceFile {
         name: "main".to_string(),
@@ -43,8 +44,9 @@ pub fn compile_main(source_code: String) -> Result<Prototype, DustError> {
     Ok(program.prototypes.remove(0))
 }
 
-pub fn compile(source_code: String) -> Result<Vec<Prototype>, DustError> {
+pub fn compile_prototypes(source_code: String) -> Result<Vec<Prototype>, DustError> {
     let mut source = Source::new();
+
     source.add_file(SourceFile {
         name: "main".to_string(),
         source_code: SourceCode::String(source_code),
@@ -76,26 +78,31 @@ impl Compiler {
     }
 
     pub fn compile(self, name: Option<String>) -> Result<Program, DustError> {
-        let (context, _, _) = self.compile_inner()?;
-
-        Ok(Program {
-            name: name.unwrap_or_else(|| DEFAULT_PROGRAM_NAME.to_string()),
-            constants: context.constants,
-            prototypes: context.prototypes,
-        })
+        self.compile_with_extras(name)
+            .map(|(program, _, _)| program)
     }
 
-    pub fn compile_with_context(
+    pub fn compile_with_extras(
         self,
         name: Option<String>,
     ) -> Result<(Program, Source, Syntax), DustError> {
-        let (context, source, syntax) = self.compile_inner()?;
+        let (
+            CompileContext {
+                mut constants,
+                prototypes,
+                ..
+            },
+            source,
+            syntax,
+        ) = self.compile_inner()?;
+        let name_index =
+            constants.add_string(name.as_deref().unwrap_or(DEFAULT_PROGRAM_NAME).as_bytes());
 
         Ok((
             Program {
-                name: name.unwrap_or_else(|| DEFAULT_PROGRAM_NAME.to_string()),
-                constants: context.constants,
-                prototypes: context.prototypes,
+                name_index,
+                constants,
+                prototypes,
             },
             source,
             syntax,
@@ -106,118 +113,92 @@ impl Compiler {
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
 
-        let source = self.source.clone();
-        let files = source.read_files();
-        let mut errors = Vec::new();
+        // Parsing phase
+        {
+            let mut parse_errors = Vec::new();
 
-        let main_file = files.first().unwrap();
-        let lexer = Lexer::new(main_file.source_code.as_ref());
-        let parser = Parser::new(SourceFileId(0), lexer);
-        let ParseResult {
-            syntax_tree,
-            errors: main_errors,
-        } = parser.parse_main();
+            for (index, file) in self.source.files().iter().enumerate() {
+                let file_id = SourceFileId(index as u32);
+                let lexer = Lexer::new(file.source_code.as_ref());
+                let parser = Parser::new(file_id, lexer);
+                let ParseResult {
+                    syntax_tree,
+                    errors,
+                } = if file_id == SourceFileId::MAIN {
+                    parser.parse_main()
+                } else {
+                    parser.parse_file_module()
+                };
 
-        self.syntax.add_tree(syntax_tree);
-        errors.extend(main_errors);
-
-        for (index, file) in files.iter().enumerate().skip(1) {
-            let file_scope = Scope {
-                kind: ScopeKind::Module,
-                parent: ScopeId::PROJECT,
-                imports: SmallVec::new(),
-                modules: SmallVec::new(),
-            };
-            let file_scope_id = self.context.add_scope(file_scope);
-            let file_module_name = file.name.trim_end_matches(".ds");
-            let module_id = self.context.add_declaration(
-                file_module_name,
-                Declaration {
-                    kind: DeclarationKind::Module {
-                        kind: ModuleKind::File,
-                        inner_scope_id: file_scope_id,
-                    },
-                    scope_id: ScopeId::PROJECT,
-                    type_id: TypeId::NONE,
-                    position: Position::new(SourceFileId(index as u32), Span::default()),
-                    is_public: true,
-                },
-            );
-
-            let file_id = SourceFileId(index as u32);
-            let lexer = Lexer::new(file.source_code.as_ref());
-            let parser = Parser::new(file_id, lexer);
-            let ParseResult {
-                syntax_tree,
-                errors: file_errors,
-            } = parser.parse_file_module();
-
-            errors.extend(file_errors);
-
-            if !errors.is_empty() {
-                continue;
+                self.syntax.add_tree(syntax_tree);
+                parse_errors.extend(errors);
             }
 
-            let binder = Binder::new(
-                file_module_name,
-                file_id,
-                self.source.clone(),
+            if !parse_errors.is_empty() {
+                return Err(DustError::parse(parse_errors, self.source));
+            }
+        }
+
+        // Binding phase
+        {
+            let main_binder = Binder::new(
+                SourceFileId::MAIN,
+                &self.source,
+                &self.syntax,
                 &mut self.context,
-                &syntax_tree,
-                file_scope_id,
+                ScopeId::PROJECT,
             );
 
-            binder
-                .bind()
-                .map_err(|compile_error| DustError::compile(compile_error, self.source.clone()))?;
-            self.syntax.add_tree(syntax_tree);
-            self.context
-                .get_scope_mut(ScopeId::PROJECT)
-                .unwrap()
-                .modules
-                .push(module_id);
+            {
+                match main_binder.bind_main() {
+                    Ok(()) => (),
+                    Err(error) => return Err(DustError::compile(error, self.source)),
+                }
+            }
         }
 
-        let main_syntax = self.syntax.get_tree(SourceFileId::MAIN).unwrap();
-        let main_binder = Binder::new(
-            "main",
-            SourceFileId(0),
-            self.source.clone(),
-            &mut self.context,
-            main_syntax,
-            ScopeId::PROJECT,
-        );
+        // Resolution phase
+        {
+            let main_resolver = Resolver::new(
+                SourceFileId::MAIN,
+                &self.source,
+                &mut self.context,
+                &self.syntax,
+                ScopeId::PROJECT,
+            );
 
-        main_binder
-            .bind()
-            .map_err(|compile_error| DustError::compile(compile_error, self.source.clone()))?;
-
-        if !errors.is_empty() {
-            return Err(DustError::parse(errors, self.source));
+            match main_resolver.resolve_main() {
+                Ok(_) => (),
+                Err(error) => return Err(DustError::compile(error, self.source)),
+            }
         }
 
-        self.context.prototypes.push(Prototype::default()); // Placeholder for main prototype
+        // Emission phase
+        {
+            self.context.prototypes.push(Prototype::default()); // Placeholder for main prototype
 
-        let inferred_type = self.context.types.create_inferred_type();
-        let main_function_type_id = self.context.types.add_type(TypeNode::Function {
-            type_parameters: (0, 0),
-            value_parameters: (0, 0),
-            return_type_id: inferred_type,
-        });
-        let main_emitter = Emitter::new(
-            None,
-            0,
-            SourceFileId::MAIN,
-            main_function_type_id,
-            self.source.clone(),
-            &self.syntax,
-            &mut self.context,
-            ScopeId::PROJECT,
-        );
+            let inferred_type = self.context.types.create_inferred_type();
+            let main_function_type_id = self.context.types.add_type(TypeNode::Function {
+                type_parameters: (0, 0),
+                value_parameters: (0, 0),
+                return_type_id: inferred_type,
+            });
+            let main_emitter = Emitter::new(
+                None,
+                0,
+                SourceFileId::MAIN,
+                main_function_type_id,
+                &self.source,
+                &self.syntax,
+                &mut self.context,
+                ScopeId::PROJECT,
+            );
 
-        self.context.prototypes[0] = main_emitter
-            .emit_main()
-            .map_err(|error| DustError::compile(error, self.source.clone()))?;
+            self.context.prototypes[0] = match main_emitter.emit_main() {
+                Ok(prototype) => prototype,
+                Err(error) => return Err(DustError::compile(error, self.source)),
+            };
+        }
 
         Ok((self.context, self.source, self.syntax))
     }

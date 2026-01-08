@@ -1,5 +1,5 @@
 use crate::{
-    compiler::compile,
+    compiler::compile_prototypes,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     source::{Position, SourceFileId, Span},
@@ -10,7 +10,7 @@ use crate::{
 #[test]
 fn empty_block() {
     let source = create_function_case(block_cases::EMPTY_BLOCK);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -31,7 +31,7 @@ fn empty_block() {
 #[test]
 fn block_expression() {
     let source = create_function_case(block_cases::BLOCK_EXPRESSION);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -55,7 +55,7 @@ fn block_expression() {
 #[test]
 fn block_statement() {
     let source = create_function_case(block_cases::BLOCK_STATEMENT);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -80,7 +80,7 @@ fn block_statement() {
 #[test]
 fn block_statement_and_expression() {
     let source = create_function_case(block_cases::BLOCK_STATEMENT_AND_EXPRESSION);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -111,7 +111,7 @@ fn block_statement_and_expression() {
 #[test]
 fn parent_scope_access() {
     let source = create_function_case(block_cases::PARENT_SCOPE_ACCESS);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -136,7 +136,7 @@ fn parent_scope_access() {
 #[test]
 fn nested_parrent_scope_access() {
     let source = create_function_case(block_cases::NESTED_PARRENT_SCOPE_ACCESS);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -168,7 +168,7 @@ fn nested_parrent_scope_access() {
 #[test]
 fn scope_shadowing() {
     let source = create_function_case(block_cases::SCOPE_SHADOWING);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -194,7 +194,7 @@ fn scope_shadowing() {
 #[test]
 fn scope_deshadowing() {
     let source = create_function_case(block_cases::SCOPE_DESHADOWING);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(

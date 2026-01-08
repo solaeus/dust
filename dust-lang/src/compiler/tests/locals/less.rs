@@ -1,5 +1,5 @@
 use crate::{
-    compiler::compile_main,
+    compiler::compile_main_prototype,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::local_cases,
@@ -9,7 +9,7 @@ use crate::{
 #[test]
 fn local_boolean_less_than() {
     let source = local_cases::LOCAL_BOOLEAN_LESS_THAN.to_string();
-    let prototype = compile_main(source).unwrap();
+    let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -43,7 +43,7 @@ fn local_boolean_less_than() {
 #[test]
 fn local_byte_less_than() {
     let source = local_cases::LOCAL_BYTE_LESS_THAN.to_string();
-    let prototype = compile_main(source).unwrap();
+    let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -77,7 +77,7 @@ fn local_byte_less_than() {
 #[test]
 fn local_character_less_than() {
     let source = local_cases::LOCAL_CHARACTER_LESS_THAN.to_string();
-    let prototype = compile_main(source).unwrap();
+    let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -111,7 +111,7 @@ fn local_character_less_than() {
 #[test]
 fn local_float_less_than() {
     let source = local_cases::LOCAL_FLOAT_LESS_THAN.to_string();
-    let prototype = compile_main(source).unwrap();
+    let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -145,7 +145,7 @@ fn local_float_less_than() {
 #[test]
 fn local_integer_less_than() {
     let source = local_cases::LOCAL_INTEGER_LESS_THAN.to_string();
-    let prototype = compile_main(source).unwrap();
+    let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -179,7 +179,7 @@ fn local_integer_less_than() {
 #[test]
 fn local_string_less_than() {
     let source = local_cases::LOCAL_STRING_LESS_THAN.to_string();
-    let prototype = compile_main(source).unwrap();
+    let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
         prototype,

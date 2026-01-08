@@ -1,5 +1,5 @@
 use crate::{
-    compiler::compile,
+    compiler::compile_prototypes,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     source::{Position, SourceFileId, Span},
@@ -10,7 +10,7 @@ use crate::{
 #[test]
 fn while_loop() {
     let source = create_function_case(loop_cases::WHILE_LOOP);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(

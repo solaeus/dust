@@ -1,5 +1,5 @@
 use crate::{
-    compiler::compile,
+    compiler::compile_prototypes,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     source::{Position, SourceFileId, Span},
@@ -10,7 +10,7 @@ use crate::{
 #[test]
 fn local_boolean() {
     let source = create_function_case(local_cases::LOCAL_BOOLEAN);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -35,7 +35,7 @@ fn local_boolean() {
 #[test]
 fn local_byte() {
     let source = create_function_case(local_cases::LOCAL_BYTE);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -60,7 +60,7 @@ fn local_byte() {
 #[test]
 fn local_character() {
     let source = create_function_case(local_cases::LOCAL_CHARACTER);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -85,7 +85,7 @@ fn local_character() {
 #[test]
 fn local_float() {
     let source = create_function_case(local_cases::LOCAL_FLOAT);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -110,7 +110,7 @@ fn local_float() {
 #[test]
 fn local_integer() {
     let source = create_function_case(local_cases::LOCAL_INTEGER);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -135,7 +135,7 @@ fn local_integer() {
 #[test]
 fn local_string() {
     let source = create_function_case(local_cases::LOCAL_STRING);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(

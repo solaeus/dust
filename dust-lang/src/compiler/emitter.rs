@@ -28,7 +28,7 @@ pub struct Emitter<'a> {
 
     function_type_id: TypeId,
 
-    source: Source,
+    source: &'a Source,
 
     syntax: &'a Syntax,
 
@@ -46,7 +46,7 @@ pub struct Emitter<'a> {
     /// Concatenated list of register indices that are referenced by DROP and JUMP instructions.
     drop_lists: Vec<u16>,
 
-    /// List of register indices that need to be dropped at the end of the current scope.
+    /// Stack of register index lists that need to be dropped when exiting scopes.
     pending_drops: Vec<SmallVec<[u16; 8]>>,
 
     jump_placements: HashMap<u16, JumpPlacement>,
@@ -70,7 +70,7 @@ impl<'a> Emitter<'a> {
         prototype_index: u16,
         file_id: SourceFileId,
         function_type_id: TypeId,
-        source: Source,
+        source: &'a Source,
         syntax: &'a Syntax,
         context: &'a mut CompileContext,
         starting_scope_id: ScopeId,
@@ -175,7 +175,7 @@ impl<'a> Emitter<'a> {
                         self.visit(child)?
                     };
 
-                    Self::handle_top_emission(&mut self, child_emission)?;
+                    self.handle_top_emission(child_emission, child)?;
                 }
             }
             _ => return Err(CompileError::InvalidSyntaxNode { kind: node.kind() }),
@@ -364,6 +364,10 @@ impl<'a> Emitter<'a> {
         self.current_scope_id = parent_scope_id;
         self.next_local_register = next_local_register;
         self.next_temporary_register = next_local_register;
+    }
+
+    fn add_drop(&mut self, register: u16) {
+        self.pending_drops.last_mut().unwrap().push(register);
     }
 
     fn get_operand_type(&mut self, type_id: TypeId) -> Result<OperandType, CompileError> {
@@ -654,46 +658,64 @@ impl<'a> Emitter<'a> {
         Ok(combined)
     }
 
-    fn handle_top_emission(compiler: &mut Emitter, emission: Emission) -> Result<(), CompileError> {
+    fn handle_top_emission(
+        &mut self,
+        emission: Emission,
+        node: SyntaxReader,
+    ) -> Result<(), CompileError> {
+        let declaration_id = self
+            .context
+            .get_declaration_binding(&node.id)
+            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+        let declaration = *self.context.get_declaration(*declaration_id).ok_or(
+            CompileError::MissingDeclaration {
+                declaration_id: *declaration_id,
+            },
+        )?;
+
         match emission {
-            Emission::Constant(constant, type_id) => {
-                let destination = compiler.allocate_temporary_register();
-                let address = compiler.get_constant_address(constant);
-                let operand_type = compiler
+            Emission::Constant(constant) => {
+                let destination = self.allocate_temporary_register();
+                let address = self.get_constant_address(constant);
+                let operand_type = self
                     .context
                     .types
-                    .get_operand_type(type_id)
-                    .ok_or(CompileError::MissingType { type_id })?;
+                    .get_operand_type(declaration.type_id)
+                    .ok_or(CompileError::MissingType {
+                        type_id: declaration.type_id,
+                    })?;
                 let move_instruction = Instruction::r#move(destination, address, operand_type);
 
-                compiler.emit_instruction(move_instruction);
+                self.emit_instruction(move_instruction);
             }
-            Emission::Function(function_address, type_id) => {
-                let destination = compiler.allocate_temporary_register();
-                let operand_type = compiler
+            Emission::Function(function_address) => {
+                let destination = self.allocate_temporary_register();
+                let operand_type = self
                     .context
                     .types
-                    .get_operand_type(type_id)
-                    .ok_or(CompileError::MissingType { type_id })?;
+                    .get_operand_type(declaration.type_id)
+                    .ok_or(CompileError::MissingType {
+                        type_id: declaration.type_id,
+                    })?;
                 let move_instruction =
                     Instruction::r#move(destination, function_address, operand_type);
 
-                compiler.emit_instruction(move_instruction);
+                self.emit_instruction(move_instruction);
             }
             Emission::Local(Local { address, type_id }) => {
-                let destination = compiler.allocate_temporary_register();
-                let operand_type = compiler
+                let destination = self.allocate_temporary_register();
+                let operand_type = self
                     .context
                     .types
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
                 let move_instruction = Instruction::r#move(destination, address, operand_type);
 
-                compiler.emit_instruction(move_instruction);
+                self.emit_instruction(move_instruction);
             }
             Emission::Instructions(InstructionsEmission { instructions, .. }) => {
                 for (instruction, mut jump_anchors) in instructions {
-                    compiler.emit_instruction(instruction);
+                    self.emit_instruction(instruction);
 
                     jump_anchors.sort();
 
@@ -703,15 +725,15 @@ impl<'a> Emitter<'a> {
                                 let coalesce = if instruction.is_coallescible_with_jump(true) {
                                     true
                                 } else {
-                                    compiler.emit_instruction(Instruction::no_op());
+                                    self.emit_instruction(Instruction::no_op());
 
                                     false
                                 };
 
-                                compiler.jump_placements.insert(
+                                self.jump_placements.insert(
                                     id,
                                     JumpPlacement {
-                                        index: compiler.instructions.len() - 1,
+                                        index: self.instructions.len() - 1,
                                         distance: 0,
                                         forward: true,
                                         coalesce,
@@ -719,8 +741,8 @@ impl<'a> Emitter<'a> {
                                 );
                             }
                             JumpAnchor::ForwardToNext { id } => {
-                                let placement = compiler.jump_placements.get_mut(&id).unwrap();
-                                let next_index = compiler.instructions.len();
+                                let placement = self.jump_placements.get_mut(&id).unwrap();
+                                let next_index = self.instructions.len();
 
                                 placement.distance = (next_index - placement.index - 1) as u16;
                             }
@@ -728,15 +750,15 @@ impl<'a> Emitter<'a> {
                                 let coalesce = if instruction.is_coallescible_with_jump(false) {
                                     true
                                 } else {
-                                    compiler.emit_instruction(Instruction::no_op());
+                                    self.emit_instruction(Instruction::no_op());
 
                                     false
                                 };
 
-                                compiler.jump_placements.insert(
+                                self.jump_placements.insert(
                                     forward_id,
                                     JumpPlacement {
-                                        index: compiler.instructions.len() - 1,
+                                        index: self.instructions.len() - 1,
                                         distance: 0,
                                         forward: true,
                                         coalesce,
@@ -747,13 +769,13 @@ impl<'a> Emitter<'a> {
                                 forward_id,
                                 backward_id,
                             } => {
-                                let next_index = compiler.instructions.len();
+                                let next_index = self.instructions.len();
                                 let forward_index =
-                                    compiler.jump_placements.get(&forward_id).unwrap().index;
+                                    self.jump_placements.get(&forward_id).unwrap().index;
                                 let coalesce = if instruction.is_coallescible_with_jump(false) {
                                     true
                                 } else {
-                                    compiler.emit_instruction(Instruction::no_op());
+                                    self.emit_instruction(Instruction::no_op());
 
                                     false
                                 };
@@ -764,24 +786,19 @@ impl<'a> Emitter<'a> {
                                     (next_index - forward_index) as u16
                                 };
 
-                                compiler
-                                    .jump_placements
-                                    .get_mut(&forward_id)
-                                    .unwrap()
-                                    .distance = forward_distance;
+                                self.jump_placements.get_mut(&forward_id).unwrap().distance =
+                                    forward_distance;
 
                                 let backward_distance =
-                                    (compiler.instructions.len() - forward_index - 1) as u16;
+                                    (self.instructions.len() - forward_index - 1) as u16;
                                 let backward_placement = JumpPlacement {
-                                    index: compiler.instructions.len() - 1,
+                                    index: self.instructions.len() - 1,
                                     distance: backward_distance,
                                     forward: false,
                                     coalesce,
                                 };
 
-                                compiler
-                                    .jump_placements
-                                    .insert(backward_id, backward_placement);
+                                self.jump_placements.insert(backward_id, backward_placement);
                             }
                         }
                     }
@@ -797,33 +814,32 @@ impl<'a> Emitter<'a> {
         &mut self,
         instructions: &mut InstructionsEmission,
         emission: Emission,
-        node: &SyntaxNode,
-    ) -> Result<(Address, TypeId), CompileError> {
+        node: &SyntaxReader,
+    ) -> Result<Address, CompileError> {
         match emission {
-            Emission::Constant(constant, type_id) => {
+            Emission::Constant(constant) => {
                 let address = self.get_constant_address(constant);
 
-                Ok((address, type_id))
+                Ok(address)
             }
-            Emission::Function(address, type_id) => Ok((address, type_id)),
-            Emission::Local(Local { address, type_id }) => Ok((address, type_id)),
+            Emission::Function(address) => Ok(address),
+            Emission::Local(Local { address, .. }) => Ok(address),
             Emission::Instructions(operand_instructions) => {
                 let destination = operand_instructions
                     .target_register
                     .ok_or(CompileError::ExpectedExpression {
-                        node_kind: node.kind,
-                        position: Position::new(self.file_id, node.span),
+                        node_kind: node.kind(),
+                        position: Position::new(self.file_id, node.span()),
                     })?
                     .register;
-                let type_id = operand_instructions.type_id;
 
                 instructions.merge(operand_instructions);
 
-                Ok((Address::register(destination), type_id))
+                Ok(Address::register(destination))
             }
             Emission::None => Err(CompileError::ExpectedExpression {
-                node_kind: node.kind,
-                position: Position::new(self.file_id, node.span),
+                node_kind: node.kind(),
+                position: Position::new(self.file_id, node.span()),
             }),
         }
     }
@@ -834,31 +850,20 @@ impl<'a> Emitter<'a> {
         emission: Emission,
         node: &SyntaxNode,
     ) -> Result<(), CompileError> {
-        let type_id = match emission {
-            Emission::Constant(constant, type_id) => {
+        match emission {
+            Emission::Constant(constant) => {
                 let address = self.get_constant_address(constant);
                 let test_instruction = Instruction::test(address, true, 1);
 
                 instructions.push(test_instruction);
-
-                type_id
             }
-            Emission::Function(_, _) => {
-                return Err(CompileError::ExpectedBooleanExpression {
-                    node_kind: node.kind,
-                    position: Position::new(self.file_id, node.span),
-                });
-            }
-            Emission::Local(Local { type_id, address }) => {
+            Emission::Local(Local { address, .. }) => {
                 let test_instruction = Instruction::test(address, true, 1);
 
                 instructions.push(test_instruction);
-
-                type_id
             }
             Emission::Instructions(mut condition_instructions) => {
                 let length = condition_instructions.length();
-                let type_id = condition_instructions.type_id;
 
                 if condition_instructions.length() >= 3 {
                     let possible_condition_instruction =
@@ -894,20 +899,16 @@ impl<'a> Emitter<'a> {
                 }
 
                 instructions.merge(condition_instructions);
-
-                type_id
             }
-            Emission::None => TypeId::NONE,
-        };
-
-        if type_id == TypeId::BOOLEAN {
-            Ok(())
-        } else {
-            Err(CompileError::ExpectedBooleanExpression {
-                node_kind: node.kind,
-                position: Position::new(self.file_id, node.span),
-            })
+            _ => {
+                return Err(CompileError::ExpectedBooleanExpression {
+                    node_kind: node.kind,
+                    position: Position::new(self.file_id, node.span),
+                });
+            }
         }
+
+        Ok(())
     }
 
     fn handle_branch_emission(
@@ -915,26 +916,21 @@ impl<'a> Emitter<'a> {
         instructions_emission: &mut InstructionsEmission,
         emission: Emission,
         destination_register: u16,
-    ) -> Result<TypeId, CompileError> {
+    ) -> Result<(), CompileError> {
         match emission {
-            Emission::Constant(constant, type_id) => {
+            Emission::Constant(constant) => {
                 let address = self.get_constant_address(constant);
-                let operand_type = self.get_operand_type(type_id)?;
+                let operand_type = constant.operand_type();
                 let move_instruction =
                     Instruction::r#move(destination_register, address, operand_type);
 
                 instructions_emission.push(move_instruction);
-
-                Ok(type_id)
             }
-            Emission::Function(address, type_id) => {
-                let operand_type = self.get_operand_type(type_id)?;
+            Emission::Function(address) => {
                 let move_instruction =
-                    Instruction::r#move(destination_register, address, operand_type);
+                    Instruction::r#move(destination_register, address, OperandType::FUNCTION);
 
                 instructions_emission.push(move_instruction);
-
-                Ok(type_id)
             }
             Emission::Local(Local { address, type_id }) => {
                 let operand_type = self.get_operand_type(type_id)?;
@@ -942,18 +938,14 @@ impl<'a> Emitter<'a> {
                     Instruction::r#move(destination_register, address, operand_type);
 
                 instructions_emission.push(move_instruction);
-
-                Ok(type_id)
             }
             Emission::Instructions(branch_instructions) => {
-                let type_id = branch_instructions.type_id;
-
                 instructions_emission.merge(branch_instructions);
-
-                Ok(type_id)
             }
-            Emission::None => Ok(TypeId::NONE),
+            Emission::None => {}
         }
+
+        Ok(())
     }
 
     fn handle_return_emission(
@@ -962,25 +954,26 @@ impl<'a> Emitter<'a> {
         emission: Emission,
         node: SyntaxReader,
     ) -> Result<(), CompileError> {
-        let (address, type_id) = match emission {
-            Emission::Constant(constant, type_id) => {
-                let address = self.get_constant_address(constant);
-
-                (address, type_id)
-            }
-            Emission::Function(address, type_id) => (address, type_id),
-            Emission::Local(Local { address, type_id }) => (address, type_id),
+        let type_id = *self
+            .context
+            .get_type_binding(&node.id)
+            .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
+        let operand_type = self
+            .context
+            .types
+            .get_operand_type(type_id)
+            .ok_or(CompileError::MissingType { type_id })?;
+        let address = match emission {
+            Emission::Constant(constant) => self.get_constant_address(constant),
+            Emission::Function(address) => address,
+            Emission::Local(Local { address, .. }) => address,
             Emission::Instructions(instructions) => {
                 if let Some(target) = instructions.target_register {
-                    let type_id = instructions.type_id;
-
                     return_instructions.merge(instructions);
 
-                    (Address::register(target.register), type_id)
-                } else if instructions.type_id == TypeId::NONE {
-                    return_instructions.merge(instructions);
-
-                    (Address::default(), TypeId::NONE)
+                    Address::register(target.register)
+                } else if type_id == TypeId::NONE {
+                    Address::default()
                 } else {
                     return Err(CompileError::ExpectedExpression {
                         node_kind: node.kind(),
@@ -988,13 +981,8 @@ impl<'a> Emitter<'a> {
                     });
                 }
             }
-            Emission::None => (Address::default(), TypeId::NONE),
+            Emission::None => Address::default(),
         };
-        let operand_type = self
-            .context
-            .types
-            .get_operand_type(type_id)
-            .ok_or(CompileError::MissingType { type_id })?;
         let return_instruction = Instruction::r#return(address, operand_type);
 
         let function_type_node = *self
@@ -1054,8 +1042,17 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         todo!()
     }
 
-    fn visit_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        todo!()
+    fn visit_expression(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+        match node.kind() {
+            SyntaxKind::IntegerExpression => self.visit_integer_expression(node),
+            SyntaxKind::PathExpression => self.visit_path_expression(node),
+            SyntaxKind::BlockExpression => self.visit_block_expression(node),
+            SyntaxKind::IfExpression => self.visit_if_expression(node),
+            _ => Err(CompileError::ExpectedExpression {
+                node_kind: node.kind(),
+                position: Position::new(self.file_id, node.span()),
+            }),
+        }
     }
 
     fn visit_main_function_item(
@@ -1080,7 +1077,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             if index == last_child {
                 final_emission = self.handle_implicit_return(child)?;
             } else {
-                Self::handle_top_emission(self, child_emission)?;
+                self.handle_top_emission(child_emission, child)?;
             }
         }
 
@@ -1119,14 +1116,25 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, Self::Error> {
         info!("Emitting integer expression");
 
-        Ok(Emission::Constant(
-            Constant::Integer(node.decode_integer()),
-            TypeId::INTEGER,
-        ))
+        Ok(Emission::Constant(Constant::Integer(node.decode_integer())))
     }
 
-    fn visit_path_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        todo!()
+    fn visit_path_expression(
+        &mut self,
+        node: SyntaxReader<'_>,
+    ) -> Result<Self::Output, Self::Error> {
+        let declaration_id = self
+            .context
+            .get_declaration_binding(&node.id)
+            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+        let local = *self
+            .locals
+            .get(declaration_id)
+            .ok_or(CompileError::MissingLocal {
+                declaration_id: *declaration_id,
+            })?;
+
+        Ok(Emission::Local(local))
     }
 
     fn visit_block_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
@@ -1137,8 +1145,93 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         todo!()
     }
 
-    fn visit_let_statement(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        todo!()
+    fn visit_let_statement(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+        let mut children = node
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.node.kind,
+                start_index: node.node.children.0,
+                count: node.node.children.1,
+            })?;
+        let path = children.next().ok_or(CompileError::MissingChild {
+            parent_kind: node.node.kind,
+            child_index: 0,
+        })?;
+        let expression_statement = children.next().ok_or(CompileError::MissingChild {
+            parent_kind: node.node.kind,
+            child_index: 1,
+        })?;
+        let type_notation = children.next();
+        let expression = expression_statement
+            .left_child()
+            .ok_or(CompileError::MissingChild {
+                parent_kind: expression_statement.node.kind,
+                child_index: 0,
+            })?;
+
+        let mut let_statement_emission = InstructionsEmission::new();
+        let expression_emission = self.visit_expression(expression)?;
+
+        let local_register = self.allocate_local_register();
+        let local_target = TargetRegister {
+            register: local_register,
+            is_temporary: false,
+        };
+
+        match expression_emission {
+            Emission::Constant(constant) => {
+                let address = self.get_constant_address(constant);
+                let operand_type = constant.operand_type();
+                let move_instruction = Instruction::r#move(local_register, address, operand_type);
+
+                let_statement_emission.push(move_instruction);
+            }
+            Emission::Function(address) => {
+                let move_instruction =
+                    Instruction::r#move(local_register, address, OperandType::FUNCTION);
+
+                let_statement_emission.push(move_instruction);
+            }
+            Emission::Local(Local { address, type_id }) => {
+                let operand_type = self.get_operand_type(type_id)?;
+                let move_instruction = Instruction::r#move(local_register, address, operand_type);
+
+                let_statement_emission.push(move_instruction);
+            }
+            Emission::Instructions(expression_instructions) => {
+                let_statement_emission.merge(expression_instructions);
+            }
+            Emission::None => {
+                return Err(CompileError::ExpectedExpression {
+                    node_kind: expression.kind(),
+                    position: Position::new(self.file_id, expression.span()),
+                });
+            }
+        };
+
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&node.id)
+            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+        let declaration = *self
+            .context
+            .get_declaration(declaration_id)
+            .ok_or(CompileError::MissingDeclaration { declaration_id })?;
+
+        if declaration.type_id == TypeId::STRING {
+            self.add_drop(local_register);
+        }
+
+        self.locals.insert(
+            declaration_id,
+            Local {
+                address: Address::register(local_register),
+                type_id: declaration.type_id,
+            },
+        );
+        let_statement_emission.set_target(Some(local_target));
+
+        Ok(Emission::Instructions(let_statement_emission))
     }
 
     fn visit_math_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
@@ -1163,24 +1256,14 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
 #[derive(Clone, Debug)]
 pub enum Emission {
-    Constant(Constant, TypeId),
-    Function(Address, TypeId),
+    Constant(Constant),
+    Function(Address),
     Local(Local),
     Instructions(InstructionsEmission),
     None,
 }
 
 impl Emission {
-    fn set_type(&mut self, type_id: TypeId) {
-        match self {
-            Emission::Constant(_, existing_type) => *existing_type = type_id,
-            Emission::Function(_, existing_type) => *existing_type = type_id,
-            Emission::Local(local) => local.type_id = type_id,
-            Emission::Instructions(emission) => emission.set_type(type_id),
-            Emission::None => {}
-        }
-    }
-
     fn target_register(&self) -> Option<TargetRegister> {
         match self {
             Emission::Local(Local { address, .. }) => Some(TargetRegister {
@@ -1196,7 +1279,6 @@ impl Emission {
 #[derive(Clone, Debug)]
 pub struct InstructionsEmission {
     instructions: Vec<(Instruction, Vec<JumpAnchor>)>,
-    type_id: TypeId,
     target_register: Option<TargetRegister>,
 }
 
@@ -1204,7 +1286,6 @@ impl InstructionsEmission {
     fn new() -> Self {
         Self {
             instructions: Vec::new(),
-            type_id: TypeId::NONE,
             target_register: None,
         }
     }
@@ -1212,7 +1293,6 @@ impl InstructionsEmission {
     fn with_capacity(capacity: usize) -> Self {
         Self {
             instructions: Vec::with_capacity(capacity),
-            type_id: TypeId::NONE,
             target_register: None,
         }
     }
@@ -1220,7 +1300,6 @@ impl InstructionsEmission {
     fn with_instruction(instruction: Instruction) -> Self {
         Self {
             instructions: vec![(instruction, Vec::new())],
-            type_id: TypeId::NONE,
             target_register: None,
         }
     }
@@ -1235,10 +1314,6 @@ impl InstructionsEmission {
 
     fn push(&mut self, instruction: Instruction) {
         self.instructions.push((instruction, Vec::new()));
-    }
-
-    fn set_type(&mut self, type_id: TypeId) {
-        self.type_id = type_id;
     }
 
     fn set_target(&mut self, target: Option<TargetRegister>) {
@@ -1287,7 +1362,6 @@ impl InstructionsEmission {
 
     fn merge(&mut self, other: InstructionsEmission) {
         self.instructions.extend(other.instructions);
-        self.type_id = other.type_id;
         self.target_register = other.target_register;
     }
 }
@@ -1309,6 +1383,17 @@ pub enum Constant {
 }
 
 impl Constant {
+    fn operand_type(&self) -> OperandType {
+        match self {
+            Constant::Boolean(_) => OperandType::BOOLEAN,
+            Constant::Byte(_) => OperandType::BYTE,
+            Constant::Character(_) => OperandType::CHARACTER,
+            Constant::Float(_) => OperandType::FLOAT,
+            Constant::Integer(_) => OperandType::INTEGER,
+            Constant::String { .. } => OperandType::STRING,
+        }
+    }
+
     fn full_type(&self) -> Type {
         match self {
             Constant::Boolean(_) => Type::Boolean,

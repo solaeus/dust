@@ -12,8 +12,8 @@ pub fn handle_compile_command(
     start_time: Instant,
 ) {
     let source = handle_source(eval, path, false);
-    let compiler = Compiler::new(source.clone());
-    let compile_result = compiler.compile_with_context(None);
+    let compiler = Compiler::new(source);
+    let compile_result = compiler.compile_with_extras(None);
     let compile_time = start_time.elapsed();
     let (program, source, syntax) = match compile_result {
         Ok((program, resolver, syntax_trees)) => (program, resolver, syntax_trees),

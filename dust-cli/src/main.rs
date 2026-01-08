@@ -243,8 +243,7 @@ pub fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
 }
 
 fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> Source {
-    let source = Source::new();
-    let mut files = source.write_files();
+    let mut source = Source::new();
 
     if let Some(code) = eval {
         let file = SourceFile {
@@ -252,7 +251,7 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
             source_code: SourceCode::String(code),
         };
 
-        files.push(file);
+        source.add_file(file);
     } else if let Some(path) = path {
         if path.is_dir() {
             let config_path = path.join(PROJECT_CONFIG_PATH);
@@ -290,7 +289,7 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
                 .to_string();
             let file = SourceFile { name, source_code };
 
-            files.push(file);
+            source.add_file(file);
 
             let lib_file_path = path.join("src").join("lib.ds");
 
@@ -307,7 +306,7 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
                     .to_string();
                 let file = SourceFile { name, source_code };
 
-                files.push(file);
+                source.add_file(file);
             }
         } else {
             let name = path.to_string_lossy().to_string();
@@ -316,7 +315,7 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
             let source_code = SourceCode::Mmap(mmap);
             let file = SourceFile { name, source_code };
 
-            files.push(file);
+            source.add_file(file);
         }
     } else if stdin {
         let mut buffer = Vec::new();
@@ -330,12 +329,10 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
             source_code: SourceCode::Bytes(buffer),
         };
 
-        files.push(file);
+        source.add_file(file);
     } else {
         panic!("No source code provided")
     };
-
-    drop(files);
 
     source
 }

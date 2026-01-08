@@ -36,31 +36,25 @@ pub struct Disassembler<'a> {
 
 impl<'a> Disassembler<'a> {
     pub fn new(program: &'a Program, source: &'a Source, syntax: &'a Syntax) -> Self {
-        let files = source.read_files();
-        let mut tabs = Vec::with_capacity(files.len() + program.prototypes.len());
+        let mut tabs = Vec::with_capacity(source.file_count() + program.prototypes.len());
 
-        for file in files.iter() {
+        for file in source.files() {
             tabs.push(file.name.clone());
         }
 
         for (index, prototype) in program.prototypes.iter().enumerate() {
             let prototype_name = if index == 0 {
-                "main".to_string()
+                "main"
             } else if let Some(name_position) = prototype.name_position {
-                files
-                    .get(name_position.file_id.0 as usize)
-                    .and_then(|file| {
-                        file.source_code
-                            .as_ref()
-                            .get(name_position.span.as_usize_range())
-                            .map(|bytes| unsafe { str::from_utf8_unchecked(bytes) })
-                    })
-                    .unwrap_or("anonymous")
-                    .to_string()
+                source
+                    .get_file(name_position.file_id)
+                    .unwrap()
+                    .source_code
+                    .get_span(name_position.span)
             } else {
-                "anonymous".to_string()
+                "anonymous"
             };
-            tabs.push(prototype_name);
+            tabs.push(prototype_name.to_string());
         }
 
         Self {
@@ -74,7 +68,7 @@ impl<'a> Disassembler<'a> {
 
             state: TuiState::Run,
             selection_state: SelectionState {
-                tab: files.len(),
+                tab: source.file_count(),
                 section: None,
                 row: 0,
             },
@@ -446,10 +440,9 @@ impl Widget for &mut Disassembler<'_> {
             .render(title_area, buffer);
 
         let main_prototype = &self.program.main_prototype();
-        let files = self.source.read_files();
         let main_prototype_name = main_prototype
             .name_position
-            .and_then(|pos| files.get(pos.file_id.0 as usize))
+            .and_then(|position| self.source.get_file(position.file_id))
             .map(|file| file.name.as_str())
             .unwrap_or("unknown");
 
@@ -472,8 +465,8 @@ impl Widget for &mut Disassembler<'_> {
             .select(self.selection_state.tab)
             .render(prototype_tabs_header_area, buffer);
 
-        if self.selection_state.tab < files.len() {
-            let source_file = files.get(self.selection_state.tab).unwrap();
+        if self.selection_state.tab < self.source.file_count() {
+            let source_file = self.source.files().get(self.selection_state.tab).unwrap();
 
             self.draw_source_tab(
                 &source_file.name,
@@ -485,7 +478,7 @@ impl Widget for &mut Disassembler<'_> {
                 buffer,
             );
         } else {
-            let prototype_index = self.selection_state.tab - files.len();
+            let prototype_index = self.selection_state.tab - self.source.file_count();
             let prototype = &self.program.prototypes[prototype_index];
 
             self.show_arguments = !prototype.call_arguments.is_empty();

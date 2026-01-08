@@ -24,18 +24,16 @@ use crate::{
 };
 
 pub fn parse_main(source_code: String) -> (SyntaxTree, Option<DustError>) {
-    let source = Source::new();
-    let mut files = source.write_files();
+    let mut source = Source::new();
     let file = SourceFile {
         name: "eval".to_string(),
         source_code: SourceCode::String(source_code),
     };
 
-    files.push(file);
+    source.add_file(file);
 
-    let file = files.first().unwrap();
-    let lexer = Lexer::new(file.source_code.as_ref());
-    let parser = Parser::new(SourceFileId(0), lexer);
+    let lexer = Lexer::new(source.files()[0].source_code.as_ref());
+    let parser = Parser::new(SourceFileId::MAIN, lexer);
     let ParseResult {
         syntax_tree,
         errors,
@@ -43,8 +41,6 @@ pub fn parse_main(source_code: String) -> (SyntaxTree, Option<DustError>) {
     let dust_error = if errors.is_empty() {
         None
     } else {
-        drop(files);
-
         Some(DustError::parse(errors, source))
     };
 

@@ -1,5 +1,5 @@
 use crate::{
-    compiler::compile,
+    compiler::compile_prototypes,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     source::{Position, SourceFileId, Span},
@@ -10,7 +10,7 @@ use crate::{
 #[test]
 fn local_byte_division() {
     let source = create_function_case(local_cases::LOCAL_BYTE_DIVISION);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -42,7 +42,7 @@ fn local_byte_division() {
 #[test]
 fn local_float_division() {
     let source = create_function_case(local_cases::LOCAL_FLOAT_DIVISION);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -74,7 +74,7 @@ fn local_float_division() {
 #[test]
 fn local_integer_division() {
     let source = create_function_case(local_cases::LOCAL_INTEGER_DIVISION);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -106,7 +106,7 @@ fn local_integer_division() {
 #[test]
 fn local_mut_byte_division() {
     let source = create_function_case(local_cases::LOCAL_MUT_BYTE_DIVISION);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -137,7 +137,7 @@ fn local_mut_byte_division() {
 #[test]
 fn local_mut_float_division() {
     let source = create_function_case(local_cases::LOCAL_MUT_FLOAT_DIVISION);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -168,7 +168,7 @@ fn local_mut_float_division() {
 #[test]
 fn local_mut_integer_division() {
     let source = create_function_case(local_cases::LOCAL_MUT_INTEGER_DIVISION);
-    let prototypes = compile(source).unwrap();
+    let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(

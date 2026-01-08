@@ -50,15 +50,14 @@ impl DustError {
     }
 
     pub fn report(&self) -> String {
-        let source_files = &self.source.read_files();
-
         match &self.error {
             DustErrorKind::Parse(parse_errors) => {
                 let mut report = Vec::new();
 
                 for parse_error in parse_errors {
-                    let source = source_files
-                        .get(parse_error.file_id().0 as usize)
+                    let source = self
+                        .source
+                        .get_file(parse_error.file_id())
                         .map_or(SOURCE_NOT_AVAILABLE, |file| unsafe {
                             str::from_utf8_unchecked(file.source_code.as_ref())
                         });
@@ -72,8 +71,9 @@ impl DustError {
                 renderer.render(&report)
             }
             DustErrorKind::Compile(compile_error) => {
-                let source = source_files
-                    .get(compile_error.file_id().0 as usize)
+                let source = self
+                    .source
+                    .get_file(compile_error.file_id())
                     .map_or(SOURCE_NOT_AVAILABLE, |file| unsafe {
                         str::from_utf8_unchecked(file.source_code.as_ref())
                     });
