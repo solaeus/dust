@@ -1,6 +1,6 @@
 use cranelift::prelude::{Type as CraneliftType, types::I8};
 
-use crate::{instruction::OperandType, jit_vm::Object};
+use crate::instruction::OperandType;
 
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -12,7 +12,7 @@ pub union Register {
     pub float: f64,
     pub integer: i64,
     pub prototype_index: usize,
-    pub object_pointer: *mut Object,
+    pub object_index: usize,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

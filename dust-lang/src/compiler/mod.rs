@@ -115,6 +115,9 @@ impl Compiler {
 
         // Parsing phase
         {
+            let span = span!(Level::INFO, "parse");
+            let _enter = span.enter();
+
             let mut parse_errors = Vec::new();
 
             for (index, file) in self.source.files().iter().enumerate() {
@@ -141,6 +144,9 @@ impl Compiler {
 
         // Binding phase
         {
+            let span = span!(Level::INFO, "bind");
+            let _enter = span.enter();
+
             let main_binder = Binder::new(
                 SourceFileId::MAIN,
                 &self.source,
@@ -159,6 +165,9 @@ impl Compiler {
 
         // Resolution phase
         {
+            let span = span!(Level::INFO, "resolve");
+            let _enter = span.enter();
+
             let main_resolver = Resolver::new(
                 SourceFileId::MAIN,
                 &self.source,
@@ -175,6 +184,9 @@ impl Compiler {
 
         // Emission phase
         {
+            let span = span!(Level::INFO, "emit");
+            let _enter = span.enter();
+
             self.context.prototypes.push(Prototype::default()); // Placeholder for main prototype
 
             let inferred_type = self.context.types.create_inferred_type();

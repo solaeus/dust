@@ -1,5 +1,3 @@
-use tracing::info;
-
 use crate::{
     compiler::{CompileContext, CompileError, ScopeId, TypeId},
     source::{Position, Source, SourceFileId},
@@ -54,30 +52,14 @@ impl<'a> Resolver<'a> {
 impl<'a> SyntaxVisitor for Resolver<'a> {
     type Output = TypeId;
 
-    type Error = CompileError;
-
-    fn visit_item(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        todo!()
-    }
-
-    fn visit_statement(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        todo!()
-    }
-
-    fn visit_expression(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        match node.kind() {
-            SyntaxKind::IntegerExpression => self.visit_integer_expression(node),
-            _ => Err(CompileError::ExpectedExpression {
-                node_kind: node.kind(),
-                position: Position::new(self.file_id, node.span()),
-            }),
-        }
+    fn file_id(&self) -> SourceFileId {
+        self.file_id
     }
 
     fn visit_main_function_item(
         &mut self,
-        node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+        node: SyntaxReader,
+    ) -> Result<Self::Output, CompileError> {
         let children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
@@ -99,74 +81,26 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
         Ok(main_type_id)
     }
 
-    fn visit_module_item(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_module_item(&mut self, _: SyntaxReader) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_function_item(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_function_item(&mut self, _: SyntaxReader) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_use_item(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_use_item(&mut self, _: SyntaxReader) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
     fn visit_expression_statement(
         &mut self,
-        node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+        _: SyntaxReader,
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_reassignment_statement(
-        &mut self,
-        node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
-        todo!()
-    }
-
-    fn visit_integer_expression(
-        &mut self,
-        node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
-        Ok(TypeId::INTEGER)
-    }
-
-    fn visit_path_expression(
-        &mut self,
-        node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
-        let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
-            CompileError::MissingSourceFile {
-                file_id: self.file_id,
-            },
-        )?;
-        let variable_name = source_file.source_code.get_span(node.span());
-        let (_, declaration) = self
-            .context
-            .find_declaration_in_scope(variable_name, self.current_scope_id)
-            .ok_or(CompileError::UndeclaredVariable {
-                name: variable_name.to_string(),
-                position: Position::new(self.file_id, node.span()),
-            })?;
-
-        Ok(declaration.type_id)
-    }
-
-    fn visit_block_expression(
-        &mut self,
-        node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
-        todo!()
-    }
-
-    fn visit_if_expression(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        todo!()
-    }
-
-    fn visit_let_statement(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        info!("Visiting {}", node.kind());
-
+    fn visit_let_statement(&mut self, node: SyntaxReader) -> Result<Self::Output, CompileError> {
         let mut children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
@@ -202,31 +136,63 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
         Ok(TypeId::NONE)
     }
 
-    fn visit_math_expression(
+    fn visit_reassignment_statement(
         &mut self,
-        node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+        _: SyntaxReader,
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_while_expression(
+    fn visit_integer_expression(&mut self, _: SyntaxReader) -> Result<Self::Output, CompileError> {
+        Ok(TypeId::INTEGER)
+    }
+
+    fn visit_string_expression(
         &mut self,
-        node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+        _: SyntaxReader<'_>,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(TypeId::STRING)
+    }
+
+    fn visit_path_expression(&mut self, node: SyntaxReader) -> Result<Self::Output, CompileError> {
+        let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
+            CompileError::MissingSourceFile {
+                file_id: self.file_id,
+            },
+        )?;
+        let variable_name = source_file.source_code.get_span(node.span());
+        let (_, declaration) = self
+            .context
+            .find_declaration_in_scope(variable_name, self.current_scope_id)
+            .ok_or(CompileError::UndeclaredVariable {
+                name: variable_name.to_string(),
+                position: Position::new(self.file_id, node.span()),
+            })?;
+
+        Ok(declaration.type_id)
+    }
+
+    fn visit_block_expression(&mut self, _: SyntaxReader) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_function_expression(
-        &mut self,
-        node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+    fn visit_if_expression(&mut self, _: SyntaxReader) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_call_expression(
-        &mut self,
-        node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+    fn visit_math_expression(&mut self, _: SyntaxReader) -> Result<Self::Output, CompileError> {
+        todo!()
+    }
+
+    fn visit_while_expression(&mut self, _: SyntaxReader) -> Result<Self::Output, CompileError> {
+        todo!()
+    }
+
+    fn visit_function_expression(&mut self, _: SyntaxReader) -> Result<Self::Output, CompileError> {
+        todo!()
+    }
+
+    fn visit_call_expression(&mut self, _: SyntaxReader) -> Result<Self::Output, CompileError> {
         todo!()
     }
 }

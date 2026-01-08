@@ -17,7 +17,6 @@ use cranelift::{
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Module};
 use rustc_hash::{FxBuildHasher, FxHashSet};
-use tracing::Level;
 
 use crate::{
     dust_crate::Program,
@@ -122,13 +121,6 @@ impl<'a> JitCompiler<'a> {
     }
 
     pub fn compile(&mut self) -> Result<(JitLogic, Vec<JitPrototype>), JitError> {
-        let span = tracing::span!(Level::INFO, "JIT_Compiler");
-        let _enter = span.enter();
-
-        self.compile_program()
-    }
-
-    fn compile_program(&mut self) -> Result<(JitLogic, Vec<JitPrototype>), JitError> {
         let (compile_order, recursive_calls) = get_compile_order_and_recursive_calls(self.program);
 
         let mut compiled = FxHashSet::default();

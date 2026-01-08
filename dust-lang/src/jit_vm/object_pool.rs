@@ -55,7 +55,7 @@ impl<'a> ObjectPool<'a> {
             let allocated = self.allocated;
             let start = Instant::now();
 
-            Self::mark(registers, register_tags);
+            self.mark(registers, register_tags);
             self.sweep();
 
             let collected = length - self.objects.len();
@@ -87,12 +87,26 @@ impl<'a> ObjectPool<'a> {
         pointer
     }
 
-    pub fn get(&self, key: usize) -> Option<&Object> {
-        self.objects.get(key).map(|object| &**object)
+    pub fn get(&self, index: usize) -> Option<&Object> {
+        self.objects.get(index).map(|object| &**object)
     }
 
-    pub fn get_mut(&mut self, key: usize) -> Option<&mut Object> {
-        self.objects.get_mut(key).map(|object| &mut **object)
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut Object> {
+        self.objects.get_mut(index).map(|object| &mut **object)
+    }
+
+    /// Removes and returns the object at the specified index from the pool.
+    ///
+    /// This function consumes the `ObjectPool` instance because it usually invalidates other
+    /// indices, making it unsafe to continue using the pool.
+    pub fn take(mut self, index: usize) -> Option<Pin<BumpBox<'a, Object>>> {
+        if index >= self.objects.len() {
+            return None;
+        }
+
+        let object = self.objects.swap_remove(index);
+
+        Some(object)
     }
 
     fn sweep(&mut self) {
@@ -110,10 +124,11 @@ impl<'a> ObjectPool<'a> {
         });
     }
 
-    fn mark(registers: &[Register], register_tags: &[RegisterTag]) {
+    fn mark(&mut self, registers: &[Register], register_tags: &[RegisterTag]) {
         for (register, tag) in registers.iter().zip(register_tags.iter()) {
             if *tag == RegisterTag::OBJECT {
-                let object = unsafe { &mut *register.object_pointer };
+                let object_index = unsafe { register.object_index };
+                let object = self.get_mut(object_index).unwrap();
 
                 Self::mark_object(object);
             }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
-use tracing::{Level, debug, info, span, trace};
+use tracing::{debug, info, trace};
 
 use crate::{
     compiler::{
@@ -154,9 +154,6 @@ impl<'a> Emitter<'a> {
     }
 
     pub fn emit(mut self, node: SyntaxReader) -> Result<Prototype, CompileError> {
-        let span = span!(Level::INFO, "emit");
-        let _enter = span.enter();
-
         match node.kind() {
             SyntaxKind::MainFunctionItem | SyntaxKind::BlockExpression => {
                 let children = node
@@ -274,8 +271,6 @@ impl<'a> Emitter<'a> {
             }
         }
 
-        println!("{:#?}", self.instructions);
-
         Ok(Prototype {
             index: self.prototype_index,
             name_position,
@@ -285,14 +280,6 @@ impl<'a> Emitter<'a> {
             drop_lists: self.drop_lists,
             register_count,
         })
-    }
-
-    fn syntax_tree(&self) -> Result<&SyntaxTree, CompileError> {
-        self.syntax
-            .get_tree(self.file_id)
-            .ok_or(CompileError::MissingSyntaxTree {
-                file_id: self.file_id,
-            })
     }
 
     fn emit_instruction(&mut self, instruction: Instruction) {
@@ -1023,42 +1010,14 @@ impl<'a> Emitter<'a> {
 impl<'a> SyntaxVisitor for Emitter<'a> {
     type Output = Emission;
 
-    type Error = CompileError;
-
-    fn visit_item(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        match node.kind() {
-            SyntaxKind::MainFunctionItem => self.visit_main_function_item(node),
-            SyntaxKind::ModuleItem => self.visit_module_item(node),
-            SyntaxKind::FunctionItem => self.visit_function_item(node),
-            SyntaxKind::UseItem => self.visit_use_item(node),
-            _ => Err(CompileError::ExpectedItem {
-                node_kind: node.kind(),
-                position: Position::new(self.file_id, node.span()),
-            }),
-        }
-    }
-
-    fn visit_statement(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        todo!()
-    }
-
-    fn visit_expression(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        match node.kind() {
-            SyntaxKind::IntegerExpression => self.visit_integer_expression(node),
-            SyntaxKind::PathExpression => self.visit_path_expression(node),
-            SyntaxKind::BlockExpression => self.visit_block_expression(node),
-            SyntaxKind::IfExpression => self.visit_if_expression(node),
-            _ => Err(CompileError::ExpectedExpression {
-                node_kind: node.kind(),
-                position: Position::new(self.file_id, node.span()),
-            }),
-        }
+    fn file_id(&self) -> SourceFileId {
+        self.file_id
     }
 
     fn visit_main_function_item(
         &mut self,
         node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+    ) -> Result<Self::Output, CompileError> {
         info!("Emitting main function item");
 
         let children = node
@@ -1084,68 +1043,29 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         Ok(final_emission)
     }
 
-    fn visit_module_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_module_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_function_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_function_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_use_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_use_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
     fn visit_expression_statement(
         &mut self,
         _: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_reassignment_statement(
-        &mut self,
-        _: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
-        todo!()
-    }
-
-    fn visit_integer_expression(
+    fn visit_let_statement(
         &mut self,
         node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
-        info!("Emitting integer expression");
-
-        Ok(Emission::Constant(Constant::Integer(node.decode_integer())))
-    }
-
-    fn visit_path_expression(
-        &mut self,
-        node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
-        let declaration_id = self
-            .context
-            .get_declaration_binding(&node.id)
-            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let local = *self
-            .locals
-            .get(declaration_id)
-            .ok_or(CompileError::MissingLocal {
-                declaration_id: *declaration_id,
-            })?;
-
-        Ok(Emission::Local(local))
-    }
-
-    fn visit_block_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        todo!()
-    }
-
-    fn visit_if_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        todo!()
-    }
-
-    fn visit_let_statement(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    ) -> Result<Self::Output, CompileError> {
         let mut children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
@@ -1234,22 +1154,92 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         Ok(Emission::Instructions(let_statement_emission))
     }
 
-    fn visit_math_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_reassignment_statement(
+        &mut self,
+        _: SyntaxReader<'_>,
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_while_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_integer_expression(
+        &mut self,
+        node: SyntaxReader<'_>,
+    ) -> Result<Self::Output, CompileError> {
+        info!("Emitting integer expression");
+
+        Ok(Emission::Constant(Constant::Integer(node.decode_integer())))
+    }
+
+    fn visit_string_expression(
+        &mut self,
+        node: SyntaxReader<'_>,
+    ) -> Result<Self::Output, CompileError> {
+        info!("Emitting string expression");
+
+        let bytes = self
+            .source
+            .get_file(self.file_id)
+            .ok_or(CompileError::MissingSourceFile {
+                file_id: self.file_id,
+            })?
+            .source_code
+            .get_span_bytes(node.span());
+        let (pool_start, pool_end) = self.context.constants.push_str_to_string_pool(bytes);
+
+        Ok(Emission::Constant(Constant::String {
+            pool_start,
+            pool_end,
+        }))
+    }
+
+    fn visit_path_expression(
+        &mut self,
+        node: SyntaxReader<'_>,
+    ) -> Result<Self::Output, CompileError> {
+        let declaration_id = self
+            .context
+            .get_declaration_binding(&node.id)
+            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+        let local = *self
+            .locals
+            .get(declaration_id)
+            .ok_or(CompileError::MissingLocal {
+                declaration_id: *declaration_id,
+            })?;
+
+        Ok(Emission::Local(local))
+    }
+
+    fn visit_block_expression(
+        &mut self,
+        _: SyntaxReader<'_>,
+    ) -> Result<Self::Output, CompileError> {
+        todo!()
+    }
+
+    fn visit_if_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
+        todo!()
+    }
+
+    fn visit_math_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
+        todo!()
+    }
+
+    fn visit_while_expression(
+        &mut self,
+        _: SyntaxReader<'_>,
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
     fn visit_function_expression(
         &mut self,
         _: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_call_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_call_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
         todo!()
     }
 }

@@ -145,6 +145,12 @@ impl SyntaxTree {
     }
 }
 
+impl Default for SyntaxTree {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Display for SyntaxTree {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(

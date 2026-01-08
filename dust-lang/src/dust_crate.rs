@@ -13,7 +13,7 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn name<'a>(&'a self) -> &'a str {
+    pub fn name(&self) -> &str {
         self.constants
             .get_string(self.name_index)
             .expect("Program name index does not point to a string constant")

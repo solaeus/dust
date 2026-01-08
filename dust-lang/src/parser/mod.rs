@@ -12,7 +12,7 @@ use lexical_core::{
     ParseFloatOptions, ParseIntegerOptions, format::RUST_LITERAL, parse_with_options,
 };
 use smallvec::SmallVec;
-use tracing::{Level, error, info, span, warn};
+use tracing::{error, info, warn};
 
 use crate::{
     dust_error::DustError,
@@ -86,9 +86,6 @@ impl<'src> Parser<'src> {
     /// Parses a source string as a complete file, returning the syntax tree and any parse errors.
     /// The parser is consumed and cannot be reused.
     pub fn parse_main(mut self) -> ParseResult {
-        let span = span!(Level::INFO, "parse_main");
-        let _enter = span.enter();
-
         self.current_token = match self.lexer.next() {
             Some(Ok(token)) => token,
             Some(Err(index)) => {
@@ -119,9 +116,6 @@ impl<'src> Parser<'src> {
     }
 
     pub fn parse_file_module(mut self) -> ParseResult {
-        let span = span!(Level::INFO, "parse_module");
-        let _enter = span.enter();
-
         self.current_token = match self.lexer.next() {
             Some(Ok(token)) => token,
             Some(Err(index)) => {

@@ -17,7 +17,7 @@ pub use thread_pool::ThreadStatus;
 
 use std::sync::Arc;
 
-use tracing::error;
+use tracing::{Level, error, info, span};
 
 use crate::{
     compiler::Compiler,
@@ -76,14 +76,21 @@ impl JitVm {
     }
 
     pub fn run(self) -> Result<Option<Value>, DustError> {
-        let spawner_clone = self.thread_pool.clone_spawner();
+        let span = span!(Level::INFO, "jit_vm_dispatch");
+        let _enter = span.enter();
 
-        self.thread_pool
-            .lock_spawner()
-            .spawn_named_thread("Dust Program".to_string(), 0, spawner_clone)
-            .map_err(DustError::jit)?;
+        let receiver = {
+            info!("Spawning main JIT VM thread");
 
-        let receiver = self.thread_pool.lock_spawner().clone_receiver();
+            let spawner_clone = self.thread_pool.clone_spawner();
+            let mut spawner_lock = self.thread_pool.lock_spawner();
+
+            spawner_lock
+                .spawn_named_thread("Dust Program".to_string(), 0, spawner_clone)
+                .map_err(DustError::jit)?;
+
+            spawner_lock.clone_receiver()
+        };
         let mut return_result = None;
 
         while !self.thread_pool.lock_spawner().is_emply() {
@@ -92,6 +99,8 @@ impl JitVm {
                     thread_name,
                     prototype_index,
                 }) => {
+                    info!("Spawning JIT VM thread: {thread_name} with proto_{prototype_index}");
+
                     let spawner_clone = self.thread_pool.clone_spawner();
 
                     self.thread_pool
@@ -104,6 +113,8 @@ impl JitVm {
                     result,
                     prototype_index,
                 }) => {
+                    info!("JIT VM thread completed: proto_{prototype_index}");
+
                     let result = result.map_err(DustError::jit)?;
 
                     if prototype_index == 0 {

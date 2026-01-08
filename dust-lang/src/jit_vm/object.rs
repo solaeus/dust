@@ -79,6 +79,14 @@ impl Object {
         }
     }
 
+    pub fn into_string(self) -> Option<String> {
+        if let ObjectValue::String(string) = self.value {
+            Some(string)
+        } else {
+            None
+        }
+    }
+
     pub fn as_mut_string(&mut self) -> Option<&mut String> {
         if let ObjectValue::String(ref mut string) = self.value {
             Some(string)

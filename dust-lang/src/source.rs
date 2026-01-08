@@ -75,13 +75,21 @@ pub enum SourceCode {
 
 impl SourceCode {
     pub fn get(&self, start: usize, end: usize) -> &str {
-        unsafe { str::from_utf8_unchecked(self.as_ref()) }
-            .get(start..end)
-            .unwrap_or("")
+        let bytes = self.get_bytes(start, end);
+
+        unsafe { str::from_utf8_unchecked(bytes) }
     }
 
     pub fn get_span(&self, span: Span) -> &str {
         self.get(span.0 as usize, span.1 as usize)
+    }
+
+    pub fn get_bytes(&self, start: usize, end: usize) -> &[u8] {
+        self.as_ref().get(start..end).unwrap_or_default()
+    }
+
+    pub fn get_span_bytes(&self, span: Span) -> &[u8] {
+        self.get_bytes(span.0 as usize, span.1 as usize)
     }
 }
 

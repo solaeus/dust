@@ -1,5 +1,5 @@
 use smallvec::SmallVec;
-use tracing::{Level, info, span};
+use tracing::info;
 
 use crate::{
     compiler::{
@@ -145,54 +145,14 @@ impl<'a> Binder<'a> {
 impl<'a> SyntaxVisitor for Binder<'a> {
     type Output = ();
 
-    type Error = CompileError;
-
-    fn visit_item(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        match node.kind() {
-            SyntaxKind::MainFunctionItem => self.visit_main_function_item(node),
-            SyntaxKind::ModuleItem => self.visit_module_item(node),
-            SyntaxKind::FunctionItem => self.visit_function_item(node),
-            SyntaxKind::UseItem => self.visit_use_item(node),
-            _ => Err(CompileError::ExpectedItem {
-                node_kind: node.kind(),
-                position: Position::new(self.file_id, node.span()),
-            }),
-        }
-    }
-
-    fn visit_statement(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        match node.kind() {
-            SyntaxKind::ExpressionStatement => self.visit_expression_statement(node),
-            SyntaxKind::ReassignmentStatement => self.visit_reassignment_statement(node),
-            SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
-                self.visit_let_statement(node)
-            }
-            _ => Err(CompileError::ExpectedStatement {
-                node_kind: node.kind(),
-                position: Position::new(self.file_id, node.span()),
-            }),
-        }
-    }
-
-    fn visit_expression(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
-        match node.kind() {
-            SyntaxKind::IntegerExpression => self.visit_integer_expression(node),
-            SyntaxKind::BlockExpression => self.visit_block_expression(node),
-            SyntaxKind::IfExpression => self.visit_if_expression(node),
-            SyntaxKind::WhileExpression => self.visit_while_expression(node),
-            SyntaxKind::FunctionExpression => self.visit_function_expression(node),
-            SyntaxKind::CallExpression => self.visit_call_expression(node),
-            _ => Err(CompileError::ExpectedExpression {
-                node_kind: node.kind(),
-                position: Position::new(self.file_id, node.span()),
-            }),
-        }
+    fn file_id(&self) -> SourceFileId {
+        self.file_id
     }
 
     fn visit_main_function_item(
         &mut self,
         node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+    ) -> Result<Self::Output, CompileError> {
         info!("Binding main function");
 
         self.context.add_scope(Scope {
@@ -217,43 +177,50 @@ impl<'a> SyntaxVisitor for Binder<'a> {
         Ok(())
     }
 
-    fn visit_module_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_module_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_function_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_function_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_use_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_use_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
     fn visit_expression_statement(
         &mut self,
         _: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
     fn visit_reassignment_statement(
         &mut self,
         _: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
     fn visit_integer_expression(
         &mut self,
         _: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+    ) -> Result<Self::Output, CompileError> {
+        Ok(())
+    }
+
+    fn visit_string_expression(
+        &mut self,
+        _: SyntaxReader<'_>,
+    ) -> Result<Self::Output, CompileError> {
         Ok(())
     }
 
     fn visit_path_expression(
         &mut self,
         node: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+    ) -> Result<Self::Output, CompileError> {
         let path = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
@@ -297,15 +264,21 @@ impl<'a> SyntaxVisitor for Binder<'a> {
         Ok(())
     }
 
-    fn visit_block_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_block_expression(
+        &mut self,
+        _: SyntaxReader<'_>,
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_if_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_if_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_let_statement(&mut self, node: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_let_statement(
+        &mut self,
+        node: SyntaxReader<'_>,
+    ) -> Result<Self::Output, CompileError> {
         info!("Binding let statement");
         debug_assert!(matches!(
             node.node.kind,
@@ -375,22 +348,25 @@ impl<'a> SyntaxVisitor for Binder<'a> {
         Ok(())
     }
 
-    fn visit_math_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_math_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_while_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_while_expression(
+        &mut self,
+        _: SyntaxReader<'_>,
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
     fn visit_function_expression(
         &mut self,
         _: SyntaxReader<'_>,
-    ) -> Result<Self::Output, Self::Error> {
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_call_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, Self::Error> {
+    fn visit_call_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
         todo!()
     }
 }
