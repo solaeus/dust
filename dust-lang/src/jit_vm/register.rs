@@ -12,7 +12,7 @@ pub union Register {
     pub float: f64,
     pub integer: i64,
     pub prototype_index: usize,
-    pub object_index: usize,
+    pub object_index: u64,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

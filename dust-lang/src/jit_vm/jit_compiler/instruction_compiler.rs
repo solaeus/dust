@@ -946,7 +946,7 @@ impl<'a> InstructionCompiler<'a> {
             item_type,
         } = SetList::from(instruction);
 
-        let list_object_pointer = self
+        let list_object_index = self
             .ssa_registers
             .get(destination_list as usize)
             .map(|ssa_variable| builder.use_var(*ssa_variable))
@@ -960,7 +960,12 @@ impl<'a> InstructionCompiler<'a> {
 
         builder.ins().call(
             insert_into_list_function,
-            &[list_object_pointer, index_value, item_value],
+            &[
+                list_object_index,
+                index_value,
+                item_value,
+                self.thread_context,
+            ],
         );
         builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
 
@@ -1512,9 +1517,10 @@ impl<'a> InstructionCompiler<'a> {
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
         signature.params.extend([
+            AbiParam::new(I64),
+            AbiParam::new(I64),
+            AbiParam::new(I64),
             AbiParam::new(pointer_type),
-            AbiParam::new(I64),
-            AbiParam::new(I64),
         ]);
 
         self.declare_imported_function("insert_into_list", signature, function_builder)

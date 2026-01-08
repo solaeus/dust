@@ -14,6 +14,11 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum CompileError {
     // User Errors
+    CannotApplyOperator {
+        operator: SyntaxKind,
+        r#type: Type,
+        position: Position,
+    },
     CannotImport {
         name: String,
         position: Position,
@@ -206,6 +211,7 @@ impl AnnotatedError for CompileError {
             CompileError::InvalidSyntaxNode { .. } => SourceFileId::default(),
             CompileError::MissingDeclarationBinding { .. } => SourceFileId::default(),
             CompileError::MissingTypeBinding { .. } => SourceFileId::default(),
+            CompileError::CannotApplyOperator { position, .. } => position.file_id,
         }
     }
 
@@ -578,6 +584,23 @@ impl AnnotatedError for CompileError {
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::CannotApplyOperator {
+                operator,
+                r#type,
+                position,
+            } => {
+                let title = format!("Cannot apply operator {operator} to type {type}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!(
+                                "Attempted to apply operator {operator} to type {type} here"
+                            )),
+                    ),
+                )
             }
         }
     }

@@ -124,7 +124,7 @@ impl<'a> Emitter<'a> {
                 {
                     let register = prototype_compiler.allocate_local_register();
                     let parameter_local = Local {
-                        address: Address::register(register),
+                        address: Address::register(register.index),
                         type_id: parameter_declaration.type_id,
                     };
 
@@ -167,9 +167,9 @@ impl<'a> Emitter<'a> {
 
                 for (index, child) in children.into_iter().enumerate() {
                     let child_emission = if index == last_index {
-                        self.handle_implicit_return(child)?
+                        self.handle_implicit_return(child, None)?
                     } else {
-                        self.visit(child)?
+                        self.visit(child, None)?
                     };
 
                     self.handle_top_emission(child_emission, child)?;
@@ -296,7 +296,7 @@ impl<'a> Emitter<'a> {
         anchor_id
     }
 
-    fn allocate_temporary_register(&mut self) -> u16 {
+    fn allocate_temporary_register(&mut self) -> TargetRegister {
         let register = self.next_temporary_register;
 
         trace!("Allocating temporary reg_{}", register);
@@ -307,7 +307,10 @@ impl<'a> Emitter<'a> {
             self.maximum_register = self.next_temporary_register;
         }
 
-        register
+        TargetRegister {
+            index: register,
+            is_temporary: true,
+        }
     }
 
     fn free_temporary_registers(&mut self, count: u16) {
@@ -326,7 +329,7 @@ impl<'a> Emitter<'a> {
         }
     }
 
-    fn allocate_local_register(&mut self) -> u16 {
+    fn allocate_local_register(&mut self) -> TargetRegister {
         let register = self.next_local_register;
 
         trace!("Allocating local reg_{}", register);
@@ -338,7 +341,10 @@ impl<'a> Emitter<'a> {
             self.maximum_register = self.next_local_register;
         }
 
-        register
+        TargetRegister {
+            index: register,
+            is_temporary: false,
+        }
     }
 
     fn enter_child_scope(&mut self, child_scope_id: ScopeId) {
@@ -650,15 +656,10 @@ impl<'a> Emitter<'a> {
         emission: Emission,
         node: SyntaxReader,
     ) -> Result<(), CompileError> {
-        let declaration_id = self
+        let type_id = *self
             .context
-            .get_declaration_binding(&node.id)
-            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let declaration = *self.context.get_declaration(*declaration_id).ok_or(
-            CompileError::MissingDeclaration {
-                declaration_id: *declaration_id,
-            },
-        )?;
+            .get_type_binding(&node.id)
+            .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
 
         match emission {
             Emission::Constant(constant) => {
@@ -667,11 +668,10 @@ impl<'a> Emitter<'a> {
                 let operand_type = self
                     .context
                     .types
-                    .get_operand_type(declaration.type_id)
-                    .ok_or(CompileError::MissingType {
-                        type_id: declaration.type_id,
-                    })?;
-                let move_instruction = Instruction::r#move(destination, address, operand_type);
+                    .get_operand_type(type_id)
+                    .ok_or(CompileError::MissingType { type_id })?;
+                let move_instruction =
+                    Instruction::r#move(destination.index, address, operand_type);
 
                 self.emit_instruction(move_instruction);
             }
@@ -680,12 +680,10 @@ impl<'a> Emitter<'a> {
                 let operand_type = self
                     .context
                     .types
-                    .get_operand_type(declaration.type_id)
-                    .ok_or(CompileError::MissingType {
-                        type_id: declaration.type_id,
-                    })?;
+                    .get_operand_type(type_id)
+                    .ok_or(CompileError::MissingType { type_id })?;
                 let move_instruction =
-                    Instruction::r#move(destination, function_address, operand_type);
+                    Instruction::r#move(destination.index, function_address, operand_type);
 
                 self.emit_instruction(move_instruction);
             }
@@ -696,7 +694,8 @@ impl<'a> Emitter<'a> {
                     .types
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
-                let move_instruction = Instruction::r#move(destination, address, operand_type);
+                let move_instruction =
+                    Instruction::r#move(destination.index, address, operand_type);
 
                 self.emit_instruction(move_instruction);
             }
@@ -818,7 +817,7 @@ impl<'a> Emitter<'a> {
                         node_kind: node.kind(),
                         position: Position::new(self.file_id, node.span()),
                     })?
-                    .register;
+                    .index;
 
                 instructions.merge(operand_instructions);
 
@@ -958,7 +957,7 @@ impl<'a> Emitter<'a> {
                 if let Some(target) = instructions.target_register {
                     return_instructions.merge(instructions);
 
-                    Address::register(target.register)
+                    Address::register(target.index)
                 } else if type_id == TypeId::NONE {
                     Address::default()
                 } else {
@@ -991,9 +990,13 @@ impl<'a> Emitter<'a> {
         Ok(())
     }
 
-    fn handle_implicit_return(&mut self, node: SyntaxReader<'_>) -> Result<Emission, CompileError> {
+    fn handle_implicit_return(
+        &mut self,
+        node: SyntaxReader,
+        input: Option<TargetRegister>,
+    ) -> Result<Emission, CompileError> {
         let mut return_emission = InstructionsEmission::new();
-        let emission = self.visit(node)?;
+        let emission = self.visit(node, input)?;
 
         if node.kind().is_item() {
             let return_instruction = Instruction::r#return(Address::default(), OperandType::NONE);
@@ -1008,6 +1011,8 @@ impl<'a> Emitter<'a> {
 }
 
 impl<'a> SyntaxVisitor for Emitter<'a> {
+    type Input = Option<TargetRegister>;
+
     type Output = Emission;
 
     fn file_id(&self) -> SourceFileId {
@@ -1016,7 +1021,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
     fn visit_main_function_item(
         &mut self,
-        node: SyntaxReader<'_>,
+        node: SyntaxReader,
+        target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         info!("Emitting main function item");
 
@@ -1031,10 +1037,10 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let mut final_emission = Emission::None;
 
         for (index, child) in children.into_iter().enumerate() {
-            let child_emission = self.visit(child)?;
+            let child_emission = self.visit(child, target)?;
 
             if index == last_child {
-                final_emission = self.handle_implicit_return(child)?;
+                final_emission = self.handle_implicit_return(child, target)?;
             } else {
                 self.handle_top_emission(child_emission, child)?;
             }
@@ -1043,28 +1049,44 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         Ok(final_emission)
     }
 
-    fn visit_module_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
+    fn visit_module_item(
+        &mut self,
+        _: SyntaxReader<'_>,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        info!("Emitting module item");
+
         todo!()
     }
 
-    fn visit_function_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
+    fn visit_function_item(
+        &mut self,
+        _: SyntaxReader<'_>,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_use_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
+    fn visit_use_item(
+        &mut self,
+        _: SyntaxReader<'_>,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
     fn visit_expression_statement(
         &mut self,
         _: SyntaxReader<'_>,
+        _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
     fn visit_let_statement(
         &mut self,
-        node: SyntaxReader<'_>,
+        node: SyntaxReader,
+        target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         let mut children = node
             .multiple_children()
@@ -1073,15 +1095,10 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 start_index: node.node.children.0,
                 count: node.node.children.1,
             })?;
-        let path = children.next().ok_or(CompileError::MissingChild {
-            parent_kind: node.node.kind,
-            child_index: 0,
-        })?;
-        let expression_statement = children.next().ok_or(CompileError::MissingChild {
+        let expression_statement = children.nth(1).ok_or(CompileError::MissingChild {
             parent_kind: node.node.kind,
             child_index: 1,
         })?;
-        let type_notation = children.next();
         let expression = expression_statement
             .left_child()
             .ok_or(CompileError::MissingChild {
@@ -1090,31 +1107,28 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             })?;
 
         let mut let_statement_emission = InstructionsEmission::new();
-        let expression_emission = self.visit_expression(expression)?;
-
-        let local_register = self.allocate_local_register();
-        let local_target = TargetRegister {
-            register: local_register,
-            is_temporary: false,
-        };
+        let local_target = self.allocate_local_register();
+        let expression_emission = self.visit_expression(expression, Some(local_target))?;
 
         match expression_emission {
             Emission::Constant(constant) => {
                 let address = self.get_constant_address(constant);
                 let operand_type = constant.operand_type();
-                let move_instruction = Instruction::r#move(local_register, address, operand_type);
+                let move_instruction =
+                    Instruction::r#move(local_target.index, address, operand_type);
 
                 let_statement_emission.push(move_instruction);
             }
             Emission::Function(address) => {
                 let move_instruction =
-                    Instruction::r#move(local_register, address, OperandType::FUNCTION);
+                    Instruction::r#move(local_target.index, address, OperandType::FUNCTION);
 
                 let_statement_emission.push(move_instruction);
             }
             Emission::Local(Local { address, type_id }) => {
                 let operand_type = self.get_operand_type(type_id)?;
-                let move_instruction = Instruction::r#move(local_register, address, operand_type);
+                let move_instruction =
+                    Instruction::r#move(local_target.index, address, operand_type);
 
                 let_statement_emission.push(move_instruction);
             }
@@ -1133,20 +1147,21 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             .context
             .get_declaration_binding(&node.id)
             .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let declaration = *self
-            .context
-            .get_declaration(declaration_id)
-            .ok_or(CompileError::MissingDeclaration { declaration_id })?;
+        let expression_type = *self.context.get_type_binding(&expression.id).ok_or(
+            CompileError::MissingTypeBinding {
+                syntax_id: expression.id,
+            },
+        )?;
 
-        if declaration.type_id == TypeId::STRING {
-            self.add_drop(local_register);
+        if expression_type == TypeId::STRING {
+            self.add_drop(local_target.index);
         }
 
         self.locals.insert(
             declaration_id,
             Local {
-                address: Address::register(local_register),
-                type_id: declaration.type_id,
+                address: Address::register(local_target.index),
+                type_id: expression_type,
             },
         );
         let_statement_emission.set_target(Some(local_target));
@@ -1157,25 +1172,25 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     fn visit_reassignment_statement(
         &mut self,
         _: SyntaxReader<'_>,
+        _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
     fn visit_integer_expression(
         &mut self,
-        node: SyntaxReader<'_>,
+        node: SyntaxReader,
+        _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        info!("Emitting integer expression");
-
         Ok(Emission::Constant(Constant::Integer(node.decode_integer())))
     }
 
     fn visit_string_expression(
         &mut self,
-        node: SyntaxReader<'_>,
+        node: SyntaxReader,
+        _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        info!("Emitting string expression");
-
+        let span_without_quotes = node.span().shrink(1);
         let bytes = self
             .source
             .get_file(self.file_id)
@@ -1183,8 +1198,10 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 file_id: self.file_id,
             })?
             .source_code
-            .get_span_bytes(node.span());
+            .get_span_bytes(span_without_quotes);
         let (pool_start, pool_end) = self.context.constants.push_str_to_string_pool(bytes);
+
+        self.context.add_type_binding(node.id, TypeId::STRING);
 
         Ok(Emission::Constant(Constant::String {
             pool_start,
@@ -1194,7 +1211,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
     fn visit_path_expression(
         &mut self,
-        node: SyntaxReader<'_>,
+        node: SyntaxReader,
+        _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         let declaration_id = self
             .context
@@ -1213,21 +1231,318 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     fn visit_block_expression(
         &mut self,
         _: SyntaxReader<'_>,
+        _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_if_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
+    fn visit_if_expression(
+        &mut self,
+        _: SyntaxReader<'_>,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_math_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
-        todo!()
+    fn visit_math_expression(
+        &mut self,
+        node: SyntaxReader,
+        target: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let left_child = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.node.kind,
+            child_index: 0,
+        })?;
+        let right_child = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.node.kind,
+            child_index: 1,
+        })?;
+
+        let left_emission = self.visit_expression(left_child, None)?;
+        let right_emission = self.visit_expression(right_child, None)?;
+
+        if target.is_none()
+            && let (Emission::Constant(left_value), Emission::Constant(right_value)) =
+                (&left_emission, &right_emission)
+        {
+            let combined = self.combine_constants(
+                node.kind(),
+                *left_value,
+                left_child.node,
+                *right_value,
+                right_child.node,
+            )?;
+
+            return Ok(Emission::Constant(combined));
+        }
+
+        let mut math_emission = InstructionsEmission::new();
+
+        let left_target = left_emission.target_register();
+        let left_address =
+            self.handle_operand_emission(&mut math_emission, left_emission, &left_child)?;
+        let right_address =
+            self.handle_operand_emission(&mut math_emission, right_emission, &right_child)?;
+
+        let type_id = *self
+            .context
+            .get_type_binding(&node.id)
+            .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
+        let operand_type = self
+            .context
+            .types
+            .get_operand_type(type_id)
+            .ok_or(CompileError::MissingType { type_id })?;
+
+        let math_instruction = match node.kind() {
+            SyntaxKind::AdditionExpression => {
+                let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+
+                math_emission.set_target(Some(target));
+
+                if type_id == TypeId::STRING && target.is_temporary {
+                    self.pending_drops.last_mut().unwrap().push(target.index);
+                }
+
+                Instruction::add(target.index, left_address, right_address, operand_type)
+            }
+            SyntaxKind::AdditionAssignmentStatement => {
+                math_emission.set_target(left_target);
+
+                Instruction::add(
+                    left_address.index,
+                    left_address,
+                    right_address,
+                    operand_type,
+                )
+            }
+            SyntaxKind::SubtractionExpression => {
+                let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+
+                math_emission.set_target(Some(target));
+
+                Instruction::subtract(target.index, left_address, right_address, operand_type)
+            }
+            SyntaxKind::SubtractionAssignmentStatement => {
+                math_emission.set_target(left_target);
+
+                Instruction::subtract(
+                    left_address.index,
+                    left_address,
+                    right_address,
+                    operand_type,
+                )
+            }
+            SyntaxKind::MultiplicationExpression => {
+                let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+
+                math_emission.set_target(Some(target));
+
+                Instruction::multiply(target.index, left_address, right_address, operand_type)
+            }
+            SyntaxKind::MultiplicationAssignmentStatement => {
+                math_emission.set_target(left_target);
+
+                Instruction::multiply(
+                    left_address.index,
+                    left_address,
+                    right_address,
+                    operand_type,
+                )
+            }
+            SyntaxKind::DivisionExpression => {
+                let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+
+                math_emission.set_target(Some(target));
+
+                Instruction::divide(target.index, left_address, right_address, operand_type)
+            }
+            SyntaxKind::DivisionAssignmentStatement => {
+                math_emission.set_target(left_target);
+
+                Instruction::divide(
+                    left_address.index,
+                    left_address,
+                    right_address,
+                    operand_type,
+                )
+            }
+            SyntaxKind::ModuloExpression => {
+                let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+
+                math_emission.set_target(Some(target));
+
+                Instruction::modulo(target.index, left_address, right_address, operand_type)
+            }
+            SyntaxKind::ModuloAssignmentStatement => {
+                math_emission.set_target(left_target);
+
+                Instruction::modulo(
+                    left_address.index,
+                    left_address,
+                    right_address,
+                    operand_type,
+                )
+            }
+            SyntaxKind::ExponentExpression => {
+                let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+
+                math_emission.set_target(Some(target));
+
+                Instruction::power(target.index, left_address, right_address, operand_type)
+            }
+            SyntaxKind::ExponentAssignmentStatement => {
+                math_emission.set_target(left_target);
+
+                Instruction::power(
+                    left_address.index,
+                    left_address,
+                    right_address,
+                    operand_type,
+                )
+            }
+            _ => unreachable!("Expected binary expression, found {}", node.kind()),
+        };
+
+        math_emission.push(math_instruction);
+
+        Ok(Emission::Instructions(math_emission))
+    }
+
+    fn visit_list_expression(
+        &mut self,
+        node: SyntaxReader,
+        target: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        fn handle_element_emission(
+            emitter: &mut Emitter,
+            instructions: &mut InstructionsEmission,
+            element_emission: Emission,
+            element_node: &SyntaxNode,
+        ) -> Result<Address, CompileError> {
+            match element_emission {
+                Emission::Constant(constant) => {
+                    let address = emitter.get_constant_address(constant);
+
+                    Ok(address)
+                }
+                Emission::Function(address) => Ok(address),
+                Emission::Local(Local { address, .. }) => Ok(address),
+                Emission::Instructions(InstructionsEmission {
+                    instructions: element_instructions,
+                    target_register: target,
+                    ..
+                }) => {
+                    let target = target.ok_or(CompileError::ExpectedExpression {
+                        node_kind: element_node.kind,
+                        position: Position::new(emitter.file_id, element_node.span),
+                    })?;
+
+                    instructions.instructions.extend(element_instructions);
+
+                    Ok(Address::register(target.index))
+                }
+                Emission::None => Err(CompileError::ExpectedExpression {
+                    node_kind: element_node.kind,
+                    position: Position::new(emitter.file_id, element_node.span),
+                }),
+            }
+        }
+
+        let children = node
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.node.kind,
+                start_index: node.node.children.0,
+                count: node.node.children.1,
+            })?;
+        let child_count_address =
+            self.get_constant_address(Constant::Integer(children.len() as i64));
+
+        let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+        let mut list_emission = {
+            let mut emission = InstructionsEmission::with_capacity(children.len());
+
+            emission.push(Instruction::no_op()); // Placeholder for NEW_LIST
+
+            emission
+        };
+        let mut element_type = None;
+
+        for (index, child) in children.enumerate() {
+            let element_emission = self.visit_expression(child, None)?;
+            let element_address =
+                handle_element_emission(self, &mut list_emission, element_emission, &child.node)?;
+            let index_address = self.get_constant_address(Constant::Integer(index as i64));
+            let new_element_type = *self.context.get_type_binding(&child.id).ok_or(
+                CompileError::MissingTypeBinding {
+                    syntax_id: child.id,
+                },
+            )?;
+            let operand_type = self
+                .context
+                .types
+                .get_operand_type(new_element_type)
+                .ok_or(CompileError::MissingType {
+                    type_id: new_element_type,
+                })?;
+            let set_list_instruction =
+                Instruction::set_list(target.index, element_address, index_address, operand_type);
+
+            list_emission.push(set_list_instruction);
+
+            if let Some(established) = element_type {
+                let unified = self
+                    .context
+                    .types
+                    .unify_types(established, new_element_type)?;
+
+                if !unified {
+                    let expected = self.context.types.get_full_type(established).ok_or(
+                        CompileError::MissingType {
+                            type_id: established,
+                        },
+                    )?;
+                    let found = self.context.types.get_full_type(new_element_type).ok_or(
+                        CompileError::MissingType {
+                            type_id: new_element_type,
+                        },
+                    )?;
+
+                    return Err(CompileError::TypeMismatch {
+                        expected,
+                        expected_position: Position::new(self.file_id, child.span()),
+                        found,
+                        found_position: Position::new(self.file_id, child.span()),
+                    });
+                }
+            } else {
+                element_type = Some(new_element_type);
+            }
+        }
+
+        let element_type =
+            element_type.unwrap_or_else(|| self.context.types.create_inferred_type());
+        let list_type = self.context.types.add_type(TypeNode::List { element_type });
+        let operand_type = self
+            .context
+            .types
+            .get_operand_type(list_type)
+            .ok_or(CompileError::MissingType { type_id: list_type })?;
+        let new_list_instruction =
+            Instruction::new_list(target.index, child_count_address, operand_type);
+
+        list_emission.instructions[0] = (new_list_instruction, Vec::new());
+
+        list_emission.set_target(Some(target));
+
+        Ok(Emission::Instructions(list_emission))
     }
 
     fn visit_while_expression(
         &mut self,
         _: SyntaxReader<'_>,
+        _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         todo!()
     }
@@ -1235,11 +1550,16 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     fn visit_function_expression(
         &mut self,
         _: SyntaxReader<'_>,
+        _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 
-    fn visit_call_expression(&mut self, _: SyntaxReader<'_>) -> Result<Self::Output, CompileError> {
+    fn visit_call_expression(
+        &mut self,
+        _: SyntaxReader<'_>,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
         todo!()
     }
 }
@@ -1257,7 +1577,7 @@ impl Emission {
     fn target_register(&self) -> Option<TargetRegister> {
         match self {
             Emission::Local(Local { address, .. }) => Some(TargetRegister {
-                register: address.index,
+                index: address.index,
                 is_temporary: false,
             }),
             Emission::Instructions(emission) => emission.target_register,
@@ -1316,7 +1636,7 @@ impl InstructionsEmission {
 
         for register in pending_drops_for_scope.drain(..) {
             if let Some(target_register) = target_register
-                && register == target_register.register
+                && register == target_register.index
             {
                 continue;
             }
@@ -1357,8 +1677,8 @@ impl InstructionsEmission {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct TargetRegister {
-    register: u16,
+pub struct TargetRegister {
+    index: u16,
     is_temporary: bool,
 }
 
@@ -1373,6 +1693,17 @@ pub enum Constant {
 }
 
 impl Constant {
+    fn type_id(&self) -> TypeId {
+        match self {
+            Constant::Boolean(_) => TypeId::BOOLEAN,
+            Constant::Byte(_) => TypeId::BYTE,
+            Constant::Character(_) => TypeId::CHARACTER,
+            Constant::Float(_) => TypeId::FLOAT,
+            Constant::Integer(_) => TypeId::INTEGER,
+            Constant::String { .. } => TypeId::STRING,
+        }
+    }
+
     fn operand_type(&self) -> OperandType {
         match self {
             Constant::Boolean(_) => OperandType::BOOLEAN,

@@ -1,12 +1,11 @@
 use std::{
     collections::HashMap,
     mem::offset_of,
-    pin::Pin,
     sync::{Arc, Mutex, MutexGuard},
     thread::{self, Builder as ThreadBuilder, JoinHandle, ThreadId},
 };
 
-use bumpalo::{Bump, boxed::Box as BumpBox};
+use bumpalo::Bump;
 use cranelift::prelude::{
     FunctionBuilder, InstBuilder, MemFlags, Type as CraneliftType, Value as CraneliftValue,
     types::{I32, I64},
@@ -20,6 +19,7 @@ use crate::{
     instruction::OperandType,
     jit_vm::{
         JitCompiler, JitError, Object, ObjectPool, Register, RegisterTag, object::ObjectValue,
+        object_pool::ObjectIndex,
     },
     r#type::Type,
     value::{List, Value},
@@ -360,7 +360,7 @@ fn run_thread(
 
     let encoded_return_value = (jit_logic)(&mut thread_context, 0);
     let return_type = &program.prototypes[0].function_type.return_type;
-    let return_value = match *return_type {
+    let return_value = match return_type {
         Type::None => None,
         Type::Boolean => {
             let boolean = encoded_return_value != 0;
@@ -386,20 +386,22 @@ fn run_thread(
         Type::String => {
             debug!("{}", object_pool.report());
 
-            let object_index = encoded_return_value as usize;
-            let pinned_object = object_pool
+            let object_index = ObjectIndex::decode(encoded_return_value as u64);
+            let string = object_pool
                 .take(object_index)
-                .expect("Invalid object index returned from JIT function");
-            let string = BumpBox::into_inner(Pin::into_inner(pinned_object))
+                .expect("Invalid object index returned from JIT function")
                 .into_string()
-                .ok_or(JitError::InvalidConstantType {
-                    expected_type: OperandType::STRING,
-                })?;
+                .expect("Invalid object value returned from JIT function");
 
             return Ok(Some(Value::String(string)));
         }
         Type::List(_) => {
-            todo!()
+            debug!("{}", object_pool.report());
+
+            let object_index = ObjectIndex::decode(encoded_return_value as u64);
+            let list = get_list_from_object_index(object_index, return_type, &mut object_pool)?;
+
+            return Ok(Some(Value::List(list)));
         }
         Type::Function(_) => todo!("Error"),
     };
@@ -408,4 +410,108 @@ fn run_thread(
     debug!("{}", object_pool.report());
 
     Ok(return_value)
+}
+
+fn get_list_from_object_index(
+    object_index: ObjectIndex,
+    full_type: &Type,
+    object_pool: &mut ObjectPool,
+) -> Result<List, JitError> {
+    let object = object_pool
+        .take(object_index)
+        .ok_or(JitError::MissingReturnValue)?;
+
+    match &object.value {
+        ObjectValue::BooleanList(booleans) => Ok(List::Boolean(booleans.clone())),
+        ObjectValue::ByteList(bytes) => Ok(List::Byte(bytes.clone())),
+        ObjectValue::CharacterList(characters) => Ok(List::Character(characters.clone())),
+        ObjectValue::FloatList(floats) => Ok(List::Float(floats.clone())),
+        ObjectValue::IntegerList(integers) => Ok(List::Integer(integers.clone())),
+        ObjectValue::ObjectList(objects) => {
+            let item_type = if let Type::List(item_type) = full_type {
+                item_type.as_ref()
+            } else {
+                return Err(JitError::InvalidConstantType {
+                    expected_type: full_type.as_operand_type(),
+                });
+            };
+
+            if item_type == &Type::String {
+                let mut strings = Vec::with_capacity(objects.len());
+
+                for encoded_object_index in objects {
+                    let object_index = ObjectIndex::decode(*encoded_object_index);
+                    let object = object_pool
+                        .take(object_index)
+                        .ok_or(JitError::MissingReturnValue)?;
+                    let string = match &object.value {
+                        ObjectValue::String(string) => string.clone(),
+                        _ => {
+                            return Err(JitError::InvalidObjectValue {
+                                expected: OperandType::STRING,
+                            });
+                        }
+                    };
+
+                    strings.push(string);
+                }
+
+                return Ok(List::String(strings));
+            }
+
+            let mut items = Vec::with_capacity(objects.len());
+
+            for encoded_object_index in objects {
+                let object_index = ObjectIndex::decode(*encoded_object_index);
+                let object = object_pool
+                    .take(object_index)
+                    .ok_or(JitError::MissingReturnValue)?;
+                let list = match &object.value {
+                    ObjectValue::BooleanList(boolean_list) => List::Boolean(boolean_list.clone()),
+                    ObjectValue::ByteList(byte_list) => List::Byte(byte_list.clone()),
+                    ObjectValue::CharacterList(character_list) => {
+                        List::Character(character_list.clone())
+                    }
+                    ObjectValue::FloatList(float_list) => List::Float(float_list.clone()),
+                    ObjectValue::IntegerList(integer_list) => List::Integer(integer_list.clone()),
+                    ObjectValue::ObjectList(object_list) => {
+                        let mut inner_lists = Vec::with_capacity(object_list.len());
+
+                        for encoded_object_index in object_list {
+                            let inner_list_type = if let Type::List(inner_item_type) = item_type {
+                                inner_item_type.as_ref()
+                            } else {
+                                return Err(JitError::InvalidObjectType {
+                                    expected: item_type.clone(),
+                                });
+                            };
+                            let object_index = ObjectIndex::decode(*encoded_object_index);
+
+                            let inner_list = get_list_from_object_index(
+                                object_index,
+                                inner_list_type,
+                                object_pool,
+                            )?;
+
+                            inner_lists.push(inner_list);
+                        }
+
+                        List::List(inner_lists)
+                    }
+                    _ => {
+                        return Err(JitError::InvalidConstantType {
+                            expected_type: item_type.as_operand_type(),
+                        });
+                    }
+                };
+
+                items.push(list);
+            }
+
+            Ok(List::List(items))
+        }
+        _ => Err(JitError::InvalidConstantType {
+            expected_type: OperandType::LIST_BOOLEAN,
+        }),
+    }
 }

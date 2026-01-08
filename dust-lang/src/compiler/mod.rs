@@ -15,7 +15,6 @@ pub use emitter::Emitter;
 pub use error::CompileError;
 pub use type_graph::{TypeGraph, TypeId, TypeNode};
 
-use smallvec::SmallVec;
 use tracing::{Level, span};
 
 use crate::{
@@ -25,7 +24,7 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     prototype::Prototype,
-    source::{Position, Source, SourceCode, SourceFile, SourceFileId, Span},
+    source::{Source, SourceCode, SourceFile, SourceFileId},
     syntax::Syntax,
 };
 

@@ -31,9 +31,9 @@ pub unsafe extern "C" fn read_line(thread_context: *mut ThreadContext) -> i64 {
     }
 
     let object = Object::string(input);
-    let object_pointer = object_pool.allocate(object, register_window, register_tags_window);
+    let object_index = object_pool.allocate(object, register_window, register_tags_window);
 
-    object_pointer as i64
+    object_index.encode() as i64
 }
 
 #[unsafe(no_mangle)]

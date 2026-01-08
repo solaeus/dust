@@ -1,4 +1,4 @@
-use std::fmt::{self, Display, Formatter};
+use crate::jit_vm::object_pool::ObjectIndex;
 
 #[derive(Clone, Debug)]
 #[repr(C)]
@@ -64,9 +64,18 @@ impl Object {
         }
     }
 
-    pub fn object_list<T: Into<Vec<*mut Object>>>(objects: T) -> Self {
+    pub fn object_list(object_indices: impl Iterator<Item = ObjectIndex>) -> Self {
+        let object_indices = object_indices.map(|index| index.encode()).collect();
+
         Object {
-            value: ObjectValue::ObjectList(objects.into()),
+            value: ObjectValue::ObjectList(object_indices),
+            mark: false,
+        }
+    }
+
+    pub fn object_list_with_capacity(capacity: usize) -> Self {
+        Object {
+            value: ObjectValue::ObjectList(Vec::with_capacity(capacity)),
             mark: false,
         }
     }
@@ -110,12 +119,6 @@ impl Object {
     }
 }
 
-impl Display for Object {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.value)
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum ObjectValue {
     Empty,
@@ -126,35 +129,5 @@ pub enum ObjectValue {
     FloatList(Vec<f64>),
     IntegerList(Vec<i64>),
     FunctionList(Vec<usize>),
-    ObjectList(Vec<*mut Object>),
-}
-
-impl Display for ObjectValue {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match &self {
-            ObjectValue::Empty => write!(f, "(empty)"),
-            ObjectValue::String(string) => write!(f, "{string}"),
-            ObjectValue::BooleanList(booleans) => write!(f, "{booleans:?}"),
-            ObjectValue::ByteList(bytes) => write!(f, "{bytes:?}"),
-            ObjectValue::CharacterList(characters) => write!(f, "{characters:?}"),
-            ObjectValue::FloatList(floats) => write!(f, "{floats:?}"),
-            ObjectValue::IntegerList(integers) => write!(f, "{integers:?}"),
-            ObjectValue::FunctionList(functions) => write!(f, "{functions:?}"),
-            ObjectValue::ObjectList(objects) => {
-                write!(f, "[")?;
-
-                for (index, object_pointer) in objects.iter().enumerate() {
-                    let object_string = unsafe { &**object_pointer }.to_string();
-
-                    if index > 0 {
-                        write!(f, ", ")?;
-                    }
-
-                    write!(f, "{object_string}")?;
-                }
-
-                write!(f, "]")
-            }
-        }
-    }
+    ObjectList(Vec<u64>),
 }

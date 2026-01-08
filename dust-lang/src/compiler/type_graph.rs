@@ -3,6 +3,7 @@ use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 
 use crate::{
+    compiler::CompileError,
     instruction::OperandType,
     r#type::{FunctionType, Type},
 };
@@ -57,9 +58,7 @@ impl TypeGraph {
             Type::List(element_type) => {
                 let element_type = self.add_full_type(element_type);
 
-                TypeNode::List {
-                    element_type_id: element_type,
-                }
+                TypeNode::List { element_type }
             }
             Type::Function(function_type) => {
                 let mut type_parameters =
@@ -102,8 +101,8 @@ impl TypeGraph {
             TypeNode::Float => Some(Type::Float),
             TypeNode::Integer => Some(Type::Integer),
             TypeNode::String => Some(Type::String),
-            TypeNode::List { element_type_id } => {
-                let element_type = self.get_full_type(*element_type_id)?;
+            TypeNode::List { element_type } => {
+                let element_type = self.get_full_type(*element_type)?;
 
                 Some(Type::list(element_type))
             }
@@ -161,8 +160,8 @@ impl TypeGraph {
             TypeNode::Float => OperandType::FLOAT,
             TypeNode::Integer => OperandType::INTEGER,
             TypeNode::String => OperandType::STRING,
-            TypeNode::List { element_type_id } => {
-                let element_operand_type = self.get_operand_type(*element_type_id)?;
+            TypeNode::List { element_type } => {
+                let element_operand_type = self.get_operand_type(*element_type)?;
 
                 match element_operand_type {
                     OperandType::BOOLEAN => OperandType::LIST_BOOLEAN,
@@ -206,6 +205,19 @@ impl TypeGraph {
         self.type_members.get(range)
     }
 
+    pub fn get_many_type_members<const COUNT: usize>(
+        &self,
+        members: [(u32, u32); COUNT],
+    ) -> Option<[&[TypeId]; COUNT]> {
+        let mut result: [&[TypeId]; COUNT] = [&[]; COUNT];
+
+        for (i, (start_index, count)) in members.iter().enumerate() {
+            result[i] = self.get_type_members(*start_index, *count)?;
+        }
+
+        Some(result)
+    }
+
     pub fn create_inferred_type(&mut self) -> TypeId {
         let inferred_type_node = TypeNode::Inferred {
             id: self.next_inferred_type_id,
@@ -230,12 +242,16 @@ impl TypeGraph {
         }
     }
 
-    pub fn unify_types(&mut self, left: TypeId, right: TypeId) {
-        let left_inferred = self.infer_type(left);
-        let right_inferred = self.infer_type(right);
+    pub fn unify_types(
+        &mut self,
+        left_type: TypeId,
+        right_type: TypeId,
+    ) -> Result<bool, CompileError> {
+        let left_inferred = self.infer_type(left_type);
+        let right_inferred = self.infer_type(right_type);
 
         if left_inferred == right_inferred {
-            return;
+            return Ok(true);
         }
 
         let left_node = *self.get_type(left_inferred).unwrap();
@@ -249,6 +265,8 @@ impl TypeGraph {
                         resolved: Some(right_inferred),
                     };
                 }
+
+                Ok(true)
             }
             (_, TypeNode::Inferred { id, resolved: None }) => {
                 if let Some(node) = self.get_type_mut(right_inferred) {
@@ -257,17 +275,17 @@ impl TypeGraph {
                         resolved: Some(left_inferred),
                     };
                 }
+
+                Ok(true)
             }
             (
                 TypeNode::List {
-                    element_type_id: left_element_type,
+                    element_type: left_element_type,
                 },
                 TypeNode::List {
-                    element_type_id: right_element_type,
+                    element_type: right_element_type,
                 },
-            ) => {
-                self.unify_types(left_element_type, right_element_type);
-            }
+            ) => self.unify_types(left_element_type, right_element_type),
             (
                 TypeNode::Function {
                     type_parameters: left_type_parameters,
@@ -280,35 +298,52 @@ impl TypeGraph {
                     return_type_id: right_return_type,
                 },
             ) => {
-                let mut unify_members = |left: (u32, u32), right: (u32, u32)| -> Option<()> {
-                    let left_members = self
-                        .get_type_members(left.0, left.1)?
-                        .iter()
-                        .copied()
-                        .collect::<SmallVec<[TypeId; 8]>>();
-                    let right_members = self
-                        .get_type_members(right.0, right.1)?
-                        .iter()
-                        .copied()
-                        .collect::<SmallVec<[TypeId; 8]>>();
+                let mut unify_members =
+                    |left: (u32, u32), right: (u32, u32)| -> Result<bool, CompileError> {
+                        let left_members = self
+                            .get_type_members(left.0, left.1)
+                            .ok_or(CompileError::MissingTypeMembers {
+                                start_index: right.0,
+                                count: right.1,
+                            })?
+                            .into_iter()
+                            .copied()
+                            .collect::<Vec<_>>();
+                        let right_members = self
+                            .get_type_members(right.0, right.1)
+                            .ok_or(CompileError::MissingTypeMembers {
+                                start_index: right.0,
+                                count: right.1,
+                            })?
+                            .into_iter()
+                            .copied()
+                            .collect::<Vec<_>>();
 
-                    if left_members.len() != right_members.len() {
-                        return None;
-                    }
+                        if left_members.len() != right_members.len() {
+                            return Ok(false);
+                        }
 
-                    for (left_member, right_member) in left_members.iter().zip(right_members.iter())
-                    {
-                        self.unify_types(*left_member, *right_member);
-                    }
+                        for (left_member, right_member) in
+                            left_members.into_iter().zip(right_members.into_iter())
+                        {
+                            let unified = self.unify_types(left_member, right_member)?;
 
-                    Some(())
-                };
+                            if !unified {
+                                return Ok(false);
+                            }
+                        }
 
-                unify_members(left_type_parameters, right_type_parameters);
-                unify_members(left_value_parameters, right_value_parameters);
-                self.unify_types(left_return_type, right_return_type);
+                        Ok(true)
+                    };
+
+                let unified = unify_members(left_type_parameters, right_type_parameters)?
+                    && unify_members(left_value_parameters, right_value_parameters)?
+                    && self.unify_types(left_return_type, right_return_type)?;
+
+                Ok(unified)
             }
-            _ => {}
+            (left, right) if left == right => Ok(true),
+            _ => Ok(false),
         }
     }
 
@@ -354,7 +389,7 @@ pub enum TypeNode {
     Integer,
     String,
     List {
-        element_type_id: TypeId,
+        element_type: TypeId,
     },
     Function {
         type_parameters: (u32, u32),

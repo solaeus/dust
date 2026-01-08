@@ -134,6 +134,10 @@ impl Span {
             end: self.1 as usize,
         }
     }
+
+    pub fn shrink(&self, offset: u32) -> Span {
+        Span(self.0 + offset, self.1 - offset)
+    }
 }
 
 impl Display for Span {
