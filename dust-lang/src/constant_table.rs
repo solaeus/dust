@@ -11,7 +11,7 @@ use crate::instruction::OperandType;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ConstantTable {
-    payloads: IndexMap<u64, u64, FxBuildHasher>,
+    payloads: IndexMap<ConstantKey, u64, FxBuildHasher>,
     tags: Vec<OperandType>,
     string_pool: Vec<u8>,
 }
@@ -61,15 +61,8 @@ impl ConstantTable {
 
     pub fn add_character(&mut self, character: char) -> u16 {
         let payload = character as u64;
-        let hash = {
-            let mut hasher = FxHasher::default();
-
-            character.hash(&mut hasher);
-
-            hasher.finish()
-        };
-
-        let (index, found) = self.payloads.insert_full(hash, payload);
+        let key = ConstantKey::new(payload, OperandType::CHARACTER);
+        let (index, found) = self.payloads.insert_full(key, payload);
 
         if found.is_none() {
             self.tags.push(OperandType::CHARACTER);
@@ -90,14 +83,8 @@ impl ConstantTable {
 
     pub fn add_float(&mut self, float: f64) -> u16 {
         let payload = float.to_bits();
-        let hash = {
-            let mut hasher = FxHasher::default();
-
-            payload.hash(&mut hasher);
-
-            hasher.finish()
-        };
-        let (index, found) = self.payloads.insert_full(hash, payload);
+        let key = ConstantKey::new(payload, OperandType::FLOAT);
+        let (index, found) = self.payloads.insert_full(key, payload);
 
         if found.is_none() {
             self.tags.push(OperandType::FLOAT);
@@ -117,15 +104,9 @@ impl ConstantTable {
     }
 
     pub fn add_integer(&mut self, integer: i64) -> u16 {
-        let hash = {
-            let mut hasher = FxHasher::default();
-
-            integer.hash(&mut hasher);
-
-            hasher.finish()
-        };
         let payload = u64::from_le_bytes(integer.to_le_bytes());
-        let (index, found) = self.payloads.insert_full(hash, payload);
+        let key = ConstantKey::new(payload, OperandType::INTEGER);
+        let (index, found) = self.payloads.insert_full(key, payload);
 
         if found.is_none() {
             self.tags.push(OperandType::INTEGER);
@@ -147,26 +128,18 @@ impl ConstantTable {
     }
 
     pub fn add_string(&mut self, bytes: &[u8]) -> u16 {
-        let hash = {
-            let mut hasher = FxHasher::default();
+        let start = self.string_pool.len();
+        let end = self.string_pool.len() + bytes.len();
+        let payload = (start as u64) << 32 | (end as u64);
+        let key = ConstantKey::new(payload, OperandType::STRING);
 
-            bytes.hash(&mut hasher);
-
-            hasher.finish()
-        };
-
-        if let Some(existing_index) = self.payloads.get_index_of(&hash) {
+        if let Some(existing_index) = self.payloads.get_index_of(&key) {
             existing_index as u16
         } else {
-            let start = self.string_pool.len();
-
-            self.string_pool.extend_from_slice(bytes);
-
-            let end = self.string_pool.len();
-            let payload = (start as u64) << 32 | (end as u64);
             let index = self.payloads.len() as u16;
 
-            self.payloads.insert(hash, payload);
+            self.string_pool.extend_from_slice(bytes);
+            self.payloads.insert(key, payload);
             self.tags.push(OperandType::STRING);
 
             index
@@ -199,15 +172,12 @@ impl ConstantTable {
     }
 
     pub fn push_str_to_string_pool(&mut self, bytes: &[u8]) -> (u32, u32) {
-        let hash = {
-            let mut hasher = FxHasher::default();
+        let start = self.string_pool.len();
+        let end = self.string_pool.len() + bytes.len();
+        let payload = (start as u64) << 32 | (end as u64);
+        let key = ConstantKey::new(payload, OperandType::STRING);
 
-            bytes.hash(&mut hasher);
-
-            hasher.finish()
-        };
-
-        if let Some(existing_index) = self.payloads.get_index_of(&hash) {
+        if let Some(existing_index) = self.payloads.get_index_of(&key) {
             let payload = self.payloads[existing_index];
             let start = (payload >> 32) as u32;
             let end = (payload & 0xFFFFFFFF) as u32;
@@ -225,21 +195,15 @@ impl ConstantTable {
     }
 
     pub fn add_pooled_string(&mut self, start: u32, end: u32) -> u16 {
-        let string = self.get_string_pool_range(start as usize..end as usize);
-        let hash = {
-            let mut hasher = FxHasher::default();
+        let payload = (start as u64) << 32 | (end as u64);
+        let key = ConstantKey::new(payload, OperandType::STRING);
 
-            string.hash(&mut hasher);
-
-            hasher.finish()
-        };
-
-        if let Some(existing_index) = self.payloads.get_index_of(&hash) {
+        if let Some(existing_index) = self.payloads.get_index_of(&key) {
             existing_index as u16
         } else {
             let payload = (start as u64) << 32 | (end as u64);
 
-            let (index, _) = self.payloads.insert_full(hash, payload);
+            let (index, _) = self.payloads.insert_full(key, payload);
             self.tags.push(OperandType::STRING);
 
             index as u16
@@ -251,6 +215,20 @@ impl ConstantTable {
             table: self,
             index: 0,
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+struct ConstantKey(u64);
+
+impl ConstantKey {
+    pub fn new(payload: u64, tag: OperandType) -> Self {
+        let mut hasher = FxHasher::default();
+
+        payload.hash(&mut hasher);
+        tag.hash(&mut hasher);
+
+        Self(hasher.finish())
     }
 }
 

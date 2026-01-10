@@ -342,8 +342,7 @@ impl TypeGraph {
 
                 Ok(unified)
             }
-            (left, right) if left == right => Ok(true),
-            _ => Ok(false),
+            (left, right) => Ok(left == right),
         }
     }
 

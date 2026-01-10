@@ -95,12 +95,15 @@ pub trait SyntaxVisitor {
             SyntaxKind::PathExpression => self.visit_path_expression(node, input),
             SyntaxKind::IntegerExpression => self.visit_integer_expression(node, input),
             SyntaxKind::StringExpression => self.visit_string_expression(node, input),
+            SyntaxKind::ListExpression => self.visit_list_expression(node, input),
+
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression
             | SyntaxKind::ExponentExpression => self.visit_math_expression(node, input),
+
             SyntaxKind::BlockExpression => self.visit_block_expression(node, input),
             SyntaxKind::IfExpression => self.visit_if_expression(node, input),
             SyntaxKind::WhileExpression => self.visit_while_expression(node, input),

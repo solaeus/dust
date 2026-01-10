@@ -639,11 +639,10 @@ impl<'a> Emitter<'a> {
                 }
             }
             _ => {
-                return Err(CompileError::TypeMismatch {
+                return Err(CompileError::TypeConflict {
                     expected: left.full_type(),
-                    expected_position: Position::new(self.file_id, left_node.span),
                     found: right.full_type(),
-                    found_position: Position::new(self.file_id, right_node.span),
+                    position: Position::new(self.file_id, right_node.span),
                 });
             }
         };
@@ -1086,7 +1085,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     fn visit_let_statement(
         &mut self,
         node: SyntaxReader,
-        target: Self::Input,
+        _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         let mut children = node
             .multiple_children()
@@ -1509,11 +1508,10 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                         },
                     )?;
 
-                    return Err(CompileError::TypeMismatch {
+                    return Err(CompileError::TypeConflict {
                         expected,
-                        expected_position: Position::new(self.file_id, child.span()),
                         found,
-                        found_position: Position::new(self.file_id, child.span()),
+                        position: Position::new(self.file_id, child.span()),
                     });
                 }
             } else {

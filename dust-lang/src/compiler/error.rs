@@ -69,11 +69,10 @@ pub enum CompileError {
         name: String,
         position: Position,
     },
-    TypeMismatch {
+    TypeConflict {
         expected: Type,
-        expected_position: Position,
         found: Type,
-        found_position: Position,
+        position: Position,
     },
 
     // Internal Errors (from incorrect Parser output)
@@ -205,9 +204,7 @@ impl AnnotatedError for CompileError {
             CompileError::MissingNativeFunction { .. } => SourceFileId::default(),
             CompileError::CannotMutate { position, .. } => position.file_id,
             CompileError::MissingScopeBinding { .. } => SourceFileId::default(),
-            CompileError::TypeMismatch {
-                expected_position, ..
-            } => expected_position.file_id,
+            CompileError::TypeConflict { position, .. } => position.file_id,
             CompileError::InvalidSyntaxNode { .. } => SourceFileId::default(),
             CompileError::MissingDeclarationBinding { .. } => SourceFileId::default(),
             CompileError::MissingTypeBinding { .. } => SourceFileId::default(),
@@ -543,24 +540,18 @@ impl AnnotatedError for CompileError {
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
-            CompileError::TypeMismatch {
+            CompileError::TypeConflict {
                 expected,
-                expected_position,
                 found,
-                found_position,
+                position,
             } => {
                 let title = format!("Type mismatch: expected {expected}, found {found}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).elements(vec![
                     Snippet::source(source).annotation(
                         AnnotationKind::Primary
-                            .span(found_position.span.as_usize_range())
+                            .span(position.span.as_usize_range())
                             .label(format!("Found type {found} here")),
-                    ),
-                    Snippet::source(source).annotation(
-                        AnnotationKind::Context
-                            .span(expected_position.span.as_usize_range())
-                            .label(format!("Expected type {expected} here")),
                     ),
                 ])
             }

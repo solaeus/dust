@@ -145,15 +145,37 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
             .context
             .get_declaration_binding(&node.id)
             .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let declaration = self.context.get_declaration(*declaration_id).ok_or(
+        let declaration = *self.context.get_declaration(*declaration_id).ok_or(
             CompileError::MissingDeclaration {
                 declaration_id: *declaration_id,
             },
         )?;
 
-        self.context
+        let unified = self
+            .context
             .types
-            .unify_types(declaration.type_id, expression_type_id);
+            .unify_types(declaration.type_id, expression_type_id)?;
+
+        if !unified {
+            let expected = self
+                .context
+                .types
+                .get_full_type(declaration.type_id)
+                .ok_or(CompileError::MissingType {
+                    type_id: declaration.type_id,
+                })?;
+            let found = self.context.types.get_full_type(expression_type_id).ok_or(
+                CompileError::MissingType {
+                    type_id: expression_type_id,
+                },
+            )?;
+
+            return Err(CompileError::TypeConflict {
+                expected,
+                found,
+                position: Position::new(self.file_id, expression.span()),
+            });
+        }
 
         Ok(TypeId::NONE)
     }
@@ -200,6 +222,8 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
                 name: variable_name.to_string(),
                 position: Position::new(self.file_id, node.span()),
             })?;
+
+        self.context.add_type_binding(node.id, declaration.type_id);
 
         Ok(declaration.type_id)
     }
@@ -276,11 +300,10 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
                         type_id: right_type_inferred,
                     })?;
 
-                return Err(CompileError::TypeMismatch {
+                return Err(CompileError::TypeConflict {
                     expected,
-                    expected_position: Position::new(self.file_id, left_child.span()),
                     found,
-                    found_position: Position::new(self.file_id, right_child.span()),
+                    position: Position::new(self.file_id, right_child.span()),
                 });
             }
         };
@@ -305,17 +328,32 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
         let mut element_type = None;
 
         for child in children {
-            if element_type.is_none() {
+            if let Some(element_type) = element_type {
+                let child_type = self.visit(child, ())?;
+                let unified = self.context.types.unify_types(element_type, child_type);
+
+                if !unified? {
+                    let expected = self.context.types.get_full_type(element_type).ok_or(
+                        CompileError::MissingType {
+                            type_id: element_type,
+                        },
+                    )?;
+                    let found = self.context.types.get_full_type(child_type).ok_or(
+                        CompileError::MissingType {
+                            type_id: child_type,
+                        },
+                    )?;
+
+                    return Err(CompileError::TypeConflict {
+                        expected,
+                        found,
+                        position: Position::new(self.file_id, child.span()),
+                    });
+                }
+            } else {
                 let child_type = self.visit(child, ())?;
 
                 element_type = Some(child_type);
-            } else {
-                let child_type = self.visit(child, ())?;
-                let current_element_type = element_type.unwrap();
-
-                self.context
-                    .types
-                    .unify_types(current_element_type, child_type);
             }
         }
 
