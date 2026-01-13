@@ -1,8 +1,8 @@
-use std::{array, sync::Mutex};
+use std::{array, ptr::NonNull, sync::Mutex};
 
 use crate::{
     arena::{Arena, ArenaHints},
-    block::SizeClass,
+    block::{Block, SizeClass},
     block_cache::BlockCache,
     page_allocator::PageAllocator,
 };
@@ -24,5 +24,29 @@ impl GlobalHeap {
             arenas: Vec::new(),
             arena_hints: ArenaHints::default(),
         }
+    }
+
+    pub(crate) fn allocate_block(&self, size_class: SizeClass) -> Option<NonNull<Block>> {
+        let class_index = size_class.index();
+
+        assert!(class_index < SizeClass::CLASS_COUNT);
+
+        let mut cache = self.block_caches[class_index]
+            .lock()
+            .expect("Failed to lock block cache");
+
+        if let Some(block_pointer) = cache.pop_partial() {
+            return Some(block_pointer);
+        }
+
+        drop(cache);
+
+        let mut page_allocator = self
+            .page_allocator
+            .lock()
+            .expect("Failed to lock page allocator");
+        let block = page_allocator.allocate_block(size_class)?;
+
+        todo!()
     }
 }

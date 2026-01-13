@@ -1,4 +1,6 @@
-use crate::block::{BlockList, SizeClass};
+use std::ptr::NonNull;
+
+use crate::block::{Block, BlockList, SizeClass};
 
 pub struct BlockCache {
     size_class: SizeClass,
@@ -17,5 +19,11 @@ impl BlockCache {
             full_swept: BlockList::new(),
             full_unswept: BlockList::new(),
         }
+    }
+
+    pub fn pop_partial(&mut self) -> Option<NonNull<Block>> {
+        self.partial_swept
+            .pop_front()
+            .or(self.partial_unswept.pop_front())
     }
 }
