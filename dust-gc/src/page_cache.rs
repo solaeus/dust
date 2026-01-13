@@ -1,6 +1,4 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-
-const PAGE_CACHE_SIZE: usize = 64;
+use std::sync::atomic::AtomicU64;
 
 pub struct PageCache {
     base: usize,
@@ -8,6 +6,8 @@ pub struct PageCache {
 }
 
 impl PageCache {
+    pub const SIZE: usize = 64;
+
     pub fn new() -> Self {
         todo!()
     }

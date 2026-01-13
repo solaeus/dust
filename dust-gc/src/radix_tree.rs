@@ -1,5 +1,3 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-
 const RADIX_TREE_HEIGHT: usize = 5;
 const RADIX_TREE_FANOUT: usize = 8;
 const SUMMARY_MAX_PAGES: usize = 1 << 21;

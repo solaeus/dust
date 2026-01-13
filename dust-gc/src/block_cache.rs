@@ -1,7 +1,7 @@
-use crate::{block::BlockList, classes::SpanClass};
+use crate::block::{BlockList, SizeClass};
 
 pub struct BlockCache {
-    span_class: SpanClass,
+    size_class: SizeClass,
     partial_swept: BlockList,
     partial_unswept: BlockList,
     full_swept: BlockList,
@@ -9,9 +9,9 @@ pub struct BlockCache {
 }
 
 impl BlockCache {
-    pub fn new(span_class: SpanClass) -> Self {
+    pub fn new(size_class: SizeClass) -> Self {
         BlockCache {
-            span_class,
+            size_class,
             partial_swept: BlockList::new(),
             partial_unswept: BlockList::new(),
             full_swept: BlockList::new(),

@@ -24,7 +24,7 @@ is written to be self‑contained and does not rely on external context.
                      │                     │                          │
                      ▼                     ▼                          ▼
         ┌─────────────────────┐   ┌─────────────────────┐   ┌─────────────────────┐
-        │    PageAllocator    │   │    BlockCaches[]    │   │       Arenas[]      │
+        │    PageAllocator    │   │    BlockCache[]     │   │       Arena[]       │
         └─────────────────────┘   └─────────────────────┘   └─────────────────────┘
                   │                     │                          │
                   │                     │                          │
