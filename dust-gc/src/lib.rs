@@ -1,11 +1,13 @@
-#![feature(allocator_api)]
+#![feature(allocator_api, int_lowest_highest_one)]
 
 mod arena;
-mod block;
-mod block_cache;
-mod global_heap;
+mod central;
+mod heap;
+mod lock_free_stack;
 mod page_allocator;
-mod thread_heap;
+mod platform;
+mod span;
+mod thread_cache;
 
-pub use crate::global_heap::GlobalHeap;
-pub use crate::thread_heap::ThreadHeap;
+pub use crate::heap::Heap;
+pub use crate::thread_cache::ThreadCache;

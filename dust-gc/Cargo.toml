@@ -9,4 +9,5 @@ edition.workspace = true
 
 [dependencies]
 bitvec = "1.0.1"
+crossbeam-epoch = "0.9.18"
 memmap2 = "0.9.9"

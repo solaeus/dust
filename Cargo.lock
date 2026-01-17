@@ -622,6 +622,7 @@ name = "dust-gc"
 version = "0.5.0"
 dependencies = [
  "bitvec",
+ "crossbeam-epoch",
  "memmap2",
 ]
 
