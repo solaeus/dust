@@ -1,20 +1,18 @@
 use std::{
     array,
-    ptr::NonNull,
+    ptr::{self, NonNull},
     sync::{
         RwLock,
-        atomic::{AtomicPtr, AtomicU32},
+        atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering},
     },
     usize,
 };
 
 use crate::page_allocator::PAGE_SIZE;
 
-const BLOCK_ENTRIES: usize = 512;
-const SPAN_SET_STARTING_SPINE_CAPACITY: usize = 256;
-
 pub const SPAN_CLASS_COUNT: usize = 136;
 pub const LARGE_SIZE_MINIMUM: usize = SIZES[SIZES.len() - 1] + 1;
+
 const SIZES: [usize; SPAN_CLASS_COUNT / 2] = [
     0, 8, 16, 24, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 288, 320,
     352, 384, 416, 448, 480, 512, 576, 640, 704, 768, 896, 1024, 1152, 1280, 1408, 1536, 1792,
@@ -32,13 +30,27 @@ pub struct Span {
     next: Option<NonNull<Span>>,
     previous: Option<NonNull<Span>>,
 
+    free_slots: NonNull<Bitmap>,
+    free_index: u16,
+    scanned_slots: NonNull<Bitmap>,
+    scan_index: u16,
+
     generation: u32,
-    free_allocation_index: u16,
-    free_scan_index: u16,
 }
 
 impl Span {
-    pub fn new(start_address: usize, page_count: usize, class: SpanClass) -> Self {
+    pub fn new(
+        start_address: usize,
+        page_count: usize,
+        class: SpanClass,
+        free_slots: NonNull<Bitmap>,
+        scanned_slots: NonNull<Bitmap>,
+    ) -> Self {
+        let span_size = start_address + page_count * PAGE_SIZE;
+        let slot_count = span_size / class.size();
+
+        assert!(slot_count < BitmapArena::CAPACITY);
+
         Self {
             class,
             start_address,
@@ -46,9 +58,15 @@ impl Span {
             next: None,
             previous: None,
             generation: 0,
-            free_allocation_index: 0,
-            free_scan_index: 0,
+            free_slots,
+            free_index: 0,
+            scanned_slots,
+            scan_index: 0,
         }
+    }
+
+    pub fn allocate_slot(&mut self) -> usize {
+        todo!()
     }
 }
 
@@ -87,6 +105,10 @@ impl SpanClass {
         Self(index as u8)
     }
 
+    pub const fn index(&self) -> usize {
+        self.0 as usize
+    }
+
     pub const fn no_scan(&self) -> bool {
         self.0 & 1 != 0
     }
@@ -103,6 +125,9 @@ pub struct SpanList {
     last: Option<NonNull<Span>>,
 }
 
+const BLOCK_ENTRIES: usize = 512;
+const SPAN_SET_STARTING_SPINE_CAPACITY: usize = 256;
+
 pub struct SpanSet {
     spine: RwLock<Vec<AtomicPtr<SpanSetBlock>>>,
 }
@@ -118,6 +143,69 @@ impl SpanSet {
 struct SpanSetBlock {
     popped: AtomicU32,
     spans: [AtomicPtr<Span>; BLOCK_ENTRIES],
+}
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct Bitmap {
+    bits: u8,
+}
+
+impl Bitmap {
+    fn get_byte(&mut self, index: usize) -> *mut u8 {
+        unsafe { (self.bits as *mut u8).add(index) }
+    }
+
+    fn get_bit(&mut self, index: usize) -> (*mut u8, u8) {
+        let byte = self.get_byte(index / 8);
+        let mask = 1 << (index % 8);
+
+        (byte, mask)
+    }
+}
+
+#[repr(C, align(8))]
+pub struct BitmapArena {
+    free: AtomicUsize,
+    next: *mut u8,
+    bytes: [Bitmap; Self::CAPACITY],
+}
+
+impl BitmapArena {
+    const SIZE: usize = 1024 * 64;
+    const HEADER_SIZE: usize = size_of::<AtomicUsize>() + size_of::<*mut u8>();
+    const CAPACITY: usize = Self::SIZE - Self::HEADER_SIZE;
+
+    const fn new() -> Self {
+        Self {
+            free: AtomicUsize::new(0),
+            next: ptr::null_mut(),
+            bytes: [Bitmap { bits: 0 }; Self::CAPACITY],
+        }
+    }
+
+    fn allocate_bitmap(&self, bytes: usize) -> Option<NonNull<Bitmap>> {
+        let current = self.free.load(Ordering::Relaxed);
+
+        if current.checked_add(bytes)? > self.bytes.len() {
+            return None;
+        }
+
+        let start = self.free.fetch_add(bytes, Ordering::AcqRel);
+
+        if start.saturating_add(bytes) > self.bytes.len() {
+            return None;
+        }
+
+        let pointer = {
+            let base = self.bytes.as_ptr();
+            let with_offset = unsafe { base.add(start) };
+
+            unsafe { NonNull::new_unchecked(with_offset as *mut Bitmap) }
+        };
+
+        Some(pointer)
+    }
 }
 
 #[cfg(test)]

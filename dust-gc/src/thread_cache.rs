@@ -11,8 +11,9 @@ pub struct ThreadCache {
 }
 
 impl ThreadCache {
-    pub fn allocate(&self, size: usize, no_scan: bool) -> Option<NonNull<u8>> {
+    pub fn allocate(&mut self, size: usize, no_scan: bool) -> Option<NonNull<u8>> {
         let span_class = SpanClass::new(size, no_scan)?;
+        let span = unsafe { self.spans[span_class.index()].as_mut() };
 
         todo!()
     }

@@ -1,4 +1,4 @@
-use std::sync::{Arc, atomic::Ordering};
+use std::sync::atomic::Ordering;
 
 use crossbeam_epoch::{Atomic, Owned, pin};
 
