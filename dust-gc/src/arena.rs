@@ -1,18 +1,17 @@
 use std::{
     alloc::{Layout, alloc_zeroed, handle_alloc_error},
     mem::forget,
-    ptr::NonNull,
 };
 
 use crate::page_allocator::PAGE_SIZE;
 
-const PAGES_PER_ARENA: usize = 64;
-const ARENA_SIZE: usize = PAGES_PER_ARENA * PAGE_SIZE;
+pub const PAGES_PER_ARENA: usize = 64;
+pub const ARENA_SIZE: usize = PAGES_PER_ARENA * PAGE_SIZE;
 
 pub struct Arena {
-    base: usize,
-    free_pages: u64,
-    scavenged_pages: u64,
+    pub base: usize,
+    pub free_pages: u64,
+    pub scavenged_pages: u64,
 }
 
 impl Arena {

@@ -1,5 +1,4 @@
 use std::{
-    array,
     ptr::{self, NonNull},
     sync::{
         RwLock,
@@ -129,13 +128,13 @@ const BLOCK_ENTRIES: usize = 512;
 const SPAN_SET_STARTING_SPINE_CAPACITY: usize = 256;
 
 pub struct SpanSet {
-    spine: RwLock<Vec<AtomicPtr<SpanSetBlock>>>,
+    spine: Vec<AtomicPtr<SpanSetBlock>>,
 }
 
 impl SpanSet {
     pub fn new() -> Self {
         Self {
-            spine: RwLock::new(Vec::with_capacity(SPAN_SET_STARTING_SPINE_CAPACITY)),
+            spine: Vec::with_capacity(SPAN_SET_STARTING_SPINE_CAPACITY),
         }
     }
 }

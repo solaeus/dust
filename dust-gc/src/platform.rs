@@ -10,16 +10,16 @@ mod pointer_width_64 {
     use super::*;
 
     pub const HEAP_ADDRESS_BITS: usize = 48;
-    pub const SUMMARY_LEVELS: usize = 5;
+    pub const INFO_LEVELS: usize = 5;
     pub const PAGES_PER_SPAN: usize = 512;
     pub const BYTES_PER_SPAN: usize = PAGE_SIZE * PAGES_PER_SPAN;
 
     pub const LEVEL_0_BITS: usize = 14;
     pub const LEVEL_BITS: usize = 3;
 
-    pub const SUMMARY_LEVEL_BITS: [usize; SUMMARY_LEVELS] =
+    pub const INFO_LEVEL_BITS: [usize; INFO_LEVELS] =
         [LEVEL_0_BITS, LEVEL_BITS, LEVEL_BITS, LEVEL_BITS, LEVEL_BITS];
-    pub const SUMMARY_LEVEL_SHIFTS: [usize; SUMMARY_LEVELS] = [
+    pub const INFO_LEVEL_SHIFTS: [usize; INFO_LEVELS] = [
         HEAP_ADDRESS_BITS - LEVEL_0_BITS,
         HEAP_ADDRESS_BITS - LEVEL_0_BITS - LEVEL_BITS,
         HEAP_ADDRESS_BITS - LEVEL_0_BITS - 2 * LEVEL_BITS,

@@ -1,16 +1,26 @@
 use std::ptr::NonNull;
 
 use crate::{
+    Heap,
     page_allocator::PAGE_SIZE,
     span::{SPAN_CLASS_COUNT, Span, SpanClass},
 };
 
 pub struct ThreadCache {
+    heap: Heap,
     page_cache: PageCache,
     spans: [NonNull<Span>; SPAN_CLASS_COUNT],
 }
 
 impl ThreadCache {
+    pub(crate) fn new(heap: Heap, spans: [NonNull<Span>; SPAN_CLASS_COUNT]) -> Self {
+        Self {
+            heap,
+            page_cache: PageCache::default(),
+            spans,
+        }
+    }
+
     pub fn allocate(&mut self, size: usize, no_scan: bool) -> Option<NonNull<u8>> {
         let span_class = SpanClass::new(size, no_scan)?;
         let span = unsafe { self.spans[span_class.index()].as_mut() };
@@ -19,6 +29,7 @@ impl ThreadCache {
     }
 }
 
+#[derive(Default)]
 struct PageCache {
     base: usize,
     free_pages: u64,

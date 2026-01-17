@@ -1,4 +1,6 @@
-use crate::span::{SpanClass, SpanSet};
+use std::ptr::NonNull;
+
+use crate::span::{Span, SpanClass, SpanSet};
 
 pub struct Central {
     span_class: SpanClass,
@@ -17,5 +19,9 @@ impl Central {
             full_swept: SpanSet::new(),
             full_unswept: SpanSet::new(),
         }
+    }
+
+    pub fn find_span_with_free_slot(&self) -> NonNull<Span> {
+        todo!()
     }
 }

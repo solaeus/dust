@@ -1,12 +1,12 @@
 use std::array;
 
-use crate::platform::{MAX_PACKED_VALUE, PAGES_PER_SPAN, SUMMARY_LEVELS};
+use crate::platform::{INFO_LEVELS, MAX_PACKED_VALUE};
 
 pub const PAGE_SIZE: usize = 1024 * 8;
 pub const LOG_MAX_PACKED_VALUE: usize = MAX_PACKED_VALUE.ilog2() as usize;
 
 pub struct PageAllocator {
-    info_tree: [Vec<PageInfo>; SUMMARY_LEVELS],
+    info_tree: [Vec<PageInfo>; INFO_LEVELS],
 }
 
 impl PageAllocator {
