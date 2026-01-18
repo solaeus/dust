@@ -1,6 +1,8 @@
 use std::{
     alloc::{Layout, alloc_zeroed, handle_alloc_error},
+    io,
     mem::forget,
+    ptr::NonNull,
 };
 
 use crate::page_allocator::PAGE_SIZE;

@@ -7,10 +7,12 @@
 
 mod arena;
 mod central;
+mod fixed_allocator;
 mod heap;
 mod lock_free_stack;
 mod page_allocator;
 mod platform;
+mod region;
 mod span;
 mod thread_cache;
 

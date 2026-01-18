@@ -1,8 +1,10 @@
 mod set;
 
+pub use set::SpanSet;
+
 use std::{
     ptr::{self, NonNull},
-    sync::atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering},
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use crate::page_allocator::PAGE_SIZE;
@@ -20,6 +22,7 @@ const SIZES: [usize; SPAN_CLASS_COUNT / 2] = [
 
 pub struct Span {
     class: SpanClass,
+    page_count: usize,
 
     start_address: usize,
     end_address: usize,
@@ -50,6 +53,7 @@ impl Span {
 
         Self {
             class,
+            page_count,
             start_address,
             end_address: start_address + page_count * PAGE_SIZE,
             next: None,
@@ -62,11 +66,22 @@ impl Span {
         }
     }
 
-    pub fn allocate_slot(&mut self) -> usize {
+    pub fn allocate_slot(&mut self) -> Option<usize> {
+        let slot_count = if self.class.is_large() {
+            1
+        } else {
+            self.class.size() / self.page_count
+        };
+
+        if self.free_index as usize == slot_count {
+            return None;
+        }
+
         todo!()
     }
 }
 
+#[derive(PartialEq)]
 pub struct SpanClass(u8);
 
 impl SpanClass {
@@ -115,31 +130,15 @@ impl SpanClass {
 
         SIZES[size_index]
     }
+
+    pub const fn is_large(&self) -> bool {
+        matches!(*self, Self::LARGE_SCAN | Self::LARGE_NO_SCAN)
+    }
 }
 
 pub struct SpanList {
     first: Option<NonNull<Span>>,
     last: Option<NonNull<Span>>,
-}
-
-const BLOCK_ENTRIES: usize = 512;
-const SPAN_SET_STARTING_SPINE_CAPACITY: usize = 256;
-
-pub struct SpanSet {
-    spine: Vec<AtomicPtr<SpanSetBlock>>,
-}
-
-impl SpanSet {
-    pub fn new() -> Self {
-        Self {
-            spine: Vec::with_capacity(SPAN_SET_STARTING_SPINE_CAPACITY),
-        }
-    }
-}
-
-struct SpanSetBlock {
-    popped: AtomicU32,
-    spans: [AtomicPtr<Span>; BLOCK_ENTRIES],
 }
 
 #[derive(Clone, Copy)]
@@ -231,6 +230,13 @@ mod tests {
 
             assert_eq!(&span_class.size(), size_of_class);
             assert_eq!(span_class.no_scan(), no_scan);
+        }
+    }
+
+    #[test]
+    fn class_sizes_divide_by_page_size() {
+        for size in SIZES {
+            assert!(size % PAGE_SIZE == 0);
         }
     }
 }

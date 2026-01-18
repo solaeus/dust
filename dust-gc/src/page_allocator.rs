@@ -15,6 +15,10 @@ impl PageAllocator {
             info_tree: array::from_fn(|_| Vec::new()),
         }
     }
+
+    pub fn grow(&mut self, base: usize, size: usize) {
+        todo!()
+    }
 }
 
 /// Packed summary type that contains three numbers, start, max and end, into a single 8-byte value.

@@ -5,8 +5,6 @@ use std::{
     sync::atomic::{AtomicPtr, Ordering},
 };
 
-use crossbeam_epoch::{Atomic, Owned, pin};
-
 #[cfg(any(
     target_pointer_width = "32",
     all(
@@ -35,7 +33,7 @@ type PlatformPackedAtomic = packed_atomic_128::PackedAtomic128;
 
 pub type LockFreeStack<T> = Treiber<PlatformPackedAtomic, T>;
 
-struct Treiber<A, T> {
+pub struct Treiber<A, T> {
     head: Padded<A>,
     _phantom: PhantomData<*mut T>,
 }
@@ -57,7 +55,7 @@ impl<Packed: PackedAtomic, T: LockFreeNode> Treiber<Packed, T> {
             let old_pointer = old_pointer as *mut T;
             let item = unsafe { &*item_pointer };
 
-            item.link().store(old_pointer);
+            item.link().store(old_pointer, Ordering::Relaxed);
 
             let new = Packed::pack(item_pointer as usize, old_count.wrapping_add(1));
 
@@ -83,7 +81,7 @@ impl<Packed: PackedAtomic, T: LockFreeNode> Treiber<Packed, T> {
             }
 
             let old_item = unsafe { &*old_pointer };
-            let next = old_item.link().load();
+            let next = old_item.link().load(Ordering::Relaxed);
             let new = Packed::pack(next as usize, old_count.wrapping_add(1));
 
             match self
@@ -92,7 +90,7 @@ impl<Packed: PackedAtomic, T: LockFreeNode> Treiber<Packed, T> {
                 .compare_exchange_weak(old, new, Ordering::AcqRel, Ordering::Acquire)
             {
                 Ok(_) => {
-                    old_item.link().store(ptr::null_mut());
+                    old_item.link().store(ptr::null_mut(), Ordering::Relaxed);
 
                     let popped = unsafe { NonNull::new_unchecked(old_pointer) };
 
@@ -108,28 +106,7 @@ unsafe impl<A, T: LockFreeNode + Send> Send for Treiber<A, T> {}
 unsafe impl<A, T: LockFreeNode + Send> Sync for Treiber<A, T> {}
 
 pub trait LockFreeNode: Sized {
-    fn link(&self) -> &Link<Self>;
-}
-
-#[repr(C)]
-pub struct Link<T> {
-    next: AtomicPtr<T>,
-}
-
-impl<T> Link<T> {
-    pub fn new() -> Self {
-        Self {
-            next: AtomicPtr::null(),
-        }
-    }
-
-    fn load(&self) -> *mut T {
-        self.next.load(Ordering::Relaxed)
-    }
-
-    fn store(&self, pointer: *mut T) {
-        self.next.store(pointer, Ordering::Relaxed);
-    }
+    fn link(&self) -> &AtomicPtr<Self>;
 }
 
 #[repr(align(64))]
@@ -173,7 +150,7 @@ mod packed_atomic_64 {
         }
 
         fn unpack(word: Self::Word) -> (usize, u64) {
-            let pointer = (word & FIELD_BITS as u64) as usize;
+            let pointer = (word & POINTER_MASK) as usize;
             let count = (word >> FIELD_BITS) as u64;
 
             (pointer, count)
@@ -248,20 +225,20 @@ mod tests {
 
     #[repr(C)]
     struct Node {
-        link: Link<Node>,
+        link: AtomicPtr<Node>,
         v: usize,
     }
 
     impl LockFreeNode for Node {
         #[inline]
-        fn link(&self) -> &Link<Self> {
+        fn link(&self) -> &AtomicPtr<Self> {
             &self.link
         }
     }
 
     fn boxed_node(v: usize) -> usize {
         let b = Box::new(Node {
-            link: Link::new(),
+            link: AtomicPtr::new(ptr::null_mut()),
             v,
         });
         Box::into_raw(b) as usize

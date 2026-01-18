@@ -25,6 +25,12 @@ impl ThreadCache {
         let span_class = SpanClass::new(size, no_scan)?;
         let span = unsafe { self.spans[span_class.index()].as_mut() };
 
+        if let Some(address) = span.allocate_slot() {
+            let pointer = unsafe { NonNull::new_unchecked(address as *mut u8) };
+
+            return Some(pointer);
+        }
+
         todo!()
     }
 }
