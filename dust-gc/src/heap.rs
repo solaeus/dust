@@ -1,8 +1,6 @@
-use std::{
-    array,
-    ptr::NonNull,
-    sync::{Arc, Mutex},
-};
+use std::{array, ptr::NonNull, slice, sync::Arc};
+
+use parking_lot::Mutex;
 
 use crate::{
     ThreadCache,
@@ -24,8 +22,8 @@ impl Heap {
                 page_allocator: PageAllocator::new(),
                 all_spans: Vec::new(),
             }),
-            arenas_mark_snapshot: Vec::with_capacity(1),
-            arenas_sweep_snapshot: Vec::with_capacity(1),
+            arenas_mark_snapshot: vec![0].into_boxed_slice(),
+            arenas_sweep_snapshot: vec![0].into_boxed_slice(),
             free_memory_threshold,
         }))
     }
@@ -42,9 +40,9 @@ pub struct HeapInner {
 
     mutex: Mutex<HeapLocked>,
 
-    arenas_mark_snapshot: Vec<usize>,
+    arenas_mark_snapshot: Box<[usize]>,
 
-    arenas_sweep_snapshot: Vec<usize>,
+    arenas_sweep_snapshot: Box<[usize]>,
 
     free_memory_threshold: f32,
 }

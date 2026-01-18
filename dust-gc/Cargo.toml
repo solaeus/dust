@@ -11,3 +11,4 @@ edition.workspace = true
 bitvec = "1.0.1"
 crossbeam-epoch = "0.9.18"
 memmap2 = "0.9.9"
+parking_lot = "0.12.5"

@@ -16,10 +16,14 @@ pub struct Arena {
 
 impl Arena {
     pub fn new() -> Self {
-        if cfg!(target_arch = "wasm32") {
-            Self::new_from_global_allocator()
-        } else {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
             Self::new_from_mmap()
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            Self::new_from_global_allocator()
         }
     }
 

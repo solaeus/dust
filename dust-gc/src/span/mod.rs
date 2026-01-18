@@ -1,10 +1,8 @@
+mod set;
+
 use std::{
     ptr::{self, NonNull},
-    sync::{
-        RwLock,
-        atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering},
-    },
-    usize,
+    sync::atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering},
 };
 
 use crate::page_allocator::PAGE_SIZE;
