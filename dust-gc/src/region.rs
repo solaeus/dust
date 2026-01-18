@@ -13,22 +13,20 @@ impl Region {
 
         todo!()
     }
+
+    pub fn pointer(&self) -> NonNull<u8> {
+        self.pointer
+    }
+
+    pub fn size(&self) -> usize {
+        self.size
+    }
 }
 
+#[derive(Debug)]
 pub enum RegionError {
     ZeroSizedRegion,
     Os(io::Error),
     #[cfg(unix)]
     Platform(nix::errno::Errno),
-}
-
-fn page_size() -> Result<usize, RegionError> {
-    #[cfg(unix)]
-    let size = { nix::libc::_SC_PAGESIZE };
-
-    if size <= 0 {
-        Err(RegionError::Os(io::Error::last_os_error()))
-    } else {
-        Ok(size as usize)
-    }
 }

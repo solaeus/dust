@@ -1,4 +1,9 @@
-use std::{marker::PhantomData, ptr, sync::atomic::AtomicPtr};
+use std::{
+    marker::PhantomData,
+    mem::MaybeUninit,
+    ptr::{self, NonNull},
+    sync::atomic::AtomicPtr,
+};
 
 use crate::{
     lock_free_stack::{LockFreeNode, LockFreeStack},
@@ -11,13 +16,12 @@ pub struct FixedAllocator<T> {
     free_list: *mut u8,
 
     current_chunk: *mut u8,
-    curret_chunk_used: usize,
+    curret_chunk_remaining: usize,
 
     chunks: LockFreeStack<Chunk>,
 
-    capacity: usize,
     used: usize,
-
+    chunk_capacity: usize,
     element_size: usize,
     element_align: usize,
 
@@ -34,14 +38,54 @@ impl<T> FixedAllocator<T> {
         Self {
             free_list: ptr::null_mut(),
             current_chunk: ptr::null_mut(),
-            curret_chunk_used: 0,
+            curret_chunk_remaining: 0,
             chunks: LockFreeStack::new(),
-            capacity,
+            chunk_capacity: capacity,
             used: 0,
             element_size,
             element_align,
             _phantom: PhantomData,
         }
+    }
+
+    pub fn allocate(&mut self) -> NonNull<MaybeUninit<T>> {
+        if self.free_list.is_null() {
+            if self.curret_chunk_remaining < self.element_size {
+                self.refill();
+            }
+
+            self.current_chunk = unsafe { self.current_chunk.add(self.element_size) };
+            self.curret_chunk_remaining -= self.element_size;
+            self.used += self.element_size;
+
+            return unsafe { NonNull::new_unchecked(self.current_chunk.cast::<MaybeUninit<T>>()) };
+        }
+
+        self.free_list = unsafe { *(self.free_list.cast::<*mut u8>()) };
+        self.used += self.element_size;
+
+        unsafe { NonNull::new_unchecked(self.free_list.cast::<MaybeUninit<T>>()) }
+    }
+
+    pub fn refill(&mut self) {
+        let region = Region::new(self.chunk_capacity)
+            .expect("Failed to allocate memory region for FixedAllocator.");
+        let base = region.pointer().as_ptr();
+        let size = region.size();
+
+        debug_assert!(size >= self.element_size);
+        debug_assert!(base as usize % self.element_align == 0);
+
+        let new_chunk = Box::new(Chunk {
+            next: AtomicPtr::null(),
+            region,
+        });
+        let pointer = unsafe { NonNull::new_unchecked(Box::into_raw(new_chunk)) };
+
+        self.chunks.push(pointer);
+
+        self.current_chunk = base;
+        self.curret_chunk_remaining = size;
     }
 }
 

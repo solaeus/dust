@@ -6,6 +6,9 @@ pub use pointer_width_64::*;
 #[cfg(target_pointer_width = "32")]
 pub use pointer_width_32::*;
 
+#[cfg(target_arch = "wasm32")]
+pub use wasm_32::*;
+
 mod pointer_width_64 {
     use super::*;
 
@@ -51,4 +54,25 @@ mod pointer_width_32 {
     ];
 
     pub const MAX_PACKED_VALUE: u32 = 1024 * 32;
+}
+
+mod wasm_32 {
+    pub fn get_physical_page_size() -> usize {
+        1024 * 64
+    }
+}
+
+#[cfg(target_arch = "windows")]
+mod windows {
+    use std::mem;
+
+    use windows::Win32::System::SystemInformation::{GetSystemInfo, SYSTEM_INFO};
+
+    pub fn get_physical_page_size() -> usize {
+        let mut info = mem::zeroed();
+
+        GetSystemInfo(&mut info);
+
+        info.dwPageSize as usize
+    }
 }

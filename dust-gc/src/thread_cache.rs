@@ -1,37 +1,67 @@
-use std::ptr::NonNull;
+use std::{array, ptr::NonNull, sync::Arc};
 
 use crate::{
-    Heap,
+    central::Central,
+    heap::HeapShared,
     page_allocator::PAGE_SIZE,
     span::{SPAN_CLASS_COUNT, Span, SpanClass},
 };
 
 pub struct ThreadCache {
-    heap: Heap,
-    page_cache: PageCache,
+    heap: Arc<HeapShared>,
+
+    centrals: [Central; SPAN_CLASS_COUNT],
+
     spans: [NonNull<Span>; SPAN_CLASS_COUNT],
 }
 
 impl ThreadCache {
-    pub(crate) fn new(heap: Heap, spans: [NonNull<Span>; SPAN_CLASS_COUNT]) -> Self {
+    pub(crate) fn new(heap: Arc<HeapShared>, spans: [NonNull<Span>; SPAN_CLASS_COUNT]) -> Self {
         Self {
             heap,
-            page_cache: PageCache::default(),
+            centrals: array::from_fn(|index| Central::new(SpanClass::from_index(index))),
             spans,
         }
     }
 
     pub fn allocate(&mut self, size: usize, no_scan: bool) -> Option<NonNull<u8>> {
         let span_class = SpanClass::new(size, no_scan)?;
-        let span = unsafe { self.spans[span_class.index()].as_mut() };
+        let central = &mut self.centrals[span_class.index()];
 
-        if let Some(address) = span.allocate_slot() {
+        if let Some(span) = central
+            .get_span()
+            .map(|mut pointer| unsafe { pointer.as_mut() })
+        {
+            let address = span.allocate_slot()?;
             let pointer = unsafe { NonNull::new_unchecked(address as *mut u8) };
 
             return Some(pointer);
         }
 
+        let page_count = if span_class.is_large() {
+            size.div_ceil(PAGE_SIZE)
+        } else {
+            span_class.size().div_ceil(PAGE_SIZE)
+        };
+        let heap_locked = self.heap.mutex.lock();
+
+        if let Some((base, offset_address)) = heap_locked.find_pages(page_count) {}
+
         todo!()
+    }
+}
+
+struct SpanCache {
+    buffer: [Option<NonNull<Span>>; 128],
+    length: usize,
+}
+
+impl SpanCache {
+    fn new() -> Self {
+        Self {
+            buffer: [None; 128],
+            length: 0,
+        }
     }
 }
 

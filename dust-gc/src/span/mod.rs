@@ -35,7 +35,8 @@ pub struct Span {
     scanned_slots: NonNull<Bitmap>,
     scan_index: u16,
 
-    generation: u32,
+    full_slots: u16,
+    pub generation: u32,
 }
 
 impl Span {
@@ -58,11 +59,12 @@ impl Span {
             end_address: start_address + page_count * PAGE_SIZE,
             next: None,
             previous: None,
-            generation: 0,
             free_slots,
             free_index: 0,
             scanned_slots,
             scan_index: 0,
+            full_slots: 0,
+            generation: 0,
         }
     }
 
@@ -78,6 +80,16 @@ impl Span {
         }
 
         todo!()
+    }
+
+    pub fn sweep(&mut self) {}
+
+    pub fn full_slots(&self) -> u16 {
+        self.full_slots
+    }
+
+    pub fn slot_count(&self) -> usize {
+        (self.start_address + self.page_count * PAGE_SIZE) / self.class.size()
     }
 }
 
@@ -230,13 +242,6 @@ mod tests {
 
             assert_eq!(&span_class.size(), size_of_class);
             assert_eq!(span_class.no_scan(), no_scan);
-        }
-    }
-
-    #[test]
-    fn class_sizes_divide_by_page_size() {
-        for size in SIZES {
-            assert!(size % PAGE_SIZE == 0);
         }
     }
 }

@@ -16,6 +16,10 @@ impl PageAllocator {
         }
     }
 
+    pub fn find(&mut self, page_count: usize) -> (usize, OffsetAddress) {
+        todo!()
+    }
+
     pub fn grow(&mut self, base: usize, size: usize) {
         todo!()
     }

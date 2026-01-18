@@ -2,7 +2,8 @@
     allocator_api,
     atomic_ptr_null,
     box_vec_non_null,
-    int_lowest_highest_one
+    int_lowest_highest_one,
+    integer_atomics
 )]
 
 mod arena;
