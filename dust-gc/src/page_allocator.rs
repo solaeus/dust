@@ -16,7 +16,7 @@ impl PageAllocator {
         }
     }
 
-    pub fn find(&mut self, page_count: usize) -> (usize, OffsetAddress) {
+    pub fn find(&mut self, page_count: usize) -> Option<(usize, usize)> {
         todo!()
     }
 
@@ -107,3 +107,5 @@ impl PageInfo {
         PageInfo::new(start, max, end)
     }
 }
+
+pub struct OffsetAddress {}

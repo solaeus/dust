@@ -1,7 +1,6 @@
 use std::{array, ptr::NonNull, sync::Arc};
 
 use crate::{
-    central::Central,
     heap::HeapShared,
     page_allocator::PAGE_SIZE,
     span::{SPAN_CLASS_COUNT, Span, SpanClass},
@@ -10,44 +9,28 @@ use crate::{
 pub struct ThreadCache {
     heap: Arc<HeapShared>,
 
-    centrals: [Central; SPAN_CLASS_COUNT],
-
-    spans: [NonNull<Span>; SPAN_CLASS_COUNT],
+    spans: [Option<NonNull<Span>>; SPAN_CLASS_COUNT],
 }
 
 impl ThreadCache {
-    pub(crate) fn new(heap: Arc<HeapShared>, spans: [NonNull<Span>; SPAN_CLASS_COUNT]) -> Self {
+    pub(crate) fn new(heap: Arc<HeapShared>) -> Self {
         Self {
             heap,
-            centrals: array::from_fn(|index| Central::new(SpanClass::from_index(index))),
-            spans,
+            spans: [None; SPAN_CLASS_COUNT],
         }
     }
 
-    pub fn allocate(&mut self, size: usize, no_scan: bool) -> Option<NonNull<u8>> {
+    pub fn allocate_slot(&mut self, size: usize, no_scan: bool) -> Option<NonNull<u8>> {
         let span_class = SpanClass::new(size, no_scan)?;
-        let central = &mut self.centrals[span_class.index()];
-
-        if let Some(span) = central
-            .get_span()
-            .map(|mut pointer| unsafe { pointer.as_mut() })
-        {
-            let address = span.allocate_slot()?;
-            let pointer = unsafe { NonNull::new_unchecked(address as *mut u8) };
-
-            return Some(pointer);
-        }
-
-        let page_count = if span_class.is_large() {
-            size.div_ceil(PAGE_SIZE)
+        let span = if let Some(mut span) = self.spans[span_class.index()] {
+            unsafe { span.as_mut() }
         } else {
-            span_class.size().div_ceil(PAGE_SIZE)
+            let mut span = self.heap.get_free_span(span_class);
+
+            unsafe { span.as_mut() }
         };
-        let heap_locked = self.heap.mutex.lock();
 
-        if let Some((base, offset_address)) = heap_locked.find_pages(page_count) {}
-
-        todo!()
+        span.allocate_slot()
     }
 }
 

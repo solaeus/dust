@@ -1,12 +1,8 @@
 use std::ptr::NonNull;
 
-use crate::{
-    page_allocator::PAGE_SIZE,
-    span::{Span, SpanClass, SpanSet},
-};
+use crate::span::{Span, SpanSet};
 
 pub struct Central {
-    pub span_class: SpanClass,
     pub partial_swept: SpanSet,
     pub partial_unswept: SpanSet,
     pub full_swept: SpanSet,
@@ -14,9 +10,8 @@ pub struct Central {
 }
 
 impl Central {
-    pub fn new(span_class: SpanClass) -> Self {
+    pub fn new() -> Self {
         Self {
-            span_class,
             partial_swept: SpanSet::new(),
             partial_unswept: SpanSet::new(),
             full_swept: SpanSet::new(),
@@ -51,3 +46,6 @@ impl Central {
         }
     }
 }
+
+unsafe impl Send for Central {}
+unsafe impl Sync for Central {}

@@ -1,11 +1,10 @@
+mod bitmap;
 mod set;
 
+pub use bitmap::{Bitmap, BitmapArena};
 pub use set::SpanSet;
 
-use std::{
-    ptr::{self, NonNull},
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::ptr::NonNull;
 
 use crate::page_allocator::PAGE_SIZE;
 
@@ -47,11 +46,6 @@ impl Span {
         free_slots: NonNull<Bitmap>,
         scanned_slots: NonNull<Bitmap>,
     ) -> Self {
-        let span_size = start_address + page_count * PAGE_SIZE;
-        let slot_count = span_size / class.size();
-
-        assert!(slot_count < BitmapArena::CAPACITY);
-
         Self {
             class,
             page_count,
@@ -68,7 +62,7 @@ impl Span {
         }
     }
 
-    pub fn allocate_slot(&mut self) -> Option<usize> {
+    pub fn allocate_slot(&mut self) -> Option<NonNull<u8>> {
         let slot_count = if self.class.is_large() {
             1
         } else {
@@ -84,6 +78,10 @@ impl Span {
 
     pub fn sweep(&mut self) {}
 
+    pub fn is_full(&self) -> bool {
+        self.full_slots == self.slot_count() as u16
+    }
+
     pub fn full_slots(&self) -> u16 {
         self.full_slots
     }
@@ -93,7 +91,7 @@ impl Span {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct SpanClass(u8);
 
 impl SpanClass {
@@ -151,69 +149,6 @@ impl SpanClass {
 pub struct SpanList {
     first: Option<NonNull<Span>>,
     last: Option<NonNull<Span>>,
-}
-
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub struct Bitmap {
-    bits: u8,
-}
-
-impl Bitmap {
-    fn get_byte(&mut self, index: usize) -> *mut u8 {
-        unsafe { (self.bits as *mut u8).add(index) }
-    }
-
-    fn get_bit(&mut self, index: usize) -> (*mut u8, u8) {
-        let byte = self.get_byte(index / 8);
-        let mask = 1 << (index % 8);
-
-        (byte, mask)
-    }
-}
-
-#[repr(C, align(8))]
-pub struct BitmapArena {
-    free: AtomicUsize,
-    next: *mut u8,
-    bytes: [Bitmap; Self::CAPACITY],
-}
-
-impl BitmapArena {
-    const SIZE: usize = 1024 * 64;
-    const HEADER_SIZE: usize = size_of::<AtomicUsize>() + size_of::<*mut u8>();
-    const CAPACITY: usize = Self::SIZE - Self::HEADER_SIZE;
-
-    const fn new() -> Self {
-        Self {
-            free: AtomicUsize::new(0),
-            next: ptr::null_mut(),
-            bytes: [Bitmap { bits: 0 }; Self::CAPACITY],
-        }
-    }
-
-    fn allocate_bitmap(&self, bytes: usize) -> Option<NonNull<Bitmap>> {
-        let current = self.free.load(Ordering::Relaxed);
-
-        if current.checked_add(bytes)? > self.bytes.len() {
-            return None;
-        }
-
-        let start = self.free.fetch_add(bytes, Ordering::AcqRel);
-
-        if start.saturating_add(bytes) > self.bytes.len() {
-            return None;
-        }
-
-        let pointer = {
-            let base = self.bytes.as_ptr();
-            let with_offset = unsafe { base.add(start) };
-
-            unsafe { NonNull::new_unchecked(with_offset as *mut Bitmap) }
-        };
-
-        Some(pointer)
-    }
 }
 
 #[cfg(test)]

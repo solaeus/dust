@@ -1,32 +1,53 @@
-use std::{io, ptr::NonNull};
+use std::{
+    error::Error,
+    fmt::{self, Display, Formatter},
+};
 
-pub struct Region {
-    pointer: NonNull<u8>,
-    size: usize,
-}
-
-impl Region {
-    pub fn new(size: usize) -> Result<Self, RegionError> {
-        if size == 0 {
-            return Err(RegionError::ZeroSizedRegion);
-        }
-
-        todo!()
-    }
-
-    pub fn pointer(&self) -> NonNull<u8> {
-        self.pointer
-    }
-
-    pub fn size(&self) -> usize {
-        self.size
-    }
-}
+#[cfg(not(target_arch = "wasm32"))]
+pub type Region = mmap::MmapRegion;
 
 #[derive(Debug)]
-pub enum RegionError {
-    ZeroSizedRegion,
-    Os(io::Error),
-    #[cfg(unix)]
-    Platform(nix::errno::Errno),
+struct ZeroSizedRegionError;
+
+impl Display for ZeroSizedRegionError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Tried to allocatate zero-sized memorty region")
+    }
+}
+
+impl Error for ZeroSizedRegionError {}
+
+mod mmap {
+    use super::*;
+
+    use std::io;
+
+    use memmap2::MmapMut;
+
+    pub struct MmapRegion {
+        mmap: MmapMut,
+    }
+
+    impl MmapRegion {
+        pub fn new(size: usize) -> Result<Self, io::Error> {
+            if size == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::WriteZero,
+                    ZeroSizedRegionError,
+                ));
+            }
+
+            Ok(Self {
+                mmap: MmapMut::map_anon(size)?,
+            })
+        }
+
+        pub fn base(&self) -> usize {
+            self.mmap.as_ptr() as usize
+        }
+
+        pub fn size(&self) -> usize {
+            self.mmap.len()
+        }
+    }
 }
