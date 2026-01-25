@@ -46,6 +46,3 @@ impl Central {
         }
     }
 }
-
-unsafe impl Send for Central {}
-unsafe impl Sync for Central {}

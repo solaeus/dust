@@ -58,9 +58,6 @@ impl HeapShared {
     }
 }
 
-// unsafe impl Send for HeapShared {}
-// unsafe impl Sync for HeapShared {}
-
 pub struct HeapLocked {
     arenas: Vec<Arena>,
 

@@ -39,9 +39,6 @@ impl SpanSet {
     }
 }
 
-unsafe impl Send for SpanSet {}
-unsafe impl Sync for SpanSet {}
-
 struct BlockAllocator {
     stack: LockFreeStack<Block>,
 }
