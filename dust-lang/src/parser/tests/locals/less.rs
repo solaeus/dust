@@ -16,12 +16,12 @@ fn local_boolean_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 3),
+                children: (10, 3),
                 span: Span(0, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 21),
             },
             SyntaxNode {
@@ -51,7 +51,7 @@ fn local_boolean_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (8, 11),
+                children: (5, 3),
                 span: Span(22, 41),
             },
             SyntaxNode {
@@ -61,7 +61,7 @@ fn local_boolean_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(26, 27),
             },
             SyntaxNode {
@@ -86,7 +86,7 @@ fn local_boolean_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -106,7 +106,7 @@ fn local_boolean_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(46, 47),
             },
             SyntaxNode {
@@ -129,12 +129,12 @@ fn local_byte_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 3),
+                children: (10, 3),
                 span: Span(0, 47),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -164,7 +164,7 @@ fn local_byte_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (8, 11),
+                children: (5, 3),
                 span: Span(21, 40),
             },
             SyntaxNode {
@@ -174,7 +174,7 @@ fn local_byte_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(25, 26),
             },
             SyntaxNode {
@@ -199,7 +199,7 @@ fn local_byte_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(41, 42),
             },
             SyntaxNode {
@@ -219,7 +219,7 @@ fn local_byte_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(45, 46),
             },
             SyntaxNode {
@@ -242,12 +242,12 @@ fn local_character_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 3),
+                children: (10, 3),
                 span: Span(0, 45),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 19),
             },
             SyntaxNode {
@@ -277,7 +277,7 @@ fn local_character_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (8, 11),
+                children: (5, 3),
                 span: Span(20, 38),
             },
             SyntaxNode {
@@ -287,7 +287,7 @@ fn local_character_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(24, 25),
             },
             SyntaxNode {
@@ -312,7 +312,7 @@ fn local_character_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(39, 40),
             },
             SyntaxNode {
@@ -332,7 +332,7 @@ fn local_character_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(43, 44),
             },
             SyntaxNode {
@@ -355,12 +355,12 @@ fn local_float_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 3),
+                children: (10, 3),
                 span: Span(0, 49),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 21),
             },
             SyntaxNode {
@@ -390,7 +390,7 @@ fn local_float_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (8, 11),
+                children: (5, 3),
                 span: Span(22, 42),
             },
             SyntaxNode {
@@ -400,7 +400,7 @@ fn local_float_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(26, 27),
             },
             SyntaxNode {
@@ -425,7 +425,7 @@ fn local_float_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(43, 44),
             },
             SyntaxNode {
@@ -445,7 +445,7 @@ fn local_float_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(47, 48),
             },
             SyntaxNode {
@@ -468,12 +468,12 @@ fn local_integer_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 3),
+                children: (10, 3),
                 span: Span(0, 41),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 17),
             },
             SyntaxNode {
@@ -503,7 +503,7 @@ fn local_integer_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (8, 11),
+                children: (5, 3),
                 span: Span(18, 34),
             },
             SyntaxNode {
@@ -513,7 +513,7 @@ fn local_integer_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(22, 23),
             },
             SyntaxNode {
@@ -538,7 +538,7 @@ fn local_integer_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(35, 36),
             },
             SyntaxNode {
@@ -558,7 +558,7 @@ fn local_integer_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(39, 40),
             },
             SyntaxNode {
@@ -581,12 +581,12 @@ fn local_string_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 3),
+                children: (10, 3),
                 span: Span(0, 47),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -616,7 +616,7 @@ fn local_string_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (8, 11),
+                children: (5, 3),
                 span: Span(21, 40),
             },
             SyntaxNode {
@@ -626,7 +626,7 @@ fn local_string_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(25, 26),
             },
             SyntaxNode {
@@ -651,7 +651,7 @@ fn local_string_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(41, 42),
             },
             SyntaxNode {
@@ -671,7 +671,7 @@ fn local_string_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(45, 46),
             },
             SyntaxNode {

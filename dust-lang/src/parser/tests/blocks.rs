@@ -72,12 +72,12 @@ fn block_statement() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (2, 1),
+                children: (5, 1),
                 span: Span(0, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(0, 20),
             },
             SyntaxNode {
@@ -87,7 +87,7 @@ fn block_statement() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(2, 18),
             },
             SyntaxNode {
@@ -130,17 +130,17 @@ fn block_statement_and_expression() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 1),
+                children: (7, 1),
                 span: Span(0, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (2, 2),
+                children: (5, 2),
                 span: Span(0, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(2, 18),
             },
             SyntaxNode {
@@ -175,7 +175,7 @@ fn block_statement_and_expression() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(19, 20),
             },
             SyntaxNode {
@@ -208,17 +208,17 @@ fn parent_scope_access() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (5, 1),
+                children: (8, 1),
                 span: Span(0, 36),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (3, 2),
+                children: (6, 2),
                 span: Span(1, 35),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(7, 23),
             },
             SyntaxNode {
@@ -248,7 +248,7 @@ fn parent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (2, 1),
+                children: (5, 1),
                 span: Span(28, 33),
             },
             SyntaxNode {
@@ -258,7 +258,7 @@ fn parent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(30, 31),
             },
             SyntaxNode {
@@ -281,17 +281,17 @@ fn nested_parrent_scope_access() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (9, 1),
+                children: (15, 1),
                 span: Span(0, 100),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (7, 2),
+                children: (13, 2),
                 span: Span(1, 99),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(7, 23),
             },
             SyntaxNode {
@@ -321,12 +321,12 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (5, 2),
+                children: (11, 2),
                 span: Span(28, 97),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (8, 11),
+                children: (5, 3),
                 span: Span(38, 53),
             },
             SyntaxNode {
@@ -336,7 +336,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -356,7 +356,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (4, 1),
+                children: (10, 1),
                 span: Span(62, 91),
             },
             SyntaxNode {
@@ -366,7 +366,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(76, 77),
             },
             SyntaxNode {
@@ -386,7 +386,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(80, 81),
             },
             SyntaxNode {
@@ -409,17 +409,17 @@ fn scope_shadowing() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (7, 1),
+                children: (13, 1),
                 span: Span(0, 73),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (5, 2),
+                children: (11, 2),
                 span: Span(1, 72),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(7, 23),
             },
             SyntaxNode {
@@ -449,12 +449,12 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (3, 2),
+                children: (9, 2),
                 span: Span(28, 70),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (8, 11),
+                children: (5, 3),
                 span: Span(38, 54),
             },
             SyntaxNode {
@@ -464,7 +464,7 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -489,7 +489,7 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(63, 64),
             },
             SyntaxNode {
@@ -512,17 +512,17 @@ fn scope_deshadowing() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (7, 1),
+                children: (13, 1),
                 span: Span(0, 68),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (4, 3),
+                children: (10, 3),
                 span: Span(1, 67),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(7, 23),
             },
             SyntaxNode {
@@ -552,7 +552,7 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(28, 59),
             },
             SyntaxNode {
@@ -562,7 +562,7 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (8, 11),
+                children: (5, 3),
                 span: Span(38, 53),
             },
             SyntaxNode {
@@ -572,7 +572,7 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -597,7 +597,7 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(64, 65),
             },
             SyntaxNode {

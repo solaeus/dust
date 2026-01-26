@@ -16,12 +16,12 @@ fn local_boolean_not() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (2, 2),
+                children: (5, 2),
                 span: Span(0, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -61,7 +61,7 @@ fn local_boolean_not() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(22, 23),
             },
             SyntaxNode {

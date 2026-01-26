@@ -16,12 +16,12 @@ fn while_loop() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (5, 3),
+                children: (8, 3),
                 span: Span(0, 49),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
-                children: (2, 4),
+                children: (1, 3),
                 span: Span(1, 15),
             },
             SyntaxNode {
@@ -61,7 +61,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(23, 24),
             },
             SyntaxNode {
@@ -81,7 +81,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (3, 1),
+                children: (6, 1),
                 span: Span(30, 45),
             },
             SyntaxNode {
@@ -96,7 +96,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (5, 1),
                 span: Span(36, 37),
             },
             SyntaxNode {
@@ -121,7 +121,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (4, 1),
+                children: (7, 1),
                 span: Span(47, 48),
             },
             SyntaxNode {

@@ -16,12 +16,12 @@ fn local_boolean() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (2, 2),
+                children: (5, 2),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -56,7 +56,7 @@ fn local_boolean() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(21, 22),
             },
             SyntaxNode {
@@ -79,12 +79,12 @@ fn local_byte() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (2, 2),
+                children: (5, 2),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -119,7 +119,7 @@ fn local_byte() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(21, 22),
             },
             SyntaxNode {
@@ -142,12 +142,12 @@ fn local_character() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (2, 2),
+                children: (5, 2),
                 span: Span(0, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 19),
             },
             SyntaxNode {
@@ -182,7 +182,7 @@ fn local_character() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(20, 21),
             },
             SyntaxNode {
@@ -205,12 +205,12 @@ fn local_float() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (2, 2),
+                children: (5, 2),
                 span: Span(0, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 21),
             },
             SyntaxNode {
@@ -245,7 +245,7 @@ fn local_float() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(22, 23),
             },
             SyntaxNode {
@@ -268,12 +268,12 @@ fn local_integer() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (2, 2),
+                children: (5, 2),
                 span: Span(0, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 17),
             },
             SyntaxNode {
@@ -308,7 +308,7 @@ fn local_integer() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(18, 19),
             },
             SyntaxNode {
@@ -331,12 +331,12 @@ fn local_string() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (2, 2),
+                children: (5, 2),
                 span: Span(0, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 23),
             },
             SyntaxNode {
@@ -371,7 +371,7 @@ fn local_string() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(24, 25),
             },
             SyntaxNode {

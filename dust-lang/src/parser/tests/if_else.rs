@@ -122,12 +122,12 @@ fn if_else_logical_and() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (9, 3),
+                children: (15, 3),
                 span: Span(0, 66),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 4),
+                children: (1, 3),
                 span: Span(1, 14),
             },
             SyntaxNode {
@@ -152,7 +152,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (7, 9),
+                children: (5, 3),
                 span: Span(15, 28),
             },
             SyntaxNode {
@@ -162,7 +162,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(19, 20),
             },
             SyntaxNode {
@@ -177,7 +177,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (6, 3),
+                children: (12, 3),
                 span: Span(30, 65),
             },
             SyntaxNode {
@@ -187,7 +187,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(33, 34),
             },
             SyntaxNode {
@@ -207,7 +207,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(38, 39),
             },
             SyntaxNode {
@@ -217,7 +217,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (4, 1),
+                children: (10, 1),
                 span: Span(40, 50),
             },
             SyntaxNode {
@@ -227,7 +227,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (5, 1),
+                children: (11, 1),
                 span: Span(56, 65),
             },
             SyntaxNode {
@@ -255,12 +255,12 @@ fn if_else_logical_or() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (9, 3),
+                children: (15, 3),
                 span: Span(0, 67),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 4),
+                children: (1, 3),
                 span: Span(1, 15),
             },
             SyntaxNode {
@@ -285,7 +285,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (7, 9),
+                children: (5, 3),
                 span: Span(16, 29),
             },
             SyntaxNode {
@@ -295,7 +295,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(20, 21),
             },
             SyntaxNode {
@@ -310,7 +310,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (6, 3),
+                children: (12, 3),
                 span: Span(31, 66),
             },
             SyntaxNode {
@@ -320,7 +320,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(34, 35),
             },
             SyntaxNode {
@@ -340,7 +340,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(39, 40),
             },
             SyntaxNode {
@@ -350,7 +350,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (4, 1),
+                children: (10, 1),
                 span: Span(41, 51),
             },
             SyntaxNode {
@@ -360,7 +360,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (5, 1),
+                children: (11, 1),
                 span: Span(57, 66),
             },
             SyntaxNode {
@@ -388,12 +388,12 @@ fn if_else_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (9, 3),
+                children: (15, 3),
                 span: Span(0, 60),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 4),
+                children: (1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -418,7 +418,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (7, 9),
+                children: (5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -428,7 +428,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -443,7 +443,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (6, 3),
+                children: (12, 3),
                 span: Span(24, 59),
             },
             SyntaxNode {
@@ -453,7 +453,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -473,7 +473,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(32, 33),
             },
             SyntaxNode {
@@ -483,7 +483,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (4, 1),
+                children: (10, 1),
                 span: Span(34, 44),
             },
             SyntaxNode {
@@ -493,7 +493,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (5, 1),
+                children: (11, 1),
                 span: Span(50, 59),
             },
             SyntaxNode {
@@ -521,12 +521,12 @@ fn if_else_not_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (9, 3),
+                children: (15, 3),
                 span: Span(0, 60),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 4),
+                children: (1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -551,7 +551,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (7, 9),
+                children: (5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -561,7 +561,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -576,7 +576,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (6, 3),
+                children: (12, 3),
                 span: Span(24, 59),
             },
             SyntaxNode {
@@ -586,7 +586,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -606,7 +606,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(32, 33),
             },
             SyntaxNode {
@@ -616,7 +616,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (4, 1),
+                children: (10, 1),
                 span: Span(34, 44),
             },
             SyntaxNode {
@@ -626,7 +626,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (5, 1),
+                children: (11, 1),
                 span: Span(50, 59),
             },
             SyntaxNode {
@@ -654,12 +654,12 @@ fn if_else_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (9, 3),
+                children: (15, 3),
                 span: Span(0, 59),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 4),
+                children: (1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -684,7 +684,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (7, 9),
+                children: (5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -694,7 +694,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -709,7 +709,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (6, 3),
+                children: (12, 3),
                 span: Span(24, 58),
             },
             SyntaxNode {
@@ -719,7 +719,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -739,7 +739,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(31, 32),
             },
             SyntaxNode {
@@ -749,7 +749,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (4, 1),
+                children: (10, 1),
                 span: Span(33, 43),
             },
             SyntaxNode {
@@ -759,7 +759,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (5, 1),
+                children: (11, 1),
                 span: Span(49, 58),
             },
             SyntaxNode {
@@ -787,12 +787,12 @@ fn if_else_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (9, 3),
+                children: (15, 3),
                 span: Span(0, 59),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 4),
+                children: (1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -817,7 +817,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (7, 9),
+                children: (5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -827,7 +827,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -842,7 +842,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (6, 3),
+                children: (12, 3),
                 span: Span(24, 58),
             },
             SyntaxNode {
@@ -852,7 +852,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -872,7 +872,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(31, 32),
             },
             SyntaxNode {
@@ -882,7 +882,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (4, 1),
+                children: (10, 1),
                 span: Span(33, 43),
             },
             SyntaxNode {
@@ -892,7 +892,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (5, 1),
+                children: (11, 1),
                 span: Span(49, 58),
             },
             SyntaxNode {
@@ -920,12 +920,12 @@ fn if_else_less_than_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (9, 3),
+                children: (15, 3),
                 span: Span(0, 60),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 4),
+                children: (1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -950,7 +950,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (7, 9),
+                children: (5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -960,7 +960,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -975,7 +975,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (6, 3),
+                children: (12, 3),
                 span: Span(24, 59),
             },
             SyntaxNode {
@@ -985,7 +985,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -1005,7 +1005,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(32, 33),
             },
             SyntaxNode {
@@ -1015,7 +1015,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (4, 1),
+                children: (10, 1),
                 span: Span(34, 44),
             },
             SyntaxNode {
@@ -1025,7 +1025,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (5, 1),
+                children: (11, 1),
                 span: Span(50, 59),
             },
             SyntaxNode {
@@ -1053,12 +1053,12 @@ fn if_else_greater_than_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (9, 3),
+                children: (15, 3),
                 span: Span(0, 60),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 4),
+                children: (1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -1083,7 +1083,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (7, 9),
+                children: (5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -1093,7 +1093,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -1108,7 +1108,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (6, 3),
+                children: (12, 3),
                 span: Span(24, 59),
             },
             SyntaxNode {
@@ -1118,7 +1118,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -1138,7 +1138,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(32, 33),
             },
             SyntaxNode {
@@ -1148,7 +1148,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (4, 1),
+                children: (10, 1),
                 span: Span(34, 44),
             },
             SyntaxNode {
@@ -1158,7 +1158,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (5, 1),
+                children: (11, 1),
                 span: Span(50, 59),
             },
             SyntaxNode {
@@ -1186,12 +1186,12 @@ fn if_else_if_chain_end() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (15, 3),
+                children: (21, 3),
                 span: Span(0, 84),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 4),
+                children: (1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -1216,7 +1216,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (7, 9),
+                children: (5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -1226,7 +1226,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -1241,7 +1241,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (12, 3),
+                children: (18, 3),
                 span: Span(24, 83),
             },
             SyntaxNode {
@@ -1251,7 +1251,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -1271,7 +1271,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(31, 32),
             },
             SyntaxNode {
@@ -1281,7 +1281,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (4, 1),
+                children: (10, 1),
                 span: Span(33, 42),
             },
             SyntaxNode {
@@ -1291,7 +1291,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (9, 3),
+                children: (15, 3),
                 span: Span(48, 83),
             },
             SyntaxNode {
@@ -1306,7 +1306,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (5, 1),
+                children: (11, 1),
                 span: Span(51, 52),
             },
             SyntaxNode {
@@ -1326,7 +1326,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (6, 1),
+                children: (12, 1),
                 span: Span(56, 57),
             },
             SyntaxNode {
@@ -1336,7 +1336,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (7, 1),
+                children: (13, 1),
                 span: Span(58, 67),
             },
             SyntaxNode {
@@ -1346,7 +1346,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (8, 1),
+                children: (14, 1),
                 span: Span(73, 83),
             },
             SyntaxNode {
@@ -1374,12 +1374,12 @@ fn if_else_if_chain_middle() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (15, 3),
+                children: (21, 3),
                 span: Span(0, 84),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 4),
+                children: (1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -1404,7 +1404,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (7, 9),
+                children: (5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -1414,7 +1414,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -1429,7 +1429,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (12, 3),
+                children: (18, 3),
                 span: Span(24, 83),
             },
             SyntaxNode {
@@ -1439,7 +1439,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -1459,7 +1459,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(31, 32),
             },
             SyntaxNode {
@@ -1469,7 +1469,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (4, 1),
+                children: (10, 1),
                 span: Span(33, 42),
             },
             SyntaxNode {
@@ -1479,7 +1479,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (9, 3),
+                children: (15, 3),
                 span: Span(48, 83),
             },
             SyntaxNode {
@@ -1494,7 +1494,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (5, 1),
+                children: (11, 1),
                 span: Span(51, 52),
             },
             SyntaxNode {
@@ -1514,7 +1514,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (6, 1),
+                children: (12, 1),
                 span: Span(56, 57),
             },
             SyntaxNode {
@@ -1524,7 +1524,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (7, 1),
+                children: (13, 1),
                 span: Span(58, 68),
             },
             SyntaxNode {
@@ -1534,7 +1534,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (8, 1),
+                children: (14, 1),
                 span: Span(74, 83),
             },
             SyntaxNode {
@@ -1562,12 +1562,12 @@ fn if_else_nested() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (16, 3),
+                children: (22, 3),
                 span: Span(0, 107),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 4),
+                children: (1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -1592,7 +1592,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (7, 9),
+                children: (5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -1602,7 +1602,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -1617,7 +1617,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (13, 3),
+                children: (19, 3),
                 span: Span(24, 106),
             },
             SyntaxNode {
@@ -1627,7 +1627,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -1647,7 +1647,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(31, 32),
             },
             SyntaxNode {
@@ -1657,12 +1657,12 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (11, 1),
+                children: (17, 1),
                 span: Span(33, 91),
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (8, 3),
+                children: (14, 3),
                 span: Span(39, 89),
             },
             SyntaxNode {
@@ -1672,7 +1672,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (4, 1),
+                children: (10, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -1692,7 +1692,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (5, 1),
+                children: (11, 1),
                 span: Span(46, 47),
             },
             SyntaxNode {
@@ -1702,7 +1702,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (6, 1),
+                children: (12, 1),
                 span: Span(48, 66),
             },
             SyntaxNode {
@@ -1712,7 +1712,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (7, 1),
+                children: (13, 1),
                 span: Span(72, 89),
             },
             SyntaxNode {
@@ -1727,7 +1727,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (12, 1),
+                children: (18, 1),
                 span: Span(97, 106),
             },
             SyntaxNode {
@@ -1755,12 +1755,12 @@ fn if_else_double_nested() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (22, 3),
+                children: (28, 3),
                 span: Span(0, 172),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 4),
+                children: (1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -1785,7 +1785,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (7, 9),
+                children: (5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -1795,7 +1795,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -1810,7 +1810,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (19, 3),
+                children: (25, 3),
                 span: Span(24, 171),
             },
             SyntaxNode {
@@ -1820,7 +1820,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -1840,7 +1840,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(31, 32),
             },
             SyntaxNode {
@@ -1850,12 +1850,12 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (17, 1),
+                children: (23, 1),
                 span: Span(33, 156),
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (14, 3),
+                children: (20, 3),
                 span: Span(39, 154),
             },
             SyntaxNode {
@@ -1865,7 +1865,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (4, 1),
+                children: (10, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -1885,7 +1885,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (5, 1),
+                children: (11, 1),
                 span: Span(46, 47),
             },
             SyntaxNode {
@@ -1895,12 +1895,12 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (12, 1),
+                children: (18, 1),
                 span: Span(48, 131),
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                children: (9, 3),
+                children: (15, 3),
                 span: Span(58, 125),
             },
             SyntaxNode {
@@ -1910,7 +1910,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (6, 1),
+                children: (12, 1),
                 span: Span(61, 62),
             },
             SyntaxNode {
@@ -1930,7 +1930,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (7, 1),
+                children: (13, 1),
                 span: Span(68, 94),
             },
             SyntaxNode {
@@ -1940,7 +1940,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (8, 1),
+                children: (14, 1),
                 span: Span(100, 125),
             },
             SyntaxNode {
@@ -1955,7 +1955,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (13, 1),
+                children: (19, 1),
                 span: Span(137, 154),
             },
             SyntaxNode {
@@ -1970,7 +1970,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                children: (18, 1),
+                children: (24, 1),
                 span: Span(162, 171),
             },
             SyntaxNode {

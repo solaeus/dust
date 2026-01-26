@@ -244,12 +244,12 @@ fn list_index_boolean() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (5, 2),
+                children: (8, 2),
                 span: Span(0, 35),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 7),
+                children: (4, 3),
                 span: Span(1, 29),
             },
             SyntaxNode {
@@ -294,7 +294,7 @@ fn list_index_boolean() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (4, 1),
+                children: (7, 1),
                 span: Span(30, 31),
             },
             SyntaxNode {
@@ -327,12 +327,12 @@ fn list_index_byte() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (5, 2),
+                children: (8, 2),
                 span: Span(0, 34),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 7),
+                children: (4, 3),
                 span: Span(1, 28),
             },
             SyntaxNode {
@@ -377,7 +377,7 @@ fn list_index_byte() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (4, 1),
+                children: (7, 1),
                 span: Span(29, 30),
             },
             SyntaxNode {
@@ -410,12 +410,12 @@ fn list_index_character() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (5, 2),
+                children: (8, 2),
                 span: Span(0, 31),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 7),
+                children: (4, 3),
                 span: Span(1, 25),
             },
             SyntaxNode {
@@ -460,7 +460,7 @@ fn list_index_character() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (4, 1),
+                children: (7, 1),
                 span: Span(26, 27),
             },
             SyntaxNode {
@@ -493,12 +493,12 @@ fn list_index_float() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (5, 2),
+                children: (8, 2),
                 span: Span(0, 31),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 7),
+                children: (4, 3),
                 span: Span(1, 25),
             },
             SyntaxNode {
@@ -543,7 +543,7 @@ fn list_index_float() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (4, 1),
+                children: (7, 1),
                 span: Span(26, 27),
             },
             SyntaxNode {
@@ -576,12 +576,12 @@ fn list_index_integer() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (5, 2),
+                children: (8, 2),
                 span: Span(0, 25),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 7),
+                children: (4, 3),
                 span: Span(1, 19),
             },
             SyntaxNode {
@@ -626,7 +626,7 @@ fn list_index_integer() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (4, 1),
+                children: (7, 1),
                 span: Span(20, 21),
             },
             SyntaxNode {
@@ -659,12 +659,12 @@ fn list_index_string() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (5, 2),
+                children: (8, 2),
                 span: Span(0, 37),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 7),
+                children: (4, 3),
                 span: Span(1, 31),
             },
             SyntaxNode {
@@ -709,7 +709,7 @@ fn list_index_string() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (4, 1),
+                children: (7, 1),
                 span: Span(32, 33),
             },
             SyntaxNode {
@@ -742,12 +742,12 @@ fn local_list_boolean() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (5, 2),
+                children: (8, 2),
                 span: Span(0, 32),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 7),
+                children: (4, 3),
                 span: Span(1, 29),
             },
             SyntaxNode {
@@ -792,7 +792,7 @@ fn local_list_boolean() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (4, 1),
+                children: (7, 1),
                 span: Span(30, 31),
             },
             SyntaxNode {
@@ -815,12 +815,12 @@ fn local_list_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (8, 3),
+                children: (14, 3),
                 span: Span(0, 54),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 6),
+                children: (3, 3),
                 span: Span(1, 23),
             },
             SyntaxNode {
@@ -855,7 +855,7 @@ fn local_list_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (9, 13),
+                children: (9, 3),
                 span: Span(24, 46),
             },
             SyntaxNode {
@@ -865,12 +865,12 @@ fn local_list_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (6, 1),
                 span: Span(28, 29),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (4, 2),
+                children: (7, 2),
                 span: Span(32, 45),
             },
             SyntaxNode {
@@ -895,7 +895,7 @@ fn local_list_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (6, 1),
+                children: (12, 1),
                 span: Span(47, 48),
             },
             SyntaxNode {
@@ -915,7 +915,7 @@ fn local_list_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (7, 1),
+                children: (13, 1),
                 span: Span(52, 53),
             },
             SyntaxNode {
@@ -938,12 +938,12 @@ fn local_list_not_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (8, 3),
+                children: (14, 3),
                 span: Span(0, 52),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 6),
+                children: (3, 3),
                 span: Span(1, 22),
             },
             SyntaxNode {
@@ -978,7 +978,7 @@ fn local_list_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (9, 13),
+                children: (9, 3),
                 span: Span(23, 44),
             },
             SyntaxNode {
@@ -988,12 +988,12 @@ fn local_list_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (6, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (4, 2),
+                children: (7, 2),
                 span: Span(31, 43),
             },
             SyntaxNode {
@@ -1018,7 +1018,7 @@ fn local_list_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (6, 1),
+                children: (12, 1),
                 span: Span(45, 46),
             },
             SyntaxNode {
@@ -1038,7 +1038,7 @@ fn local_list_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (7, 1),
+                children: (13, 1),
                 span: Span(50, 51),
             },
             SyntaxNode {
@@ -1061,12 +1061,12 @@ fn local_list_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (8, 3),
+                children: (14, 3),
                 span: Span(0, 47),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 6),
+                children: (3, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -1101,7 +1101,7 @@ fn local_list_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (9, 13),
+                children: (9, 3),
                 span: Span(21, 40),
             },
             SyntaxNode {
@@ -1111,12 +1111,12 @@ fn local_list_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (6, 1),
                 span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (4, 2),
+                children: (7, 2),
                 span: Span(29, 39),
             },
             SyntaxNode {
@@ -1141,7 +1141,7 @@ fn local_list_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (6, 1),
+                children: (12, 1),
                 span: Span(41, 42),
             },
             SyntaxNode {
@@ -1161,7 +1161,7 @@ fn local_list_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (7, 1),
+                children: (13, 1),
                 span: Span(45, 46),
             },
             SyntaxNode {
@@ -1184,12 +1184,12 @@ fn local_list_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (8, 3),
+                children: (14, 3),
                 span: Span(0, 47),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 6),
+                children: (3, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -1224,7 +1224,7 @@ fn local_list_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (9, 13),
+                children: (9, 3),
                 span: Span(21, 40),
             },
             SyntaxNode {
@@ -1234,12 +1234,12 @@ fn local_list_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (6, 1),
                 span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (4, 2),
+                children: (7, 2),
                 span: Span(29, 39),
             },
             SyntaxNode {
@@ -1264,7 +1264,7 @@ fn local_list_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (6, 1),
+                children: (12, 1),
                 span: Span(41, 42),
             },
             SyntaxNode {
@@ -1284,7 +1284,7 @@ fn local_list_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (7, 1),
+                children: (13, 1),
                 span: Span(45, 46),
             },
             SyntaxNode {
@@ -1307,12 +1307,12 @@ fn local_list_greater_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (8, 3),
+                children: (14, 3),
                 span: Span(0, 40),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 6),
+                children: (3, 3),
                 span: Span(1, 16),
             },
             SyntaxNode {
@@ -1347,7 +1347,7 @@ fn local_list_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (9, 13),
+                children: (9, 3),
                 span: Span(17, 32),
             },
             SyntaxNode {
@@ -1357,12 +1357,12 @@ fn local_list_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (6, 1),
                 span: Span(21, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (4, 2),
+                children: (7, 2),
                 span: Span(25, 31),
             },
             SyntaxNode {
@@ -1387,7 +1387,7 @@ fn local_list_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (6, 1),
+                children: (12, 1),
                 span: Span(33, 34),
             },
             SyntaxNode {
@@ -1407,7 +1407,7 @@ fn local_list_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (7, 1),
+                children: (13, 1),
                 span: Span(38, 39),
             },
             SyntaxNode {
@@ -1430,12 +1430,12 @@ fn local_list_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (8, 3),
+                children: (14, 3),
                 span: Span(0, 56),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 6),
+                children: (3, 3),
                 span: Span(1, 24),
             },
             SyntaxNode {
@@ -1470,7 +1470,7 @@ fn local_list_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (9, 13),
+                children: (9, 3),
                 span: Span(25, 48),
             },
             SyntaxNode {
@@ -1480,12 +1480,12 @@ fn local_list_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (6, 1),
                 span: Span(29, 30),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (4, 2),
+                children: (7, 2),
                 span: Span(33, 47),
             },
             SyntaxNode {
@@ -1510,7 +1510,7 @@ fn local_list_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (6, 1),
+                children: (12, 1),
                 span: Span(49, 50),
             },
             SyntaxNode {
@@ -1530,7 +1530,7 @@ fn local_list_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (7, 1),
+                children: (13, 1),
                 span: Span(54, 55),
             },
             SyntaxNode {

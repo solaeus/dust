@@ -16,12 +16,12 @@ fn local_boolean_or() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 3),
+                children: (10, 3),
                 span: Span(0, 49),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -51,7 +51,7 @@ fn local_boolean_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (8, 11),
+                children: (5, 3),
                 span: Span(21, 41),
             },
             SyntaxNode {
@@ -61,7 +61,7 @@ fn local_boolean_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(25, 26),
             },
             SyntaxNode {
@@ -86,7 +86,7 @@ fn local_boolean_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -106,7 +106,7 @@ fn local_boolean_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(47, 48),
             },
             SyntaxNode {

@@ -16,12 +16,12 @@ fn local_byte_subtraction() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 3),
+                children: (10, 3),
                 span: Span(0, 47),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -51,7 +51,7 @@ fn local_byte_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (8, 11),
+                children: (5, 3),
                 span: Span(21, 40),
             },
             SyntaxNode {
@@ -61,7 +61,7 @@ fn local_byte_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(25, 26),
             },
             SyntaxNode {
@@ -86,7 +86,7 @@ fn local_byte_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(41, 42),
             },
             SyntaxNode {
@@ -106,7 +106,7 @@ fn local_byte_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(45, 46),
             },
             SyntaxNode {
@@ -129,12 +129,12 @@ fn local_float_subtraction() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 3),
+                children: (10, 3),
                 span: Span(0, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 21),
             },
             SyntaxNode {
@@ -164,7 +164,7 @@ fn local_float_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (8, 11),
+                children: (5, 3),
                 span: Span(22, 41),
             },
             SyntaxNode {
@@ -174,7 +174,7 @@ fn local_float_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(26, 27),
             },
             SyntaxNode {
@@ -199,7 +199,7 @@ fn local_float_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -219,7 +219,7 @@ fn local_float_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(46, 47),
             },
             SyntaxNode {
@@ -242,12 +242,12 @@ fn local_integer_subtraction() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 3),
+                children: (10, 3),
                 span: Span(0, 40),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 17),
             },
             SyntaxNode {
@@ -277,7 +277,7 @@ fn local_integer_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (8, 11),
+                children: (5, 3),
                 span: Span(18, 33),
             },
             SyntaxNode {
@@ -287,7 +287,7 @@ fn local_integer_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(22, 23),
             },
             SyntaxNode {
@@ -312,7 +312,7 @@ fn local_integer_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (8, 1),
                 span: Span(34, 35),
             },
             SyntaxNode {
@@ -332,7 +332,7 @@ fn local_integer_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (3, 1),
+                children: (9, 1),
                 span: Span(38, 39),
             },
             SyntaxNode {
@@ -355,12 +355,12 @@ fn local_mut_byte_subtraction() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (3, 3),
+                children: (6, 3),
                 span: Span(0, 38),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 24),
             },
             SyntaxNode {
@@ -395,7 +395,7 @@ fn local_mut_byte_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(25, 26),
             },
             SyntaxNode {
@@ -420,7 +420,7 @@ fn local_mut_byte_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (5, 1),
                 span: Span(36, 37),
             },
             SyntaxNode {
@@ -443,12 +443,12 @@ fn local_mut_float_subtraction() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (3, 3),
+                children: (6, 3),
                 span: Span(0, 38),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 25),
             },
             SyntaxNode {
@@ -483,7 +483,7 @@ fn local_mut_float_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(26, 27),
             },
             SyntaxNode {
@@ -508,7 +508,7 @@ fn local_mut_float_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (5, 1),
                 span: Span(36, 37),
             },
             SyntaxNode {
@@ -531,12 +531,12 @@ fn local_mut_integer_subtraction() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (3, 3),
+                children: (6, 3),
                 span: Span(0, 32),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
-                children: (2, 5),
+                children: (1, 3),
                 span: Span(1, 21),
             },
             SyntaxNode {
@@ -571,7 +571,7 @@ fn local_mut_integer_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (1, 1),
+                children: (4, 1),
                 span: Span(22, 23),
             },
             SyntaxNode {
@@ -596,7 +596,7 @@ fn local_mut_integer_subtraction() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (2, 1),
+                children: (5, 1),
                 span: Span(30, 31),
             },
             SyntaxNode {
