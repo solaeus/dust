@@ -18,8 +18,8 @@ impl SyntaxNode {
         (left_payload, 0)
     }
 
-    pub fn decode_character(payload: (u32, u32)) -> char {
-        let left_bytes = payload.0.to_le_bytes();
+    pub fn decode_character(&self) -> char {
+        let left_bytes = self.children.0.to_le_bytes();
 
         char::from_u32(u32::from_le_bytes(left_bytes)).unwrap_or_default()
     }
@@ -42,9 +42,9 @@ impl SyntaxNode {
         (left_payload, right_payload)
     }
 
-    pub fn decode_float(payload: (u32, u32)) -> f64 {
-        let left_bytes = payload.0.to_le_bytes();
-        let right_bytes = payload.1.to_le_bytes();
+    pub fn decode_float(&self) -> f64 {
+        let left_bytes = self.children.0.to_le_bytes();
+        let right_bytes = self.children.1.to_le_bytes();
         let float_bytes = [
             left_bytes[0],
             left_bytes[1],
@@ -77,9 +77,9 @@ impl SyntaxNode {
         (left_payload, right_payload)
     }
 
-    pub fn decode_integer(payload: (u32, u32)) -> i64 {
-        let left_bytes = payload.0.to_le_bytes();
-        let right_bytes = payload.1.to_le_bytes();
+    pub fn decode_integer(&self) -> i64 {
+        let left_bytes = self.children.0.to_le_bytes();
+        let right_bytes = self.children.1.to_le_bytes();
         let integer_bytes = [
             left_bytes[0],
             left_bytes[1],
@@ -166,17 +166,17 @@ impl Display for SyntaxNode {
                 write!(f, "byte: {byte}")
             }
             SyntaxKind::CharacterExpression => {
-                let character = SyntaxNode::decode_character(self.children);
+                let character = self.decode_character();
 
                 write!(f, "character: '{character}'")
             }
             SyntaxKind::FloatExpression => {
-                let float = SyntaxNode::decode_float(self.children);
+                let float = self.decode_float();
 
                 write!(f, "float: {float}")
             }
             SyntaxKind::IntegerExpression => {
-                let integer = SyntaxNode::decode_integer(self.children);
+                let integer = self.decode_integer();
 
                 write!(f, "integer: {integer}")
             }

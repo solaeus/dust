@@ -94,8 +94,8 @@ impl<'a> Binder<'a> {
                             .multiple_children()
                             .ok_or(CompileError::MissingChildren {
                             parent_kind: function_value_parameters_node.kind(),
-                            start_index: function_value_parameters_node.node.children.0,
-                            count: function_value_parameters_node.node.children.1,
+                            start_index: function_value_parameters_node.inner().children.0,
+                            count: function_value_parameters_node.inner().children.1,
                         })?;
 
                         let mut value_parameter_type_ids = SmallVec::<[TypeId; 4]>::new();
@@ -171,8 +171,8 @@ impl<'a> SyntaxVisitor for Binder<'a> {
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
                 parent_kind: SyntaxKind::MainFunctionItem,
-                start_index: node.node.children.0,
-                count: node.node.children.1,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
             })?;
 
         for child in children {
@@ -221,30 +221,30 @@ impl<'a> SyntaxVisitor for Binder<'a> {
     ) -> Result<Self::Output, CompileError> {
         info!("Binding let statement");
         debug_assert!(matches!(
-            node.node.kind,
+            node.inner().kind,
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement
         ));
 
         let mut children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
-                parent_kind: node.node.kind,
-                start_index: node.node.children.0,
-                count: node.node.children.1,
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
             })?;
         let path = children.next().ok_or(CompileError::MissingChild {
-            parent_kind: node.node.kind,
+            parent_kind: node.inner().kind,
             child_index: 0,
         })?;
         let expression_statement = children.next().ok_or(CompileError::MissingChild {
-            parent_kind: node.node.kind,
+            parent_kind: node.inner().kind,
             child_index: 1,
         })?;
         let type_notation = children.next();
         let expression = expression_statement
             .left_child()
             .ok_or(CompileError::MissingChild {
-                parent_kind: expression_statement.node.kind,
+                parent_kind: expression_statement.kind(),
                 child_index: 0,
             })?;
 
@@ -277,7 +277,7 @@ impl<'a> SyntaxVisitor for Binder<'a> {
             kind: declaration_kind,
             scope_id: self.current_scope_id,
             type_id,
-            position: Position::new(self.file_id, node.node.span),
+            position: Position::new(self.file_id, node.inner().span),
             is_public: false,
         };
         let declaration_id = self.context.add_declaration(variable_name, declaration);
@@ -294,6 +294,38 @@ impl<'a> SyntaxVisitor for Binder<'a> {
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         todo!()
+    }
+
+    fn visit_boolean_expression(
+        &mut self,
+        _: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(())
+    }
+
+    fn visit_byte_expression(
+        &mut self,
+        _: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(())
+    }
+
+    fn visit_character_expression(
+        &mut self,
+        _: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(())
+    }
+
+    fn visit_float_expression(
+        &mut self,
+        _: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(())
     }
 
     fn visit_integer_expression(
@@ -325,8 +357,8 @@ impl<'a> SyntaxVisitor for Binder<'a> {
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
                 parent_kind: path.kind(),
-                start_index: path.node.children.0,
-                count: path.node.children.1,
+                start_index: path.inner().children.0,
+                count: path.inner().children.1,
             })?;
 
         let mut current_declaration_id = DeclarationId(0);
@@ -404,9 +436,9 @@ impl<'a> SyntaxVisitor for Binder<'a> {
         let children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
-                parent_kind: node.node.kind,
-                start_index: node.node.children.0,
-                count: node.node.children.1,
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
             })?;
 
         for child in children {

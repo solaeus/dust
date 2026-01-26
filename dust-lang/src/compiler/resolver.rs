@@ -67,8 +67,8 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
                 parent_kind: node.kind(),
-                start_index: node.node.children.0,
-                count: node.node.children.1,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
             })?;
         let last_child = children.len() - 1;
         let mut main_type_id = TypeId::NONE;
@@ -126,18 +126,18 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
         let mut children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
-                parent_kind: node.node.kind,
-                start_index: node.node.children.0,
-                count: node.node.children.1,
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
             })?;
         let expression_statement = children.nth(1).ok_or(CompileError::MissingChild {
-            parent_kind: node.node.kind,
+            parent_kind: node.inner().kind,
             child_index: 1,
         })?;
         let expression = expression_statement
             .left_child()
             .ok_or(CompileError::MissingChild {
-                parent_kind: expression_statement.node.kind,
+                parent_kind: expression_statement.kind(),
                 child_index: 0,
             })?;
         let expression_type_id = self.visit_expression(expression, ())?;
@@ -186,6 +186,38 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         todo!()
+    }
+
+    fn visit_boolean_expression(
+        &mut self,
+        _: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(TypeId::BOOLEAN)
+    }
+
+    fn visit_byte_expression(
+        &mut self,
+        _: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(TypeId::BYTE)
+    }
+
+    fn visit_character_expression(
+        &mut self,
+        _: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(TypeId::CHARACTER)
+    }
+
+    fn visit_float_expression(
+        &mut self,
+        _: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(TypeId::FLOAT)
     }
 
     fn visit_integer_expression(
@@ -250,11 +282,11 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         let left_child = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.node.kind,
+            parent_kind: node.inner().kind,
             child_index: 0,
         })?;
         let right_child = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.node.kind,
+            parent_kind: node.inner().kind,
             child_index: 1,
         })?;
 
@@ -321,9 +353,9 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
         let children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
-                parent_kind: node.node.kind,
-                start_index: node.node.children.0,
-                count: node.node.children.1,
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
             })?;
         let mut element_type = None;
 

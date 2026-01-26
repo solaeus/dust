@@ -159,8 +159,8 @@ impl<'a> Emitter<'a> {
                     .multiple_children()
                     .ok_or(CompileError::MissingChildren {
                         parent_kind: node.kind(),
-                        start_index: node.node.children.0,
-                        count: node.node.children.1,
+                        start_index: node.inner().children.0,
+                        count: node.inner().children.1,
                     })?;
                 let last_index = children.len() - 1;
 
@@ -1028,8 +1028,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
                 parent_kind: node.kind(),
-                start_index: node.node.children.0,
-                count: node.node.children.1,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
             })?;
         let last_child = children.len() - 1;
         let mut final_emission = Emission::None;
@@ -1089,18 +1089,18 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let mut children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
-                parent_kind: node.node.kind,
-                start_index: node.node.children.0,
-                count: node.node.children.1,
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
             })?;
         let expression_statement = children.nth(1).ok_or(CompileError::MissingChild {
-            parent_kind: node.node.kind,
+            parent_kind: node.inner().kind,
             child_index: 1,
         })?;
         let expression = expression_statement
             .left_child()
             .ok_or(CompileError::MissingChild {
-                parent_kind: expression_statement.node.kind,
+                parent_kind: expression_statement.kind(),
                 child_index: 0,
             })?;
 
@@ -1175,12 +1175,54 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         todo!()
     }
 
+    fn visit_boolean_expression(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(Emission::Constant(Constant::Boolean(
+            node.inner().children.0 != 0,
+        )))
+    }
+
+    fn visit_byte_expression(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(Emission::Constant(Constant::Byte(
+            node.inner().children.0 as u8,
+        )))
+    }
+
+    fn visit_character_expression(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(Emission::Constant(Constant::Character(
+            node.inner().decode_character(),
+        )))
+    }
+
+    fn visit_float_expression(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(Emission::Constant(Constant::Float(
+            node.inner().decode_float(),
+        )))
+    }
+
     fn visit_integer_expression(
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        Ok(Emission::Constant(Constant::Integer(node.decode_integer())))
+        Ok(Emission::Constant(Constant::Integer(
+            node.inner().decode_integer(),
+        )))
     }
 
     fn visit_string_expression(
@@ -1248,11 +1290,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         let left_child = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.node.kind,
+            parent_kind: node.inner().kind,
             child_index: 0,
         })?;
         let right_child = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.node.kind,
+            parent_kind: node.inner().kind,
             child_index: 1,
         })?;
 
@@ -1266,9 +1308,9 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             let combined = self.combine_constants(
                 node.kind(),
                 *left_value,
-                left_child.node,
+                left_child.inner(),
                 *right_value,
-                right_child.node,
+                right_child.inner(),
             )?;
 
             return Ok(Emission::Constant(combined));
@@ -1450,9 +1492,9 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
-                parent_kind: node.node.kind,
-                start_index: node.node.children.0,
-                count: node.node.children.1,
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
             })?;
         let child_count_address =
             self.get_constant_address(Constant::Integer(children.len() as i64));
@@ -1469,8 +1511,12 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         for (index, child) in children.enumerate() {
             let element_emission = self.visit_expression(child, None)?;
-            let element_address =
-                handle_element_emission(self, &mut list_emission, element_emission, &child.node)?;
+            let element_address = handle_element_emission(
+                self,
+                &mut list_emission,
+                element_emission,
+                &*child.inner(),
+            )?;
             let index_address = self.get_constant_address(Constant::Integer(index as i64));
             let new_element_type = *self.context.get_type_binding(&child.id).ok_or(
                 CompileError::MissingTypeBinding {

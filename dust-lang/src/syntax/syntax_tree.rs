@@ -138,7 +138,7 @@ impl SyntaxTree {
             Some(node) => node,
             None => return "<empty>".to_string(),
         };
-        let mut root = Tree::new(*top_node.node);
+        let mut root = Tree::new(*top_node.inner());
 
         build_tree(&mut root, SyntaxId(0), self);
         root.to_string()

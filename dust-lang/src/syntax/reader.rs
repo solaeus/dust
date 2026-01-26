@@ -8,7 +8,7 @@ use crate::{
 #[derive(Debug, Clone, Copy)]
 pub struct SyntaxReader<'a> {
     pub id: SyntaxId,
-    pub node: &'a SyntaxNode,
+    node: &'a SyntaxNode,
     tree: &'a SyntaxTree,
 }
 
@@ -23,6 +23,10 @@ impl<'a> SyntaxReader<'a> {
             self.tree.nodes.first()?,
             self.tree,
         ))
+    }
+
+    pub fn inner(&self) -> &'a SyntaxNode {
+        self.node
     }
 
     pub fn kind(&self) -> SyntaxKind {
@@ -79,10 +83,6 @@ impl<'a> SyntaxReader<'a> {
             tree: self.tree,
             current_index: 0,
         })
-    }
-
-    pub fn decode_integer(&self) -> i64 {
-        SyntaxNode::decode_integer(self.node.children)
     }
 }
 

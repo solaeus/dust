@@ -33,6 +33,10 @@ pub trait SyntaxVisitor {
             SyntaxKind::ReassignmentStatement => self.visit_reassignment_statement(node, input),
 
             SyntaxKind::PathExpression => self.visit_path_expression(node, input),
+            SyntaxKind::BooleanExpression => self.visit_boolean_expression(node, input),
+            SyntaxKind::ByteExpression => self.visit_byte_expression(node, input),
+            SyntaxKind::CharacterExpression => self.visit_character_expression(node, input),
+            SyntaxKind::FloatExpression => self.visit_float_expression(node, input),
             SyntaxKind::IntegerExpression => self.visit_integer_expression(node, input),
             SyntaxKind::StringExpression => self.visit_string_expression(node, input),
             SyntaxKind::BlockExpression => self.visit_block_expression(node, input),
@@ -147,6 +151,30 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::Output, CompileError>;
 
     fn visit_reassignment_statement(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError>;
+
+    fn visit_boolean_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError>;
+
+    fn visit_byte_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError>;
+
+    fn visit_character_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError>;
+
+    fn visit_float_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::Input,
