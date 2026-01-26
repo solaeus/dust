@@ -7,14 +7,13 @@ use tracing::{debug, info, trace};
 use crate::{
     compiler::{
         CompileContext, CompileError,
-        context::{Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind},
+        context::{Declaration, DeclarationId, DeclarationKind, ScopeId},
         type_graph::{TypeId, TypeNode},
     },
     instruction::{Address, Drop, Instruction, Move, OperandType, Operation, Test},
-    native_function::NativeFunction,
     prototype::Prototype,
     source::{Position, Source, SourceFileId, Span},
-    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxNode, SyntaxReader, SyntaxTree, SyntaxVisitor},
+    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxNode, SyntaxReader, SyntaxVisitor},
     r#type::Type,
 };
 

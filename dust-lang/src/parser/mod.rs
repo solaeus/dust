@@ -47,11 +47,6 @@ pub fn parse_main(source_code: String) -> (SyntaxTree, Option<DustError>) {
     (syntax_tree, dust_error)
 }
 
-pub struct ParseResult {
-    pub syntax_tree: SyntaxTree,
-    pub errors: Vec<ParseError>,
-}
-
 pub struct Parser<'src> {
     file_id: SourceFileId,
 
@@ -1538,4 +1533,9 @@ impl<'src> Parser<'src> {
 
         Ok(())
     }
+}
+
+pub struct ParseResult {
+    pub syntax_tree: SyntaxTree,
+    pub errors: Vec<ParseError>,
 }

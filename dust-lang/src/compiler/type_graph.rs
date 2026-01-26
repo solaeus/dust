@@ -306,18 +306,14 @@ impl TypeGraph {
                                 start_index: right.0,
                                 count: right.1,
                             })?
-                            .into_iter()
-                            .copied()
-                            .collect::<Vec<_>>();
+                            .to_vec();
                         let right_members = self
                             .get_type_members(right.0, right.1)
                             .ok_or(CompileError::MissingTypeMembers {
                                 start_index: right.0,
                                 count: right.1,
                             })?
-                            .into_iter()
-                            .copied()
-                            .collect::<Vec<_>>();
+                            .to_vec();
 
                         if left_members.len() != right_members.len() {
                             return Ok(false);
