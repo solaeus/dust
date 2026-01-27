@@ -76,7 +76,7 @@ impl JitVm {
     }
 
     pub fn run(self) -> Result<Option<Value>, DustError> {
-        let span = span!(Level::INFO, "jit_vm_dispatch");
+        let span = span!(Level::INFO, "jit_vm");
         let _enter = span.enter();
 
         let receiver = {
@@ -93,7 +93,7 @@ impl JitVm {
         };
         let mut return_result = None;
 
-        while !self.thread_pool.lock_spawner().is_emply() {
+        while !self.thread_pool.lock_spawner().is_empty() {
             match receiver.recv() {
                 Ok(ThreadMessage::Spawn {
                     thread_name,

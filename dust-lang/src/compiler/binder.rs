@@ -408,7 +408,7 @@ impl<'a> SyntaxVisitor for Binder<'a> {
         todo!()
     }
 
-    fn visit_math_expression(
+    fn visit_math_binary_expression(
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
@@ -424,6 +424,61 @@ impl<'a> SyntaxVisitor for Binder<'a> {
 
         self.visit_expression(left_expression, ())?;
         self.visit_expression(right_expression, ())?;
+
+        Ok(())
+    }
+
+    fn visit_comparison_binary_expression(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let left_expression = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let right_expression = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+
+        self.visit_expression(left_expression, ())?;
+        self.visit_expression(right_expression, ())?;
+
+        Ok(())
+    }
+
+    fn visit_logical_binary_expression(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let left_expression = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let right_expression = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+
+        self.visit_expression(left_expression, ())?;
+        self.visit_expression(right_expression, ())?;
+
+        Ok(())
+    }
+
+    fn visit_unary_negation_expression(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let expression = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+
+        self.visit_expression(expression, ())?;
 
         Ok(())
     }

@@ -18,7 +18,7 @@ use crate::{
     dust_crate::Program,
     instruction::OperandType,
     jit_vm::{
-        JitCompiler, JitError, Object, ObjectPool, Register, RegisterTag, object::ObjectValue,
+        JitCompiler, JitError, ObjectPool, Register, RegisterTag, object::ObjectValue,
         object_pool::ObjectIndex,
     },
     r#type::Type,
@@ -70,7 +70,7 @@ pub struct ThreadSpawner {
 }
 
 impl ThreadSpawner {
-    pub fn is_emply(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.threads.is_empty()
     }
 
@@ -331,6 +331,8 @@ fn run_thread(
 ) -> Result<Option<Value>, JitError> {
     let span = span!(Level::INFO, "run_thread");
     let _enter = span.enter();
+
+    info!("Starting JIT compilation for proto_{prototype_index}");
 
     let mut jit = JitCompiler::new(&program, prototype_index)?;
     let (jit_logic, mut jit_prototypes) = jit.compile()?;

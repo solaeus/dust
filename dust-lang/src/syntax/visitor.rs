@@ -24,14 +24,12 @@ pub trait SyntaxVisitor {
             SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem => {
                 self.visit_function_item(node, input)
             }
-
             SyntaxKind::UseItem | SyntaxKind::PublicUseItem => self.visit_use_item(node, input),
             SyntaxKind::ExpressionStatement => self.visit_expression_statement(node, input),
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
                 self.visit_let_statement(node, input)
             }
             SyntaxKind::ReassignmentStatement => self.visit_reassignment_statement(node, input),
-
             SyntaxKind::PathExpression => self.visit_path_expression(node, input),
             SyntaxKind::BooleanExpression => self.visit_boolean_expression(node, input),
             SyntaxKind::ByteExpression => self.visit_byte_expression(node, input),
@@ -39,6 +37,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::FloatExpression => self.visit_float_expression(node, input),
             SyntaxKind::IntegerExpression => self.visit_integer_expression(node, input),
             SyntaxKind::StringExpression => self.visit_string_expression(node, input),
+            SyntaxKind::ListExpression => self.visit_list_expression(node, input),
             SyntaxKind::BlockExpression => self.visit_block_expression(node, input),
             SyntaxKind::IfExpression => self.visit_if_expression(node, input),
             SyntaxKind::WhileExpression => self.visit_while_expression(node, input),
@@ -49,8 +48,31 @@ pub trait SyntaxVisitor {
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression
-            | SyntaxKind::ExponentExpression => self.visit_math_expression(node, input),
-            SyntaxKind::ListExpression => self.visit_list_expression(node, input),
+            | SyntaxKind::ExponentExpression => self.visit_math_binary_expression(node, input),
+            SyntaxKind::EqualExpression
+            | SyntaxKind::NotEqualExpression
+            | SyntaxKind::LessThanExpression
+            | SyntaxKind::LessThanOrEqualExpression
+            | SyntaxKind::GreaterThanExpression
+            | SyntaxKind::GreaterThanOrEqualExpression => {
+                self.visit_comparison_binary_expression(node, input)
+            }
+            SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
+                self.visit_logical_binary_expression(node, input)
+            }
+            SyntaxKind::NegationExpression | SyntaxKind::NotExpression => {
+                self.visit_unary_negation_expression(node, input)
+            }
+            SyntaxKind::GroupedExpression => {
+                let child = node
+                    .left_child()
+                    .ok_or_else(|| CompileError::ExpectedExpression {
+                        node_kind: node.kind(),
+                        position: Position::new(self.file_id(), node.span()),
+                    })?;
+
+                self.visit(child, input)
+            }
             _ => todo!(),
         }
     }
@@ -97,22 +119,34 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::Output, CompileError> {
         match node.kind() {
             SyntaxKind::PathExpression => self.visit_path_expression(node, input),
+            SyntaxKind::BooleanExpression => self.visit_boolean_expression(node, input),
+            SyntaxKind::ByteExpression => self.visit_byte_expression(node, input),
+            SyntaxKind::CharacterExpression => self.visit_character_expression(node, input),
+            SyntaxKind::FloatExpression => self.visit_float_expression(node, input),
             SyntaxKind::IntegerExpression => self.visit_integer_expression(node, input),
             SyntaxKind::StringExpression => self.visit_string_expression(node, input),
             SyntaxKind::ListExpression => self.visit_list_expression(node, input),
-
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression
-            | SyntaxKind::ExponentExpression => self.visit_math_expression(node, input),
-
+            | SyntaxKind::ExponentExpression => self.visit_math_binary_expression(node, input),
             SyntaxKind::BlockExpression => self.visit_block_expression(node, input),
             SyntaxKind::IfExpression => self.visit_if_expression(node, input),
             SyntaxKind::WhileExpression => self.visit_while_expression(node, input),
             SyntaxKind::FunctionExpression => self.visit_function_expression(node, input),
             SyntaxKind::CallExpression => self.visit_call_expression(node, input),
+            SyntaxKind::GroupedExpression => {
+                let child = node
+                    .left_child()
+                    .ok_or_else(|| CompileError::ExpectedExpression {
+                        node_kind: node.kind(),
+                        position: Position::new(self.file_id(), node.span()),
+                    })?;
+
+                self.visit(child, input)
+            }
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind(),
                 position: Position::new(self.file_id(), node.span()),
@@ -192,6 +226,12 @@ pub trait SyntaxVisitor {
         input: Self::Input,
     ) -> Result<Self::Output, CompileError>;
 
+    fn visit_list_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError>;
+
     fn visit_path_expression(
         &mut self,
         node: SyntaxReader,
@@ -216,13 +256,25 @@ pub trait SyntaxVisitor {
         input: Self::Input,
     ) -> Result<Self::Output, CompileError>;
 
-    fn visit_math_expression(
+    fn visit_math_binary_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::Input,
     ) -> Result<Self::Output, CompileError>;
 
-    fn visit_list_expression(
+    fn visit_comparison_binary_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError>;
+
+    fn visit_logical_binary_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError>;
+
+    fn visit_unary_negation_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::Input,

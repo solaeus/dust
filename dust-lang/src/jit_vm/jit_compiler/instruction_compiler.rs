@@ -1094,69 +1094,10 @@ impl<'a> InstructionCompiler<'a> {
         builder: &mut FunctionBuilder,
     ) -> Result<CraneliftValue, JitError> {
         match r#type {
-            OperandType::BOOLEAN => match address.memory {
-                MemoryKind::REGISTER => self
-                    .ssa_registers
-                    .get(address.index as usize)
-                    .map(|ssa_variable| builder.use_var(*ssa_variable))
-                    .ok_or(JitError::RegisterIndexOutOfBounds {
-                        register_index: address.index,
-                        total_register_count: self.ssa_registers.len(),
-                    }),
-                MemoryKind::ENCODED => {
-                    let boolean = address.index != 0;
-                    let value = builder.ins().iconst(I64, if boolean { 1 } else { 0 });
-
-                    Ok(value)
-                }
-                _ => Err(JitError::UnsupportedMemoryKind {
-                    memory_kind: address.memory,
-                }),
-            },
-            OperandType::BYTE => match address.memory {
-                MemoryKind::REGISTER => self
-                    .ssa_registers
-                    .get(address.index as usize)
-                    .map(|ssa_variable| builder.use_var(*ssa_variable))
-                    .ok_or(JitError::RegisterIndexOutOfBounds {
-                        register_index: address.index,
-                        total_register_count: self.ssa_registers.len(),
-                    }),
-                MemoryKind::ENCODED => {
-                    let byte = address.index as u8;
-                    let byte_value = builder.ins().iconst(I64, byte as i64);
-
-                    Ok(byte_value)
-                }
-                _ => Err(JitError::UnsupportedMemoryKind {
-                    memory_kind: address.memory,
-                }),
-            },
+            OperandType::BOOLEAN => self.get_boolean(address, builder),
+            OperandType::BYTE => self.get_byte(address, builder),
             OperandType::CHARACTER => self.get_character(address, builder),
-            OperandType::FLOAT => match address.memory {
-                MemoryKind::REGISTER => self
-                    .ssa_registers
-                    .get(address.index as usize)
-                    .map(|ssa_variable| builder.use_var(*ssa_variable))
-                    .ok_or(JitError::RegisterIndexOutOfBounds {
-                        register_index: address.index,
-                        total_register_count: self.ssa_registers.len(),
-                    }),
-                MemoryKind::CONSTANT => {
-                    let float = self.constants.get_float(address.index).ok_or(
-                        JitError::ConstantIndexOutOfBounds {
-                            constant_index: address.index,
-                            total_constant_count: self.constants.len(),
-                        },
-                    )?;
-                    let value = builder.ins().iconst(I64, float.to_bits() as i64);
-
-                    Ok(value)
-                }
-                _ => Err(JitError::UnsupportedMemoryKind {
-                    memory_kind: address.memory,
-                }),
-            },
+            OperandType::FLOAT => self.get_float(address, builder),
             OperandType::INTEGER => self.get_integer(address, builder),
             OperandType::STRING => self.get_string(address, builder),
             OperandType::FUNCTION => self.get_prototype_index(address, builder),

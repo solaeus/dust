@@ -976,7 +976,7 @@ impl<'a> Emitter<'a> {
             .ok_or(CompileError::MissingType { type_id })?;
 
         if let TypeNode::Function { return_type_id, .. } = function_type_node {
-            self.context.types.unify_types(return_type_id, type_id);
+            self.context.types.unify_types(return_type_id, type_id)?;
         } else {
             return Err(CompileError::ExpectedFunctionType {
                 type_id: self.function_type_id,
@@ -1284,7 +1284,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         todo!()
     }
 
-    fn visit_math_expression(
+    fn visit_math_binary_expression(
         &mut self,
         node: SyntaxReader,
         target: Self::Input,
@@ -1449,6 +1449,208 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         Ok(Emission::Instructions(math_emission))
     }
 
+    fn visit_comparison_binary_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let left_child = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let right_child = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 1,
+        })?;
+
+        let left_emission = self.visit_expression(left_child, None)?;
+        let right_emission = self.visit_expression(right_child, None)?;
+
+        if let Emission::Constant(left_constant) = left_emission
+            && let Emission::Constant(right_constant) = right_emission
+        {
+            let combined = self.combine_constants(
+                node.kind(),
+                left_constant,
+                left_child.inner(),
+                right_constant,
+                right_child.inner(),
+            )?;
+
+            return Ok(Emission::Constant(combined));
+        }
+
+        let mut comparison_emission = InstructionsEmission::new();
+
+        let left_address =
+            self.handle_operand_emission(&mut comparison_emission, left_emission, &left_child)?;
+        let right_address =
+            self.handle_operand_emission(&mut comparison_emission, right_emission, &right_child)?;
+
+        let target = input.unwrap_or_else(|| self.allocate_temporary_register());
+
+        let type_id = *self
+            .context
+            .get_type_binding(&node.id)
+            .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
+        let operand_type = self
+            .context
+            .types
+            .get_operand_type(type_id)
+            .ok_or(CompileError::MissingType { type_id })?;
+
+        let comparison_instruction = match node.kind() {
+            SyntaxKind::EqualExpression => {
+                Instruction::equal(true, left_address, right_address, operand_type)
+            }
+            SyntaxKind::NotEqualExpression => {
+                Instruction::equal(false, left_address, right_address, operand_type)
+            }
+            SyntaxKind::LessThanExpression => {
+                Instruction::less(true, left_address, right_address, operand_type)
+            }
+            SyntaxKind::GreaterThanExpression => {
+                Instruction::less(false, left_address, right_address, operand_type)
+            }
+            SyntaxKind::LessThanOrEqualExpression => {
+                Instruction::less_equal(true, left_address, right_address, operand_type)
+            }
+            SyntaxKind::GreaterThanOrEqualExpression => {
+                Instruction::less_equal(false, left_address, right_address, operand_type)
+            }
+            _ => unreachable!("Expected comparison expression, found {}", node.kind()),
+        };
+        let load_false_instruction = Instruction::move_with_jump(
+            target.index,
+            Address::encoded(false as u16),
+            operand_type,
+            1,
+            true,
+        );
+        let load_true_instruction =
+            Instruction::r#move(target.index, Address::encoded(true as u16), operand_type);
+
+        comparison_emission.push(comparison_instruction);
+        comparison_emission.push(load_false_instruction);
+        comparison_emission.push(load_true_instruction);
+        comparison_emission.set_target(Some(target));
+
+        Ok(Emission::Instructions(comparison_emission))
+    }
+
+    fn visit_logical_binary_expression(
+        &mut self,
+        node: SyntaxReader<'_>,
+        target: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let left_child = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let right_child = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 1,
+        })?;
+
+        let left_emission = self.visit_expression(left_child, None)?;
+        let right_emission = self.visit_expression(right_child, None)?;
+
+        if let Emission::Constant(left_constant) = left_emission
+            && let Emission::Constant(right_constant) = right_emission
+        {
+            let combined = self.combine_constants(
+                node.kind(),
+                left_constant,
+                left_child.inner(),
+                right_constant,
+                right_child.inner(),
+            )?;
+
+            return Ok(Emission::Constant(combined));
+        }
+
+        let mut logical_emission = InstructionsEmission::new();
+
+        let left_address =
+            self.handle_operand_emission(&mut logical_emission, left_emission, &left_child)?;
+        let right_address =
+            self.handle_operand_emission(&mut logical_emission, right_emission, &right_child)?;
+
+        let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+
+        let test_instruction = match node.kind() {
+            SyntaxKind::AndExpression => Instruction::test(left_address, false, 1),
+            SyntaxKind::OrExpression => Instruction::test(left_address, true, 1),
+            _ => unreachable!("Expected logical expression, found {}", node.kind()),
+        };
+        let right_move_instruction =
+            Instruction::move_with_jump(target.index, right_address, OperandType::BOOLEAN, 1, true);
+        let left_move_instruction =
+            Instruction::r#move(target.index, left_address, OperandType::BOOLEAN);
+
+        logical_emission.push(test_instruction);
+        logical_emission.push(right_move_instruction);
+        logical_emission.push(left_move_instruction);
+        logical_emission.set_target(Some(target));
+
+        Ok(Emission::Instructions(logical_emission))
+    }
+
+    fn visit_unary_negation_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let child = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+
+        let child_emission = self.visit_expression(child, None)?;
+
+        if let Emission::Constant(constant) = child_emission {
+            let negated = match constant {
+                Constant::Boolean(boolean) => Constant::Boolean(!boolean),
+                Constant::Byte(byte) => Constant::Byte(!byte),
+                Constant::Integer(integer) => Constant::Integer(-integer),
+                Constant::Float(float) => Constant::Float(-float),
+                _ => unreachable!(
+                    "Expected constant suitable for negation, found {:?}",
+                    constant
+                ),
+            };
+
+            return Ok(Emission::Constant(negated));
+        }
+
+        let mut negation_emission = InstructionsEmission::new();
+
+        let child_address =
+            self.handle_operand_emission(&mut negation_emission, child_emission, &child)?;
+        let target = input.unwrap_or_else(|| self.allocate_temporary_register());
+        let operand_type = match node.inner().kind {
+            SyntaxKind::NegationExpression => {
+                let type_id = *self
+                    .context
+                    .get_type_binding(&node.id)
+                    .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
+                self.context
+                    .types
+                    .get_operand_type(type_id)
+                    .ok_or(CompileError::MissingType { type_id })?
+            }
+            SyntaxKind::NotExpression => OperandType::BOOLEAN,
+            _ => unreachable!("Expected unary negation expression, found {}", node.kind()),
+        };
+
+        let negation_instruction = Instruction::negate(target.index, child_address, operand_type);
+
+        negation_emission.push(negation_instruction);
+        negation_emission.set_target(Some(target));
+
+        Ok(Emission::Instructions(negation_emission))
+    }
+
     fn visit_list_expression(
         &mut self,
         node: SyntaxReader,
@@ -1511,12 +1713,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         for (index, child) in children.enumerate() {
             let element_emission = self.visit_expression(child, None)?;
-            let element_address = handle_element_emission(
-                self,
-                &mut list_emission,
-                element_emission,
-                &*child.inner(),
-            )?;
+            let element_address =
+                handle_element_emission(self, &mut list_emission, element_emission, child.inner())?;
             let index_address = self.get_constant_address(Constant::Integer(index as i64));
             let new_element_type = *self.context.get_type_binding(&child.id).ok_or(
                 CompileError::MissingTypeBinding {

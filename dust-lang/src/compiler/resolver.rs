@@ -2,6 +2,7 @@ use crate::{
     compiler::{CompileContext, CompileError, ScopeId, TypeId, TypeNode},
     source::{Position, Source, SourceFileId},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
+    r#type::Type,
 };
 
 pub struct Resolver<'a> {
@@ -276,7 +277,7 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
         todo!()
     }
 
-    fn visit_math_expression(
+    fn visit_math_binary_expression(
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
@@ -305,19 +306,7 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
                 TypeId::CHARACTER | TypeId::STRING,
                 TypeId::CHARACTER | TypeId::STRING,
             ) => TypeId::STRING,
-            (_, left, right) if left == right => {
-                let full_type = self
-                    .context
-                    .types
-                    .get_full_type(left)
-                    .ok_or(CompileError::MissingType { type_id: left })?;
-
-                return Err(CompileError::CannotApplyOperator {
-                    operator: node.kind(),
-                    r#type: full_type,
-                    position: Position::new(self.file_id, node.span()),
-                });
-            }
+            (_, left, right) if left == right => left,
             _ => {
                 let expected = self.context.types.get_full_type(left_type_inferred).ok_or(
                     CompileError::MissingType {
@@ -343,6 +332,139 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
         self.context.add_type_binding(node.id, math_expression_type);
 
         Ok(math_expression_type)
+    }
+
+    fn visit_comparison_binary_expression(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let left_child = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let right_child = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 1,
+        })?;
+
+        let left_type = self.visit(left_child, ())?;
+        let right_type = self.visit(right_child, ())?;
+
+        let left_type = self.context.types.infer_type(left_type);
+        let right_type = self.context.types.infer_type(right_type);
+
+        let unified = self.context.types.unify_types(left_type, right_type)?;
+
+        if !unified {
+            let expected = self
+                .context
+                .types
+                .get_full_type(left_type)
+                .ok_or(CompileError::MissingType { type_id: left_type })?;
+            let found =
+                self.context
+                    .types
+                    .get_full_type(right_type)
+                    .ok_or(CompileError::MissingType {
+                        type_id: right_type,
+                    })?;
+
+            return Err(CompileError::TypeConflict {
+                expected,
+                found,
+                position: Position::new(self.file_id, right_child.span()),
+            });
+        }
+
+        self.context.add_type_binding(node.id, TypeId::BOOLEAN);
+
+        Ok(TypeId::BOOLEAN)
+    }
+
+    fn visit_logical_binary_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let left_child = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let right_child = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 1,
+        })?;
+
+        let left_type = self.visit(left_child, input)?;
+        let right_type = self.visit(right_child, input)?;
+
+        if left_type != TypeId::BOOLEAN {
+            let found = self
+                .context
+                .types
+                .get_full_type(left_type)
+                .ok_or(CompileError::MissingType { type_id: left_type })?;
+
+            return Err(CompileError::TypeConflict {
+                expected: Type::Boolean,
+                found,
+                position: Position::new(self.file_id, left_child.span()),
+            });
+        }
+
+        if right_type != TypeId::BOOLEAN {
+            let found =
+                self.context
+                    .types
+                    .get_full_type(right_type)
+                    .ok_or(CompileError::MissingType {
+                        type_id: right_type,
+                    })?;
+
+            return Err(CompileError::TypeConflict {
+                expected: Type::Boolean,
+                found,
+                position: Position::new(self.file_id, right_child.span()),
+            });
+        }
+
+        self.context.add_type_binding(node.id, TypeId::BOOLEAN);
+
+        Ok(TypeId::BOOLEAN)
+    }
+
+    fn visit_unary_negation_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let child = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let child_type = self.visit(child, input)?;
+
+        match child_type {
+            TypeId::BOOLEAN | TypeId::BYTE | TypeId::FLOAT | TypeId::INTEGER => {
+                self.context.add_type_binding(node.id, child_type);
+
+                Ok(child_type)
+            }
+            _ => {
+                let found = self.context.types.get_full_type(child_type).ok_or(
+                    CompileError::MissingType {
+                        type_id: child_type,
+                    },
+                )?;
+
+                Err(CompileError::CannotApplyOperator {
+                    operator: node.kind(),
+                    r#type: found,
+                    position: Position::new(self.file_id, child.span()),
+                })
+            }
+        }
     }
 
     fn visit_list_expression(

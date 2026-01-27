@@ -108,7 +108,7 @@ impl AnnotatedError for JitError {
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             JitError::UnsupportedMemoryKind { memory_kind } => {
-                let title = format!("Unsupported memory kind in JIT: {:?}", memory_kind);
+                let title = format!("Unsupported memory kind in JIT: {memory_kind}");
 
                 Group::with_title(Level::ERROR.primary_title(title))
             }
