@@ -221,7 +221,7 @@ impl<'a> SyntaxVisitor for Binder<'a> {
     ) -> Result<Self::Output, CompileError> {
         info!("Binding let statement");
         debug_assert!(matches!(
-            node.inner().kind,
+            node.kind(),
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement
         ));
 
@@ -277,13 +277,69 @@ impl<'a> SyntaxVisitor for Binder<'a> {
             kind: declaration_kind,
             scope_id: self.current_scope_id,
             type_id,
-            position: Position::new(self.file_id, node.inner().span),
+            position: Position::new(self.file_id, path.span()),
             is_public: false,
         };
         let declaration_id = self.context.add_declaration(variable_name, declaration);
 
         self.context
-            .add_declaration_binding(node.id, declaration_id);
+            .add_declaration_binding(path.id, declaration_id);
+
+        Ok(())
+    }
+
+    fn visit_binary_assignment_statement(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        info!("Binding binary assignment statement");
+        debug_assert!(matches!(
+            node.kind(),
+            SyntaxKind::AdditionAssignmentStatement
+                | SyntaxKind::SubtractionAssignmentStatement
+                | SyntaxKind::MultiplicationAssignmentStatement
+                | SyntaxKind::DivisionAssignmentStatement
+                | SyntaxKind::ModuloAssignmentStatement
+                | SyntaxKind::ExponentAssignmentStatement
+        ));
+
+        let path = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let expression = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+        // let expression = expression_statement
+        //     .left_child()
+        //     .ok_or(CompileError::MissingChild {
+        //         parent_kind: expression_statement.kind(),
+        //         child_index: 0,
+        //     })?;
+
+        self.visit_expression(expression, input)?;
+
+        let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
+            CompileError::MissingSourceFile {
+                file_id: self.file_id,
+            },
+        )?;
+        let variable_name = source_file
+            .source_code
+            .get(path.span().0 as usize, path.span().1 as usize);
+
+        let (declaration_id, _) = self
+            .context
+            .find_declaration_in_scope(variable_name, self.current_scope_id)
+            .ok_or(CompileError::UndeclaredVariable {
+                name: variable_name.to_string(),
+                position: Position::new(self.file_id, path.span()),
+            })?;
+
+        self.context
+            .add_declaration_binding(path.id, declaration_id);
 
         Ok(())
     }

@@ -242,37 +242,33 @@ impl TypeGraph {
         }
     }
 
-    pub fn unify_types(
-        &mut self,
-        left_type: TypeId,
-        right_type: TypeId,
-    ) -> Result<bool, CompileError> {
-        let left_inferred = self.infer_type(left_type);
-        let right_inferred = self.infer_type(right_type);
-
-        if left_inferred == right_inferred {
+    pub fn unify_types(&mut self, left: TypeId, right: TypeId) -> Result<bool, CompileError> {
+        if left == right {
             return Ok(true);
         }
 
-        let left_node = *self.get_type(left_inferred).unwrap();
-        let right_node = *self.get_type(right_inferred).unwrap();
+        let left_node = *self.get_type(left).unwrap();
+        let right_node = *self.get_type(right).unwrap();
 
         match (left_node, right_node) {
+            (TypeNode::String, TypeNode::Character) | (TypeNode::Character, TypeNode::String) => {
+                Ok(true)
+            }
             (TypeNode::Inferred { id, resolved: None }, _) => {
-                if let Some(node) = self.get_type_mut(left_inferred) {
+                if let Some(node) = self.get_type_mut(left) {
                     *node = TypeNode::Inferred {
                         id,
-                        resolved: Some(right_inferred),
+                        resolved: Some(right),
                     };
                 }
 
                 Ok(true)
             }
             (_, TypeNode::Inferred { id, resolved: None }) => {
-                if let Some(node) = self.get_type_mut(right_inferred) {
+                if let Some(node) = self.get_type_mut(right) {
                     *node = TypeNode::Inferred {
                         id,
-                        resolved: Some(left_inferred),
+                        resolved: Some(left),
                     };
                 }
 

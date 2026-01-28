@@ -30,6 +30,14 @@ pub trait SyntaxVisitor {
                 self.visit_let_statement(node, input)
             }
             SyntaxKind::ReassignmentStatement => self.visit_reassignment_statement(node, input),
+            SyntaxKind::AdditionAssignmentStatement
+            | SyntaxKind::SubtractionAssignmentStatement
+            | SyntaxKind::MultiplicationAssignmentStatement
+            | SyntaxKind::DivisionAssignmentStatement
+            | SyntaxKind::ModuloAssignmentStatement
+            | SyntaxKind::ExponentAssignmentStatement => {
+                self.visit_binary_assignment_statement(node, input)
+            }
             SyntaxKind::PathExpression => self.visit_path_expression(node, input),
             SyntaxKind::BooleanExpression => self.visit_boolean_expression(node, input),
             SyntaxKind::ByteExpression => self.visit_byte_expression(node, input),
@@ -73,7 +81,7 @@ pub trait SyntaxVisitor {
 
                 self.visit(child, input)
             }
-            _ => todo!(),
+            _ => todo!("Unhandled syntax kind: {:?}", node.kind()),
         }
     }
 
@@ -251,6 +259,12 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::Output, CompileError>;
 
     fn visit_let_statement(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError>;
+
+    fn visit_binary_assignment_statement(
         &mut self,
         node: SyntaxReader,
         input: Self::Input,

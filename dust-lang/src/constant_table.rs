@@ -61,7 +61,7 @@ impl ConstantTable {
 
     pub fn add_character(&mut self, character: char) -> u16 {
         let payload = character as u64;
-        let key = ConstantKey::new(payload, OperandType::CHARACTER);
+        let key = ConstantKey::from_payload(payload, OperandType::CHARACTER);
         let (index, found) = self.payloads.insert_full(key, payload);
 
         if found.is_none() {
@@ -83,7 +83,7 @@ impl ConstantTable {
 
     pub fn add_float(&mut self, float: f64) -> u16 {
         let payload = float.to_bits();
-        let key = ConstantKey::new(payload, OperandType::FLOAT);
+        let key = ConstantKey::from_payload(payload, OperandType::FLOAT);
         let (index, found) = self.payloads.insert_full(key, payload);
 
         if found.is_none() {
@@ -105,7 +105,7 @@ impl ConstantTable {
 
     pub fn add_integer(&mut self, integer: i64) -> u16 {
         let payload = u64::from_le_bytes(integer.to_le_bytes());
-        let key = ConstantKey::new(payload, OperandType::INTEGER);
+        let key = ConstantKey::from_payload(payload, OperandType::INTEGER);
         let (index, found) = self.payloads.insert_full(key, payload);
 
         if found.is_none() {
@@ -131,7 +131,7 @@ impl ConstantTable {
         let start = self.string_pool.len();
         let end = self.string_pool.len() + bytes.len();
         let payload = (start as u64) << 32 | (end as u64);
-        let key = ConstantKey::new(payload, OperandType::STRING);
+        let key = ConstantKey::from_payload(payload, OperandType::STRING);
 
         if let Some(existing_index) = self.payloads.get_index_of(&key) {
             existing_index as u16
@@ -175,7 +175,7 @@ impl ConstantTable {
         let start = self.string_pool.len();
         let end = self.string_pool.len() + bytes.len();
         let payload = (start as u64) << 32 | (end as u64);
-        let key = ConstantKey::new(payload, OperandType::STRING);
+        let key = ConstantKey::from_payload(payload, OperandType::STRING);
 
         if let Some(existing_index) = self.payloads.get_index_of(&key) {
             let payload = self.payloads[existing_index];
@@ -195,8 +195,8 @@ impl ConstantTable {
     }
 
     pub fn add_pooled_string(&mut self, start: u32, end: u32) -> u16 {
-        let payload = (start as u64) << 32 | (end as u64);
-        let key = ConstantKey::new(payload, OperandType::STRING);
+        let str = self.get_string_pool_range(start as usize..end as usize);
+        let key = ConstantKey::from_str(str);
 
         if let Some(existing_index) = self.payloads.get_index_of(&key) {
             existing_index as u16
@@ -222,11 +222,19 @@ impl ConstantTable {
 struct ConstantKey(u64);
 
 impl ConstantKey {
-    pub fn new(payload: u64, tag: OperandType) -> Self {
+    pub fn from_payload(payload: u64, tag: OperandType) -> Self {
         let mut hasher = FxHasher::default();
 
         payload.hash(&mut hasher);
         tag.hash(&mut hasher);
+
+        Self(hasher.finish())
+    }
+
+    pub fn from_str(str: &str) -> Self {
+        let mut hasher = FxHasher::default();
+
+        str.hash(&mut hasher);
 
         Self(hasher.finish())
     }

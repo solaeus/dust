@@ -131,7 +131,11 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
                 start_index: node.inner().children.0,
                 count: node.inner().children.1,
             })?;
-        let expression_statement = children.nth(1).ok_or(CompileError::MissingChild {
+        let path = children.next().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let expression_statement = children.next().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 1,
         })?;
@@ -144,7 +148,7 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
         let expression_type_id = self.visit_expression(expression, ())?;
         let declaration_id = self
             .context
-            .get_declaration_binding(&node.id)
+            .get_declaration_binding(&path.id)
             .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
         let declaration = *self.context.get_declaration(*declaration_id).ok_or(
             CompileError::MissingDeclaration {
@@ -177,6 +181,70 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
                 position: Position::new(self.file_id, expression.span()),
             });
         }
+
+        Ok(TypeId::NONE)
+    }
+
+    fn visit_binary_assignment_statement(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let path = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let expression = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 1,
+        })?;
+        // let expression = expression_statement
+        //     .left_child()
+        //     .ok_or(CompileError::MissingChild {
+        //         parent_kind: expression_statement.kind(),
+        //         child_index: 0,
+        //     })?;
+
+        let expression_type_id = self.visit_expression(expression, input)?;
+        let declaration_id = self
+            .context
+            .get_declaration_binding(&path.id)
+            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+        let declaration = *self.context.get_declaration(*declaration_id).ok_or(
+            CompileError::MissingDeclaration {
+                declaration_id: *declaration_id,
+            },
+        )?;
+
+        let unified = self
+            .context
+            .types
+            .unify_types(declaration.type_id, expression_type_id)?;
+
+        if !unified {
+            let expected = self
+                .context
+                .types
+                .get_full_type(declaration.type_id)
+                .ok_or(CompileError::MissingType {
+                    type_id: declaration.type_id,
+                })?;
+            let found = self.context.types.get_full_type(expression_type_id).ok_or(
+                CompileError::MissingType {
+                    type_id: expression_type_id,
+                },
+            )?;
+
+            return Err(CompileError::TypeConflict {
+                expected,
+                found,
+                position: Position::new(self.file_id, expression.span()),
+            });
+        }
+
+        self.context.add_type_binding(path.id, declaration.type_id);
+        self.context
+            .add_type_binding(expression.id, expression_type_id);
 
         Ok(TypeId::NONE)
     }
@@ -296,6 +364,32 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
 
         let left_type_inferred = self.context.types.infer_type(left_type);
         let right_type_inferred = self.context.types.infer_type(right_type);
+
+        let unified = self
+            .context
+            .types
+            .unify_types(left_type_inferred, right_type_inferred)?;
+
+        if !unified {
+            let expected = self.context.types.get_full_type(left_type_inferred).ok_or(
+                CompileError::MissingType {
+                    type_id: left_type_inferred,
+                },
+            )?;
+            let found = self
+                .context
+                .types
+                .get_full_type(right_type_inferred)
+                .ok_or(CompileError::MissingType {
+                    type_id: right_type_inferred,
+                })?;
+
+            return Err(CompileError::TypeConflict {
+                expected,
+                found,
+                position: Position::new(self.file_id, right_child.span()),
+            });
+        }
 
         let math_expression_type = match (node.kind(), left_type_inferred, right_type_inferred) {
             (SyntaxKind::AdditionExpression, TypeId::BYTE, TypeId::BYTE) => TypeId::BYTE,

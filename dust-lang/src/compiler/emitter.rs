@@ -1086,6 +1086,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        info!("Emitting let statement");
+
         let mut children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
@@ -1093,7 +1095,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 start_index: node.inner().children.0,
                 count: node.inner().children.1,
             })?;
-        let expression_statement = children.nth(1).ok_or(CompileError::MissingChild {
+        let path = children.next().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let expression_statement = children.next().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 1,
         })?;
@@ -1143,15 +1149,14 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let declaration_id = *self
             .context
-            .get_declaration_binding(&node.id)
+            .get_declaration_binding(&path.id)
             .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let expression_type = *self.context.get_type_binding(&expression.id).ok_or(
-            CompileError::MissingTypeBinding {
-                syntax_id: expression.id,
-            },
-        )?;
+        let declaration = *self
+            .context
+            .get_declaration(declaration_id)
+            .ok_or(CompileError::MissingDeclaration { declaration_id })?;
 
-        if expression_type == TypeId::STRING {
+        if declaration.type_id == TypeId::STRING {
             self.add_drop(local_target.index);
         }
 
@@ -1159,12 +1164,28 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             declaration_id,
             Local {
                 address: Address::register(local_target.index),
-                type_id: expression_type,
+                type_id: declaration.type_id,
             },
         );
         let_statement_emission.set_target(Some(local_target));
 
         Ok(Emission::Instructions(let_statement_emission))
+    }
+
+    fn visit_binary_assignment_statement(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        info!("Emitting binary assignment statement");
+
+        let mut emission = self.visit_math_binary_expression(node, input)?;
+
+        if let Emission::Instructions(instructions_emission) = &mut emission {
+            instructions_emission.set_target(None);
+        }
+
+        Ok(emission)
     }
 
     fn visit_reassignment_statement(
@@ -1289,6 +1310,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         node: SyntaxReader,
         target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        info!("Emitting math binary expression");
+
         let left_child = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 0,
@@ -1324,15 +1347,26 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let right_address =
             self.handle_operand_emission(&mut math_emission, right_emission, &right_child)?;
 
-        let type_id = *self
-            .context
-            .get_type_binding(&node.id)
-            .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
-        let operand_type = self
-            .context
-            .types
-            .get_operand_type(type_id)
-            .ok_or(CompileError::MissingType { type_id })?;
+        let left_type_id = *self.context.get_type_binding(&left_child.id).ok_or(
+            CompileError::MissingTypeBinding {
+                syntax_id: left_child.id,
+            },
+        )?;
+        let right_type_id = *self.context.get_type_binding(&right_child.id).ok_or(
+            CompileError::MissingTypeBinding {
+                syntax_id: right_child.id,
+            },
+        )?;
+
+        let operand_type = match (left_type_id, right_type_id) {
+            (TypeId::CHARACTER, TypeId::STRING) => OperandType::CHARACTER_STRING,
+            (TypeId::STRING, TypeId::CHARACTER) => OperandType::STRING_CHARACTER,
+            _ => self.context.types.get_operand_type(left_type_id).ok_or(
+                CompileError::MissingType {
+                    type_id: left_type_id,
+                },
+            )?,
+        };
 
         let math_instruction = match node.kind() {
             SyntaxKind::AdditionExpression => {
@@ -1340,7 +1374,13 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
                 math_emission.set_target(Some(target));
 
-                if type_id == TypeId::STRING && target.is_temporary {
+                if matches!(
+                    operand_type,
+                    OperandType::STRING
+                        | OperandType::CHARACTER_STRING
+                        | OperandType::STRING_CHARACTER
+                ) && target.is_temporary
+                {
                     self.pending_drops.last_mut().unwrap().push(target.index);
                 }
 
@@ -1491,7 +1531,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let type_id = *self
             .context
-            .get_type_binding(&node.id)
+            .get_type_binding(&left_child.id)
             .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
         let operand_type = self
             .context
@@ -1510,25 +1550,28 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 Instruction::less(true, left_address, right_address, operand_type)
             }
             SyntaxKind::GreaterThanExpression => {
-                Instruction::less(false, left_address, right_address, operand_type)
+                Instruction::less_equal(false, left_address, right_address, operand_type)
             }
             SyntaxKind::LessThanOrEqualExpression => {
                 Instruction::less_equal(true, left_address, right_address, operand_type)
             }
             SyntaxKind::GreaterThanOrEqualExpression => {
-                Instruction::less_equal(false, left_address, right_address, operand_type)
+                Instruction::less(false, left_address, right_address, operand_type)
             }
             _ => unreachable!("Expected comparison expression, found {}", node.kind()),
         };
         let load_false_instruction = Instruction::move_with_jump(
             target.index,
             Address::encoded(false as u16),
-            operand_type,
+            OperandType::BOOLEAN,
             1,
             true,
         );
-        let load_true_instruction =
-            Instruction::r#move(target.index, Address::encoded(true as u16), operand_type);
+        let load_true_instruction = Instruction::r#move(
+            target.index,
+            Address::encoded(true as u16),
+            OperandType::BOOLEAN,
+        );
 
         comparison_emission.push(comparison_instruction);
         comparison_emission.push(load_false_instruction);

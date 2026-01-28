@@ -49,8 +49,6 @@ impl<'a> SyntaxReader<'a> {
         let child_id = SyntaxId(self.node.children.0);
         let child_node = self.tree.get_node(child_id)?;
 
-        info!("Visiting {}", child_node.kind);
-
         Some(SyntaxReader::new(child_id, child_node, self.tree))
     }
 
@@ -58,17 +56,12 @@ impl<'a> SyntaxReader<'a> {
         let child_id = SyntaxId(self.node.children.1);
         let child_node = self.tree.get_node(child_id)?;
 
-        info!("Visiting {}", child_node.kind);
-
         Some(SyntaxReader::new(child_id, child_node, self.tree))
     }
 
     pub fn binary_children(&self) -> Option<(Self, Self)> {
         let left_child = self.left_child()?;
         let right_child = self.right_child()?;
-
-        info!("Visittng {}", left_child.node.kind);
-        info!("Visiting {}", right_child.node.kind);
 
         Some((left_child, right_child))
     }
@@ -105,8 +98,6 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
         let child_id = *self.child_ids.get(self.current_index)?;
         let child_node = self.tree.get_node(child_id)?;
         self.current_index += 1;
-
-        info!("Visiting {}", child_node.kind);
 
         Some(SyntaxReader::new(child_id, child_node, self.tree))
     }
