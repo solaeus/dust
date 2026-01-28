@@ -26,6 +26,10 @@ pub enum CompileError {
     CannotInferType {
         position: Position,
     },
+    CannotIndex {
+        r#type: Type,
+        position: Position,
+    },
     DivisionByZero {
         position: Position,
     },
@@ -209,6 +213,7 @@ impl AnnotatedError for CompileError {
             CompileError::MissingDeclarationBinding { .. } => SourceFileId::default(),
             CompileError::MissingTypeBinding { .. } => SourceFileId::default(),
             CompileError::CannotApplyOperator { position, .. } => position.file_id,
+            CompileError::CannotIndex { position, .. } => position.file_id,
         }
     }
 
@@ -590,6 +595,17 @@ impl AnnotatedError for CompileError {
                             .label(format!(
                                 "Attempted to apply operator {operator} to type {type} here"
                             )),
+                    ),
+                )
+            }
+            CompileError::CannotIndex { r#type, position } => {
+                let title = format!("Cannot index type {type}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!("Attempted to index type {type} here")),
                     ),
                 )
             }

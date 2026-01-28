@@ -319,12 +319,6 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             parent_kind: node.kind(),
             child_index: 1,
         })?;
-        // let expression = expression_statement
-        //     .left_child()
-        //     .ok_or(CompileError::MissingChild {
-        //         parent_kind: expression_statement.kind(),
-        //         child_index: 0,
-        //     })?;
 
         self.visit_expression(expression, input)?;
 
@@ -404,6 +398,46 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         _: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        Ok(())
+    }
+
+    fn visit_list_expression(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let children = node
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+
+        for child in children {
+            self.visit_expression(child, ())?;
+        }
+
+        Ok(())
+    }
+
+    fn visit_index_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let left_expression = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let right_expression = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+
+        self.visit_expression(left_expression, input)?;
+        self.visit_expression(right_expression, input)?;
+
         Ok(())
     }
 
@@ -567,26 +601,6 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         })?;
 
         self.visit_expression(expression, ())?;
-
-        Ok(())
-    }
-
-    fn visit_list_expression(
-        &mut self,
-        node: SyntaxReader,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
-        let children = node
-            .multiple_children()
-            .ok_or(CompileError::MissingChildren {
-                parent_kind: node.inner().kind,
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
-            })?;
-
-        for child in children {
-            self.visit_expression(child, ())?;
-        }
 
         Ok(())
     }

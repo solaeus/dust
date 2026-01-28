@@ -46,6 +46,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::IntegerExpression => self.visit_integer_expression(node, input),
             SyntaxKind::StringExpression => self.visit_string_expression(node, input),
             SyntaxKind::ListExpression => self.visit_list_expression(node, input),
+            SyntaxKind::IndexExpression => self.visit_index_expression(node, input),
             SyntaxKind::BlockExpression => self.visit_block_expression(node, input),
             SyntaxKind::IfExpression => self.visit_if_expression(node, input),
             SyntaxKind::WhileExpression => self.visit_while_expression(node, input),
@@ -134,6 +135,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::IntegerExpression => self.visit_integer_expression(node, input),
             SyntaxKind::StringExpression => self.visit_string_expression(node, input),
             SyntaxKind::ListExpression => self.visit_list_expression(node, input),
+            SyntaxKind::IndexExpression => self.visit_index_expression(node, input),
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression
@@ -235,6 +237,12 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::Output, CompileError>;
 
     fn visit_list_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError>;
+
+    fn visit_index_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::Input,

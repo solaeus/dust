@@ -1306,6 +1306,209 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         }))
     }
 
+    fn visit_list_expression(
+        &mut self,
+        node: SyntaxReader,
+        target: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        fn handle_element_emission(
+            emitter: &mut Emitter,
+            instructions: &mut InstructionsEmission,
+            element_emission: Emission,
+            element_node: &SyntaxNode,
+        ) -> Result<Address, CompileError> {
+            match element_emission {
+                Emission::Constant(constant) => {
+                    let address = emitter.get_constant_address(constant);
+
+                    Ok(address)
+                }
+                Emission::Function(address) => Ok(address),
+                Emission::Local(Local { address, .. }) => Ok(address),
+                Emission::Instructions(InstructionsEmission {
+                    instructions: element_instructions,
+                    target_register: target,
+                    ..
+                }) => {
+                    let target = target.ok_or(CompileError::ExpectedExpression {
+                        node_kind: element_node.kind,
+                        position: Position::new(emitter.file_id, element_node.span),
+                    })?;
+
+                    instructions.instructions.extend(element_instructions);
+
+                    Ok(Address::register(target.index))
+                }
+                Emission::None => Err(CompileError::ExpectedExpression {
+                    node_kind: element_node.kind,
+                    position: Position::new(emitter.file_id, element_node.span),
+                }),
+            }
+        }
+
+        let children = node
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+        let child_count_address =
+            self.get_constant_address(Constant::Integer(children.len() as i64));
+
+        let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+        let mut list_emission = {
+            let mut emission = InstructionsEmission::with_capacity(children.len());
+
+            emission.push(Instruction::no_op()); // Placeholder for NEW_LIST
+
+            emission
+        };
+        let mut element_type = None;
+
+        for (index, child) in children.enumerate() {
+            let element_emission = self.visit_expression(child, None)?;
+            let element_address =
+                handle_element_emission(self, &mut list_emission, element_emission, child.inner())?;
+            let index_address = self.get_constant_address(Constant::Integer(index as i64));
+            let new_element_type = *self.context.get_type_binding(&child.id).ok_or(
+                CompileError::MissingTypeBinding {
+                    syntax_id: child.id,
+                },
+            )?;
+            let operand_type = self
+                .context
+                .types
+                .get_operand_type(new_element_type)
+                .ok_or(CompileError::MissingType {
+                    type_id: new_element_type,
+                })?;
+            let set_list_instruction =
+                Instruction::set_list(target.index, element_address, index_address, operand_type);
+
+            list_emission.push(set_list_instruction);
+
+            if let Some(established) = element_type {
+                let unified = self
+                    .context
+                    .types
+                    .unify_types(established, new_element_type)?;
+
+                if !unified {
+                    let expected = self.context.types.get_full_type(established).ok_or(
+                        CompileError::MissingType {
+                            type_id: established,
+                        },
+                    )?;
+                    let found = self.context.types.get_full_type(new_element_type).ok_or(
+                        CompileError::MissingType {
+                            type_id: new_element_type,
+                        },
+                    )?;
+
+                    return Err(CompileError::TypeConflict {
+                        expected,
+                        found,
+                        position: Position::new(self.file_id, child.span()),
+                    });
+                }
+            } else {
+                element_type = Some(new_element_type);
+            }
+        }
+
+        let list_type = *self
+            .context
+            .get_type_binding(&node.id)
+            .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
+        let operand_type = self
+            .context
+            .types
+            .get_operand_type(list_type)
+            .ok_or(CompileError::MissingType { type_id: list_type })?;
+        let new_list_instruction =
+            Instruction::new_list(target.index, child_count_address, operand_type);
+
+        list_emission.instructions[0] = (new_list_instruction, Vec::new());
+
+        list_emission.set_target(Some(target));
+
+        Ok(Emission::Instructions(list_emission))
+    }
+
+    fn visit_index_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        info!("Emitting index expression");
+
+        let left_child = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let right_child = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 1,
+        })?;
+
+        let left_emission = self.visit_expression(left_child, None)?;
+        let right_emission = self.visit_expression(right_child, None)?;
+
+        let mut index_emission = InstructionsEmission::new();
+
+        let list_address =
+            self.handle_operand_emission(&mut index_emission, left_emission, &left_child)?;
+        let index_address =
+            self.handle_operand_emission(&mut index_emission, right_emission, &right_child)?;
+
+        let list_type_id = *self.context.get_type_binding(&left_child.id).ok_or(
+            CompileError::MissingTypeBinding {
+                syntax_id: left_child.id,
+            },
+        )?;
+        let index_type_id = *self.context.get_type_binding(&right_child.id).ok_or(
+            CompileError::MissingTypeBinding {
+                syntax_id: right_child.id,
+            },
+        )?;
+
+        if index_type_id != TypeId::INTEGER {
+            let found = self.context.types.get_full_type(index_type_id).ok_or(
+                CompileError::MissingType {
+                    type_id: index_type_id,
+                },
+            )?;
+
+            return Err(CompileError::TypeConflict {
+                expected: Type::Integer,
+                found,
+                position: Position::new(self.file_id, right_child.span()),
+            });
+        }
+
+        let target = input.unwrap_or_else(|| self.allocate_temporary_register());
+        let element_type_id =
+            *self
+                .context
+                .get_type_binding(&node.id)
+                .ok_or(CompileError::MissingType {
+                    type_id: list_type_id,
+                })?;
+        let operand_type = self.context.types.get_operand_type(element_type_id).ok_or(
+            CompileError::MissingType {
+                type_id: list_type_id,
+            },
+        )?;
+        let get_list_instruction =
+            Instruction::get_list(target.index, list_address, index_address, operand_type);
+
+        index_emission.push(get_list_instruction);
+        index_emission.set_target(Some(target));
+
+        Ok(Emission::Instructions(index_emission))
+    }
+
     fn visit_path_expression(
         &mut self,
         node: SyntaxReader,
@@ -1818,135 +2021,6 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         negation_emission.set_target(Some(target));
 
         Ok(Emission::Instructions(negation_emission))
-    }
-
-    fn visit_list_expression(
-        &mut self,
-        node: SyntaxReader,
-        target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
-        fn handle_element_emission(
-            emitter: &mut Emitter,
-            instructions: &mut InstructionsEmission,
-            element_emission: Emission,
-            element_node: &SyntaxNode,
-        ) -> Result<Address, CompileError> {
-            match element_emission {
-                Emission::Constant(constant) => {
-                    let address = emitter.get_constant_address(constant);
-
-                    Ok(address)
-                }
-                Emission::Function(address) => Ok(address),
-                Emission::Local(Local { address, .. }) => Ok(address),
-                Emission::Instructions(InstructionsEmission {
-                    instructions: element_instructions,
-                    target_register: target,
-                    ..
-                }) => {
-                    let target = target.ok_or(CompileError::ExpectedExpression {
-                        node_kind: element_node.kind,
-                        position: Position::new(emitter.file_id, element_node.span),
-                    })?;
-
-                    instructions.instructions.extend(element_instructions);
-
-                    Ok(Address::register(target.index))
-                }
-                Emission::None => Err(CompileError::ExpectedExpression {
-                    node_kind: element_node.kind,
-                    position: Position::new(emitter.file_id, element_node.span),
-                }),
-            }
-        }
-
-        let children = node
-            .multiple_children()
-            .ok_or(CompileError::MissingChildren {
-                parent_kind: node.inner().kind,
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
-            })?;
-        let child_count_address =
-            self.get_constant_address(Constant::Integer(children.len() as i64));
-
-        let target = target.unwrap_or_else(|| self.allocate_temporary_register());
-        let mut list_emission = {
-            let mut emission = InstructionsEmission::with_capacity(children.len());
-
-            emission.push(Instruction::no_op()); // Placeholder for NEW_LIST
-
-            emission
-        };
-        let mut element_type = None;
-
-        for (index, child) in children.enumerate() {
-            let element_emission = self.visit_expression(child, None)?;
-            let element_address =
-                handle_element_emission(self, &mut list_emission, element_emission, child.inner())?;
-            let index_address = self.get_constant_address(Constant::Integer(index as i64));
-            let new_element_type = *self.context.get_type_binding(&child.id).ok_or(
-                CompileError::MissingTypeBinding {
-                    syntax_id: child.id,
-                },
-            )?;
-            let operand_type = self
-                .context
-                .types
-                .get_operand_type(new_element_type)
-                .ok_or(CompileError::MissingType {
-                    type_id: new_element_type,
-                })?;
-            let set_list_instruction =
-                Instruction::set_list(target.index, element_address, index_address, operand_type);
-
-            list_emission.push(set_list_instruction);
-
-            if let Some(established) = element_type {
-                let unified = self
-                    .context
-                    .types
-                    .unify_types(established, new_element_type)?;
-
-                if !unified {
-                    let expected = self.context.types.get_full_type(established).ok_or(
-                        CompileError::MissingType {
-                            type_id: established,
-                        },
-                    )?;
-                    let found = self.context.types.get_full_type(new_element_type).ok_or(
-                        CompileError::MissingType {
-                            type_id: new_element_type,
-                        },
-                    )?;
-
-                    return Err(CompileError::TypeConflict {
-                        expected,
-                        found,
-                        position: Position::new(self.file_id, child.span()),
-                    });
-                }
-            } else {
-                element_type = Some(new_element_type);
-            }
-        }
-
-        let element_type =
-            element_type.unwrap_or_else(|| self.context.types.create_inferred_type());
-        let list_type = self.context.types.add_type(TypeNode::List { element_type });
-        let operand_type = self
-            .context
-            .types
-            .get_operand_type(list_type)
-            .ok_or(CompileError::MissingType { type_id: list_type })?;
-        let new_list_instruction =
-            Instruction::new_list(target.index, child_count_address, operand_type);
-
-        list_emission.instructions[0] = (new_list_instruction, Vec::new());
-
-        list_emission.set_target(Some(target));
-
-        Ok(Emission::Instructions(list_emission))
     }
 
     fn visit_while_expression(

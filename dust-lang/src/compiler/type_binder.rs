@@ -316,6 +316,127 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         Ok(TypeId::STRING)
     }
 
+    fn visit_list_expression(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let children = node
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+        let mut element_type = None;
+
+        for child in children {
+            if let Some(element_type) = element_type {
+                let child_type = self.visit(child, ())?;
+                let unified = self.context.types.unify_types(element_type, child_type);
+
+                if !unified? {
+                    let expected = self.context.types.get_full_type(element_type).ok_or(
+                        CompileError::MissingType {
+                            type_id: element_type,
+                        },
+                    )?;
+                    let found = self.context.types.get_full_type(child_type).ok_or(
+                        CompileError::MissingType {
+                            type_id: child_type,
+                        },
+                    )?;
+
+                    return Err(CompileError::TypeConflict {
+                        expected,
+                        found,
+                        position: Position::new(self.file_id, child.span()),
+                    });
+                }
+            } else {
+                let child_type = self.visit(child, ())?;
+
+                element_type = Some(child_type);
+            }
+        }
+
+        let element_type = if let Some(element_type) = element_type {
+            element_type
+        } else {
+            self.context.types.create_inferred_type()
+        };
+        let list_type = self.context.types.add_type(TypeNode::List { element_type });
+
+        self.context.add_type_binding(node.id, list_type);
+
+        Ok(list_type)
+    }
+
+    fn visit_index_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let list_expression = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let index_expression = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 1,
+        })?;
+
+        let list_type_id = {
+            let raw = self.visit(list_expression, input)?;
+
+            self.context.types.infer_type(raw)
+        };
+        let index_type_id = {
+            let raw = self.visit(index_expression, input)?;
+
+            self.context.types.infer_type(raw)
+        };
+
+        if index_type_id != TypeId::INTEGER {
+            let found = self.context.types.get_full_type(index_type_id).ok_or(
+                CompileError::MissingType {
+                    type_id: index_type_id,
+                },
+            )?;
+
+            return Err(CompileError::TypeConflict {
+                expected: Type::Integer,
+                found,
+                position: Position::new(self.file_id, index_expression.span()),
+            });
+        }
+
+        let list_type =
+            *self
+                .context
+                .types
+                .get_type(list_type_id)
+                .ok_or(CompileError::MissingType {
+                    type_id: list_type_id,
+                })?;
+
+        match list_type {
+            TypeNode::List { element_type } => {
+                self.context.add_type_binding(node.id, element_type);
+
+                Ok(element_type)
+            }
+            _ => Err(CompileError::CannotIndex {
+                r#type: self.context.types.get_full_type(list_type_id).ok_or(
+                    CompileError::MissingType {
+                        type_id: list_type_id,
+                    },
+                )?,
+                position: Position::new(self.file_id, list_expression.span()),
+            }),
+        }
+    }
+
     fn visit_path_expression(
         &mut self,
         node: SyntaxReader,
@@ -585,60 +706,6 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 })
             }
         }
-    }
-
-    fn visit_list_expression(
-        &mut self,
-        node: SyntaxReader,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
-        let children = node
-            .multiple_children()
-            .ok_or(CompileError::MissingChildren {
-                parent_kind: node.inner().kind,
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
-            })?;
-        let mut element_type = None;
-
-        for child in children {
-            if let Some(element_type) = element_type {
-                let child_type = self.visit(child, ())?;
-                let unified = self.context.types.unify_types(element_type, child_type);
-
-                if !unified? {
-                    let expected = self.context.types.get_full_type(element_type).ok_or(
-                        CompileError::MissingType {
-                            type_id: element_type,
-                        },
-                    )?;
-                    let found = self.context.types.get_full_type(child_type).ok_or(
-                        CompileError::MissingType {
-                            type_id: child_type,
-                        },
-                    )?;
-
-                    return Err(CompileError::TypeConflict {
-                        expected,
-                        found,
-                        position: Position::new(self.file_id, child.span()),
-                    });
-                }
-            } else {
-                let child_type = self.visit(child, ())?;
-
-                element_type = Some(child_type);
-            }
-        }
-
-        let element_type = if let Some(element_type) = element_type {
-            element_type
-        } else {
-            self.context.types.create_inferred_type()
-        };
-        let list_type = self.context.types.add_type(TypeNode::List { element_type });
-
-        Ok(list_type)
     }
 
     fn visit_while_expression(
