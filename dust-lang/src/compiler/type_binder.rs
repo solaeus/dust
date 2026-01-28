@@ -1,36 +1,28 @@
 use crate::{
-    compiler::{CompileContext, CompileError, ScopeId, TypeId, TypeNode},
-    source::{Position, Source, SourceFileId},
+    compiler::{CompileContext, CompileError, TypeId, TypeNode},
+    source::{Position, SourceFileId},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
     r#type::Type,
 };
 
-pub struct Resolver<'a> {
+pub struct TypeBinder<'a> {
     file_id: SourceFileId,
-
-    source: &'a Source,
-
-    context: &'a mut CompileContext,
 
     syntax: &'a Syntax,
 
-    current_scope_id: ScopeId,
+    context: &'a mut CompileContext,
 }
 
-impl<'a> Resolver<'a> {
+impl<'a> TypeBinder<'a> {
     pub fn new(
         file_id: SourceFileId,
-        source: &'a Source,
         context: &'a mut CompileContext,
         syntax_tree: &'a Syntax,
-        current_scope_id: ScopeId,
     ) -> Self {
         Self {
             file_id,
-            source,
             context,
             syntax: syntax_tree,
-            current_scope_id,
         }
     }
 
@@ -50,7 +42,7 @@ impl<'a> Resolver<'a> {
     }
 }
 
-impl<'a> SyntaxVisitor for Resolver<'a> {
+impl<'a> SyntaxVisitor for TypeBinder<'a> {
     type Input = ();
 
     type Output = TypeId;
@@ -113,10 +105,17 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
 
     fn visit_expression_statement(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let expression = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+
+        self.visit_expression(expression, ())?;
+
+        Ok(TypeId::NONE)
     }
 
     fn visit_let_statement(
@@ -310,19 +309,15 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
-            CompileError::MissingSourceFile {
-                file_id: self.file_id,
+        let declaration_id = self
+            .context
+            .get_declaration_binding(&node.id)
+            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+        let declaration = *self.context.get_declaration(*declaration_id).ok_or(
+            CompileError::MissingDeclaration {
+                declaration_id: *declaration_id,
             },
         )?;
-        let variable_name = source_file.source_code.get_span(node.span());
-        let (_, declaration) = self
-            .context
-            .find_declaration_in_scope(variable_name, self.current_scope_id)
-            .ok_or(CompileError::UndeclaredVariable {
-                name: variable_name.to_string(),
-                position: Position::new(self.file_id, node.span()),
-            })?;
 
         self.context.add_type_binding(node.id, declaration.type_id);
 
@@ -331,10 +326,29 @@ impl<'a> SyntaxVisitor for Resolver<'a> {
 
     fn visit_block_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let children = node
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+
+        let mut block_type_id = TypeId::NONE;
+
+        for child in children {
+            let child_type = self.visit(child, ())?;
+            block_type_id = child_type;
+
+            self.context.add_type_binding(child.id, child_type);
+        }
+
+        self.context.add_type_binding(node.id, block_type_id);
+
+        Ok(block_type_id)
     }
 
     fn visit_if_expression(

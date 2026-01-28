@@ -1,8 +1,8 @@
-mod binder;
 mod context;
+mod declaration_binder;
 mod emitter;
 mod error;
-mod resolver;
+mod type_binder;
 mod type_graph;
 
 #[cfg(test)]
@@ -18,7 +18,7 @@ pub use type_graph::{TypeGraph, TypeId, TypeNode};
 use tracing::{Level, span};
 
 use crate::{
-    compiler::{binder::Binder, resolver::Resolver},
+    compiler::{declaration_binder::DeclarationBinder, type_binder::TypeBinder},
     dust_crate::Program,
     dust_error::DustError,
     lexer::Lexer,
@@ -146,7 +146,7 @@ impl Compiler {
             let span = span!(Level::INFO, "bind");
             let _enter = span.enter();
 
-            let main_binder = Binder::new(
+            let main_declaration_binder = DeclarationBinder::new(
                 SourceFileId::MAIN,
                 &self.source,
                 &self.syntax,
@@ -155,7 +155,7 @@ impl Compiler {
             );
 
             {
-                match main_binder.bind_main() {
+                match main_declaration_binder.bind_main() {
                     Ok(()) => (),
                     Err(error) => return Err(DustError::compile(error, self.source)),
                 }
@@ -167,15 +167,10 @@ impl Compiler {
             let span = span!(Level::INFO, "resolve");
             let _enter = span.enter();
 
-            let main_resolver = Resolver::new(
-                SourceFileId::MAIN,
-                &self.source,
-                &mut self.context,
-                &self.syntax,
-                ScopeId::PROJECT,
-            );
+            let main_type_binder =
+                TypeBinder::new(SourceFileId::MAIN, &mut self.context, &self.syntax);
 
-            match main_resolver.resolve_main() {
+            match main_type_binder.resolve_main() {
                 Ok(_) => (),
                 Err(error) => return Err(DustError::compile(error, self.source)),
             }

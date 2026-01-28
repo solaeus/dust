@@ -1075,10 +1075,17 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
     fn visit_expression_statement(
         &mut self,
-        _: SyntaxReader<'_>,
+        node: SyntaxReader<'_>,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let child = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+
+        self.visit_expression(child, None)?;
+
+        Ok(Emission::None)
     }
 
     fn visit_let_statement(
@@ -1291,10 +1298,82 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
     fn visit_block_expression(
         &mut self,
-        _: SyntaxReader<'_>,
-        _: Self::Input,
+        node: SyntaxReader<'_>,
+        target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let children = node
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.kind(),
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+
+        let block_scope_id = *self
+            .context
+            .get_scope_binding(&node.id)
+            .ok_or(CompileError::MissingScopeBinding { syntax_id: node.id })?;
+        let parent_scope_id = self.current_scope_id;
+        let parent_scope_next_local_register = self.next_local_register;
+
+        self.enter_child_scope(block_scope_id);
+
+        let child_count = children.len();
+        let mut block_emission = InstructionsEmission::new();
+
+        for (index, child) in children.into_iter().enumerate() {
+            let child_emission = self.visit(child, None)?;
+
+            if index == child_count - 1 {
+                match child_emission {
+                    Emission::Constant(constant) => {
+                        if block_emission.is_empty() {
+                            return Ok(Emission::Constant(constant));
+                        }
+
+                        let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+                        let address = self.get_constant_address(constant);
+                        let operand_type = constant.operand_type();
+                        let move_instruction =
+                            Instruction::r#move(target.index, address, operand_type);
+
+                        block_emission.push(move_instruction);
+                        block_emission.set_target(Some(target));
+                    }
+                    Emission::Function(address) => {
+                        if block_emission.is_empty() {
+                            return Ok(Emission::Function(address));
+                        }
+
+                        let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+                        let move_instruction =
+                            Instruction::r#move(target.index, address, OperandType::FUNCTION);
+
+                        block_emission.push(move_instruction);
+                        block_emission.set_target(Some(target));
+                    }
+                    Emission::Local(Local { address, type_id }) => {
+                        if block_emission.is_empty() {
+                            return Ok(Emission::Local(Local { address, type_id }));
+                        }
+
+                        let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+
+                        block_emission.set_target(Some(target));
+                    }
+                    Emission::Instructions(instructions) => {
+                        block_emission.merge(instructions);
+                    }
+                    Emission::None => {}
+                }
+            } else if let Emission::Instructions(child_instructions) = child_emission {
+                block_emission.merge(child_instructions);
+            }
+        }
+
+        self.enter_parent_scope(parent_scope_id, parent_scope_next_local_register);
+
+        Ok(Emission::Instructions(block_emission))
     }
 
     fn visit_if_expression(

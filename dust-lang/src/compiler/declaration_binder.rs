@@ -13,7 +13,7 @@ use crate::{
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
 };
 
-pub struct Binder<'a> {
+pub struct DeclarationBinder<'a> {
     file_id: SourceFileId,
 
     source: &'a Source,
@@ -25,7 +25,7 @@ pub struct Binder<'a> {
     current_scope_id: ScopeId,
 }
 
-impl<'a> Binder<'a> {
+impl<'a> DeclarationBinder<'a> {
     pub fn new(
         file_id: SourceFileId,
         source: &'a Source,
@@ -144,7 +144,7 @@ impl<'a> Binder<'a> {
     }
 }
 
-impl<'a> SyntaxVisitor for Binder<'a> {
+impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
     type Input = ();
 
     type Output = ();
@@ -208,10 +208,17 @@ impl<'a> SyntaxVisitor for Binder<'a> {
 
     fn visit_expression_statement(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let expression = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+
+        self.visit_expression(expression, ())?;
+
+        Ok(())
     }
 
     fn visit_let_statement(
@@ -450,10 +457,35 @@ impl<'a> SyntaxVisitor for Binder<'a> {
 
     fn visit_block_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let children = node
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+
+        let block_scope_id = self.context.add_scope(Scope {
+            kind: ScopeKind::Block,
+            parent: self.current_scope_id,
+            imports: SmallVec::new(),
+            modules: SmallVec::new(),
+        });
+        let parent_scope_id = self.current_scope_id;
+        self.current_scope_id = block_scope_id;
+
+        for child in children {
+            self.visit(child, ())?;
+        }
+
+        self.current_scope_id = parent_scope_id;
+
+        self.context.add_scope_binding(node.id, block_scope_id);
+
+        Ok(())
     }
 
     fn visit_if_expression(
