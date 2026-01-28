@@ -10,7 +10,7 @@ use crate::{
         context::{Declaration, DeclarationId, DeclarationKind, ScopeId},
         type_graph::{TypeId, TypeNode},
     },
-    instruction::{Address, Drop, Instruction, Move, OperandType, Operation, Test},
+    instruction::{Address, Drop, Instruction, MemoryKind, Move, OperandType, Operation, Test},
     prototype::Prototype,
     source::{Position, Source, SourceFileId, Span},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxNode, SyntaxReader, SyntaxVisitor},
@@ -996,7 +996,29 @@ impl<'a> Emitter<'a> {
         let mut return_emission = InstructionsEmission::new();
         let emission = self.visit(node, input)?;
 
-        if node.kind().is_item() {
+        if node.kind().is_item() || node.kind().is_statement() {
+            if let Emission::Instructions(instructions) = emission {
+                return_emission.merge(instructions);
+            }
+
+            let function_type_node = *self
+                .context
+                .types
+                .get_type_mut(self.function_type_id)
+                .ok_or(CompileError::MissingType {
+                    type_id: self.function_type_id,
+                })?;
+
+            if let TypeNode::Function { return_type_id, .. } = function_type_node {
+                self.context
+                    .types
+                    .unify_types(return_type_id, TypeId::NONE)?;
+            } else {
+                return Err(CompileError::ExpectedFunctionType {
+                    type_id: self.function_type_id,
+                });
+            }
+
             let return_instruction = Instruction::r#return(Address::default(), OperandType::NONE);
 
             return_emission.push(return_instruction);
@@ -1083,9 +1105,16 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             child_index: 0,
         })?;
 
-        self.visit_expression(child, None)?;
+        let emission = self.visit_expression(child, None)?;
 
-        Ok(Emission::None)
+        match emission {
+            Emission::Instructions(mut instructions) => {
+                instructions.set_target(None);
+
+                Ok(Emission::Instructions(instructions))
+            }
+            _ => Ok(Emission::None),
+        }
     }
 
     fn visit_let_statement(
@@ -1357,9 +1386,27 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                             return Ok(Emission::Local(Local { address, type_id }));
                         }
 
-                        let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+                        if let Some(target) = target {
+                            let operand_type = self.get_operand_type(type_id)?;
+                            let move_instruction =
+                                Instruction::r#move(target.index, address, operand_type);
 
-                        block_emission.set_target(Some(target));
+                            block_emission.push(move_instruction);
+                            block_emission.set_target(Some(target));
+                        } else if address.memory == MemoryKind::REGISTER {
+                            block_emission.set_target(Some(TargetRegister {
+                                index: address.index,
+                                is_temporary: false,
+                            }));
+                        } else {
+                            let target = self.allocate_temporary_register();
+                            let operand_type = self.get_operand_type(type_id)?;
+                            let move_instruction =
+                                Instruction::r#move(target.index, address, operand_type);
+
+                            block_emission.push(move_instruction);
+                            block_emission.set_target(Some(target));
+                        }
                     }
                     Emission::Instructions(instructions) => {
                         block_emission.merge(instructions);

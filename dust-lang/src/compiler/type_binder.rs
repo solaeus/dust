@@ -258,49 +258,61 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
     fn visit_boolean_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        self.context.add_type_binding(node.id, TypeId::BOOLEAN);
+
         Ok(TypeId::BOOLEAN)
     }
 
     fn visit_byte_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        self.context.add_type_binding(node.id, TypeId::BYTE);
+
         Ok(TypeId::BYTE)
     }
 
     fn visit_character_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        self.context.add_type_binding(node.id, TypeId::CHARACTER);
+
         Ok(TypeId::CHARACTER)
     }
 
     fn visit_float_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        self.context.add_type_binding(node.id, TypeId::FLOAT);
+
         Ok(TypeId::FLOAT)
     }
 
     fn visit_integer_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        self.context.add_type_binding(node.id, TypeId::INTEGER);
+
         Ok(TypeId::INTEGER)
     }
 
     fn visit_string_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        self.context.add_type_binding(node.id, TypeId::STRING);
+
         Ok(TypeId::STRING)
     }
 
