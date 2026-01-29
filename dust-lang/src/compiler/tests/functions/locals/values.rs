@@ -9,7 +9,7 @@ use crate::{
 
 #[test]
 fn local_boolean() {
-    let source = create_function_case(local_cases::LOCAL_BOOLEAN);
+    let source = create_function_case(local_cases::LOCAL_BOOLEAN, OperandType::BOOLEAN);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -34,7 +34,7 @@ fn local_boolean() {
 
 #[test]
 fn local_byte() {
-    let source = create_function_case(local_cases::LOCAL_BYTE);
+    let source = create_function_case(local_cases::LOCAL_BYTE, OperandType::BYTE);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -59,7 +59,7 @@ fn local_byte() {
 
 #[test]
 fn local_character() {
-    let source = create_function_case(local_cases::LOCAL_CHARACTER);
+    let source = create_function_case(local_cases::LOCAL_CHARACTER, OperandType::CHARACTER);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -84,7 +84,7 @@ fn local_character() {
 
 #[test]
 fn local_float() {
-    let source = create_function_case(local_cases::LOCAL_FLOAT);
+    let source = create_function_case(local_cases::LOCAL_FLOAT, OperandType::FLOAT);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -109,7 +109,7 @@ fn local_float() {
 
 #[test]
 fn local_integer() {
-    let source = create_function_case(local_cases::LOCAL_INTEGER);
+    let source = create_function_case(local_cases::LOCAL_INTEGER, OperandType::INTEGER);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -134,7 +134,7 @@ fn local_integer() {
 
 #[test]
 fn local_string() {
-    let source = create_function_case(local_cases::LOCAL_STRING);
+    let source = create_function_case(local_cases::LOCAL_STRING, OperandType::STRING);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);

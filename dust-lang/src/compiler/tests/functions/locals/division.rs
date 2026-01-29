@@ -9,7 +9,7 @@ use crate::{
 
 #[test]
 fn local_byte_division() {
-    let source = create_function_case(local_cases::LOCAL_BYTE_DIVISION);
+    let source = create_function_case(local_cases::LOCAL_BYTE_DIVISION, OperandType::BYTE);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -41,7 +41,7 @@ fn local_byte_division() {
 
 #[test]
 fn local_float_division() {
-    let source = create_function_case(local_cases::LOCAL_FLOAT_DIVISION);
+    let source = create_function_case(local_cases::LOCAL_FLOAT_DIVISION, OperandType::FLOAT);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -73,7 +73,7 @@ fn local_float_division() {
 
 #[test]
 fn local_integer_division() {
-    let source = create_function_case(local_cases::LOCAL_INTEGER_DIVISION);
+    let source = create_function_case(local_cases::LOCAL_INTEGER_DIVISION, OperandType::INTEGER);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -105,7 +105,7 @@ fn local_integer_division() {
 
 #[test]
 fn local_mut_byte_division() {
-    let source = create_function_case(local_cases::LOCAL_MUT_BYTE_DIVISION);
+    let source = create_function_case(local_cases::LOCAL_MUT_BYTE_DIVISION, OperandType::BYTE);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -136,7 +136,7 @@ fn local_mut_byte_division() {
 
 #[test]
 fn local_mut_float_division() {
-    let source = create_function_case(local_cases::LOCAL_MUT_FLOAT_DIVISION);
+    let source = create_function_case(local_cases::LOCAL_MUT_FLOAT_DIVISION, OperandType::FLOAT);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -167,7 +167,7 @@ fn local_mut_float_division() {
 
 #[test]
 fn local_mut_integer_division() {
-    let source = create_function_case(local_cases::LOCAL_MUT_INTEGER_DIVISION);
+    let source = create_function_case(local_cases::LOCAL_MUT_INTEGER_DIVISION, OperandType::INTEGER);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);

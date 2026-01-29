@@ -9,7 +9,7 @@ use crate::{
 
 #[test]
 fn local_boolean_not_equal() {
-    let source = create_function_case(local_cases::LOCAL_BOOLEAN_NOT_EQUAL);
+    let source = create_function_case(local_cases::LOCAL_BOOLEAN_NOT_EQUAL, OperandType::BOOLEAN);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -49,7 +49,7 @@ fn local_boolean_not_equal() {
 
 #[test]
 fn local_byte_not_equal() {
-    let source = create_function_case(local_cases::LOCAL_BYTE_NOT_EQUAL);
+    let source = create_function_case(local_cases::LOCAL_BYTE_NOT_EQUAL, OperandType::BOOLEAN);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -89,7 +89,7 @@ fn local_byte_not_equal() {
 
 #[test]
 fn local_character_not_equal() {
-    let source = create_function_case(local_cases::LOCAL_CHARACTER_NOT_EQUAL);
+    let source = create_function_case(local_cases::LOCAL_CHARACTER_NOT_EQUAL, OperandType::BOOLEAN);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -129,7 +129,7 @@ fn local_character_not_equal() {
 
 #[test]
 fn local_float_not_equal() {
-    let source = create_function_case(local_cases::LOCAL_FLOAT_NOT_EQUAL);
+    let source = create_function_case(local_cases::LOCAL_FLOAT_NOT_EQUAL, OperandType::BOOLEAN);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -169,7 +169,7 @@ fn local_float_not_equal() {
 
 #[test]
 fn local_integer_not_equal() {
-    let source = create_function_case(local_cases::LOCAL_INTEGER_NOT_EQUAL);
+    let source = create_function_case(local_cases::LOCAL_INTEGER_NOT_EQUAL, OperandType::BOOLEAN);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -209,7 +209,7 @@ fn local_integer_not_equal() {
 
 #[test]
 fn local_string_not_equal() {
-    let source = create_function_case(local_cases::LOCAL_STRING_NOT_EQUAL);
+    let source = create_function_case(local_cases::LOCAL_STRING_NOT_EQUAL, OperandType::BOOLEAN);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);

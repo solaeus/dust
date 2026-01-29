@@ -9,7 +9,7 @@ use crate::{
 
 #[test]
 fn local_boolean_or() {
-    let source = create_function_case(local_cases::LOCAL_BOOLEAN_OR);
+    let source = create_function_case(local_cases::LOCAL_BOOLEAN_OR, OperandType::BOOLEAN);
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
