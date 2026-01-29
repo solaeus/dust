@@ -21,7 +21,7 @@ fn local_mut_byte_multiplication() {
                     0,
                     Address::register(0),
                     Address::encoded(3),
-                    OperandType::BYTE
+                    OperandType::NONE
                 ),
                 Instruction::r#return(Address::register(0), OperandType::BYTE)
             ],
@@ -46,7 +46,7 @@ fn local_mut_float_multiplication() {
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::FLOAT
+                    OperandType::NONE
                 ),
                 Instruction::r#return(Address::register(0), OperandType::FLOAT)
             ],
@@ -71,7 +71,7 @@ fn local_mut_integer_multiplication() {
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::INTEGER
+                    OperandType::NONE
                 ),
                 Instruction::r#return(Address::register(0), OperandType::INTEGER)
             ],

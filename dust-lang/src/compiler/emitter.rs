@@ -1785,26 +1785,17 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let right_address =
             self.handle_operand_emission(&mut math_emission, right_emission, &right_child)?;
 
-        let left_type_id = *self.context.get_type_binding(&left_child.id).ok_or(
-            CompileError::MissingTypeBinding {
-                syntax_id: left_child.id,
-            },
-        )?;
-        let right_type_id = *self.context.get_type_binding(&right_child.id).ok_or(
-            CompileError::MissingTypeBinding {
-                syntax_id: right_child.id,
-            },
-        )?;
-
-        let operand_type = match (left_type_id, right_type_id) {
-            (TypeId::CHARACTER, TypeId::STRING) => OperandType::CHARACTER_STRING,
-            (TypeId::STRING, TypeId::CHARACTER) => OperandType::STRING_CHARACTER,
-            _ => self.context.types.get_operand_type(left_type_id).ok_or(
-                CompileError::MissingType {
-                    type_id: left_type_id,
-                },
-            )?,
-        };
+        let math_expression_type = *self
+            .context
+            .get_type_binding(&node.id)
+            .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
+        let operand_type = self
+            .context
+            .types
+            .get_operand_type(math_expression_type)
+            .ok_or(CompileError::MissingType {
+                type_id: math_expression_type,
+            })?;
 
         let math_instruction = match node.kind() {
             SyntaxKind::AdditionExpression => {

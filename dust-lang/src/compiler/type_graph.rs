@@ -243,29 +243,29 @@ impl TypeGraph {
     }
 
     pub fn unify_types(&mut self, left: TypeId, right: TypeId) -> Result<bool, CompileError> {
+        let left_inferred = self.infer_type(left);
+        let right_inferred = self.infer_type(right);
+
+        self.unify_inferred_types(left_inferred, right_inferred)
+    }
+
+    pub fn unify_inferred_types(
+        &mut self,
+        left: TypeId,
+        right: TypeId,
+    ) -> Result<bool, CompileError> {
         if left == right {
             return Ok(true);
         }
 
-        let left_node = {
-            let inferred = self.infer_type(left);
-
-            *self
-                .get_type(inferred)
-                .ok_or(CompileError::MissingType { type_id: inferred })?
-        };
-        let right_node = {
-            let inferred = self.infer_type(right);
-
-            *self
-                .get_type(inferred)
-                .ok_or(CompileError::MissingType { type_id: inferred })?
-        };
+        let left_node = *self
+            .get_type(left)
+            .ok_or(CompileError::MissingType { type_id: left })?;
+        let right_node = *self
+            .get_type(right)
+            .ok_or(CompileError::MissingType { type_id: right })?;
 
         match (left_node, right_node) {
-            (TypeNode::String, TypeNode::Character) | (TypeNode::Character, TypeNode::String) => {
-                Ok(true)
-            }
             (TypeNode::Inferred { id, resolved: None }, _) => {
                 if let Some(node) = self.get_type_mut(left) {
                     *node = TypeNode::Inferred {

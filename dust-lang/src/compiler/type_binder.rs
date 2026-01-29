@@ -253,12 +253,30 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             child_index: 1,
         })?;
 
-        let path_type = self.visit(path, input)?;
-        let expression_type = self.visit(expression, input)?;
+        let path_type = {
+            let raw = self.visit(path, input)?;
 
-        let unified = self.context.types.unify_types(path_type, expression_type)?;
+            self.context.types.infer_type(raw)
+        };
+        let expression_type = {
+            let raw = self.visit(expression, input)?;
 
-        if !unified {
+            self.context.types.infer_type(raw)
+        };
+
+        let unified = self
+            .context
+            .types
+            .unify_inferred_types(path_type, expression_type)?;
+        let is_character_concatenation = matches!(
+            node.kind(),
+            SyntaxKind::AdditionAssignmentStatement
+                if (path_type == TypeId::STRING && expression_type == TypeId::CHARACTER)
+            || (path_type == TypeId::CHARACTER && expression_type == TypeId::STRING)
+            || (path_type == TypeId::CHARACTER && expression_type == TypeId::CHARACTER)
+        );
+
+        if !unified && !is_character_concatenation {
             let expected = self
                 .context
                 .types
@@ -663,51 +681,25 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             child_index: 1,
         })?;
 
-        let left_type = {
-            let raw = self.visit(left_child, ())?;
+        let left_type = self.visit(left_child, ())?;
+        let right_type = self.visit(right_child, ())?;
 
-            self.context.types.infer_type(raw)
-        };
-        let right_type = {
-            let raw = self.visit(right_child, ())?;
+        let is_character_concatenation = matches!(
+            node.kind(),
+            SyntaxKind::AdditionExpression | SyntaxKind::AdditionAssignmentStatement
+                if (left_type == TypeId::STRING && right_type == TypeId::CHARACTER)
+            || (left_type == TypeId::CHARACTER && right_type == TypeId::STRING)
+            || (left_type == TypeId::CHARACTER && right_type == TypeId::CHARACTER)
+        );
 
-            self.context.types.infer_type(raw)
-        };
+        let math_expression_type = if is_character_concatenation {
+            TypeId::STRING
+        } else {
+            let unified = self.context.types.unify_types(left_type, right_type)?;
 
-        let unified = self.context.types.unify_types(left_type, right_type)?;
-
-        if !unified {
-            let expected = self
-                .context
-                .types
-                .get_full_type(left_type)
-                .ok_or(CompileError::MissingType { type_id: left_type })?;
-            let found =
-                self.context
-                    .types
-                    .get_full_type(right_type)
-                    .ok_or(CompileError::MissingType {
-                        type_id: right_type,
-                    })?;
-
-            return Err(CompileError::TypeConflict {
-                expected,
-                found,
-                position: Position::new(self.file_id, right_child.span()),
-            });
-        }
-
-        let math_expression_type = match (node.kind(), left_type, right_type) {
-            (SyntaxKind::AdditionExpression, TypeId::BYTE, TypeId::BYTE) => TypeId::BYTE,
-            (SyntaxKind::AdditionExpression, TypeId::FLOAT, TypeId::FLOAT) => TypeId::FLOAT,
-            (SyntaxKind::AdditionExpression, TypeId::INTEGER, TypeId::INTEGER) => TypeId::INTEGER,
-            (
-                SyntaxKind::AdditionExpression,
-                TypeId::CHARACTER | TypeId::STRING,
-                TypeId::CHARACTER | TypeId::STRING,
-            ) => TypeId::STRING,
-            (_, left, right) if left == right => left,
-            _ => {
+            if unified {
+                left_type
+            } else {
                 let expected = self
                     .context
                     .types
