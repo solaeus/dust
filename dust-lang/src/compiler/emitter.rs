@@ -1098,14 +1098,18 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     fn visit_expression_statement(
         &mut self,
         node: SyntaxReader<'_>,
-        _: Self::Input,
+        input: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         let child = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
         })?;
 
-        let emission = self.visit_expression(child, None)?;
+        let emission = self.visit_expression(child, input)?;
+
+        if input.is_some() {
+            return Ok(emission);
+        }
 
         match emission {
             Emission::Instructions(mut instructions) => {
@@ -1127,16 +1131,16 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let mut children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
-                parent_kind: node.inner().kind,
+                parent_kind: node.kind(),
                 start_index: node.inner().children.0,
                 count: node.inner().children.1,
             })?;
         let path = children.next().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
+            parent_kind: node.kind(),
             child_index: 0,
         })?;
         let expression_statement = children.next().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
+            parent_kind: node.kind(),
             child_index: 1,
         })?;
         let expression = expression_statement
@@ -1349,7 +1353,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
-                parent_kind: node.inner().kind,
+                parent_kind: node.kind(),
                 start_index: node.inner().children.0,
                 count: node.inner().children.1,
             })?;
@@ -1444,11 +1448,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         info!("Emitting index expression");
 
         let left_child = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
+            parent_kind: node.kind(),
             child_index: 0,
         })?;
         let right_child = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
+            parent_kind: node.kind(),
             child_index: 1,
         })?;
 
@@ -1554,9 +1558,14 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let mut block_emission = InstructionsEmission::new();
 
         for (index, child) in children.into_iter().enumerate() {
-            let child_emission = self.visit(child, None)?;
+            let is_last = index == child_count - 1;
+            let child_emission = if is_last {
+                self.visit(child, target)?
+            } else {
+                self.visit(child, None)?
+            };
 
-            if index == child_count - 1 {
+            if is_last {
                 match child_emission {
                     Emission::Constant(constant) => {
                         if block_emission.is_empty() {
@@ -1602,7 +1611,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                                 is_temporary: false,
                             }));
                         } else {
-                            let target = self.allocate_temporary_register();
+                            let target =
+                                target.unwrap_or_else(|| self.allocate_temporary_register());
                             let operand_type = self.get_operand_type(type_id)?;
                             let move_instruction =
                                 Instruction::r#move(target.index, address, operand_type);
@@ -1628,10 +1638,96 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
     fn visit_if_expression(
         &mut self,
-        _: SyntaxReader<'_>,
-        _: Self::Input,
+        node: SyntaxReader<'_>,
+        target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let mut children = node
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.kind(),
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+
+        let mut if_emission = InstructionsEmission::new();
+
+        let condition = children.next().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let condition_emission = self.visit_expression(condition, None)?;
+
+        self.handle_condition_emission(&mut if_emission, condition_emission, condition.inner())?;
+
+        let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+        let jump_over_then_id = self.create_jump_id();
+        let start_else_anchor_count = self.jump_over_else_anchor_ids.len();
+
+        if_emission.push_drop_anchor(JumpAnchor::ForwardFromHere {
+            id: jump_over_then_id,
+        });
+
+        let then_expression = children.next().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+        let then_emission = self.visit_expression(then_expression, Some(target))?;
+
+        self.handle_branch_emission(&mut if_emission, then_emission, target.index)?;
+
+        let else_expression = children.next();
+        let else_emission = if let Some(else_expression) = else_expression {
+            let emission = self.visit_else_expression(else_expression, Some(target))?;
+
+            Some(emission)
+        } else {
+            None
+        };
+
+        if_emission.push_drop_anchor(JumpAnchor::ForwardToNext {
+            id: jump_over_then_id,
+        });
+
+        if let Some(else_emission) = else_emission {
+            let jump_over_else_id = self.create_jump_id();
+
+            self.jump_over_else_anchor_ids.push(jump_over_else_id);
+
+            if_emission.push_drop_anchor(JumpAnchor::ForwardFromHere {
+                id: jump_over_else_id,
+            });
+
+            self.handle_branch_emission(&mut if_emission, else_emission, target.index)?;
+
+            if_emission.push_drop_anchor(JumpAnchor::ForwardToNext {
+                id: jump_over_else_id,
+            });
+        }
+
+        let end_else_anchor_count = self.jump_over_else_anchor_ids.len();
+
+        for index in start_else_anchor_count..end_else_anchor_count {
+            let jump_id = self.jump_over_else_anchor_ids[index];
+
+            if_emission.push_drop_anchor(JumpAnchor::ForwardToNext { id: jump_id });
+        }
+
+        if_emission.set_target(Some(target));
+
+        Ok(Emission::Instructions(if_emission))
+    }
+
+    fn visit_else_expression(
+        &mut self,
+        node: SyntaxReader,
+        target: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let child = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+
+        self.visit_expression(child, target)
     }
 
     fn visit_math_binary_expression(
@@ -1642,11 +1738,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         info!("Emitting math binary expression");
 
         let left_child = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
+            parent_kind: node.kind(),
             child_index: 0,
         })?;
         let right_child = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
+            parent_kind: node.kind(),
             child_index: 1,
         })?;
 
@@ -1824,11 +1920,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         input: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         let left_child = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
+            parent_kind: node.kind(),
             child_index: 0,
         })?;
         let right_child = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
+            parent_kind: node.kind(),
             child_index: 1,
         })?;
 
@@ -1916,11 +2012,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         let left_child = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
+            parent_kind: node.kind(),
             child_index: 0,
         })?;
         let right_child = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
+            parent_kind: node.kind(),
             child_index: 1,
         })?;
 
@@ -1974,7 +2070,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         input: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         let child = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
+            parent_kind: node.kind(),
             child_index: 0,
         })?;
 
@@ -2000,7 +2096,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let child_address =
             self.handle_operand_emission(&mut negation_emission, child_emission, &child)?;
         let target = input.unwrap_or_else(|| self.allocate_temporary_register());
-        let operand_type = match node.inner().kind {
+        let operand_type = match node.kind() {
             SyntaxKind::NegationExpression => {
                 let type_id = *self
                     .context
@@ -2112,6 +2208,12 @@ impl InstructionsEmission {
 
     fn set_target(&mut self, target: Option<TargetRegister>) {
         self.target_register = target;
+    }
+
+    fn push_drop_anchor(&mut self, anchor: JumpAnchor) {
+        if let Some((_, anchors)) = self.instructions.last_mut() {
+            anchors.push(anchor);
+        }
     }
 
     fn add_drop(&mut self, compiler: &mut Emitter, target_register: Option<TargetRegister>) {

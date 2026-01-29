@@ -486,10 +486,97 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
     fn visit_if_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let mut children = node
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+
+        let condition = children.next().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let then_expression = children.next().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 1,
+        })?;
+
+        let condition_type = {
+            let raw = self.visit(condition, ())?;
+
+            self.context.types.infer_type(raw)
+        };
+
+        if condition_type != TypeId::BOOLEAN {
+            let found = self.context.types.get_full_type(condition_type).ok_or(
+                CompileError::MissingType {
+                    type_id: condition_type,
+                },
+            )?;
+
+            return Err(CompileError::TypeConflict {
+                expected: Type::Boolean,
+                found,
+                position: Position::new(self.file_id, condition.span()),
+            });
+        }
+
+        let then_type = {
+            let raw = self.visit(then_expression, ())?;
+
+            self.context.types.infer_type(raw)
+        };
+
+        self.context.add_type_binding(node.id, then_type);
+
+        if let Some(else_expression) = children.next() {
+            let else_type = {
+                let raw = self.visit_else_expression(else_expression, ())?;
+
+                self.context.types.infer_type(raw)
+            };
+
+            let unified = self.context.types.unify_types(then_type, else_type)?;
+
+            if !unified {
+                let expected = self
+                    .context
+                    .types
+                    .get_full_type(then_type)
+                    .ok_or(CompileError::MissingType { type_id: then_type })?;
+                let found = self
+                    .context
+                    .types
+                    .get_full_type(else_type)
+                    .ok_or(CompileError::MissingType { type_id: else_type })?;
+
+                return Err(CompileError::TypeConflict {
+                    expected,
+                    found,
+                    position: Position::new(self.file_id, else_expression.span()),
+                });
+            }
+        }
+
+        Ok(then_type)
+    }
+
+    fn visit_else_expression(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let child = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+
+        self.visit_expression(child, ())
     }
 
     fn visit_math_binary_expression(
@@ -589,11 +676,16 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             child_index: 1,
         })?;
 
-        let left_type = self.visit(left_child, ())?;
-        let right_type = self.visit(right_child, ())?;
+        let left_type = {
+            let raw = self.visit(left_child, ())?;
 
-        let left_type = self.context.types.infer_type(left_type);
-        let right_type = self.context.types.infer_type(right_type);
+            self.context.types.infer_type(raw)
+        };
+        let right_type = {
+            let raw = self.visit(right_child, ())?;
+
+            self.context.types.infer_type(raw)
+        };
 
         let unified = self.context.types.unify_types(left_type, right_type)?;
 
@@ -637,8 +729,16 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             child_index: 1,
         })?;
 
-        let left_type = self.visit(left_child, input)?;
-        let right_type = self.visit(right_child, input)?;
+        let left_type = {
+            let raw = self.visit(left_child, input)?;
+
+            self.context.types.infer_type(raw)
+        };
+        let right_type = {
+            let raw = self.visit(right_child, input)?;
+
+            self.context.types.infer_type(raw)
+        };
 
         if left_type != TypeId::BOOLEAN {
             let found = self

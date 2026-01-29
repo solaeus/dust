@@ -49,6 +49,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::IndexExpression => self.visit_index_expression(node, input),
             SyntaxKind::BlockExpression => self.visit_block_expression(node, input),
             SyntaxKind::IfExpression => self.visit_if_expression(node, input),
+            SyntaxKind::ElseExpression => self.visit_else_expression(node, input),
             SyntaxKind::WhileExpression => self.visit_while_expression(node, input),
             SyntaxKind::FunctionExpression => self.visit_function_expression(node, input),
             SyntaxKind::CallExpression => self.visit_call_expression(node, input),
@@ -142,6 +143,17 @@ pub trait SyntaxVisitor {
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression
             | SyntaxKind::ExponentExpression => self.visit_math_binary_expression(node, input),
+            SyntaxKind::EqualExpression
+            | SyntaxKind::NotEqualExpression
+            | SyntaxKind::LessThanExpression
+            | SyntaxKind::LessThanOrEqualExpression
+            | SyntaxKind::GreaterThanExpression
+            | SyntaxKind::GreaterThanOrEqualExpression => {
+                self.visit_comparison_binary_expression(node, input)
+            }
+            SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
+                self.visit_logical_binary_expression(node, input)
+            }
             SyntaxKind::BlockExpression => self.visit_block_expression(node, input),
             SyntaxKind::IfExpression => self.visit_if_expression(node, input),
             SyntaxKind::WhileExpression => self.visit_while_expression(node, input),
@@ -261,6 +273,12 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::Output, CompileError>;
 
     fn visit_if_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError>;
+
+    fn visit_else_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::Input,

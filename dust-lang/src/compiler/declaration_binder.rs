@@ -524,10 +524,37 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
     fn visit_if_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let children = node
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+
+        for child in children {
+            self.visit(child, ())?;
+        }
+
+        Ok(())
+    }
+
+    fn visit_else_expression(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let child = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+
+        self.visit_expression(child, ())?;
+
+        Ok(())
     }
 
     fn visit_math_binary_expression(

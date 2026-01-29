@@ -1,5 +1,3 @@
-use tracing::info;
-
 use crate::{
     source::Span,
     syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
