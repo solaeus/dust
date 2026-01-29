@@ -192,11 +192,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 parent_kind: expression_statement.kind(),
                 child_index: 0,
             })?;
-        let expression_type_id = {
-            let raw = self.visit(expression, ())?;
-
-            self.context.types.infer_type(raw)
-        };
+        let expression_type_id = self.visit(expression, ())?;
         let declaration_id = self
             .context
             .get_declaration_binding(&path.id)
@@ -257,16 +253,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             child_index: 1,
         })?;
 
-        let path_type = {
-            let raw = self.visit(path, input)?;
-
-            self.context.types.infer_type(raw)
-        };
-        let expression_type = {
-            let raw = self.visit(expression, input)?;
-
-            self.context.types.infer_type(raw)
-        };
+        let path_type = self.visit(path, input)?;
+        let expression_type = self.visit(expression, input)?;
 
         let unified = self.context.types.unify_types(path_type, expression_type)?;
 
@@ -610,18 +598,10 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             });
         }
 
-        let then_type = {
-            let raw = self.visit(then_expression, ())?;
-
-            self.context.types.infer_type(raw)
-        };
+        let then_type = self.visit(then_expression, ())?;
 
         if let Some(else_expression) = children.next() {
-            let else_type = {
-                let raw = self.visit_else_expression(else_expression, ())?;
-
-                self.context.types.infer_type(raw)
-            };
+            let else_type = self.visit_else_expression(else_expression, ())?;
 
             let unified = self.context.types.unify_types(then_type, else_type)?;
 
@@ -768,16 +748,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             child_index: 1,
         })?;
 
-        let left_type = {
-            let raw = self.visit(left_child, ())?;
-
-            self.context.types.infer_type(raw)
-        };
-        let right_type = {
-            let raw = self.visit(right_child, ())?;
-
-            self.context.types.infer_type(raw)
-        };
+        let left_type = self.visit(left_child, ())?;
+        let right_type = self.visit(right_child, ())?;
 
         let unified = self.context.types.unify_types(left_type, right_type)?;
 

@@ -247,8 +247,20 @@ impl TypeGraph {
             return Ok(true);
         }
 
-        let left_node = *self.get_type(left).unwrap();
-        let right_node = *self.get_type(right).unwrap();
+        let left_node = {
+            let inferred = self.infer_type(left);
+
+            *self
+                .get_type(inferred)
+                .ok_or(CompileError::MissingType { type_id: inferred })?
+        };
+        let right_node = {
+            let inferred = self.infer_type(right);
+
+            *self
+                .get_type(inferred)
+                .ok_or(CompileError::MissingType { type_id: inferred })?
+        };
 
         match (left_node, right_node) {
             (TypeNode::String, TypeNode::Character) | (TypeNode::Character, TypeNode::String) => {

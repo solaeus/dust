@@ -166,8 +166,13 @@ impl CompileContext {
             }
         };
 
-        let declaration_id = DeclarationId(self.declarations.len() as u32);
         let key = DeclarationKey(symbol, declaration.scope_id);
+
+        if let Some((existing_index, _, _)) = self.declarations.get_full(&key) {
+            return DeclarationId(existing_index as u32);
+        }
+
+        let declaration_id = DeclarationId(self.declarations.len() as u32);
 
         self.declarations.insert(key, declaration);
 
