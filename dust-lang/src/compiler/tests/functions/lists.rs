@@ -21,7 +21,7 @@ fn list_boolean() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::list(Type::Boolean)),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(3), OperandType::LIST_BOOLEAN),
                 Instruction::set_list(
@@ -64,7 +64,7 @@ fn list_byte() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::list(Type::Byte)),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(3), OperandType::LIST_BYTE),
                 Instruction::set_list(
@@ -107,7 +107,7 @@ fn list_character() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::list(Type::Character)),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(6), OperandType::LIST_CHARACTER),
                 Instruction::set_list(
@@ -150,7 +150,7 @@ fn list_float() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::list(Type::Float)),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(6), OperandType::LIST_FLOAT),
                 Instruction::set_list(
@@ -193,7 +193,7 @@ fn list_integer() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::list(Type::Integer)),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(3), OperandType::LIST_INTEGER),
                 Instruction::set_list(
@@ -236,7 +236,7 @@ fn list_string() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::list(Type::String)),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(6), OperandType::LIST_STRING),
                 Instruction::set_list(
@@ -279,7 +279,7 @@ fn list_equal() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(2), OperandType::LIST_BOOLEAN),
                 Instruction::set_list(
@@ -343,7 +343,7 @@ fn list_not_equal() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(2), OperandType::LIST_BYTE),
                 Instruction::set_list(
@@ -407,7 +407,7 @@ fn list_greater_than() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(4), OperandType::LIST_CHARACTER),
                 Instruction::set_list(
@@ -471,7 +471,7 @@ fn list_less_than() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(4), OperandType::LIST_FLOAT),
                 Instruction::set_list(
@@ -535,7 +535,7 @@ fn list_greater_than_or_equal() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(2), OperandType::LIST_INTEGER),
                 Instruction::set_list(
@@ -599,7 +599,7 @@ fn list_less_than_or_equal() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(4), OperandType::LIST_STRING),
                 Instruction::set_list(
@@ -663,7 +663,7 @@ fn list_index_boolean() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(3), OperandType::LIST_BOOLEAN),
                 Instruction::set_list(
@@ -712,7 +712,7 @@ fn list_index_byte() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Byte),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(3), OperandType::LIST_BYTE),
                 Instruction::set_list(
@@ -761,7 +761,7 @@ fn list_index_character() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Character),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(6), OperandType::LIST_CHARACTER),
                 Instruction::set_list(
@@ -810,7 +810,7 @@ fn list_index_float() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Float),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(6), OperandType::LIST_FLOAT),
                 Instruction::set_list(
@@ -859,7 +859,7 @@ fn list_index_integer() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(3), OperandType::LIST_INTEGER),
                 Instruction::set_list(
@@ -908,7 +908,7 @@ fn list_index_string() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::String),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(6), OperandType::LIST_STRING),
                 Instruction::set_list(
@@ -957,7 +957,7 @@ fn local_list_boolean() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::list(Type::Boolean)),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(3), OperandType::LIST_BOOLEAN),
                 Instruction::set_list(
@@ -1000,7 +1000,7 @@ fn local_list_equal() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(2), OperandType::LIST_BOOLEAN),
                 Instruction::set_list(
@@ -1064,7 +1064,7 @@ fn local_list_not_equal() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(2), OperandType::LIST_BYTE),
                 Instruction::set_list(
@@ -1128,7 +1128,7 @@ fn local_list_greater_than() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(4), OperandType::LIST_CHARACTER),
                 Instruction::set_list(
@@ -1192,7 +1192,7 @@ fn local_list_less_than() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(4), OperandType::LIST_FLOAT),
                 Instruction::set_list(
@@ -1256,7 +1256,7 @@ fn local_list_greater_than_or_equal() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(2), OperandType::LIST_INTEGER),
                 Instruction::set_list(
@@ -1320,7 +1320,7 @@ fn local_list_less_than_or_equal() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(4), OperandType::LIST_STRING),
                 Instruction::set_list(
