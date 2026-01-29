@@ -21,7 +21,7 @@ fn if_else_true() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::test(Address::encoded(true as u16), true, 1),
                 Instruction::jump(1, true),
@@ -49,7 +49,7 @@ fn if_else_logical_and() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#move(1, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -79,7 +79,7 @@ fn if_else_logical_or() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(false as u16), OperandType::BOOLEAN),
                 Instruction::r#move(1, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -109,7 +109,7 @@ fn if_else_false() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::test(Address::encoded(false as u16), true, 1),
                 Instruction::jump(1, true),
@@ -137,7 +137,7 @@ fn if_else_equal() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
@@ -172,7 +172,7 @@ fn if_else_not_equal() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -207,7 +207,7 @@ fn if_else_less_than() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -242,7 +242,7 @@ fn if_else_greater_than() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -277,7 +277,7 @@ fn if_else_less_than_equal() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
@@ -312,7 +312,7 @@ fn if_else_greater_than_equal() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -347,7 +347,7 @@ fn if_else_if_chain_end() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -390,7 +390,7 @@ fn if_else_if_chain_middle() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
@@ -433,7 +433,7 @@ fn if_else_nested() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -476,7 +476,7 @@ fn if_else_double_nested() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),

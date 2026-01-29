@@ -286,9 +286,8 @@ pub unsafe extern "C" fn compare_lists_equal(
         (ObjectValue::IntegerList(left), ObjectValue::IntegerList(right)) => left == right,
         (ObjectValue::FunctionList(left), ObjectValue::FunctionList(right)) => left == right,
         (ObjectValue::ObjectList(left), ObjectValue::ObjectList(right)) => {
-            compare_lists(Ordering::Equal, &left, &right, object_pool)
+            compare_lists(Ordering::Equal, left, right, object_pool)
         }
-        (ObjectValue::FunctionList(left), ObjectValue::FunctionList(right)) => left == right,
         _ => false,
     };
 

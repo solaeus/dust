@@ -42,7 +42,7 @@ fn block_expression() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::INTEGER
@@ -94,7 +94,7 @@ fn block_statement_and_expression() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::add(
@@ -125,7 +125,7 @@ fn parent_scope_access() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(Address::register(0), OperandType::INTEGER),
@@ -150,7 +150,7 @@ fn nested_parrent_scope_access() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -182,7 +182,7 @@ fn scope_shadowing() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -208,7 +208,7 @@ fn scope_deshadowing() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),

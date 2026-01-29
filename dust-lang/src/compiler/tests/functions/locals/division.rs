@@ -21,7 +21,7 @@ fn local_byte_division() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(84), OperandType::BYTE),
                 Instruction::r#move(1, Address::encoded(2), OperandType::BYTE),
@@ -53,7 +53,7 @@ fn local_float_division() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
                 Instruction::r#move(1, Address::constant(1), OperandType::FLOAT),
@@ -85,7 +85,7 @@ fn local_integer_division() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -117,7 +117,7 @@ fn local_mut_byte_division() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(84), OperandType::BYTE),
                 Instruction::divide(
@@ -148,7 +148,7 @@ fn local_mut_float_division() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
                 Instruction::divide(
@@ -179,7 +179,7 @@ fn local_mut_integer_division() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::divide(

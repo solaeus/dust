@@ -384,9 +384,23 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
     fn visit_list_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding list expression");
+
+        let elements = node
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.inner().kind,
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+
+        for element in elements {
+            self.visit_expression(element, ())?;
+        }
+
         Ok(())
     }
 

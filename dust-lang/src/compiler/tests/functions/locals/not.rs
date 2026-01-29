@@ -21,7 +21,7 @@ fn local_boolean_not() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::negate(1, Address::register(0), OperandType::BOOLEAN),

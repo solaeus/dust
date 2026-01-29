@@ -21,7 +21,7 @@ fn local_boolean() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#return(Address::register(0), OperandType::BOOLEAN),
@@ -46,7 +46,7 @@ fn local_byte() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(42), OperandType::BYTE),
                 Instruction::r#return(Address::register(0), OperandType::BYTE),
@@ -71,7 +71,7 @@ fn local_character() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Character),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
                 Instruction::r#return(Address::register(0), OperandType::CHARACTER),
@@ -96,7 +96,7 @@ fn local_float() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
                 Instruction::r#return(Address::register(0), OperandType::FLOAT),
@@ -121,7 +121,7 @@ fn local_integer() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(Address::register(0), OperandType::INTEGER),
@@ -146,7 +146,7 @@ fn local_string() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
                 Instruction::r#return(Address::register(0), OperandType::STRING),

@@ -21,7 +21,7 @@ fn local_byte_addition() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(40), OperandType::BYTE),
                 Instruction::r#move(1, Address::encoded(2), OperandType::BYTE),
@@ -53,7 +53,7 @@ fn local_float_addition() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
                 Instruction::r#move(1, Address::constant(1), OperandType::FLOAT),
@@ -85,7 +85,7 @@ fn local_integer_addition() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -117,7 +117,7 @@ fn local_string_concatenation() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
                 Instruction::r#move(1, Address::constant(1), OperandType::STRING),
@@ -149,7 +149,7 @@ fn local_character_concatenation() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
                 Instruction::r#move(1, Address::constant(0), OperandType::CHARACTER),
@@ -181,7 +181,7 @@ fn local_string_character_concatenation() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
                 Instruction::r#move(1, Address::constant(1), OperandType::CHARACTER),
@@ -213,7 +213,7 @@ fn local_character_string_concatenation() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
                 Instruction::r#move(1, Address::constant(1), OperandType::STRING),
@@ -245,7 +245,7 @@ fn local_mut_byte_addition() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(40), OperandType::BYTE),
                 Instruction::add(
@@ -276,7 +276,7 @@ fn local_mut_float_addition() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
                 Instruction::add(
@@ -307,7 +307,7 @@ fn local_mut_integer_addition() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::add(
@@ -338,7 +338,7 @@ fn local_mut_string_concatenation() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
                 Instruction::add(
@@ -369,7 +369,7 @@ fn local_mut_string_character_concatenation() {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
                 Instruction::add(
