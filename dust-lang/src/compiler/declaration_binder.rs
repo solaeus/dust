@@ -634,10 +634,22 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
     fn visit_while_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let condition = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let body = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+
+        self.visit_expression(condition, ())?;
+        self.visit(body, ())?;
+
+        Ok(())
     }
 
     fn visit_function_expression(

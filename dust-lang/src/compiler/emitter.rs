@@ -2121,10 +2121,73 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
     fn visit_while_expression(
         &mut self,
-        _: SyntaxReader<'_>,
-        _: Self::Input,
+        node: SyntaxReader<'_>,
+        target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let condition = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let body = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+
+        let mut while_emission = InstructionsEmission::new();
+        let condition_emission = self.visit_expression(condition, None)?;
+
+        self.handle_condition_emission(&mut while_emission, condition_emission, condition.inner())?;
+
+        let jump_forward_id = self.create_jump_id();
+        let jump_backward_id = self.create_jump_id();
+
+        while_emission.push_drop_anchor(JumpAnchor::LoopStartHere {
+            forward_id: jump_forward_id,
+        });
+
+        let body_emission = self.visit(body, None)?;
+
+        match body_emission {
+            Emission::Local(Local { address, type_id }) => {
+                let destination = self.allocate_temporary_register();
+                let operand_type = self
+                    .context
+                    .types
+                    .get_operand_type(type_id)
+                    .ok_or(CompileError::MissingType { type_id })?;
+                let move_instruction =
+                    Instruction::r#move(destination.index, address, operand_type);
+
+                while_emission.push(move_instruction);
+            }
+            Emission::Constant(constant) => {
+                let destination = self.allocate_temporary_register();
+                let address = self.get_constant_address(constant);
+                let operand_type = constant.operand_type();
+                let move_instruction =
+                    Instruction::r#move(destination.index, address, operand_type);
+
+                while_emission.push(move_instruction);
+            }
+            Emission::Function(address) => {
+                let destination = self.allocate_temporary_register();
+                let move_instruction =
+                    Instruction::r#move(destination.index, address, OperandType::FUNCTION);
+
+                while_emission.push(move_instruction);
+            }
+            Emission::Instructions(InstructionsEmission { instructions, .. }) => {
+                while_emission.instructions.extend(instructions);
+            }
+            Emission::None => {}
+        }
+
+        while_emission.push_drop_anchor(JumpAnchor::LoopEndOnNext {
+            forward_id: jump_forward_id,
+            backward_id: jump_backward_id,
+        });
+
+        Ok(Emission::Instructions(while_emission))
     }
 
     fn visit_function_expression(

@@ -144,7 +144,11 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 parent_kind: expression_statement.kind(),
                 child_index: 0,
             })?;
-        let expression_type_id = self.visit_expression(expression, ())?;
+        let expression_type_id = {
+            let raw = self.visit(expression, ())?;
+
+            self.context.types.infer_type(raw)
+        };
         let declaration_id = self
             .context
             .get_declaration_binding(&path.id)
@@ -197,40 +201,29 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             parent_kind: node.inner().kind,
             child_index: 1,
         })?;
-        // let expression = expression_statement
-        //     .left_child()
-        //     .ok_or(CompileError::MissingChild {
-        //         parent_kind: expression_statement.kind(),
-        //         child_index: 0,
-        //     })?;
 
-        let expression_type_id = self.visit_expression(expression, input)?;
-        let declaration_id = self
-            .context
-            .get_declaration_binding(&path.id)
-            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let declaration = *self.context.get_declaration(*declaration_id).ok_or(
-            CompileError::MissingDeclaration {
-                declaration_id: *declaration_id,
-            },
-        )?;
+        let path_type = {
+            let raw = self.visit(path, input)?;
 
-        let unified = self
-            .context
-            .types
-            .unify_types(declaration.type_id, expression_type_id)?;
+            self.context.types.infer_type(raw)
+        };
+        let expression_type = {
+            let raw = self.visit(expression, input)?;
+
+            self.context.types.infer_type(raw)
+        };
+
+        let unified = self.context.types.unify_types(path_type, expression_type)?;
 
         if !unified {
             let expected = self
                 .context
                 .types
-                .get_full_type(declaration.type_id)
-                .ok_or(CompileError::MissingType {
-                    type_id: declaration.type_id,
-                })?;
-            let found = self.context.types.get_full_type(expression_type_id).ok_or(
+                .get_full_type(path_type)
+                .ok_or(CompileError::MissingType { type_id: path_type })?;
+            let found = self.context.types.get_full_type(expression_type).ok_or(
                 CompileError::MissingType {
-                    type_id: expression_type_id,
+                    type_id: expression_type,
                 },
             )?;
 
@@ -241,9 +234,9 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             });
         }
 
-        self.context.add_type_binding(path.id, declaration.type_id);
+        self.context.add_type_binding(path.id, path_type);
         self.context
-            .add_type_binding(expression.id, expression_type_id);
+            .add_type_binding(expression.id, expression_type);
 
         Ok(TypeId::NONE)
     }
@@ -473,7 +466,11 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let mut block_type_id = TypeId::NONE;
 
         for child in children {
-            let child_type = self.visit(child, ())?;
+            let child_type = {
+                let raw = self.visit(child, ())?;
+
+                self.context.types.infer_type(raw)
+            };
             block_type_id = child_type;
 
             self.context.add_type_binding(child.id, child_type);
@@ -593,30 +590,32 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             child_index: 1,
         })?;
 
-        let left_type = self.visit(left_child, ())?;
-        let right_type = self.visit(right_child, ())?;
+        let left_type = {
+            let raw = self.visit(left_child, ())?;
 
-        let left_type_inferred = self.context.types.infer_type(left_type);
-        let right_type_inferred = self.context.types.infer_type(right_type);
+            self.context.types.infer_type(raw)
+        };
+        let right_type = {
+            let raw = self.visit(right_child, ())?;
 
-        let unified = self
-            .context
-            .types
-            .unify_types(left_type_inferred, right_type_inferred)?;
+            self.context.types.infer_type(raw)
+        };
+
+        let unified = self.context.types.unify_types(left_type, right_type)?;
 
         if !unified {
-            let expected = self.context.types.get_full_type(left_type_inferred).ok_or(
-                CompileError::MissingType {
-                    type_id: left_type_inferred,
-                },
-            )?;
-            let found = self
+            let expected = self
                 .context
                 .types
-                .get_full_type(right_type_inferred)
-                .ok_or(CompileError::MissingType {
-                    type_id: right_type_inferred,
-                })?;
+                .get_full_type(left_type)
+                .ok_or(CompileError::MissingType { type_id: left_type })?;
+            let found =
+                self.context
+                    .types
+                    .get_full_type(right_type)
+                    .ok_or(CompileError::MissingType {
+                        type_id: right_type,
+                    })?;
 
             return Err(CompileError::TypeConflict {
                 expected,
@@ -625,7 +624,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             });
         }
 
-        let math_expression_type = match (node.kind(), left_type_inferred, right_type_inferred) {
+        let math_expression_type = match (node.kind(), left_type, right_type) {
             (SyntaxKind::AdditionExpression, TypeId::BYTE, TypeId::BYTE) => TypeId::BYTE,
             (SyntaxKind::AdditionExpression, TypeId::FLOAT, TypeId::FLOAT) => TypeId::FLOAT,
             (SyntaxKind::AdditionExpression, TypeId::INTEGER, TypeId::INTEGER) => TypeId::INTEGER,
@@ -636,18 +635,16 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             ) => TypeId::STRING,
             (_, left, right) if left == right => left,
             _ => {
-                let expected = self.context.types.get_full_type(left_type_inferred).ok_or(
-                    CompileError::MissingType {
-                        type_id: left_type_inferred,
-                    },
-                )?;
-                let found = self
+                let expected = self
                     .context
                     .types
-                    .get_full_type(right_type_inferred)
-                    .ok_or(CompileError::MissingType {
-                        type_id: right_type_inferred,
-                    })?;
+                    .get_full_type(left_type)
+                    .ok_or(CompileError::MissingType { type_id: left_type })?;
+                let found = self.context.types.get_full_type(right_type).ok_or(
+                    CompileError::MissingType {
+                        type_id: right_type,
+                    },
+                )?;
 
                 return Err(CompileError::TypeConflict {
                     expected,
@@ -778,13 +775,17 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     fn visit_unary_negation_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::Input,
+        _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         let child = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 0,
         })?;
-        let child_type = self.visit(child, input)?;
+        let child_type = {
+            let raw = self.visit(child, ())?;
+
+            self.context.types.infer_type(raw)
+        };
 
         match child_type {
             TypeId::BOOLEAN | TypeId::BYTE | TypeId::FLOAT | TypeId::INTEGER => {
@@ -810,10 +811,41 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
     fn visit_while_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let condition = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let body = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 1,
+        })?;
+
+        let condition_type = {
+            let raw = self.visit(condition, ())?;
+
+            self.context.types.infer_type(raw)
+        };
+
+        if condition_type != TypeId::BOOLEAN {
+            let found = self.context.types.get_full_type(condition_type).ok_or(
+                CompileError::MissingType {
+                    type_id: condition_type,
+                },
+            )?;
+
+            return Err(CompileError::TypeConflict {
+                expected: Type::Boolean,
+                found,
+                position: Position::new(self.file_id, condition.span()),
+            });
+        }
+
+        self.visit(body, ())?;
+
+        Ok(TypeId::NONE)
     }
 
     fn visit_function_expression(
