@@ -1,3 +1,5 @@
+use crate::instruction::OperandType;
+
 pub mod block_cases;
 pub mod constant_cases;
 pub mod if_else_cases;
@@ -5,14 +7,24 @@ pub mod list_cases;
 pub mod local_cases;
 pub mod loop_cases;
 
-pub fn create_function_case(source: &str) -> String {
-    format!(
-        r#"
+pub fn create_function_case(source: &str, return_type: OperandType) -> String {
+    if return_type == OperandType::NONE {
+        format!(
+            r#"
             fn foobar() {{
                 {source}
             }}
         "#
-    )
+        )
+    } else {
+        format!(
+            r#"
+            fn foobar() -> {return_type} {{
+                {source}
+            }}
+        "#
+        )
+    }
 }
 
 pub fn create_function_with_call_case(source: &str, return_type: &str) -> String {

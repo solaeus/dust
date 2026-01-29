@@ -174,6 +174,20 @@ impl<'a> Emitter<'a> {
                     self.handle_top_emission(child_emission, child)?;
                 }
             }
+            SyntaxKind::ExpressionStatement => {
+                let expression_node = node.left_child().ok_or(CompileError::MissingChild {
+                    parent_kind: node.kind(),
+                    child_index: 0,
+                })?;
+
+                let mut expression_emission = self.handle_implicit_return(expression_node, None)?;
+
+                if let Emission::Instructions(instructions) = &mut expression_emission {
+                    instructions.set_target(None);
+                }
+
+                self.handle_top_emission(expression_emission, expression_node)?;
+            }
             _ => return Err(CompileError::InvalidSyntaxNode { kind: node.kind() }),
         }
 
@@ -957,6 +971,8 @@ impl<'a> Emitter<'a> {
 
                     Address::register(target.index)
                 } else if type_id == TypeId::NONE {
+                    return_instructions.merge(instructions);
+
                     Address::default()
                 } else {
                     return Err(CompileError::ExpectedExpression {
@@ -968,20 +984,6 @@ impl<'a> Emitter<'a> {
             Emission::None => Address::default(),
         };
         let return_instruction = Instruction::r#return(address, operand_type);
-
-        let function_type_node = *self
-            .context
-            .types
-            .get_type_mut(self.function_type_id)
-            .ok_or(CompileError::MissingType { type_id })?;
-
-        if let TypeNode::Function { return_type_id, .. } = function_type_node {
-            self.context.types.unify_types(return_type_id, type_id)?;
-        } else {
-            return Err(CompileError::ExpectedFunctionType {
-                type_id: self.function_type_id,
-            });
-        }
 
         return_instructions.push(return_instruction);
 

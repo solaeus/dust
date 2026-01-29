@@ -621,7 +621,6 @@ dependencies = [
  "annotate-snippets",
  "bumpalo",
  "clap",
- "colored",
  "cranelift",
  "cranelift-jit",
  "cranelift-module",

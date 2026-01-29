@@ -155,16 +155,14 @@ impl Compiler {
                 ScopeId::PROJECT,
             );
 
-            {
-                match main_declaration_binder.bind_main() {
-                    Ok(()) => (),
-                    Err(error) => return Err(DustError::compile(error, self.source)),
-                }
+            match main_declaration_binder.bind_main() {
+                Ok(()) => (),
+                Err(error) => return Err(DustError::compile(error, self.source)),
             }
         }
 
         // Type binding phase
-        {
+        let main_function_type = {
             let span = span!(Level::INFO, "resolve");
             let _enter = span.enter();
 
@@ -172,10 +170,10 @@ impl Compiler {
                 TypeBinder::new(SourceFileId::MAIN, &mut self.context, &self.syntax);
 
             match main_type_binder.resolve_main() {
-                Ok(_) => (),
+                Ok(main_type) => main_type,
                 Err(error) => return Err(DustError::compile(error, self.source)),
             }
-        }
+        };
 
         // Emission phase
         {
@@ -184,17 +182,11 @@ impl Compiler {
 
             self.context.prototypes.push(Prototype::default()); // Placeholder for main prototype
 
-            let inferred_type = self.context.types.create_inferred_type();
-            let main_function_type_id = self.context.types.add_type(TypeNode::Function {
-                type_parameters: (0, 0),
-                value_parameters: (0, 0),
-                return_type_id: inferred_type,
-            });
             let main_emitter = Emitter::new(
                 None,
                 0,
                 SourceFileId::MAIN,
-                main_function_type_id,
+                main_function_type,
                 &self.source,
                 &self.syntax,
                 &mut self.context,

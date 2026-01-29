@@ -15,7 +15,6 @@ global-mimalloc = []
 annotate-snippets = "0.12.3"
 bumpalo = { version = "3.19.0", features = ["boxed", "collections"] }
 clap = { version = "4.5.47", features = ["env"] }
-colored = "3.0.0"
 cranelift = "0.126.1"
 cranelift-jit = "0.126.1"
 cranelift-module = "0.126.1"

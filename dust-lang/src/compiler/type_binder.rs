@@ -1,3 +1,5 @@
+use tracing::debug;
+
 use crate::{
     compiler::{CompileContext, CompileError, TypeId, TypeNode, get_type_id},
     source::{Position, SourceFileId},
@@ -5,6 +7,7 @@ use crate::{
     r#type::Type,
 };
 
+#[derive(Debug)]
 pub struct TypeBinder<'a> {
     file_id: SourceFileId,
 
@@ -56,6 +59,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for main function");
+
         let children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
@@ -64,17 +69,43 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 count: node.inner().children.1,
             })?;
         let last_child = children.len() - 1;
-        let mut main_type_id = TypeId::NONE;
+        let return_type_id = self.context.types.create_inferred_type();
+        let main_type_id = self.context.types.add_type(TypeNode::Function {
+            type_parameters: (0, 0),
+            value_parameters: (0, 0),
+            return_type_id,
+        });
 
         for (index, child) in children.into_iter().enumerate() {
             let child_type = self.visit(child, ())?;
 
-            if index == last_child {
-                main_type_id = child_type;
-            }
-
             self.context.add_type_binding(child.id, child_type);
+
+            if index == last_child {
+                let unified = self.context.types.unify_types(return_type_id, child_type)?;
+
+                if !unified {
+                    let expected = self.context.types.get_full_type(return_type_id).ok_or(
+                        CompileError::MissingType {
+                            type_id: return_type_id,
+                        },
+                    )?;
+                    let found = self.context.types.get_full_type(child_type).ok_or(
+                        CompileError::MissingType {
+                            type_id: child_type,
+                        },
+                    )?;
+
+                    return Err(CompileError::TypeConflict {
+                        expected,
+                        found,
+                        position: Position::new(self.file_id, child.span()),
+                    });
+                }
+            }
         }
+
+        self.context.add_type_binding(node.id, return_type_id);
 
         Ok(main_type_id)
     }
@@ -84,6 +115,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         _: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for module");
+
         todo!()
     }
 
@@ -92,6 +125,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for function");
+
         let function_expression = node.right_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 1,
@@ -107,6 +142,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         _: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for use item");
+
         todo!()
     }
 
@@ -115,6 +152,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for expression statement");
+
         let expression = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
@@ -130,6 +169,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for let statement");
+
         let mut children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
@@ -192,6 +233,11 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             });
         }
 
+        self.context
+            .add_type_binding(expression.id, expression_type_id);
+        self.context.add_type_binding(path.id, declaration.type_id);
+        self.context.add_type_binding(node.id, TypeId::NONE);
+
         Ok(TypeId::NONE)
     }
 
@@ -200,6 +246,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         input: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for binary assignment statement");
+
         let path = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 0,
@@ -244,6 +292,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         self.context.add_type_binding(path.id, path_type);
         self.context
             .add_type_binding(expression.id, expression_type);
+        self.context.add_type_binding(node.id, TypeId::NONE);
 
         Ok(TypeId::NONE)
     }
@@ -253,6 +302,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         _: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for reassignment statement");
+
         todo!()
     }
 
@@ -261,6 +312,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for boolean expression");
+
         self.context.add_type_binding(node.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
@@ -271,6 +324,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for byte expression");
+
         self.context.add_type_binding(node.id, TypeId::BYTE);
 
         Ok(TypeId::BYTE)
@@ -281,6 +336,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for character expression");
+
         self.context.add_type_binding(node.id, TypeId::CHARACTER);
 
         Ok(TypeId::CHARACTER)
@@ -291,6 +348,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for float expression");
+
         self.context.add_type_binding(node.id, TypeId::FLOAT);
 
         Ok(TypeId::FLOAT)
@@ -301,6 +360,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for integer expression");
+
         self.context.add_type_binding(node.id, TypeId::INTEGER);
 
         Ok(TypeId::INTEGER)
@@ -311,6 +372,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for string expression");
+
         self.context.add_type_binding(node.id, TypeId::STRING);
 
         Ok(TypeId::STRING)
@@ -321,6 +384,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for list expression");
+
         let children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
@@ -377,6 +442,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         input: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for index expression");
+
         let list_expression = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 0,
@@ -419,22 +486,29 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 .ok_or(CompileError::MissingType {
                     type_id: list_type_id,
                 })?;
-
-        match list_type {
+        let element_type = match list_type {
             TypeNode::List { element_type } => {
                 self.context.add_type_binding(node.id, element_type);
 
-                Ok(element_type)
+                element_type
             }
-            _ => Err(CompileError::CannotIndex {
-                r#type: self.context.types.get_full_type(list_type_id).ok_or(
-                    CompileError::MissingType {
-                        type_id: list_type_id,
-                    },
-                )?,
-                position: Position::new(self.file_id, list_expression.span()),
-            }),
-        }
+            _ => {
+                return Err(CompileError::CannotIndex {
+                    r#type: self.context.types.get_full_type(list_type_id).ok_or(
+                        CompileError::MissingType {
+                            type_id: list_type_id,
+                        },
+                    )?,
+                    position: Position::new(self.file_id, list_expression.span()),
+                });
+            }
+        };
+
+        self.context.add_type_binding(node.id, element_type);
+        self.context
+            .add_type_binding(list_expression.id, list_type_id);
+
+        Ok(element_type)
     }
 
     fn visit_path_expression(
@@ -442,6 +516,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for path expression");
+
         let declaration_id = self
             .context
             .get_declaration_binding(&node.id)
@@ -462,6 +538,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for block expression");
+
         let children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
@@ -493,6 +571,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for if expression");
+
         let mut children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
@@ -536,8 +616,6 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             self.context.types.infer_type(raw)
         };
 
-        self.context.add_type_binding(node.id, then_type);
-
         if let Some(else_expression) = children.next() {
             let else_type = {
                 let raw = self.visit_else_expression(else_expression, ())?;
@@ -565,7 +643,11 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                     position: Position::new(self.file_id, else_expression.span()),
                 });
             }
+
+            self.context.add_type_binding(node.id, then_type);
         }
+
+        self.context.add_type_binding(node.id, then_type);
 
         Ok(then_type)
     }
@@ -575,6 +657,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for else expression");
+
         let child = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 0,
@@ -588,6 +672,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for math binary expression");
+
         let left_child = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 0,
@@ -671,6 +757,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for comparison binary expression");
+
         let left_child = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 0,
@@ -724,6 +812,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         input: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for logical binary expression");
+
         let left_child = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 0,
@@ -784,6 +874,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for unary negation expression");
+
         let child = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 0,
@@ -821,6 +913,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for while expression");
+
         let condition = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 0,
@@ -860,6 +954,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for function expression");
+
         let signature = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
             child_index: 0,
@@ -904,10 +1000,14 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             value_parameter_types.push(parameter_type);
         }
 
-        let return_type_id = if let Some(return_type_node) = return_type {
-            get_type_id(return_type_node, self.context)?
-        } else {
-            TypeId::NONE
+        let return_type_id = {
+            let raw = if let Some(return_type_node) = return_type {
+                get_type_id(return_type_node, self.context)?
+            } else {
+                TypeId::NONE
+            };
+
+            self.context.types.infer_type(raw)
         };
 
         let value_parameter_children = self.context.types.add_type_members(&value_parameter_types);
@@ -930,6 +1030,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         _: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for call expression");
+
         todo!()
     }
 }

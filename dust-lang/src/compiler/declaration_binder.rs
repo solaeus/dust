@@ -1,5 +1,5 @@
 use smallvec::SmallVec;
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::{
     compiler::{
@@ -8,7 +8,7 @@ use crate::{
             CompileContext, Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind,
         },
         get_type_id,
-        type_graph::{TypeId, TypeNode},
+        type_graph::TypeId,
     },
     source::{Position, Source, SourceFileId},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
@@ -73,7 +73,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        info!("Binding main function");
+        debug!("Binding main function");
 
         self.context.add_scope(Scope {
             kind: ScopeKind::Function,
@@ -102,6 +102,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         _: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding module item");
+
         todo!()
     }
 
@@ -110,6 +112,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding function item");
+
         let function_name = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
@@ -189,6 +193,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         _: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding use item");
+
         todo!()
     }
 
@@ -197,6 +203,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding expression statement");
+
         let expression = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
@@ -213,10 +221,6 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         info!("Binding let statement");
-        debug_assert!(matches!(
-            node.kind(),
-            SyntaxKind::LetStatement | SyntaxKind::LetMutStatement
-        ));
 
         let mut children = node
             .multiple_children()
@@ -287,15 +291,6 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         input: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         info!("Binding binary assignment statement");
-        debug_assert!(matches!(
-            node.kind(),
-            SyntaxKind::AdditionAssignmentStatement
-                | SyntaxKind::SubtractionAssignmentStatement
-                | SyntaxKind::MultiplicationAssignmentStatement
-                | SyntaxKind::DivisionAssignmentStatement
-                | SyntaxKind::ModuloAssignmentStatement
-                | SyntaxKind::ExponentAssignmentStatement
-        ));
 
         let path = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
@@ -389,40 +384,30 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
     fn visit_list_expression(
         &mut self,
-        node: SyntaxReader,
+        _: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        let children = node
-            .multiple_children()
-            .ok_or(CompileError::MissingChildren {
-                parent_kind: node.inner().kind,
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
-            })?;
-
-        for child in children {
-            self.visit_expression(child, ())?;
-        }
-
         Ok(())
     }
 
     fn visit_index_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::Input,
+        _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        let left_expression = node.left_child().ok_or(CompileError::MissingChild {
+        debug!("Binding index expression");
+
+        let list = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
         })?;
-        let right_expression = node.right_child().ok_or(CompileError::MissingChild {
+        let index = node.right_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 1,
         })?;
 
-        self.visit_expression(left_expression, input)?;
-        self.visit_expression(right_expression, input)?;
+        self.visit_expression(list, ())?;
+        self.visit_expression(index, ())?;
 
         Ok(())
     }
@@ -432,6 +417,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding path expression");
+
         let path = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
@@ -480,6 +467,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding block expression");
+
         let children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
@@ -513,6 +502,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding if expression");
+
         let children = node
             .multiple_children()
             .ok_or(CompileError::MissingChildren {
@@ -533,6 +524,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding else expression");
+
         let child = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
@@ -548,6 +541,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding math binary expression");
+
         let left_expression = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
@@ -568,6 +563,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding comparison binary expression");
+
         let left_expression = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
@@ -588,6 +585,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding logical binary expression");
+
         let left_expression = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
@@ -608,6 +607,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding unary negation expression");
+
         let expression = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
@@ -623,6 +624,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding while expression");
+
         let condition = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
@@ -643,10 +646,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        let _signature = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.kind(),
-            child_index: 0,
-        })?;
+        debug!("Binding function expression");
+
         let body = node.right_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 1,
