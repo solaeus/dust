@@ -1,5 +1,5 @@
 use crate::{
-    compiler::{CompileContext, CompileError, TypeId, TypeNode},
+    compiler::{CompileContext, CompileError, TypeId, TypeNode, get_type_id},
     source::{Position, SourceFileId},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
     r#type::Type,
@@ -89,10 +89,17 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
     fn visit_function_item(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let function_expression = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 1,
+        })?;
+
+        self.visit_function_expression(function_expression, ())?;
+
+        Ok(TypeId::NONE)
     }
 
     fn visit_use_item(
@@ -850,10 +857,72 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
     fn visit_function_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let signature = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let value_parameters_node = signature.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: signature.inner().kind,
+            child_index: 0,
+        })?;
+        let value_parameter_nodes =
+            value_parameters_node
+                .multiple_children()
+                .ok_or(CompileError::MissingChildren {
+                    parent_kind: value_parameters_node.inner().kind,
+                    start_index: value_parameters_node.inner().children.0,
+                    count: value_parameters_node.inner().children.1,
+                })?;
+        let return_type = signature.right_child();
+        let body = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 1,
+        })?;
+
+        let mut value_parameter_types = Vec::new();
+
+        for parameter_node in value_parameter_nodes {
+            let parameter_name = parameter_node
+                .left_child()
+                .ok_or(CompileError::MissingChild {
+                    parent_kind: parameter_node.inner().kind,
+                    child_index: 0,
+                })?;
+            let parameter_type_node =
+                parameter_node
+                    .right_child()
+                    .ok_or(CompileError::MissingChild {
+                        parent_kind: parameter_node.inner().kind,
+                        child_index: 1,
+                    })?;
+
+            let parameter_type = get_type_id(parameter_type_node, self.context)?;
+
+            value_parameter_types.push(parameter_type);
+        }
+
+        let return_type_id = if let Some(return_type_node) = return_type {
+            get_type_id(return_type_node, self.context)?
+        } else {
+            TypeId::NONE
+        };
+
+        let value_parameter_children = self.context.types.add_type_members(&value_parameter_types);
+        let function_type = self.context.types.add_type(TypeNode::Function {
+            type_parameters: (0, 0),
+            value_parameters: value_parameter_children,
+            return_type_id,
+        });
+
+        self.context.add_type_binding(node.id, function_type);
+        self.context.add_type_binding(body.id, return_type_id);
+
+        self.visit(body, ())?;
+
+        Ok(function_type)
     }
 
     fn visit_call_expression(

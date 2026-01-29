@@ -1081,10 +1081,21 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
     fn visit_function_item(
         &mut self,
-        _: SyntaxReader<'_>,
-        _: Self::Input,
+        node: SyntaxReader<'_>,
+        _target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let function_name = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let function_expression = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 1,
+        })?;
+
+        self.visit_function_expression(function_expression, None)?;
+
+        Ok(Emission::None)
     }
 
     fn visit_use_item(
@@ -2122,7 +2133,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     fn visit_while_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        target: Self::Input,
+        _target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         let condition = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
@@ -2192,10 +2203,55 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
     fn visit_function_expression(
         &mut self,
-        _: SyntaxReader<'_>,
-        _: Self::Input,
+        node: SyntaxReader<'_>,
+        _target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let declaration_id = self.context.get_declaration_binding(&node.id).copied();
+        let declaration_info = if let Some(declaration_id) = declaration_id {
+            let declaration = *self
+                .context
+                .get_declaration(declaration_id)
+                .ok_or(CompileError::MissingDeclaration { declaration_id })?;
+
+            Some((declaration_id, declaration))
+        } else {
+            None
+        };
+
+        let function_type = *self
+            .context
+            .get_type_binding(&node.id)
+            .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
+        let body = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+
+        let prototype_index = self.context.prototypes.len();
+
+        self.context.prototypes.push(Prototype::default());
+
+        let function_scope_id = *self
+            .context
+            .get_scope_binding(&body.id)
+            .ok_or(CompileError::MissingScopeBinding { syntax_id: node.id })?;
+
+        let function_emitter = Emitter::new(
+            declaration_info,
+            prototype_index as u16,
+            self.file_id,
+            function_type,
+            self.source,
+            self.syntax,
+            self.context,
+            function_scope_id,
+        );
+
+        self.context.prototypes[prototype_index] = function_emitter.emit(body)?;
+
+        let function_address = Address::constant(prototype_index as u16);
+
+        Ok(Emission::Function(function_address))
     }
 
     fn visit_call_expression(

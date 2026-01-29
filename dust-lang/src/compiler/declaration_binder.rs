@@ -7,6 +7,7 @@ use crate::{
         context::{
             CompileContext, Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind,
         },
+        get_type_id,
         type_graph::{TypeId, TypeNode},
     },
     source::{Position, Source, SourceFileId},
@@ -55,92 +56,6 @@ impl<'a> DeclarationBinder<'a> {
             })?;
 
         self.visit_main_function_item(main_root, ())
-    }
-
-    fn get_type_id(
-        node: SyntaxReader,
-        context: &mut CompileContext,
-    ) -> Result<TypeId, CompileError> {
-        match node.kind() {
-            SyntaxKind::BooleanType => Ok(TypeId::BOOLEAN),
-            SyntaxKind::ByteType => Ok(TypeId::BYTE),
-            SyntaxKind::CharacterType => Ok(TypeId::CHARACTER),
-            SyntaxKind::FloatType => Ok(TypeId::FLOAT),
-            SyntaxKind::IntegerType => Ok(TypeId::INTEGER),
-            SyntaxKind::StringType => Ok(TypeId::STRING),
-            SyntaxKind::ListType => {
-                let element_type_node = node.left_child().ok_or(CompileError::MissingChild {
-                    parent_kind: node.kind(),
-                    child_index: 0,
-                })?;
-
-                let element_type_id = Self::get_type_id(element_type_node, context)?;
-                let lise_type_id = context.types.add_type(TypeNode::List {
-                    element_type: element_type_id,
-                });
-
-                Ok(lise_type_id)
-            }
-            SyntaxKind::FunctionType => {
-                let function_type_node = {
-                    let type_node_value_parameters = if node.has_left_child() {
-                        let function_value_parameters_node =
-                            node.left_child().ok_or(CompileError::MissingChild {
-                                parent_kind: node.kind(),
-                                child_index: 0,
-                            })?;
-
-                        let value_parameters = function_value_parameters_node
-                            .multiple_children()
-                            .ok_or(CompileError::MissingChildren {
-                            parent_kind: function_value_parameters_node.kind(),
-                            start_index: function_value_parameters_node.inner().children.0,
-                            count: function_value_parameters_node.inner().children.1,
-                        })?;
-
-                        let mut value_parameter_type_ids = SmallVec::<[TypeId; 4]>::new();
-
-                        for value_parameter in value_parameters {
-                            let type_id = if value_parameter.id == SyntaxId::NONE {
-                                TypeId::NONE
-                            } else {
-                                Self::get_type_id(value_parameter, context)?
-                            };
-
-                            value_parameter_type_ids.push(type_id);
-                        }
-
-                        context.types.add_type_members(&value_parameter_type_ids)
-                    } else {
-                        (0, 0)
-                    };
-
-                    let return_type_id = if node.has_right_child() {
-                        let function_return_type_node =
-                            node.right_child().ok_or(CompileError::MissingChild {
-                                parent_kind: node.kind(),
-                                child_index: 1,
-                            })?;
-
-                        Self::get_type_id(function_return_type_node, context)?
-                    } else {
-                        TypeId::NONE
-                    };
-
-                    TypeNode::Function {
-                        type_parameters: (0, 0),
-                        value_parameters: type_node_value_parameters,
-                        return_type_id,
-                    }
-                };
-                let function_type_id = context.types.add_type(function_type_node);
-
-                Ok(function_type_id)
-            }
-            _ => {
-                todo!()
-            }
-        }
     }
 }
 
@@ -192,10 +107,81 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
     fn visit_function_item(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let function_name = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let function_expression = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+        let _signature = function_expression
+            .left_child()
+            .ok_or(CompileError::MissingChild {
+                parent_kind: function_expression.kind(),
+                child_index: 0,
+            })?;
+        let body = function_expression
+            .right_child()
+            .ok_or(CompileError::MissingChild {
+                parent_kind: function_expression.kind(),
+                child_index: 1,
+            })?;
+
+        let outer_scope_id = self.current_scope_id;
+        let function_scope_id = self.context.add_scope(Scope {
+            kind: ScopeKind::Function,
+            parent: outer_scope_id,
+            imports: SmallVec::new(),
+            modules: SmallVec::new(),
+        });
+
+        self.current_scope_id = function_scope_id;
+
+        self.context.add_scope_binding(body.id, function_scope_id);
+        self.visit(body, ())?;
+
+        self.current_scope_id = outer_scope_id;
+
+        let is_public = match node.kind() {
+            SyntaxKind::PublicFunctionItem => true,
+            SyntaxKind::FunctionItem => false,
+            _ => unreachable!(),
+        };
+        let function_declaration = Declaration {
+            kind: DeclarationKind::Function {
+                inner_scope_id: function_scope_id,
+                file_id: self.file_id,
+                syntax_id: node.id,
+                parameters: (0, 0),
+                prototype_index: None,
+            },
+            scope_id: self.current_scope_id,
+            type_id: TypeId::NONE,
+            position: Position::new(self.file_id, function_name.span()),
+            is_public,
+        };
+
+        let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
+            CompileError::MissingSourceFile {
+                file_id: self.file_id,
+            },
+        )?;
+        let function_name_str = source_file.source_code.get(
+            function_name.span().0 as usize,
+            function_name.span().1 as usize,
+        );
+        let function_declaration_id = self
+            .context
+            .add_declaration(function_name_str, function_declaration);
+
+        self.context
+            .add_declaration_binding(function_expression.id, function_declaration_id);
+
+        Ok(())
     }
 
     fn visit_use_item(
@@ -276,7 +262,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             DeclarationKind::Local { shadowed }
         };
         let type_id = if let Some(type_node) = type_notation {
-            Self::get_type_id(type_node, self.context)?
+            get_type_id(type_node, self.context)?
         } else {
             self.context.types.create_inferred_type()
         };
@@ -654,10 +640,34 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
     fn visit_function_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let _signature = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let body = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+
+        let outer_scope_id = self.current_scope_id;
+        let function_scope_id = self.context.add_scope(Scope {
+            kind: ScopeKind::Function,
+            parent: outer_scope_id,
+            imports: SmallVec::new(),
+            modules: SmallVec::new(),
+        });
+
+        self.current_scope_id = function_scope_id;
+
+        self.context.add_scope_binding(body.id, function_scope_id);
+        self.visit(body, ())?;
+
+        self.current_scope_id = outer_scope_id;
+
+        Ok(())
     }
 
     fn visit_call_expression(
