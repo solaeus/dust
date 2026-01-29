@@ -27,26 +27,12 @@ pub fn create_function_case(source: &str, return_type: OperandType) -> String {
     }
 }
 
-pub fn create_function_with_call_case(source: &str, return_type: &str) -> String {
-    if return_type.is_empty() {
-        format!(
-            r#"
-            fn foobar() {{
-                {source}
-            }}
-
-            foobar()
-        "#
-        )
-    } else {
-        format!(
-            r#"
-            fn foobar() -> {return_type} {{
-                {source}
-            }}
-
-            foobar()
-        "#
-        )
-    }
+pub fn create_function_with_call_case(source: &str, return_type: OperandType) -> String {
+    format!(
+        r#"
+        {}
+        foobar()
+        "#,
+        create_function_case(source, return_type)
+    )
 }

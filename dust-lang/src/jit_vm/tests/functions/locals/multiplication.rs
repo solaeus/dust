@@ -1,4 +1,5 @@
 use crate::{
+    instruction::OperandType,
     jit_vm::run_main,
     tests::{create_function_with_call_case, local_cases},
     value::Value,
@@ -6,7 +7,7 @@ use crate::{
 
 #[test]
 fn local_byte_multiplication() {
-    let source = create_function_with_call_case(local_cases::LOCAL_BYTE_MULTIPLICATION, "byte");
+    let source = create_function_with_call_case(local_cases::LOCAL_BYTE_MULTIPLICATION, OperandType::BYTE);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::byte(42)));
@@ -14,7 +15,7 @@ fn local_byte_multiplication() {
 
 #[test]
 fn local_float_multiplication() {
-    let source = create_function_with_call_case(local_cases::LOCAL_FLOAT_MULTIPLICATION, "float");
+    let source = create_function_with_call_case(local_cases::LOCAL_FLOAT_MULTIPLICATION, OperandType::FLOAT);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::float(42.0)));
@@ -22,7 +23,7 @@ fn local_float_multiplication() {
 
 #[test]
 fn local_integer_multiplication() {
-    let source = create_function_with_call_case(local_cases::LOCAL_INTEGER_MULTIPLICATION, "int");
+    let source = create_function_with_call_case(local_cases::LOCAL_INTEGER_MULTIPLICATION, OperandType::INTEGER);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -30,7 +31,7 @@ fn local_integer_multiplication() {
 
 #[test]
 fn local_mut_byte_multiplication() {
-    let source = create_function_with_call_case(local_cases::LOCAL_MUT_BYTE_MULTIPLICATION, "byte");
+    let source = create_function_with_call_case(local_cases::LOCAL_MUT_BYTE_MULTIPLICATION, OperandType::BYTE);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::byte(42)));
@@ -39,7 +40,7 @@ fn local_mut_byte_multiplication() {
 #[test]
 fn local_mut_float_multiplication() {
     let source =
-        create_function_with_call_case(local_cases::LOCAL_MUT_FLOAT_MULTIPLICATION, "float");
+        create_function_with_call_case(local_cases::LOCAL_MUT_FLOAT_MULTIPLICATION, OperandType::FLOAT);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::float(42.0)));
@@ -48,7 +49,7 @@ fn local_mut_float_multiplication() {
 #[test]
 fn local_mut_integer_multiplication() {
     let source =
-        create_function_with_call_case(local_cases::LOCAL_MUT_INTEGER_MULTIPLICATION, "int");
+        create_function_with_call_case(local_cases::LOCAL_MUT_INTEGER_MULTIPLICATION, OperandType::INTEGER);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
