@@ -39,7 +39,7 @@ pub const MINIMUM_OBJECT_SWEEP_DEFAULT: usize = if cfg!(debug_assertions) {
     1024 * 1024
 };
 
-const ERROR_REPLACEMENT_STR: &str = "<dust_vm_error>";
+const STRING_ERROR_TEXT: &str = "<dust_vm_error>";
 
 pub fn run_main(source_code: String) -> Result<Option<Value>, DustError> {
     let mut source = Source::new();

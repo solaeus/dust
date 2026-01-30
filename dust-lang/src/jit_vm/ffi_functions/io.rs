@@ -1,9 +1,9 @@
 use std::io::{Write, stdin, stdout};
 
-use crate::jit_vm::{ERROR_REPLACEMENT_STR, Object, thread_pool::ThreadContext};
+use crate::jit_vm::{Object, STRING_ERROR_TEXT, thread_pool::ThreadContext};
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn read_line(thread_context: *mut ThreadContext) -> i64 {
+pub unsafe extern "C" fn read_line(thread_context: *mut ThreadContext) -> *mut Object {
     let thread_context = unsafe { &mut *thread_context };
 
     let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
@@ -16,14 +16,10 @@ pub unsafe extern "C" fn read_line(thread_context: *mut ThreadContext) -> i64 {
     let read_result = stdin().read_line(&mut input);
 
     if read_result.is_err() {
-        input.push_str(ERROR_REPLACEMENT_STR);
+        input.push_str(STRING_ERROR_TEXT);
     }
 
-    #[cfg(not(target_os = "windows"))]
-    input.pop();
-
-    #[cfg(target_os = "windows")]
-    if input.ends_with("\r\n") {
+    if cfg!(target_os = "windows") && input.ends_with("\r\n") {
         input.pop();
         input.pop();
     } else {
@@ -31,9 +27,8 @@ pub unsafe extern "C" fn read_line(thread_context: *mut ThreadContext) -> i64 {
     }
 
     let object = Object::string(input);
-    let object_index = object_pool.allocate(object, register_window, register_tags_window);
 
-    object_index.encode() as i64
+    object_pool.allocate(object, register_window, register_tags_window)
 }
 
 #[unsafe(no_mangle)]
@@ -41,7 +36,7 @@ pub unsafe extern "C" fn write_line(message: *const Object) {
     let string = unsafe { &*message }
         .as_string()
         .map(|string| string.as_str())
-        .unwrap_or(ERROR_REPLACEMENT_STR);
+        .unwrap_or(STRING_ERROR_TEXT);
 
     let mut stdout = stdout().lock();
     let _ = stdout.write_all(string.as_bytes());

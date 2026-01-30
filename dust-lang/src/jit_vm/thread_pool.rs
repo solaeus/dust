@@ -18,8 +18,7 @@ use crate::{
     dust_crate::Program,
     instruction::OperandType,
     jit_vm::{
-        JitCompiler, JitError, ObjectPool, Register, RegisterTag, object::ObjectValue,
-        object_pool::ObjectIndex,
+        JitCompiler, JitError, Object, ObjectPool, Register, RegisterTag, object::ObjectValue,
     },
     r#type::Type,
     value::{List, Value},
@@ -388,20 +387,22 @@ fn run_thread(
         Type::String => {
             debug!("{}", object_pool.report());
 
-            let object_index = ObjectIndex::decode(encoded_return_value as u64);
-            let string = object_pool
-                .take(object_index)
-                .expect("Invalid object index returned from JIT function")
-                .into_string()
-                .expect("Invalid object value returned from JIT function");
+            let string = unsafe {
+                (encoded_return_value as *const Object)
+                    .as_ref()
+                    .ok_or(JitError::MissingReturnValue)?
+                    .as_string()
+                    .unwrap()
+                    .clone()
+            };
 
             return Ok(Some(Value::String(string)));
         }
         Type::List(_) => {
             debug!("{}", object_pool.report());
 
-            let object_index = ObjectIndex::decode(encoded_return_value as u64);
-            let list = get_list_from_object_index(object_index, return_type, &mut object_pool)?;
+            let object_pointer = encoded_return_value as *mut Object;
+            let list = get_list_from_object_index(object_pointer, return_type, &mut object_pool)?;
 
             return Ok(Some(Value::List(list)));
         }
@@ -415,13 +416,11 @@ fn run_thread(
 }
 
 fn get_list_from_object_index(
-    object_index: ObjectIndex,
+    object_pointer: *mut Object,
     full_type: &Type,
     object_pool: &mut ObjectPool,
 ) -> Result<List, JitError> {
-    let object = object_pool
-        .take(object_index)
-        .ok_or(JitError::MissingReturnValue)?;
+    let object = unsafe { object_pointer.as_ref().ok_or(JitError::MissingReturnValue) }?;
 
     match &object.value {
         ObjectValue::BooleanList(booleans) => Ok(List::Boolean(booleans.clone())),
@@ -441,11 +440,12 @@ fn get_list_from_object_index(
             if item_type == &Type::String {
                 let mut strings = Vec::with_capacity(objects.len());
 
-                for encoded_object_index in objects {
-                    let object_index = ObjectIndex::decode(*encoded_object_index);
-                    let object = object_pool
-                        .take(object_index)
-                        .ok_or(JitError::MissingReturnValue)?;
+                for object_pointer in objects {
+                    let object = unsafe {
+                        object_pointer
+                            .as_ref()
+                            .ok_or(JitError::MissingReturnValue)?
+                    };
                     let string = match &object.value {
                         ObjectValue::String(string) => string.clone(),
                         _ => {
@@ -463,11 +463,12 @@ fn get_list_from_object_index(
 
             let mut items = Vec::with_capacity(objects.len());
 
-            for encoded_object_index in objects {
-                let object_index = ObjectIndex::decode(*encoded_object_index);
-                let object = object_pool
-                    .take(object_index)
-                    .ok_or(JitError::MissingReturnValue)?;
+            for object_pointer in objects {
+                let object = unsafe {
+                    object_pointer
+                        .as_ref()
+                        .ok_or(JitError::MissingReturnValue)?
+                };
                 let list = match &object.value {
                     ObjectValue::BooleanList(boolean_list) => List::Boolean(boolean_list.clone()),
                     ObjectValue::ByteList(byte_list) => List::Byte(byte_list.clone()),
@@ -479,7 +480,7 @@ fn get_list_from_object_index(
                     ObjectValue::ObjectList(object_list) => {
                         let mut inner_lists = Vec::with_capacity(object_list.len());
 
-                        for encoded_object_index in object_list {
+                        for object_pointer in object_list {
                             let inner_list_type = if let Type::List(inner_item_type) = item_type {
                                 inner_item_type.as_ref()
                             } else {
@@ -487,10 +488,8 @@ fn get_list_from_object_index(
                                     expected: item_type.clone(),
                                 });
                             };
-                            let object_index = ObjectIndex::decode(*encoded_object_index);
-
                             let inner_list = get_list_from_object_index(
-                                object_index,
+                                *object_pointer,
                                 inner_list_type,
                                 object_pool,
                             )?;

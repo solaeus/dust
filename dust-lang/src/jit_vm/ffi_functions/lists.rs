@@ -2,10 +2,7 @@ use std::cmp::Ordering;
 
 use crate::{
     instruction::OperandType,
-    jit_vm::{
-        Object, ObjectPool, ThreadStatus, object::ObjectValue, object_pool::ObjectIndex,
-        thread_pool::ThreadContext,
-    },
+    jit_vm::{Object, ThreadStatus, object::ObjectValue, thread_pool::ThreadContext},
 };
 
 #[unsafe(no_mangle)]
@@ -13,7 +10,7 @@ pub unsafe extern "C" fn allocate_list(
     list_type: i8,
     list_length: i64,
     thread_context: *mut ThreadContext,
-) -> i64 {
+) -> *mut Object {
     let list_length = list_length as usize;
     let thread_context = unsafe { &mut *thread_context };
     let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
@@ -36,25 +33,13 @@ pub unsafe extern "C" fn allocate_list(
             OperandType(list_type as u8)
         ),
     };
-    let object_index = object_pool.allocate(object, register_window, register_tags_window);
 
-    object_index.encode() as i64
+    object_pool.allocate(object, register_window, register_tags_window)
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn insert_into_list(
-    encoded_object_index: i64,
-    index: i64,
-    item: i64,
-    thread_context: *mut ThreadContext,
-) {
-    let object_index = ObjectIndex::decode(encoded_object_index as u64);
-    let thread_context = unsafe { &mut *thread_context };
-    let object_pool = unsafe { &mut *thread_context.object_pool_pointer };
-
-    let object = object_pool
-        .get_mut(object_index)
-        .expect("List object not found");
+pub unsafe extern "C" fn insert_into_list(object_pointer: *mut Object, index: i64, item: i64) {
+    let object = unsafe { &mut *(object_pointer as *mut Object) };
     let index = index as usize;
 
     match &mut object.value {
@@ -111,13 +96,13 @@ pub unsafe extern "C" fn insert_into_list(
                 panic!("Index out of bounds for list insertion");
             }
         }
-        ObjectValue::ObjectList(object_pointers) => {
-            let encoded_object_index = item as u64;
+        ObjectValue::ObjectList(item_pointers) => {
+            let item_pointer = item as *mut Object;
 
-            if index == object_pointers.len() {
-                object_pointers.push(encoded_object_index);
-            } else if index < object_pointers.len() {
-                object_pointers[index] = encoded_object_index;
+            if index == item_pointers.len() {
+                item_pointers.push(item_pointer);
+            } else if index < item_pointers.len() {
+                item_pointers[index] = item_pointer;
             } else {
                 panic!("Index out of bounds for list insertion");
             }
@@ -221,22 +206,14 @@ pub unsafe extern "C" fn get_from_list(
     }
 }
 
-fn compare_lists(
-    comparator: Ordering,
-    left: &[u64],
-    right: &[u64],
-    object_pool: &ObjectPool,
-) -> bool {
+fn compare_lists(comparator: Ordering, left: &[*mut Object], right: &[*mut Object]) -> bool {
     if left.len() != right.len() {
         return false;
     }
 
-    for (left_index_encoded, right_index_encoded) in left.iter().zip(right.iter()) {
-        let left_index = ObjectIndex::decode(*left_index_encoded);
-        let right_index = ObjectIndex::decode(*right_index_encoded);
-
-        let left_object = object_pool.get(left_index).expect("List object not found");
-        let right_object = object_pool.get(right_index).expect("List object not found");
+    for (left_pointer, right_pointer) in left.iter().zip(right.iter()) {
+        let left_object = unsafe { &**left_pointer };
+        let right_object = unsafe { &**right_pointer };
 
         let comparison = match (&left_object.value, &right_object.value) {
             (ObjectValue::BooleanList(left), ObjectValue::BooleanList(right)) => left.cmp(right),
@@ -251,7 +228,7 @@ fn compare_lists(
             },
             (ObjectValue::IntegerList(left), ObjectValue::IntegerList(right)) => left.cmp(right),
             (ObjectValue::ObjectList(left), ObjectValue::ObjectList(right)) => {
-                return compare_lists(comparator, left, right, object_pool);
+                return compare_lists(comparator, left, right);
             }
             (ObjectValue::FunctionList(left), ObjectValue::FunctionList(right)) => left.cmp(right),
             _ => return false,
@@ -267,16 +244,11 @@ fn compare_lists(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn compare_lists_equal(
-    encoded_left_index: i64,
-    enoded_right_index: i64,
-    object_pool_pointer: i64,
+    left_pointer: *mut Object,
+    right_pointer: *mut Object,
 ) -> i8 {
-    let left_index = ObjectIndex::decode(encoded_left_index as u64);
-    let right_index = ObjectIndex::decode(enoded_right_index as u64);
-    let object_pool = unsafe { &mut *(object_pool_pointer as *mut ObjectPool) };
-
-    let left = object_pool.get(left_index).expect("List object not found");
-    let right = object_pool.get(right_index).expect("List object not found");
+    let left = unsafe { &*left_pointer };
+    let right = unsafe { &*right_pointer };
 
     let lists_are_equal = match (&left.value, &right.value) {
         (ObjectValue::BooleanList(left), ObjectValue::BooleanList(right)) => left == right,
@@ -286,7 +258,7 @@ pub unsafe extern "C" fn compare_lists_equal(
         (ObjectValue::IntegerList(left), ObjectValue::IntegerList(right)) => left == right,
         (ObjectValue::FunctionList(left), ObjectValue::FunctionList(right)) => left == right,
         (ObjectValue::ObjectList(left), ObjectValue::ObjectList(right)) => {
-            compare_lists(Ordering::Equal, left, right, object_pool)
+            compare_lists(Ordering::Equal, left, right)
         }
         _ => false,
     };
@@ -296,16 +268,11 @@ pub unsafe extern "C" fn compare_lists_equal(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn compare_lists_less_than(
-    encoded_left_index: i64,
-    enoded_right_index: i64,
-    object_pool_pointer: i64,
+    left_pointer: *mut Object,
+    right_pointer: *mut Object,
 ) -> i8 {
-    let left_index = ObjectIndex::decode(encoded_left_index as u64);
-    let right_index = ObjectIndex::decode(enoded_right_index as u64);
-    let object_pool = unsafe { &mut *(object_pool_pointer as *mut ObjectPool) };
-
-    let left = object_pool.get(left_index).expect("List object not found");
-    let right = object_pool.get(right_index).expect("List object not found");
+    let left = unsafe { &*left_pointer };
+    let right = unsafe { &*right_pointer };
 
     let result = match (&left.value, &right.value) {
         (ObjectValue::BooleanList(a), ObjectValue::BooleanList(b)) => a < b,
@@ -314,7 +281,7 @@ pub unsafe extern "C" fn compare_lists_less_than(
         (ObjectValue::FloatList(a), ObjectValue::FloatList(b)) => a < b,
         (ObjectValue::IntegerList(a), ObjectValue::IntegerList(b)) => a < b,
         (ObjectValue::ObjectList(a), ObjectValue::ObjectList(b)) => {
-            compare_lists(Ordering::Less, a, b, object_pool)
+            compare_lists(Ordering::Less, a, b)
         }
         (ObjectValue::FunctionList(a), ObjectValue::FunctionList(b)) => a < b,
         _ => false,
@@ -325,16 +292,11 @@ pub unsafe extern "C" fn compare_lists_less_than(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn compare_lists_less_than_equal(
-    encoded_left_index: i64,
-    enoded_right_index: i64,
-    object_pool_pointer: i64,
+    left_pointer: *mut Object,
+    right_pointer: *mut Object,
 ) -> i8 {
-    let left_index = ObjectIndex::decode(encoded_left_index as u64);
-    let right_index = ObjectIndex::decode(enoded_right_index as u64);
-    let object_pool = unsafe { &mut *(object_pool_pointer as *mut ObjectPool) };
-
-    let left = object_pool.get(left_index).expect("List object not found");
-    let right = object_pool.get(right_index).expect("List object not found");
+    let left = unsafe { &*left_pointer };
+    let right = unsafe { &*right_pointer };
 
     let result = match (&left.value, &right.value) {
         (ObjectValue::BooleanList(a), ObjectValue::BooleanList(b)) => a < b,
@@ -343,7 +305,7 @@ pub unsafe extern "C" fn compare_lists_less_than_equal(
         (ObjectValue::FloatList(a), ObjectValue::FloatList(b)) => a < b,
         (ObjectValue::IntegerList(a), ObjectValue::IntegerList(b)) => a < b,
         (ObjectValue::ObjectList(a), ObjectValue::ObjectList(b)) => {
-            compare_lists(Ordering::Less, a, b, object_pool)
+            compare_lists(Ordering::Less, a, b)
         }
         (ObjectValue::FunctionList(a), ObjectValue::FunctionList(b)) => a < b,
         _ => false,

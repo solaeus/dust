@@ -1,5 +1,3 @@
-use crate::jit_vm::object_pool::ObjectIndex;
-
 #[derive(Clone, Debug)]
 #[repr(C)]
 pub struct Object {
@@ -64,11 +62,9 @@ impl Object {
         }
     }
 
-    pub fn object_list(object_indices: impl Iterator<Item = ObjectIndex>) -> Self {
-        let object_indices = object_indices.map(|index| index.encode()).collect();
-
+    pub fn object_list(object_indices: impl Iterator<Item = *mut Object>) -> Self {
         Object {
-            value: ObjectValue::ObjectList(object_indices),
+            value: ObjectValue::ObjectList(object_indices.collect()),
             mark: false,
         }
     }
@@ -129,5 +125,5 @@ pub enum ObjectValue {
     FloatList(Vec<f64>),
     IntegerList(Vec<i64>),
     FunctionList(Vec<usize>),
-    ObjectList(Vec<u64>),
+    ObjectList(Vec<*mut Object>),
 }
