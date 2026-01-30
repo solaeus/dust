@@ -11,6 +11,7 @@ use crate::{
         type_graph::{TypeId, TypeNode},
     },
     instruction::{Address, Drop, Instruction, MemoryKind, Move, OperandType, Operation, Test},
+    native_function::NativeFunction,
     prototype::Prototype,
     source::{Position, Source, SourceFileId, Span},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxNode, SyntaxReader, SyntaxVisitor},
@@ -1091,7 +1092,25 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             child_index: 1,
         })?;
 
-        self.visit_function_expression(function_expression, None)?;
+        let emission = self.visit_function_expression(function_expression, None)?;
+
+        if let Emission::Function(address) = emission {
+            let declaration_id = *self
+                .context
+                .get_declaration_binding(&function_expression.id)
+                .ok_or(CompileError::MissingDeclarationBinding {
+                    syntax_id: function_expression.id,
+                })?;
+            let type_id = *self
+                .context
+                .get_type_binding(&function_expression.id)
+                .ok_or(CompileError::MissingTypeBinding {
+                    syntax_id: function_expression.id,
+                })?;
+
+            self.locals
+                .insert(declaration_id, Local { address, type_id });
+        }
 
         Ok(Emission::None)
     }
@@ -1798,6 +1817,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let operand_type = match (left_type, right_type) {
             (TypeId::STRING, TypeId::CHARACTER) => OperandType::STRING_CHARACTER,
             (TypeId::CHARACTER, TypeId::STRING) => OperandType::CHARACTER_STRING,
+            (TypeId::CHARACTER, TypeId::CHARACTER) => OperandType::CHARACTER,
             _ if math_expression_type == TypeId::NONE => self
                 .context
                 .types
@@ -1818,12 +1838,14 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
                 math_emission.set_target(Some(target));
 
-                if matches!(
+                if (matches!(
                     operand_type,
                     OperandType::STRING
                         | OperandType::CHARACTER_STRING
                         | OperandType::STRING_CHARACTER
-                ) && target.is_temporary
+                ) || (operand_type == OperandType::CHARACTER
+                    && math_expression_type == TypeId::STRING))
+                    && target.is_temporary
                 {
                     self.pending_drops.last_mut().unwrap().push(target.index);
                 }
@@ -2237,6 +2259,16 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let prototype_index = self.context.prototypes.len();
 
+        if let Some(declaration_id) = declaration_id
+            && let Some(declaration) = self.context.get_declaration_mut(&declaration_id)
+            && let DeclarationKind::Function {
+                prototype_index: declaration_prototype_index,
+                ..
+            } = &mut declaration.kind
+        {
+            *declaration_prototype_index = Some(prototype_index as u16);
+        }
+
         self.context.prototypes.push(Prototype::default());
 
         let function_scope_id = *self
@@ -2264,10 +2296,110 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
     fn visit_call_expression(
         &mut self,
-        _: SyntaxReader<'_>,
-        _: Self::Input,
+        node: SyntaxReader<'_>,
+        target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let callee = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let arguments = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+
+        let mut call_emission = InstructionsEmission::new();
+
+        let callee_emission = self.visit_expression(callee, None)?;
+        let callee_address =
+            self.handle_operand_emission(&mut call_emission, callee_emission, &callee)?;
+
+        let arguments_start = self.call_arguments.len() as u16;
+        let mut argument_count = 0u16;
+
+        if let Some(argument_nodes) = arguments.multiple_children() {
+            for argument in argument_nodes {
+                let argument_emission = self.visit_expression(argument, None)?;
+                let argument_address =
+                    self.handle_operand_emission(&mut call_emission, argument_emission, &argument)?;
+                let argument_type_id = *self.context.get_type_binding(&argument.id).ok_or(
+                    CompileError::MissingTypeBinding {
+                        syntax_id: argument.id,
+                    },
+                )?;
+                let argument_operand_type = self
+                    .context
+                    .types
+                    .get_operand_type(argument_type_id)
+                    .ok_or(CompileError::MissingType {
+                    type_id: argument_type_id,
+                })?;
+
+                self.call_arguments
+                    .push((argument_address, argument_operand_type));
+                argument_count += 1;
+            }
+        }
+
+        let return_type_id = *self
+            .context
+            .get_type_binding(&node.id)
+            .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
+        let return_operand_type = self.context.types.get_operand_type(return_type_id).ok_or(
+            CompileError::MissingType {
+                type_id: return_type_id,
+            },
+        )?;
+
+        let destination = if return_operand_type == OperandType::NONE {
+            None
+        } else {
+            Some(target.unwrap_or_else(|| self.allocate_temporary_register()))
+        };
+
+        let is_native = self
+            .context
+            .get_declaration_binding(&callee.id)
+            .and_then(|id| self.context.get_declaration(*id))
+            .is_some_and(|declaration| matches!(declaration.kind, DeclarationKind::NativeFunction));
+
+        let call_instruction = if is_native {
+            let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
+                CompileError::MissingSourceFile {
+                    file_id: self.file_id,
+                },
+            )?;
+            let function_name = source_file.source_code.get_span(callee.span());
+            let native_function = NativeFunction::from_str(function_name).ok_or(
+                CompileError::InvalidNativeFunction {
+                    name: function_name.to_string(),
+                    position: Position::new(self.file_id, callee.span()),
+                },
+            )?;
+            let destination_register = destination.map(|target| target.index).unwrap_or(u16::MAX);
+
+            Instruction::call_native(
+                destination_register,
+                native_function,
+                arguments_start,
+                return_operand_type,
+            )
+        } else {
+            Instruction::call(
+                destination.map(|target| target.index),
+                callee_address,
+                arguments_start,
+                argument_count,
+            )
+        };
+
+        call_emission.push(call_instruction);
+
+        if return_operand_type != OperandType::NONE {
+            call_emission.set_target(destination);
+        }
+
+        Ok(Emission::Instructions(call_emission))
     }
 }
 

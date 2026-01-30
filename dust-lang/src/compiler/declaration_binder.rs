@@ -174,10 +174,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                 file_id: self.file_id,
             },
         )?;
-        let function_name_str = source_file.source_code.get(
-            function_name.span().0 as usize,
-            function_name.span().1 as usize,
-        );
+        let function_name_str = source_file.source_code.get_span(function_name.span());
         let function_declaration_id = self
             .context
             .add_declaration(function_name_str, function_declaration);
@@ -687,9 +684,28 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
     fn visit_call_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        debug!("Binding call expression");
+
+        let callee = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let arguments = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+
+        self.visit_expression(callee, ())?;
+
+        if let Some(argument_nodes) = arguments.multiple_children() {
+            for argument in argument_nodes {
+                self.visit_expression(argument, ())?;
+            }
+        }
+
+        Ok(())
     }
 }

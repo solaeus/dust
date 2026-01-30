@@ -986,6 +986,17 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             return_type_id,
         });
 
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&node.id)
+            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+        let declaration = self
+            .context
+            .get_declaration_mut(&declaration_id)
+            .ok_or(CompileError::MissingDeclaration { declaration_id })?;
+
+        declaration.type_id = function_type;
+
         self.context.add_type_binding(node.id, function_type);
         self.context.add_type_binding(body.id, return_type_id);
 
@@ -996,11 +1007,101 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
     fn visit_call_expression(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for call expression");
 
-        todo!()
+        let callee = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let arguments = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+
+        let callee_type = {
+            let raw = self.visit(callee, ())?;
+
+            self.context.types.infer_type(raw)
+        };
+
+        let TypeNode::Function {
+            value_parameters,
+            return_type_id,
+            ..
+        } = *self
+            .context
+            .types
+            .get_type(callee_type)
+            .ok_or(CompileError::MissingType {
+                type_id: callee_type,
+            })?
+        else {
+            return Err(CompileError::ExpectedFunctionType {
+                type_id: callee_type,
+            });
+        };
+
+        let expected_parameters = self
+            .context
+            .types
+            .get_type_members(value_parameters.0, value_parameters.1)
+            .ok_or(CompileError::MissingTypeMembers {
+                start_index: value_parameters.0,
+                count: value_parameters.1,
+            })?
+            .to_vec();
+
+        let argument_nodes =
+            arguments
+                .multiple_children()
+                .ok_or(CompileError::MissingChildren {
+                    parent_kind: arguments.kind(),
+                    start_index: arguments.inner().children.0,
+                    count: arguments.inner().children.1,
+                })?;
+
+        if argument_nodes.len() != expected_parameters.len() {
+            return Err(CompileError::ExpectedFunctionType {
+                type_id: callee_type,
+            });
+        }
+
+        for (argument, expected_type) in argument_nodes.zip(expected_parameters.into_iter()) {
+            let argument_type = {
+                let raw = self.visit(argument, ())?;
+                self.context.types.infer_type(raw)
+            };
+
+            let unified = self
+                .context
+                .types
+                .unify_types(expected_type, argument_type)?;
+
+            if !unified {
+                let expected = self.context.types.get_full_type(expected_type).ok_or(
+                    CompileError::MissingType {
+                        type_id: expected_type,
+                    },
+                )?;
+                let found = self.context.types.get_full_type(argument_type).ok_or(
+                    CompileError::MissingType {
+                        type_id: argument_type,
+                    },
+                )?;
+
+                return Err(CompileError::TypeConflict {
+                    expected,
+                    found,
+                    position: Position::new(self.file_id, argument.span()),
+                });
+            }
+        }
+
+        self.context.add_type_binding(node.id, return_type_id);
+
+        Ok(return_type_id)
     }
 }

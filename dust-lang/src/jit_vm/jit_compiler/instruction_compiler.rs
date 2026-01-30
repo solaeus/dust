@@ -3,7 +3,7 @@ use std::{collections::HashSet, mem::offset_of};
 use cranelift::{
     codegen::ir::FuncRef,
     prelude::{
-        AbiParam, Block, FunctionBuilder, InstBuilder, IntCC, MemFlags, Signature,
+        AbiParam, Block, FloatCC, FunctionBuilder, InstBuilder, IntCC, MemFlags, Signature,
         Value as CraneliftValue, Variable,
         types::{F64, I8, I64},
     },
@@ -237,6 +237,21 @@ impl<'a> InstructionCompiler<'a> {
                 } else {
                     builder.ins().bxor_imm(compare_result, 1)
                 }
+            }
+            OperandType::FLOAT => {
+                let condition = match (operation, comparator) {
+                    (Operation::EQUAL, true) => FloatCC::Equal,
+                    (Operation::EQUAL, false) => FloatCC::NotEqual,
+                    (Operation::LESS, true) => FloatCC::LessThan,
+                    (Operation::LESS, false) => FloatCC::GreaterThanOrEqual,
+                    (Operation::LESS_EQUAL, true) => FloatCC::LessThanOrEqual,
+                    (Operation::LESS_EQUAL, false) => FloatCC::GreaterThan,
+                    _ => {
+                        return Err(JitError::UnsupportedOperation { operation });
+                    }
+                };
+
+                builder.ins().fcmp(condition, left_value, right_value)
             }
             _ => {
                 let condition = match (operation, comparator) {
@@ -613,7 +628,11 @@ impl<'a> InstructionCompiler<'a> {
                 });
             }
         };
-        let result_type = r#type.destination_type();
+        let result_type = if r#type == OperandType::CHARACTER {
+            OperandType::STRING
+        } else {
+            r#type.destination_type()
+        };
 
         self.set_register_and_tag(destination, sum_value, result_type, builder)?;
         builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
@@ -956,6 +975,23 @@ impl<'a> InstructionCompiler<'a> {
             })?;
         let index_value = self.get_integer(index, builder)?;
         let item_value = self.get_value(item_source, item_type, builder)?;
+        let item_value = match item_type {
+            OperandType::BOOLEAN | OperandType::BYTE => {
+                if builder.func.dfg.value_type(item_value) == I8 {
+                    builder.ins().uextend(I64, item_value)
+                } else {
+                    item_value
+                }
+            }
+            OperandType::FLOAT => {
+                if builder.func.dfg.value_type(item_value) == F64 {
+                    builder.ins().bitcast(I64, MemFlags::new(), item_value)
+                } else {
+                    item_value
+                }
+            }
+            _ => item_value,
+        };
         let insert_into_list_function = self.get_insert_into_list_function(builder)?;
 
         builder.ins().call(
@@ -1079,7 +1115,16 @@ impl<'a> InstructionCompiler<'a> {
         let return_value = if r#type == OperandType::NONE {
             builder.ins().iconst(I64, 0)
         } else {
-            self.get_value(operand, r#type, builder)?
+            let value = self.get_value(operand, r#type, builder)?;
+            let value_type = builder.func.dfg.value_type(value);
+
+            if value_type == I64 {
+                value
+            } else if value_type == F64 {
+                builder.ins().bitcast(I64, MemFlags::new(), value)
+            } else {
+                builder.ins().uextend(I64, value)
+            }
         };
 
         builder.ins().return_(&[return_value]);
@@ -1142,7 +1187,7 @@ impl<'a> InstructionCompiler<'a> {
                 }),
             MemoryKind::ENCODED => {
                 let boolean = address.index != 0;
-                let value = builder.ins().iconst(I64, if boolean { 1 } else { 0 });
+                let value = builder.ins().iconst(I8, if boolean { 1 } else { 0 });
 
                 Ok(value)
             }
@@ -1172,7 +1217,7 @@ impl<'a> InstructionCompiler<'a> {
                 }),
             MemoryKind::ENCODED => {
                 let byte = address.index as u8;
-                let value = builder.ins().iconst(I64, byte as i64);
+                let value = builder.ins().iconst(I8, byte as i64);
 
                 Ok(value)
             }
@@ -1238,9 +1283,9 @@ impl<'a> InstructionCompiler<'a> {
                         total_constant_count: self.constants.len(),
                     },
                 )?;
-                let value = builder.ins().iconst(I64, float.to_bits() as i64);
+                let bits = builder.ins().iconst(I64, float.to_bits() as i64);
 
-                Ok(value)
+                Ok(builder.ins().bitcast(F64, MemFlags::new(), bits))
             }
             _ => Err(JitError::UnsupportedMemoryKind {
                 memory_kind: address.memory,
@@ -1355,7 +1400,8 @@ impl<'a> InstructionCompiler<'a> {
                     register_index: index,
                     total_register_count: self.ssa_registers.len(),
                 })?;
-        let tag = match r#type {
+        let destination_type = r#type.destination_type();
+        let tag = match destination_type {
             OperandType::NONE => RegisterTag::EMPTY,
             OperandType::BOOLEAN
             | OperandType::BYTE
@@ -1374,13 +1420,31 @@ impl<'a> InstructionCompiler<'a> {
             | OperandType::LIST_LIST => RegisterTag::OBJECT,
             _ => {
                 return Err(JitError::UnsupportedOperandType {
-                    operand_type: r#type,
+                    operand_type: destination_type,
                 });
             }
         };
         let tag_value = builder
             .ins()
             .iconst(RegisterTag::CRANELIFT_TYPE, tag.0 as i64);
+
+        let value = match destination_type {
+            OperandType::BOOLEAN | OperandType::BYTE => {
+                if builder.func.dfg.value_type(value) == I8 {
+                    builder.ins().uextend(I64, value)
+                } else {
+                    value
+                }
+            }
+            OperandType::FLOAT => {
+                if builder.func.dfg.value_type(value) == F64 {
+                    builder.ins().bitcast(I64, MemFlags::new(), value)
+                } else {
+                    value
+                }
+            }
+            _ => value,
+        };
 
         builder.def_var(*destination_register, value);
         self.set_register_tag(index, tag_value, builder)?;

@@ -216,6 +216,7 @@ fn compare_lists(comparator: Ordering, left: &[*mut Object], right: &[*mut Objec
         let right_object = unsafe { &**right_pointer };
 
         let comparison = match (&left_object.value, &right_object.value) {
+            (ObjectValue::String(left), ObjectValue::String(right)) => left.cmp(right),
             (ObjectValue::BooleanList(left), ObjectValue::BooleanList(right)) => left.cmp(right),
             (ObjectValue::ByteList(left), ObjectValue::ByteList(right)) => left.cmp(right),
             (ObjectValue::CharacterList(left), ObjectValue::CharacterList(right)) => {
@@ -299,15 +300,15 @@ pub unsafe extern "C" fn compare_lists_less_than_equal(
     let right = unsafe { &*right_pointer };
 
     let result = match (&left.value, &right.value) {
-        (ObjectValue::BooleanList(a), ObjectValue::BooleanList(b)) => a < b,
-        (ObjectValue::ByteList(a), ObjectValue::ByteList(b)) => a < b,
-        (ObjectValue::CharacterList(a), ObjectValue::CharacterList(b)) => a < b,
-        (ObjectValue::FloatList(a), ObjectValue::FloatList(b)) => a < b,
-        (ObjectValue::IntegerList(a), ObjectValue::IntegerList(b)) => a < b,
+        (ObjectValue::BooleanList(a), ObjectValue::BooleanList(b)) => a <= b,
+        (ObjectValue::ByteList(a), ObjectValue::ByteList(b)) => a <= b,
+        (ObjectValue::CharacterList(a), ObjectValue::CharacterList(b)) => a <= b,
+        (ObjectValue::FloatList(a), ObjectValue::FloatList(b)) => a <= b,
+        (ObjectValue::IntegerList(a), ObjectValue::IntegerList(b)) => a <= b,
         (ObjectValue::ObjectList(a), ObjectValue::ObjectList(b)) => {
-            compare_lists(Ordering::Less, a, b)
+            compare_lists(Ordering::Less, a, b) || compare_lists(Ordering::Equal, a, b)
         }
-        (ObjectValue::FunctionList(a), ObjectValue::FunctionList(b)) => a < b,
+        (ObjectValue::FunctionList(a), ObjectValue::FunctionList(b)) => a <= b,
         _ => false,
     };
 
