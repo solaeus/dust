@@ -402,7 +402,7 @@ fn run_thread(
             debug!("{}", object_pool.report());
 
             let object_pointer = encoded_return_value as *mut Object;
-            let list = get_list_from_object_index(object_pointer, return_type, &mut object_pool)?;
+            let list = get_list_from_object_index(object_pointer, return_type)?;
 
             return Ok(Some(Value::List(list)));
         }
@@ -418,7 +418,6 @@ fn run_thread(
 fn get_list_from_object_index(
     object_pointer: *mut Object,
     full_type: &Type,
-    object_pool: &mut ObjectPool,
 ) -> Result<List, JitError> {
     let object = unsafe { object_pointer.as_ref().ok_or(JitError::MissingReturnValue) }?;
 
@@ -488,11 +487,8 @@ fn get_list_from_object_index(
                                     expected: item_type.clone(),
                                 });
                             };
-                            let inner_list = get_list_from_object_index(
-                                *object_pointer,
-                                inner_list_type,
-                                object_pool,
-                            )?;
+                            let inner_list =
+                                get_list_from_object_index(*object_pointer, inner_list_type)?;
 
                             inner_lists.push(inner_list);
                         }

@@ -39,7 +39,7 @@ pub unsafe extern "C" fn allocate_list(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn insert_into_list(object_pointer: *mut Object, index: i64, item: i64) {
-    let object = unsafe { &mut *(object_pointer as *mut Object) };
+    let object = unsafe { &mut *object_pointer };
     let index = index as usize;
 
     match &mut object.value {

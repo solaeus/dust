@@ -956,12 +956,6 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let mut value_parameter_types = Vec::new();
 
         for parameter_node in value_parameter_nodes {
-            let parameter_name = parameter_node
-                .left_child()
-                .ok_or(CompileError::MissingChild {
-                    parent_kind: parameter_node.inner().kind,
-                    child_index: 0,
-                })?;
             let parameter_type_node =
                 parameter_node
                     .right_child()
