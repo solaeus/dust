@@ -1142,7 +1142,7 @@ impl<'a> InstructionCompiler<'a> {
                 }),
             MemoryKind::ENCODED => {
                 let boolean = address.index != 0;
-                let value = builder.ins().iconst(I8, if boolean { 1 } else { 0 });
+                let value = builder.ins().iconst(I64, if boolean { 1 } else { 0 });
 
                 Ok(value)
             }
@@ -1172,7 +1172,7 @@ impl<'a> InstructionCompiler<'a> {
                 }),
             MemoryKind::ENCODED => {
                 let byte = address.index as u8;
-                let value = builder.ins().iconst(I8, byte as i64);
+                let value = builder.ins().iconst(I64, byte as i64);
 
                 Ok(value)
             }
@@ -1238,7 +1238,7 @@ impl<'a> InstructionCompiler<'a> {
                         total_constant_count: self.constants.len(),
                     },
                 )?;
-                let value = builder.ins().f64const(float);
+                let value = builder.ins().iconst(I64, float.to_bits() as i64);
 
                 Ok(value)
             }

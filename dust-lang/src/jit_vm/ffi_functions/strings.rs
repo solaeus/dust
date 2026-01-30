@@ -42,8 +42,12 @@ pub unsafe extern "C" fn concatenate_strings(
     let register_window = &register_stack[0..thread_context.registers_used];
     let register_tags_window = &register_tags[0..thread_context.registers_used];
 
-    let left = object_pool.get(left_index).expect("List object not found");
-    let right = object_pool.get(right_index).expect("List object not found");
+    let left = object_pool
+        .get(left_index)
+        .expect("String object not found");
+    let right = object_pool
+        .get(right_index)
+        .expect("String object not found");
 
     let concatenated = if ptr::eq(left, right) {
         let right_string = right
