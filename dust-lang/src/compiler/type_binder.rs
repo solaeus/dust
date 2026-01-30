@@ -681,8 +681,16 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             child_index: 1,
         })?;
 
-        let left_type = self.visit(left_child, ())?;
-        let right_type = self.visit(right_child, ())?;
+        let left_type = {
+            let raw = self.visit(left_child, ())?;
+
+            self.context.types.infer_type(raw)
+        };
+        let right_type = {
+            let raw = self.visit(right_child, ())?;
+
+            self.context.types.infer_type(raw)
+        };
 
         let is_character_concatenation = matches!(
             node.kind(),
@@ -695,7 +703,10 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let math_expression_type = if is_character_concatenation {
             TypeId::STRING
         } else {
-            let unified = self.context.types.unify_types(left_type, right_type)?;
+            let unified = self
+                .context
+                .types
+                .unify_inferred_types(left_type, right_type)?;
 
             if unified {
                 left_type

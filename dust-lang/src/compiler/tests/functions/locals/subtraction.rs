@@ -124,7 +124,7 @@ fn local_mut_byte_subtraction() {
                     0,
                     Address::register(0),
                     Address::encoded(2),
-                    OperandType::NONE
+                    OperandType::BYTE
                 ),
                 Instruction::r#return(Address::register(0), OperandType::BYTE)
             ],
@@ -155,7 +155,7 @@ fn local_mut_float_subtraction() {
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::NONE
+                    OperandType::FLOAT
                 ),
                 Instruction::r#return(Address::register(0), OperandType::FLOAT)
             ],
@@ -186,7 +186,7 @@ fn local_mut_integer_subtraction() {
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::NONE
+                    OperandType::INTEGER
                 ),
                 Instruction::r#return(Address::register(0), OperandType::INTEGER)
             ],
