@@ -29,9 +29,11 @@ pub struct CompileContext {
 
     declarations: IndexMap<DeclarationKey, Declaration, FxBuildHasher>,
 
-    parameters: IndexSet<DeclarationId, FxBuildHasher>,
+    declaration_members: IndexSet<DeclarationId, FxBuildHasher>,
 
     declaration_bindings: HashMap<SyntaxId, DeclarationId, FxBuildHasher>,
+
+    declaration_types: HashMap<DeclarationId, TypeId, FxBuildHasher>,
 
     scopes: Vec<Scope>,
 
@@ -46,8 +48,9 @@ impl CompileContext {
             types: TypeGraph::new(),
             type_bindings: HashMap::default(),
             declarations: IndexMap::default(),
-            parameters: IndexSet::default(),
+            declaration_members: IndexSet::default(),
             declaration_bindings: HashMap::default(),
+            declaration_types: HashMap::default(),
             scopes: vec![],
             scope_bindings: HashMap::default(),
         };
@@ -74,17 +77,11 @@ impl CompileContext {
     }
 
     pub fn add_native_functions(&mut self) {
-        let no_op_type_id = NativeFunction::no_op_signature(&mut self.types);
-        let read_line_type_id = NativeFunction::read_line_signature(&mut self.types);
-        let write_line_type_id = NativeFunction::write_line_signature(&mut self.types);
-        let spawn_type_id = NativeFunction::spawn_signature(&mut self.types);
-
         self.add_declaration(
             NativeFunction::NO_OP.name(),
             Declaration {
                 kind: DeclarationKind::NativeFunction,
                 scope_id: ScopeId::NATIVE,
-                type_id: no_op_type_id,
                 position: Position::default(),
                 is_public: true,
             },
@@ -94,7 +91,6 @@ impl CompileContext {
             Declaration {
                 kind: DeclarationKind::NativeFunction,
                 scope_id: ScopeId::NATIVE,
-                type_id: read_line_type_id,
                 position: Position::default(),
                 is_public: true,
             },
@@ -104,7 +100,6 @@ impl CompileContext {
             Declaration {
                 kind: DeclarationKind::NativeFunction,
                 scope_id: ScopeId::NATIVE,
-                type_id: write_line_type_id,
                 position: Position::default(),
                 is_public: true,
             },
@@ -114,7 +109,6 @@ impl CompileContext {
             Declaration {
                 kind: DeclarationKind::NativeFunction,
                 scope_id: ScopeId::NATIVE,
-                type_id: spawn_type_id,
                 position: Position::default(),
                 is_public: true,
             },
@@ -188,7 +182,7 @@ impl CompileContext {
             .map(|(_, declaration)| declaration)
     }
 
-    pub fn add_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
+    pub fn set_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
         self.declaration_bindings.insert(syntax_id, declaration_id);
     }
 
@@ -196,7 +190,15 @@ impl CompileContext {
         self.declaration_bindings.get(syntax_id)
     }
 
-    pub fn add_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {
+    pub fn set_declaration_type(&mut self, declaration_id: DeclarationId, type_id: TypeId) {
+        self.declaration_types.insert(declaration_id, type_id);
+    }
+
+    pub fn get_declaration_type(&self, declaration_id: &DeclarationId) -> Option<&TypeId> {
+        self.declaration_types.get(declaration_id)
+    }
+
+    pub fn set_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {
         self.type_bindings.insert(syntax_id, type_id);
     }
 
@@ -204,17 +206,17 @@ impl CompileContext {
         self.type_bindings.get(syntax_id)
     }
 
-    pub fn add_parameters(&mut self, parameter_ids: &[DeclarationId]) -> (u32, u32) {
-        let start = self.parameters.len() as u32;
+    pub fn add_declaration_members(&mut self, parameter_ids: &[DeclarationId]) -> (u32, u32) {
+        let start = self.declaration_members.len() as u32;
         let count = parameter_ids.len() as u32;
 
-        self.parameters.extend(parameter_ids);
+        self.declaration_members.extend(parameter_ids);
 
         (start, count)
     }
 
     pub fn get_parameter(&self, index: u32) -> Option<DeclarationId> {
-        self.parameters.get_index(index as usize).copied()
+        self.declaration_members.get_index(index as usize).copied()
     }
 
     pub fn find_declarations(
@@ -344,7 +346,6 @@ pub struct DeclarationKey(Symbol, ScopeId);
 pub struct Declaration {
     pub kind: DeclarationKind,
     pub scope_id: ScopeId,
-    pub type_id: TypeId,
     pub position: Position,
     pub is_public: bool,
 }

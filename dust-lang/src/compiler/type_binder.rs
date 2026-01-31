@@ -79,7 +79,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         for (index, child) in children.into_iter().enumerate() {
             let child_type = self.visit(child, ())?;
 
-            self.context.add_type_binding(child.id, child_type);
+            self.context.set_type_binding(child.id, child_type);
 
             if index == last_child {
                 let unified = self.context.types.unify_types(return_type_id, child_type)?;
@@ -105,7 +105,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             }
         }
 
-        self.context.add_type_binding(node.id, return_type_id);
+        self.context.set_type_binding(node.id, return_type_id);
 
         Ok(main_type_id)
     }
@@ -132,7 +132,16 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             child_index: 1,
         })?;
 
-        self.visit_function_expression(function_expression, ())?;
+        let function_type_id = self.visit_function_expression(function_expression, ())?;
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&function_expression.id)
+            .ok_or(CompileError::MissingDeclarationBinding {
+                syntax_id: function_expression.id,
+            })?;
+
+        self.context
+            .set_declaration_type(declaration_id, function_type_id);
 
         Ok(TypeId::NONE)
     }
@@ -186,53 +195,54 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             parent_kind: node.inner().kind,
             child_index: 1,
         })?;
+        let type_notation = children.next();
         let expression = expression_statement
             .left_child()
             .ok_or(CompileError::MissingChild {
                 parent_kind: expression_statement.kind(),
                 child_index: 0,
             })?;
+
         let expression_type_id = self.visit(expression, ())?;
-        let declaration_id = self
-            .context
-            .get_declaration_binding(&path.id)
-            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let declaration = *self.context.get_declaration(*declaration_id).ok_or(
-            CompileError::MissingDeclaration {
-                declaration_id: *declaration_id,
-            },
-        )?;
 
-        let unified = self
-            .context
-            .types
-            .unify_types(declaration.type_id, expression_type_id)?;
+        if let Some(type_notation_node) = type_notation {
+            let explicit_type = get_type_id(type_notation_node, self.context)?;
 
-        if !unified {
-            let expected = self
+            let unified = self
                 .context
                 .types
-                .get_full_type(declaration.type_id)
-                .ok_or(CompileError::MissingType {
-                    type_id: declaration.type_id,
-                })?;
-            let found = self.context.types.get_full_type(expression_type_id).ok_or(
-                CompileError::MissingType {
-                    type_id: expression_type_id,
-                },
-            )?;
+                .unify_types(expression_type_id, explicit_type)?;
 
-            return Err(CompileError::TypeConflict {
-                expected,
-                found,
-                position: Position::new(self.file_id, expression.span()),
-            });
+            if !unified {
+                let expected = self.context.types.get_full_type(expression_type_id).ok_or(
+                    CompileError::MissingType {
+                        type_id: expression_type_id,
+                    },
+                )?;
+                let found = self.context.types.get_full_type(explicit_type).ok_or(
+                    CompileError::MissingType {
+                        type_id: explicit_type,
+                    },
+                )?;
+
+                return Err(CompileError::TypeConflict {
+                    expected,
+                    found,
+                    position: Position::new(self.file_id, type_notation_node.span()),
+                });
+            }
         }
 
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&path.id)
+            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: path.id })?;
+
         self.context
-            .add_type_binding(expression.id, expression_type_id);
-        self.context.add_type_binding(path.id, declaration.type_id);
-        self.context.add_type_binding(node.id, TypeId::NONE);
+            .set_type_binding(expression.id, expression_type_id);
+        self.context.set_type_binding(node.id, TypeId::NONE);
+        self.context
+            .set_declaration_type(declaration_id, expression_type_id);
 
         Ok(TypeId::NONE)
     }
@@ -295,10 +305,10 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             });
         }
 
-        self.context.add_type_binding(path.id, path_type);
+        self.context.set_type_binding(path.id, path_type);
         self.context
-            .add_type_binding(expression.id, expression_type);
-        self.context.add_type_binding(node.id, TypeId::NONE);
+            .set_type_binding(expression.id, expression_type);
+        self.context.set_type_binding(node.id, TypeId::NONE);
 
         Ok(TypeId::NONE)
     }
@@ -320,7 +330,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for boolean expression");
 
-        self.context.add_type_binding(node.id, TypeId::BOOLEAN);
+        self.context.set_type_binding(node.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
@@ -332,7 +342,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for byte expression");
 
-        self.context.add_type_binding(node.id, TypeId::BYTE);
+        self.context.set_type_binding(node.id, TypeId::BYTE);
 
         Ok(TypeId::BYTE)
     }
@@ -344,7 +354,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for character expression");
 
-        self.context.add_type_binding(node.id, TypeId::CHARACTER);
+        self.context.set_type_binding(node.id, TypeId::CHARACTER);
 
         Ok(TypeId::CHARACTER)
     }
@@ -356,7 +366,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for float expression");
 
-        self.context.add_type_binding(node.id, TypeId::FLOAT);
+        self.context.set_type_binding(node.id, TypeId::FLOAT);
 
         Ok(TypeId::FLOAT)
     }
@@ -368,7 +378,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for integer expression");
 
-        self.context.add_type_binding(node.id, TypeId::INTEGER);
+        self.context.set_type_binding(node.id, TypeId::INTEGER);
 
         Ok(TypeId::INTEGER)
     }
@@ -380,7 +390,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for string expression");
 
-        self.context.add_type_binding(node.id, TypeId::STRING);
+        self.context.set_type_binding(node.id, TypeId::STRING);
 
         Ok(TypeId::STRING)
     }
@@ -438,7 +448,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         };
         let list_type = self.context.types.add_type(TypeNode::List { element_type });
 
-        self.context.add_type_binding(node.id, list_type);
+        self.context.set_type_binding(node.id, list_type);
 
         Ok(list_type)
     }
@@ -494,7 +504,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 })?;
         let element_type = match list_type {
             TypeNode::List { element_type } => {
-                self.context.add_type_binding(node.id, element_type);
+                self.context.set_type_binding(node.id, element_type);
 
                 element_type
             }
@@ -510,9 +520,9 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             }
         };
 
-        self.context.add_type_binding(node.id, element_type);
+        self.context.set_type_binding(node.id, element_type);
         self.context
-            .add_type_binding(list_expression.id, list_type_id);
+            .set_type_binding(list_expression.id, list_type_id);
 
         Ok(element_type)
     }
@@ -524,19 +534,18 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for path expression");
 
-        let declaration_id = self
+        let declaration_id = *self
             .context
             .get_declaration_binding(&node.id)
             .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let declaration = *self.context.get_declaration(*declaration_id).ok_or(
-            CompileError::MissingDeclaration {
-                declaration_id: *declaration_id,
-            },
-        )?;
+        let type_id = *self
+            .context
+            .get_declaration_type(&declaration_id)
+            .ok_or(CompileError::MissingDeclarationType { declaration_id })?;
 
-        self.context.add_type_binding(node.id, declaration.type_id);
+        self.context.set_type_binding(node.id, type_id);
 
-        Ok(declaration.type_id)
+        Ok(type_id)
     }
 
     fn visit_block_expression(
@@ -564,10 +573,10 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             };
             block_type_id = child_type;
 
-            self.context.add_type_binding(child.id, child_type);
+            self.context.set_type_binding(child.id, child_type);
         }
 
-        self.context.add_type_binding(node.id, block_type_id);
+        self.context.set_type_binding(node.id, block_type_id);
 
         Ok(block_type_id)
     }
@@ -642,10 +651,10 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 });
             }
 
-            self.context.add_type_binding(node.id, then_type);
+            self.context.set_type_binding(node.id, then_type);
         }
 
-        self.context.add_type_binding(node.id, then_type);
+        self.context.set_type_binding(node.id, then_type);
 
         Ok(then_type)
     }
@@ -730,7 +739,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             }
         };
 
-        self.context.add_type_binding(node.id, math_expression_type);
+        self.context.set_type_binding(node.id, math_expression_type);
 
         Ok(math_expression_type)
     }
@@ -777,7 +786,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             });
         }
 
-        self.context.add_type_binding(node.id, TypeId::BOOLEAN);
+        self.context.set_type_binding(node.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
@@ -839,7 +848,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             });
         }
 
-        self.context.add_type_binding(node.id, TypeId::BOOLEAN);
+        self.context.set_type_binding(node.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
@@ -863,7 +872,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         match child_type {
             TypeId::BOOLEAN | TypeId::BYTE | TypeId::FLOAT | TypeId::INTEGER => {
-                self.context.add_type_binding(node.id, child_type);
+                self.context.set_type_binding(node.id, child_type);
 
                 Ok(child_type)
             }
@@ -986,19 +995,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             return_type_id,
         });
 
-        let declaration_id = *self
-            .context
-            .get_declaration_binding(&node.id)
-            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let declaration = self
-            .context
-            .get_declaration_mut(&declaration_id)
-            .ok_or(CompileError::MissingDeclaration { declaration_id })?;
-
-        declaration.type_id = function_type;
-
-        self.context.add_type_binding(node.id, function_type);
-        self.context.add_type_binding(body.id, return_type_id);
+        self.context.set_type_binding(node.id, function_type);
+        self.context.set_type_binding(body.id, return_type_id);
 
         self.visit(body, ())?;
 
@@ -1100,7 +1098,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             }
         }
 
-        self.context.add_type_binding(node.id, return_type_id);
+        self.context.set_type_binding(node.id, return_type_id);
 
         Ok(return_type_id)
     }

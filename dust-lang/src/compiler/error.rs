@@ -166,6 +166,9 @@ pub enum CompileError {
     MissingTypeBinding {
         syntax_id: SyntaxId,
     },
+    MissingDeclarationType {
+        declaration_id: DeclarationId,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -214,6 +217,7 @@ impl AnnotatedError for CompileError {
             CompileError::MissingTypeBinding { .. } => SourceFileId::default(),
             CompileError::CannotApplyOperator { position, .. } => position.file_id,
             CompileError::CannotIndex { position, .. } => position.file_id,
+            CompileError::MissingDeclarationType { .. } => SourceFileId::default(),
         }
     }
 
@@ -608,6 +612,13 @@ impl AnnotatedError for CompileError {
                             .label(format!("Attempted to index type {type} here")),
                     ),
                 )
+            }
+            CompileError::MissingDeclarationType { declaration_id } => {
+                let title = format!(
+                    "Type for declaration id {declaration_id:?} was missing, this is a bug in the compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
             }
         }
     }

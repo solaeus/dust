@@ -7,8 +7,6 @@ use crate::{
         context::{
             CompileContext, Declaration, DeclarationId, DeclarationKind, Scope, ScopeId, ScopeKind,
         },
-        get_type_id,
-        type_graph::TypeId,
     },
     source::{Position, Source, SourceFileId},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
@@ -164,7 +162,6 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                 prototype_index: None,
             },
             scope_id: self.current_scope_id,
-            type_id: TypeId::NONE,
             position: Position::new(self.file_id, function_name.span()),
             is_public,
         };
@@ -180,7 +177,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             .add_declaration(function_name_str, function_declaration);
 
         self.context
-            .add_declaration_binding(function_expression.id, function_declaration_id);
+            .set_declaration_binding(function_expression.id, function_declaration_id);
 
         Ok(())
     }
@@ -234,7 +231,6 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             parent_kind: node.inner().kind,
             child_index: 1,
         })?;
-        let type_notation = children.next();
         let expression = expression_statement
             .left_child()
             .ok_or(CompileError::MissingChild {
@@ -262,22 +258,16 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         } else {
             DeclarationKind::Local { shadowed }
         };
-        let type_id = if let Some(type_node) = type_notation {
-            get_type_id(type_node, self.context)?
-        } else {
-            self.context.types.create_inferred_type()
-        };
         let declaration = Declaration {
             kind: declaration_kind,
             scope_id: self.current_scope_id,
-            type_id,
             position: Position::new(self.file_id, path.span()),
             is_public: false,
         };
         let declaration_id = self.context.add_declaration(variable_name, declaration);
 
         self.context
-            .add_declaration_binding(path.id, declaration_id);
+            .set_declaration_binding(path.id, declaration_id);
 
         Ok(())
     }
@@ -318,7 +308,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             })?;
 
         self.context
-            .add_declaration_binding(path.id, declaration_id);
+            .set_declaration_binding(path.id, declaration_id);
 
         Ok(())
     }
@@ -443,7 +433,6 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             })?;
 
         let mut current_declaration_id = DeclarationId(0);
-        let mut current_type_id = TypeId::NONE;
         let mut current_scope_id = self.current_scope_id;
 
         for segment in path_segments {
@@ -462,13 +451,11 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                 })?;
 
             current_declaration_id = next_declaration_id;
-            current_type_id = next_declaration.type_id;
             current_scope_id = next_declaration.scope_id;
         }
 
         self.context
-            .add_declaration_binding(node.id, current_declaration_id);
-        self.context.add_type_binding(node.id, current_type_id);
+            .set_declaration_binding(node.id, current_declaration_id);
 
         Ok(())
     }
