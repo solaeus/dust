@@ -1283,9 +1283,8 @@ impl<'a> InstructionCompiler<'a> {
                         total_constant_count: self.constants.len(),
                     },
                 )?;
-                let bits = builder.ins().iconst(I64, float.to_bits() as i64);
 
-                Ok(builder.ins().bitcast(F64, MemFlags::new(), bits))
+                Ok(builder.ins().f64const(float))
             }
             _ => Err(JitError::UnsupportedMemoryKind {
                 memory_kind: address.memory,

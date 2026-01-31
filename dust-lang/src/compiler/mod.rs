@@ -19,9 +19,7 @@ pub use type_graph::{TypeGraph, TypeId, TypeNode};
 use tracing::{Level, span};
 
 use crate::{
-    compiler::{
-        context::DeclarationId, declaration_binder::DeclarationBinder, type_binder::TypeBinder,
-    },
+    compiler::{declaration_binder::DeclarationBinder, type_binder::TypeBinder},
     dust_crate::Program,
     dust_error::DustError,
     lexer::Lexer,
@@ -150,7 +148,6 @@ impl Compiler {
             let _enter = span.enter();
 
             let main_declaration_binder = DeclarationBinder::new(
-                None,
                 SourceFileId::MAIN,
                 &self.source,
                 &self.syntax,
@@ -170,7 +167,7 @@ impl Compiler {
             let _enter = span.enter();
 
             let main_type_binder =
-                TypeBinder::new(None, SourceFileId::MAIN, &mut self.context, &self.syntax);
+                TypeBinder::new(SourceFileId::MAIN, &mut self.context, &self.syntax);
 
             match main_type_binder.resolve_main() {
                 Ok(main_type) => main_type,

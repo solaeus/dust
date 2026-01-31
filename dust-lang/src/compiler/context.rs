@@ -290,12 +290,22 @@ impl CompileContext {
                 }
             }
 
-            if current_scope.kind != ScopeKind::Block || current_scope_id == ScopeId(0) {
+            if current_scope.kind != ScopeKind::Block || current_scope_id == ScopeId::PROJECT {
                 break;
             }
 
             current_scope_id = current_scope.parent;
             current_scope = self.get_scope(current_scope_id)?;
+        }
+
+        if current_scope.kind == ScopeKind::Function {
+            let key = DeclarationKey(symbol, current_scope.parent);
+
+            if let Some((index, _, declaration)) = self.declarations.get_full(&key)
+                && matches!(declaration.kind, DeclarationKind::Function { .. })
+            {
+                return Some((DeclarationId(index as u32), *declaration));
+            }
         }
 
         None

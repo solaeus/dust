@@ -13,8 +13,6 @@ use crate::{
 };
 
 pub struct DeclarationBinder<'a> {
-    function_id: Option<DeclarationId>,
-
     file_id: SourceFileId,
 
     source: &'a Source,
@@ -28,7 +26,6 @@ pub struct DeclarationBinder<'a> {
 
 impl<'a> DeclarationBinder<'a> {
     pub fn new(
-        declaration_id: Option<DeclarationId>,
         file_id: SourceFileId,
         source: &'a Source,
         syntax: &'a Syntax,
@@ -36,7 +33,6 @@ impl<'a> DeclarationBinder<'a> {
         current_scope_id: ScopeId,
     ) -> Self {
         Self {
-            function_id: declaration_id,
             file_id,
             source,
             syntax,
@@ -224,7 +220,6 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             .set_declaration_binding(function_expression.id, function_declaration_id);
 
         let mut function_declaration_binder = DeclarationBinder::new(
-            Some(function_declaration_id),
             self.file_id,
             self.source,
             self.syntax,
@@ -534,15 +529,6 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             let (next_declaration_id, next_declaration) = self
                 .context
                 .find_declaration_in_scope(segment_name, current_scope_id)
-                .or_else(|| {
-                    if let Some(id) = self.function_id {
-                        let declaration = *self.context.get_declaration(id)?;
-
-                        Some((id, declaration))
-                    } else {
-                        None
-                    }
-                })
                 .ok_or(CompileError::UndeclaredVariable {
                     name: segment_name.to_string(),
                     position: Position::new(self.file_id, segment.span()),
@@ -805,7 +791,6 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         self.context.add_scope_binding(body.id, function_scope_id);
 
         let mut function_declaration_binder = DeclarationBinder::new(
-            None,
             self.file_id,
             self.source,
             self.syntax,

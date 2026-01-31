@@ -1,9 +1,7 @@
 use tracing::debug;
 
 use crate::{
-    compiler::{
-        CompileContext, CompileError, TypeId, TypeNode, context::DeclarationId, get_type_id,
-    },
+    compiler::{CompileContext, CompileError, TypeId, TypeNode, get_type_id},
     source::{Position, SourceFileId},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
     r#type::Type,
@@ -11,8 +9,6 @@ use crate::{
 
 #[derive(Debug)]
 pub struct TypeBinder<'a> {
-    function_id: Option<DeclarationId>,
-
     file_id: SourceFileId,
 
     syntax: &'a Syntax,
@@ -22,13 +18,11 @@ pub struct TypeBinder<'a> {
 
 impl<'a> TypeBinder<'a> {
     pub fn new(
-        function_id: Option<DeclarationId>,
         file_id: SourceFileId,
         context: &'a mut CompileContext,
         syntax_tree: &'a Syntax,
     ) -> Self {
         Self {
-            function_id,
             file_id,
             context,
             syntax: syntax_tree,
@@ -1061,10 +1055,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 .set_declaration_type(function_id, function_type);
         }
 
-        let mut function_type_binder =
-            TypeBinder::new(function_id, self.file_id, self.context, self.syntax);
-
-        function_type_binder.visit(body, ())?;
+        self.visit(body, ())?;
 
         Ok(function_type)
     }
