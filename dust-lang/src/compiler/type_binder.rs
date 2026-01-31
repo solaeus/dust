@@ -1,7 +1,9 @@
 use tracing::debug;
 
 use crate::{
-    compiler::{CompileContext, CompileError, TypeId, TypeNode, get_type_id},
+    compiler::{
+        CompileContext, CompileError, TypeId, TypeNode, context::DeclarationId, get_type_id,
+    },
     source::{Position, SourceFileId},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
     r#type::Type,
@@ -9,6 +11,8 @@ use crate::{
 
 #[derive(Debug)]
 pub struct TypeBinder<'a> {
+    function_id: Option<DeclarationId>,
+
     file_id: SourceFileId,
 
     syntax: &'a Syntax,
@@ -18,11 +22,13 @@ pub struct TypeBinder<'a> {
 
 impl<'a> TypeBinder<'a> {
     pub fn new(
+        function_id: Option<DeclarationId>,
         file_id: SourceFileId,
         context: &'a mut CompileContext,
         syntax_tree: &'a Syntax,
     ) -> Self {
         Self {
+            function_id,
             file_id,
             context,
             syntax: syntax_tree,
@@ -132,16 +138,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             child_index: 1,
         })?;
 
-        let function_type_id = self.visit_function_expression(function_expression, ())?;
-        let declaration_id = *self
-            .context
-            .get_declaration_binding(&function_expression.id)
-            .ok_or(CompileError::MissingDeclarationBinding {
-                syntax_id: function_expression.id,
-            })?;
-
-        self.context
-            .set_declaration_type(declaration_id, function_type_id);
+        self.visit_function_expression(function_expression, ())?;
 
         Ok(TypeId::NONE)
     }
@@ -315,12 +312,56 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
     fn visit_reassignment_statement(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for reassignment statement");
 
-        todo!()
+        let path = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 0,
+        })?;
+        let expression_statement = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.inner().kind,
+            child_index: 1,
+        })?;
+        let expression = expression_statement
+            .left_child()
+            .ok_or(CompileError::MissingChild {
+                parent_kind: expression_statement.kind(),
+                child_index: 0,
+            })?;
+
+        let path_type = self.visit(path, ())?;
+        let expression_type = self.visit(expression, ())?;
+
+        let unified = self.context.types.unify_types(path_type, expression_type)?;
+
+        if !unified {
+            let expected = self
+                .context
+                .types
+                .get_full_type(path_type)
+                .ok_or(CompileError::MissingType { type_id: path_type })?;
+            let found = self.context.types.get_full_type(expression_type).ok_or(
+                CompileError::MissingType {
+                    type_id: expression_type,
+                },
+            )?;
+
+            return Err(CompileError::TypeConflict {
+                expected,
+                found,
+                position: Position::new(self.file_id, expression.span()),
+            });
+        }
+
+        self.context.set_type_binding(path.id, path_type);
+        self.context
+            .set_type_binding(expression.id, expression_type);
+        self.context.set_type_binding(node.id, TypeId::NONE);
+
+        Ok(TypeId::NONE)
     }
 
     fn visit_boolean_expression(
@@ -944,18 +985,18 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             parent_kind: node.inner().kind,
             child_index: 0,
         })?;
-        let value_parameters_node = signature.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: signature.inner().kind,
-            child_index: 0,
-        })?;
-        let value_parameter_nodes =
-            value_parameters_node
-                .multiple_children()
-                .ok_or(CompileError::MissingChildren {
-                    parent_kind: value_parameters_node.inner().kind,
-                    start_index: value_parameters_node.inner().children.0,
-                    count: value_parameters_node.inner().children.1,
-                })?;
+        let value_parameters = signature
+            .left_child()
+            .ok_or(CompileError::MissingChild {
+                parent_kind: signature.inner().kind,
+                child_index: 0,
+            })?
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: signature.inner().kind,
+                start_index: signature.inner().children.0,
+                count: signature.inner().children.1,
+            })?;
         let return_type = signature.right_child();
         let body = node.right_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
@@ -964,8 +1005,14 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         let mut value_parameter_types = Vec::new();
 
-        for parameter_node in value_parameter_nodes {
-            let parameter_type_node =
+        for parameter_node in value_parameters {
+            let parameter_name = parameter_node
+                .left_child()
+                .ok_or(CompileError::MissingChild {
+                    parent_kind: parameter_node.inner().kind,
+                    child_index: 0,
+                })?;
+            let parameter_type =
                 parameter_node
                     .right_child()
                     .ok_or(CompileError::MissingChild {
@@ -973,9 +1020,18 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                         child_index: 1,
                     })?;
 
-            let parameter_type = get_type_id(parameter_type_node, self.context)?;
+            let parameter_declaration_id = *self
+                .context
+                .get_declaration_binding(&parameter_name.id)
+                .ok_or(CompileError::MissingDeclarationBinding {
+                    syntax_id: parameter_name.id,
+                })?;
+            let parameter_type = get_type_id(parameter_type, self.context)?;
 
             value_parameter_types.push(parameter_type);
+
+            self.context
+                .set_declaration_type(parameter_declaration_id, parameter_type);
         }
 
         let return_type_id = {
@@ -998,7 +1054,17 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         self.context.set_type_binding(node.id, function_type);
         self.context.set_type_binding(body.id, return_type_id);
 
-        self.visit(body, ())?;
+        let function_id = self.context.get_declaration_binding(&node.id).copied();
+
+        if let Some(function_id) = function_id {
+            self.context
+                .set_declaration_type(function_id, function_type);
+        }
+
+        let mut function_type_binder =
+            TypeBinder::new(function_id, self.file_id, self.context, self.syntax);
+
+        function_type_binder.visit(body, ())?;
 
         Ok(function_type)
     }

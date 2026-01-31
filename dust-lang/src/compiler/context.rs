@@ -353,7 +353,6 @@ pub struct Declaration {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DeclarationKind {
     Function {
-        inner_scope_id: ScopeId,
         file_id: SourceFileId,
         syntax_id: SyntaxId,
         parameters: (u32, u32),

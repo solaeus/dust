@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
-use tracing::{debug, info, trace};
+use tracing::{debug, trace};
 
 use crate::{
     compiler::{
@@ -75,7 +75,7 @@ impl<'a> Emitter<'a> {
         context: &'a mut CompileContext,
         starting_scope_id: ScopeId,
     ) -> Self {
-        let mut prototype_compiler = Self {
+        let mut emitter = Self {
             declaration_id: declaration_info.map(|(id, _)| id),
             prototype_index,
             file_id,
@@ -100,7 +100,7 @@ impl<'a> Emitter<'a> {
         if let Some((declaration_id, declaration)) = &declaration_info
             && let DeclarationKind::Function { parameters, .. } = &declaration.kind
         {
-            prototype_compiler.locals.insert(
+            emitter.locals.insert(
                 *declaration_id,
                 Local {
                     address: Address::constant(prototype_index),
@@ -109,27 +109,22 @@ impl<'a> Emitter<'a> {
 
             let (start, count) = *parameters;
 
-            prototype_compiler.locals.reserve(count as usize);
+            emitter.locals.reserve(count as usize);
 
             for index in 0..count {
                 let current_parameter_index = start + index;
-                if let Some(parameter_id) = prototype_compiler
-                    .context
-                    .get_parameter(current_parameter_index)
-                {
-                    let register = prototype_compiler.allocate_local_register();
+                if let Some(parameter_id) = emitter.context.get_parameter(current_parameter_index) {
+                    let register = emitter.allocate_local_register();
                     let parameter_local = Local {
                         address: Address::register(register.index),
                     };
 
-                    prototype_compiler
-                        .locals
-                        .insert(parameter_id, parameter_local);
+                    emitter.locals.insert(parameter_id, parameter_local);
                 }
             }
         }
 
-        prototype_compiler
+        emitter
     }
 
     pub fn emit_main(self) -> Result<Prototype, CompileError> {
@@ -1256,12 +1251,86 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
     fn visit_reassignment_statement(
         &mut self,
-        _: SyntaxReader<'_>,
+        node: SyntaxReader<'_>,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting reassignment statement");
 
-        todo!()
+        let path = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let expression_statement = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+        let expression = expression_statement
+            .left_child()
+            .ok_or(CompileError::MissingChild {
+                parent_kind: expression_statement.kind(),
+                child_index: 0,
+            })?;
+
+        let declaration_id = self
+            .context
+            .get_declaration_binding(&path.id)
+            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: path.id })?;
+        let local = *self
+            .locals
+            .get(declaration_id)
+            .ok_or(CompileError::MissingLocal {
+                declaration_id: *declaration_id,
+            })?;
+        let target = TargetRegister {
+            index: local.address.index,
+            is_temporary: false,
+        };
+
+        let mut reassignment_emission = InstructionsEmission::new();
+        let expression_emission = self.visit_expression(expression, Some(target))?;
+
+        match expression_emission {
+            Emission::Constant(constant) => {
+                let address = self.get_constant_address(constant);
+                let operand_type = constant.operand_type();
+                let move_instruction = Instruction::r#move(target.index, address, operand_type);
+
+                reassignment_emission.push(move_instruction);
+            }
+            Emission::Function(address) => {
+                let move_instruction =
+                    Instruction::r#move(target.index, address, OperandType::FUNCTION);
+
+                reassignment_emission.push(move_instruction);
+            }
+            Emission::Local(local) => {
+                let type_id = *self
+                    .context
+                    .get_type_binding(&node.id)
+                    .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
+                let operand_type = self.context.types.get_operand_type(type_id).ok_or(
+                    CompileError::CannotInferType {
+                        position: Position::new(self.file_id, expression.span()),
+                    },
+                )?;
+                let move_instruction =
+                    Instruction::r#move(target.index, local.address, operand_type);
+
+                reassignment_emission.push(move_instruction);
+            }
+            Emission::Instructions(instructions_emission) => {
+                reassignment_emission.merge(instructions_emission);
+                reassignment_emission.set_target(None);
+            }
+            Emission::None => {
+                return Err(CompileError::ExpectedExpression {
+                    node_kind: expression.kind(),
+                    position: Position::new(self.file_id, expression.span()),
+                });
+            }
+        }
+
+        Ok(Emission::Instructions(reassignment_emission))
     }
 
     fn visit_boolean_expression(

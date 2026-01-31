@@ -13,6 +13,8 @@ use crate::{
 };
 
 pub struct DeclarationBinder<'a> {
+    function_id: Option<DeclarationId>,
+
     file_id: SourceFileId,
 
     source: &'a Source,
@@ -26,6 +28,7 @@ pub struct DeclarationBinder<'a> {
 
 impl<'a> DeclarationBinder<'a> {
     pub fn new(
+        declaration_id: Option<DeclarationId>,
         file_id: SourceFileId,
         source: &'a Source,
         syntax: &'a Syntax,
@@ -33,6 +36,7 @@ impl<'a> DeclarationBinder<'a> {
         current_scope_id: ScopeId,
     ) -> Self {
         Self {
+            function_id: declaration_id,
             file_id,
             source,
             syntax,
@@ -120,45 +124,83 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             parent_kind: node.kind(),
             child_index: 1,
         })?;
-        let _signature = function_expression
+        let signature = function_expression
             .left_child()
             .ok_or(CompileError::MissingChild {
                 parent_kind: function_expression.kind(),
                 child_index: 0,
             })?;
-        let body = function_expression
-            .right_child()
+        let value_parameters = signature
+            .left_child()
             .ok_or(CompileError::MissingChild {
-                parent_kind: function_expression.kind(),
-                child_index: 1,
+                parent_kind: signature.kind(),
+                child_index: 0,
+            })?
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: signature.kind(),
+                start_index: signature.inner().children.0,
+                count: signature.inner().children.1,
             })?;
+        let function_body =
+            function_expression
+                .right_child()
+                .ok_or(CompileError::MissingChild {
+                    parent_kind: function_expression.kind(),
+                    child_index: 1,
+                })?;
 
-        let outer_scope_id = self.current_scope_id;
         let function_scope_id = self.context.add_scope(Scope {
             kind: ScopeKind::Function,
-            parent: outer_scope_id,
+            parent: self.current_scope_id,
             imports: SmallVec::new(),
             modules: SmallVec::new(),
         });
 
-        self.current_scope_id = function_scope_id;
+        let mut parameter_ids = SmallVec::<[DeclarationId; 8]>::new();
 
-        self.context.add_scope_binding(body.id, function_scope_id);
-        self.visit(body, ())?;
+        for value_parameter in value_parameters {
+            let parameter_name =
+                value_parameter
+                    .left_child()
+                    .ok_or(CompileError::MissingChild {
+                        parent_kind: value_parameter.kind(),
+                        child_index: 0,
+                    })?;
 
-        self.current_scope_id = outer_scope_id;
+            let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
+                CompileError::MissingSourceFile {
+                    file_id: self.file_id,
+                },
+            )?;
+            let parameter_name_str = source_file.source_code.get_span(parameter_name.span());
+
+            let parameter_declaration = Declaration {
+                kind: DeclarationKind::Local { shadowed: None },
+                scope_id: function_scope_id,
+                position: Position::new(self.file_id, parameter_name.span()),
+                is_public: false,
+            };
+            let parameter_declaration_id = self
+                .context
+                .add_declaration(parameter_name_str, parameter_declaration);
+
+            self.context
+                .set_declaration_binding(parameter_name.id, parameter_declaration_id);
+            parameter_ids.push(parameter_declaration_id);
+        }
 
         let is_public = match node.kind() {
             SyntaxKind::PublicFunctionItem => true,
             SyntaxKind::FunctionItem => false,
             _ => unreachable!(),
         };
+        let parameters = self.context.add_declaration_members(&parameter_ids);
         let function_declaration = Declaration {
             kind: DeclarationKind::Function {
-                inner_scope_id: function_scope_id,
                 file_id: self.file_id,
                 syntax_id: node.id,
-                parameters: (0, 0),
+                parameters,
                 prototype_index: None,
             },
             scope_id: self.current_scope_id,
@@ -177,7 +219,20 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             .add_declaration(function_name_str, function_declaration);
 
         self.context
+            .add_scope_binding(function_body.id, function_scope_id);
+        self.context
             .set_declaration_binding(function_expression.id, function_declaration_id);
+
+        let mut function_declaration_binder = DeclarationBinder::new(
+            Some(function_declaration_id),
+            self.file_id,
+            self.source,
+            self.syntax,
+            self.context,
+            function_scope_id,
+        );
+
+        function_declaration_binder.visit(function_body, ())?;
 
         Ok(())
     }
@@ -315,10 +370,44 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
     fn visit_reassignment_statement(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        todo!()
+        let path = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let expression_statement = node.right_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 1,
+        })?;
+        let expression = expression_statement
+            .left_child()
+            .ok_or(CompileError::MissingChild {
+                parent_kind: expression_statement.kind(),
+                child_index: 0,
+            })?;
+
+        let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
+            CompileError::MissingSourceFile {
+                file_id: self.file_id,
+            },
+        )?;
+        let variable_name = source_file.source_code.get_span(path.span());
+
+        let (declaration_id, _) = self
+            .context
+            .find_declaration_in_scope(variable_name, self.current_scope_id)
+            .ok_or(CompileError::UndeclaredVariable {
+                name: variable_name.to_string(),
+                position: Position::new(self.file_id, path.span()),
+            })?;
+
+        self.context
+            .set_declaration_binding(path.id, declaration_id);
+        self.visit_expression(expression, ())?;
+
+        Ok(())
     }
 
     fn visit_boolean_expression(
@@ -445,6 +534,15 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             let (next_declaration_id, next_declaration) = self
                 .context
                 .find_declaration_in_scope(segment_name, current_scope_id)
+                .or_else(|| {
+                    if let Some(id) = self.function_id {
+                        let declaration = *self.context.get_declaration(id)?;
+
+                        Some((id, declaration))
+                    } else {
+                        None
+                    }
+                })
                 .ok_or(CompileError::UndeclaredVariable {
                     name: segment_name.to_string(),
                     position: Position::new(self.file_id, segment.span()),
@@ -646,25 +744,76 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding function expression");
 
+        let signature = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let value_parameters = signature
+            .left_child()
+            .ok_or(CompileError::MissingChild {
+                parent_kind: signature.kind(),
+                child_index: 0,
+            })?
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: signature.kind(),
+                start_index: signature.inner().children.0,
+                count: signature.inner().children.1,
+            })?;
         let body = node.right_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 1,
         })?;
 
-        let outer_scope_id = self.current_scope_id;
         let function_scope_id = self.context.add_scope(Scope {
             kind: ScopeKind::Function,
-            parent: outer_scope_id,
+            parent: self.current_scope_id,
             imports: SmallVec::new(),
             modules: SmallVec::new(),
         });
 
-        self.current_scope_id = function_scope_id;
+        for value_parameter in value_parameters {
+            let parameter_name =
+                value_parameter
+                    .left_child()
+                    .ok_or(CompileError::MissingChild {
+                        parent_kind: value_parameter.kind(),
+                        child_index: 0,
+                    })?;
+
+            let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
+                CompileError::MissingSourceFile {
+                    file_id: self.file_id,
+                },
+            )?;
+            let parameter_name_str = source_file.source_code.get_span(parameter_name.span());
+
+            let parameter_declaration = Declaration {
+                kind: DeclarationKind::Local { shadowed: None },
+                scope_id: function_scope_id,
+                position: Position::new(self.file_id, parameter_name.span()),
+                is_public: false,
+            };
+            let parameter_declaration_id = self
+                .context
+                .add_declaration(parameter_name_str, parameter_declaration);
+
+            self.context
+                .set_declaration_binding(parameter_name.id, parameter_declaration_id);
+        }
 
         self.context.add_scope_binding(body.id, function_scope_id);
-        self.visit(body, ())?;
 
-        self.current_scope_id = outer_scope_id;
+        let mut function_declaration_binder = DeclarationBinder::new(
+            None,
+            self.file_id,
+            self.source,
+            self.syntax,
+            self.context,
+            function_scope_id,
+        );
+
+        function_declaration_binder.visit(body, ())?;
 
         Ok(())
     }
