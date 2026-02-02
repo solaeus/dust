@@ -228,7 +228,7 @@ impl<'src> Parser<'src> {
         Ok(allowed)
     }
 
-    fn expect(&mut self, expected: TokenKind) -> Result<bool, ParseError> {
+    fn expect(&mut self, expected: TokenKind) -> Result<(), ParseError> {
         if self.current_token.kind != expected {
             return Err(ParseError::ExpectedToken {
                 expected,
@@ -239,7 +239,7 @@ impl<'src> Parser<'src> {
 
         self.advance()?;
 
-        Ok(true)
+        Ok(())
     }
 
     fn parse_item(&mut self) -> Result<(), ParseError> {
@@ -449,6 +449,83 @@ impl<'src> Parser<'src> {
             span: Span(start, end),
             children: (path_id.0, 0),
         });
+
+        Ok(())
+    }
+
+    fn parse_struct_item(&mut self) -> Result<(), ParseError> {
+        info!("Parsing struct item");
+
+        let start = self.current_token.span.0;
+        let is_public = self.previous_token.kind == TokenKind::Pub;
+
+        self.advance()?;
+        self.parse_path()?;
+
+        let path_id = self.syntax_tree.last_node_id();
+
+        if self.allow(TokenKind::LeftCurlyBrace)? {
+            let mut children = Self::new_child_buffer();
+
+            while !self.allow(TokenKind::RightCurlyBrace)? {
+                if self.current_token.kind == TokenKind::Eof {
+                    break;
+                }
+
+                info!("Parsing struct field definition");
+
+                let field_start = self.current_token.span.0;
+
+                self.expect(TokenKind::Identifier)?;
+
+                let field_name_id = self.syntax_tree.last_node_id();
+
+                self.expect(TokenKind::Colon)?;
+
+                let field_type_id = self.parse_type()?;
+
+                self.allow(TokenKind::Comma)?;
+
+                let field_end = self.previous_token.span.1;
+                let field_node = SyntaxNode {
+                    kind: SyntaxKind::StructFieldDefinition,
+                    span: Span(field_start, field_end),
+                    children: (field_name_id.0, field_type_id.0),
+                };
+                let field_node_id = self.syntax_tree.push_node(field_node);
+
+                children.push(field_node_id);
+            }
+
+            let end = self.previous_token.span.1;
+            let children = self.syntax_tree.add_children(&children);
+            let struct_fields = SyntaxNode {
+                kind: SyntaxKind::StructFieldsDefinition,
+                span: Span(start, end),
+                children,
+            };
+            let struct_fields_id = self.syntax_tree.push_node(struct_fields);
+            let struct_kind = if is_public {
+                SyntaxKind::PublicStructItem
+            } else {
+                SyntaxKind::StructItem
+            };
+            let node = SyntaxNode {
+                kind: struct_kind,
+                span: Span(start, end),
+                children: (path_id.0, struct_fields_id.0),
+            };
+
+            self.syntax_tree.push_node(node);
+        } else if self.allow(TokenKind::LeftParenthesis)? {
+            todo!()
+        } else {
+            return Err(ParseError::ExpectedMultipleTokens {
+                actual: self.current_token.kind,
+                expected: &[TokenKind::LeftCurlyBrace, TokenKind::LeftParenthesis],
+                position: self.current_position(),
+            });
+        }
 
         Ok(())
     }
@@ -1381,10 +1458,62 @@ impl<'src> Parser<'src> {
         self.parse_path()?;
 
         let path_id = self.syntax_tree.last_node_id();
-        let node = SyntaxNode {
-            kind: SyntaxKind::PathExpression,
-            span,
-            children: (path_id.0, 0),
+        let node = if self.allow(TokenKind::LeftCurlyBrace)? {
+            let fields_start = self.current_token.span.0;
+            let mut fields = Self::new_child_buffer();
+
+            while !self.allow(TokenKind::RightCurlyBrace)? {
+                if self.current_token.kind == TokenKind::Eof {
+                    break;
+                }
+
+                let field_start = self.current_token.span.0;
+
+                self.parse_path()?;
+
+                let field_path_id = self.syntax_tree.last_node_id();
+
+                self.expect(TokenKind::Colon)?;
+                self.parse_expression()?;
+
+                let field_expression_id = self.syntax_tree.last_node_id();
+                let field_end = self.previous_token.span.1;
+
+                self.allow(TokenKind::Comma)?;
+
+                let field_node = SyntaxNode {
+                    kind: SyntaxKind::StructField,
+                    span: Span(field_start, field_end),
+                    children: (field_path_id.0, field_expression_id.0),
+                };
+                let field_node_id = self.syntax_tree.push_node(field_node);
+
+                fields.push(field_node_id);
+            }
+
+            let fields_children = self.syntax_tree.add_children(&fields);
+            let fields_end = fields
+                .last()
+                .and_then(|&id| self.syntax_tree.get_node(id))
+                .map_or(fields_start, |node| node.span.1);
+            let struct_fields_node = SyntaxNode {
+                kind: SyntaxKind::StructFields,
+                span: Span(fields_start, fields_end),
+                children: fields_children,
+            };
+            let struct_fields_node_id = self.syntax_tree.push_node(struct_fields_node);
+
+            SyntaxNode {
+                kind: SyntaxKind::StructExpression,
+                span,
+                children: (path_id.0, struct_fields_node_id.0),
+            }
+        } else {
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                span,
+                children: (path_id.0, 0),
+            }
         };
 
         self.syntax_tree.push_node(node);

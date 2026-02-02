@@ -465,7 +465,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 associativity: Associativity::Left,
             },
             TokenKind::Struct => ParseRule {
-                prefix: Some(Parser::parse_unexpected),
+                prefix: Some(Parser::parse_struct_item),
                 infix: None,
                 precedence: Precedence::None,
                 associativity: Associativity::Left,

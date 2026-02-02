@@ -103,7 +103,9 @@ impl SyntaxNode {
             | SyntaxKind::Path
             | SyntaxKind::CallValueArguments
             | SyntaxKind::ValueParametersDefinition
-            | SyntaxKind::IfExpression => {
+            | SyntaxKind::IfExpression
+            | SyntaxKind::StructFieldsDefinition
+            | SyntaxKind::StructFields => {
                 SyntaxNodeChildren::Multiple(self.children.0, self.children.1)
             }
             SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem => {
@@ -144,7 +146,12 @@ impl SyntaxNode {
             | SyntaxKind::CallExpression
             | SyntaxKind::IndexExpression
             | SyntaxKind::AsExpression
-            | SyntaxKind::FunctionType => {
+            | SyntaxKind::FunctionType
+            | SyntaxKind::StructItem
+            | SyntaxKind::PublicStructItem
+            | SyntaxKind::StructFieldDefinition
+            | SyntaxKind::StructExpression
+            | SyntaxKind::StructField => {
                 SyntaxNodeChildren::Double(SyntaxId(self.children.0), SyntaxId(self.children.1))
             }
             _ => SyntaxNodeChildren::None,
@@ -200,6 +207,8 @@ pub enum SyntaxKind {
     PublicUseItem,
     FunctionItem,
     PublicFunctionItem,
+    StructItem,
+    PublicStructItem,
 
     // Statements
     ExpressionStatement,
@@ -256,12 +265,12 @@ pub enum SyntaxKind {
     GroupedExpression,
     IfExpression,
     ElseExpression,
-    OperatorExpression,
     PathExpression,
     WhileExpression,
     ReturnExpression,
     BreakExpression,
     AsExpression,
+    StructExpression,
 
     // Sub-Syntax
     CallValueArguments,
@@ -271,6 +280,10 @@ pub enum SyntaxKind {
     ValueParameterName,
     ValueParameterType,
     ValueParameterTypes,
+    StructFieldsDefinition,
+    StructFieldDefinition,
+    StructFields,
+    StructField,
 
     Path,
     PathSegment,
@@ -301,6 +314,8 @@ impl SyntaxKind {
                 | SyntaxKind::PublicUseItem
                 | SyntaxKind::FunctionItem
                 | SyntaxKind::PublicFunctionItem
+                | SyntaxKind::StructItem
+                | SyntaxKind::PublicStructItem
         )
     }
 
@@ -358,6 +373,7 @@ impl SyntaxKind {
                 | SyntaxKind::AsExpression
                 | SyntaxKind::IfExpression
                 | SyntaxKind::ElseExpression
+                | SyntaxKind::StructExpression
         )
     }
 
@@ -380,6 +396,8 @@ impl Display for SyntaxKind {
             SyntaxKind::PublicModuleItem => write!(f, "public module item"),
             SyntaxKind::FunctionItem => write!(f, "function item"),
             SyntaxKind::PublicFunctionItem => write!(f, "public function item"),
+            SyntaxKind::StructItem => write!(f, "struct item"),
+            SyntaxKind::PublicStructItem => write!(f, "public struct item"),
             SyntaxKind::ExpressionStatement => write!(f, "expression statement"),
             SyntaxKind::LetStatement => write!(f, "let statement"),
             SyntaxKind::LetMutStatement => write!(f, "let mut statement"),
@@ -436,7 +454,7 @@ impl Display for SyntaxKind {
             SyntaxKind::GroupedExpression => write!(f, "grouped expression"),
             SyntaxKind::IfExpression => write!(f, "if expression"),
             SyntaxKind::ElseExpression => write!(f, "else expression"),
-            SyntaxKind::OperatorExpression => write!(f, "operator expression"),
+            SyntaxKind::StructExpression => write!(f, "struct expression"),
             SyntaxKind::PathExpression => write!(f, "path expression"),
             SyntaxKind::WhileExpression => write!(f, "while loop expression"),
             SyntaxKind::ReturnExpression => write!(f, "return expression"),
@@ -452,6 +470,10 @@ impl Display for SyntaxKind {
             SyntaxKind::ValueParameterName => write!(f, "value parameter name"),
             SyntaxKind::ValueParameterType => write!(f, "value parameter type"),
             SyntaxKind::ValueParameterTypes => write!(f, "value parameter types"),
+            SyntaxKind::StructFieldsDefinition => write!(f, "struct fields definition"),
+            SyntaxKind::StructFieldDefinition => write!(f, "struct field definition"),
+            SyntaxKind::StructFields => write!(f, "struct fields"),
+            SyntaxKind::StructField => write!(f, "struct field"),
             SyntaxKind::FunctionType => write!(f, "function type"),
             SyntaxKind::CallValueArguments => write!(f, "call value arguments"),
             SyntaxKind::Path => write!(f, "path"),

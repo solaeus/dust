@@ -172,7 +172,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             let parameter_name_str = source_file.source_code.get_span(parameter_name.span());
 
             let parameter_declaration = Declaration {
-                kind: DeclarationKind::Local { shadowed: None },
+                kind: DeclarationKind::Local {
+                    shadowed: None,
+                    is_mutable: false,
+                },
                 scope_id: function_scope_id,
                 position: Position::new(self.file_id, parameter_name.span()),
                 is_public: false,
@@ -242,6 +245,77 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         todo!()
     }
 
+    fn visit_struct_item(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        debug!("Binding struct item");
+
+        let struct_name = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let struct_fields = node
+            .right_child()
+            .ok_or(CompileError::MissingChild {
+                parent_kind: node.kind(),
+                child_index: 1,
+            })?
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.kind(),
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+
+        let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
+            CompileError::MissingSourceFile {
+                file_id: self.file_id,
+            },
+        )?;
+
+        let mut field_ids = SmallVec::<[DeclarationId; 8]>::new();
+
+        for field in struct_fields {
+            let field_name = field.left_child().ok_or(CompileError::MissingChild {
+                parent_kind: field.kind(),
+                child_index: 0,
+            })?;
+
+            let field_name_str = source_file.source_code.get_span(field_name.span());
+            let field_declaration = Declaration {
+                kind: DeclarationKind::Type,
+                scope_id: self.current_scope_id,
+                position: Position::new(self.file_id, field_name.span()),
+                is_public: false,
+            };
+            let field_declaration_id = self
+                .context
+                .add_declaration(field_name_str, field_declaration);
+
+            self.context
+                .set_declaration_binding(field_name.id, field_declaration_id);
+            field_ids.push(field_declaration_id);
+        }
+
+        let struct_name_str = source_file.source_code.get_span(struct_name.span());
+        let struct_declaration = Declaration {
+            kind: DeclarationKind::Type,
+            scope_id: self.current_scope_id,
+            position: Position::new(self.file_id, struct_name.span()),
+            is_public: false,
+        };
+        let struct_declaration_id = self
+            .context
+            .add_declaration(struct_name_str, struct_declaration);
+
+        self.context
+            .set_declaration_binding(node.id, struct_declaration_id);
+
+        Ok(())
+    }
+
     fn visit_expression_statement(
         &mut self,
         node: SyntaxReader,
@@ -303,13 +377,12 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             .context
             .find_declaration_in_scope(variable_name, self.current_scope_id)
             .map(|(id, _)| id);
-        let declaration_kind = if node.kind() == SyntaxKind::LetMutStatement {
-            DeclarationKind::LocalMutable { shadowed }
-        } else {
-            DeclarationKind::Local { shadowed }
-        };
+        let is_mutable = node.kind() == SyntaxKind::LetMutStatement;
         let declaration = Declaration {
-            kind: declaration_kind,
+            kind: DeclarationKind::Local {
+                shadowed,
+                is_mutable,
+            },
             scope_id: self.current_scope_id,
             position: Position::new(self.file_id, path.span()),
             is_public: false,
@@ -516,15 +589,16 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                 count: path.inner().children.1,
             })?;
 
+        let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
+            CompileError::MissingSourceFile {
+                file_id: self.file_id,
+            },
+        )?;
+
         let mut current_declaration_id = DeclarationId(0);
         let mut current_scope_id = self.current_scope_id;
 
         for segment in path_segments {
-            let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
-                CompileError::MissingSourceFile {
-                    file_id: self.file_id,
-                },
-            )?;
             let segment_name = source_file.source_code.get_span(segment.span());
             let (next_declaration_id, next_declaration) = self
                 .context
@@ -540,6 +614,75 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
         self.context
             .set_declaration_binding(node.id, current_declaration_id);
+
+        Ok(())
+    }
+
+    fn visit_struct_expression(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        debug!("Binding struct expression");
+
+        let path = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
+        let fields = node
+            .right_child()
+            .ok_or(CompileError::MissingChild {
+                parent_kind: node.kind(),
+                child_index: 1,
+            })?
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.kind(),
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+
+        let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
+            CompileError::MissingSourceFile {
+                file_id: self.file_id,
+            },
+        )?;
+
+        let struct_name = source_file.source_code.get_span(path.span());
+        let struct_declaration = self
+            .context
+            .find_declaration_in_scope(struct_name, self.current_scope_id)
+            .ok_or(CompileError::UndeclaredVariable {
+                name: struct_name.to_string(),
+                position: Position::new(self.file_id, path.span()),
+            })?;
+
+        self.context
+            .set_declaration_binding(path.id, struct_declaration.0);
+
+        for field in fields {
+            let field_path = field.right_child().ok_or(CompileError::MissingChild {
+                parent_kind: field.kind(),
+                child_index: 1,
+            })?;
+            let field_value = field.left_child().ok_or(CompileError::MissingChild {
+                parent_kind: field.kind(),
+                child_index: 0,
+            })?;
+
+            let field_name = source_file.source_code.get_span(field_path.span());
+            let (field_declaration_id, _) = self
+                .context
+                .find_declaration_in_scope(field_name, struct_declaration.1.scope_id)
+                .ok_or(CompileError::UndeclaredVariable {
+                    name: field_name.to_string(),
+                    position: Position::new(self.file_id, field_path.span()),
+                })?;
+
+            self.context
+                .set_declaration_binding(field_path.id, field_declaration_id);
+            self.visit_expression(field_value, ())?;
+        }
 
         Ok(())
     }
@@ -775,7 +918,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             let parameter_name_str = source_file.source_code.get_span(parameter_name.span());
 
             let parameter_declaration = Declaration {
-                kind: DeclarationKind::Local { shadowed: None },
+                kind: DeclarationKind::Local {
+                    shadowed: None,
+                    is_mutable: false,
+                },
                 scope_id: function_scope_id,
                 position: Position::new(self.file_id, parameter_name.span()),
                 is_public: false,

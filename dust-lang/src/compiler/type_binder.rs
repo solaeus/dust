@@ -1,3 +1,4 @@
+use smallvec::SmallVec;
 use tracing::debug;
 
 use crate::{
@@ -145,6 +146,70 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         debug!("Binding types for use item");
 
         todo!()
+    }
+
+    fn visit_struct_item(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for struct item");
+
+        let struct_fields = node
+            .right_child()
+            .ok_or(CompileError::MissingChild {
+                parent_kind: node.kind(),
+                child_index: 1,
+            })?
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.kind(),
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+
+        let mut fields = SmallVec::<[TypeId; 8]>::new();
+
+        for field in struct_fields {
+            let field_name = field.left_child().ok_or(CompileError::MissingChild {
+                parent_kind: field.inner().kind,
+                child_index: 0,
+            })?;
+            let field_type = field.right_child().ok_or(CompileError::MissingChild {
+                parent_kind: field.inner().kind,
+                child_index: 1,
+            })?;
+
+            let field_declaration_id = *self
+                .context
+                .get_declaration_binding(&field_name.id)
+                .ok_or(CompileError::MissingDeclarationBinding {
+                    syntax_id: field_name.id,
+                })?;
+            let field_type_id = get_type_id(field_type, self.context)?;
+
+            self.context
+                .set_declaration_type(field_declaration_id, field_type_id);
+            fields.push(field_type_id);
+        }
+
+        let fields = self.context.types.add_type_members(&fields);
+        let struct_id = self.context.types.create_defined_type_id();
+        let struct_type = TypeNode::Struct {
+            id: struct_id,
+            fields,
+            generics: (0, 0),
+        };
+        let struct_type_id = self.context.types.add_type(struct_type);
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&node.id)
+            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+
+        self.context
+            .set_declaration_type(declaration_id, struct_type_id);
+
+        Ok(TypeId::NONE)
     }
 
     fn visit_expression_statement(
@@ -496,11 +561,11 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         debug!("Binding types for index expression");
 
         let list_expression = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
+            parent_kind: node.kind(),
             child_index: 0,
         })?;
         let index_expression = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
+            parent_kind: node.kind(),
             child_index: 1,
         })?;
 
@@ -579,6 +644,54 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             .ok_or(CompileError::MissingDeclarationType { declaration_id })?;
 
         self.context.set_type_binding(node.id, type_id);
+
+        Ok(type_id)
+    }
+
+    fn visit_struct_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        let fields = node
+            .right_child()
+            .ok_or(CompileError::MissingChild {
+                parent_kind: node.kind(),
+                child_index: node.inner().children.1,
+            })?
+            .multiple_children()
+            .ok_or(CompileError::MissingChildren {
+                parent_kind: node.kind(),
+                start_index: node.inner().children.0,
+                count: node.inner().children.1,
+            })?;
+
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&node.id)
+            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+        let type_id = *self
+            .context
+            .get_declaration_type(&declaration_id)
+            .ok_or(CompileError::MissingDeclarationType { declaration_id })?;
+
+        self.context.set_type_binding(node.id, type_id);
+
+        for field in fields {
+            let field_expression = field.right_child().ok_or(CompileError::MissingChild {
+                parent_kind: field.inner().kind,
+                child_index: 1,
+            })?;
+
+            let field_type = {
+                let raw = self.visit(field_expression, input)?;
+
+                self.context.types.infer_type(raw)
+            };
+
+            self.context
+                .set_type_binding(field_expression.id, field_type);
+        }
 
         Ok(type_id)
     }

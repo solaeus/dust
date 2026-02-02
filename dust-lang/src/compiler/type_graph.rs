@@ -14,7 +14,7 @@ pub struct TypeGraph {
 
     type_members: Vec<TypeId>,
 
-    next_inferred_type_id: u32,
+    next_defined_type_id: u32,
 }
 
 impl TypeGraph {
@@ -22,7 +22,7 @@ impl TypeGraph {
         let mut graph = Self {
             type_nodes: IndexSet::default(),
             type_members: Vec::new(),
-            next_inferred_type_id: 0,
+            next_defined_type_id: 0,
         };
 
         graph.type_nodes.reserve(7);
@@ -88,47 +88,6 @@ impl TypeGraph {
         };
 
         self.add_type(node)
-    }
-
-    pub fn get_full_type(&self, id: TypeId) -> Option<Type> {
-        let type_node = self.get_type(id)?;
-
-        match type_node {
-            TypeNode::None => Some(Type::None),
-            TypeNode::Boolean => Some(Type::Boolean),
-            TypeNode::Byte => Some(Type::Byte),
-            TypeNode::Character => Some(Type::Character),
-            TypeNode::Float => Some(Type::Float),
-            TypeNode::Integer => Some(Type::Integer),
-            TypeNode::String => Some(Type::String),
-            TypeNode::List { element_type } => {
-                let element_type = self.get_full_type(*element_type)?;
-
-                Some(Type::list(element_type))
-            }
-            TypeNode::Function {
-                type_parameters,
-                value_parameters,
-                return_type_id,
-            } => {
-                let type_parameters = self
-                    .get_members_as_full_types(type_parameters.0, type_parameters.1)
-                    .try_collect::<Vec<Type>>()?;
-                let value_parameters = self
-                    .get_members_as_full_types(value_parameters.0, value_parameters.1)
-                    .try_collect::<Vec<Type>>()?;
-                let return_type = self.get_full_type(*return_type_id)?;
-
-                Some(Type::Function(Box::new(FunctionType {
-                    type_parameters,
-                    value_parameters,
-                    return_type,
-                })))
-            }
-            TypeNode::Inferred { resolved, .. } => {
-                resolved.and_then(|resolved_id| self.get_full_type(resolved_id))
-            }
-        }
     }
 
     pub fn add_type(&mut self, type_node: TypeNode) -> TypeId {
@@ -218,16 +177,21 @@ impl TypeGraph {
         Some(result)
     }
 
+    pub fn create_defined_type_id(&mut self) -> DefinedTypeId {
+        let defined_type_id = DefinedTypeId(self.next_defined_type_id);
+
+        self.next_defined_type_id += 1;
+
+        defined_type_id
+    }
+
     pub fn create_inferred_type(&mut self) -> TypeId {
         let inferred_type_node = TypeNode::Inferred {
-            id: self.next_inferred_type_id,
+            id: self.create_defined_type_id(),
             resolved: None,
         };
-        let type_id = self.add_type(inferred_type_node);
 
-        self.next_inferred_type_id += 1;
-
-        type_id
+        self.add_type(inferred_type_node)
     }
 
     pub fn infer_type(&mut self, type_id: TypeId) -> TypeId {
@@ -350,6 +314,53 @@ impl TypeGraph {
         }
     }
 
+    pub fn get_full_type(&self, id: TypeId) -> Option<Type> {
+        let type_node = self.get_type(id)?;
+
+        match type_node {
+            TypeNode::None => Some(Type::None),
+            TypeNode::Boolean => Some(Type::Boolean),
+            TypeNode::Byte => Some(Type::Byte),
+            TypeNode::Character => Some(Type::Character),
+            TypeNode::Float => Some(Type::Float),
+            TypeNode::Integer => Some(Type::Integer),
+            TypeNode::String => Some(Type::String),
+            TypeNode::List { element_type } => {
+                let element_type = self.get_full_type(*element_type)?;
+
+                Some(Type::list(element_type))
+            }
+            TypeNode::Function {
+                type_parameters,
+                value_parameters,
+                return_type_id,
+            } => {
+                let type_parameters = self
+                    .get_members_as_full_types(type_parameters.0, type_parameters.1)
+                    .try_collect::<Vec<Type>>()?;
+                let value_parameters = self
+                    .get_members_as_full_types(value_parameters.0, value_parameters.1)
+                    .try_collect::<Vec<Type>>()?;
+                let return_type = self.get_full_type(*return_type_id)?;
+
+                Some(Type::Function(Box::new(FunctionType {
+                    type_parameters,
+                    value_parameters,
+                    return_type,
+                })))
+            }
+            TypeNode::Inferred { resolved, .. } => {
+                resolved.and_then(|resolved_id| self.get_full_type(resolved_id))
+            }
+            TypeNode::Struct { .. } => {
+                todo!()
+            }
+            TypeNode::Enum { .. } => {
+                todo!()
+            }
+        }
+    }
+
     fn get_members_as_full_types(
         &self,
         start_index: u32,
@@ -400,7 +411,20 @@ pub enum TypeNode {
         return_type_id: TypeId,
     },
     Inferred {
-        id: u32,
+        id: DefinedTypeId,
         resolved: Option<TypeId>,
     },
+    Struct {
+        id: DefinedTypeId,
+        generics: (u32, u32),
+        fields: (u32, u32),
+    },
+    Enum {
+        id: DefinedTypeId,
+        generics: (u32, u32),
+        variants: (u32, u32),
+    },
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DefinedTypeId(u32);

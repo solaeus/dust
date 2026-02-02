@@ -362,6 +362,10 @@ pub struct Declaration {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DeclarationKind {
+    Local {
+        shadowed: Option<DeclarationId>,
+        is_mutable: bool,
+    },
     Function {
         file_id: SourceFileId,
         syntax_id: SyntaxId,
@@ -369,26 +373,11 @@ pub enum DeclarationKind {
         prototype_index: Option<u16>,
     },
     NativeFunction,
-    Local {
-        shadowed: Option<DeclarationId>,
-    },
-    LocalMutable {
-        shadowed: Option<DeclarationId>,
-    },
     Module {
         kind: ModuleKind,
         inner_scope_id: ScopeId,
     },
     Type,
-}
-
-impl DeclarationKind {
-    pub fn is_local(&self) -> bool {
-        matches!(
-            self,
-            DeclarationKind::Local { .. } | DeclarationKind::LocalMutable { .. }
-        )
-    }
 }
 
 impl Display for DeclarationKind {
@@ -397,7 +386,6 @@ impl Display for DeclarationKind {
             DeclarationKind::Function { .. } => write!(f, "function"),
             DeclarationKind::NativeFunction => write!(f, "native function"),
             DeclarationKind::Local { .. } => write!(f, "local variable"),
-            DeclarationKind::LocalMutable { .. } => write!(f, "mutable local variable"),
             DeclarationKind::Module { .. } => write!(f, "module"),
             DeclarationKind::Type => write!(f, "type"),
         }

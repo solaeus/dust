@@ -1113,6 +1113,16 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         todo!()
     }
 
+    fn visit_struct_item(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        debug!("Emitting struct item");
+
+        Ok(Emission::None)
+    }
+
     fn visit_expression_statement(
         &mut self,
         node: SyntaxReader<'_>,
@@ -1643,6 +1653,14 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             })?;
 
         Ok(Emission::Local(local))
+    }
+
+    fn visit_struct_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        todo!()
     }
 
     fn visit_block_expression(

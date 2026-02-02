@@ -280,8 +280,7 @@ fn get_type_id(node: SyntaxReader, context: &mut CompileContext) -> Result<TypeI
 
             Ok(function_type_id)
         }
-        _ => {
-            todo!()
-        }
+        SyntaxKind::TypePath => Ok(context.types.create_inferred_type()),
+        _ => Err(CompileError::InvalidSyntaxNode { kind: node.kind() }),
     }
 }

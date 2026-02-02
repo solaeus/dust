@@ -25,6 +25,9 @@ pub trait SyntaxVisitor {
                 self.visit_function_item(node, input)
             }
             SyntaxKind::UseItem | SyntaxKind::PublicUseItem => self.visit_use_item(node, input),
+            SyntaxKind::StructItem | SyntaxKind::PublicStructItem => {
+                self.visit_struct_item(node, input)
+            }
             SyntaxKind::ExpressionStatement => self.visit_expression_statement(node, input),
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
                 self.visit_let_statement(node, input)
@@ -47,6 +50,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::StringExpression => self.visit_string_expression(node, input),
             SyntaxKind::ListExpression => self.visit_list_expression(node, input),
             SyntaxKind::IndexExpression => self.visit_index_expression(node, input),
+            SyntaxKind::StructExpression => self.visit_struct_expression(node, input),
             SyntaxKind::BlockExpression => self.visit_block_expression(node, input),
             SyntaxKind::IfExpression => self.visit_if_expression(node, input),
             SyntaxKind::ElseExpression => self.visit_else_expression(node, input),
@@ -94,9 +98,16 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::Output, CompileError> {
         match node.kind() {
             SyntaxKind::MainFunctionItem => self.visit_main_function_item(node, input),
-            SyntaxKind::ModuleItem => self.visit_module_item(node, input),
-            SyntaxKind::FunctionItem => self.visit_function_item(node, input),
-            SyntaxKind::UseItem => self.visit_use_item(node, input),
+            SyntaxKind::ModuleItem | SyntaxKind::PublicModuleItem => {
+                self.visit_module_item(node, input)
+            }
+            SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem => {
+                self.visit_function_item(node, input)
+            }
+            SyntaxKind::UseItem | SyntaxKind::PublicUseItem => self.visit_use_item(node, input),
+            SyntaxKind::StructItem | SyntaxKind::PublicStructItem => {
+                self.visit_struct_item(node, input)
+            }
             _ => Err(CompileError::ExpectedItem {
                 node_kind: node.kind(),
                 position: Position::new(self.file_id(), node.span()),
@@ -137,6 +148,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::StringExpression => self.visit_string_expression(node, input),
             SyntaxKind::ListExpression => self.visit_list_expression(node, input),
             SyntaxKind::IndexExpression => self.visit_index_expression(node, input),
+            SyntaxKind::StructExpression => self.visit_struct_expression(node, input),
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression
@@ -195,6 +207,12 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::Output, CompileError>;
 
     fn visit_use_item(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError>;
+
+    fn visit_struct_item(
         &mut self,
         node: SyntaxReader,
         input: Self::Input,
@@ -261,6 +279,12 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::Output, CompileError>;
 
     fn visit_path_expression(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError>;
+
+    fn visit_struct_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::Input,
