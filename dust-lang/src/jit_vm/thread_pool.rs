@@ -339,7 +339,7 @@ fn run_thread(
     info!("JIT compilation complete");
 
     let registers_allocated = 1024;
-    let mut registers = vec![Register { empty: () }; registers_allocated];
+    let mut registers = vec![Register { integer: 0 }; registers_allocated];
     let mut register_tags = vec![RegisterTag::EMPTY; registers_allocated];
     let bump_arena = Bump::with_capacity(minimum_object_heap);
     let mut object_pool = ObjectPool::new(&bump_arena, minimum_object_sweep, minimum_object_heap);
@@ -361,6 +361,7 @@ fn run_thread(
 
     let encoded_return_value = (jit_logic)(&mut thread_context, 0);
     let return_type = &program.prototypes[0].function_type.return_type;
+
     let return_value = match return_type {
         Type::None => None,
         Type::Boolean => {
@@ -479,12 +480,12 @@ fn get_struct_from_register_indices(
                 Value::List(list)
             }
             Type::Struct { name, fields, .. } => {
-                let (start_register, end_register) = unsafe { field_register.register_indices };
+                let indices = unsafe { field_register.register_indices };
 
                 get_struct_from_register_indices(
                     name.clone(),
-                    start_register as usize,
-                    end_register as usize,
+                    indices.start as usize,
+                    indices.end as usize,
                     main_function_registers,
                     fields,
                 )?

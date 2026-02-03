@@ -4,6 +4,13 @@ use crate::{instruction::OperandType, jit_vm::Object};
 
 #[derive(Clone, Copy)]
 #[repr(C)]
+pub struct RegisterIndices {
+    pub start: u32,
+    pub end: u32,
+}
+
+#[derive(Clone, Copy)]
+#[repr(C)]
 pub union Register {
     pub empty: (),
     pub boolean: bool,
@@ -13,7 +20,7 @@ pub union Register {
     pub integer: i64,
     pub prototype_index: usize,
     pub object_pointer: *mut Object,
-    pub register_indices: (u32, u32),
+    pub register_indices: RegisterIndices,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

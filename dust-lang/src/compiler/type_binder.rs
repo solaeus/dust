@@ -127,14 +127,18 @@ impl<'a> TypeBinder<'a> {
                 Ok(function_type_id)
             }
             SyntaxKind::TypePath => {
-                let declaration_id = self
+                let declaration_id = *self
                     .context
                     .get_declaration_binding(&node.id)
                     .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-                let type_id = if let Some(id) = self.context.get_declaration_type(declaration_id) {
+                let type_id = if let Some(id) = self.context.get_declaration_type(&declaration_id) {
                     *id
                 } else {
-                    self.context.create_inferred_type()
+                    let inferred = self.context.create_inferred_type();
+
+                    self.context.set_declaration_type(declaration_id, inferred);
+
+                    inferred
                 };
 
                 Ok(type_id)
@@ -270,6 +274,10 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let mut fields = SmallVec::<[DeclarationId; 8]>::new();
 
         for field in struct_fields {
+            let field_name = field.left_child().ok_or(CompileError::MissingChild {
+                parent_kind: field.inner().kind,
+                child_index: 0,
+            })?;
             let field_type = field.right_child().ok_or(CompileError::MissingChild {
                 parent_kind: field.inner().kind,
                 child_index: 1,
@@ -277,9 +285,9 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
             let field_declaration_id = *self
                 .context
-                .get_declaration_binding(&field_type.id)
+                .get_declaration_binding(&field_name.id)
                 .ok_or(CompileError::MissingDeclarationBinding {
-                    syntax_id: field_type.id,
+                    syntax_id: field_name.id,
                 })?;
             let field_type_id = self.get_type_id(field_type)?;
 
@@ -299,6 +307,10 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             generics: (0, 0),
         };
         let struct_type_id = self.context.add_type(struct_type);
+
+        if let Some(existing) = self.context.get_declaration_type(&declaration_id).copied() {
+            self.context.unify_types(existing, struct_type_id)?;
+        }
 
         self.context
             .set_declaration_type(declaration_id, struct_type_id);
@@ -765,30 +777,71 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             .context
             .get_declaration_binding(&node.id)
             .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let type_id = *self
+        let declared_struct_type = *self
             .context
             .get_declaration_type(&declaration_id)
             .ok_or(CompileError::MissingDeclarationType { declaration_id })?;
 
-        self.context.set_type_binding(node.id, type_id);
-
         for field in fields {
+            let field_name = field.left_child().ok_or(CompileError::MissingChild {
+                parent_kind: field.inner().kind,
+                child_index: 0,
+            })?;
             let field_expression = field.right_child().ok_or(CompileError::MissingChild {
                 parent_kind: field.inner().kind,
                 child_index: 1,
             })?;
 
-            let field_type = {
+            let field_declaration_id = *self
+                .context
+                .get_declaration_binding(&field_name.id)
+                .ok_or(CompileError::MissingDeclarationBinding {
+                    syntax_id: field.id,
+                })?;
+            let declared_field_type_id = *self
+                .context
+                .get_declaration_type(&field_declaration_id)
+                .ok_or(CompileError::MissingDeclarationType {
+                    declaration_id: field_declaration_id,
+                })?;
+            let actual_field_type_id = {
                 let raw = self.visit(field_expression, input)?;
 
                 self.context.infer_type(raw)
             };
 
+            let unified = self
+                .context
+                .unify_types(declared_field_type_id, actual_field_type_id)?;
+
+            if !unified {
+                let expected = self
+                    .context
+                    .get_full_type(declared_field_type_id, self.source)
+                    .ok_or(CompileError::MissingType {
+                        type_id: declared_field_type_id,
+                    })?;
+                let found = self
+                    .context
+                    .get_full_type(actual_field_type_id, self.source)
+                    .ok_or(CompileError::MissingType {
+                        type_id: actual_field_type_id,
+                    })?;
+
+                return Err(CompileError::TypeConflict {
+                    expected,
+                    found,
+                    position: Position::new(self.file_id, field_expression.span()),
+                });
+            }
+
             self.context
-                .set_type_binding(field_expression.id, field_type);
+                .set_type_binding(field_expression.id, declared_field_type_id);
         }
 
-        Ok(type_id)
+        self.context.set_type_binding(node.id, declared_struct_type);
+
+        Ok(declared_struct_type)
     }
 
     fn visit_block_expression(

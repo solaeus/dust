@@ -13,7 +13,6 @@ pub use context::{
 };
 pub use emitter::Emitter;
 pub use error::CompileError;
-use smallvec::SmallVec;
 
 use tracing::{Level, span};
 
@@ -25,7 +24,7 @@ use crate::{
     parser::{ParseResult, Parser},
     prototype::Prototype,
     source::{Source, SourceCode, SourceFile, SourceFileId},
-    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader},
+    syntax::Syntax,
 };
 
 pub const DEFAULT_PROGRAM_NAME: &str = "Dust Program";

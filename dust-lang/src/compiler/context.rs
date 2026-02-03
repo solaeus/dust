@@ -187,7 +187,14 @@ impl CompileContext {
             }
         };
 
-        let key = DeclarationKey(symbol, declaration.scope_id);
+        let key = DeclarationKey {
+            symbol,
+            scope_id: declaration.scope_id,
+            parent: match declaration.kind {
+                DeclarationKind::Type { parent } => parent,
+                _ => None,
+            },
+        };
 
         if let Some((existing_index, _, _)) = self.declarations.get_full(&key) {
             return DeclarationId(existing_index as u32);
@@ -261,8 +268,16 @@ impl CompileContext {
         };
         let mut found = SmallVec::<[(DeclarationId, Declaration); 4]>::new();
 
-        for (index, (DeclarationKey(found_symbol, _), declaration)) in
-            self.declarations.iter().enumerate()
+        for (
+            index,
+            (
+                DeclarationKey {
+                    symbol: found_symbol,
+                    ..
+                },
+                declaration,
+            ),
+        ) in self.declarations.iter().enumerate()
         {
             let declaration_id = DeclarationId(index as u32);
 
@@ -278,6 +293,7 @@ impl CompileContext {
         &self,
         identifier: &str,
         target_scope_id: ScopeId,
+        parent: Option<DeclarationId>,
     ) -> Option<(DeclarationId, Declaration)> {
         let symbol = {
             let mut hasher = FxHasher::default();
@@ -293,7 +309,11 @@ impl CompileContext {
         let mut current_scope = self.get_scope(current_scope_id)?;
 
         loop {
-            let key = DeclarationKey(symbol, current_scope_id);
+            let key = DeclarationKey {
+                symbol,
+                scope_id: current_scope_id,
+                parent,
+            };
 
             if let Some((index, _, declaration)) = self.declarations.get_full(&key) {
                 return Some((DeclarationId(index as u32), *declaration));
@@ -301,7 +321,11 @@ impl CompileContext {
 
             for import_id in &current_scope.imports {
                 let import_declaration = self.get_declaration(*import_id)?;
-                let key = DeclarationKey(symbol, import_declaration.scope_id);
+                let key = DeclarationKey {
+                    symbol,
+                    scope_id: import_declaration.scope_id,
+                    parent,
+                };
 
                 if self.declarations.contains_key(&key) {
                     return Some((*import_id, *import_declaration));
@@ -310,7 +334,11 @@ impl CompileContext {
 
             for module_id in &current_scope.modules {
                 let module_declaration = self.get_declaration(*module_id)?;
-                let key = DeclarationKey(symbol, module_declaration.scope_id);
+                let key = DeclarationKey {
+                    symbol,
+                    scope_id: module_declaration.scope_id,
+                    parent,
+                };
 
                 if self.declarations.contains_key(&key) {
                     return Some((*module_id, *module_declaration));
@@ -326,7 +354,11 @@ impl CompileContext {
         }
 
         if current_scope.kind == ScopeKind::Function {
-            let key = DeclarationKey(symbol, current_scope.parent);
+            let key = DeclarationKey {
+                symbol,
+                scope_id: current_scope.parent,
+                parent,
+            };
 
             if let Some((index, _, declaration)) = self.declarations.get_full(&key)
                 && matches!(declaration.kind, DeclarationKind::Function { .. })
@@ -378,16 +410,25 @@ impl CompileContext {
                 }
             }
             Type::Struct { name, fields } => {
+                let struct_declaration_id = self.add_declaration(
+                    name,
+                    Declaration {
+                        kind: DeclarationKind::Type { parent: None },
+                        scope_id: ScopeId::PROJECT,
+                        position: Position::default(),
+                        is_public: false,
+                    },
+                );
+
                 let mut field_declaration_ids =
                     SmallVec::<[DeclarationId; 8]>::with_capacity(fields.len());
 
                 for (field_name, field_type) in fields {
-                    let type_declaration_id = self.create_type_declaration_id();
                     let declaration_id = self.add_declaration(
                         field_name,
                         Declaration {
                             kind: DeclarationKind::Type {
-                                id: type_declaration_id,
+                                parent: Some(struct_declaration_id),
                             },
                             scope_id: ScopeId::PROJECT,
                             position: Position::default(),
@@ -400,22 +441,10 @@ impl CompileContext {
                     self.set_declaration_type(declaration_id, type_id);
                 }
 
-                let type_declaration_id = self.create_type_declaration_id();
-                let declaration_id = self.add_declaration(
-                    name,
-                    Declaration {
-                        kind: DeclarationKind::Type {
-                            id: type_declaration_id,
-                        },
-                        scope_id: ScopeId::PROJECT,
-                        position: Position::default(),
-                        is_public: false,
-                    },
-                );
                 let fields = self.add_declaration_members(&field_declaration_ids);
 
                 TypeNode::Struct {
-                    declaration_id,
+                    declaration_id: struct_declaration_id,
                     generics: (0, 0),
                     fields,
                 }
@@ -744,6 +773,61 @@ impl CompileContext {
 
                 Ok(unified)
             }
+            (
+                TypeNode::Struct {
+                    declaration_id: left_declaration_id,
+                    generics: left_generics,
+                    fields: left_fields,
+                },
+                TypeNode::Struct {
+                    declaration_id: right_declaration_id,
+                    generics: right_generics,
+                    fields: right_fields,
+                },
+            ) => {
+                if left_declaration_id != right_declaration_id {
+                    return Ok(false);
+                }
+
+                let mut unify_members =
+                    |left: (u32, u32), right: (u32, u32)| -> Result<bool, CompileError> {
+                        let left_members = self
+                            .get_type_members(left.0, left.1)
+                            .ok_or(CompileError::MissingTypeMembers {
+                                start_index: right.0,
+                                count: right.1,
+                            })?
+                            .to_vec();
+                        let right_members = self
+                            .get_type_members(right.0, right.1)
+                            .ok_or(CompileError::MissingTypeMembers {
+                                start_index: right.0,
+                                count: right.1,
+                            })?
+                            .to_vec();
+
+                        if left_members.len() != right_members.len() {
+                            return Ok(false);
+                        }
+
+                        for (left_member, right_member) in
+                            left_members.into_iter().zip(right_members.into_iter())
+                        {
+                            let unified = self.unify_types(left_member, right_member)?;
+
+                            if !unified {
+                                return Ok(false);
+                            }
+                        }
+
+                        Ok(true)
+                    };
+
+                let unified = unify_members(left_generics, right_generics)?
+                    && unify_members(left_fields, right_fields)?;
+
+                Ok(unified)
+            }
             (left, right) => Ok(left == right),
         }
     }
@@ -787,7 +871,11 @@ pub enum ScopeKind {
 pub struct DeclarationId(pub u32);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DeclarationKey(Symbol, ScopeId);
+pub struct DeclarationKey {
+    symbol: Symbol,
+    scope_id: ScopeId,
+    parent: Option<DeclarationId>,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Declaration {
@@ -815,7 +903,7 @@ pub enum DeclarationKind {
         inner_scope_id: ScopeId,
     },
     Type {
-        id: TypeDeclarationId,
+        parent: Option<DeclarationId>,
     },
 }
 

@@ -275,6 +275,17 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             },
         )?;
 
+        let struct_name_str = source_file.source_code.get_span(struct_name.span());
+        let struct_declaration = Declaration {
+            kind: DeclarationKind::Type { parent: None },
+            scope_id: self.current_scope_id,
+            position: Position::new(self.file_id, struct_name.span()),
+            is_public: false,
+        };
+        let struct_declaration_id = self
+            .context
+            .add_declaration(struct_name_str, struct_declaration);
+
         let mut field_ids = SmallVec::<[DeclarationId; 8]>::new();
 
         for field in struct_fields {
@@ -290,7 +301,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             let field_name_str = source_file.source_code.get_span(field_name.span());
             let field_declaration = Declaration {
                 kind: DeclarationKind::Type {
-                    id: self.context.create_type_declaration_id(),
+                    parent: Some(struct_declaration_id),
                 },
                 scope_id: self.current_scope_id,
                 position: Position::new(self.file_id, field_name.span()),
@@ -306,19 +317,6 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                 .set_declaration_binding(field_type.id, field_declaration_id);
             field_ids.push(field_declaration_id);
         }
-
-        let struct_name_str = source_file.source_code.get_span(struct_name.span());
-        let struct_declaration = Declaration {
-            kind: DeclarationKind::Type {
-                id: self.context.create_type_declaration_id(),
-            },
-            scope_id: self.current_scope_id,
-            position: Position::new(self.file_id, struct_name.span()),
-            is_public: false,
-        };
-        let struct_declaration_id = self
-            .context
-            .add_declaration(struct_name_str, struct_declaration);
 
         self.context
             .set_declaration_binding(node.id, struct_declaration_id);
@@ -385,7 +383,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
         let shadowed = self
             .context
-            .find_declaration_in_scope(variable_name, self.current_scope_id)
+            .find_declaration_in_scope(variable_name, self.current_scope_id, None)
             .map(|(id, _)| id);
         let is_mutable = node.kind() == SyntaxKind::LetMutStatement;
         let declaration = Declaration {
@@ -434,7 +432,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
         let (declaration_id, _) = self
             .context
-            .find_declaration_in_scope(variable_name, self.current_scope_id)
+            .find_declaration_in_scope(variable_name, self.current_scope_id, None)
             .ok_or(CompileError::UndeclaredVariable {
                 name: variable_name.to_string(),
                 position: Position::new(self.file_id, path.span()),
@@ -475,7 +473,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
         let (declaration_id, _) = self
             .context
-            .find_declaration_in_scope(variable_name, self.current_scope_id)
+            .find_declaration_in_scope(variable_name, self.current_scope_id, None)
             .ok_or(CompileError::UndeclaredVariable {
                 name: variable_name.to_string(),
                 position: Position::new(self.file_id, path.span()),
@@ -612,7 +610,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             let segment_name = source_file.source_code.get_span(segment.span());
             let (next_declaration_id, next_declaration) = self
                 .context
-                .find_declaration_in_scope(segment_name, current_scope_id)
+                .find_declaration_in_scope(segment_name, current_scope_id, None)
                 .ok_or(CompileError::UndeclaredVariable {
                     name: segment_name.to_string(),
                     position: Position::new(self.file_id, segment.span()),
@@ -659,18 +657,18 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         )?;
 
         let struct_name = source_file.source_code.get_span(path.span());
-        let struct_declaration = self
+        let (struct_declaration_id, struct_declaration) = self
             .context
-            .find_declaration_in_scope(struct_name, self.current_scope_id)
+            .find_declaration_in_scope(struct_name, self.current_scope_id, None)
             .ok_or(CompileError::UndeclaredVariable {
                 name: struct_name.to_string(),
                 position: Position::new(self.file_id, path.span()),
             })?;
 
         self.context
-            .set_declaration_binding(path.id, struct_declaration.0);
+            .set_declaration_binding(path.id, struct_declaration_id);
         self.context
-            .set_declaration_binding(node.id, struct_declaration.0);
+            .set_declaration_binding(node.id, struct_declaration_id);
 
         for field in fields {
             let field_path = field.left_child().ok_or(CompileError::MissingChild {
@@ -685,7 +683,11 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             let field_name = source_file.source_code.get_span(field_path.span());
             let (field_declaration_id, _) = self
                 .context
-                .find_declaration_in_scope(field_name, struct_declaration.1.scope_id)
+                .find_declaration_in_scope(
+                    field_name,
+                    struct_declaration.scope_id,
+                    Some(struct_declaration_id),
+                )
                 .ok_or(CompileError::UndeclaredVariable {
                     name: field_name.to_string(),
                     position: Position::new(self.file_id, field_path.span()),
