@@ -1454,12 +1454,33 @@ impl<'src> Parser<'src> {
     fn parse_path_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing path expression");
 
+        let may_be_struct_expression = !matches!(
+            self.previous_token.kind,
+            TokenKind::If
+                | TokenKind::Else
+                | TokenKind::While
+                | TokenKind::Plus
+                | TokenKind::Minus
+                | TokenKind::Asterisk
+                | TokenKind::Slash
+                | TokenKind::Percent
+                | TokenKind::Caret
+                | TokenKind::DoubleEqual
+                | TokenKind::BangEqual
+                | TokenKind::Greater
+                | TokenKind::GreaterEqual
+                | TokenKind::Less
+                | TokenKind::LessEqual
+                | TokenKind::DoubleAmpersand
+                | TokenKind::DoublePipe
+        );
+
         let span = self.current_token.span;
 
         self.parse_path()?;
 
         let path_id = self.syntax_tree.last_node_id();
-        let node = if self.allow(TokenKind::LeftCurlyBrace)? {
+        let node = if may_be_struct_expression && self.allow(TokenKind::LeftCurlyBrace)? {
             let fields_start = self.current_token.span.0;
             let mut fields = Self::new_child_buffer();
 
