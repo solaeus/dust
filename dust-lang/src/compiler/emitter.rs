@@ -1152,7 +1152,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let expression_emission = self.visit_expression(expression, Some(target))?;
         let type_id = *self
             .context
-            .get_type_binding(&node.id)
+            .get_type_binding(&expression.id)
             .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
 
         match expression_emission {
@@ -1194,7 +1194,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         }
 
         self.locals.insert(declaration_id, target);
-        let_statement_emission.set_target(Some(target));
+        let_statement_emission.set_target(None);
 
         Ok(Emission::Instructions(let_statement_emission))
     }
@@ -1635,7 +1635,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     fn visit_block_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        block_target: Self::Input,
+        target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting block expression");
 
@@ -1662,7 +1662,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         for (index, child) in children.into_iter().enumerate() {
             let is_last = index == child_count - 1;
             let child_emission = if is_last {
-                self.visit(child, block_target)?
+                self.visit(child, target)?
             } else {
                 self.visit(child, None)?
             };
@@ -1672,11 +1672,16 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 match child_emission {
                     Emission::Constant(constant) => {
                         if block_emission.is_empty() {
+                            self.enter_parent_scope(
+                                parent_scope_id,
+                                parent_scope_next_local_register,
+                            );
+                            block_emission.add_drop(self, child_target);
+
                             return Ok(Emission::Constant(constant));
                         }
 
-                        let target =
-                            block_target.unwrap_or_else(|| self.allocate_temporary_register());
+                        let target = target.unwrap_or_else(|| self.allocate_temporary_register());
                         let address = self.get_constant_address(constant);
                         let operand_type = constant.operand_type();
                         let move_instruction =
@@ -1687,10 +1692,16 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                     }
                     Emission::Target(final_target) => {
                         if block_emission.is_empty() {
+                            self.enter_parent_scope(
+                                parent_scope_id,
+                                parent_scope_next_local_register,
+                            );
+                            block_emission.add_drop(self, child_target);
+
                             return Ok(Emission::Target(final_target));
                         }
 
-                        if let Some(block_target) = block_target {
+                        if let Some(block_target) = target {
                             let type_id = *self
                                 .context
                                 .get_type_binding(&node.id)
@@ -1733,10 +1744,6 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                         block_emission.merge(instructions);
                     }
                     Emission::None => {}
-                }
-
-                if child_target.is_none() {
-                    block_emission.add_drop(self, None);
                 }
             } else if let Emission::Instructions(child_instructions) = child_emission {
                 block_emission.merge(child_instructions);
