@@ -1666,6 +1666,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             } else {
                 self.visit(child, None)?
             };
+            let child_target = child_emission.target();
 
             if is_last {
                 match child_emission {
@@ -1733,12 +1734,17 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                     }
                     Emission::None => {}
                 }
+
+                if child_target.is_none() {
+                    block_emission.add_drop(self, None);
+                }
             } else if let Emission::Instructions(child_instructions) = child_emission {
                 block_emission.merge(child_instructions);
             }
         }
 
         self.enter_parent_scope(parent_scope_id, parent_scope_next_local_register);
+        block_emission.add_drop(self, block_emission.target);
 
         Ok(Emission::Instructions(block_emission))
     }
@@ -1881,7 +1887,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let mut math_emission = InstructionsEmission::new();
 
-        let left_target = left_emission.writable_target();
+        let left_target = left_emission.target();
         let left_address =
             self.handle_operand_emission(&mut math_emission, left_emission, &left_child)?;
         let right_address =
@@ -2515,7 +2521,7 @@ pub enum Emission {
 }
 
 impl Emission {
-    fn writable_target(&self) -> Option<Target> {
+    fn target(&self) -> Option<Target> {
         match self {
             Emission::Target(target) => Some(*target),
             Emission::Instructions(emission) => emission.target,

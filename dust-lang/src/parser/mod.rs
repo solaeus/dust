@@ -316,7 +316,7 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_sub_expression(&mut self, precedence: Precedence) -> Result<(), ParseError> {
-        self.pratt(precedence.increment())?;
+        self.pratt(precedence)?;
 
         if let Some(node) = self.syntax_tree.last_node()
             && !node.kind.is_expression()
