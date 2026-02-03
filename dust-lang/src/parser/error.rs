@@ -58,21 +58,6 @@ pub enum ParseError {
     },
 
     // Type Errors
-    AdditionTypeMismatch {
-        left_type: Type,
-        left_position: Position,
-        right_type: Type,
-        right_position: Position,
-        position: Position,
-    },
-    BinaryOperandTypeMismatch {
-        operator: TokenKind,
-        left_type: Type,
-        left_position: Position,
-        right_type: Type,
-        right_position: Position,
-        position: Position,
-    },
     ExpectedBooleanCondition {
         condition_type: Type,
         condition_position: Position,
@@ -146,8 +131,6 @@ impl AnnotatedError for ParseError {
             ParseError::ExpectedFunction { position, .. } => position.file_id,
             ParseError::ExpectedModule { position, .. } => position.file_id,
             ParseError::PrivateImport { position, .. } => position.file_id,
-            ParseError::AdditionTypeMismatch { position, .. } => position.file_id,
-            ParseError::BinaryOperandTypeMismatch { position, .. } => position.file_id,
             ParseError::ExpectedBooleanCondition {
                 condition_position, ..
             } => condition_position.file_id,
@@ -290,57 +273,6 @@ impl AnnotatedError for ParseError {
                             .span(position.span.as_usize_range())
                             .label(format!("The item `{identifier}` is private")),
                     ),
-                )
-            }
-            ParseError::AdditionTypeMismatch {
-                left_type,
-                left_position,
-                right_type,
-                right_position,
-                position,
-            } => {
-                let title = format!("Cannot add type {left_type} to type {right_type}");
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range()))
-                        .annotation(
-                            AnnotationKind::Context
-                                .span(left_position.span.as_usize_range())
-                                .label(format!("Left operand is of type {left_type}")),
-                        )
-                        .annotation(
-                            AnnotationKind::Context
-                                .span(right_position.span.as_usize_range())
-                                .label(format!("Right operand is of type {right_type}")),
-                        ),
-                )
-            }
-            ParseError::BinaryOperandTypeMismatch {
-                operator,
-                left_type,
-                left_position,
-                right_type,
-                right_position,
-                position,
-            } => {
-                let title = format!(
-                    "Cannot apply operator {operator} to types {left_type} and {right_type}"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
-                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range()))
-                        .annotation(
-                            AnnotationKind::Context
-                                .span(left_position.span.as_usize_range())
-                                .label(format!("Left operand is of type {left_type}")),
-                        )
-                        .annotation(
-                            AnnotationKind::Context
-                                .span(right_position.span.as_usize_range())
-                                .label(format!("Right operand is of type {right_type}")),
-                        ),
                 )
             }
             ParseError::ExpectedBooleanCondition {
