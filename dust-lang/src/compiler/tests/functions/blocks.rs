@@ -138,7 +138,10 @@ fn parent_scope_access() {
 
 #[test]
 fn nested_parrent_scope_access() {
-    let source = create_function_case(block_cases::NESTED_PARRENT_SCOPE_ACCESS, OperandType::INTEGER);
+    let source = create_function_case(
+        block_cases::NESTED_PARRENT_SCOPE_ACCESS,
+        OperandType::INTEGER,
+    );
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);

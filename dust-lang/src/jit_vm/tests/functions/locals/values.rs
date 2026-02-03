@@ -23,7 +23,8 @@ fn local_byte() {
 
 #[test]
 fn local_character() {
-    let source = create_function_with_call_case(local_cases::LOCAL_CHARACTER, OperandType::CHARACTER);
+    let source =
+        create_function_with_call_case(local_cases::LOCAL_CHARACTER, OperandType::CHARACTER);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::character('q')));

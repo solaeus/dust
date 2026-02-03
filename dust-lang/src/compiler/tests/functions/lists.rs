@@ -1244,7 +1244,10 @@ fn local_list_less_than() {
 
 #[test]
 fn local_list_greater_than_or_equal() {
-    let source = create_function_case(list_cases::LOCAL_LIST_GREATER_THAN_OR_EQUAL, OperandType::BOOLEAN);
+    let source = create_function_case(
+        list_cases::LOCAL_LIST_GREATER_THAN_OR_EQUAL,
+        OperandType::BOOLEAN,
+    );
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -1308,7 +1311,10 @@ fn local_list_greater_than_or_equal() {
 
 #[test]
 fn local_list_less_than_or_equal() {
-    let source = create_function_case(list_cases::LOCAL_LIST_LESS_THAN_OR_EQUAL, OperandType::BOOLEAN);
+    let source = create_function_case(
+        list_cases::LOCAL_LIST_LESS_THAN_OR_EQUAL,
+        OperandType::BOOLEAN,
+    );
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);

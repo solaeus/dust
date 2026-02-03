@@ -7,7 +7,8 @@ use crate::{
 
 #[test]
 fn list_boolean() {
-    let source = create_function_with_call_case(list_cases::LIST_BOOLEAN, OperandType::LIST_BOOLEAN);
+    let source =
+        create_function_with_call_case(list_cases::LIST_BOOLEAN, OperandType::LIST_BOOLEAN);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean_list(vec![true, false, true])));
@@ -23,7 +24,8 @@ fn list_byte() {
 
 #[test]
 fn list_character() {
-    let source = create_function_with_call_case(list_cases::LIST_CHARACTER, OperandType::LIST_CHARACTER);
+    let source =
+        create_function_with_call_case(list_cases::LIST_CHARACTER, OperandType::LIST_CHARACTER);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::character_list(vec!['a', 'b', 'c'])));
@@ -39,7 +41,8 @@ fn list_float() {
 
 #[test]
 fn list_integer() {
-    let source = create_function_with_call_case(list_cases::LIST_INTEGER, OperandType::LIST_INTEGER);
+    let source =
+        create_function_with_call_case(list_cases::LIST_INTEGER, OperandType::LIST_INTEGER);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::integer_list(vec![1, 2, 3])));
@@ -78,7 +81,8 @@ fn list_not_equal() {
 
 #[test]
 fn list_greater_than() {
-    let source = create_function_with_call_case(list_cases::LIST_GREATER_THAN, OperandType::BOOLEAN);
+    let source =
+        create_function_with_call_case(list_cases::LIST_GREATER_THAN, OperandType::BOOLEAN);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -94,7 +98,10 @@ fn list_less_than() {
 
 #[test]
 fn list_greater_than_or_equal() {
-    let source = create_function_with_call_case(list_cases::LIST_GREATER_THAN_OR_EQUAL, OperandType::BOOLEAN);
+    let source = create_function_with_call_case(
+        list_cases::LIST_GREATER_THAN_OR_EQUAL,
+        OperandType::BOOLEAN,
+    );
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -102,7 +109,8 @@ fn list_greater_than_or_equal() {
 
 #[test]
 fn list_less_than_or_equal() {
-    let source = create_function_with_call_case(list_cases::LIST_LESS_THAN_OR_EQUAL, OperandType::BOOLEAN);
+    let source =
+        create_function_with_call_case(list_cases::LIST_LESS_THAN_OR_EQUAL, OperandType::BOOLEAN);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -110,7 +118,8 @@ fn list_less_than_or_equal() {
 
 #[test]
 fn list_index_boolean() {
-    let source = create_function_with_call_case(list_cases::LIST_INDEX_BOOLEAN, OperandType::BOOLEAN);
+    let source =
+        create_function_with_call_case(list_cases::LIST_INDEX_BOOLEAN, OperandType::BOOLEAN);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -126,7 +135,8 @@ fn list_index_byte() {
 
 #[test]
 fn list_index_character() {
-    let source = create_function_with_call_case(list_cases::LIST_INDEX_CHARACTER, OperandType::CHARACTER);
+    let source =
+        create_function_with_call_case(list_cases::LIST_INDEX_CHARACTER, OperandType::CHARACTER);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::character('c')));
@@ -142,7 +152,8 @@ fn list_index_float() {
 
 #[test]
 fn list_index_integer() {
-    let source = create_function_with_call_case(list_cases::LIST_INDEX_INTEGER, OperandType::INTEGER);
+    let source =
+        create_function_with_call_case(list_cases::LIST_INDEX_INTEGER, OperandType::INTEGER);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::integer(1)));
@@ -158,7 +169,8 @@ fn list_index_string() {
 
 #[test]
 fn local_list_boolean() {
-    let source = create_function_with_call_case(list_cases::LOCAL_LIST_BOOLEAN, OperandType::LIST_BOOLEAN);
+    let source =
+        create_function_with_call_case(list_cases::LOCAL_LIST_BOOLEAN, OperandType::LIST_BOOLEAN);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean_list(vec![true, false, true])));
@@ -174,7 +186,8 @@ fn local_list_equal() {
 
 #[test]
 fn local_list_not_equal() {
-    let source = create_function_with_call_case(list_cases::LOCAL_LIST_NOT_EQUAL, OperandType::BOOLEAN);
+    let source =
+        create_function_with_call_case(list_cases::LOCAL_LIST_NOT_EQUAL, OperandType::BOOLEAN);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -182,7 +195,8 @@ fn local_list_not_equal() {
 
 #[test]
 fn local_list_greater_than() {
-    let source = create_function_with_call_case(list_cases::LOCAL_LIST_GREATER_THAN, OperandType::BOOLEAN);
+    let source =
+        create_function_with_call_case(list_cases::LOCAL_LIST_GREATER_THAN, OperandType::BOOLEAN);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -190,7 +204,8 @@ fn local_list_greater_than() {
 
 #[test]
 fn local_list_less_than() {
-    let source = create_function_with_call_case(list_cases::LOCAL_LIST_LESS_THAN, OperandType::BOOLEAN);
+    let source =
+        create_function_with_call_case(list_cases::LOCAL_LIST_LESS_THAN, OperandType::BOOLEAN);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -198,8 +213,10 @@ fn local_list_less_than() {
 
 #[test]
 fn local_list_greater_than_or_equal() {
-    let source =
-        create_function_with_call_case(list_cases::LOCAL_LIST_GREATER_THAN_OR_EQUAL, OperandType::BOOLEAN);
+    let source = create_function_with_call_case(
+        list_cases::LOCAL_LIST_GREATER_THAN_OR_EQUAL,
+        OperandType::BOOLEAN,
+    );
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -207,7 +224,10 @@ fn local_list_greater_than_or_equal() {
 
 #[test]
 fn local_list_less_than_or_equal() {
-    let source = create_function_with_call_case(list_cases::LOCAL_LIST_LESS_THAN_OR_EQUAL, OperandType::BOOLEAN);
+    let source = create_function_with_call_case(
+        list_cases::LOCAL_LIST_LESS_THAN_OR_EQUAL,
+        OperandType::BOOLEAN,
+    );
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));

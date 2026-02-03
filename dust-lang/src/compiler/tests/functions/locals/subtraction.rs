@@ -167,7 +167,10 @@ fn local_mut_float_subtraction() {
 
 #[test]
 fn local_mut_integer_subtraction() {
-    let source = create_function_case(local_cases::LOCAL_MUT_INTEGER_SUBTRACTION, OperandType::INTEGER);
+    let source = create_function_case(
+        local_cases::LOCAL_MUT_INTEGER_SUBTRACTION,
+        OperandType::INTEGER,
+    );
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);

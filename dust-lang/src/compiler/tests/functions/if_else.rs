@@ -300,7 +300,10 @@ fn if_else_less_than_equal() {
 
 #[test]
 fn if_else_greater_than_equal() {
-    let source = create_function_case(if_else_cases::IF_ELSE_GREATER_THAN_EQUAL, OperandType::INTEGER);
+    let source = create_function_case(
+        if_else_cases::IF_ELSE_GREATER_THAN_EQUAL,
+        OperandType::INTEGER,
+    );
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);

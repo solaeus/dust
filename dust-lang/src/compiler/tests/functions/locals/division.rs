@@ -167,7 +167,10 @@ fn local_mut_float_division() {
 
 #[test]
 fn local_mut_integer_division() {
-    let source = create_function_case(local_cases::LOCAL_MUT_INTEGER_DIVISION, OperandType::INTEGER);
+    let source = create_function_case(
+        local_cases::LOCAL_MUT_INTEGER_DIVISION,
+        OperandType::INTEGER,
+    );
     let prototypes = compile_prototypes(source).unwrap();
 
     assert_eq!(prototypes.len(), 2);

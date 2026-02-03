@@ -15,7 +15,8 @@ fn empty_block() {
 
 #[test]
 fn block_expression() {
-    let source = create_function_with_call_case(block_cases::BLOCK_EXPRESSION, OperandType::INTEGER);
+    let source =
+        create_function_with_call_case(block_cases::BLOCK_EXPRESSION, OperandType::INTEGER);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -31,7 +32,10 @@ fn block_statement() {
 
 #[test]
 fn block_statement_and_expression() {
-    let source = create_function_with_call_case(block_cases::BLOCK_STATEMENT_AND_EXPRESSION, OperandType::INTEGER);
+    let source = create_function_with_call_case(
+        block_cases::BLOCK_STATEMENT_AND_EXPRESSION,
+        OperandType::INTEGER,
+    );
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::integer(43)));
@@ -39,7 +43,8 @@ fn block_statement_and_expression() {
 
 #[test]
 fn parent_scope_access() {
-    let source = create_function_with_call_case(block_cases::PARENT_SCOPE_ACCESS, OperandType::INTEGER);
+    let source =
+        create_function_with_call_case(block_cases::PARENT_SCOPE_ACCESS, OperandType::INTEGER);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -47,7 +52,10 @@ fn parent_scope_access() {
 
 #[test]
 fn nested_parrent_scope_access() {
-    let source = create_function_with_call_case(block_cases::NESTED_PARRENT_SCOPE_ACCESS, OperandType::INTEGER);
+    let source = create_function_with_call_case(
+        block_cases::NESTED_PARRENT_SCOPE_ACCESS,
+        OperandType::INTEGER,
+    );
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -63,7 +71,8 @@ fn scope_shadowing() {
 
 #[test]
 fn scope_deshadowing() {
-    let source = create_function_with_call_case(block_cases::SCOPE_DESHADOWING, OperandType::INTEGER);
+    let source =
+        create_function_with_call_case(block_cases::SCOPE_DESHADOWING, OperandType::INTEGER);
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
