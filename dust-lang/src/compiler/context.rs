@@ -239,7 +239,7 @@ impl CompileContext {
         (start, count)
     }
 
-    pub fn get_parameter(&self, index: u32) -> Option<DeclarationId> {
+    pub fn get_declaration_member(&self, index: u32) -> Option<DeclarationId> {
         self.declaration_members.get_index(index as usize).copied()
     }
 
@@ -375,12 +375,23 @@ impl CompileContext {
                 }
             }
             Type::Struct { name, fields } => {
-                let mut field_type_ids = SmallVec::<[TypeId; 8]>::with_capacity(fields.len());
+                let mut field_declaration_ids =
+                    SmallVec::<[DeclarationId; 8]>::with_capacity(fields.len());
 
-                for (_field_name, field_type) in fields {
-                    let field_type_id = self.add_full_type(field_type);
+                for (field_name, field_type) in fields {
+                    let declaration_id = self.add_declaration(
+                        field_name,
+                        Declaration {
+                            kind: DeclarationKind::Type,
+                            scope_id: ScopeId::PROJECT,
+                            position: Position::default(),
+                            is_public: false,
+                        },
+                    );
+                    let type_id = self.add_full_type(field_type);
 
-                    field_type_ids.push(field_type_id);
+                    field_declaration_ids.push(declaration_id);
+                    self.set_declaration_type(declaration_id, type_id);
                 }
 
                 let declaration_id = self.add_declaration(
@@ -392,7 +403,7 @@ impl CompileContext {
                         is_public: false,
                     },
                 );
-                let fields = self.add_type_members(&field_type_ids);
+                let fields = self.add_declaration_members(&field_declaration_ids);
 
                 TypeNode::Struct {
                     declaration_id,
@@ -426,10 +437,16 @@ impl CompileContext {
                 value_parameters,
                 return_type_id,
             } => {
-                let type_parameters =
-                    self.get_members_as_full_types(type_parameters.0, type_parameters.1, source)?;
-                let value_parameters =
-                    self.get_members_as_full_types(value_parameters.0, value_parameters.1, source)?;
+                let type_parameters = self.get_type_members_as_full_types(
+                    type_parameters.0,
+                    type_parameters.1,
+                    source,
+                )?;
+                let value_parameters = self.get_type_members_as_full_types(
+                    value_parameters.0,
+                    value_parameters.1,
+                    source,
+                )?;
                 let return_type = self.get_full_type(*return_type_id, source)?;
 
                 Some(Type::Function(Box::new(FunctionType {
@@ -453,15 +470,27 @@ impl CompileContext {
                     .get_span(declaration.position.span)
                     .to_string();
 
-                Some(Type::Struct {
-                    name,
-                    fields: self
-                        .get_members_as_full_types(fields.0, fields.1, source)?
-                        .into_iter()
-                        .enumerate()
-                        .map(|(i, field_type)| (format!("field{}", i), field_type))
-                        .collect(),
-                })
+                let start = fields.0 as usize;
+                let count = fields.1 as usize;
+
+                let mut fields = Vec::with_capacity(count);
+
+                for index in start..(start + count) {
+                    let field_declaration_id = *self.declaration_members.get_index(index)?;
+                    let field_declaration = self.get_declaration(field_declaration_id)?;
+                    let file = source.get_file(field_declaration.position.file_id)?;
+                    let field_name = file
+                        .source_code
+                        .get_span(field_declaration.position.span)
+                        .to_string();
+
+                    let field_type_id = self.get_declaration_type(&field_declaration_id)?;
+                    let field_type = self.get_full_type(*field_type_id, source)?;
+
+                    fields.push((field_name, field_type));
+                }
+
+                Some(Type::Struct { name, fields })
             }
             TypeNode::Enum { .. } => {
                 todo!()
@@ -469,7 +498,7 @@ impl CompileContext {
         }
     }
 
-    fn get_members_as_full_types(
+    fn get_type_members_as_full_types(
         &self,
         start: u32,
         count: u32,

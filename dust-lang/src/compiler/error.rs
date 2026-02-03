@@ -176,6 +176,9 @@ pub enum CompileError {
     MissingDeclarationType {
         declaration_id: DeclarationId,
     },
+    MissingDeclarationMember {
+        member_index: u32,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -227,6 +230,7 @@ impl AnnotatedError for CompileError {
             CompileError::MissingDeclarationType { .. } => SourceFileId::default(),
             CompileError::InvalidExpression { position, .. } => position.file_id,
             CompileError::ExpectedStructType { .. } => SourceFileId::default(),
+            CompileError::MissingDeclarationMember { .. } => SourceFileId::default(),
         }
     }
 
@@ -643,6 +647,13 @@ impl AnnotatedError for CompileError {
             CompileError::ExpectedStructType { type_node } => {
                 let title = format!(
                     "Expected a struct type, found {type_node:?}, this is a bug in the compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::MissingDeclarationMember { member_index } => {
+                let title = format!(
+                    "Declaration member at index {member_index} was missing, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

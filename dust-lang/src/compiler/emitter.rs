@@ -112,7 +112,10 @@ impl<'a> Emitter<'a> {
 
             for index in 0..count {
                 let current_parameter_index = start + index;
-                if let Some(parameter_id) = emitter.context.get_parameter(current_parameter_index) {
+                if let Some(parameter_id) = emitter
+                    .context
+                    .get_declaration_member(current_parameter_index)
+                {
                     let target = emitter.allocate_local_register();
 
                     emitter.locals.insert(parameter_id, target);
@@ -1570,38 +1573,13 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 count: node.inner().children.1,
             })?;
 
-        let struct_type_id = *self
-            .context
-            .get_type_binding(&node.id)
-            .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
-        let struct_type_node =
-            *self
-                .context
-                .get_type(struct_type_id)
-                .ok_or(CompileError::MissingType {
-                    type_id: struct_type_id,
-                })?;
-        let field_types = if let TypeNode::Struct { fields, .. } = struct_type_node {
-            self.context
-                .get_type_members(fields.0, fields.1)
-                .ok_or(CompileError::MissingTypeMembers {
-                    start_index: fields.0,
-                    count: fields.1,
-                })?
-                .iter()
-                .copied()
-                .collect::<SmallVec<[TypeId; 8]>>()
-        } else {
-            return Err(CompileError::ExpectedStructType {
-                type_node: struct_type_node,
-            });
-        };
         let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+        let field_count = fields.len() as u16;
 
         let mut struct_emission = InstructionsEmission::new();
         let mut base_register = None;
 
-        for (field_type, field) in field_types.iter().zip(fields.into_iter()) {
+        for field in fields {
             let field_expression = field.right_child().ok_or(CompileError::MissingChild {
                 parent_kind: field.kind(),
                 child_index: 1,
@@ -1612,11 +1590,16 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 field_emission,
                 &field_expression,
             )?;
+            let field_type_id = *self.context.get_type_binding(&field_expression.id).ok_or(
+                CompileError::MissingTypeBinding {
+                    syntax_id: field_expression.id,
+                },
+            )?;
             let operand_type =
                 self.context
-                    .get_operand_type(*field_type)
+                    .get_operand_type(field_type_id)
                     .ok_or(CompileError::MissingType {
-                        type_id: *field_type,
+                        type_id: field_type_id,
                     })?;
             let destination = if target.is_temporary() {
                 self.allocate_temporary_register()
@@ -1633,11 +1616,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             }
         }
 
-        let struct_reference_instruction = Instruction::reference(
-            target.index(),
-            base_register.unwrap_or(0),
-            field_types.len() as u16,
-        );
+        let struct_reference_instruction =
+            Instruction::reference(target.index(), base_register.unwrap_or(0), field_count);
 
         struct_emission.push(struct_reference_instruction);
         struct_emission.set_target(Some(target));

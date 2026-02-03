@@ -2,7 +2,9 @@ use smallvec::SmallVec;
 use tracing::debug;
 
 use crate::{
-    compiler::{CompileContext, CompileError, TypeId, TypeNode, get_type_id},
+    compiler::{
+        CompileContext, CompileError, TypeId, TypeNode, context::DeclarationId, get_type_id,
+    },
     source::{Position, Source, SourceFileId},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
     r#type::Type,
@@ -173,7 +175,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 count: node.inner().children.1,
             })?;
 
-        let mut fields = SmallVec::<[TypeId; 8]>::new();
+        let mut fields = SmallVec::<[DeclarationId; 8]>::new();
 
         for field in struct_fields {
             let field_name = field.left_child().ok_or(CompileError::MissingChild {
@@ -195,14 +197,14 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
             self.context
                 .set_declaration_type(field_declaration_id, field_type_id);
-            fields.push(field_type_id);
+            fields.push(field_declaration_id);
         }
 
         let declaration_id = *self
             .context
             .get_declaration_binding(&node.id)
             .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let fields = self.context.add_type_members(&fields);
+        let fields = self.context.add_declaration_members(&fields);
         let struct_type = TypeNode::Struct {
             declaration_id,
             fields,

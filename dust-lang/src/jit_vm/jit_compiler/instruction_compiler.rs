@@ -22,7 +22,7 @@ use crate::{
         SetList, Subtract, Test, ToString,
     },
     jit_vm::{
-        JitError, RegisterTag,
+        JitError, Register, RegisterTag,
         thread_pool::{JitPrototype, ThreadContextFields},
     },
     native_function::NativeFunction,
@@ -98,7 +98,7 @@ impl<'a> InstructionCompiler<'a> {
             Operation::TO_STRING => self.compile_to_string(instruction, ip, builder),
             Operation::JUMP => self.compile_jump(instruction, ip, builder),
             Operation::DROP => self.compile_drop(instruction, ip, builder),
-            Operation::RETURN => self.compile_return(instruction, builder),
+            Operation::RETURN => self.compile_return(instruction, ip, builder),
             _ => Err(JitError::UnsupportedOperation { operation }),
         }
     }
@@ -1135,6 +1135,7 @@ impl<'a> InstructionCompiler<'a> {
     fn compile_return(
         &mut self,
         instruction: &Instruction,
+        ip: usize,
         builder: &mut FunctionBuilder,
     ) -> Result<(), JitError> {
         let Return { operand, r#type } = Return::from(instruction);
@@ -1143,19 +1144,73 @@ impl<'a> InstructionCompiler<'a> {
             let zero = builder.ins().iconst(I64, 0);
 
             builder.ins().return_(&[zero]);
-        } else {
-            let value = self.get_value(operand, r#type, builder)?;
-            let value_type = builder.func.dfg.value_type(value);
-            let return_value = if value_type == I64 {
-                value
-            } else if value_type == F64 {
-                builder.ins().bitcast(I64, MemFlags::new(), value)
-            } else {
-                builder.ins().uextend(I64, value)
-            };
-
-            builder.ins().return_(&[return_value]);
+            return Ok(());
         }
+
+        if r#type == OperandType::COMPOUND {
+            if operand.memory != MemoryKind::REGISTER {
+                return Err(JitError::UnsupportedMemoryKind {
+                    memory_kind: operand.memory,
+                });
+            }
+
+            let mut reference_range = None;
+
+            for instructions in self.prototype.instructions[..ip].iter().rev() {
+                if instructions.operation() == Operation::REFERENCE {
+                    let Reference {
+                        destination,
+                        start,
+                        length,
+                    } = Reference::from(instructions);
+
+                    if destination == operand.index {
+                        let end = start + length - 1;
+                        reference_range = Some((start, end));
+                        break;
+                    }
+                }
+            }
+
+            if let Some((start, end)) = reference_range {
+                for register_index in start..=end {
+                    let ssa_variable = self.ssa_registers.get(register_index as usize).ok_or(
+                        JitError::RegisterIndexOutOfBounds {
+                            register_index,
+                            total_register_count: self.ssa_registers.len(),
+                        },
+                    )?;
+                    let value = builder.use_var(*ssa_variable);
+
+                    let absolute_register_index = builder
+                        .ins()
+                        .iadd_imm(self.base_register_index, register_index as i64);
+                    let register_offset = builder
+                        .ins()
+                        .imul_imm(absolute_register_index, size_of::<Register>() as i64);
+                    let register_address = builder.ins().iadd(
+                        self.thread_context_fields.register_buffer_pointer,
+                        register_offset,
+                    );
+
+                    builder
+                        .ins()
+                        .store(MemFlags::new(), value, register_address, 0);
+                }
+            }
+        }
+
+        let value = self.get_value(operand, r#type, builder)?;
+        let value_type = builder.func.dfg.value_type(value);
+        let return_value = if value_type == I64 {
+            value
+        } else if value_type == F64 {
+            builder.ins().bitcast(I64, MemFlags::new(), value)
+        } else {
+            builder.ins().uextend(I64, value)
+        };
+
+        builder.ins().return_(&[return_value]);
 
         Ok(())
     }
