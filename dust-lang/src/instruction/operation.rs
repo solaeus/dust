@@ -13,47 +13,48 @@ impl Operation {
 
     // Memory manipulation
     pub const MOVE: Operation = Operation(1);
-    pub const DROP: Operation = Operation(2);
+    pub const REFERENCE: Operation = Operation(2);
+    pub const DROP: Operation = Operation(3);
 
     // List operations
-    pub const NEW_LIST: Operation = Operation(3);
-    pub const SET_LIST: Operation = Operation(4);
-    pub const GET_LIST: Operation = Operation(5);
+    pub const NEW_LIST: Operation = Operation(4);
+    pub const SET_LIST: Operation = Operation(5);
+    pub const GET_LIST: Operation = Operation(6);
 
     // Arithmetic binary operations
-    pub const ADD: Operation = Operation(6);
-    pub const SUBTRACT: Operation = Operation(7);
-    pub const MULTIPLY: Operation = Operation(8);
-    pub const DIVIDE: Operation = Operation(9);
-    pub const MODULO: Operation = Operation(10);
-    pub const POWER: Operation = Operation(11);
+    pub const ADD: Operation = Operation(7);
+    pub const SUBTRACT: Operation = Operation(8);
+    pub const MULTIPLY: Operation = Operation(9);
+    pub const DIVIDE: Operation = Operation(10);
+    pub const MODULO: Operation = Operation(11);
+    pub const POWER: Operation = Operation(12);
 
     // Comparison binary operations
-    pub const EQUAL: Operation = Operation(12);
-    pub const LESS: Operation = Operation(13);
-    pub const LESS_EQUAL: Operation = Operation(14);
+    pub const EQUAL: Operation = Operation(13);
+    pub const LESS: Operation = Operation(14);
+    pub const LESS_EQUAL: Operation = Operation(15);
 
     // Logical AND/OR operations
-    pub const TEST: Operation = Operation(15);
+    pub const TEST: Operation = Operation(16);
 
     // Unary numeric negation and logical NOT
-    pub const NEGATE: Operation = Operation(16);
+    pub const NEGATE: Operation = Operation(17);
 
     // Function calls
-    pub const CALL: Operation = Operation(17);
-    pub const CALL_NATIVE: Operation = Operation(18);
+    pub const CALL: Operation = Operation(18);
+    pub const CALL_NATIVE: Operation = Operation(19);
 
     // Control flow
-    pub const JUMP: Operation = Operation(19);
-    pub const RETURN: Operation = Operation(20);
+    pub const JUMP: Operation = Operation(20);
+    pub const RETURN: Operation = Operation(21);
 
     // Type conversions
-    pub const TO_BOOLEAN: Operation = Operation(21);
-    pub const TO_BYTE: Operation = Operation(22);
-    pub const TO_CHARACTER: Operation = Operation(23);
-    pub const TO_FLOAT: Operation = Operation(24);
-    pub const TO_INTEGER: Operation = Operation(25);
-    pub const TO_STRING: Operation = Operation(26);
+    pub const TO_BOOLEAN: Operation = Operation(22);
+    pub const TO_BYTE: Operation = Operation(23);
+    pub const TO_CHARACTER: Operation = Operation(24);
+    pub const TO_FLOAT: Operation = Operation(25);
+    pub const TO_INTEGER: Operation = Operation(26);
+    pub const TO_STRING: Operation = Operation(27);
 }
 
 impl Operation {
@@ -61,6 +62,7 @@ impl Operation {
         match *self {
             Self::NO_OP => "NO_OP",
             Self::MOVE => "MOVE",
+            Self::REFERENCE => "REFERENCE",
             Self::DROP => "DROP",
             Self::NEW_LIST => "NEW_LIST",
             Self::SET_LIST => "SET_LIST",

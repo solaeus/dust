@@ -3,7 +3,7 @@ use tracing::debug;
 
 use crate::{
     compiler::{CompileContext, CompileError, TypeId, TypeNode, get_type_id},
-    source::{Position, SourceFileId},
+    source::{Position, Source, SourceFileId},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
     r#type::Type,
 };
@@ -14,19 +14,23 @@ pub struct TypeBinder<'a> {
 
     syntax: &'a Syntax,
 
+    source: &'a Source,
+
     context: &'a mut CompileContext,
 }
 
 impl<'a> TypeBinder<'a> {
     pub fn new(
         file_id: SourceFileId,
+        syntax: &'a Syntax,
+        source: &'a Source,
         context: &'a mut CompileContext,
-        syntax_tree: &'a Syntax,
     ) -> Self {
         Self {
             file_id,
+            syntax,
+            source,
             context,
-            syntax: syntax_tree,
         }
     }
 
@@ -70,8 +74,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 count: node.inner().children.1,
             })?;
         let last_child = children.len() - 1;
-        let return_type_id = self.context.types.create_inferred_type();
-        let main_type_id = self.context.types.add_type(TypeNode::Function {
+        let return_type_id = self.context.create_inferred_type();
+        let main_type_id = self.context.add_type(TypeNode::Function {
             type_parameters: (0, 0),
             value_parameters: (0, 0),
             return_type_id,
@@ -83,15 +87,16 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             self.context.set_type_binding(child.id, child_type);
 
             if index == last_child {
-                let unified = self.context.types.unify_types(return_type_id, child_type)?;
+                let unified = self.context.unify_types(return_type_id, child_type)?;
 
                 if !unified {
-                    let expected = self.context.types.get_full_type(return_type_id).ok_or(
-                        CompileError::MissingType {
+                    let expected = self
+                        .context
+                        .get_full_type(return_type_id, self.source)
+                        .ok_or(CompileError::MissingType {
                             type_id: return_type_id,
-                        },
-                    )?;
-                    let found = self.context.types.get_full_type(child_type).ok_or(
+                        })?;
+                    let found = self.context.get_full_type(child_type, self.source).ok_or(
                         CompileError::MissingType {
                             type_id: child_type,
                         },
@@ -193,14 +198,17 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             fields.push(field_type_id);
         }
 
-        let fields = self.context.types.add_type_members(&fields);
-        let struct_id = self.context.types.create_defined_type_id();
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&node.id)
+            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+        let fields = self.context.add_type_members(&fields);
         let struct_type = TypeNode::Struct {
-            id: struct_id,
+            declaration_id,
             fields,
             generics: (0, 0),
         };
-        let struct_type_id = self.context.types.add_type(struct_type);
+        let struct_type_id = self.context.add_type(struct_type);
         let declaration_id = *self
             .context
             .get_declaration_binding(&node.id)
@@ -266,20 +274,21 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
             let unified = self
                 .context
-                .types
                 .unify_types(expression_type_id, explicit_type)?;
 
             if !unified {
-                let expected = self.context.types.get_full_type(expression_type_id).ok_or(
-                    CompileError::MissingType {
+                let expected = self
+                    .context
+                    .get_full_type(expression_type_id, self.source)
+                    .ok_or(CompileError::MissingType {
                         type_id: expression_type_id,
-                    },
-                )?;
-                let found = self.context.types.get_full_type(explicit_type).ok_or(
-                    CompileError::MissingType {
+                    })?;
+                let found = self
+                    .context
+                    .get_full_type(explicit_type, self.source)
+                    .ok_or(CompileError::MissingType {
                         type_id: explicit_type,
-                    },
-                )?;
+                    })?;
 
                 return Err(CompileError::TypeConflict {
                     expected,
@@ -322,17 +331,16 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let path_type = {
             let raw = self.visit(path, input)?;
 
-            self.context.types.infer_type(raw)
+            self.context.infer_type(raw)
         };
         let expression_type = {
             let raw = self.visit(expression, input)?;
 
-            self.context.types.infer_type(raw)
+            self.context.infer_type(raw)
         };
 
         let unified = self
             .context
-            .types
             .unify_inferred_types(path_type, expression_type)?;
         let is_character_concatenation = matches!(
             node.kind(),
@@ -345,14 +353,14 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         if !unified && !is_character_concatenation {
             let expected = self
                 .context
-                .types
-                .get_full_type(path_type)
+                .get_full_type(path_type, self.source)
                 .ok_or(CompileError::MissingType { type_id: path_type })?;
-            let found = self.context.types.get_full_type(expression_type).ok_or(
-                CompileError::MissingType {
+            let found = self
+                .context
+                .get_full_type(expression_type, self.source)
+                .ok_or(CompileError::MissingType {
                     type_id: expression_type,
-                },
-            )?;
+                })?;
 
             return Err(CompileError::TypeConflict {
                 expected,
@@ -394,19 +402,19 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let path_type = self.visit(path, ())?;
         let expression_type = self.visit(expression, ())?;
 
-        let unified = self.context.types.unify_types(path_type, expression_type)?;
+        let unified = self.context.unify_types(path_type, expression_type)?;
 
         if !unified {
             let expected = self
                 .context
-                .types
-                .get_full_type(path_type)
+                .get_full_type(path_type, self.source)
                 .ok_or(CompileError::MissingType { type_id: path_type })?;
-            let found = self.context.types.get_full_type(expression_type).ok_or(
-                CompileError::MissingType {
+            let found = self
+                .context
+                .get_full_type(expression_type, self.source)
+                .ok_or(CompileError::MissingType {
                     type_id: expression_type,
-                },
-            )?;
+                })?;
 
             return Err(CompileError::TypeConflict {
                 expected,
@@ -514,15 +522,16 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         for child in children {
             if let Some(element_type) = element_type {
                 let child_type = self.visit(child, ())?;
-                let unified = self.context.types.unify_types(element_type, child_type);
+                let unified = self.context.unify_types(element_type, child_type);
 
                 if !unified? {
-                    let expected = self.context.types.get_full_type(element_type).ok_or(
-                        CompileError::MissingType {
+                    let expected = self
+                        .context
+                        .get_full_type(element_type, self.source)
+                        .ok_or(CompileError::MissingType {
                             type_id: element_type,
-                        },
-                    )?;
-                    let found = self.context.types.get_full_type(child_type).ok_or(
+                        })?;
+                    let found = self.context.get_full_type(child_type, self.source).ok_or(
                         CompileError::MissingType {
                             type_id: child_type,
                         },
@@ -544,9 +553,9 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let element_type = if let Some(element_type) = element_type {
             element_type
         } else {
-            self.context.types.create_inferred_type()
+            self.context.create_inferred_type()
         };
-        let list_type = self.context.types.add_type(TypeNode::List { element_type });
+        let list_type = self.context.add_type(TypeNode::List { element_type });
 
         self.context.set_type_binding(node.id, list_type);
 
@@ -572,20 +581,21 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let list_type_id = {
             let raw = self.visit(list_expression, input)?;
 
-            self.context.types.infer_type(raw)
+            self.context.infer_type(raw)
         };
         let index_type_id = {
             let raw = self.visit(index_expression, input)?;
 
-            self.context.types.infer_type(raw)
+            self.context.infer_type(raw)
         };
 
         if index_type_id != TypeId::INTEGER {
-            let found = self.context.types.get_full_type(index_type_id).ok_or(
-                CompileError::MissingType {
+            let found = self
+                .context
+                .get_full_type(index_type_id, self.source)
+                .ok_or(CompileError::MissingType {
                     type_id: index_type_id,
-                },
-            )?;
+                })?;
 
             return Err(CompileError::TypeConflict {
                 expected: Type::Integer,
@@ -594,14 +604,12 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             });
         }
 
-        let list_type =
-            *self
-                .context
-                .types
-                .get_type(list_type_id)
-                .ok_or(CompileError::MissingType {
-                    type_id: list_type_id,
-                })?;
+        let list_type = *self
+            .context
+            .get_type(list_type_id)
+            .ok_or(CompileError::MissingType {
+                type_id: list_type_id,
+            })?;
         let element_type = match list_type {
             TypeNode::List { element_type } => {
                 self.context.set_type_binding(node.id, element_type);
@@ -610,11 +618,12 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             }
             _ => {
                 return Err(CompileError::CannotIndex {
-                    r#type: self.context.types.get_full_type(list_type_id).ok_or(
-                        CompileError::MissingType {
+                    r#type: self
+                        .context
+                        .get_full_type(list_type_id, self.source)
+                        .ok_or(CompileError::MissingType {
                             type_id: list_type_id,
-                        },
-                    )?,
+                        })?,
                     position: Position::new(self.file_id, list_expression.span()),
                 });
             }
@@ -686,7 +695,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             let field_type = {
                 let raw = self.visit(field_expression, input)?;
 
-                self.context.types.infer_type(raw)
+                self.context.infer_type(raw)
             };
 
             self.context
@@ -717,7 +726,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             let child_type = {
                 let raw = self.visit(child, ())?;
 
-                self.context.types.infer_type(raw)
+                self.context.infer_type(raw)
             };
             block_type_id = child_type;
 
@@ -756,15 +765,16 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let condition_type = {
             let raw = self.visit(condition, ())?;
 
-            self.context.types.infer_type(raw)
+            self.context.infer_type(raw)
         };
 
         if condition_type != TypeId::BOOLEAN {
-            let found = self.context.types.get_full_type(condition_type).ok_or(
-                CompileError::MissingType {
+            let found = self
+                .context
+                .get_full_type(condition_type, self.source)
+                .ok_or(CompileError::MissingType {
                     type_id: condition_type,
-                },
-            )?;
+                })?;
 
             return Err(CompileError::TypeConflict {
                 expected: Type::Boolean,
@@ -778,18 +788,16 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         if let Some(else_expression) = children.next() {
             let else_type = self.visit_else_expression(else_expression, ())?;
 
-            let unified = self.context.types.unify_types(then_type, else_type)?;
+            let unified = self.context.unify_types(then_type, else_type)?;
 
             if !unified {
                 let expected = self
                     .context
-                    .types
-                    .get_full_type(then_type)
+                    .get_full_type(then_type, self.source)
                     .ok_or(CompileError::MissingType { type_id: then_type })?;
                 let found = self
                     .context
-                    .types
-                    .get_full_type(else_type)
+                    .get_full_type(else_type, self.source)
                     .ok_or(CompileError::MissingType { type_id: else_type })?;
 
                 return Err(CompileError::TypeConflict {
@@ -841,12 +849,12 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let left_type = {
             let raw = self.visit(left_child, ())?;
 
-            self.context.types.infer_type(raw)
+            self.context.infer_type(raw)
         };
         let right_type = {
             let raw = self.visit(right_child, ())?;
 
-            self.context.types.infer_type(raw)
+            self.context.infer_type(raw)
         };
 
         let is_character_concatenation = matches!(
@@ -860,20 +868,16 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let math_expression_type = if is_character_concatenation {
             TypeId::STRING
         } else {
-            let unified = self
-                .context
-                .types
-                .unify_inferred_types(left_type, right_type)?;
+            let unified = self.context.unify_inferred_types(left_type, right_type)?;
 
             if unified {
                 left_type
             } else {
                 let expected = self
                     .context
-                    .types
-                    .get_full_type(left_type)
+                    .get_full_type(left_type, self.source)
                     .ok_or(CompileError::MissingType { type_id: left_type })?;
-                let found = self.context.types.get_full_type(right_type).ok_or(
+                let found = self.context.get_full_type(right_type, self.source).ok_or(
                     CompileError::MissingType {
                         type_id: right_type,
                     },
@@ -911,21 +915,18 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let left_type = self.visit(left_child, ())?;
         let right_type = self.visit(right_child, ())?;
 
-        let unified = self.context.types.unify_types(left_type, right_type)?;
+        let unified = self.context.unify_types(left_type, right_type)?;
 
         if !unified {
             let expected = self
                 .context
-                .types
-                .get_full_type(left_type)
+                .get_full_type(left_type, self.source)
                 .ok_or(CompileError::MissingType { type_id: left_type })?;
-            let found =
-                self.context
-                    .types
-                    .get_full_type(right_type)
-                    .ok_or(CompileError::MissingType {
-                        type_id: right_type,
-                    })?;
+            let found = self.context.get_full_type(right_type, self.source).ok_or(
+                CompileError::MissingType {
+                    type_id: right_type,
+                },
+            )?;
 
             return Err(CompileError::TypeConflict {
                 expected,
@@ -958,19 +959,18 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let left_type = {
             let raw = self.visit(left_child, input)?;
 
-            self.context.types.infer_type(raw)
+            self.context.infer_type(raw)
         };
         let right_type = {
             let raw = self.visit(right_child, input)?;
 
-            self.context.types.infer_type(raw)
+            self.context.infer_type(raw)
         };
 
         if left_type != TypeId::BOOLEAN {
             let found = self
                 .context
-                .types
-                .get_full_type(left_type)
+                .get_full_type(left_type, self.source)
                 .ok_or(CompileError::MissingType { type_id: left_type })?;
 
             return Err(CompileError::TypeConflict {
@@ -981,13 +981,11 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         }
 
         if right_type != TypeId::BOOLEAN {
-            let found =
-                self.context
-                    .types
-                    .get_full_type(right_type)
-                    .ok_or(CompileError::MissingType {
-                        type_id: right_type,
-                    })?;
+            let found = self.context.get_full_type(right_type, self.source).ok_or(
+                CompileError::MissingType {
+                    type_id: right_type,
+                },
+            )?;
 
             return Err(CompileError::TypeConflict {
                 expected: Type::Boolean,
@@ -1015,7 +1013,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let child_type = {
             let raw = self.visit(child, ())?;
 
-            self.context.types.infer_type(raw)
+            self.context.infer_type(raw)
         };
 
         match child_type {
@@ -1025,7 +1023,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 Ok(child_type)
             }
             _ => {
-                let found = self.context.types.get_full_type(child_type).ok_or(
+                let found = self.context.get_full_type(child_type, self.source).ok_or(
                     CompileError::MissingType {
                         type_id: child_type,
                     },
@@ -1059,15 +1057,16 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let condition_type = {
             let raw = self.visit(condition, ())?;
 
-            self.context.types.infer_type(raw)
+            self.context.infer_type(raw)
         };
 
         if condition_type != TypeId::BOOLEAN {
-            let found = self.context.types.get_full_type(condition_type).ok_or(
-                CompileError::MissingType {
+            let found = self
+                .context
+                .get_full_type(condition_type, self.source)
+                .ok_or(CompileError::MissingType {
                     type_id: condition_type,
-                },
-            )?;
+                })?;
 
             return Err(CompileError::TypeConflict {
                 expected: Type::Boolean,
@@ -1148,11 +1147,11 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 TypeId::NONE
             };
 
-            self.context.types.infer_type(raw)
+            self.context.infer_type(raw)
         };
 
-        let value_parameter_children = self.context.types.add_type_members(&value_parameter_types);
-        let function_type = self.context.types.add_type(TypeNode::Function {
+        let value_parameter_children = self.context.add_type_members(&value_parameter_types);
+        let function_type = self.context.add_type(TypeNode::Function {
             type_parameters: (0, 0),
             value_parameters: value_parameter_children,
             return_type_id,
@@ -1192,7 +1191,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let callee_type = {
             let raw = self.visit(callee, ())?;
 
-            self.context.types.infer_type(raw)
+            self.context.infer_type(raw)
         };
 
         let TypeNode::Function {
@@ -1201,7 +1200,6 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             ..
         } = *self
             .context
-            .types
             .get_type(callee_type)
             .ok_or(CompileError::MissingType {
                 type_id: callee_type,
@@ -1214,7 +1212,6 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         let expected_parameters = self
             .context
-            .types
             .get_type_members(value_parameters.0, value_parameters.1)
             .ok_or(CompileError::MissingTypeMembers {
                 start_index: value_parameters.0,
@@ -1240,25 +1237,24 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         for (argument, expected_type) in argument_nodes.zip(expected_parameters.into_iter()) {
             let argument_type = {
                 let raw = self.visit(argument, ())?;
-                self.context.types.infer_type(raw)
+                self.context.infer_type(raw)
             };
 
-            let unified = self
-                .context
-                .types
-                .unify_types(expected_type, argument_type)?;
+            let unified = self.context.unify_types(expected_type, argument_type)?;
 
             if !unified {
-                let expected = self.context.types.get_full_type(expected_type).ok_or(
-                    CompileError::MissingType {
+                let expected = self
+                    .context
+                    .get_full_type(expected_type, self.source)
+                    .ok_or(CompileError::MissingType {
                         type_id: expected_type,
-                    },
-                )?;
-                let found = self.context.types.get_full_type(argument_type).ok_or(
-                    CompileError::MissingType {
+                    })?;
+                let found = self
+                    .context
+                    .get_full_type(argument_type, self.source)
+                    .ok_or(CompileError::MissingType {
                         type_id: argument_type,
-                    },
-                )?;
+                    })?;
 
                 return Err(CompileError::TypeConflict {
                     expected,

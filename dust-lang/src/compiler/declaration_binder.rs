@@ -659,15 +659,17 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
         self.context
             .set_declaration_binding(path.id, struct_declaration.0);
+        self.context
+            .set_declaration_binding(node.id, struct_declaration.0);
 
         for field in fields {
-            let field_path = field.right_child().ok_or(CompileError::MissingChild {
-                parent_kind: field.kind(),
-                child_index: 1,
-            })?;
-            let field_value = field.left_child().ok_or(CompileError::MissingChild {
+            let field_path = field.left_child().ok_or(CompileError::MissingChild {
                 parent_kind: field.kind(),
                 child_index: 0,
+            })?;
+            let field_value = field.right_child().ok_or(CompileError::MissingChild {
+                parent_kind: field.kind(),
+                child_index: 1,
             })?;
 
             let field_name = source_file.source_code.get_span(field_path.span());

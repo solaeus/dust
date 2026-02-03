@@ -155,7 +155,8 @@ impl<'a> JitCompiler<'a> {
                 | Type::Character
                 | Type::Float
                 | Type::Integer
-                | Type::Function(_) => RegisterTag::SCALAR,
+                | Type::Function(_)
+                | Type::Struct { .. } => RegisterTag::SCALAR,
                 Type::String | Type::List(_) => RegisterTag::OBJECT,
             };
 

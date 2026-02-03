@@ -30,7 +30,7 @@ impl DustError {
 
     pub fn compile(error: CompileError, source: Source) -> Self {
         DustError {
-            error: DustErrorKind::Compile(error),
+            error: DustErrorKind::Compile(Box::new(error)),
             source,
         }
     }
@@ -95,7 +95,7 @@ impl DustError {
 #[derive(Debug)]
 pub enum DustErrorKind {
     Parse(Vec<ParseError>),
-    Compile(CompileError),
+    Compile(Box<CompileError>),
     Jit(JitError),
 }
 

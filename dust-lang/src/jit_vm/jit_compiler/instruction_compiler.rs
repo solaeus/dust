@@ -18,8 +18,8 @@ use crate::{
     constant_table::ConstantTable,
     instruction::{
         Add, Address, Call, CallNative, Divide, Drop, GetList, Instruction, Jump, MemoryKind,
-        Modulo, Move, Multiply, Negate, NewList, OperandType, Operation, Power, Return, SetList,
-        Subtract, Test, ToString,
+        Modulo, Move, Multiply, Negate, NewList, OperandType, Operation, Power, Reference, Return,
+        SetList, Subtract, Test, ToString,
     },
     jit_vm::{
         JitError, RegisterTag,
@@ -78,6 +78,7 @@ impl<'a> InstructionCompiler<'a> {
 
         match operation {
             Operation::MOVE => self.compile_move(instruction, ip, builder),
+            Operation::REFERENCE => self.compile_reference(instruction, ip, builder),
             Operation::TEST => self.compile_test(instruction, ip, builder),
             Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL => {
                 self.compile_comparison(instruction, ip, operation, builder)
@@ -135,6 +136,32 @@ impl<'a> InstructionCompiler<'a> {
         } else {
             builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
         }
+
+        Ok(())
+    }
+
+    fn compile_reference(
+        &mut self,
+        instruction: &Instruction,
+        ip: usize,
+        builder: &mut FunctionBuilder,
+    ) -> Result<(), JitError> {
+        let Reference {
+            destination,
+            start,
+            length,
+        } = Reference::from(instruction);
+
+        // Pack the start and end into a 64-bit value:
+        // start in low 32 bits, end (inclusive) in high 32 bits.
+        let end = start + length - 1;
+        let start_value = builder.ins().iconst(I64, start as i64);
+        let end_value = builder.ins().iconst(I64, end as i64);
+        let shifted_end = builder.ins().ishl_imm(end_value, 32);
+        let encoded = builder.ins().bor(shifted_end, start_value);
+
+        self.set_register_and_tag(destination, encoded, OperandType::COMPOUND, builder)?;
+        builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
 
         Ok(())
     }
@@ -1112,22 +1139,23 @@ impl<'a> InstructionCompiler<'a> {
     ) -> Result<(), JitError> {
         let Return { operand, r#type } = Return::from(instruction);
 
-        let return_value = if r#type == OperandType::NONE {
-            builder.ins().iconst(I64, 0)
+        if let OperandType::NONE = r#type {
+            let zero = builder.ins().iconst(I64, 0);
+
+            builder.ins().return_(&[zero]);
         } else {
             let value = self.get_value(operand, r#type, builder)?;
             let value_type = builder.func.dfg.value_type(value);
-
-            if value_type == I64 {
+            let return_value = if value_type == I64 {
                 value
             } else if value_type == F64 {
                 builder.ins().bitcast(I64, MemFlags::new(), value)
             } else {
                 builder.ins().uextend(I64, value)
-            }
-        };
+            };
 
-        builder.ins().return_(&[return_value]);
+            builder.ins().return_(&[return_value]);
+        }
 
         Ok(())
     }
@@ -1161,6 +1189,21 @@ impl<'a> InstructionCompiler<'a> {
                     register_index: address.index,
                     total_register_count: self.ssa_registers.len(),
                 }),
+            OperandType::COMPOUND => {
+                if address.memory == MemoryKind::REGISTER {
+                    self.ssa_registers
+                        .get(address.index as usize)
+                        .map(|ssa_variable| builder.use_var(*ssa_variable))
+                        .ok_or(JitError::RegisterIndexOutOfBounds {
+                            register_index: address.index,
+                            total_register_count: self.ssa_registers.len(),
+                        })
+                } else {
+                    Err(JitError::UnsupportedMemoryKind {
+                        memory_kind: address.memory,
+                    })
+                }
+            }
             _ => Err(JitError::UnsupportedOperandType {
                 operand_type: r#type,
             }),
@@ -1407,7 +1450,8 @@ impl<'a> InstructionCompiler<'a> {
             | OperandType::CHARACTER
             | OperandType::FLOAT
             | OperandType::INTEGER
-            | OperandType::FUNCTION => RegisterTag::SCALAR,
+            | OperandType::FUNCTION
+            | OperandType::COMPOUND => RegisterTag::SCALAR,
             OperandType::STRING
             | OperandType::LIST_BOOLEAN
             | OperandType::LIST_BYTE

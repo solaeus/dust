@@ -2,8 +2,8 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     compiler::{
+        TypeId, TypeNode,
         context::{DeclarationId, ScopeId},
-        type_graph::TypeId,
     },
     dust_error::AnnotatedError,
     source::{Position, SourceFileId},
@@ -78,6 +78,10 @@ pub enum CompileError {
         found: Type,
         position: Position,
     },
+    InvalidExpression {
+        node_kind: SyntaxKind,
+        position: Position,
+    },
 
     // Internal Errors (from incorrect Parser output)
     ChildIndexOutOfBounds {
@@ -97,6 +101,9 @@ pub enum CompileError {
     ExpectedFunctionBody {
         node_kind: SyntaxKind,
         position: Position,
+    },
+    ExpectedStructType {
+        type_node: TypeNode,
     },
     MissingChild {
         parent_kind: SyntaxKind,
@@ -218,6 +225,8 @@ impl AnnotatedError for CompileError {
             CompileError::CannotApplyOperator { position, .. } => position.file_id,
             CompileError::CannotIndex { position, .. } => position.file_id,
             CompileError::MissingDeclarationType { .. } => SourceFileId::default(),
+            CompileError::InvalidExpression { position, .. } => position.file_id,
+            CompileError::ExpectedStructType { .. } => SourceFileId::default(),
         }
     }
 
@@ -616,6 +625,24 @@ impl AnnotatedError for CompileError {
             CompileError::MissingDeclarationType { declaration_id } => {
                 let title = format!(
                     "Type for declaration id {declaration_id:?} was missing, this is a bug in the compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::InvalidExpression {
+                node_kind,
+                position,
+            } => {
+                let title = format!("This {node_kind} is not valid here");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
+                )
+            }
+            CompileError::ExpectedStructType { type_node } => {
+                let title = format!(
+                    "Expected a struct type, found {type_node:?}, this is a bug in the compiler"
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))

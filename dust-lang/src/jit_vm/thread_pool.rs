@@ -385,8 +385,6 @@ fn run_thread(
         }
         Type::Integer => Some(Value::Integer(encoded_return_value)),
         Type::String => {
-            debug!("{}", object_pool.report());
-
             let string = unsafe {
                 (encoded_return_value as *const Object)
                     .as_ref()
@@ -396,15 +394,36 @@ fn run_thread(
                     .clone()
             };
 
-            return Ok(Some(Value::String(string)));
+            Some(Value::String(string))
         }
         Type::List(_) => {
-            debug!("{}", object_pool.report());
-
             let object_pointer = encoded_return_value as *mut Object;
             let list = get_list_from_object_index(object_pointer, return_type)?;
 
-            return Ok(Some(Value::List(list)));
+            Some(Value::List(list))
+        }
+        Type::Struct {
+            name,
+            fields: field_types,
+        } => {
+            let main_function_registers =
+                &registers[0..=program.main_prototype().register_count as usize];
+
+            // Must match OperandType::COMPOUND packing in instruction_compiler.rs:
+            // start_index in low 32 bits, end_index in high 32 bits.
+            let encoded = encoded_return_value as u64;
+            let start_index = (encoded & 0xFFFF_FFFF) as usize;
+            let end_index = ((encoded >> 32) & 0xFFFF_FFFF) as usize;
+
+            let struct_value = get_struct_from_register_indices(
+                name.clone(),
+                start_index,
+                end_index,
+                main_function_registers,
+                field_types,
+            )?;
+
+            Some(struct_value)
         }
         Type::Function(_) => todo!("Error"),
     };
@@ -413,6 +432,77 @@ fn run_thread(
     debug!("{}", object_pool.report());
 
     Ok(return_value)
+}
+
+fn get_struct_from_register_indices(
+    name: String,
+    start_index: usize,
+    end_index: usize,
+    main_function_registers: &[Register],
+    field_types: &[(String, Type)],
+) -> Result<Value, JitError> {
+    let field_registers = &main_function_registers[start_index..=end_index];
+
+    let mut field_values = Vec::with_capacity(field_types.len());
+
+    for ((field_name, fields_type), field_register) in
+        field_types.iter().zip(field_registers.iter())
+    {
+        let field_value = match fields_type {
+            Type::Boolean => Value::Boolean(unsafe { field_register.boolean }),
+            Type::Byte => Value::Byte(unsafe { field_register.byte }),
+            Type::Character => Value::Character(unsafe { field_register.character }),
+            Type::Float => Value::Float(unsafe { field_register.float }),
+            Type::Integer => Value::Integer(unsafe { field_register.integer }),
+            Type::String => {
+                let object_pointer = unsafe { field_register.object_pointer };
+                let object = unsafe {
+                    object_pointer
+                        .as_ref()
+                        .ok_or(JitError::MissingReturnValue)?
+                };
+                let string = match &object.value {
+                    ObjectValue::String(string) => string.clone(),
+                    _ => {
+                        return Err(JitError::InvalidObjectValue {
+                            expected: OperandType::STRING,
+                        });
+                    }
+                };
+
+                Value::String(string)
+            }
+            Type::List(_) => {
+                let object_pointer = unsafe { field_register.object_pointer };
+                let list = get_list_from_object_index(object_pointer, fields_type)?;
+
+                Value::List(list)
+            }
+            Type::Struct { name, fields, .. } => {
+                let (start_register, end_register) = unsafe { field_register.register_indices };
+
+                get_struct_from_register_indices(
+                    name.clone(),
+                    start_register as usize,
+                    end_register as usize,
+                    main_function_registers,
+                    fields,
+                )?
+            }
+            _ => {
+                return Err(JitError::InvalidConstantType {
+                    expected_type: fields_type.as_operand_type(),
+                });
+            }
+        };
+
+        field_values.push((field_name.clone(), field_value));
+    }
+
+    Ok(Value::Struct {
+        name,
+        fields: field_values,
+    })
 }
 
 fn get_list_from_object_index(

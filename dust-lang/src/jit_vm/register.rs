@@ -13,6 +13,7 @@ pub union Register {
     pub integer: i64,
     pub prototype_index: usize,
     pub object_pointer: *mut Object,
+    pub register_indices: (u16, u16),
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

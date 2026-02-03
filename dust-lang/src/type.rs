@@ -19,6 +19,11 @@ pub enum Type {
     List(Box<Type>),
 
     Function(Box<FunctionType>),
+
+    Struct {
+        name: String,
+        fields: Vec<(String, Type)>,
+    },
 }
 
 impl Type {
@@ -70,8 +75,10 @@ impl Type {
                 Type::String => OperandType::LIST_STRING,
                 Type::Function(_) => OperandType::LIST_FUNCTION,
                 Type::List(_) => OperandType::LIST_LIST,
+                Type::Struct { .. } => OperandType::LIST_COMPOUND,
                 Type::None => panic!("A list's item type must be known, even if it is empty"),
             },
+            Type::Struct { .. } => OperandType::COMPOUND,
             Type::Function(_) => OperandType::FUNCTION,
         }
     }
@@ -80,14 +87,15 @@ impl Type {
 impl Display for Type {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Type::None => write!(f, "none"),
             Type::Boolean => write!(f, "bool"),
             Type::Byte => write!(f, "byte"),
             Type::Character => write!(f, "char"),
             Type::Float => write!(f, "float"),
             Type::Function(function_type) => write!(f, "{function_type}"),
             Type::Integer => write!(f, "int"),
-            Type::List(item_type) => write!(f, "List<{item_type}>"),
-            Type::None => write!(f, "none"),
+            Type::List(item_type) => write!(f, "[{item_type}]"),
+            Type::Struct { name, .. } => write!(f, "{name}"),
             Type::String => write!(f, "str"),
         }
     }

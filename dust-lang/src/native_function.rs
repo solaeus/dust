@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::compiler::{TypeGraph, TypeId, TypeNode};
+use crate::compiler::{CompileContext, TypeId, TypeNode};
 
 /// A Dust-native function.
 ///
@@ -15,7 +15,7 @@ pub struct NativeFunction {
 }
 
 impl NativeFunction {
-    pub fn no_op_signature(types: &mut TypeGraph) -> TypeId {
+    pub fn no_op_signature(types: &mut CompileContext) -> TypeId {
         types.add_type(TypeNode::Function {
             type_parameters: (0, 0),
             value_parameters: (0, 0),
@@ -23,7 +23,7 @@ impl NativeFunction {
         })
     }
 
-    pub fn read_line_signature(types: &mut TypeGraph) -> TypeId {
+    pub fn read_line_signature(types: &mut CompileContext) -> TypeId {
         types.add_type(TypeNode::Function {
             type_parameters: (0, 0),
             value_parameters: (0, 0),
@@ -31,7 +31,7 @@ impl NativeFunction {
         })
     }
 
-    pub fn write_line_signature(types: &mut TypeGraph) -> TypeId {
+    pub fn write_line_signature(types: &mut CompileContext) -> TypeId {
         let value_parameters = types.add_type_members(&[TypeId::STRING]);
 
         types.add_type(TypeNode::Function {
@@ -41,7 +41,7 @@ impl NativeFunction {
         })
     }
 
-    pub fn spawn_signature(types: &mut TypeGraph) -> TypeId {
+    pub fn spawn_signature(types: &mut CompileContext) -> TypeId {
         let function_argument_type_id = types.add_type(TypeNode::Function {
             type_parameters: (0, 0),
             value_parameters: (0, 0),

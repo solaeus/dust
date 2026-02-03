@@ -3,18 +3,17 @@ mod declaration_binder;
 mod emitter;
 mod error;
 mod type_binder;
-mod type_graph;
 
 #[cfg(test)]
 mod tests;
 
 pub use context::{
-    CompileContext, Declaration, DeclarationKind, ModuleKind, Scope, ScopeId, ScopeKind,
+    CompileContext, Declaration, DeclarationKind, ModuleKind, Scope, ScopeId, ScopeKind, TypeId,
+    TypeNode,
 };
 pub use emitter::Emitter;
 pub use error::CompileError;
 use smallvec::SmallVec;
-pub use type_graph::{TypeGraph, TypeId, TypeNode};
 
 use tracing::{Level, span};
 
@@ -166,8 +165,12 @@ impl Compiler {
             let span = span!(Level::INFO, "resolve");
             let _enter = span.enter();
 
-            let main_type_binder =
-                TypeBinder::new(SourceFileId::MAIN, &mut self.context, &self.syntax);
+            let main_type_binder = TypeBinder::new(
+                SourceFileId::MAIN,
+                &self.syntax,
+                &self.source,
+                &mut self.context,
+            );
 
             match main_type_binder.resolve_main() {
                 Ok(main_type) => main_type,
@@ -218,7 +221,7 @@ fn get_type_id(node: SyntaxReader, context: &mut CompileContext) -> Result<TypeI
             })?;
 
             let element_type_id = get_type_id(element_type_node, context)?;
-            let lise_type_id = context.types.add_type(TypeNode::List {
+            let lise_type_id = context.add_type(TypeNode::List {
                 element_type: element_type_id,
             });
 
@@ -253,7 +256,7 @@ fn get_type_id(node: SyntaxReader, context: &mut CompileContext) -> Result<TypeI
                         value_parameter_type_ids.push(type_id);
                     }
 
-                    context.types.add_type_members(&value_parameter_type_ids)
+                    context.add_type_members(&value_parameter_type_ids)
                 } else {
                     (0, 0)
                 };
@@ -276,11 +279,22 @@ fn get_type_id(node: SyntaxReader, context: &mut CompileContext) -> Result<TypeI
                     return_type_id,
                 }
             };
-            let function_type_id = context.types.add_type(function_type_node);
+            let function_type_id = context.add_type(function_type_node);
 
             Ok(function_type_id)
         }
-        SyntaxKind::TypePath => Ok(context.types.create_inferred_type()),
+        SyntaxKind::TypePath => {
+            let declaration_id = context
+                .get_declaration_binding(&node.id)
+                .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+            let type_id = context.get_declaration_type(declaration_id).ok_or(
+                CompileError::MissingDeclarationType {
+                    declaration_id: *declaration_id,
+                },
+            )?;
+
+            Ok(*type_id)
+        }
         _ => Err(CompileError::InvalidSyntaxNode { kind: node.kind() }),
     }
 }

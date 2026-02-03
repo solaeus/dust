@@ -7,8 +7,6 @@ use std::{
 
 pub use list::List;
 
-use crate::instruction::OperandType;
-
 #[derive(Clone, Debug)]
 pub enum Value {
     Boolean(bool),
@@ -20,6 +18,10 @@ pub enum Value {
     Array(Vec<Value>),
     List(List),
     Function(u16),
+    Struct {
+        name: String,
+        fields: Vec<(String, Value)>,
+    },
 }
 
 impl Value {
@@ -154,37 +156,6 @@ impl Value {
             None
         }
     }
-
-    pub fn operand_type(&self) -> OperandType {
-        match self {
-            Value::Boolean(_) => OperandType::BOOLEAN,
-            Value::Byte(_) => OperandType::BYTE,
-            Value::Character(_) => OperandType::CHARACTER,
-            Value::Float(_) => OperandType::FLOAT,
-            Value::Integer(_) => OperandType::INTEGER,
-            Value::String(_) => OperandType::STRING,
-            Value::Array(values) => {
-                let value_type = if let Some(first) = values.first() {
-                    first.operand_type()
-                } else {
-                    OperandType::NONE
-                };
-
-                match value_type {
-                    OperandType::BOOLEAN => OperandType::ARRAY_BOOLEAN,
-                    OperandType::BYTE => OperandType::ARRAY_BYTE,
-                    OperandType::CHARACTER => OperandType::ARRAY_CHARACTER,
-                    OperandType::FLOAT => OperandType::ARRAY_FLOAT,
-                    OperandType::INTEGER => OperandType::ARRAY_INTEGER,
-                    OperandType::STRING => OperandType::ARRAY_STRING,
-                    OperandType::FUNCTION => OperandType::ARRAY_FUNCTION,
-                    _ => todo!(),
-                }
-            }
-            Value::List(list) => list.operand_type(),
-            Value::Function(_) => OperandType::FUNCTION,
-        }
-    }
 }
 
 impl Display for Value {
@@ -211,6 +182,19 @@ impl Display for Value {
             }
             Value::List(list) => write!(f, "{list}"),
             Value::Function(prototype) => write!(f, "{prototype}"),
+            Value::Struct { name, fields } => {
+                write!(f, "{name} {{ ")?;
+
+                for (i, (field_name, field_value)) in fields.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{field_name}: {field_value}")?;
+                }
+
+                write!(f, " }}")
+            }
         }
     }
 }
@@ -259,7 +243,25 @@ impl Ord for Value {
             (Value::List(left), Value::List(right)) => left.cmp(right),
             (Value::List(_), _) => Ordering::Less,
             (Value::Function(left), Value::Function(right)) => left.cmp(right),
-            (Value::Function(_), _) => Ordering::Greater,
+            (Value::Function(_), _) => Ordering::Less,
+            (
+                Value::Struct {
+                    name: left_name,
+                    fields: left_fields,
+                },
+                Value::Struct {
+                    name: right_name,
+                    fields: right_fields,
+                },
+            ) => {
+                let name_order = left_name.cmp(right_name);
+                if name_order != Ordering::Equal {
+                    return name_order;
+                }
+
+                left_fields.cmp(right_fields)
+            }
+            (Value::Struct { .. }, _) => Ordering::Greater,
         }
     }
 }

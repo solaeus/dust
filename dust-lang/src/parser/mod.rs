@@ -476,7 +476,7 @@ impl<'src> Parser<'src> {
 
                 let field_start = self.current_token.span.0;
 
-                self.expect(TokenKind::Identifier)?;
+                self.parse_path()?;
 
                 let field_name_id = self.syntax_tree.last_node_id();
 
@@ -770,6 +770,7 @@ impl<'src> Parser<'src> {
                         TokenKind::Int,
                         TokenKind::Str,
                         TokenKind::Identifier,
+                        TokenKind::Fn,
                         TokenKind::LeftSquareBracket,
                     ],
                     actual: self.current_token.kind,

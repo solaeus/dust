@@ -33,6 +33,7 @@ mod new_list;
 mod operand_type;
 mod operation;
 mod power;
+mod reference;
 mod r#return;
 mod set_list;
 mod subtract;
@@ -59,6 +60,7 @@ pub use new_list::NewList;
 pub use operand_type::OperandType;
 pub use operation::Operation;
 pub use power::Power;
+pub use reference::Reference;
 pub use r#return::Return;
 pub use set_list::SetList;
 pub use subtract::Subtract;
@@ -218,6 +220,14 @@ impl Instruction {
             r#type,
             jump_distance,
             jump_is_positive,
+        })
+    }
+
+    pub fn reference(destination: u16, start: u16, length: u16) -> Instruction {
+        Instruction::from(Reference {
+            destination,
+            start,
+            length,
         })
     }
 
@@ -536,6 +546,7 @@ impl Instruction {
         match operation {
             Operation::NO_OP => String::new(),
             Operation::MOVE => Move::from(self).to_string(),
+            Operation::REFERENCE => Reference::from(self).to_string(),
             Operation::DROP => Drop::from(self).to_string(),
             Operation::NEW_LIST => NewList::from(self).to_string(),
             Operation::SET_LIST => SetList::from(self).to_string(),
