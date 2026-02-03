@@ -183,7 +183,7 @@ impl Display for List {
                         write!(f, ", ")?;
                     }
 
-                    write!(f, "{string}")?;
+                    write!(f, "\"{string}\"")?;
                 }
             }
             List::List(lists) => {

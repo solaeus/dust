@@ -97,6 +97,10 @@ impl Value {
         }
     }
 
+    pub fn is_string(&self) -> bool {
+        matches!(self, Value::String(_))
+    }
+
     pub fn boolean_list<T: Into<Vec<bool>>>(booleans: T) -> Self {
         Value::List(List::boolean(booleans))
     }
@@ -166,7 +170,7 @@ impl Display for Value {
             Value::Character(character) => write!(f, "{character}"),
             Value::Float(float) => write!(f, "{float}"),
             Value::Integer(integer) => write!(f, "{integer}"),
-            Value::String(string) => write!(f, "\"{string}\""),
+            Value::String(string) => write!(f, "{string}"),
             Value::Array(array) => {
                 write!(f, "[")?;
 
@@ -175,13 +179,17 @@ impl Display for Value {
                         write!(f, ", ")?;
                     }
 
-                    write!(f, "{value}")?;
+                    if value.is_string() {
+                        write!(f, "\"{value}\"")?;
+                    } else {
+                        write!(f, "{value}")?;
+                    }
                 }
 
                 write!(f, "]")
             }
             Value::List(list) => write!(f, "{list}"),
-            Value::Function(prototype) => write!(f, "{prototype}"),
+            Value::Function(prototype_index) => write!(f, "{prototype_index}"),
             Value::Struct { name, fields } => {
                 write!(f, "{name} {{ ")?;
 
@@ -190,7 +198,13 @@ impl Display for Value {
                         write!(f, ", ")?;
                     }
 
-                    write!(f, "{field_name}: {field_value}")?;
+                    write!(f, "{field_name}: ")?;
+
+                    if field_value.is_string() {
+                        write!(f, "\"{field_value}\"")?;
+                    } else {
+                        write!(f, "{field_value}")?;
+                    }
                 }
 
                 write!(f, " }}")
@@ -255,6 +269,7 @@ impl Ord for Value {
                 },
             ) => {
                 let name_order = left_name.cmp(right_name);
+
                 if name_order != Ordering::Equal {
                     return name_order;
                 }
