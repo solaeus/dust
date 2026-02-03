@@ -43,6 +43,8 @@ pub struct CompileContext {
 
     type_members: Vec<TypeId>,
 
+    next_type_declaration_id: TypeDeclarationId,
+
     next_inferred_type_id: u32,
 }
 
@@ -60,6 +62,7 @@ impl CompileContext {
             scope_bindings: HashMap::default(),
             type_nodes: IndexSet::default(),
             type_members: Vec::new(),
+            next_type_declaration_id: TypeDeclarationId(0),
             next_inferred_type_id: 0,
         };
 
@@ -379,10 +382,13 @@ impl CompileContext {
                     SmallVec::<[DeclarationId; 8]>::with_capacity(fields.len());
 
                 for (field_name, field_type) in fields {
+                    let type_declaration_id = self.create_type_declaration_id();
                     let declaration_id = self.add_declaration(
                         field_name,
                         Declaration {
-                            kind: DeclarationKind::Type,
+                            kind: DeclarationKind::Type {
+                                id: type_declaration_id,
+                            },
                             scope_id: ScopeId::PROJECT,
                             position: Position::default(),
                             is_public: false,
@@ -394,10 +400,13 @@ impl CompileContext {
                     self.set_declaration_type(declaration_id, type_id);
                 }
 
+                let type_declaration_id = self.create_type_declaration_id();
                 let declaration_id = self.add_declaration(
                     name,
                     Declaration {
-                        kind: DeclarationKind::Type,
+                        kind: DeclarationKind::Type {
+                            id: type_declaration_id,
+                        },
                         scope_id: ScopeId::PROJECT,
                         position: Position::default(),
                         is_public: false,
@@ -600,6 +609,14 @@ impl CompileContext {
         Some(result)
     }
 
+    pub fn create_type_declaration_id(&mut self) -> TypeDeclarationId {
+        let id = self.next_type_declaration_id;
+
+        self.next_type_declaration_id.0 += 1;
+
+        id
+    }
+
     pub fn create_inferred_type(&mut self) -> TypeId {
         let inferred_type_node = TypeNode::Inferred {
             id: self.next_inferred_type_id,
@@ -797,7 +814,9 @@ pub enum DeclarationKind {
         kind: ModuleKind,
         inner_scope_id: ScopeId,
     },
-    Type,
+    Type {
+        id: TypeDeclarationId,
+    },
 }
 
 impl Display for DeclarationKind {
@@ -807,10 +826,13 @@ impl Display for DeclarationKind {
             DeclarationKind::NativeFunction => write!(f, "native function"),
             DeclarationKind::Local { .. } => write!(f, "local variable"),
             DeclarationKind::Module { .. } => write!(f, "module"),
-            DeclarationKind::Type => write!(f, "type"),
+            DeclarationKind::Type { .. } => write!(f, "type"),
         }
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TypeDeclarationId(pub u32);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ModuleKind {

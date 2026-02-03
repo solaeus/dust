@@ -1154,49 +1154,29 @@ impl<'a> InstructionCompiler<'a> {
                 });
             }
 
-            let mut reference_range = None;
+            for register_index in 0..self.prototype.register_count {
+                let ssa_variable = self.ssa_registers.get(register_index as usize).ok_or(
+                    JitError::RegisterIndexOutOfBounds {
+                        register_index,
+                        total_register_count: self.ssa_registers.len(),
+                    },
+                )?;
+                let value = builder.use_var(*ssa_variable);
 
-            for instructions in self.prototype.instructions[..ip].iter().rev() {
-                if instructions.operation() == Operation::REFERENCE {
-                    let Reference {
-                        destination,
-                        start,
-                        length,
-                    } = Reference::from(instructions);
+                let absolute_register_index = builder
+                    .ins()
+                    .iadd_imm(self.base_register_index, register_index as i64);
+                let register_offset = builder
+                    .ins()
+                    .imul_imm(absolute_register_index, size_of::<Register>() as i64);
+                let register_address = builder.ins().iadd(
+                    self.thread_context_fields.register_buffer_pointer,
+                    register_offset,
+                );
 
-                    if destination == operand.index {
-                        let end = start + length - 1;
-                        reference_range = Some((start, end));
-                        break;
-                    }
-                }
-            }
-
-            if let Some((start, end)) = reference_range {
-                for register_index in start..=end {
-                    let ssa_variable = self.ssa_registers.get(register_index as usize).ok_or(
-                        JitError::RegisterIndexOutOfBounds {
-                            register_index,
-                            total_register_count: self.ssa_registers.len(),
-                        },
-                    )?;
-                    let value = builder.use_var(*ssa_variable);
-
-                    let absolute_register_index = builder
-                        .ins()
-                        .iadd_imm(self.base_register_index, register_index as i64);
-                    let register_offset = builder
-                        .ins()
-                        .imul_imm(absolute_register_index, size_of::<Register>() as i64);
-                    let register_address = builder.ins().iadd(
-                        self.thread_context_fields.register_buffer_pointer,
-                        register_offset,
-                    );
-
-                    builder
-                        .ins()
-                        .store(MemFlags::new(), value, register_address, 0);
-                }
+                builder
+                    .ins()
+                    .store(MemFlags::new(), value, register_address, 0);
             }
         }
 

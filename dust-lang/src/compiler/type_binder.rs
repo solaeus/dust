@@ -2,9 +2,7 @@ use smallvec::SmallVec;
 use tracing::debug;
 
 use crate::{
-    compiler::{
-        CompileContext, CompileError, TypeId, TypeNode, context::DeclarationId, get_type_id,
-    },
+    compiler::{CompileContext, CompileError, TypeId, TypeNode, context::DeclarationId},
     source::{Position, Source, SourceFileId},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
     r#type::Type,
@@ -49,6 +47,100 @@ impl<'a> TypeBinder<'a> {
             })?;
 
         self.visit_main_function_item(main_root, ())
+    }
+
+    fn get_type_id(&mut self, node: SyntaxReader) -> Result<TypeId, CompileError> {
+        match node.kind() {
+            SyntaxKind::BooleanType => Ok(TypeId::BOOLEAN),
+            SyntaxKind::ByteType => Ok(TypeId::BYTE),
+            SyntaxKind::CharacterType => Ok(TypeId::CHARACTER),
+            SyntaxKind::FloatType => Ok(TypeId::FLOAT),
+            SyntaxKind::IntegerType => Ok(TypeId::INTEGER),
+            SyntaxKind::StringType => Ok(TypeId::STRING),
+            SyntaxKind::ListType => {
+                let element_type_node = node.left_child().ok_or(CompileError::MissingChild {
+                    parent_kind: node.kind(),
+                    child_index: 0,
+                })?;
+
+                let element_type_id = self.get_type_id(element_type_node)?;
+                let lise_type_id = self.context.add_type(TypeNode::List {
+                    element_type: element_type_id,
+                });
+
+                Ok(lise_type_id)
+            }
+            SyntaxKind::FunctionType => {
+                let function_type_node = {
+                    let type_node_value_parameters = if node.has_left_child() {
+                        let function_value_parameters_node =
+                            node.left_child().ok_or(CompileError::MissingChild {
+                                parent_kind: node.kind(),
+                                child_index: 0,
+                            })?;
+
+                        let value_parameters = function_value_parameters_node
+                            .multiple_children()
+                            .ok_or(CompileError::MissingChildren {
+                            parent_kind: function_value_parameters_node.kind(),
+                            start_index: function_value_parameters_node.inner().children.0,
+                            count: function_value_parameters_node.inner().children.1,
+                        })?;
+
+                        let mut value_parameter_type_ids = SmallVec::<[TypeId; 4]>::new();
+
+                        for value_parameter in value_parameters {
+                            let type_id = if value_parameter.id == SyntaxId::NONE {
+                                TypeId::NONE
+                            } else {
+                                self.get_type_id(value_parameter)?
+                            };
+
+                            value_parameter_type_ids.push(type_id);
+                        }
+
+                        self.context.add_type_members(&value_parameter_type_ids)
+                    } else {
+                        (0, 0)
+                    };
+
+                    let return_type_id = if node.has_right_child() {
+                        let function_return_type_node =
+                            node.right_child().ok_or(CompileError::MissingChild {
+                                parent_kind: node.kind(),
+                                child_index: 1,
+                            })?;
+
+                        self.get_type_id(function_return_type_node)?
+                    } else {
+                        TypeId::NONE
+                    };
+
+                    TypeNode::Function {
+                        type_parameters: (0, 0),
+                        value_parameters: type_node_value_parameters,
+                        return_type_id,
+                    }
+                };
+                let function_type_id = self.context.add_type(function_type_node);
+
+                Ok(function_type_id)
+            }
+            SyntaxKind::TypePath => {
+                let declaration_id = self
+                    .context
+                    .get_declaration_binding(&node.id)
+                    .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+                let type_id = if let Some(id) = self.context.get_declaration_type(declaration_id) {
+                    *id
+                } else {
+                    self.context.create_inferred_type()
+                };
+
+                Ok(type_id)
+            }
+            _ => Err(CompileError::InvalidSyntaxNode { kind: node.kind() }),
+        }
     }
 }
 
@@ -178,10 +270,6 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let mut fields = SmallVec::<[DeclarationId; 8]>::new();
 
         for field in struct_fields {
-            let field_name = field.left_child().ok_or(CompileError::MissingChild {
-                parent_kind: field.inner().kind,
-                child_index: 0,
-            })?;
             let field_type = field.right_child().ok_or(CompileError::MissingChild {
                 parent_kind: field.inner().kind,
                 child_index: 1,
@@ -189,11 +277,11 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
             let field_declaration_id = *self
                 .context
-                .get_declaration_binding(&field_name.id)
+                .get_declaration_binding(&field_type.id)
                 .ok_or(CompileError::MissingDeclarationBinding {
-                    syntax_id: field_name.id,
+                    syntax_id: field_type.id,
                 })?;
-            let field_type_id = get_type_id(field_type, self.context)?;
+            let field_type_id = self.get_type_id(field_type)?;
 
             self.context
                 .set_declaration_type(field_declaration_id, field_type_id);
@@ -211,10 +299,6 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             generics: (0, 0),
         };
         let struct_type_id = self.context.add_type(struct_type);
-        let declaration_id = *self
-            .context
-            .get_declaration_binding(&node.id)
-            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
 
         self.context
             .set_declaration_type(declaration_id, struct_type_id);
@@ -272,7 +356,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let expression_type_id = self.visit(expression, ())?;
 
         if let Some(type_notation_node) = type_notation {
-            let explicit_type = get_type_id(type_notation_node, self.context)?;
+            let explicit_type = self.get_type_id(type_notation_node)?;
 
             let unified = self
                 .context
@@ -1134,7 +1218,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 .ok_or(CompileError::MissingDeclarationBinding {
                     syntax_id: parameter_name.id,
                 })?;
-            let parameter_type = get_type_id(parameter_type, self.context)?;
+            let parameter_type = self.get_type_id(parameter_type)?;
 
             value_parameter_types.push(parameter_type);
 
@@ -1144,7 +1228,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         let return_type_id = {
             let raw = if let Some(return_type_node) = return_type {
-                get_type_id(return_type_node, self.context)?
+                self.get_type_id(return_type_node)?
             } else {
                 TypeId::NONE
             };

@@ -48,8 +48,8 @@ impl Display for Reference {
             start,
             length,
         } = self;
-        let end = start + length - 1;
+        let end = start + length;
 
-        write!(f, "reg_{destination} = reg_{start}..=reg_{end}")
+        write!(f, "reg_{destination} = reg_{start}..reg_{end}")
     }
 }

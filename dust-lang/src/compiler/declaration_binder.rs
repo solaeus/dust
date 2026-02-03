@@ -282,10 +282,16 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                 parent_kind: field.kind(),
                 child_index: 0,
             })?;
+            let field_type = field.right_child().ok_or(CompileError::MissingChild {
+                parent_kind: field.kind(),
+                child_index: 1,
+            })?;
 
             let field_name_str = source_file.source_code.get_span(field_name.span());
             let field_declaration = Declaration {
-                kind: DeclarationKind::Type,
+                kind: DeclarationKind::Type {
+                    id: self.context.create_type_declaration_id(),
+                },
                 scope_id: self.current_scope_id,
                 position: Position::new(self.file_id, field_name.span()),
                 is_public: false,
@@ -296,12 +302,16 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
             self.context
                 .set_declaration_binding(field_name.id, field_declaration_id);
+            self.context
+                .set_declaration_binding(field_type.id, field_declaration_id);
             field_ids.push(field_declaration_id);
         }
 
         let struct_name_str = source_file.source_code.get_span(struct_name.span());
         let struct_declaration = Declaration {
-            kind: DeclarationKind::Type,
+            kind: DeclarationKind::Type {
+                id: self.context.create_type_declaration_id(),
+            },
             scope_id: self.current_scope_id,
             position: Position::new(self.file_id, struct_name.span()),
             is_public: false,
