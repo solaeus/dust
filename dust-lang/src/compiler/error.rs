@@ -52,13 +52,17 @@ pub enum CompileError {
     ExpectedFunctionType {
         type_id: TypeId,
     },
+    TypeConflict {
+        expected: Type,
+        found: Type,
+        position: Position,
+    },
     UndeclaredVariable {
         name: String,
         position: Position,
     },
-    TypeConflict {
-        expected: Type,
-        found: Type,
+    UndeclaredType {
+        name: String,
         position: Position,
     },
 
@@ -149,6 +153,7 @@ impl AnnotatedError for CompileError {
             CompileError::CannotApplyOperator { position, .. } => position.file_id,
             CompileError::CannotIndex { position, .. } => position.file_id,
             CompileError::MissingDeclarationType { .. } => SourceFileId::default(),
+            CompileError::UndeclaredType { position, .. } => position.file_id,
         }
     }
 
@@ -405,6 +410,17 @@ impl AnnotatedError for CompileError {
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::UndeclaredType { name, position } => {
+                let title = format!("Undeclared type: {name}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!("Use of undeclared type {name} here")),
+                    ),
+                )
             }
         }
     }

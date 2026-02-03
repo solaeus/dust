@@ -166,7 +166,7 @@ impl Display for Value {
             Value::Character(character) => write!(f, "{character}"),
             Value::Float(float) => write!(f, "{float}"),
             Value::Integer(integer) => write!(f, "{integer}"),
-            Value::String(string) => write!(f, "{string}"),
+            Value::String(string) => write!(f, "\"{string}\""),
             Value::Array(array) => {
                 write!(f, "[")?;
 

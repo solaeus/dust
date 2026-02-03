@@ -2489,6 +2489,14 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         Ok(Emission::Instructions(call_emission))
     }
+
+    fn visit_type(
+        &mut self,
+        _: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
+        Ok(Emission::None)
+    }
 }
 
 #[derive(Clone, Debug)]

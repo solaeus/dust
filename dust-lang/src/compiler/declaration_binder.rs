@@ -314,12 +314,12 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             self.context
                 .set_declaration_binding(field_name.id, field_declaration_id);
             self.context
-                .set_declaration_binding(field_type.id, field_declaration_id);
+                .add_scope_binding(field_type.id, self.current_scope_id);
             field_ids.push(field_declaration_id);
         }
 
         self.context
-            .set_declaration_binding(node.id, struct_declaration_id);
+            .set_declaration_binding(struct_name.id, struct_declaration_id);
 
         Ok(())
     }
@@ -987,6 +987,14 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             }
         }
 
+        Ok(())
+    }
+
+    fn visit_type(
+        &mut self,
+        _: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, CompileError> {
         Ok(())
     }
 }

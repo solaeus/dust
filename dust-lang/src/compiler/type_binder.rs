@@ -48,104 +48,6 @@ impl<'a> TypeBinder<'a> {
 
         self.visit_main_function_item(main_root, ())
     }
-
-    fn get_type_id(&mut self, node: SyntaxReader) -> Result<TypeId, CompileError> {
-        match node.kind() {
-            SyntaxKind::BooleanType => Ok(TypeId::BOOLEAN),
-            SyntaxKind::ByteType => Ok(TypeId::BYTE),
-            SyntaxKind::CharacterType => Ok(TypeId::CHARACTER),
-            SyntaxKind::FloatType => Ok(TypeId::FLOAT),
-            SyntaxKind::IntegerType => Ok(TypeId::INTEGER),
-            SyntaxKind::StringType => Ok(TypeId::STRING),
-            SyntaxKind::ListType => {
-                let element_type_node = node.left_child().ok_or(CompileError::MissingChild {
-                    parent_kind: node.kind(),
-                    child_index: 0,
-                })?;
-
-                let element_type_id = self.get_type_id(element_type_node)?;
-                let lise_type_id = self.context.add_type(TypeNode::List {
-                    element_type: element_type_id,
-                });
-
-                Ok(lise_type_id)
-            }
-            SyntaxKind::FunctionType => {
-                let function_type_node = {
-                    let type_node_value_parameters = if node.has_left_child() {
-                        let function_value_parameters_node =
-                            node.left_child().ok_or(CompileError::MissingChild {
-                                parent_kind: node.kind(),
-                                child_index: 0,
-                            })?;
-
-                        let value_parameters = function_value_parameters_node
-                            .multiple_children()
-                            .ok_or(CompileError::MissingChildren {
-                            parent_kind: function_value_parameters_node.kind(),
-                            start_index: function_value_parameters_node.inner().children.0,
-                            count: function_value_parameters_node.inner().children.1,
-                        })?;
-
-                        let mut value_parameter_type_ids = SmallVec::<[TypeId; 4]>::new();
-
-                        for value_parameter in value_parameters {
-                            let type_id = if value_parameter.id == SyntaxId::NONE {
-                                TypeId::NONE
-                            } else {
-                                self.get_type_id(value_parameter)?
-                            };
-
-                            value_parameter_type_ids.push(type_id);
-                        }
-
-                        self.context.add_type_members(&value_parameter_type_ids)
-                    } else {
-                        (0, 0)
-                    };
-
-                    let return_type_id = if node.has_right_child() {
-                        let function_return_type_node =
-                            node.right_child().ok_or(CompileError::MissingChild {
-                                parent_kind: node.kind(),
-                                child_index: 1,
-                            })?;
-
-                        self.get_type_id(function_return_type_node)?
-                    } else {
-                        TypeId::NONE
-                    };
-
-                    TypeNode::Function {
-                        type_parameters: (0, 0),
-                        value_parameters: type_node_value_parameters,
-                        return_type_id,
-                    }
-                };
-                let function_type_id = self.context.add_type(function_type_node);
-
-                Ok(function_type_id)
-            }
-            SyntaxKind::TypePath => {
-                let declaration_id = *self
-                    .context
-                    .get_declaration_binding(&node.id)
-                    .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-                let type_id = if let Some(id) = self.context.get_declaration_type(&declaration_id) {
-                    *id
-                } else {
-                    let inferred = self.context.create_inferred_type();
-
-                    self.context.set_declaration_type(declaration_id, inferred);
-
-                    inferred
-                };
-
-                Ok(type_id)
-            }
-            _ => Err(CompileError::InvalidSyntaxNode { kind: node.kind() }),
-        }
-    }
 }
 
 impl<'a> SyntaxVisitor for TypeBinder<'a> {
@@ -258,6 +160,10 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for struct item");
 
+        let struct_name = node.left_child().ok_or(CompileError::MissingChild {
+            parent_kind: node.kind(),
+            child_index: 0,
+        })?;
         let struct_fields = node
             .right_child()
             .ok_or(CompileError::MissingChild {
@@ -289,7 +195,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 .ok_or(CompileError::MissingDeclarationBinding {
                     syntax_id: field_name.id,
                 })?;
-            let field_type_id = self.get_type_id(field_type)?;
+            let field_type_id = self.visit_type(field_type, ())?;
 
             self.context
                 .set_declaration_type(field_declaration_id, field_type_id);
@@ -298,8 +204,10 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         let declaration_id = *self
             .context
-            .get_declaration_binding(&node.id)
-            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+            .get_declaration_binding(&struct_name.id)
+            .ok_or(CompileError::MissingDeclarationBinding {
+                syntax_id: struct_name.id,
+            })?;
         let fields = self.context.add_declaration_members(&fields);
         let struct_type = TypeNode::Struct {
             declaration_id,
@@ -307,10 +215,6 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             generics: (0, 0),
         };
         let struct_type_id = self.context.add_type(struct_type);
-
-        if let Some(existing) = self.context.get_declaration_type(&declaration_id).copied() {
-            self.context.unify_types(existing, struct_type_id)?;
-        }
 
         self.context
             .set_declaration_type(declaration_id, struct_type_id);
@@ -368,7 +272,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let expression_type_id = self.visit(expression, ())?;
 
         if let Some(type_notation_node) = type_notation {
-            let explicit_type = self.get_type_id(type_notation_node)?;
+            let explicit_type = self.visit_type(type_notation_node, ())?;
 
             let unified = self
                 .context
@@ -777,7 +681,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             .context
             .get_declaration_binding(&node.id)
             .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let declared_struct_type = *self
+        let declared_struct_type_id = *self
             .context
             .get_declaration_type(&declaration_id)
             .ok_or(CompileError::MissingDeclarationType { declaration_id })?;
@@ -839,9 +743,10 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 .set_type_binding(field_expression.id, declared_field_type_id);
         }
 
-        self.context.set_type_binding(node.id, declared_struct_type);
+        self.context
+            .set_type_binding(node.id, declared_struct_type_id);
 
-        Ok(declared_struct_type)
+        Ok(declared_struct_type_id)
     }
 
     fn visit_block_expression(
@@ -1271,7 +1176,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 .ok_or(CompileError::MissingDeclarationBinding {
                     syntax_id: parameter_name.id,
                 })?;
-            let parameter_type = self.get_type_id(parameter_type)?;
+            let parameter_type = self.visit_type(parameter_type, ())?;
 
             value_parameter_types.push(parameter_type);
 
@@ -1281,7 +1186,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         let return_type_id = {
             let raw = if let Some(return_type_node) = return_type {
-                self.get_type_id(return_type_node)?
+                self.visit_type(return_type_node, ())?
             } else {
                 TypeId::NONE
             };
@@ -1406,5 +1311,138 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         self.context.set_type_binding(node.id, return_type_id);
 
         Ok(return_type_id)
+    }
+
+    fn visit_type(&mut self, node: SyntaxReader, _: Self::Input) -> Result<TypeId, CompileError> {
+        match node.kind() {
+            SyntaxKind::BooleanType => Ok(TypeId::BOOLEAN),
+            SyntaxKind::ByteType => Ok(TypeId::BYTE),
+            SyntaxKind::CharacterType => Ok(TypeId::CHARACTER),
+            SyntaxKind::FloatType => Ok(TypeId::FLOAT),
+            SyntaxKind::IntegerType => Ok(TypeId::INTEGER),
+            SyntaxKind::StringType => Ok(TypeId::STRING),
+            SyntaxKind::ListType => {
+                let element_type_node = node.left_child().ok_or(CompileError::MissingChild {
+                    parent_kind: node.kind(),
+                    child_index: 0,
+                })?;
+
+                let element_type_id = self.visit_type(element_type_node, ())?;
+                let lise_type_id = self.context.add_type(TypeNode::List {
+                    element_type: element_type_id,
+                });
+
+                Ok(lise_type_id)
+            }
+            SyntaxKind::FunctionType => {
+                let function_type_node = {
+                    let type_node_value_parameters = if node.has_left_child() {
+                        let function_value_parameters_node =
+                            node.left_child().ok_or(CompileError::MissingChild {
+                                parent_kind: node.kind(),
+                                child_index: 0,
+                            })?;
+
+                        let value_parameters = function_value_parameters_node
+                            .multiple_children()
+                            .ok_or(CompileError::MissingChildren {
+                            parent_kind: function_value_parameters_node.kind(),
+                            start_index: function_value_parameters_node.inner().children.0,
+                            count: function_value_parameters_node.inner().children.1,
+                        })?;
+
+                        let mut value_parameter_type_ids = SmallVec::<[TypeId; 4]>::new();
+
+                        for value_parameter in value_parameters {
+                            let type_id = if value_parameter.id == SyntaxId::NONE {
+                                TypeId::NONE
+                            } else {
+                                self.visit_type(value_parameter, ())?
+                            };
+
+                            value_parameter_type_ids.push(type_id);
+                        }
+
+                        self.context.add_type_members(&value_parameter_type_ids)
+                    } else {
+                        (0, 0)
+                    };
+
+                    let return_type_id = if node.has_right_child() {
+                        let function_return_type_node =
+                            node.right_child().ok_or(CompileError::MissingChild {
+                                parent_kind: node.kind(),
+                                child_index: 1,
+                            })?;
+
+                        self.visit_type(function_return_type_node, ())?
+                    } else {
+                        TypeId::NONE
+                    };
+
+                    TypeNode::Function {
+                        type_parameters: (0, 0),
+                        value_parameters: type_node_value_parameters,
+                        return_type_id,
+                    }
+                };
+                let function_type_id = self.context.add_type(function_type_node);
+
+                Ok(function_type_id)
+            }
+            SyntaxKind::TypePath => {
+                let path_segments = node
+                    .left_child()
+                    .ok_or(CompileError::MissingChild {
+                        parent_kind: node.kind(),
+                        child_index: 0,
+                    })?
+                    .multiple_children()
+                    .ok_or(CompileError::MissingChildren {
+                        parent_kind: node.kind(),
+                        start_index: node.inner().children.0,
+                        count: node.inner().children.1,
+                    })?;
+
+                let scope_id = *self
+                    .context
+                    .get_scope_binding(&node.id)
+                    .ok_or(CompileError::MissingScopeBinding { syntax_id: node.id })?;
+                let file =
+                    self.source
+                        .get_file(self.file_id)
+                        .ok_or(CompileError::MissingSourceFile {
+                            file_id: self.file_id,
+                        })?;
+                let mut parent_declaration_id = None;
+                let mut type_id = TypeId::NONE;
+
+                for segment in path_segments {
+                    let segment_name = file.source_code.get_span(segment.span());
+                    let (declaration_id, _) = self
+                        .context
+                        .find_declaration_in_scope(segment_name, scope_id, parent_declaration_id)
+                        .ok_or(CompileError::UndeclaredType {
+                            name: segment_name.to_string(),
+                            position: Position::new(self.file_id, node.span()),
+                        })?;
+
+                    parent_declaration_id = Some(declaration_id);
+                    type_id = if let Some(id) = self.context.get_declaration_type(&declaration_id) {
+                        *id
+                    } else {
+                        let inferred_type = self.context.create_inferred_type();
+
+                        self.context
+                            .set_declaration_type(declaration_id, inferred_type);
+
+                        inferred_type
+                    };
+                }
+
+                Ok(type_id)
+            }
+            _ => Err(CompileError::InvalidSyntaxNode { kind: node.kind() }),
+        }
     }
 }

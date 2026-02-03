@@ -361,4 +361,10 @@ pub trait SyntaxVisitor {
         node: SyntaxReader,
         input: Self::Input,
     ) -> Result<Self::Output, CompileError>;
+
+    fn visit_type(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, CompileError>;
 }

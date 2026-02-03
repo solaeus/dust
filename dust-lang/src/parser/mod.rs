@@ -709,9 +709,11 @@ impl<'src> Parser<'src> {
                 (SyntaxKind::StringType, (0, 0))
             }
             TokenKind::Identifier => {
-                self.advance()?;
+                self.parse_path()?;
 
-                (SyntaxKind::TypePath, (0, 0))
+                let path_id = self.syntax_tree.last_node_id();
+
+                (SyntaxKind::TypePath, (path_id.0, 0))
             }
             TokenKind::LeftSquareBracket => {
                 self.advance()?;
