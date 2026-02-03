@@ -1573,13 +1573,25 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 count: node.inner().children.1,
             })?;
 
-        let target = target.unwrap_or_else(|| self.allocate_temporary_register());
+        let base_target = target.unwrap_or_else(|| self.allocate_temporary_register());
         let field_count = fields.len() as u16;
+        let struct_target = Target::Struct {
+            base_index: base_target.index(),
+            field_count,
+            is_temporary: base_target.is_temporary(),
+        };
+        let mut field_targets = vec![0; fields.len()];
+
+        if struct_target.is_temporary() {
+            field_targets.fill_with(|| self.allocate_temporary_register().index());
+        } else {
+            field_targets.fill_with(|| self.allocate_local_register().index());
+        }
 
         let mut struct_emission = InstructionsEmission::new();
         let mut base_register = None;
 
-        for field in fields {
+        for (field, destination) in fields.into_iter().zip(field_targets.into_iter()) {
             let field_expression = field.right_child().ok_or(CompileError::MissingChild {
                 parent_kind: field.kind(),
                 child_index: 1,
@@ -1601,26 +1613,21 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                     .ok_or(CompileError::MissingType {
                         type_id: field_type_id,
                     })?;
-            let destination = if target.is_temporary() {
-                self.allocate_temporary_register()
-            } else {
-                self.allocate_local_register()
-            };
             let field_move_instruction =
-                Instruction::r#move(destination.index(), field_address, operand_type);
+                Instruction::r#move(destination, field_address, operand_type);
 
             struct_emission.push(field_move_instruction);
 
             if base_register.is_none() {
-                base_register = Some(destination.index());
+                base_register = Some(destination);
             }
         }
 
         let struct_reference_instruction =
-            Instruction::reference(target.index(), base_register.unwrap_or(0), field_count);
+            Instruction::reference(base_target.index(), base_register.unwrap_or(0), field_count);
 
         struct_emission.push(struct_reference_instruction);
-        struct_emission.set_target(Some(target));
+        struct_emission.set_target(Some(struct_target));
 
         Ok(Emission::Instructions(struct_emission))
     }
@@ -2622,9 +2629,9 @@ pub enum Target {
         index: u16,
         is_temporary: bool,
     },
-    StructField {
+    Struct {
         base_index: u16,
-        field_offset: u16,
+        field_count: u16,
         is_temporary: bool,
     },
 }
@@ -2634,11 +2641,7 @@ impl Target {
         match self {
             Target::Constant { index } => Address::constant(*index),
             Target::Register { index, .. } => Address::register(*index),
-            Target::StructField {
-                base_index,
-                field_offset,
-                ..
-            } => Address::register(base_index + field_offset),
+            Target::Struct { base_index, .. } => Address::register(*base_index),
         }
     }
 
@@ -2646,17 +2649,13 @@ impl Target {
         match self {
             Target::Constant { index } => *index,
             Target::Register { index, .. } => *index,
-            Target::StructField {
-                base_index,
-                field_offset,
-                ..
-            } => base_index + field_offset,
+            Target::Struct { base_index, .. } => *base_index,
         }
     }
 
     fn is_temporary(&self) -> bool {
         match self {
-            Target::Register { is_temporary, .. } | Target::StructField { is_temporary, .. } => {
+            Target::Register { is_temporary, .. } | Target::Struct { is_temporary, .. } => {
                 *is_temporary
             }
             _ => false,
@@ -2675,7 +2674,7 @@ pub enum Constant {
 }
 
 impl Constant {
-    fn type_id(&self) -> TypeId {
+    fn _type_id(&self) -> TypeId {
         match self {
             Constant::Boolean(_) => TypeId::BOOLEAN,
             Constant::Byte(_) => TypeId::BYTE,
