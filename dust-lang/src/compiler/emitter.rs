@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap};
 
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
@@ -61,6 +61,8 @@ pub struct Emitter<'a> {
     next_temporary_register: u16,
 
     maximum_register: u16,
+
+    committed_maximum_register: u16,
 }
 
 impl<'a> Emitter<'a> {
@@ -94,6 +96,7 @@ impl<'a> Emitter<'a> {
             next_local_register: 0,
             next_temporary_register: 0,
             maximum_register: 0,
+            committed_maximum_register: 0,
         };
 
         if let Some((declaration_id, declaration)) = &declaration_info
@@ -196,7 +199,7 @@ impl<'a> Emitter<'a> {
         } else {
             None
         };
-        let register_count = self.maximum_register;
+        let register_count = self.committed_maximum_register.max(self.maximum_register);
         let function_type = self
             .context
             .get_full_type(self.function_type_id, self.source)
@@ -286,6 +289,9 @@ impl<'a> Emitter<'a> {
     fn emit_instruction(&mut self, instruction: Instruction) {
         trace!("Emitting {} instruction", instruction.operation());
 
+        self.committed_maximum_register =
+            self.committed_maximum_register.max(self.maximum_register);
+
         self.instructions.push(instruction);
     }
 
@@ -328,6 +334,10 @@ impl<'a> Emitter<'a> {
         if self.maximum_register > self.next_temporary_register {
             self.maximum_register = self.next_temporary_register;
         }
+
+        if self.maximum_register < self.committed_maximum_register {
+            self.maximum_register = self.committed_maximum_register;
+        }
     }
 
     fn allocate_local_register(&mut self) -> Target {
@@ -354,10 +364,15 @@ impl<'a> Emitter<'a> {
         self.pending_drops.push(SmallVec::new());
     }
 
-    fn enter_parent_scope(&mut self, parent_scope_id: ScopeId, next_local_register: u16) {
+    fn enter_parent_scope(
+        &mut self,
+        parent_scope_id: ScopeId,
+        next_local_register: u16,
+        next_temporary_register: u16,
+    ) {
         self.current_scope_id = parent_scope_id;
         self.next_local_register = next_local_register;
-        self.next_temporary_register = next_local_register;
+        self.next_temporary_register = next_temporary_register;
     }
 
     fn add_drop(&mut self, register: u16) {
@@ -1693,6 +1708,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             .ok_or(CompileError::MissingScopeBinding { syntax_id: node.id })?;
         let parent_scope_id = self.current_scope_id;
         let parent_scope_next_local_register = self.next_local_register;
+        let parent_scope_next_temporary_register = self.next_temporary_register;
 
         self.enter_child_scope(block_scope_id);
 
@@ -1715,6 +1731,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                             self.enter_parent_scope(
                                 parent_scope_id,
                                 parent_scope_next_local_register,
+                                parent_scope_next_temporary_register,
                             );
                             block_emission.set_target(child_target);
                             self.handle_drops(&mut block_emission);
@@ -1736,6 +1753,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                             self.enter_parent_scope(
                                 parent_scope_id,
                                 parent_scope_next_local_register,
+                                parent_scope_next_temporary_register,
                             );
                             block_emission.set_target(child_target);
                             self.handle_drops(&mut block_emission);
@@ -1792,7 +1810,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             }
         }
 
-        self.enter_parent_scope(parent_scope_id, parent_scope_next_local_register);
+        self.enter_parent_scope(
+            parent_scope_id,
+            parent_scope_next_local_register,
+            parent_scope_next_temporary_register,
+        );
         self.handle_drops(&mut block_emission);
 
         Ok(Emission::Instructions(block_emission))
