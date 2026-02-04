@@ -125,5 +125,18 @@ fn local_function() {
     let source = local_cases::LOCAL_FUNCTION.to_string();
     let prototype = compile_main_prototype(source).unwrap();
 
-    assert_eq!(prototype, Prototype::default());
+    assert_eq!(
+        prototype,
+        Prototype {
+            function_type: FunctionType::new([], [], Type::Integer),
+            instructions: vec![
+                Instruction::r#move(0, Address::constant(1), OperandType::FUNCTION),
+                Instruction::call(Some(1), Address::register(0), 0, 1),
+                Instruction::r#return(Address::register(1), OperandType::INTEGER),
+            ],
+            call_arguments: vec![(Address::constant(1), OperandType::INTEGER)],
+            register_count: 2,
+            ..Default::default()
+        }
+    );
 }

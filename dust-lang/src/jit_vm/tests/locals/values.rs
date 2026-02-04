@@ -47,3 +47,11 @@ fn local_string() {
 
     assert_eq!(result, Some(Value::string("foobar")));
 }
+
+#[test]
+fn local_function() {
+    let source = local_cases::LOCAL_FUNCTION.to_string();
+    let result = run_main(source).unwrap();
+
+    assert_eq!(result, Some(Value::integer(42)));
+}

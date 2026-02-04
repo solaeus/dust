@@ -382,3 +382,156 @@ fn local_string() {
         ]
     );
 }
+
+#[test]
+fn local_function() {
+    let source = local_cases::LOCAL_FUNCTION.to_string();
+    let (syntax_tree, error) = parse_main(source);
+
+    assert!(error.is_none(), "{error:?}");
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        vec![
+            SyntaxNode {
+                kind: SyntaxKind::MainFunctionItem,
+                children: (10, 2),
+                span: Span(0, 72),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::LetStatement,
+                children: (5, 3),
+                span: Span(1, 59),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(5, 12),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (0, 1),
+                span: Span(5, 12),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ValueParameterTypes,
+                children: (1, 1),
+                span: Span(14, 21),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::FunctionType,
+                children: (4, 5),
+                span: Span(14, 28),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerType,
+                children: (0, 0),
+                span: Span(17, 20),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerType,
+                children: (0, 0),
+                span: Span(25, 28),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ValueParametersDefinition,
+                children: (2, 1),
+                span: Span(33, 41),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::FunctionSignature,
+                children: (10, 11),
+                span: Span(33, 48),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::FunctionExpression,
+                children: (12, 18),
+                span: Span(33, 58),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ExpressionStatement,
+                children: (19, 0),
+                span: Span(33, 59),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ValueParameterName,
+                children: (0, 0),
+                span: Span(34, 35),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::ValueParameterDefinition,
+                children: (7, 8),
+                span: Span(34, 40),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerType,
+                children: (0, 0),
+                span: Span(37, 40),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerType,
+                children: (0, 0),
+                span: Span(45, 48),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::BlockExpression,
+                children: (4, 1),
+                span: Span(49, 58),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(51, 52),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (3, 1),
+                span: Span(51, 52),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (14, 0),
+                span: Span(51, 52),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::AdditionExpression,
+                children: (15, 16),
+                span: Span(51, 56),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (1, 0),
+                span: Span(55, 56),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathSegment,
+                children: (0, 0),
+                span: Span(60, 67),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::Path,
+                children: (8, 1),
+                span: Span(60, 67),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::PathExpression,
+                children: (23, 0),
+                span: Span(60, 67),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::CallExpression,
+                children: (24, 26),
+                span: Span(60, 71),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::CallValueArguments,
+                children: (9, 1),
+                span: Span(67, 71),
+            },
+            SyntaxNode {
+                kind: SyntaxKind::IntegerExpression,
+                children: (41, 0),
+                span: Span(68, 70),
+            },
+        ]
+    );
+}
