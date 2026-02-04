@@ -364,6 +364,46 @@ impl<'a> Emitter<'a> {
         self.pending_drops.last_mut().unwrap().push(register);
     }
 
+    fn handle_drops(&mut self, instructions: &mut InstructionsEmission) {
+        let start = self.drop_lists.len() as u16;
+        let mut pending_drops_for_scope = self.pending_drops.pop().unwrap();
+
+        for register in pending_drops_for_scope.drain(..) {
+            if let Some(target) = instructions.target
+                && register == target.index()
+            {
+                continue;
+            }
+
+            self.drop_lists.push(register);
+        }
+
+        let end = self.drop_lists.len() as u16;
+
+        if start == end {
+            return;
+        }
+
+        if let Some((last_instruction, _)) = instructions.instructions.last_mut() {
+            match last_instruction.operation() {
+                Operation::DROP => {
+                    if last_instruction.b_field() == start {
+                        last_instruction.set_b_field(end);
+                    }
+                }
+                Operation::JUMP => {
+                    last_instruction.set_b_field(start);
+                    last_instruction.set_c_field(end);
+                }
+                _ => {
+                    let drop_instruction = Instruction::drop(start, end);
+
+                    instructions.push(drop_instruction);
+                }
+            }
+        }
+    }
+
     fn get_constant_address(&mut self, constant: Constant) -> Address {
         let index = match constant {
             Constant::Boolean(boolean) => return Address::encoded(boolean as u16),
@@ -1676,7 +1716,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                                 parent_scope_id,
                                 parent_scope_next_local_register,
                             );
-                            block_emission.add_drop(self, child_target);
+                            block_emission.set_target(child_target);
+                            self.handle_drops(&mut block_emission);
 
                             return Ok(Emission::Constant(constant));
                         }
@@ -1696,7 +1737,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                                 parent_scope_id,
                                 parent_scope_next_local_register,
                             );
-                            block_emission.add_drop(self, child_target);
+                            block_emission.set_target(child_target);
+                            self.handle_drops(&mut block_emission);
 
                             return Ok(Emission::Target(final_target));
                         }
@@ -1751,7 +1793,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         }
 
         self.enter_parent_scope(parent_scope_id, parent_scope_next_local_register);
-        block_emission.add_drop(self, block_emission.target);
+        self.handle_drops(&mut block_emission);
 
         Ok(Emission::Instructions(block_emission))
     }
@@ -2584,46 +2626,6 @@ impl InstructionsEmission {
     fn push_drop_anchor(&mut self, anchor: JumpAnchor) {
         if let Some((_, anchors)) = self.instructions.last_mut() {
             anchors.push(anchor);
-        }
-    }
-
-    fn add_drop(&mut self, compiler: &mut Emitter, target: Option<Target>) {
-        let start = compiler.drop_lists.len() as u16;
-        let mut pending_drops_for_scope = compiler.pending_drops.pop().unwrap();
-
-        for register in pending_drops_for_scope.drain(..) {
-            if let Some(target) = target
-                && register == target.index()
-            {
-                continue;
-            }
-
-            compiler.drop_lists.push(register);
-        }
-
-        let end = compiler.drop_lists.len() as u16;
-
-        if start == end {
-            return;
-        }
-
-        if let Some((last_instruction, _)) = self.instructions.last_mut() {
-            match last_instruction.operation() {
-                Operation::DROP => {
-                    if last_instruction.b_field() == start {
-                        last_instruction.set_b_field(end);
-                    }
-                }
-                Operation::JUMP => {
-                    last_instruction.set_b_field(start);
-                    last_instruction.set_c_field(end);
-                }
-                _ => {
-                    let drop_instruction = Instruction::drop(start, end);
-
-                    self.push(drop_instruction);
-                }
-            }
         }
     }
 
