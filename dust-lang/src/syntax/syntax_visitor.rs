@@ -1,7 +1,7 @@
 use crate::{
     compiler::CompileError,
     source::{Position, SourceFileId},
-    syntax::{SyntaxKind, reader::SyntaxReader},
+    syntax::{SyntaxKind, SyntaxReader},
 };
 
 pub trait SyntaxVisitor {

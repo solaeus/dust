@@ -220,7 +220,7 @@ impl PartialEq for List {
             (List::Character(left), List::Character(right)) => left == right,
             (List::Float(left), List::Float(right)) => {
                 for (left, right) in left.iter().zip(right.iter()) {
-                    if left.to_bits() != right.to_bits() {
+                    if left != right {
                         return false;
                     }
                 }

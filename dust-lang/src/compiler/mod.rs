@@ -146,10 +146,10 @@ impl Compiler {
 
             let main_declaration_binder = DeclarationBinder::new(
                 SourceFileId::MAIN,
+                ScopeId::PROJECT,
                 &self.source,
                 &self.syntax,
                 &mut self.context,
-                ScopeId::PROJECT,
             );
 
             match main_declaration_binder.bind_main() {
@@ -160,13 +160,13 @@ impl Compiler {
 
         // Type binding phase
         let main_function_type = {
-            let span = span!(Level::INFO, "resolve");
+            let span = span!(Level::INFO, "type");
             let _enter = span.enter();
 
             let main_type_binder = TypeBinder::new(
                 SourceFileId::MAIN,
-                &self.syntax,
                 &self.source,
+                &self.syntax,
                 &mut self.context,
             );
 

@@ -30,10 +30,6 @@ impl Source {
         &self.files
     }
 
-    pub fn files_mut(&mut self) -> &mut Vec<SourceFile> {
-        &mut self.files
-    }
-
     pub fn add_file(&mut self, file: SourceFile) -> SourceFileId {
         let id = SourceFileId(self.files.len() as u32);
 

@@ -15,29 +15,29 @@ use crate::{
 pub struct DeclarationBinder<'a> {
     file_id: SourceFileId,
 
+    current_scope_id: ScopeId,
+
     source: &'a Source,
 
     syntax: &'a Syntax,
 
     resolver: &'a mut Resolver,
-
-    current_scope_id: ScopeId,
 }
 
 impl<'a> DeclarationBinder<'a> {
     pub fn new(
         file_id: SourceFileId,
+        current_scope_id: ScopeId,
         source: &'a Source,
         syntax: &'a Syntax,
         resolver: &'a mut Resolver,
-        current_scope_id: ScopeId,
     ) -> Self {
         Self {
             file_id,
+            current_scope_id,
             source,
             syntax,
             resolver,
-            current_scope_id,
         }
     }
 
@@ -224,10 +224,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
         let mut function_declaration_binder = DeclarationBinder::new(
             self.file_id,
+            function_scope_id,
             self.source,
             self.syntax,
             self.resolver,
-            function_scope_id,
         );
 
         function_declaration_binder.visit(function_body, ())?;
@@ -952,10 +952,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
         let mut function_declaration_binder = DeclarationBinder::new(
             self.file_id,
+            function_scope_id,
             self.source,
             self.syntax,
             self.resolver,
-            function_scope_id,
         );
 
         function_declaration_binder.visit(body, ())?;

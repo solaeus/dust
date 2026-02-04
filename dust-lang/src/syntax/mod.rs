@@ -1,12 +1,12 @@
-mod reader;
 mod syntax_node;
+mod syntax_reader;
 mod syntax_tree;
-mod visitor;
+mod syntax_visitor;
 
-pub use reader::SyntaxReader;
 pub use syntax_node::{SyntaxKind, SyntaxNode, SyntaxNodeChildren};
+pub use syntax_reader::SyntaxReader;
 pub use syntax_tree::SyntaxTree;
-pub use visitor::SyntaxVisitor;
+pub use syntax_visitor::SyntaxVisitor;
 
 use crate::source::SourceFileId;
 

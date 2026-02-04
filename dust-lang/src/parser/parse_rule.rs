@@ -5,12 +5,6 @@ use crate::{
     token::TokenKind,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Associativity {
-    Left,
-    Right,
-}
-
 pub type ParseLogic<'a> = fn(&mut Parser<'a>) -> Result<(), ParseError>;
 
 /// Pratt parsing rule for a token in the Dust language.
@@ -18,9 +12,6 @@ pub type ParseLogic<'a> = fn(&mut Parser<'a>) -> Result<(), ParseError>;
 /// Each token can have a prefix and/or infix parsing function associated with it, which is used to
 /// parse expressions involving that token. The precedence indicates how the token should be treated
 /// for operator precedence during parsing.
-///
-/// See `Parser::pratt`, `Parser::parse_expression`, and `Parser::parse_sub_expression` to see the actual
-/// use of precedence.
 #[derive(Debug, Clone, Copy)]
 pub struct ParseRule<'a> {
     pub prefix: Option<ParseLogic<'a>>,
@@ -490,6 +481,12 @@ impl From<TokenKind> for ParseRule<'_> {
             },
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Associativity {
+    Left,
+    Right,
 }
 
 /// Operator precedence levels.

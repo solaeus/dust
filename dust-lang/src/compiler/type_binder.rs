@@ -12,9 +12,9 @@ use crate::{
 pub struct TypeBinder<'a> {
     file_id: SourceFileId,
 
-    syntax: &'a Syntax,
-
     source: &'a Source,
+
+    syntax: &'a Syntax,
 
     resolver: &'a mut Resolver,
 }
@@ -22,8 +22,8 @@ pub struct TypeBinder<'a> {
 impl<'a> TypeBinder<'a> {
     pub fn new(
         file_id: SourceFileId,
-        syntax: &'a Syntax,
         source: &'a Source,
+        syntax: &'a Syntax,
         resolver: &'a mut Resolver,
     ) -> Self {
         Self {
