@@ -3,7 +3,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use crate::{
     compiler::{
         TypeId,
-        context::{DeclarationId, ScopeId},
+        resolver::{DeclarationId, ScopeId},
     },
     dust_error::AnnotatedError,
     source::{Position, SourceFileId},

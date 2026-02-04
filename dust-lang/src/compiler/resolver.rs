@@ -20,7 +20,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct CompileContext {
+pub struct Resolver {
     pub constants: ConstantTable,
 
     pub prototypes: Vec<Prototype>,
@@ -48,7 +48,7 @@ pub struct CompileContext {
     next_inferred_type_id: u32,
 }
 
-impl CompileContext {
+impl Resolver {
     pub fn new() -> Self {
         let mut context = Self {
             constants: ConstantTable::new(),
@@ -833,7 +833,7 @@ impl CompileContext {
     }
 }
 
-impl Default for CompileContext {
+impl Default for Resolver {
     fn default() -> Self {
         Self::new()
     }

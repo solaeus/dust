@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashMap};
+use std::collections::HashMap;
 
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
@@ -6,8 +6,8 @@ use tracing::{debug, trace};
 
 use crate::{
     compiler::{
-        CompileContext, CompileError,
-        context::{Declaration, DeclarationId, DeclarationKind, ScopeId, TypeId, TypeNode},
+        CompileError, Resolver,
+        resolver::{Declaration, DeclarationId, DeclarationKind, ScopeId, TypeId, TypeNode},
     },
     instruction::{Address, Drop, Instruction, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
@@ -31,7 +31,7 @@ pub struct Emitter<'a> {
 
     syntax: &'a Syntax,
 
-    context: &'a mut CompileContext,
+    resolver: &'a mut Resolver,
 
     /// Bytecode instruction list that is filled during compilation.
     instructions: Vec<Instruction>,
@@ -71,10 +71,8 @@ impl<'a> Emitter<'a> {
         prototype_index: u16,
         file_id: SourceFileId,
         function_type_id: TypeId,
-        source: &'a Source,
-        syntax: &'a Syntax,
-        context: &'a mut CompileContext,
         starting_scope_id: ScopeId,
+        (source, syntax, resolver): (&'a Source, &'a Syntax, &'a mut Resolver),
     ) -> Self {
         let mut emitter = Self {
             declaration_id: declaration_info.map(|(id, _)| id),
@@ -83,7 +81,7 @@ impl<'a> Emitter<'a> {
             function_type_id,
             source,
             syntax,
-            context,
+            resolver,
             instructions: Vec::new(),
             locals: HashMap::default(),
             call_arguments: Vec::new(),
@@ -116,7 +114,7 @@ impl<'a> Emitter<'a> {
             for index in 0..count {
                 let current_parameter_index = start + index;
                 if let Some(parameter_id) = emitter
-                    .context
+                    .resolver
                     .get_declaration_member(current_parameter_index)
                 {
                     let target = emitter.allocate_local_register();
@@ -191,7 +189,7 @@ impl<'a> Emitter<'a> {
 
         let name_position = if let Some(declaration_id) = self.declaration_id {
             let declaration = self
-                .context
+                .resolver
                 .get_declaration(declaration_id)
                 .ok_or(CompileError::MissingDeclaration { declaration_id })?;
 
@@ -201,7 +199,7 @@ impl<'a> Emitter<'a> {
         };
         let register_count = self.committed_maximum_register.max(self.maximum_register);
         let function_type = self
-            .context
+            .resolver
             .get_full_type(self.function_type_id, self.source)
             .ok_or(CompileError::MissingType {
                 type_id: self.function_type_id,
@@ -423,14 +421,14 @@ impl<'a> Emitter<'a> {
         let index = match constant {
             Constant::Boolean(boolean) => return Address::encoded(boolean as u16),
             Constant::Byte(byte) => return Address::encoded(byte as u16),
-            Constant::Character(character) => self.context.constants.add_character(character),
-            Constant::Float(float) => self.context.constants.add_float(float),
-            Constant::Integer(integer) => self.context.constants.add_integer(integer),
+            Constant::Character(character) => self.resolver.constants.add_character(character),
+            Constant::Float(float) => self.resolver.constants.add_float(float),
+            Constant::Integer(integer) => self.resolver.constants.add_integer(integer),
             Constant::String {
                 pool_start,
                 pool_end,
             } => self
-                .context
+                .resolver
                 .constants
                 .add_pooled_string(pool_start, pool_end),
         };
@@ -560,7 +558,7 @@ impl<'a> Emitter<'a> {
                     string.push(right);
 
                     let combined = self
-                        .context
+                        .resolver
                         .constants
                         .push_str_to_string_pool(string.as_bytes());
 
@@ -588,11 +586,11 @@ impl<'a> Emitter<'a> {
                 },
             ) => {
                 let left = self
-                    .context
+                    .resolver
                     .constants
                     .get_string_pool_range(left_pool_start as usize..left_pool_end as usize);
                 let right = self
-                    .context
+                    .resolver
                     .constants
                     .get_string_pool_range(right_pool_start as usize..right_pool_end as usize);
 
@@ -611,7 +609,7 @@ impl<'a> Emitter<'a> {
                         string.push_str(right);
 
                         let combined = self
-                            .context
+                            .resolver
                             .constants
                             .push_str_to_string_pool(string.as_bytes());
 
@@ -637,7 +635,7 @@ impl<'a> Emitter<'a> {
                 },
             ) => {
                 let right = self
-                    .context
+                    .resolver
                     .constants
                     .get_string_pool_range(pool_start as usize..pool_end as usize);
                 let mut string = String::with_capacity(1 + right.len());
@@ -647,7 +645,7 @@ impl<'a> Emitter<'a> {
 
                 let combined = match operation {
                     SyntaxKind::AdditionExpression => self
-                        .context
+                        .resolver
                         .constants
                         .push_str_to_string_pool(string.as_bytes()),
                     _ => todo!("Error"),
@@ -666,7 +664,7 @@ impl<'a> Emitter<'a> {
                 Constant::Character(right),
             ) => {
                 let left = self
-                    .context
+                    .resolver
                     .constants
                     .get_string_pool_range(pool_start as usize..pool_end as usize);
                 let mut string = String::with_capacity(left.len() + 1);
@@ -676,7 +674,7 @@ impl<'a> Emitter<'a> {
 
                 let combined = match operation {
                     SyntaxKind::AdditionExpression => self
-                        .context
+                        .resolver
                         .constants
                         .push_str_to_string_pool(string.as_bytes()),
                     _ => todo!("Error"),
@@ -705,7 +703,7 @@ impl<'a> Emitter<'a> {
         node: SyntaxReader,
     ) -> Result<(), CompileError> {
         let type_id = *self
-            .context
+            .resolver
             .get_type_binding(&node.id)
             .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
 
@@ -714,7 +712,7 @@ impl<'a> Emitter<'a> {
                 let destination = self.allocate_temporary_register();
                 let address = self.get_constant_address(constant);
                 let operand_type = self
-                    .context
+                    .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
                 let move_instruction =
@@ -725,10 +723,10 @@ impl<'a> Emitter<'a> {
             Emission::Target(target) => {
                 let destination = self.allocate_temporary_register();
                 let type_id = *self
-                    .context
+                    .resolver
                     .get_type_binding(&node.id)
                     .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
-                let operand_type = self.context.get_operand_type(type_id).ok_or(
+                let operand_type = self.resolver.get_operand_type(type_id).ok_or(
                     CompileError::CannotInferType {
                         position: Position::new(self.file_id, node.span()),
                     },
@@ -951,11 +949,11 @@ impl<'a> Emitter<'a> {
             }
             Emission::Target(target) => {
                 let type_id = *self
-                    .context
+                    .resolver
                     .get_type_binding(&node.id)
                     .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
                 let operand_type = self
-                    .context
+                    .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
                 let move_instruction =
@@ -979,11 +977,11 @@ impl<'a> Emitter<'a> {
         node: SyntaxReader,
     ) -> Result<(), CompileError> {
         let type_id = *self
-            .context
+            .resolver
             .get_type_binding(&node.id)
             .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
         let operand_type =
-            self.context
+            self.resolver
                 .get_operand_type(type_id)
                 .ok_or(CompileError::CannotInferType {
                     position: Position::new(self.file_id, node.span()),
@@ -1029,14 +1027,14 @@ impl<'a> Emitter<'a> {
                 return_emission.merge(instructions);
             }
 
-            let function_type_node = *self.context.get_type_mut(self.function_type_id).ok_or(
+            let function_type_node = *self.resolver.get_type_mut(self.function_type_id).ok_or(
                 CompileError::CannotInferType {
                     position: Position::new(self.file_id, node.span()),
                 },
             )?;
 
             if let TypeNode::Function { return_type_id, .. } = function_type_node {
-                self.context.unify_types(return_type_id, TypeId::NONE)?;
+                self.resolver.unify_types(return_type_id, TypeId::NONE)?;
             } else {
                 return Err(CompileError::ExpectedFunctionType {
                     type_id: self.function_type_id,
@@ -1117,7 +1115,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         if let Emission::Target(target) = emission {
             let declaration_id = *self
-                .context
+                .resolver
                 .get_declaration_binding(&function_expression.id)
                 .ok_or(CompileError::MissingDeclarationBinding {
                     syntax_id: function_expression.id,
@@ -1206,7 +1204,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let target = self.allocate_local_register();
         let expression_emission = self.visit_expression(expression, Some(target))?;
         let type_id = *self
-            .context
+            .resolver
             .get_type_binding(&expression.id)
             .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
 
@@ -1220,7 +1218,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             }
             Emission::Target(expression_target) => {
                 let operand_type = self
-                    .context
+                    .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
                 let move_instruction =
@@ -1240,7 +1238,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         };
 
         let declaration_id = *self
-            .context
+            .resolver
             .get_declaration_binding(&path.id)
             .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
 
@@ -1293,7 +1291,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             })?;
 
         let declaration_id = self
-            .context
+            .resolver
             .get_declaration_binding(&path.id)
             .ok_or(CompileError::MissingDeclarationBinding { syntax_id: path.id })?;
         let target = *self
@@ -1316,10 +1314,10 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             }
             Emission::Target(expression_target) => {
                 let type_id = *self
-                    .context
+                    .resolver
                     .get_type_binding(&node.id)
                     .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
-                let operand_type = self.context.get_operand_type(type_id).ok_or(
+                let operand_type = self.resolver.get_operand_type(type_id).ok_or(
                     CompileError::CannotInferType {
                         position: Position::new(self.file_id, expression.span()),
                     },
@@ -1420,9 +1418,9 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             })?
             .source_code
             .get_span_bytes(span_without_quotes);
-        let (pool_start, pool_end) = self.context.constants.push_str_to_string_pool(bytes);
+        let (pool_start, pool_end) = self.resolver.constants.push_str_to_string_pool(bytes);
 
-        self.context.set_type_binding(node.id, TypeId::STRING);
+        self.resolver.set_type_binding(node.id, TypeId::STRING);
 
         Ok(Emission::Constant(Constant::String {
             pool_start,
@@ -1494,13 +1492,13 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             let operand_type = if let Some(operand_type) = operand_type {
                 operand_type
             } else {
-                let type_id = *self.context.get_type_binding(&child.id).ok_or(
+                let type_id = *self.resolver.get_type_binding(&child.id).ok_or(
                     CompileError::MissingTypeBinding {
                         syntax_id: child.id,
                     },
                 )?;
                 let element_operand_type = self
-                    .context
+                    .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
 
@@ -1515,11 +1513,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         }
 
         let list_type = *self
-            .context
+            .resolver
             .get_type_binding(&node.id)
             .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
         let operand_type = self
-            .context
+            .resolver
             .get_operand_type(list_type)
             .ok_or(CompileError::MissingType { type_id: list_type })?;
         let new_list_instruction =
@@ -1558,7 +1556,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let index_address =
             self.handle_operand_emission(&mut index_emission, right_emission, &right_child)?;
 
-        let list_type_id = *self.context.get_type_binding(&left_child.id).ok_or(
+        let list_type_id = *self.resolver.get_type_binding(&left_child.id).ok_or(
             CompileError::MissingTypeBinding {
                 syntax_id: left_child.id,
             },
@@ -1567,13 +1565,13 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let target = input.unwrap_or_else(|| self.allocate_temporary_register());
         let element_type_id =
             *self
-                .context
+                .resolver
                 .get_type_binding(&node.id)
                 .ok_or(CompileError::MissingType {
                     type_id: list_type_id,
                 })?;
         let operand_type =
-            self.context
+            self.resolver
                 .get_operand_type(element_type_id)
                 .ok_or(CompileError::MissingType {
                     type_id: list_type_id,
@@ -1595,7 +1593,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         debug!("Emitting path expression");
 
         let declaration_id = self
-            .context
+            .resolver
             .get_declaration_binding(&node.id)
             .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
         let local = *self
@@ -1628,20 +1626,22 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 count: node.inner().children.1,
             })?;
 
-        let base_target = target.unwrap_or_else(|| self.allocate_temporary_register());
+        let target = target.unwrap_or_else(|| self.allocate_temporary_register());
         let field_count = fields.len() as u16;
-        let struct_target = Target::Struct {
-            base_index: base_target.index(),
-            field_count,
-            is_temporary: base_target.is_temporary(),
-        };
         let mut field_targets = vec![0; fields.len()];
 
-        if struct_target.is_temporary() {
+        if target.is_temporary() {
             field_targets.fill_with(|| self.allocate_temporary_register().index());
         } else {
             field_targets.fill_with(|| self.allocate_local_register().index());
         }
+
+        let struct_target = Target::Struct {
+            reference_index: target.index(),
+            field_base_index: field_targets.first().copied().unwrap_or(0),
+            field_count,
+            is_temporary: target.is_temporary(),
+        };
 
         let mut struct_emission = InstructionsEmission::new();
         let mut base_register = None;
@@ -1657,13 +1657,13 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 field_emission,
                 &field_expression,
             )?;
-            let field_type_id = *self.context.get_type_binding(&field_expression.id).ok_or(
+            let field_type_id = *self.resolver.get_type_binding(&field_expression.id).ok_or(
                 CompileError::MissingTypeBinding {
                     syntax_id: field_expression.id,
                 },
             )?;
             let operand_type =
-                self.context
+                self.resolver
                     .get_operand_type(field_type_id)
                     .ok_or(CompileError::MissingType {
                         type_id: field_type_id,
@@ -1678,8 +1678,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             }
         }
 
-        let struct_reference_instruction =
-            Instruction::reference(base_target.index(), base_register.unwrap_or(0), field_count);
+        let struct_reference_instruction = Instruction::reference(
+            struct_target.index(),
+            base_register.unwrap_or(0),
+            field_count,
+        );
 
         struct_emission.push(struct_reference_instruction);
         struct_emission.set_target(Some(struct_target));
@@ -1703,7 +1706,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             })?;
 
         let block_scope_id = *self
-            .context
+            .resolver
             .get_scope_binding(&node.id)
             .ok_or(CompileError::MissingScopeBinding { syntax_id: node.id })?;
         let parent_scope_id = self.current_scope_id;
@@ -1763,11 +1766,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
                         if let Some(block_target) = target {
                             let type_id = *self
-                                .context
+                                .resolver
                                 .get_type_binding(&node.id)
                                 .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
                             let operand_type = self
-                                .context
+                                .resolver
                                 .get_operand_type(type_id)
                                 .ok_or(CompileError::MissingType { type_id })?;
                             let move_instruction = Instruction::r#move(
@@ -1783,11 +1786,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                         } else {
                             let target = self.allocate_temporary_register();
                             let type_id = *self
-                                .context
+                                .resolver
                                 .get_type_binding(&node.id)
                                 .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
                             let operand_type = self
-                                .context
+                                .resolver
                                 .get_operand_type(type_id)
                                 .ok_or(CompileError::MissingType { type_id })?;
                             let move_instruction = Instruction::r#move(
@@ -1964,30 +1967,29 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let right_address =
             self.handle_operand_emission(&mut math_emission, right_emission, &right_child)?;
 
-        let left_type = *self.context.get_type_binding(&left_child.id).ok_or(
+        let left_type = *self.resolver.get_type_binding(&left_child.id).ok_or(
             CompileError::MissingTypeBinding {
                 syntax_id: left_child.id,
             },
         )?;
-        let right_type = *self.context.get_type_binding(&right_child.id).ok_or(
+        let right_type = *self.resolver.get_type_binding(&right_child.id).ok_or(
             CompileError::MissingTypeBinding {
                 syntax_id: right_child.id,
             },
         )?;
         let math_expression_type = *self
-            .context
+            .resolver
             .get_type_binding(&node.id)
             .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
         let operand_type = match (left_type, right_type) {
             (TypeId::STRING, TypeId::CHARACTER) => OperandType::STRING_CHARACTER,
             (TypeId::CHARACTER, TypeId::STRING) => OperandType::CHARACTER_STRING,
             (TypeId::CHARACTER, TypeId::CHARACTER) => OperandType::CHARACTER,
-            _ if math_expression_type == TypeId::NONE => {
-                self.context
-                    .get_operand_type(left_type)
-                    .ok_or(CompileError::MissingType { type_id: left_type })?
-            }
-            _ => self.context.get_operand_type(math_expression_type).ok_or(
+            _ if math_expression_type == TypeId::NONE => self
+                .resolver
+                .get_operand_type(left_type)
+                .ok_or(CompileError::MissingType { type_id: left_type })?,
+            _ => self.resolver.get_operand_type(math_expression_type).ok_or(
                 CompileError::MissingType {
                     type_id: math_expression_type,
                 },
@@ -2160,11 +2162,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let target = input.unwrap_or_else(|| self.allocate_temporary_register());
 
         let type_id = *self
-            .context
+            .resolver
             .get_type_binding(&left_child.id)
             .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
         let operand_type = self
-            .context
+            .resolver
             .get_operand_type(type_id)
             .ok_or(CompileError::MissingType { type_id })?;
 
@@ -2312,10 +2314,10 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let operand_type = match node.kind() {
             SyntaxKind::NegationExpression => {
                 let type_id = *self
-                    .context
+                    .resolver
                     .get_type_binding(&node.id)
                     .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
-                self.context
+                self.resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?
             }
@@ -2365,11 +2367,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             Emission::Target(operand) => {
                 let destination = self.allocate_temporary_register();
                 let type_id = *self
-                    .context
+                    .resolver
                     .get_type_binding(&body.id)
                     .ok_or(CompileError::MissingTypeBinding { syntax_id: body.id })?;
                 let operand_type = self
-                    .context
+                    .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
                 let move_instruction =
@@ -2407,10 +2409,10 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting function expression");
 
-        let declaration_id = self.context.get_declaration_binding(&node.id).copied();
+        let declaration_id = self.resolver.get_declaration_binding(&node.id).copied();
         let declaration_info = if let Some(declaration_id) = declaration_id {
             let declaration = *self
-                .context
+                .resolver
                 .get_declaration(declaration_id)
                 .ok_or(CompileError::MissingDeclaration { declaration_id })?;
 
@@ -2420,7 +2422,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         };
 
         let function_type = *self
-            .context
+            .resolver
             .get_type_binding(&node.id)
             .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
         let body = node.right_child().ok_or(CompileError::MissingChild {
@@ -2428,10 +2430,10 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             child_index: 0,
         })?;
 
-        let prototype_index = self.context.prototypes.len();
+        let prototype_index = self.resolver.prototypes.len();
 
         if let Some(declaration_id) = declaration_id
-            && let Some(declaration) = self.context.get_declaration_mut(&declaration_id)
+            && let Some(declaration) = self.resolver.get_declaration_mut(&declaration_id)
             && let DeclarationKind::Function {
                 prototype_index: declaration_prototype_index,
                 ..
@@ -2440,10 +2442,10 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             *declaration_prototype_index = Some(prototype_index as u16);
         }
 
-        self.context.prototypes.push(Prototype::default());
+        self.resolver.prototypes.push(Prototype::default());
 
         let function_scope_id = *self
-            .context
+            .resolver
             .get_scope_binding(&body.id)
             .ok_or(CompileError::MissingScopeBinding { syntax_id: node.id })?;
 
@@ -2452,13 +2454,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             prototype_index as u16,
             self.file_id,
             function_type,
-            self.source,
-            self.syntax,
-            self.context,
             function_scope_id,
+            (self.source, self.syntax, self.resolver),
         );
 
-        self.context.prototypes[prototype_index] = function_emitter.emit(body)?;
+        self.resolver.prototypes[prototype_index] = function_emitter.emit(body)?;
 
         Ok(Emission::Target(Target::Constant {
             index: prototype_index as u16,
@@ -2495,16 +2495,17 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 let argument_emission = self.visit_expression(argument, None)?;
                 let argument_address =
                     self.handle_operand_emission(&mut call_emission, argument_emission, &argument)?;
-                let argument_type_id = *self.context.get_type_binding(&argument.id).ok_or(
+                let argument_type_id = *self.resolver.get_type_binding(&argument.id).ok_or(
                     CompileError::MissingTypeBinding {
                         syntax_id: argument.id,
                     },
                 )?;
-                let argument_operand_type = self.context.get_operand_type(argument_type_id).ok_or(
-                    CompileError::MissingType {
+                let argument_operand_type = self
+                    .resolver
+                    .get_operand_type(argument_type_id)
+                    .ok_or(CompileError::MissingType {
                         type_id: argument_type_id,
-                    },
-                )?;
+                    })?;
 
                 self.call_arguments
                     .push((argument_address, argument_operand_type));
@@ -2513,11 +2514,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         }
 
         let return_type_id = *self
-            .context
+            .resolver
             .get_type_binding(&node.id)
             .ok_or(CompileError::MissingTypeBinding { syntax_id: node.id })?;
         let return_operand_type =
-            self.context
+            self.resolver
                 .get_operand_type(return_type_id)
                 .ok_or(CompileError::MissingType {
                     type_id: return_type_id,
@@ -2530,9 +2531,9 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         };
 
         let is_native = self
-            .context
+            .resolver
             .get_declaration_binding(&callee.id)
-            .and_then(|id| self.context.get_declaration(*id))
+            .and_then(|id| self.resolver.get_declaration(*id))
             .is_some_and(|declaration| matches!(declaration.kind, DeclarationKind::NativeFunction));
 
         let call_instruction = if is_native {
@@ -2622,7 +2623,7 @@ impl InstructionsEmission {
         }
     }
 
-    fn with_instruction(instruction: Instruction) -> Self {
+    fn _with_instruction(instruction: Instruction) -> Self {
         Self {
             instructions: vec![(instruction, Vec::new())],
             target: None,
@@ -2667,7 +2668,8 @@ pub enum Target {
         is_temporary: bool,
     },
     Struct {
-        base_index: u16,
+        reference_index: u16,
+        field_base_index: u16,
         field_count: u16,
         is_temporary: bool,
     },
@@ -2678,7 +2680,9 @@ impl Target {
         match self {
             Target::Constant { index } => Address::constant(*index),
             Target::Register { index, .. } => Address::register(*index),
-            Target::Struct { base_index, .. } => Address::register(*base_index),
+            Target::Struct {
+                reference_index, ..
+            } => Address::register(*reference_index),
         }
     }
 
@@ -2686,7 +2690,9 @@ impl Target {
         match self {
             Target::Constant { index } => *index,
             Target::Register { index, .. } => *index,
-            Target::Struct { base_index, .. } => *base_index,
+            Target::Struct {
+                reference_index, ..
+            } => *reference_index,
         }
     }
 

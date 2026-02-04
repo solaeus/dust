@@ -1,18 +1,17 @@
-mod context;
 mod declaration_binder;
 mod emitter;
 mod error;
+mod resolver;
 mod type_binder;
 
 #[cfg(test)]
 mod tests;
 
-pub use context::{
-    CompileContext, Declaration, DeclarationKind, ModuleKind, Scope, ScopeId, ScopeKind, TypeId,
-    TypeNode,
-};
 pub use emitter::Emitter;
 pub use error::CompileError;
+pub use resolver::{
+    Declaration, DeclarationKind, ModuleKind, Resolver, Scope, ScopeId, ScopeKind, TypeId, TypeNode,
+};
 
 use tracing::{Level, span};
 
@@ -27,7 +26,7 @@ use crate::{
     syntax::Syntax,
 };
 
-pub const DEFAULT_PROGRAM_NAME: &str = "Dust Program";
+pub const DEFAULT_PROGRAM_NAME: &str = "dust_program";
 
 pub fn compile_main_prototype(source_code: String) -> Result<Prototype, DustError> {
     let mut source = Source::new();
@@ -57,7 +56,7 @@ pub fn compile_prototypes(source_code: String) -> Result<Vec<Prototype>, DustErr
 }
 
 pub struct Compiler {
-    context: CompileContext,
+    context: Resolver,
     source: Source,
     syntax: Syntax,
 }
@@ -67,11 +66,11 @@ impl Compiler {
         Self {
             syntax: Syntax::with_capacity(source.file_count()),
             source,
-            context: CompileContext::new(),
+            context: Resolver::new(),
         }
     }
 
-    pub fn context(&self) -> &CompileContext {
+    pub fn context(&self) -> &Resolver {
         &self.context
     }
 
@@ -85,7 +84,7 @@ impl Compiler {
         name: Option<String>,
     ) -> Result<(Program, Source, Syntax), DustError> {
         let (
-            CompileContext {
+            Resolver {
                 mut constants,
                 prototypes,
                 ..
@@ -107,7 +106,7 @@ impl Compiler {
         ))
     }
 
-    fn compile_inner(mut self) -> Result<(CompileContext, Source, Syntax), DustError> {
+    fn compile_inner(mut self) -> Result<(Resolver, Source, Syntax), DustError> {
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
 
@@ -189,10 +188,8 @@ impl Compiler {
                 0,
                 SourceFileId::MAIN,
                 main_function_type,
-                &self.source,
-                &self.syntax,
-                &mut self.context,
                 ScopeId::PROJECT,
+                (&self.source, &self.syntax, &mut self.context),
             );
 
             self.context.prototypes[0] = match main_emitter.emit_main() {
