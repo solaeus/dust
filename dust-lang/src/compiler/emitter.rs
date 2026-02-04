@@ -1146,28 +1146,27 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     fn visit_expression_statement(
         &mut self,
         node: SyntaxReader<'_>,
-        input: Self::Input,
+        target: Self::Input,
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting expression statement");
 
-        let child = node.left_child().ok_or(CompileError::MissingChild {
+        let expression = node.left_child().ok_or(CompileError::MissingChild {
             parent_kind: node.kind(),
             child_index: 0,
         })?;
 
-        let emission = self.visit_expression(child, input)?;
+        let expression_emission = self.visit_expression(expression, target)?;
 
-        if input.is_some() {
-            return Ok(emission);
+        if target.is_some() {
+            return Ok(expression_emission);
         }
 
-        match emission {
-            Emission::Instructions(mut instructions) => {
-                instructions.set_target(None);
+        if let Emission::Instructions(mut instructions) = expression_emission {
+            instructions.set_target(None);
 
-                Ok(Emission::Instructions(instructions))
-            }
-            _ => Ok(Emission::None),
+            Ok(Emission::Instructions(instructions))
+        } else {
+            Ok(Emission::None)
         }
     }
 
