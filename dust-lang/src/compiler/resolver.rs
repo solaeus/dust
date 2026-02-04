@@ -46,6 +46,8 @@ pub struct Resolver {
     next_type_declaration_id: TypeDeclarationId,
 
     next_inferred_type_id: u32,
+
+    next_anonymous_symbol_id: u32,
 }
 
 impl Resolver {
@@ -64,7 +66,12 @@ impl Resolver {
             type_members: Vec::new(),
             next_type_declaration_id: TypeDeclarationId(0),
             next_inferred_type_id: 0,
+            next_anonymous_symbol_id: 0,
         };
+
+        let _main_declaration_id = context.add_anonymous_declaration(Declaration::MAIN);
+
+        debug_assert_eq!(_main_declaration_id, DeclarationId::MAIN);
 
         let _none_id = context.add_type(TypeNode::None);
         let _boolean_id = context.add_type(TypeNode::Boolean);
@@ -104,39 +111,39 @@ impl Resolver {
     }
 
     pub fn add_native_functions(&mut self) {
-        self.add_declaration(
+        self.add_named_declaration(
             NativeFunction::NO_OP.name(),
             Declaration {
                 kind: DeclarationKind::NativeFunction,
                 scope_id: ScopeId::NATIVE,
-                position: Position::default(),
+                name_position: None,
                 is_public: true,
             },
         );
-        self.add_declaration(
+        self.add_named_declaration(
             NativeFunction::READ_LINE.name(),
             Declaration {
                 kind: DeclarationKind::NativeFunction,
                 scope_id: ScopeId::NATIVE,
-                position: Position::default(),
+                name_position: None,
                 is_public: true,
             },
         );
-        self.add_declaration(
+        self.add_named_declaration(
             NativeFunction::WRITE_LINE.name(),
             Declaration {
                 kind: DeclarationKind::NativeFunction,
                 scope_id: ScopeId::NATIVE,
-                position: Position::default(),
+                name_position: None,
                 is_public: true,
             },
         );
-        self.add_declaration(
+        self.add_named_declaration(
             NativeFunction::SPAWN.name(),
             Declaration {
                 kind: DeclarationKind::NativeFunction,
                 scope_id: ScopeId::NATIVE,
-                position: Position::default(),
+                name_position: None,
                 is_public: true,
             },
         );
@@ -176,30 +183,46 @@ impl Resolver {
             .map(|(_, declaration)| declaration)
     }
 
-    pub fn add_declaration(&mut self, identifier: &str, declaration: Declaration) -> DeclarationId {
-        let symbol = {
-            let mut hasher = FxHasher::default();
-
-            identifier.hash(&mut hasher);
-
-            Symbol {
-                hash: hasher.finish(),
-            }
+    pub fn add_named_declaration(&mut self, name: &str, declaration: Declaration) -> DeclarationId {
+        let parent = if let DeclarationKind::Type { parent } = declaration.kind {
+            parent
+        } else {
+            None
         };
-
         let key = DeclarationKey {
-            symbol,
+            symbol: Symbol::named(name),
             scope_id: declaration.scope_id,
-            parent: match declaration.kind {
-                DeclarationKind::Type { parent } => parent,
-                _ => None,
-            },
+            parent,
         };
 
         if let Some((existing_index, _, _)) = self.declarations.get_full(&key) {
             return DeclarationId(existing_index as u32);
         }
 
+        let declaration_id = DeclarationId(self.declarations.len() as u32);
+
+        self.declarations.insert(key, declaration);
+
+        declaration_id
+    }
+
+    pub fn add_anonymous_declaration(&mut self, declaration: Declaration) -> DeclarationId {
+        let symbol = Symbol::Anonymous {
+            id: self.next_anonymous_symbol_id,
+        };
+
+        self.next_anonymous_symbol_id += 1;
+
+        let parent = if let DeclarationKind::Type { parent } = declaration.kind {
+            parent
+        } else {
+            None
+        };
+        let key = DeclarationKey {
+            symbol,
+            scope_id: declaration.scope_id,
+            parent,
+        };
         let declaration_id = DeclarationId(self.declarations.len() as u32);
 
         self.declarations.insert(key, declaration);
@@ -257,15 +280,7 @@ impl Resolver {
         &self,
         identifier: &str,
     ) -> Option<SmallVec<[(DeclarationId, Declaration); 4]>> {
-        let symbol = {
-            let mut hasher = FxHasher::default();
-
-            identifier.hash(&mut hasher);
-
-            Symbol {
-                hash: hasher.finish(),
-            }
-        };
+        let symbol = Symbol::named(identifier);
         let mut found = SmallVec::<[(DeclarationId, Declaration); 4]>::new();
 
         for (
@@ -295,16 +310,7 @@ impl Resolver {
         target_scope_id: ScopeId,
         parent: Option<DeclarationId>,
     ) -> Option<(DeclarationId, Declaration)> {
-        let symbol = {
-            let mut hasher = FxHasher::default();
-
-            identifier.hash(&mut hasher);
-
-            Symbol {
-                hash: hasher.finish(),
-            }
-        };
-
+        let symbol = Symbol::named(identifier);
         let mut current_scope_id = target_scope_id;
         let mut current_scope = self.get_scope(current_scope_id)?;
 
@@ -410,12 +416,12 @@ impl Resolver {
                 }
             }
             Type::Struct { name, fields } => {
-                let struct_declaration_id = self.add_declaration(
+                let struct_declaration_id = self.add_named_declaration(
                     name,
                     Declaration {
                         kind: DeclarationKind::Type { parent: None },
                         scope_id: ScopeId::PROJECT,
-                        position: Position::default(),
+                        name_position: None,
                         is_public: false,
                     },
                 );
@@ -424,14 +430,14 @@ impl Resolver {
                     SmallVec::<[DeclarationId; 8]>::with_capacity(fields.len());
 
                 for (field_name, field_type) in fields {
-                    let declaration_id = self.add_declaration(
+                    let declaration_id = self.add_named_declaration(
                         field_name,
                         Declaration {
                             kind: DeclarationKind::Type {
                                 parent: Some(struct_declaration_id),
                             },
                             scope_id: ScopeId::PROJECT,
-                            position: Position::default(),
+                            name_position: None,
                             is_public: false,
                         },
                     );
@@ -502,10 +508,13 @@ impl Resolver {
                 ..
             } => {
                 let declaration = self.get_declaration(*declaration_id)?;
-                let file = source.get_file(declaration.position.file_id)?;
-                let name = file
-                    .source_code
-                    .get_span(declaration.position.span)
+                let name = declaration
+                    .name_position
+                    .and_then(|position| {
+                        source
+                            .get_file(position.file_id)
+                            .map(|file| file.source_code.get_span(position.span))
+                    })?
                     .to_string();
 
                 let start = fields.0 as usize;
@@ -516,10 +525,13 @@ impl Resolver {
                 for index in start..(start + count) {
                     let field_declaration_id = *self.declaration_members.get_index(index)?;
                     let field_declaration = self.get_declaration(field_declaration_id)?;
-                    let file = source.get_file(field_declaration.position.file_id)?;
-                    let field_name = file
-                        .source_code
-                        .get_span(field_declaration.position.span)
+                    let field_name = field_declaration
+                        .name_position
+                        .and_then(|position| {
+                            source
+                                .get_file(position.file_id)
+                                .map(|file| file.source_code.get_span(position.span))
+                        })?
                         .to_string();
 
                     let field_type_id = self.get_declaration_type(&field_declaration_id)?;
@@ -840,8 +852,21 @@ impl Default for Resolver {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Symbol {
-    hash: u64,
+pub enum Symbol {
+    Named { hash: u64 },
+    Anonymous { id: u32 },
+}
+
+impl Symbol {
+    pub fn named(name: &str) -> Self {
+        let mut hasher = FxHasher::default();
+
+        name.hash(&mut hasher);
+
+        Symbol::Named {
+            hash: hasher.finish(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -870,6 +895,10 @@ pub enum ScopeKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DeclarationId(pub u32);
 
+impl DeclarationId {
+    pub const MAIN: Self = DeclarationId(0);
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DeclarationKey {
     symbol: Symbol,
@@ -881,8 +910,20 @@ pub struct DeclarationKey {
 pub struct Declaration {
     pub kind: DeclarationKind,
     pub scope_id: ScopeId,
-    pub position: Position,
+    pub name_position: Option<Position>,
     pub is_public: bool,
+}
+
+impl Declaration {
+    pub const MAIN: Self = Declaration {
+        kind: DeclarationKind::Function {
+            parameters: (0, 0),
+            prototype_index: Some(0),
+        },
+        scope_id: ScopeId::PROJECT,
+        name_position: None,
+        is_public: false,
+    };
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -892,8 +933,6 @@ pub enum DeclarationKind {
         is_mutable: bool,
     },
     Function {
-        file_id: SourceFileId,
-        syntax_id: SyntaxId,
         parameters: (u32, u32),
         prototype_index: Option<u16>,
     },

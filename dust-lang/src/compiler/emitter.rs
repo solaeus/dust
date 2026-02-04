@@ -7,7 +7,7 @@ use tracing::{debug, trace};
 use crate::{
     compiler::{
         CompileError, Resolver,
-        resolver::{Declaration, DeclarationId, DeclarationKind, ScopeId, TypeId, TypeNode},
+        resolver::{DeclarationId, DeclarationKind, ScopeId, TypeId, TypeNode},
     },
     instruction::{Address, Drop, Instruction, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
@@ -19,7 +19,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Emitter<'a> {
-    declaration_id: Option<DeclarationId>,
+    declaration_id: DeclarationId,
 
     prototype_index: u16,
 
@@ -67,15 +67,17 @@ pub struct Emitter<'a> {
 
 impl<'a> Emitter<'a> {
     pub fn new(
-        declaration_info: Option<(DeclarationId, Declaration)>,
+        declaration_id: DeclarationId,
         prototype_index: u16,
         file_id: SourceFileId,
         function_type_id: TypeId,
         starting_scope_id: ScopeId,
+        parameters: (u32, u32),
         (source, syntax, resolver): (&'a Source, &'a Syntax, &'a mut Resolver),
-    ) -> Self {
+    ) -> Result<Self, CompileError> {
+        let (arguments_start, arguments_count) = parameters;
         let mut emitter = Self {
-            declaration_id: declaration_info.map(|(id, _)| id),
+            declaration_id,
             prototype_index,
             file_id,
             function_type_id,
@@ -83,7 +85,10 @@ impl<'a> Emitter<'a> {
             syntax,
             resolver,
             instructions: Vec::new(),
-            locals: HashMap::default(),
+            locals: HashMap::with_capacity_and_hasher(
+                arguments_count as usize + 1,
+                FxBuildHasher::default(),
+            ),
             call_arguments: Vec::new(),
             drop_lists: Vec::new(),
             pending_drops: vec![SmallVec::new()],
@@ -97,34 +102,26 @@ impl<'a> Emitter<'a> {
             committed_maximum_register: 0,
         };
 
-        if let Some((declaration_id, declaration)) = &declaration_info
-            && let DeclarationKind::Function { parameters, .. } = &declaration.kind
-        {
-            emitter.locals.insert(
-                *declaration_id,
-                Target::Constant {
-                    index: prototype_index,
-                },
-            );
+        emitter.locals.insert(
+            declaration_id,
+            Target::Constant {
+                index: prototype_index,
+            },
+        );
 
-            let (start, count) = *parameters;
+        for index in 0..arguments_count {
+            let current_parameter_index = arguments_start + index;
+            if let Some(parameter_id) = emitter
+                .resolver
+                .get_declaration_member(current_parameter_index)
+            {
+                let target = emitter.allocate_local_register();
 
-            emitter.locals.reserve(count as usize);
-
-            for index in 0..count {
-                let current_parameter_index = start + index;
-                if let Some(parameter_id) = emitter
-                    .resolver
-                    .get_declaration_member(current_parameter_index)
-                {
-                    let target = emitter.allocate_local_register();
-
-                    emitter.locals.insert(parameter_id, target);
-                }
+                emitter.locals.insert(parameter_id, target);
             }
         }
 
-        emitter
+        Ok(emitter)
     }
 
     pub fn emit_main(self) -> Result<Prototype, CompileError> {
@@ -187,16 +184,11 @@ impl<'a> Emitter<'a> {
     pub fn finish(mut self) -> Result<Prototype, CompileError> {
         // self.context.constants.finalize_string_pool();
 
-        let name_position = if let Some(declaration_id) = self.declaration_id {
-            let declaration = self
-                .resolver
-                .get_declaration(declaration_id)
-                .ok_or(CompileError::MissingDeclaration { declaration_id })?;
-
-            Some(declaration.position)
-        } else {
-            None
-        };
+        let declaration = self.resolver.get_declaration(self.declaration_id).ok_or(
+            CompileError::MissingDeclaration {
+                declaration_id: self.declaration_id,
+            },
+        )?;
         let register_count = self.committed_maximum_register.max(self.maximum_register);
         let function_type = self
             .resolver
@@ -275,7 +267,7 @@ impl<'a> Emitter<'a> {
 
         Ok(Prototype {
             index: self.prototype_index,
-            name_position,
+            name_position: declaration.name_position,
             function_type,
             instructions: self.instructions,
             call_arguments: self.call_arguments,
@@ -2408,17 +2400,14 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting function expression");
 
-        let declaration_id = self.resolver.get_declaration_binding(&node.id).copied();
-        let declaration_info = if let Some(declaration_id) = declaration_id {
-            let declaration = *self
-                .resolver
-                .get_declaration(declaration_id)
-                .ok_or(CompileError::MissingDeclaration { declaration_id })?;
-
-            Some((declaration_id, declaration))
-        } else {
-            None
-        };
+        let declaration_id = *self
+            .resolver
+            .get_declaration_binding(&node.id)
+            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+        let mut declaration = *self
+            .resolver
+            .get_declaration(declaration_id)
+            .ok_or(CompileError::MissingDeclaration { declaration_id })?;
 
         let function_type = *self
             .resolver
@@ -2431,17 +2420,23 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let prototype_index = self.resolver.prototypes.len();
 
-        if let Some(declaration_id) = declaration_id
-            && let Some(declaration) = self.resolver.get_declaration_mut(&declaration_id)
-            && let DeclarationKind::Function {
-                prototype_index: declaration_prototype_index,
-                ..
-            } = &mut declaration.kind
+        self.resolver.prototypes.push(Prototype::default());
+
+        let parameters = if let DeclarationKind::Function {
+            prototype_index: declaration_prototype_index,
+            parameters,
+            ..
+        } = &mut declaration.kind
         {
             *declaration_prototype_index = Some(prototype_index as u16);
-        }
 
-        self.resolver.prototypes.push(Prototype::default());
+            *parameters
+        } else {
+            return Err(CompileError::ExpectedFunction {
+                node_kind: node.kind(),
+                position: Position::new(self.file_id, node.span()),
+            });
+        };
 
         let function_scope_id = *self
             .resolver
@@ -2449,13 +2444,14 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             .ok_or(CompileError::MissingScopeBinding { syntax_id: node.id })?;
 
         let function_emitter = Emitter::new(
-            declaration_info,
+            declaration_id,
             prototype_index as u16,
             self.file_id,
             function_type,
             function_scope_id,
+            parameters,
             (self.source, self.syntax, self.resolver),
-        );
+        )?;
 
         self.resolver.prototypes[prototype_index] = function_emitter.emit(body)?;
 

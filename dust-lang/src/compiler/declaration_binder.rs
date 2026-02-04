@@ -177,12 +177,12 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                     is_mutable: false,
                 },
                 scope_id: function_scope_id,
-                position: Position::new(self.file_id, parameter_name.span()),
+                name_position: Some(Position::new(self.file_id, parameter_name.span())),
                 is_public: false,
             };
             let parameter_declaration_id = self
                 .resolver
-                .add_declaration(parameter_name_str, parameter_declaration);
+                .add_named_declaration(parameter_name_str, parameter_declaration);
 
             self.resolver
                 .set_declaration_binding(parameter_name.id, parameter_declaration_id);
@@ -197,13 +197,11 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         let parameters = self.resolver.add_declaration_members(&parameter_ids);
         let function_declaration = Declaration {
             kind: DeclarationKind::Function {
-                file_id: self.file_id,
-                syntax_id: node.id,
                 parameters,
                 prototype_index: None,
             },
             scope_id: self.current_scope_id,
-            position: Position::new(self.file_id, function_name.span()),
+            name_position: Some(Position::new(self.file_id, function_name.span())),
             is_public,
         };
 
@@ -215,7 +213,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         let function_name_str = source_file.source_code.get_span(function_name.span());
         let function_declaration_id = self
             .resolver
-            .add_declaration(function_name_str, function_declaration);
+            .add_named_declaration(function_name_str, function_declaration);
 
         self.resolver
             .add_scope_binding(function_body.id, function_scope_id);
@@ -279,12 +277,12 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         let struct_declaration = Declaration {
             kind: DeclarationKind::Type { parent: None },
             scope_id: self.current_scope_id,
-            position: Position::new(self.file_id, struct_name.span()),
+            name_position: Some(Position::new(self.file_id, struct_name.span())),
             is_public: false,
         };
         let struct_declaration_id = self
             .resolver
-            .add_declaration(struct_name_str, struct_declaration);
+            .add_named_declaration(struct_name_str, struct_declaration);
 
         let mut field_ids = SmallVec::<[DeclarationId; 8]>::new();
 
@@ -304,12 +302,12 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                     parent: Some(struct_declaration_id),
                 },
                 scope_id: self.current_scope_id,
-                position: Position::new(self.file_id, field_name.span()),
+                name_position: Some(Position::new(self.file_id, field_name.span())),
                 is_public: false,
             };
             let field_declaration_id = self
                 .resolver
-                .add_declaration(field_name_str, field_declaration);
+                .add_named_declaration(field_name_str, field_declaration);
 
             self.resolver
                 .set_declaration_binding(field_name.id, field_declaration_id);
@@ -392,10 +390,12 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                 is_mutable,
             },
             scope_id: self.current_scope_id,
-            position: Position::new(self.file_id, path.span()),
+            name_position: Some(Position::new(self.file_id, path.span())),
             is_public: false,
         };
-        let declaration_id = self.resolver.add_declaration(variable_name, declaration);
+        let declaration_id = self
+            .resolver
+            .add_named_declaration(variable_name, declaration);
 
         self.resolver
             .set_declaration_binding(path.id, declaration_id);
@@ -915,6 +915,8 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             modules: SmallVec::new(),
         });
 
+        let mut parameter_ids = SmallVec::<[DeclarationId; 8]>::new();
+
         for value_parameter in value_parameters {
             let parameter_name =
                 value_parameter
@@ -937,18 +939,36 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                     is_mutable: false,
                 },
                 scope_id: function_scope_id,
-                position: Position::new(self.file_id, parameter_name.span()),
+                name_position: Some(Position::new(self.file_id, parameter_name.span())),
                 is_public: false,
             };
             let parameter_declaration_id = self
                 .resolver
-                .add_declaration(parameter_name_str, parameter_declaration);
+                .add_named_declaration(parameter_name_str, parameter_declaration);
 
             self.resolver
                 .set_declaration_binding(parameter_name.id, parameter_declaration_id);
+            parameter_ids.push(parameter_declaration_id);
         }
 
+        let parameters = self.resolver.add_declaration_members(&parameter_ids);
+        let function_declaration = Declaration {
+            kind: DeclarationKind::Function {
+                parameters,
+                prototype_index: None,
+            },
+            scope_id: self.current_scope_id,
+            name_position: None,
+            is_public: false,
+        };
+
+        let function_declaration_id = self
+            .resolver
+            .add_anonymous_declaration(function_declaration);
+
         self.resolver.add_scope_binding(body.id, function_scope_id);
+        self.resolver
+            .set_declaration_binding(node.id, function_declaration_id);
 
         let mut function_declaration_binder = DeclarationBinder::new(
             self.file_id,

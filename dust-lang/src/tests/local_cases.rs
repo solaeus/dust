@@ -447,3 +447,8 @@ let a: str = "foo";
 let b: str = "bar";
 a != b
 "#;
+
+pub const LOCAL_FUNCTION: &str = r#"
+let add_one: fn(int) -> int = fn(x: int) -> int { x + 1 };
+add_one(41)
+"#;

@@ -98,7 +98,7 @@ impl<'a> InstructionCompiler<'a> {
             Operation::TO_STRING => self.compile_to_string(instruction, ip, builder),
             Operation::JUMP => self.compile_jump(instruction, ip, builder),
             Operation::DROP => self.compile_drop(instruction, ip, builder),
-            Operation::RETURN => self.compile_return(instruction, ip, builder),
+            Operation::RETURN => self.compile_return(instruction, builder),
             _ => Err(JitError::UnsupportedOperation { operation }),
         }
     }
@@ -1135,7 +1135,6 @@ impl<'a> InstructionCompiler<'a> {
     fn compile_return(
         &mut self,
         instruction: &Instruction,
-        ip: usize,
         builder: &mut FunctionBuilder,
     ) -> Result<(), JitError> {
         let Return { operand, r#type } = Return::from(instruction);

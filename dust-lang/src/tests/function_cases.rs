@@ -1,11 +1,5 @@
 use crate::instruction::OperandType;
 
-pub const ANONYMOUS_FUNCTION: &str = r#"
-let add_one: fn(int) -> int = fn(x: int) -> int { x + 1 };
-
-add_one(41)
-"#;
-
 pub fn create_function_case(source: &str, return_type: OperandType) -> String {
     if return_type == OperandType::NONE {
         format!(

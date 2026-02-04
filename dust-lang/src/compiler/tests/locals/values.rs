@@ -119,3 +119,11 @@ fn local_string() {
         }
     );
 }
+
+#[test]
+fn local_function() {
+    let source = local_cases::LOCAL_FUNCTION.to_string();
+    let prototype = compile_main_prototype(source).unwrap();
+
+    assert_eq!(prototype, Prototype::default());
+}

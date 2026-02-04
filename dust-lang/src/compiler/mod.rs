@@ -16,7 +16,9 @@ pub use resolver::{
 use tracing::{Level, span};
 
 use crate::{
-    compiler::{declaration_binder::DeclarationBinder, type_binder::TypeBinder},
+    compiler::{
+        declaration_binder::DeclarationBinder, resolver::DeclarationId, type_binder::TypeBinder,
+    },
     dust_crate::Program,
     dust_error::DustError,
     lexer::Lexer,
@@ -183,14 +185,18 @@ impl Compiler {
 
             self.context.prototypes.push(Prototype::default()); // Placeholder for main prototype
 
-            let main_emitter = Emitter::new(
-                None,
+            let main_emitter = match Emitter::new(
+                DeclarationId::MAIN,
                 0,
                 SourceFileId::MAIN,
                 main_function_type,
                 ScopeId::PROJECT,
+                (0, 0),
                 (&self.source, &self.syntax, &mut self.context),
-            );
+            ) {
+                Ok(emitter) => emitter,
+                Err(error) => return Err(DustError::compile(error, self.source)),
+            };
 
             self.context.prototypes[0] = match main_emitter.emit_main() {
                 Ok(prototype) => prototype,
