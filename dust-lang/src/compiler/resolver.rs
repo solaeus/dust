@@ -14,7 +14,7 @@ use crate::{
     instruction::OperandType,
     native_function::NativeFunction,
     prototype::Prototype,
-    source::{Position, Source, SourceFileId},
+    source::{Position, Source},
     syntax::SyntaxId,
     r#type::{FunctionType, Type},
 };

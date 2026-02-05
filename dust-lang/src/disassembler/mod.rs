@@ -138,9 +138,7 @@ impl<'a> Disassembler<'a> {
                                         Some(PrototypeSection::CallArguments) => {
                                             prototype.call_arguments.len()
                                         }
-                                        Some(PrototypeSection::DropLists) => {
-                                            prototype.drop_lists.len()
-                                        }
+                                        Some(PrototypeSection::Drops) => prototype.drops.len(),
                                         None => 0,
                                     };
                                     if section_length > 0 {
@@ -150,9 +148,8 @@ impl<'a> Disassembler<'a> {
                                     }
                                 }
                                 None => {
-                                    self.selection_state.section =
-                                        Some(PrototypeSection::DropLists);
-                                    let section_length = prototype.drop_lists.len();
+                                    self.selection_state.section = Some(PrototypeSection::Drops);
+                                    let section_length = prototype.drops.len();
                                     if section_length > 0 {
                                         self.selection_state.row = section_length - 1;
                                     } else {
@@ -171,7 +168,7 @@ impl<'a> Disassembler<'a> {
                             Some(PrototypeSection::Instructions) => prototype.instructions.len(),
                             Some(PrototypeSection::Constants) => self.program.constants.len(),
                             Some(PrototypeSection::CallArguments) => prototype.call_arguments.len(),
-                            Some(PrototypeSection::DropLists) => prototype.drop_lists.len(),
+                            Some(PrototypeSection::Drops) => prototype.drops.len(),
                             None => 0,
                         };
 
@@ -260,7 +257,7 @@ impl<'a> Disassembler<'a> {
             Constraint::Length(get_section_length(prototype.instructions.len())),
             Constraint::Length(get_section_length(self.program.constants.len())),
             Constraint::Length(get_section_length(prototype.call_arguments.len())),
-            Constraint::Length(get_section_length(prototype.drop_lists.len())),
+            Constraint::Length(get_section_length(prototype.drops.len())),
         ]);
         let [
             prototype_area,
@@ -386,13 +383,12 @@ impl<'a> Disassembler<'a> {
         // Drops section
         if self.show_drops {
             let drop_list_rows = prototype
-                .drop_lists
+                .drops
                 .iter()
                 .enumerate()
                 .map(|(index, register)| [index.to_string(), format!("reg_{register}")])
                 .collect::<Vec<_>>();
-            let selected_row = if self.selection_state.section == Some(PrototypeSection::DropLists)
-            {
+            let selected_row = if self.selection_state.section == Some(PrototypeSection::Drops) {
                 Some(self.selection_state.row)
             } else {
                 None
@@ -482,7 +478,7 @@ impl Widget for &mut Disassembler<'_> {
             let prototype = &self.program.prototypes[prototype_index];
 
             self.show_arguments = !prototype.call_arguments.is_empty();
-            self.show_drops = !prototype.drop_lists.is_empty();
+            self.show_drops = !prototype.drops.is_empty();
 
             self.draw_prototype_tab(prototype_index, prototype, tab_content_area, buffer);
         }
@@ -506,7 +502,7 @@ enum PrototypeSection {
     Instructions,
     Constants,
     CallArguments,
-    DropLists,
+    Drops,
 }
 
 impl PrototypeSection {
@@ -514,17 +510,17 @@ impl PrototypeSection {
         match self {
             PrototypeSection::Instructions => PrototypeSection::Constants,
             PrototypeSection::Constants => PrototypeSection::CallArguments,
-            PrototypeSection::CallArguments => PrototypeSection::DropLists,
-            PrototypeSection::DropLists => PrototypeSection::Instructions,
+            PrototypeSection::CallArguments => PrototypeSection::Drops,
+            PrototypeSection::Drops => PrototypeSection::Instructions,
         }
     }
 
     fn previous(&self) -> PrototypeSection {
         match self {
-            PrototypeSection::Instructions => PrototypeSection::DropLists,
+            PrototypeSection::Instructions => PrototypeSection::Drops,
             PrototypeSection::Constants => PrototypeSection::Instructions,
             PrototypeSection::CallArguments => PrototypeSection::Constants,
-            PrototypeSection::DropLists => PrototypeSection::CallArguments,
+            PrototypeSection::Drops => PrototypeSection::CallArguments,
         }
     }
 }

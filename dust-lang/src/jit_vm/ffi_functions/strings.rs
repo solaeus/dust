@@ -41,7 +41,7 @@ pub unsafe extern "C" fn concatenate_strings(
         let right_string = unsafe { &*right_pointer }
             .as_string()
             .cloned()
-            .unwrap_or_else(|| STRING_ERROR_TEXT.to_string());
+            .expect(STRING_ERROR_TEXT);
         let left_string = unsafe { &*left_pointer }
             .as_string()
             .map(|string| string.as_str())

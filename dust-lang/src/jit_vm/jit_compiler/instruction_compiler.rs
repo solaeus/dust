@@ -1087,10 +1087,10 @@ impl<'a> InstructionCompiler<'a> {
 
         if drop_list_end != 0 {
             for drop_index in drop_list_start..drop_list_end {
-                let register_index = *self.prototype.drop_lists.get(drop_index as usize).ok_or(
+                let register_index = *self.prototype.drops.get(drop_index as usize).ok_or(
                     JitError::DropListIndexOutOfBounds {
                         drop_list_index: drop_index,
-                        drop_list_length: self.prototype.drop_lists.len(),
+                        drop_list_length: self.prototype.drops.len(),
                     },
                 )?;
                 let tag_value = builder.ins().iconst(I8, RegisterTag::EMPTY.0 as i64);
@@ -1116,10 +1116,10 @@ impl<'a> InstructionCompiler<'a> {
         } = Drop::from(instruction);
 
         for drop_index in drop_list_start..drop_list_end {
-            let register_index = *self.prototype.drop_lists.get(drop_index as usize).ok_or(
+            let register_index = *self.prototype.drops.get(drop_index as usize).ok_or(
                 JitError::DropListIndexOutOfBounds {
                     drop_list_index: drop_index,
-                    drop_list_length: self.prototype.drop_lists.len(),
+                    drop_list_length: self.prototype.drops.len(),
                 },
             )?;
             let tag_value = builder.ins().iconst(I8, RegisterTag::EMPTY.0 as i64);

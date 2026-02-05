@@ -271,7 +271,7 @@ impl<'a> Emitter<'a> {
             function_type,
             instructions: self.instructions,
             call_arguments: self.call_arguments,
-            drop_lists: self.drop_lists,
+            drops: self.drop_lists,
             register_count,
         })
     }

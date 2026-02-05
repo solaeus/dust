@@ -1,9 +1,6 @@
-//! Representation of a Dust program or function.
+//! Representation of a Dust function.
 //!
 //! A prototype is output by the compiler to represent all the information needed to execute a function.
-//! Each function in the source is compiled into its own prototype and stored in the global `prototypes`
-//! collection.
-
 use std::fmt::Debug;
 
 use crate::{
@@ -23,7 +20,7 @@ pub struct Prototype {
 
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) call_arguments: Vec<(Address, OperandType)>,
-    pub(crate) drop_lists: Vec<u16>,
+    pub(crate) drops: Vec<u16>,
 
     pub(crate) register_count: u16,
 }

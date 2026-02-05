@@ -8,18 +8,14 @@ use crate::instruction::OperandType;
 pub enum Type {
     #[default]
     None,
-
     Boolean,
     Byte,
     Character,
     Float,
     Integer,
-
     String,
     List(Box<Type>),
-
     Function(Box<FunctionType>),
-
     Struct {
         name: String,
         fields: Vec<(String, Type)>,

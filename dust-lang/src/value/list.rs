@@ -67,64 +67,6 @@ impl List {
             List::Function(_) => OperandType::LIST_FUNCTION,
         }
     }
-
-    pub fn heap_size(&self) -> usize {
-        match self {
-            List::Boolean(booleans) => {
-                let vec_stack_size = std::mem::size_of::<Vec<bool>>();
-                let vec_heap_size = booleans.capacity() * std::mem::size_of::<bool>();
-
-                vec_stack_size + vec_heap_size
-            }
-            List::Byte(bytes) => {
-                let vec_stack_size = std::mem::size_of::<Vec<u8>>();
-                let vec_heap_size = bytes.capacity() * std::mem::size_of::<u8>();
-
-                vec_stack_size + vec_heap_size
-            }
-            List::Character(characters) => {
-                let vec_stack_size = std::mem::size_of::<Vec<char>>();
-                let vec_heap_size = characters.capacity() * std::mem::size_of::<char>();
-
-                vec_stack_size + vec_heap_size
-            }
-            List::Float(floats) => {
-                let vec_stack_size = std::mem::size_of::<Vec<f64>>();
-                let vec_heap_size = floats.capacity() * std::mem::size_of::<f64>();
-
-                vec_stack_size + vec_heap_size
-            }
-            List::Integer(items) => {
-                let vec_stack_size = std::mem::size_of::<Vec<i64>>();
-                let vec_heap_size = items.capacity() * std::mem::size_of::<i64>();
-
-                vec_stack_size + vec_heap_size
-            }
-            List::String(strings) => {
-                let vec_stack_size = std::mem::size_of::<Vec<String>>();
-                let vec_heap_size = strings.capacity() * std::mem::size_of::<String>();
-                let strings_heap_size = strings
-                    .iter()
-                    .map(|string| string.capacity())
-                    .sum::<usize>();
-
-                vec_stack_size + vec_heap_size + strings_heap_size
-            }
-            List::List(lists) => {
-                let vec_stack_size = std::mem::size_of::<Vec<List>>();
-                let vec_heap_size = lists.capacity() * std::mem::size_of::<List>();
-                let lists_heap_size = lists.iter().map(List::heap_size).sum::<usize>();
-
-                vec_stack_size + vec_heap_size + lists_heap_size
-            }
-            List::Function(functions) => {
-                let vec_stack_size = std::mem::size_of::<Vec<usize>>();
-                let vec_heap_size = functions.capacity() * std::mem::size_of::<usize>();
-
-                vec_stack_size + vec_heap_size
-            }
-        }
-    }
 }
 
 impl Display for List {
