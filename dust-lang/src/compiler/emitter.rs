@@ -113,7 +113,9 @@ impl<'a> Emitter<'a> {
 
         emitter.locals.insert(
             declaration_id,
-            Place::Constant(Constant::Function { prototype_index }),
+            Place::Prototype {
+                index: prototype_index,
+            },
         );
 
         if let Some(parameters) = parameters {
@@ -327,7 +329,6 @@ impl<'a> Emitter<'a> {
             }
             2.. => {
                 let reference_index = self.next_temporary_register;
-                let field_base_index = reference_index + 1;
                 self.next_temporary_register += count;
 
                 trace!(
@@ -337,9 +338,8 @@ impl<'a> Emitter<'a> {
                 );
 
                 Target::Compound {
-                    reference_index,
-                    field_base_index,
-                    field_count: count - 1,
+                    base_register: reference_index,
+                    count,
                     is_temporary: true,
                 }
             }
@@ -388,7 +388,6 @@ impl<'a> Emitter<'a> {
             }
             2.. => {
                 let reference_index = self.next_local_register;
-                let field_base_index = reference_index + 1;
                 self.next_local_register += count;
 
                 trace!(
@@ -398,9 +397,8 @@ impl<'a> Emitter<'a> {
                 );
 
                 Target::Compound {
-                    reference_index,
-                    field_base_index,
-                    field_count: count - 1,
+                    base_register: reference_index,
+                    count,
                     is_temporary: false,
                 }
             }
@@ -479,21 +477,23 @@ impl<'a> Emitter<'a> {
         }
     }
 
-    fn get_constant_address(&mut self, constant: Constant) -> Address {
+    fn get_constant_address(&mut self, constant: ConstantEmission) -> Address {
         let index = match constant {
-            Constant::Boolean(boolean) => return Address::encoded(boolean as u16),
-            Constant::Byte(byte) => return Address::encoded(byte as u16),
-            Constant::Character(character) => self.resolver.constants.add_character(character),
-            Constant::Float(float) => self.resolver.constants.add_float(float),
-            Constant::Integer(integer) => self.resolver.constants.add_integer(integer),
-            Constant::String {
+            ConstantEmission::Boolean(boolean) => return Address::encoded(boolean as u16),
+            ConstantEmission::Byte(byte) => return Address::encoded(byte as u16),
+            ConstantEmission::Character(character) => {
+                self.resolver.constants.add_character(character)
+            }
+            ConstantEmission::Float(float) => self.resolver.constants.add_float(float),
+            ConstantEmission::Integer(integer) => self.resolver.constants.add_integer(integer),
+            ConstantEmission::String {
                 pool_start,
                 pool_end,
             } => self
                 .resolver
                 .constants
                 .add_pooled_string(pool_start, pool_end),
-            Constant::Function { prototype_index } => prototype_index,
+            ConstantEmission::Function { prototype_index } => prototype_index,
         };
 
         Address::constant(index)
@@ -502,15 +502,17 @@ impl<'a> Emitter<'a> {
     fn combine_constants(
         &mut self,
         operation: SyntaxKind,
-        left: Constant,
+        left: ConstantEmission,
         left_node: &SyntaxNode,
-        right: Constant,
+        right: ConstantEmission,
         right_node: &SyntaxNode,
-    ) -> Result<Constant, CompileError> {
+    ) -> Result<ConstantEmission, CompileError> {
         let check_for_division_by_zero = || {
             if matches!(
                 right,
-                Constant::Byte(0) | Constant::Integer(0) | Constant::Float(0.0)
+                ConstantEmission::Byte(0)
+                    | ConstantEmission::Integer(0)
+                    | ConstantEmission::Float(0.0)
             ) {
                 Err(CompileError::DivisionByZero {
                     position: Position::new(
@@ -524,123 +526,157 @@ impl<'a> Emitter<'a> {
         };
 
         let combined = match (left, right) {
-            (Constant::Boolean(left), Constant::Boolean(right)) => match operation {
-                SyntaxKind::AndExpression => Constant::Boolean(left && right),
-                SyntaxKind::OrExpression => Constant::Boolean(left || right),
-                SyntaxKind::GreaterThanExpression => Constant::Boolean(left || right),
-                SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
-                SyntaxKind::LessThanExpression => Constant::Boolean(left || right),
-                SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
-                SyntaxKind::EqualExpression => Constant::Boolean(left == right),
-                SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
-                _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
-            },
-            (Constant::Byte(left), Constant::Byte(right)) => match operation {
-                SyntaxKind::AdditionExpression => Constant::Byte(left.saturating_add(right)),
-                SyntaxKind::SubtractionExpression => Constant::Byte(left.saturating_sub(right)),
-                SyntaxKind::MultiplicationExpression => Constant::Byte(left.saturating_mul(right)),
-                SyntaxKind::DivisionExpression => {
-                    check_for_division_by_zero()?;
-
-                    Constant::Byte(left.saturating_div(right))
+            (ConstantEmission::Boolean(left), ConstantEmission::Boolean(right)) => {
+                match operation {
+                    SyntaxKind::AndExpression => ConstantEmission::Boolean(left && right),
+                    SyntaxKind::OrExpression => ConstantEmission::Boolean(left || right),
+                    SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left || right),
+                    SyntaxKind::GreaterThanOrEqualExpression => {
+                        ConstantEmission::Boolean(left >= right)
+                    }
+                    SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left || right),
+                    SyntaxKind::LessThanOrEqualExpression => {
+                        ConstantEmission::Boolean(left <= right)
+                    }
+                    SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
+                    SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
+                    _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
                 }
-                SyntaxKind::ModuloExpression => {
-                    check_for_division_by_zero()?;
-
-                    Constant::Byte(left % right)
+            }
+            (ConstantEmission::Byte(left), ConstantEmission::Byte(right)) => match operation {
+                SyntaxKind::AdditionExpression => {
+                    ConstantEmission::Byte(left.saturating_add(right))
                 }
-                SyntaxKind::ExponentExpression => Constant::Byte(left.saturating_pow(right as u32)),
-                SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
-                SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
-                SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
-                SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
-                SyntaxKind::EqualExpression => Constant::Boolean(left == right),
-                SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
-                _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
-            },
-            (Constant::Float(left), Constant::Float(right)) => match operation {
-                SyntaxKind::AdditionExpression => Constant::Float(left + right),
-                SyntaxKind::SubtractionExpression => Constant::Float(left - right),
-                SyntaxKind::MultiplicationExpression => Constant::Float(left * right),
-                SyntaxKind::DivisionExpression => {
-                    check_for_division_by_zero()?;
-
-                    Constant::Float(left / right)
+                SyntaxKind::SubtractionExpression => {
+                    ConstantEmission::Byte(left.saturating_sub(right))
                 }
-                SyntaxKind::ModuloExpression => {
-                    check_for_division_by_zero()?;
-
-                    Constant::Float(left % right)
-                }
-                SyntaxKind::ExponentExpression => Constant::Float(left.powf(right)),
-                SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
-                SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
-                SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
-                SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
-                SyntaxKind::EqualExpression => Constant::Boolean(left == right),
-                SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
-                _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
-            },
-            (Constant::Integer(left), Constant::Integer(right)) => match operation {
-                SyntaxKind::AdditionExpression => Constant::Integer(left.saturating_add(right)),
-                SyntaxKind::SubtractionExpression => Constant::Integer(left.saturating_sub(right)),
                 SyntaxKind::MultiplicationExpression => {
-                    Constant::Integer(left.saturating_mul(right))
+                    ConstantEmission::Byte(left.saturating_mul(right))
                 }
                 SyntaxKind::DivisionExpression => {
                     check_for_division_by_zero()?;
 
-                    Constant::Integer(left.saturating_div(right))
+                    ConstantEmission::Byte(left.saturating_div(right))
                 }
                 SyntaxKind::ModuloExpression => {
                     check_for_division_by_zero()?;
 
-                    Constant::Integer(left % right)
+                    ConstantEmission::Byte(left % right)
                 }
                 SyntaxKind::ExponentExpression => {
-                    Constant::Integer(left.saturating_pow(right as u32))
+                    ConstantEmission::Byte(left.saturating_pow(right as u32))
                 }
-                SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
-                SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
-                SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
-                SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
-                SyntaxKind::EqualExpression => Constant::Boolean(left == right),
-                SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
+                SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
+                SyntaxKind::GreaterThanOrEqualExpression => {
+                    ConstantEmission::Boolean(left >= right)
+                }
+                SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
+                SyntaxKind::LessThanOrEqualExpression => ConstantEmission::Boolean(left <= right),
+                SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
+                SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                 _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
             },
-            (Constant::Character(left), Constant::Character(right)) => match operation {
-                SyntaxKind::AdditionExpression => {
-                    let mut string = String::with_capacity(2);
+            (ConstantEmission::Float(left), ConstantEmission::Float(right)) => match operation {
+                SyntaxKind::AdditionExpression => ConstantEmission::Float(left + right),
+                SyntaxKind::SubtractionExpression => ConstantEmission::Float(left - right),
+                SyntaxKind::MultiplicationExpression => ConstantEmission::Float(left * right),
+                SyntaxKind::DivisionExpression => {
+                    check_for_division_by_zero()?;
 
-                    string.push(left);
-                    string.push(right);
+                    ConstantEmission::Float(left / right)
+                }
+                SyntaxKind::ModuloExpression => {
+                    check_for_division_by_zero()?;
 
-                    let combined = self
-                        .resolver
-                        .constants
-                        .push_str_to_string_pool(string.as_bytes());
+                    ConstantEmission::Float(left % right)
+                }
+                SyntaxKind::ExponentExpression => ConstantEmission::Float(left.powf(right)),
+                SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
+                SyntaxKind::GreaterThanOrEqualExpression => {
+                    ConstantEmission::Boolean(left >= right)
+                }
+                SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
+                SyntaxKind::LessThanOrEqualExpression => ConstantEmission::Boolean(left <= right),
+                SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
+                SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
+                _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
+            },
+            (ConstantEmission::Integer(left), ConstantEmission::Integer(right)) => {
+                match operation {
+                    SyntaxKind::AdditionExpression => {
+                        ConstantEmission::Integer(left.saturating_add(right))
+                    }
+                    SyntaxKind::SubtractionExpression => {
+                        ConstantEmission::Integer(left.saturating_sub(right))
+                    }
+                    SyntaxKind::MultiplicationExpression => {
+                        ConstantEmission::Integer(left.saturating_mul(right))
+                    }
+                    SyntaxKind::DivisionExpression => {
+                        check_for_division_by_zero()?;
 
-                    Constant::String {
-                        pool_start: combined.0,
-                        pool_end: combined.1,
+                        ConstantEmission::Integer(left.saturating_div(right))
+                    }
+                    SyntaxKind::ModuloExpression => {
+                        check_for_division_by_zero()?;
+
+                        ConstantEmission::Integer(left % right)
+                    }
+                    SyntaxKind::ExponentExpression => {
+                        ConstantEmission::Integer(left.saturating_pow(right as u32))
+                    }
+                    SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
+                    SyntaxKind::GreaterThanOrEqualExpression => {
+                        ConstantEmission::Boolean(left >= right)
+                    }
+                    SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
+                    SyntaxKind::LessThanOrEqualExpression => {
+                        ConstantEmission::Boolean(left <= right)
+                    }
+                    SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
+                    SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
+                    _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
+                }
+            }
+            (ConstantEmission::Character(left), ConstantEmission::Character(right)) => {
+                match operation {
+                    SyntaxKind::AdditionExpression => {
+                        let mut string = String::with_capacity(2);
+
+                        string.push(left);
+                        string.push(right);
+
+                        let combined = self
+                            .resolver
+                            .constants
+                            .push_str_to_string_pool(string.as_bytes());
+
+                        ConstantEmission::String {
+                            pool_start: combined.0,
+                            pool_end: combined.1,
+                        }
+                    }
+                    SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
+                    SyntaxKind::GreaterThanOrEqualExpression => {
+                        ConstantEmission::Boolean(left >= right)
+                    }
+                    SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
+                    SyntaxKind::LessThanOrEqualExpression => {
+                        ConstantEmission::Boolean(left <= right)
+                    }
+                    SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
+                    SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
+                    _ => {
+                        return Err(CompileError::InvalidSyntaxNode { kind: operation });
                     }
                 }
-                SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
-                SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
-                SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
-                SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
-                SyntaxKind::EqualExpression => Constant::Boolean(left == right),
-                SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
-                _ => {
-                    return Err(CompileError::InvalidSyntaxNode { kind: operation });
-                }
-            },
+            }
             (
-                Constant::String {
+                ConstantEmission::String {
                     pool_start: left_pool_start,
                     pool_end: left_pool_end,
                 },
-                Constant::String {
+                ConstantEmission::String {
                     pool_start: right_pool_start,
                     pool_end: right_pool_end,
                 },
@@ -657,7 +693,7 @@ impl<'a> Emitter<'a> {
                 match operation {
                     SyntaxKind::AdditionExpression => {
                         if left_pool_end == right_pool_start {
-                            return Ok(Constant::String {
+                            return Ok(ConstantEmission::String {
                                 pool_start: left_pool_start,
                                 pool_end: right_pool_end,
                             });
@@ -673,23 +709,27 @@ impl<'a> Emitter<'a> {
                             .constants
                             .push_str_to_string_pool(string.as_bytes());
 
-                        Constant::String {
+                        ConstantEmission::String {
                             pool_start: combined.0,
                             pool_end: combined.1,
                         }
                     }
-                    SyntaxKind::GreaterThanExpression => Constant::Boolean(left > right),
-                    SyntaxKind::GreaterThanOrEqualExpression => Constant::Boolean(left >= right),
-                    SyntaxKind::LessThanExpression => Constant::Boolean(left < right),
-                    SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
-                    SyntaxKind::EqualExpression => Constant::Boolean(left == right),
-                    SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
+                    SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
+                    SyntaxKind::GreaterThanOrEqualExpression => {
+                        ConstantEmission::Boolean(left >= right)
+                    }
+                    SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
+                    SyntaxKind::LessThanOrEqualExpression => {
+                        ConstantEmission::Boolean(left <= right)
+                    }
+                    SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
+                    SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                     _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
                 }
             }
             (
-                Constant::Character(left),
-                Constant::String {
+                ConstantEmission::Character(left),
+                ConstantEmission::String {
                     pool_start,
                     pool_end,
                 },
@@ -711,17 +751,17 @@ impl<'a> Emitter<'a> {
                     _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
                 };
 
-                Constant::String {
+                ConstantEmission::String {
                     pool_start: combined.0,
                     pool_end: combined.1,
                 }
             }
             (
-                Constant::String {
+                ConstantEmission::String {
                     pool_start,
                     pool_end,
                 },
-                Constant::Character(right),
+                ConstantEmission::Character(right),
             ) => {
                 let left = self
                     .resolver
@@ -740,7 +780,7 @@ impl<'a> Emitter<'a> {
                     _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
                 };
 
-                Constant::String {
+                ConstantEmission::String {
                     pool_start: combined.0,
                     pool_end: combined.1,
                 }
@@ -783,7 +823,7 @@ impl<'a> Emitter<'a> {
 
                 self.emit_instruction(move_instruction);
             }
-            Emission::Target(target) => {
+            Emission::Place(place) => {
                 let destination = self.allocate_temporary_registers(1);
                 let type_id = *self
                     .resolver
@@ -794,9 +834,8 @@ impl<'a> Emitter<'a> {
                         position: Position::new(self.file_id, node.span()),
                     },
                 )?;
-                let operand_address = Address::register(target.index());
                 let move_instruction =
-                    Instruction::r#move(destination.index(), operand_address, operand_type);
+                    Instruction::r#move(destination.index(), place.address(), operand_type);
 
                 self.emit_instruction(move_instruction);
             }
@@ -905,7 +944,7 @@ impl<'a> Emitter<'a> {
     ) -> Result<Address, CompileError> {
         match emission {
             Emission::Constant(constant) => Ok(self.get_constant_address(constant)),
-            Emission::Target(target) => Ok(target.address()),
+            Emission::Place(place) => Ok(place.address()),
             Emission::Instructions(operand_instructions) => {
                 let destination = operand_instructions
                     .target
@@ -939,9 +978,8 @@ impl<'a> Emitter<'a> {
 
                 instructions.push(test_instruction);
             }
-            Emission::Target(target) => {
-                let address = Address::register(target.index());
-                let test_instruction = Instruction::test(address, true, 1);
+            Emission::Place(place) => {
+                let test_instruction = Instruction::test(place.address(), true, 1);
 
                 instructions.push(test_instruction);
             }
@@ -1010,7 +1048,7 @@ impl<'a> Emitter<'a> {
 
                 instructions_emission.push(move_instruction);
             }
-            Emission::Target(target) => {
+            Emission::Place(place) => {
                 let type_id = *self
                     .resolver
                     .get_type_binding(&node.id)
@@ -1020,7 +1058,7 @@ impl<'a> Emitter<'a> {
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
                 let move_instruction =
-                    Instruction::r#move(destination_register, target.address(), operand_type);
+                    Instruction::r#move(destination_register, place.address(), operand_type);
 
                 instructions_emission.push(move_instruction);
             }
@@ -1051,7 +1089,7 @@ impl<'a> Emitter<'a> {
                 })?;
         let address = match emission {
             Emission::Constant(constant) => self.get_constant_address(constant),
-            Emission::Target(target) => target.address(),
+            Emission::Place(place) => place.address(),
             Emission::Instructions(instructions) => {
                 if let Some(target) = instructions.target {
                     return_instructions.merge(instructions);
@@ -1176,7 +1214,9 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let function_emission = self.visit_function_expression(function_expression, None)?;
 
-        if let Emission::Constant(constant) = function_emission {
+        if let Emission::Constant(ConstantEmission::Function { prototype_index }) =
+            function_emission
+        {
             let declaration_id = *self
                 .resolver
                 .get_declaration_binding(&function_expression.id)
@@ -1184,8 +1224,12 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                     syntax_id: function_expression.id,
                 })?;
 
-            self.locals
-                .insert(declaration_id, Place::Constant(constant));
+            self.locals.insert(
+                declaration_id,
+                Place::Prototype {
+                    index: prototype_index,
+                },
+            );
         }
 
         Ok(Emission::None)
@@ -1287,13 +1331,13 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
                 let_statement_emission.push(move_instruction);
             }
-            Emission::Target(expression_target) => {
+            Emission::Place(place) => {
                 let operand_type = self
                     .resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::MissingType { type_id })?;
                 let move_instruction =
-                    Instruction::r#move(target.index(), expression_target.address(), operand_type);
+                    Instruction::r#move(target.index(), place.address(), operand_type);
 
                 let_statement_emission.push(move_instruction);
             }
@@ -1387,7 +1431,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
                 reassignment_emission.push(move_instruction);
             }
-            Emission::Target(expression_target) => {
+            Emission::Place(expression_target) => {
                 let type_id = *self
                     .resolver
                     .get_type_binding(&node.id)
@@ -1424,7 +1468,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting boolean expression");
 
-        Ok(Emission::Constant(Constant::Boolean(
+        Ok(Emission::Constant(ConstantEmission::Boolean(
             node.inner().children.0 != 0,
         )))
     }
@@ -1436,7 +1480,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting byte expression");
 
-        Ok(Emission::Constant(Constant::Byte(
+        Ok(Emission::Constant(ConstantEmission::Byte(
             node.inner().children.0 as u8,
         )))
     }
@@ -1448,7 +1492,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting character expression");
 
-        Ok(Emission::Constant(Constant::Character(
+        Ok(Emission::Constant(ConstantEmission::Character(
             node.inner().decode_character(),
         )))
     }
@@ -1460,7 +1504,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting float expression");
 
-        Ok(Emission::Constant(Constant::Float(
+        Ok(Emission::Constant(ConstantEmission::Float(
             node.inner().decode_float(),
         )))
     }
@@ -1472,7 +1516,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting integer expression");
 
-        Ok(Emission::Constant(Constant::Integer(
+        Ok(Emission::Constant(ConstantEmission::Integer(
             node.inner().decode_integer(),
         )))
     }
@@ -1497,7 +1541,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         self.resolver.set_type_binding(node.id, TypeId::STRING);
 
-        Ok(Emission::Constant(Constant::String {
+        Ok(Emission::Constant(ConstantEmission::String {
             pool_start,
             pool_end,
         }))
@@ -1516,7 +1560,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         ) -> Result<Address, CompileError> {
             match element_emission {
                 Emission::Constant(constant) => Ok(emitter.get_constant_address(constant)),
-                Emission::Target(target) => Ok(target.address()),
+                Emission::Place(place) => Ok(place.address()),
                 Emission::Instructions(InstructionsEmission {
                     instructions: element_instructions,
                     target,
@@ -1547,7 +1591,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 count: node.inner().children.1,
             })?;
         let child_count_address =
-            self.get_constant_address(Constant::Integer(children.len() as i64));
+            self.get_constant_address(ConstantEmission::Integer(children.len() as i64));
 
         let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
         let mut list_emission = {
@@ -1563,7 +1607,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             let element_emission = self.visit_expression(child, None)?;
             let element_address =
                 handle_element_emission(self, &mut list_emission, element_emission, child.inner())?;
-            let index_address = self.get_constant_address(Constant::Integer(index as i64));
+            let index_address = self.get_constant_address(ConstantEmission::Integer(index as i64));
             let operand_type = if let Some(operand_type) = operand_type {
                 operand_type
             } else {
@@ -1678,7 +1722,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 declaration_id: *declaration_id,
             })?;
 
-        Ok(local.into_emission())
+        Ok(Emission::Place(local))
     }
 
     fn visit_struct_expression(
@@ -1816,7 +1860,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                         block_emission.push(move_instruction);
                         block_emission.set_target(Some(target));
                     }
-                    Emission::Target(final_target) => {
+                    Emission::Place(final_place) => {
                         if block_emission.is_empty() {
                             self.enter_parent_scope(
                                 parent_scope_id,
@@ -1826,7 +1870,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                             block_emission.set_target(child_target);
                             self.handle_drops(&mut block_emission);
 
-                            return Ok(Emission::Target(final_target));
+                            return Ok(Emission::Place(final_place));
                         }
 
                         if let Some(block_target) = target {
@@ -1840,14 +1884,21 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                                 .ok_or(CompileError::MissingType { type_id })?;
                             let move_instruction = Instruction::r#move(
                                 block_target.index(),
-                                final_target.address(),
+                                final_place.address(),
                                 operand_type,
                             );
 
                             block_emission.push(move_instruction);
                             block_emission.set_target(Some(block_target));
-                        } else if final_target.address().memory == MemoryKind::REGISTER {
-                            block_emission.set_target(Some(final_target));
+                        } else if final_place.address().memory == MemoryKind::REGISTER {
+                            let target =
+                                final_place
+                                    .into_target()
+                                    .ok_or(CompileError::CannotMutate {
+                                        position: Position::new(self.file_id, child.span()),
+                                    })?;
+
+                            block_emission.set_target(Some(target));
                         } else {
                             let target = self.allocate_temporary_registers(1);
                             let type_id = *self
@@ -1860,7 +1911,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                                 .ok_or(CompileError::MissingType { type_id })?;
                             let move_instruction = Instruction::r#move(
                                 target.index(),
-                                final_target.address(),
+                                final_place.address(),
                                 operand_type,
                             );
 
@@ -2358,10 +2409,10 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         if let Emission::Constant(constant) = child_emission {
             let negated = match constant {
-                Constant::Boolean(boolean) => Constant::Boolean(!boolean),
-                Constant::Byte(byte) => Constant::Byte(!byte),
-                Constant::Integer(integer) => Constant::Integer(-integer),
-                Constant::Float(float) => Constant::Float(-float),
+                ConstantEmission::Boolean(boolean) => ConstantEmission::Boolean(!boolean),
+                ConstantEmission::Byte(byte) => ConstantEmission::Byte(!byte),
+                ConstantEmission::Integer(integer) => ConstantEmission::Integer(-integer),
+                ConstantEmission::Float(float) => ConstantEmission::Float(-float),
                 _ => unreachable!(
                     "Expected constant suitable for negation, found {:?}",
                     constant
@@ -2426,24 +2477,9 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             forward_id: jump_forward_id,
         });
 
-        let body_emission = self.visit(body, None)?;
+        let body_emission = self.visit_expression_statement(body, None)?;
 
         match body_emission {
-            Emission::Target(target) => {
-                let destination = self.allocate_temporary_registers(target.destination_count());
-                let type_id = *self
-                    .resolver
-                    .get_type_binding(&body.id)
-                    .ok_or(CompileError::MissingTypeBinding { syntax_id: body.id })?;
-                let operand_type = self
-                    .resolver
-                    .get_operand_type(type_id)
-                    .ok_or(CompileError::MissingType { type_id })?;
-                let move_instruction =
-                    Instruction::r#move(destination.index(), target.address(), operand_type);
-
-                while_emission.push(move_instruction);
-            }
             Emission::Constant(constant) => {
                 let destination = self.allocate_temporary_registers(1);
                 let address = self.get_constant_address(constant);
@@ -2455,6 +2491,12 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             }
             Emission::Instructions(InstructionsEmission { instructions, .. }) => {
                 while_emission.instructions.extend(instructions);
+            }
+            Emission::Place(_) => {
+                return Err(CompileError::ExpectedStatement {
+                    node_kind: body.kind(),
+                    position: Position::new(self.file_id, body.span()),
+                });
             }
             Emission::None => {}
         }
@@ -2480,7 +2522,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
 
         if let Some(prototype_index) = self.resolver.get_declaration_prototype(&declaration_id) {
-            return Ok(Emission::Constant(Constant::Function {
+            return Ok(Emission::Constant(ConstantEmission::Function {
                 prototype_index: *prototype_index,
             }));
         }
@@ -2534,7 +2576,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         self.resolver.prototypes[prototype_index] = function_emitter.emit(body)?;
 
-        Ok(Emission::Constant(Constant::Function {
+        Ok(Emission::Constant(ConstantEmission::Function {
             prototype_index: prototype_index as u16,
         }))
     }
@@ -2669,15 +2711,15 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 #[derive(Clone, Debug)]
 pub enum Emission {
     Instructions(InstructionsEmission),
-    Constant(Constant),
-    Target(Target),
+    Constant(ConstantEmission),
+    Place(Place),
     None,
 }
 
 impl Emission {
     fn target(&self) -> Option<Target> {
         match self {
-            Emission::Target(target) => Some(*target),
+            Emission::Place(place) => place.into_target(),
             Emission::Instructions(emission) => emission.target,
             _ => None,
         }
@@ -2741,8 +2783,9 @@ impl InstructionsEmission {
 }
 
 #[derive(Clone, Copy, Debug)]
-enum Place {
-    Constant(Constant),
+pub enum Place {
+    Constant { index: u16 },
+    Prototype { index: u16 },
     Target(Target),
 }
 
@@ -2750,14 +2793,15 @@ impl Place {
     fn into_target(self) -> Option<Target> {
         match self {
             Place::Target(target) => Some(target),
-            Place::Constant(_) => None,
+            _ => None,
         }
     }
 
-    fn into_emission(self) -> Emission {
+    fn address(&self) -> Address {
         match self {
-            Place::Target(target) => Emission::Target(target),
-            Place::Constant(constant) => Emission::Constant(constant),
+            Place::Constant { index } => Address::constant(*index),
+            Place::Prototype { index } => Address::constant(*index),
+            Place::Target(target) => target.address(),
         }
     }
 }
@@ -2769,9 +2813,8 @@ pub enum Target {
         is_temporary: bool,
     },
     Compound {
-        reference_index: u16,
-        field_base_index: u16,
-        field_count: u16,
+        base_register: u16,
+        count: u16,
         is_temporary: bool,
     },
 }
@@ -2780,18 +2823,14 @@ impl Target {
     fn address(&self) -> Address {
         match self {
             Target::Register { index, .. } => Address::register(*index),
-            Target::Compound {
-                reference_index, ..
-            } => Address::register(*reference_index),
+            Target::Compound { base_register, .. } => Address::register(*base_register),
         }
     }
 
     fn index(&self) -> u16 {
         match self {
             Target::Register { index, .. } => *index,
-            Target::Compound {
-                reference_index, ..
-            } => *reference_index,
+            Target::Compound { base_register, .. } => *base_register,
         }
     }
 
@@ -2806,13 +2845,13 @@ impl Target {
     fn destination_count(&self) -> u16 {
         match self {
             Target::Register { .. } => 1,
-            Target::Compound { field_count, .. } => *field_count + 1,
+            Target::Compound { count, .. } => *count,
         }
     }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum Constant {
+pub enum ConstantEmission {
     Boolean(bool),
     Byte(u8),
     Character(char),
@@ -2822,16 +2861,16 @@ pub enum Constant {
     Function { prototype_index: u16 },
 }
 
-impl Constant {
+impl ConstantEmission {
     fn operand_type(&self) -> OperandType {
         match self {
-            Constant::Boolean(_) => OperandType::BOOLEAN,
-            Constant::Byte(_) => OperandType::BYTE,
-            Constant::Character(_) => OperandType::CHARACTER,
-            Constant::Float(_) => OperandType::FLOAT,
-            Constant::Integer(_) => OperandType::INTEGER,
-            Constant::String { .. } => OperandType::STRING,
-            Constant::Function { .. } => OperandType::FUNCTION,
+            ConstantEmission::Boolean(_) => OperandType::BOOLEAN,
+            ConstantEmission::Byte(_) => OperandType::BYTE,
+            ConstantEmission::Character(_) => OperandType::CHARACTER,
+            ConstantEmission::Float(_) => OperandType::FLOAT,
+            ConstantEmission::Integer(_) => OperandType::INTEGER,
+            ConstantEmission::String { .. } => OperandType::STRING,
+            ConstantEmission::Function { .. } => OperandType::FUNCTION,
         }
     }
 }
