@@ -3,7 +3,7 @@ use tracing::{debug, info};
 
 use crate::{
     compiler::{
-        CompileError,
+        CompileError, TypeId,
         resolver::{
             Declaration, DeclarationId, DeclarationKind, Resolver, Scope, ScopeId, ScopeKind,
         },
@@ -138,6 +138,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                 start_index: signature.inner().children.0,
                 count: signature.inner().children.1,
             })?;
+        let return_type = signature.right_child();
         let function_body =
             function_expression
                 .right_child()
@@ -214,6 +215,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         let function_declaration_id = self
             .resolver
             .add_named_declaration(function_name_str, function_declaration);
+
+        if let Some(return_type_node) = return_type {
+            self.visit_type(return_type_node, ())?;
+        }
 
         self.resolver
             .add_scope_binding(function_body.id, function_scope_id);
@@ -657,13 +662,25 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         )?;
 
         let struct_name = source_file.source_code.get_span(path.span());
-        let (struct_declaration_id, struct_declaration) = self
-            .resolver
-            .find_declaration_in_scope(struct_name, self.current_scope_id, None)
-            .ok_or(CompileError::UndeclaredVariable {
-                name: struct_name.to_string(),
-                position: Position::new(self.file_id, path.span()),
-            })?;
+        let (struct_declaration_id, struct_declaration) = {
+            let found = self.resolver.find_declarations(struct_name);
+
+            match found.len() {
+                0 => {
+                    return Err(CompileError::UndeclaredVariable {
+                        name: struct_name.to_string(),
+                        position: Position::new(self.file_id, path.span()),
+                    });
+                }
+                1 => found[0],
+                _ => {
+                    return Err(CompileError::AmbiguousType {
+                        name: struct_name.to_string(),
+                        position: Position::new(self.file_id, path.span()),
+                    });
+                }
+            }
+        };
 
         self.resolver
             .set_declaration_binding(path.id, struct_declaration_id);
@@ -1012,9 +1029,59 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
     fn visit_type(
         &mut self,
-        _: SyntaxReader,
+        node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        if node.kind() == SyntaxKind::TypePath {
+            debug!("Binding path type");
+
+            let path = node.left_child().ok_or(CompileError::MissingChild {
+                parent_kind: node.kind(),
+                child_index: 0,
+            })?;
+            let path_segments = path
+                .multiple_children()
+                .ok_or(CompileError::MissingChildren {
+                    parent_kind: path.kind(),
+                    start_index: path.inner().children.0,
+                    count: path.inner().children.1,
+                })?;
+
+            let file = self.source.files().get(self.file_id.0 as usize).ok_or(
+                CompileError::MissingSourceFile {
+                    file_id: self.file_id,
+                },
+            )?;
+
+            let mut current_declaration_id = None;
+
+            for segment in path_segments {
+                let segment_name = file.source_code.get_span(segment.span());
+                let (declaration_id, _) = self
+                    .resolver
+                    .find_declaration_in_scope(
+                        segment_name,
+                        self.current_scope_id,
+                        current_declaration_id,
+                    )
+                    .ok_or(CompileError::UndeclaredType {
+                        name: segment_name.to_string(),
+                        position: Position::new(self.file_id, node.span()),
+                    })?;
+
+                current_declaration_id = Some(declaration_id);
+            }
+
+            let declaration_id =
+                current_declaration_id.ok_or(CompileError::UndeclaredVariable {
+                    name: String::new(),
+                    position: Position::new(self.file_id, path.span()),
+                })?;
+
+            self.resolver
+                .set_declaration_binding(node.id, declaration_id);
+        }
+
         Ok(())
     }
 }

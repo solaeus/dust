@@ -121,7 +121,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         _: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        debug!("Binding types for module");
+        debug!("Binding types for module item");
 
         todo!()
     }
@@ -131,7 +131,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
-        debug!("Binding types for function");
+        debug!("Binding types for function item");
 
         let function_expression = node.right_child().ok_or(CompileError::MissingChild {
             parent_kind: node.inner().kind,
@@ -664,6 +664,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         node: SyntaxReader,
         input: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        debug!("Binding types for struct expression");
+
         let fields = node
             .right_child()
             .ok_or(CompileError::MissingChild {
@@ -1329,11 +1331,11 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 })?;
 
                 let element_type_id = self.visit_type(element_type_node, ())?;
-                let lise_type_id = self.resolver.add_type(TypeNode::List {
+                let list_type_id = self.resolver.add_type(TypeNode::List {
                     element_type: element_type_id,
                 });
 
-                Ok(lise_type_id)
+                Ok(list_type_id)
             }
             SyntaxKind::FunctionType => {
                 let function_type_node = {
@@ -1392,55 +1394,14 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 Ok(function_type_id)
             }
             SyntaxKind::TypePath => {
-                let path_segments = node
-                    .left_child()
-                    .ok_or(CompileError::MissingChild {
-                        parent_kind: node.kind(),
-                        child_index: 0,
-                    })?
-                    .multiple_children()
-                    .ok_or(CompileError::MissingChildren {
-                        parent_kind: node.kind(),
-                        start_index: node.inner().children.0,
-                        count: node.inner().children.1,
-                    })?;
-
-                let scope_id = *self
+                let declaration_id = *self
                     .resolver
-                    .get_scope_binding(&node.id)
-                    .ok_or(CompileError::MissingScopeBinding { syntax_id: node.id })?;
-                let file =
-                    self.source
-                        .get_file(self.file_id)
-                        .ok_or(CompileError::MissingSourceFile {
-                            file_id: self.file_id,
-                        })?;
-                let mut parent_declaration_id = None;
-                let mut type_id = TypeId::NONE;
-
-                for segment in path_segments {
-                    let segment_name = file.source_code.get_span(segment.span());
-                    let (declaration_id, _) = self
-                        .resolver
-                        .find_declaration_in_scope(segment_name, scope_id, parent_declaration_id)
-                        .ok_or(CompileError::UndeclaredType {
-                            name: segment_name.to_string(),
-                            position: Position::new(self.file_id, node.span()),
-                        })?;
-
-                    parent_declaration_id = Some(declaration_id);
-                    type_id = if let Some(id) = self.resolver.get_declaration_type(&declaration_id)
-                    {
-                        *id
-                    } else {
-                        let inferred_type = self.resolver.create_inferred_type();
-
-                        self.resolver
-                            .set_declaration_type(declaration_id, inferred_type);
-
-                        inferred_type
-                    };
-                }
+                    .get_declaration_binding(&node.id)
+                    .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+                let type_id = *self
+                    .resolver
+                    .get_declaration_type(&declaration_id)
+                    .ok_or(CompileError::MissingDeclarationType { declaration_id })?;
 
                 Ok(type_id)
             }

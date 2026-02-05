@@ -14,6 +14,10 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum CompileError {
     // User Errors
+    AmbiguousType {
+        name: String,
+        position: Position,
+    },
     CannotApplyOperator {
         operator: SyntaxKind,
         r#type: Type,
@@ -154,6 +158,7 @@ impl AnnotatedError for CompileError {
             CompileError::CannotIndex { position, .. } => position.file_id,
             CompileError::MissingDeclarationType { .. } => SourceFileId::default(),
             CompileError::UndeclaredType { position, .. } => position.file_id,
+            CompileError::AmbiguousType { position, .. } => position.file_id,
         }
     }
 
@@ -419,6 +424,17 @@ impl AnnotatedError for CompileError {
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!("Use of undeclared type {name} here")),
+                    ),
+                )
+            }
+            CompileError::AmbiguousType { name, position } => {
+                let title = format!("Ambiguous type: {name}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!("Use of ambiguous type {name} here")),
                     ),
                 )
             }

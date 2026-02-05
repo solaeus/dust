@@ -279,7 +279,7 @@ impl Resolver {
     pub fn find_declarations(
         &self,
         identifier: &str,
-    ) -> Option<SmallVec<[(DeclarationId, Declaration); 4]>> {
+    ) -> SmallVec<[(DeclarationId, Declaration); 4]> {
         let symbol = Symbol::named(identifier);
         let mut found = SmallVec::<[(DeclarationId, Declaration); 4]>::new();
 
@@ -294,14 +294,14 @@ impl Resolver {
             ),
         ) in self.declarations.iter().enumerate()
         {
-            let declaration_id = DeclarationId(index as u32);
-
             if *found_symbol == symbol {
+                let declaration_id = DeclarationId(index as u32);
+
                 found.push((declaration_id, *declaration));
             }
         }
 
-        if found.is_empty() { None } else { Some(found) }
+        found
     }
 
     pub fn find_declaration_in_scope(
