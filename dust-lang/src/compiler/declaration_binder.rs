@@ -3,7 +3,7 @@ use tracing::{debug, info};
 
 use crate::{
     compiler::{
-        CompileError, TypeId,
+        CompileError,
         resolver::{
             Declaration, DeclarationId, DeclarationKind, Resolver, Scope, ScopeId, ScopeKind,
         },

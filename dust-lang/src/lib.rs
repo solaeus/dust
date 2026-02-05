@@ -5,9 +5,7 @@
     formatting_options,
     generic_const_exprs,
     int_from_ascii,
-    iterator_try_collect,
-    offset_of_enum,
-    pattern
+    iterator_try_collect
 )]
 
 pub mod compiler;

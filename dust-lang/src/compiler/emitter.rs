@@ -85,10 +85,7 @@ impl<'a> Emitter<'a> {
             syntax,
             resolver,
             instructions: Vec::new(),
-            locals: HashMap::with_capacity_and_hasher(
-                arguments_count as usize + 1,
-                FxBuildHasher::default(),
-            ),
+            locals: HashMap::with_capacity_and_hasher(arguments_count as usize + 1, FxBuildHasher),
             call_arguments: Vec::new(),
             drop_lists: Vec::new(),
             pending_drops: vec![SmallVec::new()],
@@ -111,14 +108,13 @@ impl<'a> Emitter<'a> {
 
         for index in 0..arguments_count {
             let current_parameter_index = arguments_start + index;
-            if let Some(parameter_id) = emitter
+            let parameter_id = emitter
                 .resolver
                 .get_declaration_member(current_parameter_index)
-            {
-                let target = emitter.allocate_local_register();
+                .ok_or(CompileError::MissingDeclarationMember { declaration_id })?;
+            let target = emitter.allocate_local_register();
 
-                emitter.locals.insert(parameter_id, target);
-            }
+            emitter.locals.insert(parameter_id, target);
         }
 
         Ok(emitter)

@@ -124,6 +124,9 @@ pub enum CompileError {
     MissingDeclarationType {
         declaration_id: DeclarationId,
     },
+    MissingDeclarationMember {
+        declaration_id: DeclarationId,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -159,6 +162,7 @@ impl AnnotatedError for CompileError {
             CompileError::MissingDeclarationType { .. } => SourceFileId::default(),
             CompileError::UndeclaredType { position, .. } => position.file_id,
             CompileError::AmbiguousType { position, .. } => position.file_id,
+            CompileError::MissingDeclarationMember { .. } => SourceFileId::default(),
         }
     }
 
@@ -437,6 +441,13 @@ impl AnnotatedError for CompileError {
                             .label(format!("Use of ambiguous type {name} here")),
                     ),
                 )
+            }
+            CompileError::MissingDeclarationMember { declaration_id } => {
+                let title = format!(
+                    "Member for declaration id {declaration_id:?} was missing, this is a bug in the compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
             }
         }
     }
