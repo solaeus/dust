@@ -850,6 +850,18 @@ impl Resolver {
             (left, right) => Ok(left == right),
         }
     }
+
+    pub fn get_register_size(&self, type_id: TypeId) -> Option<u16> {
+        match self.get_type(type_id)? {
+            TypeNode::None => Some(0),
+            TypeNode::Struct { fields, .. } => Some(fields.1 as u16 + 1),
+            TypeNode::Inferred { resolved, .. } => match resolved {
+                Some(resolved) => self.get_register_size(*resolved),
+                None => None,
+            },
+            _ => Some(1),
+        }
+    }
 }
 
 impl Default for Resolver {

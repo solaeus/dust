@@ -4,7 +4,7 @@ mod syntax_tree;
 mod syntax_visitor;
 
 pub use syntax_node::{SyntaxKind, SyntaxNode, SyntaxNodeChildren};
-pub use syntax_reader::SyntaxReader;
+pub use syntax_reader::{SyntaxReader, SyntaxReaderIterator};
 pub use syntax_tree::SyntaxTree;
 pub use syntax_visitor::SyntaxVisitor;
 

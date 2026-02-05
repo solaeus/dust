@@ -30,6 +30,14 @@ pub enum CompileError {
         r#type: Type,
         position: Position,
     },
+    CannotMutate {
+        position: Position,
+    },
+    ConstantTypeConflict {
+        expected: SyntaxKind,
+        found: SyntaxKind,
+        position: Position,
+    },
     DivisionByZero {
         position: Position,
     },
@@ -127,6 +135,12 @@ pub enum CompileError {
     MissingDeclarationMember {
         declaration_id: DeclarationId,
     },
+    InvalidTypeNode {
+        type_id: TypeId,
+    },
+    InvalidDeclarationKind {
+        declaration_id: DeclarationId,
+    },
 }
 
 impl AnnotatedError for CompileError {
@@ -163,6 +177,10 @@ impl AnnotatedError for CompileError {
             CompileError::UndeclaredType { position, .. } => position.file_id,
             CompileError::AmbiguousType { position, .. } => position.file_id,
             CompileError::MissingDeclarationMember { .. } => SourceFileId::default(),
+            CompileError::InvalidTypeNode { .. } => SourceFileId::default(),
+            CompileError::InvalidDeclarationKind { .. } => SourceFileId::default(),
+            CompileError::ConstantTypeConflict { position, .. } => position.file_id,
+            CompileError::CannotMutate { position } => position.file_id,
         }
     }
 
@@ -448,6 +466,45 @@ impl AnnotatedError for CompileError {
                 );
 
                 Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::InvalidTypeNode { type_id } => {
+                let title = format!(
+                    "Type node with id {type_id:?} is invalid, this is a bug in the compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::InvalidDeclarationKind { declaration_id } => {
+                let title = format!(
+                    "Declaration with id {declaration_id:?} has an invalid kind, this is a bug in the compiler"
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
+            CompileError::ConstantTypeConflict {
+                expected,
+                found,
+                position,
+            } => {
+                let title = format!("Constant type conflict: expected {expected}, found {found}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!(
+                                "Found constant of type {found} here, but expected {expected}"
+                            )),
+                    ),
+                )
+            }
+            CompileError::CannotMutate { position } => {
+                let title = "Cannot mutate immutable value".to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(source)
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
+                )
             }
         }
     }

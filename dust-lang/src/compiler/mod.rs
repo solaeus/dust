@@ -25,7 +25,7 @@ use crate::{
     parser::{ParseResult, Parser},
     prototype::Prototype,
     source::{Source, SourceCode, SourceFile, SourceFileId},
-    syntax::Syntax,
+    syntax::{Syntax, SyntaxReaderIterator},
 };
 
 pub const DEFAULT_PROGRAM_NAME: &str = "dust_program";
@@ -191,7 +191,7 @@ impl Compiler {
                 SourceFileId::MAIN,
                 main_function_type,
                 ScopeId::PROJECT,
-                (0, 0),
+                None,
                 (&self.source, &self.syntax, &mut self.context),
             ) {
                 Ok(emitter) => emitter,
