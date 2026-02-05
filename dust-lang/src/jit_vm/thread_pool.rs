@@ -184,10 +184,12 @@ impl ThreadStatus {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 pub struct JitPrototype {
     pub function_pointer: *mut u8,
-    pub return_value_tag: RegisterTag,
+    pub return_value_tags_vec: Vec<RegisterTag>,
+    pub return_value_tags_buffer: *const RegisterTag,
+    pub retuen_value_count: usize,
     pub is_recursive: bool,
 }
 

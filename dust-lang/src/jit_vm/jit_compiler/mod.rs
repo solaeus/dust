@@ -3,8 +3,8 @@ mod instruction_compiler;
 use std::{collections::HashSet, mem::transmute};
 
 use super::thread_pool::JitPrototype;
-use crate::jit_vm::RegisterTag;
 use crate::r#type::Type;
+use crate::{jit_vm::RegisterTag, prototype::Prototype};
 
 use cranelift::{
     codegen::ir::InstBuilder,
@@ -121,6 +121,28 @@ impl<'a> JitCompiler<'a> {
     }
 
     pub fn compile(&mut self) -> Result<(JitLogic, Vec<JitPrototype>), JitError> {
+        fn get_return_value_tags(r#type: &Type) -> Vec<RegisterTag> {
+            match r#type {
+                Type::None => vec![RegisterTag::EMPTY],
+                Type::Boolean
+                | Type::Byte
+                | Type::Character
+                | Type::Float
+                | Type::Integer
+                | Type::Function(_) => vec![RegisterTag::SCALAR],
+                Type::String | Type::List(_) => vec![RegisterTag::OBJECT],
+                Type::Struct { fields, .. } => {
+                    let mut tags = Vec::new();
+
+                    for (_, field_type) in fields {
+                        tags.extend(get_return_value_tags(field_type));
+                    }
+
+                    tags
+                }
+            }
+        }
+
         let (compile_order, recursive_calls) = get_compile_order_and_recursive_calls(self.program);
 
         let mut compiled = FxHashSet::default();
@@ -148,21 +170,13 @@ impl<'a> JitCompiler<'a> {
         for (index, func_id) in self.function_ids.iter().enumerate() {
             let function_pointer = self.module.get_finalized_function(*func_id);
             let return_type = &self.program.prototypes[index].function_type.return_type;
-            let return_value_tag = match return_type {
-                Type::None => RegisterTag::EMPTY,
-                Type::Boolean
-                | Type::Byte
-                | Type::Character
-                | Type::Float
-                | Type::Integer
-                | Type::Function(_)
-                | Type::Struct { .. } => RegisterTag::SCALAR,
-                Type::String | Type::List(_) => RegisterTag::OBJECT,
-            };
+            let return_value_tags_vec = get_return_value_tags(return_type);
 
             jit_prototypes.push(JitPrototype {
                 function_pointer: function_pointer as *mut u8,
-                return_value_tag,
+                return_value_tags_buffer: return_value_tags_vec.as_ptr(),
+                retuen_value_count: return_value_tags_vec.len(),
+                return_value_tags_vec,
                 is_recursive: recursive_calls.contains(&(index as u16, index as u16)),
             });
         }
@@ -189,7 +203,7 @@ impl<'a> JitCompiler<'a> {
                 })?;
 
         let mut context = self.module.make_context();
-        let signature = self.prototype_signature();
+        let signature = self.prototype_signature(prototype);
 
         context.func.signature = signature.clone();
 
@@ -298,13 +312,22 @@ impl<'a> JitCompiler<'a> {
         Ok(function_id)
     }
 
-    fn prototype_signature(&self) -> Signature {
+    fn prototype_signature(&self, prototype: &Prototype) -> Signature {
         let pointer_type = self.module.isa().pointer_type();
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
         signature.params.push(AbiParam::new(pointer_type)); // ThreadContext
         signature.params.push(AbiParam::new(I64)); // Base register index
-        signature.returns.push(AbiParam::new(I64)); // Return value
+
+        let return_type_count = match &prototype.function_type.return_type {
+            Type::None => 0,
+            Type::Struct { fields, .. } => fields.len(),
+            _ => 1,
+        };
+
+        for _ in 0..return_type_count {
+            signature.returns.push(AbiParam::new(I64));
+        }
 
         signature
     }

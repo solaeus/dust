@@ -27,6 +27,7 @@ use crate::{
     },
     native_function::NativeFunction,
     prototype::Prototype,
+    r#type::Type,
 };
 
 pub struct InstructionCompiler<'a> {
@@ -336,11 +337,11 @@ impl<'a> InstructionCompiler<'a> {
             compiled_prototype_address,
             offset_of!(JitPrototype, function_pointer) as i32,
         );
-        let return_value_tag = builder.ins().load(
-            I8,
+        let return_value_tags_buffer = builder.ins().load(
+            I64,
             MemFlags::new(),
             compiled_prototype_address,
-            offset_of!(JitPrototype, return_value_tag) as i32,
+            offset_of!(JitPrototype, return_value_tags_buffer) as i32,
         );
 
         // let recursive_block = builder.create_block();
@@ -419,11 +420,14 @@ impl<'a> InstructionCompiler<'a> {
             }
         };
 
+        let first_return_tag = builder
+            .ins()
+            .load(I8, MemFlags::new(), return_value_tags_buffer, 0);
         let empty_tag = builder.ins().iconst(I8, RegisterTag::EMPTY.0 as i64);
         let function_returns_value =
             builder
                 .ins()
-                .icmp(IntCC::NotEqual, return_value_tag, empty_tag);
+                .icmp(IntCC::NotEqual, first_return_tag, empty_tag);
         let set_return_value_block = builder.create_block();
 
         builder.ins().brif(
@@ -436,16 +440,27 @@ impl<'a> InstructionCompiler<'a> {
         builder.switch_to_block(set_return_value_block);
 
         if destination != u16::MAX {
-            let return_value = builder.inst_results(call_callee)[0];
+            let return_values = builder.inst_results(call_callee).to_vec();
 
-            self.ssa_registers
-                .get(destination as usize)
-                .map(|ssa_variable| builder.def_var(*ssa_variable, return_value))
-                .ok_or(JitError::RegisterIndexOutOfBounds {
-                    register_index: destination,
-                    total_register_count: self.ssa_registers.len(),
-                })?;
-            self.set_register_tag(destination, return_value_tag, builder)?;
+            println!("{}", return_values.len());
+
+            for (index, (return_value, destination)) in
+                return_values.into_iter().zip(destination..).enumerate()
+            {
+                let return_value_tag =
+                    builder
+                        .ins()
+                        .load(I8, MemFlags::new(), return_value_tags_buffer, index as i32);
+
+                self.ssa_registers
+                    .get(destination as usize)
+                    .map(|ssa_variable| builder.def_var(*ssa_variable, return_value))
+                    .ok_or(JitError::RegisterIndexOutOfBounds {
+                        register_index: destination,
+                        total_register_count: self.ssa_registers.len(),
+                    })?;
+                self.set_register_tag(destination, return_value_tag, builder)?;
+            }
         }
 
         builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
@@ -1179,17 +1194,48 @@ impl<'a> InstructionCompiler<'a> {
             }
         }
 
-        let value = self.get_value(operand, r#type, builder)?;
-        let value_type = builder.func.dfg.value_type(value);
-        let return_value = if value_type == I64 {
-            value
-        } else if value_type == F64 {
-            builder.ins().bitcast(I64, MemFlags::new(), value)
-        } else {
-            builder.ins().uextend(I64, value)
+        let return_values = match &self.prototype.function_type.return_type {
+            Type::None => unreachable!(),
+            Type::Struct { fields, .. } => {
+                let end_register = operand.index + fields.len() as u16;
+                let mut return_values = Vec::with_capacity(fields.len());
+
+                for ((_, field_type), register_index) in
+                    fields.iter().zip(operand.index..end_register)
+                {
+                    let operand = Address::register(register_index);
+                    let operand_type = field_type.as_operand_type();
+                    let value = self.get_value(operand, operand_type, builder)?;
+                    let value_type = builder.func.dfg.value_type(value);
+                    let return_value = if value_type == I64 {
+                        value
+                    } else if value_type == F64 {
+                        builder.ins().bitcast(I64, MemFlags::new(), value)
+                    } else {
+                        builder.ins().uextend(I64, value)
+                    };
+
+                    return_values.push(return_value);
+                }
+
+                return_values
+            }
+            _ => {
+                let value = self.get_value(operand, r#type, builder)?;
+                let value_type = builder.func.dfg.value_type(value);
+                let return_value = if value_type == I64 {
+                    value
+                } else if value_type == F64 {
+                    builder.ins().bitcast(I64, MemFlags::new(), value)
+                } else {
+                    builder.ins().uextend(I64, value)
+                };
+
+                vec![return_value]
+            }
         };
 
-        builder.ins().return_(&[return_value]);
+        builder.ins().return_(&return_values);
 
         Ok(())
     }

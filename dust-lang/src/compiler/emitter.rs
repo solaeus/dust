@@ -1089,6 +1089,9 @@ impl<'a> Emitter<'a> {
                 })?;
         let address = match emission {
             Emission::Constant(constant) => self.get_constant_address(constant),
+            Emission::Place(Place::Target(Target::Compound { base_register, .. })) => {
+                Address::register(base_register + 1)
+            }
             Emission::Place(place) => place.address(),
             Emission::Instructions(instructions) => {
                 if let Some(target) = instructions.target {
