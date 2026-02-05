@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::instruction::OperandType;
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ConstantTable {
     payloads: IndexMap<ConstantKey, u64, FxBuildHasher>,
     tags: Vec<OperandType>,
@@ -235,6 +235,7 @@ impl ConstantKey {
         let mut hasher = FxHasher::default();
 
         str.hash(&mut hasher);
+        OperandType::STRING.hash(&mut hasher);
 
         Self(hasher.finish())
     }
@@ -274,16 +275,6 @@ impl Iterator for ConstantTableDisplayIterator<'_> {
         self.index += 1;
 
         Some((value_string, type_string))
-    }
-}
-
-impl Eq for ConstantTable {}
-
-impl PartialEq for ConstantTable {
-    fn eq(&self, other: &Self) -> bool {
-        self.payloads == other.payloads
-            && self.tags == other.tags
-            && self.string_pool == other.string_pool
     }
 }
 

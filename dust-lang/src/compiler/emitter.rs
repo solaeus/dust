@@ -33,10 +33,10 @@ pub struct Emitter<'a> {
 
     resolver: &'a mut Resolver,
 
-    /// Bytecode instruction list that is filled during compilation.
+    /// Emitted bytecode instructions, filled during compilation.
     instructions: Vec<Instruction>,
 
-    /// Local variables declared in the function being compiled.
+    /// Local variables declared in the function.
     locals: HashMap<DeclarationId, Target, FxBuildHasher>,
 
     /// Concatenated list of arguments referenced by CALL instructions.
@@ -432,11 +432,6 @@ impl<'a> Emitter<'a> {
         right: Constant,
         right_node: &SyntaxNode,
     ) -> Result<Constant, CompileError> {
-        debug!(
-            "Combining constants: {:?} {:?} {:?}",
-            left, right, operation
-        );
-
         let check_for_division_by_zero = || {
             if matches!(
                 right,
@@ -463,7 +458,7 @@ impl<'a> Emitter<'a> {
                 SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
                 SyntaxKind::EqualExpression => Constant::Boolean(left == right),
                 SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
-                _ => todo!(),
+                _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
             },
             (Constant::Byte(left), Constant::Byte(right)) => match operation {
                 SyntaxKind::AdditionExpression => Constant::Byte(left.saturating_add(right)),
@@ -486,7 +481,7 @@ impl<'a> Emitter<'a> {
                 SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
                 SyntaxKind::EqualExpression => Constant::Boolean(left == right),
                 SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
-                _ => todo!(),
+                _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
             },
             (Constant::Float(left), Constant::Float(right)) => match operation {
                 SyntaxKind::AdditionExpression => Constant::Float(left + right),
@@ -509,7 +504,7 @@ impl<'a> Emitter<'a> {
                 SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
                 SyntaxKind::EqualExpression => Constant::Boolean(left == right),
                 SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
-                _ => todo!(),
+                _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
             },
             (Constant::Integer(left), Constant::Integer(right)) => match operation {
                 SyntaxKind::AdditionExpression => Constant::Integer(left.saturating_add(right)),
@@ -536,7 +531,7 @@ impl<'a> Emitter<'a> {
                 SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
                 SyntaxKind::EqualExpression => Constant::Boolean(left == right),
                 SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
-                _ => todo!(),
+                _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
             },
             (Constant::Character(left), Constant::Character(right)) => match operation {
                 SyntaxKind::AdditionExpression => {
@@ -561,7 +556,9 @@ impl<'a> Emitter<'a> {
                 SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
                 SyntaxKind::EqualExpression => Constant::Boolean(left == right),
                 SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
-                _ => todo!("Error"),
+                _ => {
+                    return Err(CompileError::InvalidSyntaxNode { kind: operation });
+                }
             },
             (
                 Constant::String {
@@ -612,7 +609,7 @@ impl<'a> Emitter<'a> {
                     SyntaxKind::LessThanOrEqualExpression => Constant::Boolean(left <= right),
                     SyntaxKind::EqualExpression => Constant::Boolean(left == right),
                     SyntaxKind::NotEqualExpression => Constant::Boolean(left != right),
-                    _ => todo!("Error"),
+                    _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
                 }
             }
             (
@@ -636,7 +633,7 @@ impl<'a> Emitter<'a> {
                         .resolver
                         .constants
                         .push_str_to_string_pool(string.as_bytes()),
-                    _ => todo!("Error"),
+                    _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
                 };
 
                 Constant::String {
@@ -665,7 +662,7 @@ impl<'a> Emitter<'a> {
                         .resolver
                         .constants
                         .push_str_to_string_pool(string.as_bytes()),
-                    _ => todo!("Error"),
+                    _ => return Err(CompileError::InvalidSyntaxNode { kind: operation }),
                 };
 
                 Constant::String {
@@ -2400,6 +2397,13 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             .resolver
             .get_declaration_binding(&node.id)
             .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+
+        if let Some(prototype_index) = self.resolver.get_declaration_prototype(&declaration_id) {
+            return Ok(Emission::Target(Target::Constant {
+                index: *prototype_index,
+            }));
+        }
+
         let mut declaration = *self
             .resolver
             .get_declaration(declaration_id)
@@ -2417,15 +2421,15 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let prototype_index = self.resolver.prototypes.len();
 
         self.resolver.prototypes.push(Prototype::default());
+        self.resolver
+            .set_declaration_prototype(declaration_id, prototype_index as u16);
 
-        let parameters = if let DeclarationKind::Function {
-            prototype_index: declaration_prototype_index,
-            parameters,
-            ..
-        } = &mut declaration.kind
+        let function_scope_id = *self
+            .resolver
+            .get_scope_binding(&body.id)
+            .ok_or(CompileError::MissingScopeBinding { syntax_id: node.id })?;
+        let parameters = if let DeclarationKind::Function { parameters, .. } = &mut declaration.kind
         {
-            *declaration_prototype_index = Some(prototype_index as u16);
-
             *parameters
         } else {
             return Err(CompileError::ExpectedFunction {
@@ -2433,11 +2437,6 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 position: Position::new(self.file_id, node.span()),
             });
         };
-
-        let function_scope_id = *self
-            .resolver
-            .get_scope_binding(&body.id)
-            .ok_or(CompileError::MissingScopeBinding { syntax_id: node.id })?;
 
         let function_emitter = Emitter::new(
             declaration_id,

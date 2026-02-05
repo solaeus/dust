@@ -197,10 +197,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         };
         let parameters = self.resolver.add_declaration_members(&parameter_ids);
         let function_declaration = Declaration {
-            kind: DeclarationKind::Function {
-                parameters,
-                prototype_index: None,
-            },
+            kind: DeclarationKind::Function { parameters },
             scope_id: self.current_scope_id,
             name_position: Some(Position::new(self.file_id, function_name.span())),
             is_public,
@@ -970,10 +967,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
         let parameters = self.resolver.add_declaration_members(&parameter_ids);
         let function_declaration = Declaration {
-            kind: DeclarationKind::Function {
-                parameters,
-                prototype_index: None,
-            },
+            kind: DeclarationKind::Function { parameters },
             scope_id: self.current_scope_id,
             name_position: None,
             is_public: false,

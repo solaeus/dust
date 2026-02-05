@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    fmt::{self, Display, Formatter},
     hash::{Hash, Hasher},
 };
 
@@ -22,64 +21,55 @@ use crate::{
 #[derive(Debug)]
 pub struct Resolver {
     pub constants: ConstantTable,
-
     pub prototypes: Vec<Prototype>,
 
-    type_bindings: HashMap<SyntaxId, TypeId, FxBuildHasher>,
-
     declarations: IndexMap<DeclarationKey, Declaration, FxBuildHasher>,
-
     declaration_members: IndexSet<DeclarationId, FxBuildHasher>,
-
+    declaration_types: HashMap<DeclarationId, TypeId, FxBuildHasher>,
+    declaration_prototypes: HashMap<DeclarationId, u16, FxBuildHasher>,
     declaration_bindings: HashMap<SyntaxId, DeclarationId, FxBuildHasher>,
 
-    declaration_types: HashMap<DeclarationId, TypeId, FxBuildHasher>,
-
     scopes: Vec<Scope>,
-
     scope_bindings: HashMap<SyntaxId, ScopeId, FxBuildHasher>,
 
     type_nodes: IndexSet<TypeNode, FxBuildHasher>,
-
     type_members: Vec<TypeId>,
+    type_bindings: HashMap<SyntaxId, TypeId, FxBuildHasher>,
 
-    next_type_declaration_id: TypeDeclarationId,
-
-    next_inferred_type_id: u32,
-
-    next_anonymous_symbol_id: u32,
+    next_inferred_type_id: InferredTypeId,
+    next_anonymous_symbol_id: AnonymousSymbolId,
 }
 
 impl Resolver {
     pub fn new() -> Self {
-        let mut context = Self {
+        let mut resolver = Self {
             constants: ConstantTable::new(),
             prototypes: Vec::new(),
-            type_bindings: HashMap::default(),
             declarations: IndexMap::default(),
             declaration_members: IndexSet::default(),
-            declaration_bindings: HashMap::default(),
             declaration_types: HashMap::default(),
+            declaration_prototypes: HashMap::default(),
+            declaration_bindings: HashMap::default(),
             scopes: vec![],
             scope_bindings: HashMap::default(),
             type_nodes: IndexSet::default(),
             type_members: Vec::new(),
-            next_type_declaration_id: TypeDeclarationId(0),
-            next_inferred_type_id: 0,
-            next_anonymous_symbol_id: 0,
+            type_bindings: HashMap::default(),
+            next_inferred_type_id: InferredTypeId(0),
+            next_anonymous_symbol_id: AnonymousSymbolId(0),
         };
 
-        let _main_declaration_id = context.add_anonymous_declaration(Declaration::MAIN);
+        let _main_declaration_id = resolver.add_anonymous_declaration(Declaration::MAIN);
 
         debug_assert_eq!(_main_declaration_id, DeclarationId::MAIN);
 
-        let _none_id = context.add_type(TypeNode::None);
-        let _boolean_id = context.add_type(TypeNode::Boolean);
-        let _byte_id = context.add_type(TypeNode::Byte);
-        let _character_id = context.add_type(TypeNode::Character);
-        let _float_id = context.add_type(TypeNode::Float);
-        let _integer_id = context.add_type(TypeNode::Integer);
-        let _string_id = context.add_type(TypeNode::String);
+        let _none_id = resolver.add_type(TypeNode::None);
+        let _boolean_id = resolver.add_type(TypeNode::Boolean);
+        let _byte_id = resolver.add_type(TypeNode::Byte);
+        let _character_id = resolver.add_type(TypeNode::Character);
+        let _float_id = resolver.add_type(TypeNode::Float);
+        let _integer_id = resolver.add_type(TypeNode::Integer);
+        let _string_id = resolver.add_type(TypeNode::String);
 
         debug_assert_eq!(_none_id, TypeId::NONE);
         debug_assert_eq!(_boolean_id, TypeId::BOOLEAN);
@@ -89,13 +79,13 @@ impl Resolver {
         debug_assert_eq!(_integer_id, TypeId::INTEGER);
         debug_assert_eq!(_string_id, TypeId::STRING);
 
-        let _project_scope_id = context.add_scope(Scope {
+        let _project_scope_id = resolver.add_scope(Scope {
             kind: ScopeKind::Module,
             parent: ScopeId::PROJECT,
             imports: SmallVec::new(),
             modules: SmallVec::new(),
         });
-        let _native_scope_id = context.add_scope(Scope {
+        let _native_scope_id = resolver.add_scope(Scope {
             kind: ScopeKind::Module,
             parent: ScopeId::PROJECT,
             imports: SmallVec::new(),
@@ -105,9 +95,9 @@ impl Resolver {
         debug_assert_eq!(_project_scope_id, ScopeId::PROJECT);
         debug_assert_eq!(_native_scope_id, ScopeId::NATIVE);
 
-        context.add_native_functions();
+        resolver.add_native_functions();
 
-        context
+        resolver
     }
 
     pub fn add_native_functions(&mut self) {
@@ -211,7 +201,7 @@ impl Resolver {
             id: self.next_anonymous_symbol_id,
         };
 
-        self.next_anonymous_symbol_id += 1;
+        self.next_anonymous_symbol_id.0 += 1;
 
         let parent = if let DeclarationKind::Type { parent } = declaration.kind {
             parent
@@ -253,6 +243,19 @@ impl Resolver {
 
     pub fn get_declaration_type(&self, declaration_id: &DeclarationId) -> Option<&TypeId> {
         self.declaration_types.get(declaration_id)
+    }
+
+    pub fn set_declaration_prototype(
+        &mut self,
+        declaration_id: DeclarationId,
+        prototype_index: u16,
+    ) {
+        self.declaration_prototypes
+            .insert(declaration_id, prototype_index);
+    }
+
+    pub fn get_declaration_prototype(&self, declaration_id: &DeclarationId) -> Option<&u16> {
+        self.declaration_prototypes.get(declaration_id)
     }
 
     pub fn set_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {
@@ -650,21 +653,13 @@ impl Resolver {
         Some(result)
     }
 
-    pub fn create_type_declaration_id(&mut self) -> TypeDeclarationId {
-        let id = self.next_type_declaration_id;
-
-        self.next_type_declaration_id.0 += 1;
-
-        id
-    }
-
     pub fn create_inferred_type(&mut self) -> TypeId {
         let inferred_type_node = TypeNode::Inferred {
-            id: self.next_inferred_type_id,
+            inferred_id: self.next_inferred_type_id,
             resolved: None,
         };
 
-        self.next_inferred_type_id += 1;
+        self.next_inferred_type_id.0 += 1;
 
         self.add_type(inferred_type_node)
     }
@@ -705,20 +700,32 @@ impl Resolver {
             .ok_or(CompileError::MissingType { type_id: right })?;
 
         match (left_node, right_node) {
-            (TypeNode::Inferred { id, resolved: None }, _) => {
+            (
+                TypeNode::Inferred {
+                    inferred_id: id,
+                    resolved: None,
+                },
+                _,
+            ) => {
                 if let Some(node) = self.get_type_mut(left) {
                     *node = TypeNode::Inferred {
-                        id,
+                        inferred_id: id,
                         resolved: Some(right),
                     };
                 }
 
                 Ok(true)
             }
-            (_, TypeNode::Inferred { id, resolved: None }) => {
+            (
+                _,
+                TypeNode::Inferred {
+                    inferred_id: id,
+                    resolved: None,
+                },
+            ) => {
                 if let Some(node) = self.get_type_mut(right) {
                     *node = TypeNode::Inferred {
-                        id,
+                        inferred_id: id,
                         resolved: Some(left),
                     };
                 }
@@ -854,7 +861,7 @@ impl Default for Resolver {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Symbol {
     Named { hash: u64 },
-    Anonymous { id: u32 },
+    Anonymous { id: AnonymousSymbolId },
 }
 
 impl Symbol {
@@ -868,6 +875,9 @@ impl Symbol {
         }
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AnonymousSymbolId(u32);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ScopeId(pub u32);
@@ -916,10 +926,7 @@ pub struct Declaration {
 
 impl Declaration {
     pub const MAIN: Self = Declaration {
-        kind: DeclarationKind::Function {
-            parameters: (0, 0),
-            prototype_index: Some(0),
-        },
+        kind: DeclarationKind::Function { parameters: (0, 0) },
         scope_id: ScopeId::PROJECT,
         name_position: None,
         is_public: false,
@@ -934,7 +941,6 @@ pub enum DeclarationKind {
     },
     Function {
         parameters: (u32, u32),
-        prototype_index: Option<u16>,
     },
     NativeFunction,
     Module {
@@ -945,21 +951,6 @@ pub enum DeclarationKind {
         parent: Option<DeclarationId>,
     },
 }
-
-impl Display for DeclarationKind {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            DeclarationKind::Function { .. } => write!(f, "function"),
-            DeclarationKind::NativeFunction => write!(f, "native function"),
-            DeclarationKind::Local { .. } => write!(f, "local variable"),
-            DeclarationKind::Module { .. } => write!(f, "module"),
-            DeclarationKind::Type { .. } => write!(f, "type"),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypeDeclarationId(pub u32);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ModuleKind {
@@ -997,18 +988,21 @@ pub enum TypeNode {
         value_parameters: (u32, u32),
         return_type_id: TypeId,
     },
-    Inferred {
-        id: u32,
-        resolved: Option<TypeId>,
-    },
     Struct {
         declaration_id: DeclarationId,
         generics: (u32, u32),
         fields: (u32, u32),
     },
     Enum {
-        id: DeclarationId,
+        declaration_id: DeclarationId,
         generics: (u32, u32),
         variants: (u32, u32),
     },
+    Inferred {
+        inferred_id: InferredTypeId,
+        resolved: Option<TypeId>,
+    },
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InferredTypeId(u32);
