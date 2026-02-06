@@ -1,10 +1,10 @@
 use std::{collections::HashSet, mem::offset_of};
 
 use cranelift::{
-    codegen::ir::FuncRef,
+    codegen::ir::{BlockArg, FuncRef},
     prelude::{
         AbiParam, Block, FloatCC, FunctionBuilder, InstBuilder, IntCC, MemFlags, Signature,
-        Value as CraneliftValue, Variable,
+        StackSlotData, StackSlotKind, Value as CraneliftValue, Variable,
         types::{F64, I8, I64},
     },
 };
@@ -16,6 +16,7 @@ use tracing::trace;
 
 use crate::{
     constant_table::ConstantTable,
+    dust_crate::Program,
     instruction::{
         Add, Address, Call, CallNative, Divide, Drop, GetList, Instruction, Jump, MemoryKind,
         Modulo, Move, Multiply, Negate, NewList, OperandType, Operation, Power, Reference, Return,
@@ -31,6 +32,7 @@ use crate::{
 };
 
 pub struct InstructionCompiler<'a> {
+    pub program: &'a Program,
     pub prototype: &'a Prototype,
     pub instruction_blocks: &'a [Block],
     pub function_ids: &'a [FuncId],
@@ -43,8 +45,10 @@ pub struct InstructionCompiler<'a> {
     pub base_register_index: CraneliftValue,
     pub recursive_calls: &'a HashSet<(u16, u16), FxBuildHasher>,
 
+    pub struct_return_ptr: Option<CraneliftValue>,
+
     pub module: &'a mut JITModule,
-    pub signature: Signature,
+    pub indirect_signatures: (Signature, Signature, Signature),
 }
 
 impl<'a> InstructionCompiler<'a> {
@@ -388,8 +392,41 @@ impl<'a> InstructionCompiler<'a> {
             );
         }
 
-        let call_callee = match callee.memory {
+        const MAX_INDIRECT_RETURN_WORDS: usize = 64;
+
+        let return_value_count = builder.ins().load(
+            I64,
+            MemFlags::new(),
+            compiled_prototype_address,
+            offset_of!(JitPrototype, return_value_count) as i32,
+        );
+
+        let pointer_type = self.module.isa().pointer_type();
+
+        let (
+            call_callee,
+            struct_return_ptr,
+            callee_return_count,
+            callee_returns_struct,
+            indirect_return_kind,
+            indirect_scalar_value,
+        ) = match callee.memory {
             MemoryKind::CONSTANT => {
+                let callee_prototype = self.program.prototypes.get(callee.index as usize).ok_or(
+                    JitError::FunctionIndexOutOfBounds {
+                        ip,
+                        function_index: callee.index,
+                        total_function_count: self.program.prototypes.len(),
+                    },
+                )?;
+                let callee_returns_struct = matches!(
+                    callee_prototype.function_type.return_type,
+                    Type::Struct { .. }
+                );
+                let callee_return_count = super::return_word_count_for_prototype(
+                    &callee_prototype.function_type.return_type,
+                );
+
                 let function_id = self.function_ids.get(callee.index as usize).ok_or(
                     JitError::FunctionIndexOutOfBounds {
                         ip,
@@ -399,18 +436,155 @@ impl<'a> InstructionCompiler<'a> {
                 )?;
                 let callee_reference = self.module.declare_func_in_func(*function_id, builder.func);
 
-                builder.ins().call(
-                    callee_reference,
-                    &[self.thread_context, self.base_register_index],
-                )
+                if callee_returns_struct {
+                    let data = StackSlotData::new(
+                        StackSlotKind::ExplicitSlot,
+                        (callee_return_count.max(1) * 8) as u32,
+                        3,
+                    );
+                    let struct_return_slot = builder.create_sized_stack_slot(data);
+                    let struct_return_ptr =
+                        builder
+                            .ins()
+                            .stack_addr(pointer_type, struct_return_slot, 0);
+
+                    let call = builder.ins().call(
+                        callee_reference,
+                        &[
+                            struct_return_ptr,
+                            self.thread_context,
+                            self.base_register_index,
+                        ],
+                    );
+
+                    (
+                        Some(call),
+                        Some(struct_return_ptr),
+                        callee_return_count,
+                        true,
+                        None,
+                        None,
+                    )
+                } else {
+                    let call = builder.ins().call(
+                        callee_reference,
+                        &[self.thread_context, self.base_register_index],
+                    );
+
+                    (Some(call), None, callee_return_count, false, None, None)
+                }
             }
             MemoryKind::REGISTER => {
-                let signature_reference = builder.import_signature(self.signature.clone());
+                let data = StackSlotData::new(
+                    StackSlotKind::ExplicitSlot,
+                    (MAX_INDIRECT_RETURN_WORDS * 8) as u32,
+                    3,
+                );
+                let struct_return_slot = builder.create_sized_stack_slot(data);
+                let struct_return_pointer =
+                    builder
+                        .ins()
+                        .stack_addr(pointer_type, struct_return_slot, 0);
+                let return_kind = builder.ins().load(
+                    I8,
+                    MemFlags::new(),
+                    compiled_prototype_address,
+                    offset_of!(JitPrototype, return_kind) as i32,
+                );
 
-                builder.ins().call_indirect(
-                    signature_reference,
-                    callee_pointer,
-                    &[self.thread_context, self.base_register_index],
+                let call_none_block = builder.create_block();
+                let call_scalar_or_struct_block = builder.create_block();
+                let call_scalar_block = builder.create_block();
+                let call_struct_block = builder.create_block();
+                let after_call_block = builder.create_block();
+
+                builder.append_block_param(after_call_block, I64);
+
+                let is_none = builder.ins().icmp_imm(IntCC::Equal, return_kind, 0);
+
+                builder.ins().brif(
+                    is_none,
+                    call_none_block,
+                    &[],
+                    call_scalar_or_struct_block,
+                    &[],
+                );
+
+                {
+                    builder.switch_to_block(call_none_block);
+
+                    let (none_signature, _, _) = &self.indirect_signatures;
+                    let signature = builder.import_signature(none_signature.clone());
+
+                    builder.ins().call_indirect(
+                        signature,
+                        callee_pointer,
+                        &[self.thread_context, self.base_register_index],
+                    );
+
+                    let zero = builder.ins().iconst(I64, 0);
+                    let args = [BlockArg::from(zero)];
+
+                    builder.ins().jump(after_call_block, &args);
+                }
+
+                {
+                    builder.switch_to_block(call_scalar_or_struct_block);
+
+                    let is_scalar = builder.ins().icmp_imm(IntCC::Equal, return_kind, 1);
+
+                    builder
+                        .ins()
+                        .brif(is_scalar, call_scalar_block, &[], call_struct_block, &[]);
+                }
+
+                builder.switch_to_block(call_scalar_block);
+                {
+                    let (_, scalar_signature, _) = &self.indirect_signatures;
+                    let signature = builder.import_signature(scalar_signature.clone());
+
+                    let call = builder.ins().call_indirect(
+                        signature,
+                        callee_pointer,
+                        &[self.thread_context, self.base_register_index],
+                    );
+                    let scalar_value = builder.inst_results(call)[0];
+
+                    let args = [BlockArg::from(scalar_value)];
+                    builder.ins().jump(after_call_block, &args);
+                }
+
+                builder.switch_to_block(call_struct_block);
+                {
+                    let (_, _, struct_sig) = &self.indirect_signatures;
+                    let sigref = builder.import_signature(struct_sig.clone());
+
+                    builder.ins().call_indirect(
+                        sigref,
+                        callee_pointer,
+                        &[
+                            struct_return_pointer,
+                            self.thread_context,
+                            self.base_register_index,
+                        ],
+                    );
+
+                    let zero = builder.ins().iconst(I64, 0);
+                    let args = [BlockArg::from(zero)];
+                    builder.ins().jump(after_call_block, &args);
+                }
+
+                builder.switch_to_block(after_call_block);
+
+                let scalar_value = builder.block_params(after_call_block)[0];
+
+                (
+                    None,
+                    Some(struct_return_pointer),
+                    MAX_INDIRECT_RETURN_WORDS,
+                    false,
+                    Some(return_kind),
+                    Some(scalar_value),
                 )
             }
             _ => {
@@ -440,26 +614,190 @@ impl<'a> InstructionCompiler<'a> {
         builder.switch_to_block(set_return_value_block);
 
         if destination != u16::MAX {
-            let return_values = builder.inst_results(call_callee).to_vec();
+            match callee.memory {
+                MemoryKind::CONSTANT if !callee_returns_struct => {
+                    let call_callee = call_callee.ok_or(JitError::MissingReturnValue)?;
+                    let value = builder
+                        .inst_results(call_callee)
+                        .first()
+                        .copied()
+                        .ok_or(JitError::MissingReturnValue)?;
+                    let return_value_tag =
+                        builder
+                            .ins()
+                            .load(I8, MemFlags::new(), return_value_tags_buffer, 0);
 
-            println!("{}", return_values.len());
+                    self.ssa_registers
+                        .get(destination as usize)
+                        .map(|ssa_variable| builder.def_var(*ssa_variable, value))
+                        .ok_or(JitError::RegisterIndexOutOfBounds {
+                            register_index: destination,
+                            total_register_count: self.ssa_registers.len(),
+                        })?;
+                    self.set_register_tag(destination, return_value_tag, builder)?;
+                }
+                MemoryKind::CONSTANT => {
+                    let struct_return_ptr =
+                        struct_return_ptr.ok_or(JitError::MissingReturnValue)?;
+                    let max_copy =
+                        (self.ssa_registers.len() as u16).saturating_sub(destination) as usize;
+                    let max_copy = max_copy.saturating_sub(1);
+                    let limit = callee_return_count.min(max_copy);
 
-            for (index, (return_value, destination)) in
-                return_values.into_iter().zip(destination..).enumerate()
-            {
-                let return_value_tag =
+                    for index in 0..limit {
+                        let value = builder.ins().load(
+                            I64,
+                            MemFlags::new(),
+                            struct_return_ptr,
+                            (index * 8) as i32,
+                        );
+                        let return_value_tag = builder.ins().load(
+                            I8,
+                            MemFlags::new(),
+                            return_value_tags_buffer,
+                            index as i32,
+                        );
+                        let destination = destination + 1 + index as u16;
+
+                        self.ssa_registers
+                            .get(destination as usize)
+                            .map(|ssa_variable| builder.def_var(*ssa_variable, value))
+                            .ok_or(JitError::RegisterIndexOutOfBounds {
+                                register_index: destination,
+                                total_register_count: self.ssa_registers.len(),
+                            })?;
+                        self.set_register_tag(destination, return_value_tag, builder)?;
+                    }
+
+                    let start = destination + 1;
+                    let end = start + callee_return_count as u16 - 1;
+                    let start_value = builder.ins().iconst(I64, start as i64);
+                    let end_value = builder.ins().iconst(I64, end as i64);
+                    let shifted_end = builder.ins().ishl_imm(end_value, 32);
+                    let encoded = builder.ins().bor(shifted_end, start_value);
+
+                    self.set_register_and_tag(
+                        destination,
+                        encoded,
+                        OperandType::COMPOUND,
+                        builder,
+                    )?;
+                }
+                MemoryKind::REGISTER => {
+                    let return_kind = indirect_return_kind.ok_or(JitError::MissingReturnValue)?;
+                    let scalar_value = indirect_scalar_value.ok_or(JitError::MissingReturnValue)?;
+
+                    let none_block = builder.create_block();
+                    let scalar_or_struct_block = builder.create_block();
+                    let scalar_block = builder.create_block();
+                    let struct_block = builder.create_block();
+                    let next_block = builder.create_block();
+
+                    let is_none = builder.ins().icmp_imm(IntCC::Equal, return_kind, 0);
                     builder
                         .ins()
-                        .load(I8, MemFlags::new(), return_value_tags_buffer, index as i32);
+                        .brif(is_none, none_block, &[], scalar_or_struct_block, &[]);
 
-                self.ssa_registers
-                    .get(destination as usize)
-                    .map(|ssa_variable| builder.def_var(*ssa_variable, return_value))
-                    .ok_or(JitError::RegisterIndexOutOfBounds {
-                        register_index: destination,
-                        total_register_count: self.ssa_registers.len(),
-                    })?;
-                self.set_register_tag(destination, return_value_tag, builder)?;
+                    builder.switch_to_block(none_block);
+                    builder.ins().jump(next_block, &[]);
+
+                    builder.switch_to_block(scalar_or_struct_block);
+                    let is_scalar = builder.ins().icmp_imm(IntCC::Equal, return_kind, 1);
+                    builder
+                        .ins()
+                        .brif(is_scalar, scalar_block, &[], struct_block, &[]);
+
+                    builder.switch_to_block(scalar_block);
+                    {
+                        let return_value_tag =
+                            builder
+                                .ins()
+                                .load(I8, MemFlags::new(), return_value_tags_buffer, 0);
+
+                        self.ssa_registers
+                            .get(destination as usize)
+                            .map(|ssa_variable| builder.def_var(*ssa_variable, scalar_value))
+                            .ok_or(JitError::RegisterIndexOutOfBounds {
+                                register_index: destination,
+                                total_register_count: self.ssa_registers.len(),
+                            })?;
+                        self.set_register_tag(destination, return_value_tag, builder)?;
+
+                        builder.ins().jump(next_block, &[]);
+                    }
+
+                    builder.switch_to_block(struct_block);
+                    {
+                        let struct_return_ptr =
+                            struct_return_ptr.ok_or(JitError::MissingReturnValue)?;
+
+                        let max_copy =
+                            (self.ssa_registers.len() as u16).saturating_sub(destination) as usize;
+                        let max_copy = max_copy.saturating_sub(1);
+                        let limit = MAX_INDIRECT_RETURN_WORDS.min(max_copy);
+
+                        for index in 0..limit {
+                            let cond = builder.ins().icmp_imm(
+                                IntCC::UnsignedGreaterThan,
+                                return_value_count,
+                                index as i64,
+                            );
+                            let copy_block = builder.create_block();
+                            let next_copy_block = builder.create_block();
+
+                            builder
+                                .ins()
+                                .brif(cond, copy_block, &[], next_copy_block, &[]);
+
+                            builder.switch_to_block(copy_block);
+
+                            let value = builder.ins().load(
+                                I64,
+                                MemFlags::new(),
+                                struct_return_ptr,
+                                (index * 8) as i32,
+                            );
+                            let return_value_tag = builder.ins().load(
+                                I8,
+                                MemFlags::new(),
+                                return_value_tags_buffer,
+                                index as i32,
+                            );
+                            let destination = destination + 1 + index as u16;
+
+                            self.ssa_registers
+                                .get(destination as usize)
+                                .map(|ssa_variable| builder.def_var(*ssa_variable, value))
+                                .ok_or(JitError::RegisterIndexOutOfBounds {
+                                    register_index: destination,
+                                    total_register_count: self.ssa_registers.len(),
+                                })?;
+                            self.set_register_tag(destination, return_value_tag, builder)?;
+
+                            builder.ins().jump(next_copy_block, &[]);
+                            builder.switch_to_block(next_copy_block);
+                        }
+
+                        let start = destination + 1;
+                        let start_value = builder.ins().iconst(I64, start as i64);
+                        let count_minus_one = builder.ins().iadd_imm(return_value_count, -1);
+                        let end_value = builder.ins().iadd(start_value, count_minus_one);
+                        let shifted_end = builder.ins().ishl_imm(end_value, 32);
+                        let encoded = builder.ins().bor(shifted_end, start_value);
+
+                        self.set_register_and_tag(
+                            destination,
+                            encoded,
+                            OperandType::COMPOUND,
+                            builder,
+                        )?;
+
+                        builder.ins().jump(next_block, &[]);
+                    }
+
+                    builder.switch_to_block(next_block);
+                }
+                _ => {}
             }
         }
 
@@ -1155,67 +1493,34 @@ impl<'a> InstructionCompiler<'a> {
         let Return { operand, r#type } = Return::from(instruction);
 
         if let OperandType::NONE = r#type {
-            let zero = builder.ins().iconst(I64, 0);
-
-            builder.ins().return_(&[zero]);
+            builder.ins().return_(&[]);
             return Ok(());
         }
 
-        if r#type == OperandType::COMPOUND {
-            if operand.memory != MemoryKind::REGISTER {
-                return Err(JitError::UnsupportedMemoryKind {
-                    memory_kind: operand.memory,
-                });
-            }
+        let return_type = &self.prototype.function_type.return_type;
+        let return_values = match return_type {
+            Type::None => Vec::new(),
+            Type::Struct { .. } => {
+                if operand.memory != MemoryKind::REGISTER {
+                    return Err(JitError::UnsupportedMemoryKind {
+                        memory_kind: operand.memory,
+                    });
+                }
 
-            for register_index in 0..self.prototype.register_count {
-                let ssa_variable = self.ssa_registers.get(register_index as usize).ok_or(
-                    JitError::RegisterIndexOutOfBounds {
-                        register_index,
-                        total_register_count: self.ssa_registers.len(),
-                    },
-                )?;
-                let value = builder.use_var(*ssa_variable);
+                let return_count = super::return_word_count_for_prototype(return_type);
+                let start_register = operand.index;
+                let end_register = start_register + return_count as u16;
+                let mut return_values = Vec::with_capacity(return_count);
 
-                let absolute_register_index = builder
-                    .ins()
-                    .iadd_imm(self.base_register_index, register_index as i64);
-                let register_offset = builder
-                    .ins()
-                    .imul_imm(absolute_register_index, size_of::<Register>() as i64);
-                let register_address = builder.ins().iadd(
-                    self.thread_context_fields.register_buffer_pointer,
-                    register_offset,
-                );
-
-                builder
-                    .ins()
-                    .store(MemFlags::new(), value, register_address, 0);
-            }
-        }
-
-        let return_values = match &self.prototype.function_type.return_type {
-            Type::None => unreachable!(),
-            Type::Struct { fields, .. } => {
-                let end_register = operand.index + fields.len() as u16;
-                let mut return_values = Vec::with_capacity(fields.len());
-
-                for ((_, field_type), register_index) in
-                    fields.iter().zip(operand.index..end_register)
-                {
-                    let operand = Address::register(register_index);
-                    let operand_type = field_type.as_operand_type();
-                    let value = self.get_value(operand, operand_type, builder)?;
-                    let value_type = builder.func.dfg.value_type(value);
-                    let return_value = if value_type == I64 {
-                        value
-                    } else if value_type == F64 {
-                        builder.ins().bitcast(I64, MemFlags::new(), value)
-                    } else {
-                        builder.ins().uextend(I64, value)
-                    };
-
-                    return_values.push(return_value);
+                for register_index in start_register..end_register {
+                    let ssa_variable = self.ssa_registers.get(register_index as usize).ok_or(
+                        JitError::RegisterIndexOutOfBounds {
+                            register_index,
+                            total_register_count: self.ssa_registers.len(),
+                        },
+                    )?;
+                    let value = builder.use_var(*ssa_variable);
+                    return_values.push(value);
                 }
 
                 return_values
@@ -1235,7 +1540,22 @@ impl<'a> InstructionCompiler<'a> {
             }
         };
 
-        builder.ins().return_(&return_values);
+        if matches!(return_type, Type::Struct { .. }) {
+            let struct_return_ptr = self.struct_return_ptr.ok_or(JitError::MissingReturnValue)?;
+
+            for (index, value) in return_values.iter().enumerate() {
+                builder.ins().store(
+                    MemFlags::new(),
+                    *value,
+                    struct_return_ptr,
+                    (index * 8) as i32,
+                );
+            }
+
+            builder.ins().return_(&[]);
+        } else {
+            builder.ins().return_(&return_values);
+        }
 
         Ok(())
     }

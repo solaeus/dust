@@ -7,7 +7,7 @@ use crate::r#type::Type;
 use crate::{jit_vm::RegisterTag, prototype::Prototype};
 
 use cranelift::{
-    codegen::ir::InstBuilder,
+    codegen::ir::{ArgumentPurpose, InstBuilder},
     prelude::{
         AbiParam, Configurable, FunctionBuilder, FunctionBuilderContext, MemFlags, Signature,
         settings::{self, Flags},
@@ -31,7 +31,7 @@ pub struct JitCompiler<'a> {
     module: JITModule,
     program: &'a Program,
     main_prototype_index: u16,
-    function_ids: Vec<FuncId>,
+    abi_function_ids: Vec<FuncId>,
 }
 
 impl<'a> JitCompiler<'a> {
@@ -116,45 +116,23 @@ impl<'a> JitCompiler<'a> {
             module,
             program,
             main_prototype_index,
-            function_ids: vec![FuncId::from_u32(0); program.prototypes.len()],
+            abi_function_ids: vec![FuncId::from_u32(0); program.prototypes.len()],
         })
     }
 
-    pub fn compile(&mut self) -> Result<(JitLogic, Vec<JitPrototype>), JitError> {
-        fn get_return_value_tags(r#type: &Type) -> Vec<RegisterTag> {
-            match r#type {
-                Type::None => vec![RegisterTag::EMPTY],
-                Type::Boolean
-                | Type::Byte
-                | Type::Character
-                | Type::Float
-                | Type::Integer
-                | Type::Function(_) => vec![RegisterTag::SCALAR],
-                Type::String | Type::List(_) => vec![RegisterTag::OBJECT],
-                Type::Struct { fields, .. } => {
-                    let mut tags = Vec::new();
-
-                    for (_, field_type) in fields {
-                        tags.extend(get_return_value_tags(field_type));
-                    }
-
-                    tags
-                }
-            }
-        }
-
+    pub fn compile(&mut self) -> Result<(JitEntry, Vec<JitPrototype>), JitError> {
         let (compile_order, recursive_calls) = get_compile_order_and_recursive_calls(self.program);
 
         let mut compiled = FxHashSet::default();
 
         for index in compile_order {
-            self.function_ids[index] = self.compile_prototype(index, &recursive_calls)?;
+            self.abi_function_ids[index] = self.compile_prototype(index, &recursive_calls)?;
             compiled.insert(index);
         }
 
         for index in 0..self.program.prototypes.len() {
             if !compiled.contains(&index) {
-                self.function_ids[index] = self.compile_prototype(index, &recursive_calls)?;
+                self.abi_function_ids[index] = self.compile_prototype(index, &recursive_calls)?;
             }
         }
 
@@ -167,25 +145,49 @@ impl<'a> JitCompiler<'a> {
 
         let mut jit_prototypes = Vec::with_capacity(self.program.prototypes.len());
 
-        for (index, func_id) in self.function_ids.iter().enumerate() {
+        for (index, func_id) in self.abi_function_ids.iter().enumerate() {
             let function_pointer = self.module.get_finalized_function(*func_id);
             let return_type = &self.program.prototypes[index].function_type.return_type;
-            let return_value_tags_vec = get_return_value_tags(return_type);
+            let return_value_tags_vec = value_tags_for_type(return_type);
+
+            let return_kind = match return_type {
+                Type::None => 0,
+                Type::Struct { .. } => 2,
+                _ => 1,
+            };
 
             jit_prototypes.push(JitPrototype {
                 function_pointer: function_pointer as *mut u8,
                 return_value_tags_buffer: return_value_tags_vec.as_ptr(),
-                retuen_value_count: return_value_tags_vec.len(),
+                return_value_count: return_value_tags_vec.len(),
+                return_kind,
                 return_value_tags_vec,
                 is_recursive: recursive_calls.contains(&(index as u16, index as u16)),
             });
         }
 
-        let main_function_id = self.function_ids[self.main_prototype_index as usize];
+        let main_function_id = self.abi_function_ids[self.main_prototype_index as usize];
         let program_function_pointer = self.module.get_finalized_function(main_function_id);
-        let jit_logic = unsafe { transmute::<*const u8, JitLogic>(program_function_pointer) };
+        let main_return_type = &self.program.prototypes[self.main_prototype_index as usize]
+            .function_type
+            .return_type;
 
-        Ok((jit_logic, jit_prototypes))
+        let entry = match main_return_type {
+            Type::None => {
+                let f = unsafe { transmute::<*const u8, JitLogicNone>(program_function_pointer) };
+                JitEntry::None(f)
+            }
+            Type::Struct { .. } => {
+                let f = unsafe { transmute::<*const u8, JitLogicStruct>(program_function_pointer) };
+                JitEntry::Struct(f)
+            }
+            _ => {
+                let f = unsafe { transmute::<*const u8, JitLogicScalar>(program_function_pointer) };
+                JitEntry::Scalar(f)
+            }
+        };
+
+        Ok((entry, jit_prototypes))
     }
 
     fn compile_prototype(
@@ -203,11 +205,12 @@ impl<'a> JitCompiler<'a> {
                 })?;
 
         let mut context = self.module.make_context();
-        let signature = self.prototype_signature(prototype);
+        let abi_signature = self.prototype_signature(prototype);
+        let indirect_sigs = self.indirect_signatures();
 
-        context.func.signature = signature.clone();
+        context.func.signature = abi_signature.clone();
 
-        let function_id = self
+        let abi_function_id = self
             .module
             .declare_function(
                 &format!("proto_{}", prototype_index),
@@ -218,7 +221,7 @@ impl<'a> JitCompiler<'a> {
                 error: Box::new(error),
                 cranelift_ir: Some(context.func.display().to_string()),
             })?;
-        self.function_ids[prototype_index] = function_id;
+        self.abi_function_ids[prototype_index] = abi_function_id;
 
         let mut builder_context = FunctionBuilderContext::new();
         let mut builder = FunctionBuilder::new(&mut context.func, &mut builder_context);
@@ -241,8 +244,12 @@ impl<'a> JitCompiler<'a> {
         };
 
         let parameters = builder.block_params(entry_block).to_vec();
-        let thread_context = parameters[0];
-        let base_register_index = parameters[1];
+        let (struct_return_ptr, thread_context, base_register_index) =
+            if matches!(prototype.function_type.return_type, Type::Struct { .. }) {
+                (Some(parameters[0]), parameters[1], parameters[2])
+            } else {
+                (None, parameters[0], parameters[1])
+            };
 
         builder.switch_to_block(entry_block);
 
@@ -280,17 +287,19 @@ impl<'a> JitCompiler<'a> {
         builder.ins().jump(instruction_blocks[0], &[]);
 
         let mut instruction_compiler = InstructionCompiler {
+            program: self.program,
             prototype,
             instruction_blocks: &instruction_blocks,
-            function_ids: &self.function_ids,
+            function_ids: &self.abi_function_ids,
             constants: &self.program.constants,
             ssa_registers: &mut ssa_registers,
             thread_context,
             thread_context_fields,
             recursive_calls,
             base_register_index,
+            struct_return_ptr,
             module: &mut self.module,
-            signature,
+            indirect_signatures: indirect_sigs,
         };
 
         for ip in 0..prototype.instructions.len() {
@@ -302,38 +311,73 @@ impl<'a> JitCompiler<'a> {
         builder.seal_all_blocks();
         builder.finalize();
         self.module
-            .define_function(function_id, &mut context)
+            .define_function(abi_function_id, &mut context)
             .map_err(|error| JitError::CraneliftModuleError {
                 error: Box::new(error),
                 cranelift_ir: Some(context.func.display().to_string()),
             })?;
         self.module.clear_context(&mut context);
 
-        Ok(function_id)
+        Ok(abi_function_id)
     }
 
     fn prototype_signature(&self, prototype: &Prototype) -> Signature {
         let pointer_type = self.module.isa().pointer_type();
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
-        signature.params.push(AbiParam::new(pointer_type)); // ThreadContext
-        signature.params.push(AbiParam::new(I64)); // Base register index
+        match prototype.function_type.return_type {
+            Type::Struct { .. } => {
+                signature.params.push(AbiParam::special(
+                    pointer_type,
+                    ArgumentPurpose::StructReturn,
+                ));
+                signature.params.push(AbiParam::new(pointer_type)); // ThreadContext
+                signature.params.push(AbiParam::new(I64)); // Base register index
+            }
+            _ => {
+                signature.params.push(AbiParam::new(pointer_type)); // ThreadContext
+                signature.params.push(AbiParam::new(I64)); // Base register index
 
-        let return_type_count = match &prototype.function_type.return_type {
-            Type::None => 0,
-            Type::Struct { fields, .. } => fields.len(),
-            _ => 1,
-        };
-
-        for _ in 0..return_type_count {
-            signature.returns.push(AbiParam::new(I64));
+                if !matches!(prototype.function_type.return_type, Type::None) {
+                    signature.returns.push(AbiParam::new(I64));
+                }
+            }
         }
 
         signature
     }
+
+    fn indirect_signatures(&self) -> (Signature, Signature, Signature) {
+        let pointer_type = self.module.isa().pointer_type();
+        let cc = self.module.isa().default_call_conv();
+
+        let mut none_sig = Signature::new(cc);
+        none_sig.params.push(AbiParam::new(pointer_type));
+        none_sig.params.push(AbiParam::new(I64));
+
+        let mut scalar_sig = Signature::new(cc);
+        scalar_sig.params.push(AbiParam::new(pointer_type));
+        scalar_sig.params.push(AbiParam::new(I64));
+        scalar_sig.returns.push(AbiParam::new(I64));
+
+        let mut struct_sig = Signature::new(cc);
+        struct_sig.params.push(AbiParam::special(pointer_type, ArgumentPurpose::StructReturn));
+        struct_sig.params.push(AbiParam::new(pointer_type));
+        struct_sig.params.push(AbiParam::new(I64));
+
+        (none_sig, scalar_sig, struct_sig)
+    }
 }
 
-pub type JitLogic = extern "C" fn(&mut ThreadContext, usize) -> i64;
+pub type JitLogicNone = extern "C" fn(&mut ThreadContext, usize);
+pub type JitLogicScalar = extern "C" fn(&mut ThreadContext, usize) -> i64;
+pub type JitLogicStruct = extern "C" fn(*mut i64, &mut ThreadContext, usize);
+
+pub enum JitEntry {
+    None(JitLogicNone),
+    Scalar(JitLogicScalar),
+    Struct(JitLogicStruct),
+}
 
 // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 fn get_compile_order_and_recursive_calls(program: &Program) -> (Vec<usize>, FxHashSet<(u16, u16)>) {
@@ -420,4 +464,30 @@ fn get_compile_order_and_recursive_calls(program: &Program) -> (Vec<usize>, FxHa
     }
 
     (tarjan.order, recursive_calls)
+}
+
+fn value_tags_for_type(r#type: &Type) -> Vec<RegisterTag> {
+    match r#type {
+        Type::None => vec![RegisterTag::EMPTY],
+        Type::Boolean
+        | Type::Byte
+        | Type::Character
+        | Type::Float
+        | Type::Integer
+        | Type::Function(_) => vec![RegisterTag::SCALAR],
+        Type::String | Type::List(_) => vec![RegisterTag::OBJECT],
+        Type::Struct { fields, .. } => {
+            let mut tags = Vec::new();
+
+            for (_, field_type) in fields {
+                tags.extend(value_tags_for_type(field_type));
+            }
+
+            tags
+        }
+    }
+}
+
+fn return_word_count_for_prototype(return_type: &Type) -> usize {
+    value_tags_for_type(return_type).len()
 }

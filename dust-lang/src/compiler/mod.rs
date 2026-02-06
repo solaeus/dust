@@ -25,7 +25,7 @@ use crate::{
     parser::{ParseResult, Parser},
     prototype::Prototype,
     source::{Source, SourceCode, SourceFile, SourceFileId},
-    syntax::{Syntax, SyntaxReaderIterator},
+    syntax::Syntax,
 };
 
 pub const DEFAULT_PROGRAM_NAME: &str = "dust_program";

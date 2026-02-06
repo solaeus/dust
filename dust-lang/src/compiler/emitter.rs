@@ -1097,7 +1097,10 @@ impl<'a> Emitter<'a> {
                 if let Some(target) = instructions.target {
                     return_instructions.merge(instructions);
 
-                    Address::register(target.index())
+                    match target {
+                        Target::Register { index, .. } => Address::register(index),
+                        Target::Compound { base_register, .. } => Address::register(base_register + 1),
+                    }
                 } else if type_id == TypeId::NONE {
                     return_instructions.merge(instructions);
 

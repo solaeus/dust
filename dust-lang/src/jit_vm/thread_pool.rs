@@ -189,7 +189,8 @@ pub struct JitPrototype {
     pub function_pointer: *mut u8,
     pub return_value_tags_vec: Vec<RegisterTag>,
     pub return_value_tags_buffer: *const RegisterTag,
-    pub retuen_value_count: usize,
+    pub return_value_count: usize,
+    pub return_kind: u8, // 0 = none, 1 = scalar/object (i64), 2 = struct (sret)
     pub is_recursive: bool,
 }
 
@@ -336,7 +337,7 @@ fn run_thread(
     info!("Starting JIT compilation for proto_{prototype_index}");
 
     let mut jit = JitCompiler::new(&program, prototype_index)?;
-    let (jit_logic, mut jit_prototypes) = jit.compile()?;
+    let (jit_entry, mut jit_prototypes) = jit.compile()?;
 
     info!("JIT compilation complete");
 
@@ -361,151 +362,47 @@ fn run_thread(
         recursive_return_register: 0,
     };
 
-    let encoded_return_value = (jit_logic)(&mut thread_context, 0);
-    let return_type = &program.prototypes[0].function_type.return_type;
+    let return_type = &program
+        .prototypes
+        .get(prototype_index as usize)
+        .ok_or(JitError::MissingPrototype {
+            index: prototype_index as usize,
+            total: program.prototypes.len(),
+        })?
+        .function_type
+        .return_type;
+    let return_word_count = jit_prototypes
+        .get(prototype_index as usize)
+        .map(|prototype| prototype.return_value_count)
+        .unwrap_or(1)
+        .max(1);
+    let mut return_words = vec![0_i64; return_word_count];
+
+    match jit_entry {
+        crate::jit_vm::jit_compiler::JitEntry::None(f) => {
+            f(&mut thread_context, 0);
+        }
+        crate::jit_vm::jit_compiler::JitEntry::Scalar(f) => {
+            return_words[0] = f(&mut thread_context, 0);
+        }
+        crate::jit_vm::jit_compiler::JitEntry::Struct(f) => {
+            f(return_words.as_mut_ptr(), &mut thread_context, 0);
+        }
+    }
 
     let return_value = match return_type {
         Type::None => None,
-        Type::Boolean => {
-            let boolean = encoded_return_value != 0;
+        _ => {
+            let (value, _) = decode_value_from_return_words(return_type, &return_words, 0)?;
 
-            Some(Value::Boolean(boolean))
+            Some(value)
         }
-        Type::Byte => {
-            let byte = encoded_return_value as u8;
-
-            Some(Value::Byte(byte))
-        }
-        Type::Character => {
-            let character = char::from_u32(encoded_return_value as u32).unwrap_or_default();
-
-            Some(Value::Character(character))
-        }
-        Type::Float => {
-            let float = f64::from_bits(encoded_return_value as u64);
-
-            Some(Value::Float(float))
-        }
-        Type::Integer => Some(Value::Integer(encoded_return_value)),
-        Type::String => {
-            let string = unsafe {
-                (encoded_return_value as *const Object)
-                    .as_ref()
-                    .ok_or(JitError::MissingReturnValue)?
-                    .as_string()
-                    .unwrap()
-                    .clone()
-            };
-
-            Some(Value::String(string))
-        }
-        Type::List(_) => {
-            let object_pointer = encoded_return_value as *mut Object;
-            let list = get_list_from_object_index(object_pointer, return_type)?;
-
-            Some(Value::List(list))
-        }
-        Type::Struct {
-            name,
-            fields: field_types,
-        } => {
-            let main_function_registers =
-                &registers[0..=program.main_prototype().register_count as usize];
-
-            // Must match OperandType::COMPOUND packing in instruction_compiler.rs:
-            // start_index in low 32 bits, end_index in high 32 bits.
-            let encoded = encoded_return_value as u64;
-            let start_index = (encoded & 0xFFFF_FFFF) as usize;
-            let end_index = ((encoded >> 32) & 0xFFFF_FFFF) as usize;
-
-            let struct_value = get_struct_from_register_indices(
-                name.clone(),
-                start_index,
-                end_index,
-                main_function_registers,
-                field_types,
-            )?;
-
-            Some(struct_value)
-        }
-        Type::Function(_) => todo!("Error"),
     };
 
     info!("JIT execution completed, returning {return_value:?} with type {return_type}");
     debug!("{}", object_pool.report());
 
     Ok(return_value)
-}
-
-fn get_struct_from_register_indices(
-    name: String,
-    start_index: usize,
-    end_index: usize,
-    main_function_registers: &[Register],
-    field_types: &[(String, Type)],
-) -> Result<Value, JitError> {
-    let field_registers = &main_function_registers[start_index..=end_index];
-
-    let mut field_values = Vec::with_capacity(field_types.len());
-
-    for ((field_name, fields_type), field_register) in
-        field_types.iter().zip(field_registers.iter())
-    {
-        let field_value = match fields_type {
-            Type::Boolean => Value::Boolean(unsafe { field_register.boolean }),
-            Type::Byte => Value::Byte(unsafe { field_register.byte }),
-            Type::Character => Value::Character(unsafe { field_register.character }),
-            Type::Float => Value::Float(unsafe { field_register.float }),
-            Type::Integer => Value::Integer(unsafe { field_register.integer }),
-            Type::String => {
-                let object_pointer = unsafe { field_register.object_pointer };
-                let object = unsafe {
-                    object_pointer
-                        .as_ref()
-                        .ok_or(JitError::MissingReturnValue)?
-                };
-                let string = match &object.value {
-                    ObjectValue::String(string) => string.clone(),
-                    _ => {
-                        return Err(JitError::InvalidObjectValue {
-                            expected: OperandType::STRING,
-                        });
-                    }
-                };
-
-                Value::String(string)
-            }
-            Type::List(_) => {
-                let object_pointer = unsafe { field_register.object_pointer };
-                let list = get_list_from_object_index(object_pointer, fields_type)?;
-
-                Value::List(list)
-            }
-            Type::Struct { name, fields, .. } => {
-                let indices = unsafe { field_register.register_indices };
-
-                get_struct_from_register_indices(
-                    name.clone(),
-                    indices.start as usize,
-                    indices.end as usize,
-                    main_function_registers,
-                    fields,
-                )?
-            }
-            _ => {
-                return Err(JitError::InvalidConstantType {
-                    expected_type: fields_type.as_operand_type(),
-                });
-            }
-        };
-
-        field_values.push((field_name.clone(), field_value));
-    }
-
-    Ok(Value::Struct {
-        name,
-        fields: field_values,
-    })
 }
 
 fn get_list_from_object_index(
@@ -603,5 +500,59 @@ fn get_list_from_object_index(
         _ => Err(JitError::InvalidConstantType {
             expected_type: OperandType::LIST_BOOLEAN,
         }),
+    }
+}
+
+fn decode_value_from_return_words(
+    r#type: &Type,
+    return_words: &[i64],
+    start: usize,
+) -> Result<(Value, usize), JitError> {
+    match r#type {
+        Type::None => Err(JitError::MissingReturnValue),
+        Type::Boolean => Ok((Value::Boolean(return_words[start] != 0), 1)),
+        Type::Byte => Ok((Value::Byte(return_words[start] as u8), 1)),
+        Type::Character => Ok((
+            Value::Character(char::from_u32(return_words[start] as u32).unwrap_or_default()),
+            1,
+        )),
+        Type::Float => Ok((Value::Float(f64::from_bits(return_words[start] as u64)), 1)),
+        Type::Integer => Ok((Value::Integer(return_words[start]), 1)),
+        Type::String => {
+            let string = unsafe { (return_words[start] as *const Object).as_ref() }
+                .ok_or(JitError::MissingReturnValue)?
+                .as_string()
+                .unwrap()
+                .clone();
+
+            Ok((Value::String(string), 1))
+        }
+        Type::List(_) => {
+            let object_pointer = return_words[start] as *mut Object;
+            let list = get_list_from_object_index(object_pointer, r#type)?;
+
+            Ok((Value::List(list), 1))
+        }
+        Type::Struct { name, fields } => {
+            let mut offset = start;
+            let mut field_values = Vec::with_capacity(fields.len());
+
+            for (field_name, field_type) in fields {
+                let (value, consumed) =
+                    decode_value_from_return_words(field_type, return_words, offset)?;
+                offset += consumed;
+
+                field_values.push((field_name.clone(), value));
+            }
+
+            Ok((
+                Value::Struct {
+                    name: name.clone(),
+                    fields: field_values,
+                },
+                offset - start,
+            ))
+        }
+        Type::Function(_) => todo!("Error"),
     }
 }
