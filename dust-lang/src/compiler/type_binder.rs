@@ -1398,10 +1398,11 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                     .resolver
                     .get_declaration_binding(&node.id)
                     .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-                let type_id = *self
+                let type_id = self
                     .resolver
                     .get_declaration_type(&declaration_id)
-                    .ok_or(CompileError::MissingDeclarationType { declaration_id })?;
+                    .copied()
+                    .unwrap_or_else(|| self.resolver.create_inferred_type());
 
                 Ok(type_id)
             }

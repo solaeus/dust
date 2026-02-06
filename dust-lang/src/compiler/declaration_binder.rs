@@ -311,6 +311,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                 .resolver
                 .add_named_declaration(field_name_str, field_declaration);
 
+            self.visit_type(field_type, ())?;
             self.resolver
                 .set_declaration_binding(field_name.id, field_declaration_id);
             self.resolver
@@ -1051,17 +1052,25 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
             for segment in path_segments {
                 let segment_name = file.source_code.get_span(segment.span());
-                let (declaration_id, _) = self
-                    .resolver
-                    .find_declaration_in_scope(
-                        segment_name,
-                        self.current_scope_id,
-                        current_declaration_id,
-                    )
-                    .ok_or(CompileError::UndeclaredType {
-                        name: segment_name.to_string(),
-                        position: Position::new(self.file_id, node.span()),
-                    })?;
+                let declaration_id = if let Some((id, _)) = self.resolver.find_declaration_in_scope(
+                    segment_name,
+                    self.current_scope_id,
+                    current_declaration_id,
+                ) {
+                    id
+                } else {
+                    let declaration = Declaration {
+                        kind: DeclarationKind::Type {
+                            parent: current_declaration_id,
+                        },
+                        scope_id: self.current_scope_id,
+                        name_position: Some(Position::new(self.file_id, segment.span())),
+                        is_public: false,
+                    };
+
+                    self.resolver
+                        .add_named_declaration(segment_name, declaration)
+                };
 
                 current_declaration_id = Some(declaration_id);
             }
