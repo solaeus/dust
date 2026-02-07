@@ -1,6 +1,5 @@
 use crate::{
-    compiler::CompileError,
-    source::{Position, SourceFileId},
+    compiler::{CompileError, InternalError},
     syntax::{SyntaxKind, SyntaxReader},
 };
 
@@ -8,8 +7,6 @@ pub trait SyntaxVisitor {
     type Input;
 
     type Output;
-
-    fn file_id(&self) -> SourceFileId;
 
     fn visit(
         &mut self,
@@ -82,7 +79,7 @@ pub trait SyntaxVisitor {
                     .left_child()
                     .ok_or_else(|| CompileError::ExpectedExpression {
                         node_kind: node.kind(),
-                        position: Position::new(self.file_id(), node.span()),
+                        position: node.position(),
                     })?;
 
                 self.visit(child, input)
@@ -110,7 +107,7 @@ pub trait SyntaxVisitor {
             }
             _ => Err(CompileError::ExpectedItem {
                 node_kind: node.kind(),
-                position: Position::new(self.file_id(), node.span()),
+                position: node.position(),
             }),
         }
     }
@@ -128,7 +125,7 @@ pub trait SyntaxVisitor {
             }
             _ => Err(CompileError::ExpectedStatement {
                 node_kind: node.kind(),
-                position: Position::new(self.file_id(), node.span()),
+                position: node.position(),
             }),
         }
     }
@@ -172,18 +169,15 @@ pub trait SyntaxVisitor {
             SyntaxKind::FunctionExpression => self.visit_function_expression(node, input),
             SyntaxKind::CallExpression => self.visit_call_expression(node, input),
             SyntaxKind::GroupedExpression => {
-                let child = node
-                    .left_child()
-                    .ok_or_else(|| CompileError::ExpectedExpression {
-                        node_kind: node.kind(),
-                        position: Position::new(self.file_id(), node.span()),
-                    })?;
+                let child = node.left_child().ok_or_else(|| {
+                    CompileError::Internal(InternalError::MissingSyntaxChild { child_index: 0 })
+                })?;
 
                 self.visit(child, input)
             }
             _ => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind(),
-                position: Position::new(self.file_id(), node.span()),
+                position: node.position(),
             }),
         }
     }

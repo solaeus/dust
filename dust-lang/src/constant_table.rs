@@ -59,82 +59,83 @@ impl ConstantTable {
         self.string_pool = new_string_pool;
     }
 
-    pub fn add_character(&mut self, character: char) -> u16 {
+    pub fn add_character(&mut self, character: char) -> ConstantId {
         let payload = character as u64;
-        let key = ConstantKey::from_payload(payload, OperandType::CHARACTER);
+        let key = ConstantKey::from_payload_and_tag(payload, OperandType::CHARACTER);
         let (index, found) = self.payloads.insert_full(key, payload);
 
         if found.is_none() {
             self.tags.push(OperandType::CHARACTER);
         }
 
-        index as u16
+        ConstantId(index as u16)
     }
 
-    pub fn get_character(&self, index: u16) -> Option<char> {
-        let payload = *self.payloads.get_index(index as usize)?.1;
+    pub fn get_character(&self, id: ConstantId) -> Option<char> {
+        let index = id.0 as usize;
+        let payload = *self.payloads.get_index(index)?.1;
 
-        if index < self.payloads.len() as u16 {
+        if index < self.payloads.len() {
             std::char::from_u32(payload as u32)
         } else {
             None
         }
     }
 
-    pub fn add_float(&mut self, float: f64) -> u16 {
+    pub fn add_float(&mut self, float: f64) -> ConstantId {
         let payload = float.to_bits();
-        let key = ConstantKey::from_payload(payload, OperandType::FLOAT);
+        let key = ConstantKey::from_payload_and_tag(payload, OperandType::FLOAT);
         let (index, found) = self.payloads.insert_full(key, payload);
 
         if found.is_none() {
             self.tags.push(OperandType::FLOAT);
         }
 
-        index as u16
+        ConstantId(index as u16)
     }
 
-    pub fn get_float(&self, index: u16) -> Option<f64> {
-        let payload = *self.payloads.get_index(index as usize)?.1;
+    pub fn get_float(&self, id: ConstantId) -> Option<f64> {
+        let index = id.0 as usize;
+        let payload = *self.payloads.get_index(index)?.1;
 
-        if index < self.payloads.len() as u16 {
+        if index < self.payloads.len() {
             Some(f64::from_bits(payload))
         } else {
             None
         }
     }
 
-    pub fn add_integer(&mut self, integer: i64) -> u16 {
+    pub fn add_integer(&mut self, integer: i64) -> ConstantId {
         let payload = u64::from_le_bytes(integer.to_le_bytes());
-        let key = ConstantKey::from_payload(payload, OperandType::INTEGER);
+        let key = ConstantKey::from_payload_and_tag(payload, OperandType::INTEGER);
         let (index, found) = self.payloads.insert_full(key, payload);
 
         if found.is_none() {
             self.tags.push(OperandType::INTEGER);
         }
 
-        index as u16
+        ConstantId(index as u16)
     }
 
-    pub fn get_integer(&self, index: u16) -> Option<i64> {
-        let payload = *self.payloads.get_index(index as usize)?.1;
+    pub fn get_integer(&self, id: ConstantId) -> Option<i64> {
+        let index = id.0 as usize;
+        let payload = *self.payloads.get_index(index)?.1;
 
-        debug_assert!(self.tags[index as usize] == OperandType::INTEGER);
-
-        if index < self.payloads.len() as u16 {
+        if index < self.payloads.len() {
             Some(i64::from_le_bytes(payload.to_le_bytes()))
         } else {
             None
         }
     }
 
-    pub fn add_string(&mut self, bytes: &[u8]) -> u16 {
+    pub fn add_string(&mut self, bytes: &[u8]) -> ConstantId {
         let start = self.string_pool.len();
         let end = self.string_pool.len() + bytes.len();
         let payload = (start as u64) << 32 | (end as u64);
-        let key = ConstantKey::from_payload(payload, OperandType::STRING);
+        let key = ConstantKey::from_payload_and_tag(payload, OperandType::STRING);
 
         if let Some(existing_index) = self.payloads.get_index_of(&key) {
-            existing_index as u16
+            ConstantId(existing_index as u16)
         } else {
             let index = self.payloads.len() as u16;
 
@@ -142,12 +143,13 @@ impl ConstantTable {
             self.payloads.insert(key, payload);
             self.tags.push(OperandType::STRING);
 
-            index
+            ConstantId(index as u16)
         }
     }
 
-    pub fn get_string(&self, index: u16) -> Option<&str> {
-        let payload = *self.payloads.get_index(index as usize)?.1;
+    pub fn get_string(&self, id: ConstantId) -> Option<&str> {
+        let index = id.0 as usize;
+        let payload = *self.payloads.get_index(index)?.1;
         let start = (payload >> 32) as usize;
         let end = (payload & 0xFFFFFFFF) as usize;
 
@@ -175,7 +177,7 @@ impl ConstantTable {
         let start = self.string_pool.len();
         let end = self.string_pool.len() + bytes.len();
         let payload = (start as u64) << 32 | (end as u64);
-        let key = ConstantKey::from_payload(payload, OperandType::STRING);
+        let key = ConstantKey::from_payload_and_tag(payload, OperandType::STRING);
 
         if let Some(existing_index) = self.payloads.get_index_of(&key) {
             let payload = self.payloads[existing_index];
@@ -218,26 +220,26 @@ impl ConstantTable {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ConstantId(pub u16);
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct ConstantKey(u64);
+enum ConstantKey {
+    Payload(u64, OperandType),
+    String(u64),
+}
 
 impl ConstantKey {
-    pub fn from_payload(payload: u64, tag: OperandType) -> Self {
-        let mut hasher = FxHasher::default();
-
-        payload.hash(&mut hasher);
-        tag.hash(&mut hasher);
-
-        Self(hasher.finish())
+    pub fn from_payload_and_tag(payload: u64, tag: OperandType) -> Self {
+        Self::Payload(payload, tag)
     }
 
     pub fn from_str(str: &str) -> Self {
         let mut hasher = FxHasher::default();
 
         str.hash(&mut hasher);
-        OperandType::STRING.hash(&mut hasher);
 
-        Self(hasher.finish())
+        Self::String(hasher.finish())
     }
 }
 

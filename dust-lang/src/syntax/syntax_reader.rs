@@ -1,5 +1,5 @@
 use crate::{
-    source::Span,
+    source::{Position, Span},
     syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree},
 };
 
@@ -33,6 +33,10 @@ impl<'a> SyntaxReader<'a> {
 
     pub fn span(&self) -> Span {
         self.node.span
+    }
+
+    pub fn position(&self) -> Position {
+        Position::new(self.tree.file_id, self.node.span)
     }
 
     pub fn has_left_child(&self) -> bool {

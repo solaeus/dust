@@ -4,7 +4,9 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::compiler::{Resolver, TypeId, TypeNode};
+use crate::compiler::{
+    Declaration, DeclarationKind, DeclarationMembers, Resolver, ScopeId, TypeId, TypeNode,
+};
 
 /// A Dust-native function.
 ///
@@ -15,42 +17,59 @@ pub struct NativeFunction {
 }
 
 impl NativeFunction {
-    pub fn no_op_signature(types: &mut Resolver) -> TypeId {
-        types.add_type(TypeNode::Function {
-            type_parameters: (0, 0),
-            value_parameters: (0, 0),
+    pub fn no_op_signature(resolver: &mut Resolver) -> TypeId {
+        resolver.add_type(TypeNode::Function {
+            type_parameters: DeclarationMembers::default(),
+            value_parameters: DeclarationMembers::default(),
             return_type_id: TypeId::NONE,
         })
     }
 
-    pub fn read_line_signature(types: &mut Resolver) -> TypeId {
-        types.add_type(TypeNode::Function {
-            type_parameters: (0, 0),
-            value_parameters: (0, 0),
+    pub fn read_line_signature(resolver: &mut Resolver) -> TypeId {
+        resolver.add_type(TypeNode::Function {
+            type_parameters: DeclarationMembers::default(),
+            value_parameters: DeclarationMembers::default(),
             return_type_id: TypeId::STRING,
         })
     }
 
-    pub fn write_line_signature(types: &mut Resolver) -> TypeId {
-        let value_parameters = types.add_type_members(&[TypeId::STRING]);
+    pub fn write_line_signature(resolver: &mut Resolver) -> TypeId {
+        let argument_symbol = resolver.create_anonymous_symbol();
+        let argument_declaration_id = resolver.add_declaration(Declaration {
+            symbol: argument_symbol,
+            kind: DeclarationKind::Local {
+                shadowed: None,
+                is_mutable: false,
+            },
+            scope_id: ScopeId::NONE,
+            is_public: true,
+            position: None,
+        });
+        let value_parameters = resolver.add_declaration_members(&[argument_declaration_id]);
 
-        types.add_type(TypeNode::Function {
-            type_parameters: (0, 0),
+        resolver.add_type(TypeNode::Function {
+            type_parameters: DeclarationMembers::default(),
             value_parameters,
             return_type_id: TypeId::NONE,
         })
     }
 
-    pub fn spawn_signature(types: &mut Resolver) -> TypeId {
-        let function_argument_type_id = types.add_type(TypeNode::Function {
-            type_parameters: (0, 0),
-            value_parameters: (0, 0),
-            return_type_id: TypeId::NONE,
+    pub fn spawn_signature(resolver: &mut Resolver) -> TypeId {
+        let argument_symbol = resolver.create_anonymous_symbol();
+        let argument_declaration_id = resolver.add_declaration(Declaration {
+            symbol: argument_symbol,
+            kind: DeclarationKind::Local {
+                shadowed: None,
+                is_mutable: false,
+            },
+            scope_id: ScopeId::NONE,
+            is_public: true,
+            position: None,
         });
-        let value_parameters = types.add_type_members(&[function_argument_type_id]);
+        let value_parameters = resolver.add_declaration_members(&[argument_declaration_id]);
 
-        types.add_type(TypeNode::Function {
-            type_parameters: (0, 0),
+        resolver.add_type(TypeNode::Function {
+            type_parameters: DeclarationMembers::default(),
             value_parameters,
             return_type_id: TypeId::NONE,
         })

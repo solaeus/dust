@@ -15,7 +15,7 @@ use smallvec::SmallVec;
 use tracing::trace;
 
 use crate::{
-    constant_table::ConstantTable,
+    constant_table::{ConstantId, ConstantTable},
     dust_crate::Program,
     instruction::{
         Add, Address, Call, CallNative, Divide, Drop, GetList, Instruction, Jump, MemoryKind,
@@ -23,7 +23,7 @@ use crate::{
         SetList, Subtract, Test, ToString,
     },
     jit_vm::{
-        JitError, Register, RegisterTag,
+        JitError, RegisterTag,
         thread_pool::{JitPrototype, ThreadContextFields},
     },
     native_function::NativeFunction,
@@ -1685,12 +1685,13 @@ impl<'a> InstructionCompiler<'a> {
                     total_register_count: self.ssa_registers.len(),
                 }),
             MemoryKind::CONSTANT => {
-                let character = self.constants.get_character(address.index).ok_or(
-                    JitError::ConstantIndexOutOfBounds {
+                let character = self
+                    .constants
+                    .get_character(ConstantId(address.index))
+                    .ok_or(JitError::ConstantIndexOutOfBounds {
                         constant_index: address.index,
                         total_constant_count: self.constants.len(),
-                    },
-                )?;
+                    })?;
                 let value = builder.ins().iconst(I64, character as i64);
 
                 Ok(value)
@@ -1720,7 +1721,7 @@ impl<'a> InstructionCompiler<'a> {
                     total_register_count: self.ssa_registers.len(),
                 }),
             MemoryKind::CONSTANT => {
-                let float = self.constants.get_float(address.index).ok_or(
+                let float = self.constants.get_float(ConstantId(address.index)).ok_or(
                     JitError::ConstantIndexOutOfBounds {
                         constant_index: address.index,
                         total_constant_count: self.constants.len(),
@@ -1750,12 +1751,13 @@ impl<'a> InstructionCompiler<'a> {
                     total_register_count: self.ssa_registers.len(),
                 }),
             MemoryKind::CONSTANT => {
-                let integer = self.constants.get_integer(address.index).ok_or(
-                    JitError::ConstantIndexOutOfBounds {
+                let integer = self
+                    .constants
+                    .get_integer(ConstantId(address.index))
+                    .ok_or(JitError::ConstantIndexOutOfBounds {
                         constant_index: address.index,
                         total_constant_count: self.constants.len(),
-                    },
-                )?;
+                    })?;
                 let value = builder.ins().iconst(I64, integer);
 
                 Ok(value)
@@ -1781,7 +1783,7 @@ impl<'a> InstructionCompiler<'a> {
                     total_register_count: self.ssa_registers.len(),
                 }),
             MemoryKind::CONSTANT => {
-                let string = self.constants.get_string(address.index).ok_or(
+                let string = self.constants.get_string(ConstantId(address.index)).ok_or(
                     JitError::ConstantIndexOutOfBounds {
                         constant_index: address.index,
                         total_constant_count: self.constants.len(),

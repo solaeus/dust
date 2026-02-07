@@ -51,18 +51,24 @@ impl Source {
             })
     }
 
-    pub fn get_source_str(&self, position: Position) -> &str {
+    pub fn get_source_bytes(&self, position: &Position) -> &[u8] {
         let Some(file) = self.files.get(position.file_id.0 as usize) else {
-            return Self::FILE_UNAVAILABLE;
+            return Self::SOURCE_UNAVAILABLE.as_bytes();
         };
         let file_bytes = file.source_code.as_ref();
         let span_range = position.span.as_usize_range();
 
         if span_range.end <= file_bytes.len() {
-            unsafe { str::from_utf8_unchecked(&file_bytes[span_range]) }
+            &file_bytes[span_range]
         } else {
-            Self::SOURCE_UNAVAILABLE
+            Self::SOURCE_UNAVAILABLE.as_bytes()
         }
+    }
+
+    pub fn get_source_str(&self, position: &Position) -> &str {
+        let bytes = self.get_source_bytes(position);
+
+        unsafe { str::from_utf8_unchecked(bytes) }
     }
 }
 

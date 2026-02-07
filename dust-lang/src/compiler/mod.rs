@@ -8,17 +8,16 @@ mod type_binder;
 mod tests;
 
 pub use emitter::Emitter;
-pub use error::CompileError;
+pub use error::{CompileError, InternalError};
 pub use resolver::{
-    Declaration, DeclarationKind, ModuleKind, Resolver, Scope, ScopeId, ScopeKind, TypeId, TypeNode,
+    Declaration, DeclarationKind, DeclarationMembers, ModuleKind, Resolver, Scope, ScopeId,
+    ScopeKind, Symbol, TypeId, TypeNode,
 };
 
 use tracing::{Level, span};
 
 use crate::{
-    compiler::{
-        declaration_binder::DeclarationBinder, resolver::DeclarationId, type_binder::TypeBinder,
-    },
+    compiler::{declaration_binder::DeclarationBinder, type_binder::TypeBinder},
     dust_crate::Program,
     dust_error::DustError,
     lexer::Lexer,
@@ -99,7 +98,7 @@ impl Compiler {
 
         Ok((
             Program {
-                name_index,
+                name_id: name_index,
                 constants,
                 prototypes,
             },
@@ -142,12 +141,11 @@ impl Compiler {
         }
 
         // Declaration binding phase
-        {
+        let main_function_declaration_id = {
             let span = span!(Level::INFO, "declare");
             let _enter = span.enter();
 
             let main_declaration_binder = DeclarationBinder::new(
-                SourceFileId::MAIN,
                 ScopeId::PROJECT,
                 &self.source,
                 &self.syntax,
@@ -155,10 +153,10 @@ impl Compiler {
             );
 
             match main_declaration_binder.bind_main() {
-                Ok(()) => (),
+                Ok(main_declaration_id) => main_declaration_id,
                 Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
             }
-        }
+        };
 
         // Type binding phase
         let main_function_type = {
@@ -178,15 +176,15 @@ impl Compiler {
             }
         };
 
+        self.resolver.prototypes.push(Prototype::default()); // Placeholder for main prototype
+
         // Emission phase
-        {
+        let main_prototype = {
             let span = span!(Level::INFO, "emit");
             let _enter = span.enter();
 
-            self.resolver.prototypes.push(Prototype::default()); // Placeholder for main prototype
-
             let main_emitter = match Emitter::new(
-                DeclarationId::MAIN,
+                main_function_declaration_id,
                 0,
                 SourceFileId::MAIN,
                 main_function_type,
@@ -198,11 +196,13 @@ impl Compiler {
                 Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
             };
 
-            self.resolver.prototypes[0] = match main_emitter.emit_main() {
+            match main_emitter.emit_main() {
                 Ok(prototype) => prototype,
                 Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
-            };
-        }
+            }
+        };
+
+        self.resolver.prototypes[0] = main_prototype;
 
         Ok((self.resolver, self.source, self.syntax))
     }

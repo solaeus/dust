@@ -27,7 +27,7 @@ impl Type {
         Type::List(Box::new(element_type))
     }
 
-    pub fn function<T: Into<Vec<Type>>, U: Into<Vec<Type>>>(
+    pub fn function<T: Into<Vec<String>>, U: Into<Vec<Type>>>(
         type_parameters: T,
         value_parameters: U,
         return_type: Type,
@@ -99,13 +99,13 @@ impl Display for Type {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct FunctionType {
-    pub type_parameters: Vec<Type>,
+    pub type_parameters: Vec<String>,
     pub value_parameters: Vec<Type>,
     pub return_type: Type,
 }
 
 impl FunctionType {
-    pub fn new<T: Into<Vec<Type>>, U: Into<Vec<Type>>>(
+    pub fn new<T: Into<Vec<String>>, U: Into<Vec<Type>>>(
         type_parameters: T,
         value_parameters: U,
         return_type: Type,
@@ -125,12 +125,12 @@ impl Display for FunctionType {
         if !self.type_parameters.is_empty() {
             write!(f, "<")?;
 
-            for (index, type_parameter) in self.type_parameters.iter().enumerate() {
+            for (index, type_parameter_name) in self.type_parameters.iter().enumerate() {
                 if index > 0 {
                     write!(f, ", ")?;
                 }
 
-                write!(f, "{type_parameter}")?;
+                write!(f, "{type_parameter_name}")?;
             }
 
             write!(f, ">")?;

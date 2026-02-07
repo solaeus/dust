@@ -3,11 +3,12 @@ use tracing::debug;
 
 use crate::{
     compiler::{
-        CompileError, Resolver, TypeId, TypeNode, error::InternalError, resolver::DeclarationId,
+        CompileError, Resolver, TypeId, TypeNode,
+        error::InternalError,
+        resolver::{DeclarationId, DeclarationMembers, TypeMembers},
     },
     source::{Position, Source, SourceFileId},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
-    r#type::Type,
 };
 
 #[derive(Debug)]
@@ -54,7 +55,7 @@ impl<'a> TypeBinder<'a> {
     pub fn infer_type(
         &mut self,
         type_id: TypeId,
-        position: Position,
+        position: Option<Position>,
     ) -> Result<TypeId, CompileError> {
         match self.resolver.get_type(type_id) {
             Some(TypeNode::Inferred {
@@ -62,22 +63,22 @@ impl<'a> TypeBinder<'a> {
                 ..
             }) => self.infer_type(*resolved, position),
             Some(TypeNode::Inferred { resolved: None, .. }) => {
-                Err(CompileError::CannotInferType { position })
+                Err(CompileError::CannotInferType { type_id, position })
             }
             Some(_) => Ok(type_id),
-            None => Err(CompileError::MissingType { type_id }),
+            None => Err(CompileError::Internal(InternalError::MissingType(type_id))),
         }
     }
 
     fn unify_types(
         &mut self,
         left: TypeId,
-        left_position: Position,
+        left_position: Option<Position>,
         right: TypeId,
         right_position: Position,
     ) -> Result<(), CompileError> {
         let left_inferred = self.infer_type(left, left_position)?;
-        let right_inferred = self.infer_type(right, right_position)?;
+        let right_inferred = self.infer_type(right, Some(right_position))?;
 
         self.unify_inferred_types(left_inferred, left_position, right_inferred, right_position)
     }
@@ -85,35 +86,10 @@ impl<'a> TypeBinder<'a> {
     fn unify_inferred_types(
         &mut self,
         left: TypeId,
-        left_position: Position,
+        left_position: Option<Position>,
         right: TypeId,
         right_position: Position,
     ) -> Result<(), CompileError> {
-        fn create_error(
-            binder: &TypeBinder,
-            left: TypeId,
-            right: TypeId,
-            right_position: Position,
-        ) -> CompileError {
-            let expected = if let Some(r#type) = binder.resolver.get_full_type(left, binder.source)
-            {
-                r#type
-            } else {
-                return CompileError::MissingType { type_id: left };
-            };
-            let found = if let Some(r#type) = binder.resolver.get_full_type(right, binder.source) {
-                r#type
-            } else {
-                return CompileError::MissingType { type_id: right };
-            };
-
-            CompileError::TypeConflict {
-                expected,
-                found,
-                position: right_position,
-            }
-        }
-
         if left == right {
             return Ok(());
         }
@@ -121,11 +97,11 @@ impl<'a> TypeBinder<'a> {
         let left_type_node = *self
             .resolver
             .get_type(left)
-            .ok_or(CompileError::MissingType { type_id: left })?;
+            .ok_or(CompileError::Internal(InternalError::MissingType(left)))?;
         let right_type_node = *self
             .resolver
             .get_type(right)
-            .ok_or(CompileError::MissingType { type_id: right })?;
+            .ok_or(CompileError::Internal(InternalError::MissingType(right)))?;
 
         match (left_type_node, right_type_node) {
             (
@@ -178,34 +154,28 @@ impl<'a> TypeBinder<'a> {
             ) => {
                 let left_value_types = self
                     .resolver
-                    .get_type_members(left_value_parameters.0, left_value_parameters.1)
-                    .ok_or(CompileError::MissingTypeMembers {
-                        start_index: left_value_parameters.0,
-                        count: left_value_parameters.1,
-                    })?
+                    .get_type_members(left_value_parameters)
+                    .ok_or(CompileError::Internal(InternalError::MissingTypeMembers(
+                        left_value_parameters,
+                    )))?
                     .iter()
                     .copied()
                     .collect::<SmallVec<[TypeId; 8]>>();
                 let right_value_types = self
                     .resolver
-                    .get_type_members(right_value_parameters.0, right_value_parameters.1)
-                    .ok_or(CompileError::MissingTypeMembers {
-                        start_index: right_value_parameters.0,
-                        count: right_value_parameters.1,
-                    })?
+                    .get_type_members(right_value_parameters)
+                    .ok_or(CompileError::Internal(InternalError::MissingTypeMembers(
+                        right_value_parameters,
+                    )))?
                     .iter()
                     .copied()
                     .collect::<SmallVec<[TypeId; 8]>>();
 
-                for (left_value_type, right_value_type) in
-                    left_value_types.iter().zip(right_value_types.iter())
+                for (left_type_id, right_type_id) in left_value_types
+                    .into_iter()
+                    .zip(right_value_types.into_iter())
                 {
-                    self.unify_types(
-                        *left_value_type,
-                        left_position,
-                        *right_value_type,
-                        right_position,
-                    )?;
+                    self.unify_types(left_type_id, left_position, right_type_id, right_position)?;
                 }
 
                 self.unify_types(
@@ -230,39 +200,44 @@ impl<'a> TypeBinder<'a> {
                 },
             ) => {
                 if left_declaration_id != right_declaration_id {
-                    return Err(create_error(self, left, right, right_position));
+                    return Err(CompileError::TypeConflict {
+                        expected_type: left,
+                        expected_position: left_position,
+                        found_type: right,
+                        found_position: right_position,
+                    });
                 }
 
                 let left_field_types = self
                     .resolver
-                    .get_declaration_members(left_fields.0, left_fields.1)
-                    .ok_or(CompileError::MissingDeclarationMembers {
-                        declaration_id: left_declaration_id,
-                    })?
+                    .get_declaration_members(left_fields)
+                    .ok_or(CompileError::Internal(
+                        InternalError::MissingDeclarationMembers(left_fields),
+                    ))?
                     .iter()
                     .map(|declaration_id| {
                         self.resolver
                             .get_declaration_type(declaration_id)
                             .copied()
-                            .ok_or(CompileError::MissingDeclarationType {
-                                declaration_id: *declaration_id,
-                            })
+                            .ok_or(CompileError::Internal(
+                                InternalError::MissingDeclarationType(*declaration_id),
+                            ))
                     })
                     .collect::<Result<SmallVec<[TypeId; 8]>, CompileError>>()?;
                 let right_field_types = self
                     .resolver
-                    .get_declaration_members(right_fields.0, right_fields.1)
-                    .ok_or(CompileError::MissingDeclarationMembers {
-                        declaration_id: right_declaration_id,
-                    })?
+                    .get_declaration_members(right_fields)
+                    .ok_or(CompileError::Internal(
+                        InternalError::MissingDeclarationMembers(right_fields),
+                    ))?
                     .iter()
                     .map(|declaration_id| {
                         self.resolver
                             .get_declaration_type(declaration_id)
                             .copied()
-                            .ok_or(CompileError::MissingDeclarationType {
-                                declaration_id: *declaration_id,
-                            })
+                            .ok_or(CompileError::Internal(
+                                InternalError::MissingDeclarationType(*declaration_id),
+                            ))
                     })
                     .collect::<Result<SmallVec<[TypeId; 8]>, CompileError>>()?;
 
@@ -283,7 +258,12 @@ impl<'a> TypeBinder<'a> {
                 if left_type_node == right_type_node {
                     Ok(())
                 } else {
-                    Err(create_error(self, left, right, right_position))
+                    Err(CompileError::TypeConflict {
+                        expected_type: left,
+                        expected_position: left_position,
+                        found_type: right,
+                        found_position: right_position,
+                    })
                 }
             }
         }
@@ -295,10 +275,6 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
     type Output = TypeId;
 
-    fn file_id(&self) -> SourceFileId {
-        self.file_id
-    }
-
     fn visit_main_function_item(
         &mut self,
         node: SyntaxReader,
@@ -306,18 +282,17 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for main function");
 
-        let children = node
-            .multiple_children()
-            .ok_or(CompileError::MissingChildren {
-                parent_kind: node.kind(),
+        let children = node.multiple_children().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChildren {
                 start_index: node.inner().children.0,
                 count: node.inner().children.1,
-            })?;
+            },
+        ))?;
         let last_child = children.len() - 1;
         let return_type_id = self.resolver.create_inferred_type();
         let main_type_id = self.resolver.add_type(TypeNode::Function {
-            type_parameters: (0, 0),
-            value_parameters: (0, 0),
+            type_parameters: DeclarationMembers::default(),
+            value_parameters: TypeMembers::default(),
             return_type_id,
         });
 
@@ -329,7 +304,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             if index == last_child {
                 self.unify_types(
                     return_type_id,
-                    Position::new(self.file_id, node.span()),
+                    Some(Position::new(self.file_id, node.span())),
                     child_type,
                     Position::new(self.file_id, child.span()),
                 )?;
@@ -358,10 +333,9 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for function item");
 
-        let function_expression = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 1,
-        })?;
+        let function_expression = node.right_child().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChild { child_index: 1 },
+        ))?;
 
         self.visit_function_expression(function_expression, ())?;
 
@@ -385,41 +359,40 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for struct item");
 
-        let struct_name = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.kind(),
-            child_index: 0,
-        })?;
+        let struct_name =
+            node.left_child()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
         let struct_fields = node
             .right_child()
-            .ok_or(CompileError::MissingChild {
-                parent_kind: node.kind(),
+            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
                 child_index: 1,
-            })?
+            }))?
             .multiple_children()
-            .ok_or(CompileError::MissingChildren {
-                parent_kind: node.kind(),
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
-            })?;
+            .ok_or(CompileError::Internal(
+                InternalError::MissingSyntaxChildren {
+                    start_index: node.inner().children.0,
+                    count: node.inner().children.1,
+                },
+            ))?;
 
         let mut fields = SmallVec::<[DeclarationId; 8]>::new();
 
         for field in struct_fields {
-            let field_name = field.left_child().ok_or(CompileError::MissingChild {
-                parent_kind: field.inner().kind,
-                child_index: 0,
-            })?;
-            let field_type = field.right_child().ok_or(CompileError::MissingChild {
-                parent_kind: field.inner().kind,
-                child_index: 1,
-            })?;
+            let field_name = field.left_child().ok_or(CompileError::Internal(
+                InternalError::MissingSyntaxChild { child_index: 0 },
+            ))?;
+            let field_type = field.right_child().ok_or(CompileError::Internal(
+                InternalError::MissingSyntaxChild { child_index: 1 },
+            ))?;
 
             let field_declaration_id = *self
                 .resolver
                 .get_declaration_binding(&field_name.id)
-                .ok_or(CompileError::MissingDeclarationBinding {
-                    syntax_id: field_name.id,
-                })?;
+                .ok_or(CompileError::Internal(
+                    InternalError::MissingDeclarationBinding(field_name.id),
+                ))?;
             let field_type_id = self.visit_type(field_type, ())?;
 
             self.resolver
@@ -430,14 +403,14 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let declaration_id = *self
             .resolver
             .get_declaration_binding(&struct_name.id)
-            .ok_or(CompileError::MissingDeclarationBinding {
-                syntax_id: struct_name.id,
-            })?;
+            .ok_or(CompileError::Internal(
+                InternalError::MissingDeclarationBinding(struct_name.id),
+            ))?;
         let fields = self.resolver.add_declaration_members(&fields);
         let struct_type = TypeNode::Struct {
             declaration_id,
             fields,
-            generics: (0, 0),
+            generics: DeclarationMembers::default(),
         };
         let struct_type_id = self.resolver.add_type(struct_type);
 
@@ -454,10 +427,11 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for expression statement");
 
-        let expression = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.kind(),
-            child_index: 0,
-        })?;
+        let expression =
+            node.left_child()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
 
         self.visit_expression(expression, ())?;
 
@@ -471,28 +445,30 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for let statement");
 
-        let mut children = node
-            .multiple_children()
-            .ok_or(CompileError::MissingChildren {
-                parent_kind: node.inner().kind,
+        let mut children = node.multiple_children().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChildren {
                 start_index: node.inner().children.0,
                 count: node.inner().children.1,
-            })?;
-        let path = children.next().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 0,
-        })?;
-        let expression_statement = children.next().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 1,
-        })?;
+            },
+        ))?;
+        let path =
+            children
+                .next()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
+        let expression_statement =
+            children
+                .next()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 1,
+                }))?;
         let type_notation = children.next();
         let expression = expression_statement
             .left_child()
-            .ok_or(CompileError::MissingChild {
-                parent_kind: expression_statement.kind(),
+            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
                 child_index: 0,
-            })?;
+            }))?;
 
         let expression_type_id = self.visit(expression, ())?;
 
@@ -501,16 +477,19 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
             self.unify_types(
                 expression_type_id,
-                Position::new(self.file_id, expression.span()),
+                Some(Position::new(self.file_id, expression.span())),
                 explicit_type,
                 Position::new(self.file_id, type_notation.span()),
             )?;
         }
 
-        let declaration_id = *self
-            .resolver
-            .get_declaration_binding(&path.id)
-            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: path.id })?;
+        let declaration_id =
+            *self
+                .resolver
+                .get_declaration_binding(&path.id)
+                .ok_or(CompileError::Internal(
+                    InternalError::MissingDeclarationBinding(path.id),
+                ))?;
 
         self.resolver
             .set_type_binding(expression.id, expression_type_id);
@@ -528,24 +507,24 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for binary assignment statement");
 
-        let path = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 0,
-        })?;
-        let expression = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 1,
-        })?;
+        let path =
+            node.left_child()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
+        let expression = node.right_child().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChild { child_index: 1 },
+        ))?;
 
         let path_type = {
             let raw = self.visit(path, input)?;
 
-            self.infer_type(raw, Position::new(self.file_id, path.span()))?
+            self.infer_type(raw, Some(Position::new(self.file_id, path.span())))?
         };
         let expression_type = {
             let raw = self.visit(expression, input)?;
 
-            self.infer_type(raw, Position::new(self.file_id, path.span()))?
+            self.infer_type(raw, Some(Position::new(self.file_id, path.span())))?
         };
 
         let is_character_concatenation = matches!(
@@ -558,7 +537,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         let unified = self.unify_inferred_types(
             path_type,
-            Position::new(self.file_id, path.span()),
+            Some(Position::new(self.file_id, path.span())),
             expression_type,
             Position::new(self.file_id, expression.span()),
         );
@@ -589,27 +568,26 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for reassignment statement");
 
-        let path = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 0,
-        })?;
-        let expression_statement = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 1,
-        })?;
+        let path =
+            node.left_child()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
+        let expression_statement = node.right_child().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChild { child_index: 1 },
+        ))?;
         let expression = expression_statement
             .left_child()
-            .ok_or(CompileError::MissingChild {
-                parent_kind: expression_statement.kind(),
+            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
                 child_index: 0,
-            })?;
+            }))?;
 
         let path_type = self.visit(path, ())?;
         let expression_type = self.visit(expression, ())?;
 
         self.unify_types(
             path_type,
-            Position::new(self.file_id, path.span()),
+            Some(Position::new(self.file_id, path.span())),
             expression_type,
             Position::new(self.file_id, path.span()),
         )?;
@@ -700,13 +678,12 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for list expression");
 
-        let children = node
-            .multiple_children()
-            .ok_or(CompileError::MissingChildren {
-                parent_kind: node.inner().kind,
+        let children = node.multiple_children().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChildren {
                 start_index: node.inner().children.0,
                 count: node.inner().children.1,
-            })?;
+            },
+        ))?;
 
         let mut previous = None;
 
@@ -716,7 +693,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
                 self.unify_types(
                     element_type,
-                    Position::new(self.file_id, previous_span),
+                    Some(Position::new(self.file_id, previous_span)),
                     child_type,
                     Position::new(self.file_id, child.span()),
                 )?;
@@ -746,24 +723,26 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for index expression");
 
-        let list_expression = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.kind(),
-            child_index: 0,
-        })?;
-        let index_expression = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.kind(),
-            child_index: 1,
-        })?;
+        let list_expression =
+            node.left_child()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
+        let index_expression = node.right_child().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChild { child_index: 1 },
+        ))?;
 
         let list_type_id = {
             let raw = self.visit(list_expression, input)?;
+            let position = Position::new(self.file_id, list_expression.span());
 
-            self.infer_type(raw, Position::new(self.file_id, list_expression.span()))?
+            self.infer_type(raw, Some(position))?
         };
         let index_type_id = {
             let raw = self.visit(index_expression, input)?;
+            let position = Position::new(self.file_id, index_expression.span());
 
-            self.infer_type(raw, Position::new(self.file_id, index_expression.span()))?
+            self.infer_type(raw, Some(position))?
         };
 
         if index_type_id != TypeId::INTEGER {
@@ -776,9 +755,9 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let list_type = *self
             .resolver
             .get_type(list_type_id)
-            .ok_or(CompileError::MissingType {
-                type_id: list_type_id,
-            })?;
+            .ok_or(CompileError::Internal(InternalError::MissingType(
+                list_type_id,
+            )))?;
         let element_type = match list_type {
             TypeNode::List { element_type } => {
                 self.resolver.set_type_binding(node.id, element_type);
@@ -790,9 +769,9 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                     r#type: self
                         .resolver
                         .get_full_type(list_type_id, self.source)
-                        .ok_or(CompileError::MissingType {
-                            type_id: list_type_id,
-                        })?,
+                        .ok_or(CompileError::Internal(InternalError::MissingType(
+                            list_type_id,
+                        )))?,
                     position: Position::new(self.file_id, list_expression.span()),
                 });
             }
@@ -812,14 +791,20 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for path expression");
 
-        let declaration_id = *self
-            .resolver
-            .get_declaration_binding(&node.id)
-            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let type_id = *self
-            .resolver
-            .get_declaration_type(&declaration_id)
-            .ok_or(CompileError::MissingDeclarationType { declaration_id })?;
+        let declaration_id =
+            *self
+                .resolver
+                .get_declaration_binding(&node.id)
+                .ok_or(CompileError::Internal(
+                    InternalError::MissingDeclarationBinding(node.id),
+                ))?;
+        let type_id =
+            *self
+                .resolver
+                .get_declaration_type(&declaration_id)
+                .ok_or(CompileError::Internal(
+                    InternalError::MissingDeclarationType(declaration_id),
+                ))?;
 
         self.resolver.set_type_binding(node.id, type_id);
 
@@ -835,58 +820,57 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         let fields = node
             .right_child()
-            .ok_or(CompileError::MissingChild {
-                parent_kind: node.kind(),
+            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
                 child_index: node.inner().children.1,
-            })?
+            }))?
             .multiple_children()
-            .ok_or(CompileError::MissingChildren {
-                parent_kind: node.kind(),
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
-            })?;
+            .ok_or(CompileError::Internal(
+                InternalError::MissingSyntaxChildren {
+                    start_index: node.inner().children.0,
+                    count: node.inner().children.1,
+                },
+            ))?;
 
-        let declaration_id = *self
-            .resolver
-            .get_declaration_binding(&node.id)
-            .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
-        let declared_struct_type_id = *self
-            .resolver
-            .get_declaration_type(&declaration_id)
-            .ok_or(CompileError::MissingDeclarationType { declaration_id })?;
+        let declaration_id =
+            *self
+                .resolver
+                .get_declaration_binding(&node.id)
+                .ok_or(CompileError::Internal(
+                    InternalError::MissingDeclarationBinding(node.id),
+                ))?;
+        let declared_struct_type_id =
+            *self
+                .resolver
+                .get_declaration_type(&declaration_id)
+                .ok_or(CompileError::Internal(
+                    InternalError::MissingDeclarationType(declaration_id),
+                ))?;
 
         for field in fields {
-            let field_name = field.left_child().ok_or(CompileError::MissingChild {
-                parent_kind: field.inner().kind,
-                child_index: 0,
-            })?;
-            let field_expression = field.right_child().ok_or(CompileError::MissingChild {
-                parent_kind: field.inner().kind,
-                child_index: 1,
-            })?;
+            let field_name = field.left_child().ok_or(CompileError::Internal(
+                InternalError::MissingSyntaxChild { child_index: 0 },
+            ))?;
+            let field_expression = field.right_child().ok_or(CompileError::Internal(
+                InternalError::MissingSyntaxChild { child_index: 1 },
+            ))?;
 
             let field_declaration_id = *self
                 .resolver
                 .get_declaration_binding(&field_name.id)
-                .ok_or(CompileError::MissingDeclarationBinding {
-                    syntax_id: field.id,
-                })?;
-            let field_declaration = self.resolver.get_declaration(field_declaration_id).ok_or(
-                CompileError::MissingDeclaration {
-                    declaration_id: field_declaration_id,
-                },
-            )?;
+                .ok_or(CompileError::Internal(
+                    InternalError::MissingDeclarationBinding(field.id),
+                ))?;
             let declared_field_type_id = *self
                 .resolver
                 .get_declaration_type(&field_declaration_id)
-                .ok_or(CompileError::MissingDeclarationType {
-                    declaration_id: field_declaration_id,
-                })?;
+                .ok_or(CompileError::Internal(
+                    InternalError::MissingDeclarationType(field_declaration_id),
+                ))?;
             let actual_field_type_id = self.visit(field_expression, input)?;
 
             self.unify_types(
                 declared_field_type_id,
-                field_declaration.name,
+                Some(Position::new(self.file_id, field_name.span())),
                 actual_field_type_id,
                 Position::new(self.file_id, field_expression.span()),
             )?;
@@ -907,21 +891,21 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for block expression");
 
-        let children = node
-            .multiple_children()
-            .ok_or(CompileError::MissingChildren {
-                parent_kind: node.inner().kind,
+        let children = node.multiple_children().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChildren {
                 start_index: node.inner().children.0,
                 count: node.inner().children.1,
-            })?;
+            },
+        ))?;
 
         let mut block_type_id = TypeId::NONE;
 
         for child in children {
             let child_type = {
                 let raw = self.visit(child, ())?;
+                let position = Position::new(self.file_id, child.span());
 
-                self.resolver.infer_type(raw)
+                self.infer_type(raw, Some(position))?
             };
             block_type_id = child_type;
 
@@ -940,40 +924,37 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for if expression");
 
-        let mut children = node
-            .multiple_children()
-            .ok_or(CompileError::MissingChildren {
-                parent_kind: node.inner().kind,
+        let mut children = node.multiple_children().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChildren {
                 start_index: node.inner().children.0,
                 count: node.inner().children.1,
-            })?;
+            },
+        ))?;
 
-        let condition = children.next().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 0,
-        })?;
-        let then_expression = children.next().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 1,
-        })?;
+        let condition =
+            children
+                .next()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
+        let then_expression =
+            children
+                .next()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 1,
+                }))?;
 
         let condition_type = {
             let raw = self.visit(condition, ())?;
+            let position = Position::new(self.file_id, condition.span());
 
-            self.resolver.infer_type(raw)
+            self.infer_type(raw, Some(position))?
         };
 
         if condition_type != TypeId::BOOLEAN {
-            let found = self
-                .resolver
-                .get_full_type(condition_type, self.source)
-                .ok_or(CompileError::MissingType {
-                    type_id: condition_type,
-                })?;
-
-            return Err(CompileError::TypeConflict {
-                expected: Type::Boolean,
-                found,
+            return Err(CompileError::ExpectedBooleanExpression {
+                found: condition_type,
+                node_kind: node.kind(),
                 position: Position::new(self.file_id, condition.span()),
             });
         }
@@ -983,24 +964,12 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         if let Some(else_expression) = children.next() {
             let else_type = self.visit_else_expression(else_expression, ())?;
 
-            let unified = self.resolver.unify_types(then_type, else_type)?;
-
-            if !unified {
-                let expected = self
-                    .resolver
-                    .get_full_type(then_type, self.source)
-                    .ok_or(CompileError::MissingType { type_id: then_type })?;
-                let found = self
-                    .resolver
-                    .get_full_type(else_type, self.source)
-                    .ok_or(CompileError::MissingType { type_id: else_type })?;
-
-                return Err(CompileError::TypeConflict {
-                    expected,
-                    found,
-                    position: Position::new(self.file_id, else_expression.span()),
-                });
-            }
+            self.unify_types(
+                then_type,
+                Some(Position::new(self.file_id, then_expression.span())),
+                else_type,
+                Position::new(self.file_id, else_expression.span()),
+            )?;
 
             self.resolver.set_type_binding(node.id, then_type);
         }
@@ -1017,10 +986,11 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for else expression");
 
-        let child = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 0,
-        })?;
+        let child =
+            node.left_child()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
 
         self.visit_expression(child, ())
     }
@@ -1032,24 +1002,26 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for math binary expression");
 
-        let left_child = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 0,
-        })?;
-        let right_child = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 1,
-        })?;
+        let left_child =
+            node.left_child()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
+        let right_child = node.right_child().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChild { child_index: 1 },
+        ))?;
 
         let left_type = {
             let raw = self.visit(left_child, ())?;
+            let position = Position::new(self.file_id, left_child.span());
 
-            self.resolver.infer_type(raw)
+            self.infer_type(raw, Some(position))?
         };
         let right_type = {
             let raw = self.visit(right_child, ())?;
+            let position = Position::new(self.file_id, right_child.span());
 
-            self.resolver.infer_type(raw)
+            self.infer_type(raw, Some(position))?
         };
 
         let is_character_concatenation = matches!(
@@ -1063,27 +1035,14 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let math_expression_type = if is_character_concatenation {
             TypeId::STRING
         } else {
-            let unified = self.resolver.unify_inferred_types(left_type, right_type)?;
+            self.unify_inferred_types(
+                left_type,
+                Some(Position::new(self.file_id, left_child.span())),
+                right_type,
+                Position::new(self.file_id, right_child.span()),
+            )?;
 
-            if unified {
-                left_type
-            } else {
-                let expected = self
-                    .resolver
-                    .get_full_type(left_type, self.source)
-                    .ok_or(CompileError::MissingType { type_id: left_type })?;
-                let found = self.resolver.get_full_type(right_type, self.source).ok_or(
-                    CompileError::MissingType {
-                        type_id: right_type,
-                    },
-                )?;
-
-                return Err(CompileError::TypeConflict {
-                    expected,
-                    found,
-                    position: Position::new(self.file_id, right_child.span()),
-                });
-            }
+            left_type
         };
 
         self.resolver
@@ -1099,38 +1058,24 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for comparison binary expression");
 
-        let left_child = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 0,
-        })?;
-        let right_child = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 1,
-        })?;
+        let left_child =
+            node.left_child()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
+        let right_child = node.right_child().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChild { child_index: 1 },
+        ))?;
 
         let left_type = self.visit(left_child, ())?;
         let right_type = self.visit(right_child, ())?;
 
-        let unified = self.resolver.unify_types(left_type, right_type)?;
-
-        if !unified {
-            let expected = self
-                .resolver
-                .get_full_type(left_type, self.source)
-                .ok_or(CompileError::MissingType { type_id: left_type })?;
-            let found = self.resolver.get_full_type(right_type, self.source).ok_or(
-                CompileError::MissingType {
-                    type_id: right_type,
-                },
-            )?;
-
-            return Err(CompileError::TypeConflict {
-                expected,
-                found,
-                position: Position::new(self.file_id, right_child.span()),
-            });
-        }
-
+        self.unify_types(
+            left_type,
+            Some(Position::new(self.file_id, left_child.span())),
+            right_type,
+            Position::new(self.file_id, right_child.span()),
+        )?;
         self.resolver.set_type_binding(node.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
@@ -1143,49 +1088,40 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for logical binary expression");
 
-        let left_child = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 0,
-        })?;
-        let right_child = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 1,
-        })?;
+        let left_child =
+            node.left_child()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
+        let right_child = node.right_child().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChild { child_index: 1 },
+        ))?;
 
         let left_type = {
             let raw = self.visit(left_child, input)?;
+            let position = Position::new(self.file_id, left_child.span());
 
-            self.resolver.infer_type(raw)
+            self.infer_type(raw, Some(position))?
         };
         let right_type = {
             let raw = self.visit(right_child, input)?;
+            let position = Position::new(self.file_id, right_child.span());
 
-            self.resolver.infer_type(raw)
+            self.infer_type(raw, Some(position))?
         };
 
         if left_type != TypeId::BOOLEAN {
-            let found = self
-                .resolver
-                .get_full_type(left_type, self.source)
-                .ok_or(CompileError::MissingType { type_id: left_type })?;
-
-            return Err(CompileError::TypeConflict {
-                expected: Type::Boolean,
-                found,
+            return Err(CompileError::ExpectedBooleanExpression {
+                found: left_type,
+                node_kind: left_child.kind(),
                 position: Position::new(self.file_id, left_child.span()),
             });
         }
 
         if right_type != TypeId::BOOLEAN {
-            let found = self.resolver.get_full_type(right_type, self.source).ok_or(
-                CompileError::MissingType {
-                    type_id: right_type,
-                },
-            )?;
-
-            return Err(CompileError::TypeConflict {
-                expected: Type::Boolean,
-                found,
+            return Err(CompileError::ExpectedBooleanExpression {
+                found: right_type,
+                node_kind: right_child.kind(),
                 position: Position::new(self.file_id, right_child.span()),
             });
         }
@@ -1202,14 +1138,16 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for unary negation expression");
 
-        let child = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 0,
-        })?;
+        let child =
+            node.left_child()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
         let child_type = {
             let raw = self.visit(child, ())?;
+            let position = Position::new(self.file_id, child.span());
 
-            self.resolver.infer_type(raw)
+            self.infer_type(raw, Some(position))?
         };
 
         match child_type {
@@ -1220,9 +1158,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             }
             _ => {
                 let found = self.resolver.get_full_type(child_type, self.source).ok_or(
-                    CompileError::MissingType {
-                        type_id: child_type,
-                    },
+                    CompileError::Internal(InternalError::MissingType(child_type)),
                 )?;
 
                 Err(CompileError::CannotApplyOperator {
@@ -1241,32 +1177,26 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for while expression");
 
-        let condition = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 0,
-        })?;
-        let body = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 1,
-        })?;
+        let condition =
+            node.left_child()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
+        let body = node.right_child().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChild { child_index: 1 },
+        ))?;
 
         let condition_type = {
             let raw = self.visit(condition, ())?;
+            let position = Position::new(self.file_id, condition.span());
 
-            self.resolver.infer_type(raw)
+            self.infer_type(raw, Some(position))?
         };
 
         if condition_type != TypeId::BOOLEAN {
-            let found = self
-                .resolver
-                .get_full_type(condition_type, self.source)
-                .ok_or(CompileError::MissingType {
-                    type_id: condition_type,
-                })?;
-
-            return Err(CompileError::TypeConflict {
-                expected: Type::Boolean,
-                found,
+            return Err(CompileError::ExpectedBooleanExpression {
+                found: condition_type,
+                node_kind: condition.kind(),
                 position: Position::new(self.file_id, condition.span()),
             });
         }
@@ -1283,72 +1213,65 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for function expression");
 
-        let signature = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 0,
-        })?;
+        let signature =
+            node.left_child()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
         let value_parameters = signature
             .left_child()
-            .ok_or(CompileError::MissingChild {
-                parent_kind: signature.inner().kind,
+            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
                 child_index: 0,
-            })?
+            }))?
             .multiple_children()
-            .ok_or(CompileError::MissingChildren {
-                parent_kind: signature.inner().kind,
-                start_index: signature.inner().children.0,
-                count: signature.inner().children.1,
-            })?;
+            .ok_or(CompileError::Internal(
+                InternalError::MissingSyntaxChildren {
+                    start_index: signature.inner().children.0,
+                    count: signature.inner().children.1,
+                },
+            ))?;
         let return_type = signature.right_child();
-        let body = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.inner().kind,
-            child_index: 1,
-        })?;
+        let body = node.right_child().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChild { child_index: 1 },
+        ))?;
 
-        let mut value_parameter_types = Vec::new();
+        let mut value_parameter_types = SmallVec::<[TypeId; 8]>::new();
 
         for parameter_node in value_parameters {
-            let parameter_name = parameter_node
-                .left_child()
-                .ok_or(CompileError::MissingChild {
-                    parent_kind: parameter_node.inner().kind,
-                    child_index: 0,
-                })?;
-            let parameter_type =
-                parameter_node
-                    .right_child()
-                    .ok_or(CompileError::MissingChild {
-                        parent_kind: parameter_node.inner().kind,
-                        child_index: 1,
-                    })?;
+            let parameter_name = parameter_node.left_child().ok_or(CompileError::Internal(
+                InternalError::MissingSyntaxChild { child_index: 0 },
+            ))?;
+            let parameter_type = parameter_node.right_child().ok_or(CompileError::Internal(
+                InternalError::MissingSyntaxChild { child_index: 1 },
+            ))?;
 
             let parameter_declaration_id = *self
                 .resolver
                 .get_declaration_binding(&parameter_name.id)
-                .ok_or(CompileError::MissingDeclarationBinding {
-                    syntax_id: parameter_name.id,
-                })?;
-            let parameter_type = self.visit_type(parameter_type, ())?;
+                .ok_or(CompileError::Internal(
+                    InternalError::MissingDeclarationBinding(parameter_name.id),
+                ))?;
+            let parameter_type_id = self.visit_type(parameter_type, ())?;
 
-            value_parameter_types.push(parameter_type);
-
+            value_parameter_types.push(parameter_type_id);
             self.resolver
-                .set_declaration_type(parameter_declaration_id, parameter_type);
+                .set_declaration_type(parameter_declaration_id, parameter_type_id);
         }
 
         let return_type_id = {
-            let raw = if let Some(return_type_node) = return_type {
-                self.visit_type(return_type_node, ())?
+            if let Some(return_type_node) = return_type {
+                let raw = self.visit_type(return_type_node, ())?;
+                let position = Position::new(self.file_id, return_type_node.span());
+
+                self.infer_type(raw, Some(position))?
             } else {
                 TypeId::NONE
-            };
-
-            self.resolver.infer_type(raw)
+            }
         };
 
         let value_parameter_children = self.resolver.add_type_members(&value_parameter_types);
         let function_type = self.resolver.add_type(TypeNode::Function {
-            type_parameters: (0, 0),
+            type_parameters: DeclarationMembers::default(),
             value_parameters: value_parameter_children,
             return_type_id,
         });
@@ -1375,19 +1298,20 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Binding types for call expression");
 
-        let callee = node.left_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.kind(),
-            child_index: 0,
-        })?;
-        let arguments = node.right_child().ok_or(CompileError::MissingChild {
-            parent_kind: node.kind(),
-            child_index: 1,
-        })?;
+        let callee =
+            node.left_child()
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
+                    child_index: 0,
+                }))?;
+        let arguments = node.right_child().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChild { child_index: 1 },
+        ))?;
 
         let callee_type = {
             let raw = self.visit(callee, ())?;
+            let position = Position::new(self.file_id, callee.span());
 
-            self.resolver.infer_type(raw)
+            self.infer_type(raw, Some(position))?
         };
 
         let TypeNode::Function {
@@ -1397,67 +1321,46 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         } = *self
             .resolver
             .get_type(callee_type)
-            .ok_or(CompileError::MissingType {
-                type_id: callee_type,
-            })?
+            .ok_or(CompileError::Internal(InternalError::MissingType(
+                callee_type,
+            )))?
         else {
             return Err(CompileError::ExpectedFunctionType {
-                type_id: callee_type,
+                found: callee_type,
+                position: Position::new(self.file_id, callee.span()),
             });
         };
 
         let expected_parameters = self
             .resolver
-            .get_type_members(value_parameters.0, value_parameters.1)
-            .ok_or(CompileError::MissingTypeMembers {
-                start_index: value_parameters.0,
-                count: value_parameters.1,
-            })?
-            .to_vec();
+            .get_type_members(value_parameters)
+            .ok_or(CompileError::Internal(InternalError::MissingTypeMembers(
+                value_parameters,
+            )))?
+            .iter()
+            .copied()
+            .collect::<SmallVec<[TypeId; 8]>>();
 
-        let argument_nodes =
-            arguments
-                .multiple_children()
-                .ok_or(CompileError::MissingChildren {
-                    parent_kind: arguments.kind(),
-                    start_index: arguments.inner().children.0,
-                    count: arguments.inner().children.1,
-                })?;
+        let argument_nodes = arguments.multiple_children().ok_or(CompileError::Internal(
+            InternalError::MissingSyntaxChildren {
+                start_index: arguments.inner().children.0,
+                count: arguments.inner().children.1,
+            },
+        ))?;
 
         if argument_nodes.len() != expected_parameters.len() {
-            return Err(CompileError::ExpectedFunctionType {
-                type_id: callee_type,
+            return Err(CompileError::ExpectedArguments {
+                function_type: callee_type,
+                found_position: callee.position(),
+                expected_count: expected_parameters.len(),
+                found_count: argument_nodes.len(),
             });
         }
 
-        for (argument, expected_type) in argument_nodes.zip(expected_parameters.into_iter()) {
-            let argument_type = {
-                let raw = self.visit(argument, ())?;
-                self.resolver.infer_type(raw)
-            };
+        for (argument, expected_type_id) in argument_nodes.zip(expected_parameters.into_iter()) {
+            let argument_type = self.visit_expression(argument, ())?;
 
-            let unified = self.resolver.unify_types(expected_type, argument_type)?;
-
-            if !unified {
-                let expected = self
-                    .resolver
-                    .get_full_type(expected_type, self.source)
-                    .ok_or(CompileError::MissingType {
-                        type_id: expected_type,
-                    })?;
-                let found = self
-                    .resolver
-                    .get_full_type(argument_type, self.source)
-                    .ok_or(CompileError::MissingType {
-                        type_id: argument_type,
-                    })?;
-
-                return Err(CompileError::TypeConflict {
-                    expected,
-                    found,
-                    position: Position::new(self.file_id, argument.span()),
-                });
-            }
+            self.unify_types(expected_type_id, None, argument_type, argument.position())?;
         }
 
         self.resolver.set_type_binding(node.id, return_type_id);
@@ -1474,10 +1377,9 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             SyntaxKind::IntegerType => Ok(TypeId::INTEGER),
             SyntaxKind::StringType => Ok(TypeId::STRING),
             SyntaxKind::ListType => {
-                let element_type_node = node.left_child().ok_or(CompileError::MissingChild {
-                    parent_kind: node.kind(),
-                    child_index: 0,
-                })?;
+                let element_type_node = node.left_child().ok_or(CompileError::Internal(
+                    InternalError::MissingSyntaxChild { child_index: 0 },
+                ))?;
 
                 let element_type_id = self.visit_type(element_type_node, ())?;
                 let list_type_id = self.resolver.add_type(TypeNode::List {
@@ -1490,20 +1392,18 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 let function_type_node = {
                     let type_node_value_parameters = if node.has_left_child() {
                         let function_value_parameters_node =
-                            node.left_child().ok_or(CompileError::MissingChild {
-                                parent_kind: node.kind(),
-                                child_index: 0,
-                            })?;
+                            node.left_child().ok_or(CompileError::Internal(
+                                InternalError::MissingSyntaxChild { child_index: 0 },
+                            ))?;
+                        let value_parameters =
+                            function_value_parameters_node.multiple_children().ok_or(
+                                CompileError::Internal(InternalError::MissingSyntaxChildren {
+                                    start_index: function_value_parameters_node.inner().children.0,
+                                    count: function_value_parameters_node.inner().children.1,
+                                }),
+                            )?;
 
-                        let value_parameters = function_value_parameters_node
-                            .multiple_children()
-                            .ok_or(CompileError::MissingChildren {
-                            parent_kind: function_value_parameters_node.kind(),
-                            start_index: function_value_parameters_node.inner().children.0,
-                            count: function_value_parameters_node.inner().children.1,
-                        })?;
-
-                        let mut value_parameter_type_ids = SmallVec::<[TypeId; 4]>::new();
+                        let mut value_parameter_ids = SmallVec::<[TypeId; 4]>::new();
 
                         for value_parameter in value_parameters {
                             let type_id = if value_parameter.id == SyntaxId::NONE {
@@ -1512,20 +1412,19 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                                 self.visit_type(value_parameter, ())?
                             };
 
-                            value_parameter_type_ids.push(type_id);
+                            value_parameter_ids.push(type_id);
                         }
 
-                        self.resolver.add_type_members(&value_parameter_type_ids)
+                        self.resolver.add_type_members(&value_parameter_ids)
                     } else {
-                        (0, 0)
+                        TypeMembers::default()
                     };
 
                     let return_type_id = if node.has_right_child() {
                         let function_return_type_node =
-                            node.right_child().ok_or(CompileError::MissingChild {
-                                parent_kind: node.kind(),
-                                child_index: 1,
-                            })?;
+                            node.right_child().ok_or(CompileError::Internal(
+                                InternalError::MissingSyntaxChild { child_index: 1 },
+                            ))?;
 
                         self.visit_type(function_return_type_node, ())?
                     } else {
@@ -1533,7 +1432,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                     };
 
                     TypeNode::Function {
-                        type_parameters: (0, 0),
+                        type_parameters: DeclarationMembers::default(),
                         value_parameters: type_node_value_parameters,
                         return_type_id,
                     }
@@ -1543,10 +1442,9 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 Ok(function_type_id)
             }
             SyntaxKind::TypePath => {
-                let declaration_id = *self
-                    .resolver
-                    .get_declaration_binding(&node.id)
-                    .ok_or(CompileError::MissingDeclarationBinding { syntax_id: node.id })?;
+                let declaration_id = *self.resolver.get_declaration_binding(&node.id).ok_or(
+                    CompileError::Internal(InternalError::MissingDeclarationBinding(node.id)),
+                )?;
                 let type_id = self
                     .resolver
                     .get_declaration_type(&declaration_id)
@@ -1555,7 +1453,9 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
                 Ok(type_id)
             }
-            _ => Err(CompileError::InvalidSyntaxNode { kind: node.kind() }),
+            _ => Err(CompileError::Internal(InternalError::InvalidSyntaxNode(
+                node.kind(),
+            ))),
         }
     }
 }

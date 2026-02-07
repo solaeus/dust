@@ -46,7 +46,7 @@ impl<'a> Disassembler<'a> {
             let prototype_name = if index == 0 {
                 "main"
             } else if let Some(name_position) = prototype.name_position {
-                source.get_source_str(name_position)
+                source.get_source_str(&name_position)
             } else {
                 "anonymous"
             };
