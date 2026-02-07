@@ -63,7 +63,7 @@ impl<'a> TypeBinder<'a> {
                 ..
             }) => self.infer_type(*resolved, position),
             Some(TypeNode::Inferred { resolved: None, .. }) => {
-                Err(CompileError::CannotInferType { type_id, position })
+                Err(CompileError::CannotInferType { type_id })
             }
             Some(_) => Ok(type_id),
             None => Err(CompileError::Internal(InternalError::MissingType(type_id))),

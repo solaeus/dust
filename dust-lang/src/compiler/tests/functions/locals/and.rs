@@ -6,6 +6,8 @@ use crate::{
     tests::{create_function_case, local_cases},
     r#type::{FunctionType, Type},
 };
+use crate::constant_table::ConstantId;
+use crate::compiler::Symbol;
 
 #[test]
 fn local_boolean_and() {
@@ -17,10 +19,10 @@ fn local_boolean_and() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),

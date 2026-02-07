@@ -6,6 +6,8 @@ use crate::{
     tests::{create_function_case, loop_cases},
     r#type::{FunctionType, Type},
 };
+use crate::constant_table::ConstantId;
+use crate::compiler::Symbol;
 
 #[test]
 fn while_loop() {
@@ -17,10 +19,10 @@ fn while_loop() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

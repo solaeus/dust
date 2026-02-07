@@ -87,5 +87,5 @@ impl Display for DustError {
 pub trait AnnotatedError<'a> {
     type Input;
 
-    fn annotated_error(&'a self, input: Self::Input) -> Group<'a>;
+    fn annotated_error(&self, input: Self::Input) -> Group<'a>;
 }

@@ -62,7 +62,7 @@ impl ParseError {
 impl<'a> AnnotatedError<'a> for ParseError {
     type Input = &'a Source;
 
-    fn annotated_error(&'a self, source: Self::Input) -> Group<'a> {
+    fn annotated_error(&self, source: Self::Input) -> Group<'a> {
         let source_file_str = source.get_file_as_str(self.file_id());
 
         match self {

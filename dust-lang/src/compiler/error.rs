@@ -2,7 +2,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     compiler::{
-        Resolver, TypeId,
+        Resolver, TypeId, TypeNode,
         resolver::{DeclarationId, DeclarationMembers, ScopeId, TypeMembers},
     },
     dust_error::AnnotatedError,
@@ -29,7 +29,6 @@ pub enum CompileError {
     },
     CannotInferType {
         type_id: TypeId,
-        position: Option<Position>,
     },
     CannotIndex {
         r#type: Type,
@@ -99,7 +98,7 @@ pub enum CompileError {
 impl<'a> AnnotatedError<'a> for CompileError {
     type Input = (&'a Source, &'a Resolver);
 
-    fn annotated_error(&'a self, (source, resolver): Self::Input) -> Group<'a> {
+    fn annotated_error(&self, (source, resolver): Self::Input) -> Group<'a> {
         match self {
             CompileError::DivisionByZero { position } => {
                 let title = "Division by zero".to_string();
@@ -209,26 +208,65 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     ),
                 )
             }
-            CompileError::CannotInferType { type_id, position } => {
+            CompileError::CannotInferType { type_id } => {
                 let title = "Cannot infer type".to_string();
-                let type_string = resolver
-                    .get_full_type(*type_id, source)
-                    .map_or_else(|| "<invalid_type>".to_string(), |r#type| r#type.to_string());
-                let message = format!("Cannot infer type for \"{type_string}\".");
 
-                if let Some(position) = position {
-                    let file_str = source.get_file_as_str(position.file_id);
-
-                    Group::with_title(Level::ERROR.primary_title(title)).element(
-                        Snippet::source(file_str).annotation(
-                            AnnotationKind::Primary
-                                .span(position.span.as_usize_range())
-                                .label(message),
-                        ),
-                    )
+                let type_node = if let Some(type_node) = resolver.get_type(*type_id) {
+                    type_node
                 } else {
-                    Group::with_title(Level::ERROR.primary_title(title))
-                        .element(Level::ERROR.message(message))
+                    return CompileError::Internal(InternalError::MissingType(*type_id))
+                        .annotated_error((source, resolver));
+                };
+                let type_declaration_id = if let TypeNode::Struct { declaration_id, .. }
+                | TypeNode::Enum { declaration_id, .. } = type_node
+                {
+                    Some(*declaration_id)
+                } else {
+                    None
+                };
+                let (type_symbol_string, position) =
+                    if let Some(declaration_id) = type_declaration_id {
+                        let Some(declaration) = resolver.get_declaration(declaration_id) else {
+                            return CompileError::Internal(InternalError::MissingDeclaration(
+                                declaration_id,
+                            ))
+                            .annotated_error((source, resolver));
+                        };
+
+                        let symbol_string = declaration
+                            .symbol
+                            .get_str(&resolver.constants)
+                            .map(String::from)
+                            .or_else(|| {
+                                declaration
+                                    .position
+                                    .map(|position| source.get_source_str(&position).to_string())
+                            })
+                            .unwrap_or_else(|| "<invalid symbol>".to_string());
+
+                        (symbol_string, declaration.position)
+                    } else {
+                        ("<anonymous_type>".to_string(), None)
+                    };
+
+                match position {
+                    Some(position) => {
+                        let file_str = source.get_file_as_str(position.file_id);
+
+                        Group::with_title(Level::ERROR.primary_title(title)).elements([
+                            Snippet::source(file_str).annotation(
+                                AnnotationKind::Primary
+                                    .span(position.span.as_usize_range())
+                                    .label(format!(
+                                        "Type {type_symbol_string} was declared here, but its type cannot be inferred."
+                                    )),
+                            ),
+                        ])
+                    }
+                    None => Group::with_title(Level::ERROR.primary_title(title)).element(
+                        Level::ERROR
+                            .message(format!("Type {type_symbol_string} cannot be inferred.")),
+                    ),
                 }
             }
             CompileError::TypeConflict {
@@ -237,7 +275,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 found_type,
                 found_position,
             } => {
-                let title = format!("Type conflict");
+                let title = "Type conflict".to_string();
 
                 let expected_type_string = resolver
                     .get_full_type(*expected_type, source)

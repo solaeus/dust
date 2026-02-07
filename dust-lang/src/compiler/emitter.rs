@@ -142,8 +142,7 @@ impl<'a> Emitter<'a> {
                     ))?;
                 let register_size = emitter.resolver.get_register_size(expected_type).ok_or(
                     CompileError::CannotInferType {
-                        type_id,
-                        position: Some(parameter.position()),
+                        type_id: expected_type,
                     },
                 )?;
                 let target = emitter.allocate_local_registers(register_size);
@@ -896,12 +895,10 @@ impl<'a> Emitter<'a> {
                         .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
                             node.id,
                         )))?;
-                let operand_type = self.resolver.get_operand_type(type_id).ok_or(
-                    CompileError::CannotInferType {
-                        type_id,
-                        position: Some(node.position()),
-                    },
-                )?;
+                let operand_type = self
+                    .resolver
+                    .get_operand_type(type_id)
+                    .ok_or(CompileError::CannotInferType { type_id })?;
                 let move_instruction =
                     Instruction::r#move(destination.index(), place.address(), operand_type);
 
@@ -1163,13 +1160,10 @@ impl<'a> Emitter<'a> {
             .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
                 node.id,
             )))?;
-        let operand_type =
-            self.resolver
-                .get_operand_type(type_id)
-                .ok_or(CompileError::CannotInferType {
-                    type_id,
-                    position: Some(node.position()),
-                })?;
+        let operand_type = self
+            .resolver
+            .get_operand_type(type_id)
+            .ok_or(CompileError::CannotInferType { type_id })?;
         let address = match emission {
             Emission::Constant(constant) => self.get_constant_address(constant),
             Emission::Place(Place::Target(Target::Compound { base_register, .. })) => {
@@ -1391,13 +1385,10 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let mut let_statement_emission = InstructionsEmission::new();
 
-        let register_size =
-            self.resolver
-                .get_register_size(type_id)
-                .ok_or(CompileError::CannotInferType {
-                    type_id,
-                    position: Some(expression.position()),
-                })?;
+        let register_size = self
+            .resolver
+            .get_register_size(type_id)
+            .ok_or(CompileError::CannotInferType { type_id })?;
         let target = self.allocate_local_registers(register_size);
         let expression_emission = self.visit_expression(expression, Some(target))?;
 
@@ -1521,12 +1512,10 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                         .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
                             node.id,
                         )))?;
-                let operand_type = self.resolver.get_operand_type(type_id).ok_or(
-                    CompileError::CannotInferType {
-                        type_id,
-                        position: Some(expression.position()),
-                    },
-                )?;
+                let operand_type = self
+                    .resolver
+                    .get_operand_type(type_id)
+                    .ok_or(CompileError::CannotInferType { type_id })?;
                 let move_instruction =
                     Instruction::r#move(target.index(), expression_target.address(), operand_type);
 
@@ -2794,21 +2783,6 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 .ok_or(CompileError::Internal(InternalError::MissingType(
                     return_type_id,
                 )))?;
-        let register_count = self.resolver.get_register_size(return_type_id).ok_or(
-            CompileError::CannotInferType {
-                type_id: return_type_id,
-                position: Some(callee.position()),
-            },
-        )?;
-        let target = if let Some(target) = target
-            && target.destination_count() == register_count
-        {
-            Some(target)
-        } else if return_operand_type != OperandType::NONE {
-            Some(self.allocate_temporary_registers(register_count))
-        } else {
-            None
-        };
         let callee_declaration_id =
             *self
                 .resolver
@@ -2831,11 +2805,27 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                     callee.id,
                 )))?;
         let callee_type_node =
-            self.resolver
+            *self
+                .resolver
                 .get_type(callee_type_id)
                 .ok_or(CompileError::Internal(InternalError::MissingType(
                     callee_type_id,
                 )))?;
+
+        let register_count = self.resolver.get_register_size(return_type_id).ok_or(
+            CompileError::CannotInferType {
+                type_id: return_type_id,
+            },
+        )?;
+        let target = if let Some(target) = target
+            && target.destination_count() == register_count
+        {
+            Some(target)
+        } else if return_operand_type != OperandType::NONE {
+            Some(self.allocate_temporary_registers(register_count))
+        } else {
+            None
+        };
 
         let is_native = matches!(callee_type_node, TypeNode::Function { .. })
             && matches!(callee_declaration.symbol, Symbol::BuiltIn(_));

@@ -82,7 +82,7 @@ pub enum JitError {
 impl<'a> AnnotatedError<'a> for JitError {
     type Input = ();
 
-    fn annotated_error(&'a self, _: Self::Input) -> Group<'a> {
+    fn annotated_error(&self, _: Self::Input) -> Group<'a> {
         match self {
             JitError::CompilationError { message, .. } => {
                 let title = format!("JIT compilation failed: {message}");
@@ -185,8 +185,8 @@ impl<'a> AnnotatedError<'a> for JitError {
             } => {
                 let title = format!("Cranelift module error: {}", error);
                 let info = match cranelift_ir {
-                    Some(ir) => ir,
-                    None => "<no Cranelift IR available>",
+                    Some(ir) => ir.to_string(),
+                    None => "<no Cranelift IR available>".to_string(),
                 };
 
                 Group::with_title(Level::ERROR.primary_title(title))

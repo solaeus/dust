@@ -11,7 +11,7 @@ pub use emitter::Emitter;
 pub use error::{CompileError, InternalError};
 pub use resolver::{
     Declaration, DeclarationKind, DeclarationMembers, ModuleKind, Resolver, Scope, ScopeId,
-    ScopeKind, Symbol, TypeId, TypeNode,
+    ScopeKind, Symbol, TypeId, TypeMembers, TypeNode,
 };
 
 use tracing::{Level, span};

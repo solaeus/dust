@@ -6,6 +6,8 @@ use crate::{
     tests::{create_function_case, list_cases},
     r#type::{FunctionType, Type},
 };
+use crate::constant_table::ConstantId;
+use crate::compiler::Symbol;
 
 #[test]
 fn list_boolean() {
@@ -17,10 +19,10 @@ fn list_boolean() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::list(Type::Boolean)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
@@ -60,10 +62,10 @@ fn list_byte() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::list(Type::Byte)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BYTE),
@@ -103,10 +105,10 @@ fn list_character() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::list(Type::Character)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_CHARACTER),
@@ -146,10 +148,10 @@ fn list_float() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::list(Type::Float)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_FLOAT),
@@ -189,10 +191,10 @@ fn list_integer() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::list(Type::Integer)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_INTEGER),
@@ -232,10 +234,10 @@ fn list_string() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::list(Type::String)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_STRING),
@@ -275,10 +277,10 @@ fn list_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
@@ -339,10 +341,10 @@ fn list_not_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BYTE),
@@ -403,10 +405,10 @@ fn list_greater_than() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_CHARACTER),
@@ -467,10 +469,10 @@ fn list_less_than() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_FLOAT),
@@ -531,10 +533,10 @@ fn list_greater_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_INTEGER),
@@ -595,10 +597,10 @@ fn list_less_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_STRING),
@@ -659,10 +661,10 @@ fn list_index_boolean() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
@@ -708,10 +710,10 @@ fn list_index_byte() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BYTE),
@@ -757,10 +759,10 @@ fn list_index_character() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Character),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_CHARACTER),
@@ -806,10 +808,10 @@ fn list_index_float() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_FLOAT),
@@ -855,10 +857,10 @@ fn list_index_integer() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_INTEGER),
@@ -904,10 +906,10 @@ fn list_index_string() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_STRING),
@@ -953,10 +955,10 @@ fn local_list_boolean() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::list(Type::Boolean)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
@@ -996,10 +998,10 @@ fn local_list_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
@@ -1060,10 +1062,10 @@ fn local_list_not_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BYTE),
@@ -1124,10 +1126,10 @@ fn local_list_greater_than() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_CHARACTER),
@@ -1188,10 +1190,10 @@ fn local_list_less_than() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_FLOAT),
@@ -1255,10 +1257,10 @@ fn local_list_greater_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_INTEGER),
@@ -1322,10 +1324,10 @@ fn local_list_less_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_STRING),

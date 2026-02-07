@@ -6,6 +6,8 @@ use crate::{
     tests::{create_function_case, local_cases},
     r#type::{FunctionType, Type},
 };
+use crate::constant_table::ConstantId;
+use crate::compiler::Symbol;
 
 #[test]
 fn local_boolean_less_than_or_equal() {
@@ -20,10 +22,10 @@ fn local_boolean_less_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -63,10 +65,10 @@ fn local_byte_less_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(0x2A), OperandType::BYTE),
@@ -106,10 +108,10 @@ fn local_character_less_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
@@ -149,10 +151,10 @@ fn local_float_less_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -192,10 +194,10 @@ fn local_integer_less_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -235,10 +237,10 @@ fn local_string_less_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
