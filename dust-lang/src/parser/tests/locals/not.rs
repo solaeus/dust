@@ -16,57 +16,57 @@ fn local_boolean_not() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (5, 2),
+                payload: (5, 2),
                 span: Span(0, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                children: (1, 3),
+                payload: (1, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(8, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(15, 19),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                children: (4, 0),
+                payload: (4, 0),
                 span: Span(15, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::NotExpression,
-                children: (9, 0),
+                payload: (9, 0),
                 span: Span(21, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(22, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                children: (4, 1),
+                payload: (4, 1),
                 span: Span(22, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                children: (8, 0),
+                payload: (8, 0),
                 span: Span(22, 23),
             },
         ]

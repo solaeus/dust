@@ -207,10 +207,8 @@ impl Resolver {
         self.declaration_members.get(index as usize).copied()
     }
 
-    pub fn get_declaration_members(&self, range: DeclarationMembers) -> Option<&[DeclarationId]> {
-        let range = range.start as usize..(range.start + range.count) as usize;
-
-        self.declaration_members.get(range)
+    pub fn get_declaration_members(&self, members: DeclarationMembers) -> Option<&[DeclarationId]> {
+        self.declaration_members.get(members.as_usize_range())
     }
 
     pub fn find_declaration_in_scope(
@@ -493,7 +491,7 @@ impl Resolver {
     ) -> impl Iterator<Item = (String, Type)> {
         self.get_declaration_members(members)
             .unwrap_or_default()
-            .into_iter()
+            .iter()
             .map_while(|declaration_id| {
                 let declaration = self.get_declaration(*declaration_id)?;
                 let name = declaration.symbol.get_str(&self.constants)?.to_string();
@@ -511,7 +509,7 @@ impl Resolver {
     ) -> impl Iterator<Item = Type> {
         self.get_type_members(members)
             .unwrap_or_default()
-            .into_iter()
+            .iter()
             .map_while(|type_id| {
                 let full_type = self.get_full_type(*type_id, source)?;
 
@@ -744,10 +742,7 @@ impl Hash for Symbol {
                 hasher.write_u8(2);
                 constant_id.hash(hasher);
             }
-            Symbol::Source {
-                constant_id,
-                position: _,
-            } => {
+            Symbol::Source { constant_id, .. } => {
                 hasher.write_u8(2);
                 constant_id.hash(hasher);
             }

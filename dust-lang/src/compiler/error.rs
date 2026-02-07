@@ -8,14 +8,15 @@ use crate::{
     dust_error::AnnotatedError,
     instruction::Operation,
     source::{Position, Source, SourceFileId},
-    syntax::{SyntaxId, SyntaxKind},
+    syntax::{SyntaxError, SyntaxId, SyntaxKind},
     r#type::Type,
 };
 
 const INVALID_TYPE: &str = "<invalid_type>";
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum CompileError {
+    Syntax(SyntaxError),
     Internal(InternalError),
 
     AmbiguousType {
@@ -47,18 +48,6 @@ pub enum CompileError {
     },
     ExpectedIntegerIndex {
         found: TypeId,
-        position: Position,
-    },
-    ExpectedItem {
-        node_kind: SyntaxKind,
-        position: Position,
-    },
-    ExpectedStatement {
-        node_kind: SyntaxKind,
-        position: Position,
-    },
-    ExpectedExpression {
-        node_kind: SyntaxKind,
         position: Position,
     },
     ExpectedFunction {
@@ -151,7 +140,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 node_kind,
                 position,
             } => {
-                let title = format!("Expected a boolean expression");
+                let title = "Expected a boolean expression".to_string();
                 let file_str = source.get_file_as_str(position.file_id);
                 let found_type = resolver
                     .get_full_type(*found_type_id, source)
@@ -448,6 +437,12 @@ impl<'a> AnnotatedError<'a> for CompileError {
     }
 }
 
+impl From<SyntaxError> for CompileError {
+    fn from(syntax_error: SyntaxError) -> Self {
+        CompileError::Syntax(syntax_error)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum InternalError {
     InvalidDeclarationKind(DeclarationId),
@@ -464,7 +459,7 @@ pub enum InternalError {
     MissingScope(ScopeId),
     MissingScopeBinding(SyntaxId),
     MissingSourceFile(SourceFileId),
-    MissingSyntaxChild { child_index: u32 },
+    MissingSyntaxChild(SyntaxId),
     MissingSyntaxChildren { start_index: u32, count: u32 },
     MissingSyntaxNode(SyntaxId),
     MissingSyntaxTree(SourceFileId),

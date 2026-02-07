@@ -16,12 +16,12 @@ fn boolean() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (true as u32, 0),
+                payload: (true as u32, 0),
                 span: Span(0, 4),
             }
         ]
@@ -39,12 +39,12 @@ fn byte() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(0, 4),
             }
         ]
@@ -62,12 +62,12 @@ fn character() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 3),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (113, 0),
+                payload: (113, 0),
                 span: Span(0, 3),
             }
         ]
@@ -85,12 +85,12 @@ fn float() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(42.0),
+                payload: SyntaxNode::encode_float(42.0),
                 span: Span(0, 4),
             }
         ]
@@ -108,12 +108,12 @@ fn integer() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(0, 2),
             }
         ]
@@ -131,12 +131,12 @@ fn string() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 8),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(0, 8),
             }
         ]
@@ -154,22 +154,22 @@ fn constant_byte_addition() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (40, 0),
+                payload: (40, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (2, 0),
+                payload: (2, 0),
                 span: Span(7, 11),
             }
         ]
@@ -187,22 +187,22 @@ fn constant_float_addition() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(40.0),
+                payload: SyntaxNode::encode_float(40.0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(2.0),
+                payload: SyntaxNode::encode_float(2.0),
                 span: Span(7, 10),
             }
         ]
@@ -220,22 +220,22 @@ fn constant_integer_addition() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (40, 0),
+                payload: (40, 0),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (2, 0),
+                payload: (2, 0),
                 span: Span(5, 6),
             }
         ]
@@ -253,22 +253,22 @@ fn constant_byte_subtraction() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (44, 0),
+                payload: (44, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::SubtractionExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (2, 0),
+                payload: (2, 0),
                 span: Span(7, 11),
             }
         ]
@@ -286,22 +286,22 @@ fn constant_float_subtraction() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(44.0),
+                payload: SyntaxNode::encode_float(44.0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::SubtractionExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(2.0),
+                payload: SyntaxNode::encode_float(2.0),
                 span: Span(7, 10),
             }
         ]
@@ -319,22 +319,22 @@ fn constant_integer_subtraction() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (44, 0),
+                payload: (44, 0),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::SubtractionExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (2, 0),
+                payload: (2, 0),
                 span: Span(5, 6),
             }
         ]
@@ -352,22 +352,22 @@ fn constant_byte_multiplication() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (14, 0),
+                payload: (14, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (3, 0),
+                payload: (3, 0),
                 span: Span(7, 11),
             }
         ]
@@ -385,22 +385,22 @@ fn constant_float_multiplication() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(14.0),
+                payload: SyntaxNode::encode_float(14.0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(3.0),
+                payload: SyntaxNode::encode_float(3.0),
                 span: Span(7, 10),
             }
         ]
@@ -418,22 +418,22 @@ fn constant_integer_multiplication() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (14, 0),
+                payload: (14, 0),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::MultiplicationExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (3, 0),
+                payload: (3, 0),
                 span: Span(5, 6),
             }
         ]
@@ -451,22 +451,22 @@ fn constant_byte_division() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (84, 0),
+                payload: (84, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::DivisionExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (2, 0),
+                payload: (2, 0),
                 span: Span(7, 11),
             }
         ]
@@ -484,22 +484,22 @@ fn constant_float_division() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(84.0),
+                payload: SyntaxNode::encode_float(84.0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::DivisionExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(2.0),
+                payload: SyntaxNode::encode_float(2.0),
                 span: Span(7, 10),
             }
         ]
@@ -517,22 +517,22 @@ fn constant_integer_division() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (84, 0),
+                payload: (84, 0),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::DivisionExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (2, 0),
+                payload: (2, 0),
                 span: Span(5, 6),
             }
         ]
@@ -550,22 +550,22 @@ fn constant_byte_modulo() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (84, 0),
+                payload: (84, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::ModuloExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (5, 0),
+                payload: (5, 0),
                 span: Span(7, 11),
             }
         ]
@@ -583,22 +583,22 @@ fn constant_float_modulo() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(84.0),
+                payload: SyntaxNode::encode_float(84.0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::ModuloExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(5.0),
+                payload: SyntaxNode::encode_float(5.0),
                 span: Span(7, 10),
             }
         ]
@@ -616,22 +616,22 @@ fn constant_integer_modulo() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (84, 0),
+                payload: (84, 0),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::ModuloExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (5, 0),
+                payload: (5, 0),
                 span: Span(5, 6),
             }
         ]
@@ -649,22 +649,22 @@ fn constant_byte_exponent() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (2, 0),
+                payload: (2, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExponentExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (3, 0),
+                payload: (3, 0),
                 span: Span(7, 11),
             }
         ]
@@ -682,22 +682,22 @@ fn constant_float_exponent() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 9),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(2.0),
+                payload: SyntaxNode::encode_float(2.0),
                 span: Span(0, 3),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExponentExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 9),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(3.0),
+                payload: SyntaxNode::encode_float(3.0),
                 span: Span(6, 9),
             }
         ]
@@ -715,22 +715,22 @@ fn constant_integer_exponent() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (2, 0),
+                payload: (2, 0),
                 span: Span(0, 1),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExponentExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (3, 0),
+                payload: (3, 0),
                 span: Span(4, 5),
             }
         ]
@@ -748,22 +748,22 @@ fn constant_integer_negation() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::NegationExpression,
-                children: (2, 0),
+                payload: (2, 0),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::GroupedExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(1, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(2, 4),
             }
         ]
@@ -781,22 +781,22 @@ fn constant_float_negation() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 7),
             },
             SyntaxNode {
                 kind: SyntaxKind::NegationExpression,
-                children: (2, 0),
+                payload: (2, 0),
                 span: Span(0, 7),
             },
             SyntaxNode {
                 kind: SyntaxKind::GroupedExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(1, 7),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(42.0),
+                payload: SyntaxNode::encode_float(42.0),
                 span: Span(2, 6),
             }
         ]
@@ -814,22 +814,22 @@ fn constant_string_concatenation() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(8, 13),
             }
         ]
@@ -847,22 +847,22 @@ fn constant_character_concatenation() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 9),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (113, 0),
+                payload: (113, 0),
                 span: Span(0, 3),
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 9),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (113, 0),
+                payload: (113, 0),
                 span: Span(6, 9),
             }
         ]
@@ -880,22 +880,22 @@ fn constant_string_character_concatenation() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (113, 0),
+                payload: (113, 0),
                 span: Span(8, 11),
             }
         ]
@@ -913,22 +913,22 @@ fn constant_character_string_concatenation() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (113, 0),
+                payload: (113, 0),
                 span: Span(0, 3),
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(6, 11),
             }
         ]
@@ -946,22 +946,22 @@ fn constant_boolean_and() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (true as u32, 0),
+                payload: (true as u32, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::AndExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (false as u32, 0),
+                payload: (false as u32, 0),
                 span: Span(8, 13),
             }
         ]
@@ -979,22 +979,22 @@ fn constant_boolean_or() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (true as u32, 0),
+                payload: (true as u32, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::OrExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (false as u32, 0),
+                payload: (false as u32, 0),
                 span: Span(8, 13),
             }
         ]
@@ -1012,17 +1012,17 @@ fn constant_boolean_not() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::NotExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (true as u32, 0),
+                payload: (true as u32, 0),
                 span: Span(1, 5),
             }
         ]
@@ -1040,22 +1040,22 @@ fn constant_boolean_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(7, 12),
             }
         ]
@@ -1073,22 +1073,22 @@ fn constant_boolean_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(8, 12),
             }
         ]
@@ -1106,22 +1106,22 @@ fn constant_boolean_greater_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(8, 12),
             }
         ]
@@ -1139,22 +1139,22 @@ fn constant_boolean_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(8, 12),
             }
         ]
@@ -1172,22 +1172,22 @@ fn constant_boolean_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(8, 12),
             }
         ]
@@ -1205,22 +1205,22 @@ fn constant_boolean_not_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(8, 13),
             }
         ]
@@ -1238,22 +1238,22 @@ fn constant_byte_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (43, 0),
+                payload: (43, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(7, 11),
             }
         ]
@@ -1271,22 +1271,22 @@ fn constant_byte_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (41, 0),
+                payload: (41, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(7, 11),
             }
         ]
@@ -1304,22 +1304,22 @@ fn constant_byte_greater_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(8, 12),
             }
         ]
@@ -1337,22 +1337,22 @@ fn constant_byte_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(8, 12),
             }
         ]
@@ -1370,22 +1370,22 @@ fn constant_byte_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(8, 12),
             }
         ]
@@ -1403,22 +1403,22 @@ fn constant_byte_not_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (43, 0),
+                payload: (43, 0),
                 span: Span(8, 12),
             }
         ]
@@ -1436,22 +1436,22 @@ fn constant_character_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 9),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (123, 0),
+                payload: (123, 0),
                 span: Span(0, 3),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 9),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (122, 0),
+                payload: (122, 0),
                 span: Span(6, 9),
             }
         ]
@@ -1469,22 +1469,22 @@ fn constant_character_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 9),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (121, 0),
+                payload: (121, 0),
                 span: Span(0, 3),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 9),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (122, 0),
+                payload: (122, 0),
                 span: Span(6, 9),
             }
         ]
@@ -1502,22 +1502,22 @@ fn constant_character_greater_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (122, 0),
+                payload: (122, 0),
                 span: Span(0, 3),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (122, 0),
+                payload: (122, 0),
                 span: Span(7, 10),
             }
         ]
@@ -1535,22 +1535,22 @@ fn constant_character_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (122, 0),
+                payload: (122, 0),
                 span: Span(0, 3),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (122, 0),
+                payload: (122, 0),
                 span: Span(7, 10),
             }
         ]
@@ -1568,22 +1568,22 @@ fn constant_character_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (122, 0),
+                payload: (122, 0),
                 span: Span(0, 3),
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (122, 0),
+                payload: (122, 0),
                 span: Span(7, 10),
             }
         ]
@@ -1601,22 +1601,22 @@ fn constant_character_not_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (122, 0),
+                payload: (122, 0),
                 span: Span(0, 3),
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (123, 0),
+                payload: (123, 0),
                 span: Span(7, 10),
             }
         ]
@@ -1634,22 +1634,22 @@ fn constant_float_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(43.0),
+                payload: SyntaxNode::encode_float(43.0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(42.0),
+                payload: SyntaxNode::encode_float(42.0),
                 span: Span(7, 11),
             }
         ]
@@ -1667,22 +1667,22 @@ fn constant_float_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(41.0),
+                payload: SyntaxNode::encode_float(41.0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(42.0),
+                payload: SyntaxNode::encode_float(42.0),
                 span: Span(7, 11),
             }
         ]
@@ -1700,22 +1700,22 @@ fn constant_float_greater_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(42.0),
+                payload: SyntaxNode::encode_float(42.0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(42.0),
+                payload: SyntaxNode::encode_float(42.0),
                 span: Span(8, 12),
             }
         ]
@@ -1733,22 +1733,22 @@ fn constant_float_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(42.0),
+                payload: SyntaxNode::encode_float(42.0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(42.0),
+                payload: SyntaxNode::encode_float(42.0),
                 span: Span(8, 12),
             }
         ]
@@ -1766,22 +1766,22 @@ fn constant_float_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(42.0),
+                payload: SyntaxNode::encode_float(42.0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(42.0),
+                payload: SyntaxNode::encode_float(42.0),
                 span: Span(8, 12),
             }
         ]
@@ -1799,22 +1799,22 @@ fn constant_float_not_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(42.0),
+                payload: SyntaxNode::encode_float(42.0),
                 span: Span(0, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(43.0),
+                payload: SyntaxNode::encode_float(43.0),
                 span: Span(8, 12),
             }
         ]
@@ -1832,22 +1832,22 @@ fn constant_integer_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 7),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (43, 0),
+                payload: (43, 0),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 7),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(5, 7),
             }
         ]
@@ -1865,22 +1865,22 @@ fn constant_integer_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 7),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (41, 0),
+                payload: (41, 0),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 7),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(5, 7),
             }
         ]
@@ -1898,22 +1898,22 @@ fn constant_integer_greater_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 8),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 8),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(6, 8),
             }
         ]
@@ -1931,22 +1931,22 @@ fn constant_integer_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 8),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 8),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(6, 8),
             }
         ]
@@ -1964,22 +1964,22 @@ fn constant_integer_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 8),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 8),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(6, 8),
             }
         ]
@@ -1997,22 +1997,22 @@ fn constant_integer_not_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 8),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 8),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (43, 0),
+                payload: (43, 0),
                 span: Span(6, 8),
             }
         ]
@@ -2030,22 +2030,22 @@ fn constant_string_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(8, 13),
             }
         ]
@@ -2063,22 +2063,22 @@ fn constant_string_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(8, 13),
             }
         ]
@@ -2096,22 +2096,22 @@ fn constant_string_greater_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 14),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 14),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(9, 14),
             }
         ]
@@ -2129,22 +2129,22 @@ fn constant_string_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 14),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 14),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(9, 14),
             }
         ]
@@ -2162,22 +2162,22 @@ fn constant_string_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 14),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 14),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(9, 14),
             }
         ]
@@ -2195,22 +2195,22 @@ fn constant_string_not_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (0, 1),
+                payload: (0, 1),
                 span: Span(0, 14),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(0, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
-                children: (1, 2),
+                payload: (1, 2),
                 span: Span(0, 14),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(9, 14),
             }
         ]

@@ -1,12 +1,17 @@
-mod syntax_node;
-mod syntax_reader;
-mod syntax_tree;
-mod syntax_visitor;
+mod error;
+mod node;
+mod reader;
+mod tree;
+mod visitor;
 
-pub use syntax_node::{SyntaxKind, SyntaxNode, SyntaxNodeChildren};
-pub use syntax_reader::{SyntaxReader, SyntaxReaderIterator};
-pub use syntax_tree::SyntaxTree;
-pub use syntax_visitor::SyntaxVisitor;
+pub use error::SyntaxError;
+pub use node::{SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxPayload};
+pub use reader::{SyntaxReader, SyntaxReaderIterator};
+pub use tree::SyntaxTree;
+pub use visitor::{
+    ExpressionVisitor, ItemVisitor, OtherVisitor, StatementVisitor, SyntaxVisitor,
+    SyntaxVistorTypes,
+};
 
 use crate::source::SourceFileId;
 

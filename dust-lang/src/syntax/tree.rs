@@ -1,10 +1,11 @@
 use std::fmt::{self, Display, Formatter};
 
 use termtree::Tree;
+use tracing::error;
 
 use crate::{
     source::SourceFileId,
-    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxReader},
+    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxPayload, SyntaxReader},
 };
 
 /// Lossless abstract syntax tree representing a Dust source code file.
@@ -62,7 +63,7 @@ impl SyntaxTree {
         self.last_node().map(|node| (id, node))
     }
 
-    pub fn push_node(&mut self, node: SyntaxNode) -> SyntaxId {
+    pub fn add_node(&mut self, node: SyntaxNode) -> SyntaxId {
         let index = self.nodes.len() as u32;
 
         self.nodes.push(node);
@@ -84,20 +85,22 @@ impl SyntaxTree {
         self.nodes.get(id.0 as usize)
     }
 
-    pub fn get_children(&self, start_index: u32, count: u32) -> Option<&[SyntaxId]> {
-        let start_index = start_index as usize;
-        let count = count as usize;
+    pub fn get_children(&self, payload: SyntaxPayload) -> Option<&[SyntaxId]> {
+        let start_index = payload.left as usize;
+        let count = payload.right as usize;
 
         self.children.get(start_index..start_index + count)
     }
 
-    pub fn add_children(&mut self, children: &[SyntaxId]) -> (u32, u32) {
-        let start_index = self.children.len() as u32;
-        let count = children.len() as u32;
+    pub fn add_children(&mut self, children: &[SyntaxId]) -> SyntaxPayload {
+        let payload = SyntaxPayload {
+            left: self.children.len() as u32,
+            right: children.len() as u32,
+        };
 
         self.children.extend_from_slice(children);
 
-        (start_index, count)
+        payload
     }
 
     pub fn sorted_nodes(&self) -> Vec<SyntaxNode> {
@@ -126,12 +129,19 @@ impl SyntaxTree {
                 SyntaxNodeChildren::Single(syntax_id) => {
                     build_tree(&mut leaf, syntax_id, syntax_tree);
                 }
-                SyntaxNodeChildren::Double(left, right) => {
+                SyntaxNodeChildren::Binary(left, right) => {
                     build_tree(&mut leaf, left, syntax_tree);
                     build_tree(&mut leaf, right, syntax_tree);
                 }
-                SyntaxNodeChildren::Multiple(start, count) => {
-                    for child_id in syntax_tree.get_children(start, count).unwrap_or(&[]) {
+                SyntaxNodeChildren::Multiple(children) => {
+                    for child_id in syntax_tree.get_children(children).unwrap_or_else(|| {
+                        error!(
+                            "Failed to get {} syntax nodes starting at index {}",
+                            children.right, children.left
+                        );
+
+                        &[]
+                    }) {
                         build_tree(&mut leaf, *child_id, syntax_tree);
                     }
                 }

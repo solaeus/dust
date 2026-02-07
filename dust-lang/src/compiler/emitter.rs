@@ -174,8 +174,8 @@ impl<'a> Emitter<'a> {
             SyntaxKind::MainFunctionItem | SyntaxKind::BlockExpression => {
                 let children = node.multiple_children().ok_or(CompileError::Internal(
                     InternalError::MissingSyntaxChildren {
-                        start_index: node.inner().children.0,
-                        count: node.inner().children.1,
+                        start_index: node.inner().payload.0,
+                        count: node.inner().payload.1,
                     },
                 ))?;
                 let last_index = children.len() - 1;
@@ -1238,8 +1238,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let children = node.multiple_children().ok_or(CompileError::Internal(
             InternalError::MissingSyntaxChildren {
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
+                start_index: node.inner().payload.0,
+                count: node.inner().payload.1,
             },
         ))?;
         let last_child = children.len() - 1;
@@ -1353,8 +1353,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let mut children = node.multiple_children().ok_or(CompileError::Internal(
             InternalError::MissingSyntaxChildren {
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
+                start_index: node.inner().payload.0,
+                count: node.inner().payload.1,
             },
         ))?;
         let path =
@@ -1544,7 +1544,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         debug!("Emitting boolean expression");
 
         Ok(Emission::Constant(ConstantEmission::Boolean(
-            node.inner().children.0 != 0,
+            node.inner().payload.0 != 0,
         )))
     }
 
@@ -1556,7 +1556,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         debug!("Emitting byte expression");
 
         Ok(Emission::Constant(ConstantEmission::Byte(
-            node.inner().children.0 as u8,
+            node.inner().payload.0 as u8,
         )))
     }
 
@@ -1652,8 +1652,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let children = node.multiple_children().ok_or(CompileError::Internal(
             InternalError::MissingSyntaxChildren {
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
+                start_index: node.inner().payload.0,
+                count: node.inner().payload.1,
             },
         ))?;
         let child_count_address =
@@ -1825,8 +1825,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             .multiple_children()
             .ok_or(CompileError::Internal(
                 InternalError::MissingSyntaxChildren {
-                    start_index: node.inner().children.0,
-                    count: node.inner().children.1,
+                    start_index: node.inner().payload.0,
+                    count: node.inner().payload.1,
                 },
             ))?
             .collect::<Vec<_>>();
@@ -1934,8 +1934,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let children = node.multiple_children().ok_or(CompileError::Internal(
             InternalError::MissingSyntaxChildren {
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
+                start_index: node.inner().payload.0,
+                count: node.inner().payload.1,
             },
         ))?;
 
@@ -2072,8 +2072,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let mut children = node.multiple_children().ok_or(CompileError::Internal(
             InternalError::MissingSyntaxChildren {
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
+                start_index: node.inner().payload.0,
+                count: node.inner().payload.1,
             },
         ))?;
 

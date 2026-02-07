@@ -1,3 +1,4 @@
+use crate::compiler::Symbol;
 use crate::{
     compiler::compile_main_prototype,
     instruction::{Address, Instruction, OperandType},
@@ -14,6 +15,7 @@ fn while_loop() {
     assert_eq!(
         prototype,
         Prototype {
+            name: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

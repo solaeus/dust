@@ -1,3 +1,5 @@
+use crate::compiler::Symbol;
+use crate::constant_table::ConstantId;
 use crate::{
     compiler::compile_prototypes,
     instruction::{Address, Instruction, OperandType},
@@ -6,8 +8,6 @@ use crate::{
     tests::{constant_cases, create_function_case},
     r#type::{FunctionType, Type},
 };
-use crate::constant_table::ConstantId;
-use crate::compiler::Symbol;
 
 #[test]
 fn boolean() {

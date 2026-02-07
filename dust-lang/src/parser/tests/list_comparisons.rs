@@ -16,42 +16,42 @@ fn list_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 1),
+                payload: (4, 1),
                 span: Span(0, 30),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (0, 2),
+                payload: (0, 2),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
-                children: (3, 6),
+                payload: (3, 6),
                 span: Span(0, 30),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(1, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(7, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (2, 2),
+                payload: (2, 2),
                 span: Span(17, 30),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(18, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(24, 29),
             },
         ]
@@ -69,42 +69,42 @@ fn list_not_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 1),
+                payload: (4, 1),
                 span: Span(0, 28),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (0, 2),
+                payload: (0, 2),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
-                children: (3, 6),
+                payload: (3, 6),
                 span: Span(0, 28),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(1, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (43, 0),
+                payload: (43, 0),
                 span: Span(7, 11),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (2, 2),
+                payload: (2, 2),
                 span: Span(16, 28),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (43, 0),
+                payload: (43, 0),
                 span: Span(17, 21),
             },
             SyntaxNode {
                 kind: SyntaxKind::ByteExpression,
-                children: (42, 0),
+                payload: (42, 0),
                 span: Span(23, 27),
             },
         ]
@@ -122,42 +122,42 @@ fn list_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 1),
+                payload: (4, 1),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (0, 2),
+                payload: (0, 2),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                children: (3, 6),
+                payload: (3, 6),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (98, 0),
+                payload: (98, 0),
                 span: Span(1, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (97, 0),
+                payload: (97, 0),
                 span: Span(6, 9),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (2, 2),
+                payload: (2, 2),
                 span: Span(13, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (97, 0),
+                payload: (97, 0),
                 span: Span(14, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                children: (98, 0),
+                payload: (98, 0),
                 span: Span(19, 22),
             },
         ]
@@ -175,42 +175,42 @@ fn list_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 1),
+                payload: (4, 1),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (0, 2),
+                payload: (0, 2),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                children: (3, 6),
+                payload: (3, 6),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(1.0),
+                payload: SyntaxNode::encode_float(1.0),
                 span: Span(1, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(2.0),
+                payload: SyntaxNode::encode_float(2.0),
                 span: Span(6, 9),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (2, 2),
+                payload: (2, 2),
                 span: Span(13, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(2.0),
+                payload: SyntaxNode::encode_float(2.0),
                 span: Span(14, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                children: SyntaxNode::encode_float(1.0),
+                payload: SyntaxNode::encode_float(1.0),
                 span: Span(19, 22),
             },
         ]
@@ -228,42 +228,42 @@ fn list_greater_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 1),
+                payload: (4, 1),
                 span: Span(0, 16),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (0, 2),
+                payload: (0, 2),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
-                children: (3, 6),
+                payload: (3, 6),
                 span: Span(0, 16),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(1, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (2, 0),
+                payload: (2, 0),
                 span: Span(4, 5),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (2, 2),
+                payload: (2, 2),
                 span: Span(10, 16),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (1, 0),
+                payload: (1, 0),
                 span: Span(11, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                children: (2, 0),
+                payload: (2, 0),
                 span: Span(14, 15),
             },
         ]
@@ -281,42 +281,42 @@ fn list_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                children: (4, 1),
+                payload: (4, 1),
                 span: Span(0, 32),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (0, 2),
+                payload: (0, 2),
                 span: Span(0, 14),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                children: (3, 6),
+                payload: (3, 6),
                 span: Span(0, 32),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(1, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(8, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                children: (2, 2),
+                payload: (2, 2),
                 span: Span(18, 32),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(19, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                children: (0, 0),
+                payload: (0, 0),
                 span: Span(26, 31),
             },
         ]

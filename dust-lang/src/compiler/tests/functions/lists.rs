@@ -1,3 +1,5 @@
+use crate::compiler::Symbol;
+use crate::constant_table::ConstantId;
 use crate::{
     compiler::compile_prototypes,
     instruction::{Address, Instruction, OperandType},
@@ -6,8 +8,6 @@ use crate::{
     tests::{create_function_case, list_cases},
     r#type::{FunctionType, Type},
 };
-use crate::constant_table::ConstantId;
-use crate::compiler::Symbol;
 
 #[test]
 fn list_boolean() {

@@ -361,7 +361,10 @@ impl<'a> JitCompiler<'a> {
         scalar_sig.returns.push(AbiParam::new(I64));
 
         let mut struct_sig = Signature::new(cc);
-        struct_sig.params.push(AbiParam::special(pointer_type, ArgumentPurpose::StructReturn));
+        struct_sig.params.push(AbiParam::special(
+            pointer_type,
+            ArgumentPurpose::StructReturn,
+        ));
         struct_sig.params.push(AbiParam::new(pointer_type));
         struct_sig.params.push(AbiParam::new(I64));
 

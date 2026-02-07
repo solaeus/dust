@@ -5,95 +5,11 @@ use crate::{source::Span, syntax::SyntaxId};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SyntaxNode {
     pub kind: SyntaxKind,
-    pub children: (u32, u32),
+    pub payload: SyntaxPayload,
     pub span: Span,
 }
 
 impl SyntaxNode {
-    pub fn encode_character(character: char) -> (u32, u32) {
-        let char_bytes = (character as u32).to_le_bytes();
-        let left_payload =
-            u32::from_le_bytes([char_bytes[0], char_bytes[1], char_bytes[2], char_bytes[3]]);
-
-        (left_payload, 0)
-    }
-
-    pub fn decode_character(&self) -> char {
-        let left_bytes = self.children.0.to_le_bytes();
-
-        char::from_u32(u32::from_le_bytes(left_bytes)).unwrap_or_default()
-    }
-
-    pub fn encode_float(float: f64) -> (u32, u32) {
-        let float_bytes = float.to_le_bytes();
-        let left_payload = u32::from_le_bytes([
-            float_bytes[0],
-            float_bytes[1],
-            float_bytes[2],
-            float_bytes[3],
-        ]);
-        let right_payload = u32::from_le_bytes([
-            float_bytes[4],
-            float_bytes[5],
-            float_bytes[6],
-            float_bytes[7],
-        ]);
-
-        (left_payload, right_payload)
-    }
-
-    pub fn decode_float(&self) -> f64 {
-        let left_bytes = self.children.0.to_le_bytes();
-        let right_bytes = self.children.1.to_le_bytes();
-        let float_bytes = [
-            left_bytes[0],
-            left_bytes[1],
-            left_bytes[2],
-            left_bytes[3],
-            right_bytes[0],
-            right_bytes[1],
-            right_bytes[2],
-            right_bytes[3],
-        ];
-
-        f64::from_le_bytes(float_bytes)
-    }
-
-    pub fn encode_integer(integer: i64) -> (u32, u32) {
-        let integer_bytes = integer.to_le_bytes();
-        let left_payload = u32::from_le_bytes([
-            integer_bytes[0],
-            integer_bytes[1],
-            integer_bytes[2],
-            integer_bytes[3],
-        ]);
-        let right_payload = u32::from_le_bytes([
-            integer_bytes[4],
-            integer_bytes[5],
-            integer_bytes[6],
-            integer_bytes[7],
-        ]);
-
-        (left_payload, right_payload)
-    }
-
-    pub fn decode_integer(&self) -> i64 {
-        let left_bytes = self.children.0.to_le_bytes();
-        let right_bytes = self.children.1.to_le_bytes();
-        let integer_bytes = [
-            left_bytes[0],
-            left_bytes[1],
-            left_bytes[2],
-            left_bytes[3],
-            right_bytes[0],
-            right_bytes[1],
-            right_bytes[2],
-            right_bytes[3],
-        ];
-
-        i64::from_le_bytes(integer_bytes)
-    }
-
     pub fn children(&self) -> SyntaxNodeChildren {
         match self.kind {
             SyntaxKind::MainFunctionItem
@@ -105,19 +21,16 @@ impl SyntaxNode {
             | SyntaxKind::ValueParametersDefinition
             | SyntaxKind::IfExpression
             | SyntaxKind::StructFieldsDefinition
-            | SyntaxKind::StructFields => {
-                SyntaxNodeChildren::Multiple(self.children.0, self.children.1)
-            }
-            SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem => {
-                SyntaxNodeChildren::Single(SyntaxId(self.children.1))
-            }
+            | SyntaxKind::StructFields => SyntaxNodeChildren::Multiple(self.payload),
             SyntaxKind::ExpressionStatement
             | SyntaxKind::PathExpression
             | SyntaxKind::GroupedExpression
             | SyntaxKind::NegationExpression
             | SyntaxKind::NotExpression
-            | SyntaxKind::ElseExpression => SyntaxNodeChildren::Single(SyntaxId(self.children.0)),
-            SyntaxKind::LetStatement
+            | SyntaxKind::ElseExpression => SyntaxNodeChildren::Single(SyntaxId(self.payload.left)),
+            SyntaxKind::FunctionItem
+            | SyntaxKind::PublicFunctionItem
+            | SyntaxKind::LetStatement
             | SyntaxKind::LetMutStatement
             | SyntaxKind::ReassignmentStatement
             | SyntaxKind::FunctionExpression
@@ -151,9 +64,10 @@ impl SyntaxNode {
             | SyntaxKind::PublicStructItem
             | SyntaxKind::StructFieldDefinition
             | SyntaxKind::StructExpression
-            | SyntaxKind::StructField => {
-                SyntaxNodeChildren::Double(SyntaxId(self.children.0), SyntaxId(self.children.1))
-            }
+            | SyntaxKind::StructField => SyntaxNodeChildren::Binary(
+                SyntaxId(self.payload.left),
+                SyntaxId(self.payload.right),
+            ),
             _ => SyntaxNodeChildren::None,
         }
     }
@@ -161,39 +75,43 @@ impl SyntaxNode {
 
 impl Display for SyntaxNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.kind)?;
+
         match self.kind {
             SyntaxKind::BooleanExpression => {
-                let boolean = self.children.0 != 0;
+                let boolean = self.payload.decode_boolean();
 
-                write!(f, "boolean: {boolean}")
+                write!(f, ": {boolean}")?;
             }
             SyntaxKind::ByteExpression => {
-                let byte = self.children.0 as u8;
+                let byte = self.payload.decode_byte();
 
-                write!(f, "byte: {byte}")
+                write!(f, ": {byte}")?;
             }
             SyntaxKind::CharacterExpression => {
-                let character = self.decode_character();
+                let character = self.payload.decode_character();
 
-                write!(f, "character: '{character}'")
+                write!(f, ": {character}")?;
             }
             SyntaxKind::FloatExpression => {
-                let float = self.decode_float();
+                let float = self.payload.decode_float();
 
-                write!(f, "float: {float}")
+                write!(f, ": {float}")?;
             }
             SyntaxKind::IntegerExpression => {
-                let integer = self.decode_integer();
+                let integer = self.payload.decode_integer();
 
-                write!(f, "integer: {integer}")
+                write!(f, ": {integer}")?;
             }
             SyntaxKind::StringExpression => {
-                write!(f, "string: <{}>", self.span)
+                let span = self.span;
+
+                write!(f, ": <{span}>")?;
             }
-            _ => {
-                write!(f, "{}", self.kind)
-            }
+            _ => {}
         }
+
+        Ok(())
     }
 }
 
@@ -501,9 +419,191 @@ impl Display for SyntaxKind {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SyntaxPayload {
+    pub left: u32,
+    pub right: u32,
+}
+
+impl SyntaxPayload {
+    pub fn child(value: u32) -> Self {
+        Self {
+            left: value,
+            right: SyntaxId::NONE.0,
+        }
+    }
+
+    pub fn children(left: u32, right: u32) -> Self {
+        Self { left, right }
+    }
+
+    pub fn encode_boolean(boolean: bool) -> Self {
+        SyntaxPayload {
+            left: boolean as u32,
+            right: 0,
+        }
+    }
+
+    pub fn decode_boolean(&self) -> bool {
+        self.left != 0
+    }
+
+    pub fn encode_byte(byte: u8) -> Self {
+        SyntaxPayload {
+            left: byte as u32,
+            right: 0,
+        }
+    }
+
+    pub fn decode_byte(&self) -> u8 {
+        self.left as u8
+    }
+
+    pub fn encode_character(character: char) -> Self {
+        let char_bytes = (character as u32).to_le_bytes();
+        let encoded =
+            u32::from_le_bytes([char_bytes[0], char_bytes[1], char_bytes[2], char_bytes[3]]);
+
+        SyntaxPayload {
+            left: encoded,
+            right: 0,
+        }
+    }
+
+    pub fn decode_character(&self) -> char {
+        let left_bytes = self.left.to_le_bytes();
+
+        char::from_u32(u32::from_le_bytes(left_bytes)).unwrap_or_default()
+    }
+
+    pub fn encode_float(float: f64) -> Self {
+        let float_bytes = float.to_le_bytes();
+        let first_four_bytes = u32::from_le_bytes([
+            float_bytes[0],
+            float_bytes[1],
+            float_bytes[2],
+            float_bytes[3],
+        ]);
+        let last_four_bytes = u32::from_le_bytes([
+            float_bytes[4],
+            float_bytes[5],
+            float_bytes[6],
+            float_bytes[7],
+        ]);
+
+        SyntaxPayload {
+            left: first_four_bytes,
+            right: last_four_bytes,
+        }
+    }
+
+    pub fn decode_float(&self) -> f64 {
+        let left_bytes = self.left.to_le_bytes();
+        let right_bytes = self.right.to_le_bytes();
+        let float_bytes = [
+            left_bytes[0],
+            left_bytes[1],
+            left_bytes[2],
+            left_bytes[3],
+            right_bytes[0],
+            right_bytes[1],
+            right_bytes[2],
+            right_bytes[3],
+        ];
+
+        f64::from_le_bytes(float_bytes)
+    }
+
+    pub fn encode_integer(integer: i64) -> Self {
+        let integer_bytes = integer.to_le_bytes();
+        let first_four_bytes = u32::from_le_bytes([
+            integer_bytes[0],
+            integer_bytes[1],
+            integer_bytes[2],
+            integer_bytes[3],
+        ]);
+        let last_four_bytes = u32::from_le_bytes([
+            integer_bytes[4],
+            integer_bytes[5],
+            integer_bytes[6],
+            integer_bytes[7],
+        ]);
+
+        SyntaxPayload {
+            left: first_four_bytes,
+            right: last_four_bytes,
+        }
+    }
+
+    pub fn decode_integer(&self) -> i64 {
+        let left_bytes = self.left.to_le_bytes();
+        let right_bytes = self.right.to_le_bytes();
+        let integer_bytes = [
+            left_bytes[0],
+            left_bytes[1],
+            left_bytes[2],
+            left_bytes[3],
+            right_bytes[0],
+            right_bytes[1],
+            right_bytes[2],
+            right_bytes[3],
+        ];
+
+        i64::from_le_bytes(integer_bytes)
+    }
+
+    pub fn encode_string<'a>(str: &'a str) -> Self {
+        let length = str.len().min(8);
+        let mut bytes = [0u8; 8];
+
+        for (i, byte) in str.as_bytes().iter().take(length).enumerate() {
+            bytes[i] = *byte;
+        }
+
+        let left = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+        let right = u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
+
+        SyntaxPayload { left, right }
+    }
+
+    pub fn decode_string(&self) -> String {
+        let left_bytes = self.left.to_le_bytes();
+        let right_bytes = self.right.to_le_bytes();
+        let string_bytes = vec![
+            left_bytes[0],
+            left_bytes[1],
+            left_bytes[2],
+            left_bytes[3],
+            right_bytes[0],
+            right_bytes[1],
+            right_bytes[2],
+            right_bytes[3],
+        ];
+
+        unsafe { String::from_utf8_unchecked(string_bytes) }
+    }
+
+    pub fn left_id(&self) -> SyntaxId {
+        SyntaxId(self.left)
+    }
+
+    pub fn right_id(&self) -> SyntaxId {
+        SyntaxId(self.right)
+    }
+}
+
+impl Default for SyntaxPayload {
+    fn default() -> Self {
+        SyntaxPayload {
+            left: SyntaxId::NONE.0,
+            right: SyntaxId::NONE.0,
+        }
+    }
+}
+
 pub enum SyntaxNodeChildren {
     None,
     Single(SyntaxId),
-    Double(SyntaxId, SyntaxId),
-    Multiple(u32, u32),
+    Binary(SyntaxId, SyntaxId),
+    Multiple(SyntaxPayload),
 }

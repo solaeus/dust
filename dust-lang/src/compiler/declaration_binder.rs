@@ -11,7 +11,10 @@ use crate::{
         },
     },
     source::{Source, SourceFileId},
-    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
+    syntax::{
+        ExpressionVisitor, ItemVisitor, OtherVisitor, StatementVisitor, Syntax, SyntaxId,
+        SyntaxKind, SyntaxReader, SyntaxVisitor, SyntaxVistorTypes,
+    },
 };
 
 pub struct DeclarationBinder<'a> {
@@ -73,7 +76,7 @@ impl<'a> DeclarationBinder<'a> {
         Ok(main_declaration_id)
     }
 
-    fn create_symbol(&mut self, path: &SyntaxReader) -> Result<Symbol, CompileError> {
+    fn create_symbol(&mut self, path: &SyntaxReader) -> Symbol {
         debug_assert!(matches!(
             path.kind(),
             SyntaxKind::Path | SyntaxKind::PathSegment
@@ -83,31 +86,30 @@ impl<'a> DeclarationBinder<'a> {
         let bytes = self.source.get_source_bytes(&position);
         let constant_id = self.resolver.constants.add_string(bytes);
 
-        Ok(Symbol::Source {
+        Symbol::Source {
             constant_id,
             position,
-        })
+        }
     }
 }
 
-impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
+impl SyntaxVistorTypes for DeclarationBinder<'_> {
     type Input = ();
-
     type Output = ();
+    type Error = CompileError;
+}
 
+impl SyntaxVisitor for DeclarationBinder<'_> {}
+
+impl<'a> ItemVisitor for DeclarationBinder<'a> {
     fn visit_main_function_item(
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding main function");
 
-        let children = node.multiple_children().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChildren {
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
-            },
-        ))?;
+        let children = node.multiple_children()?;
 
         for child in children {
             self.visit(child, ())?;
@@ -120,7 +122,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         _: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding module item");
 
         todo!()
@@ -130,40 +132,20 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding function item");
 
-        let function_name =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let function_expression = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
-        let signature = function_expression
-            .left_child()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                child_index: 0,
-            }))?;
-        let value_parameters = signature
-            .left_child()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                child_index: 0,
-            }))?
-            .multiple_children()
-            .ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChildren {
-                    start_index: signature.inner().children.0,
-                    count: signature.inner().children.1,
-                },
-            ))?;
-        let return_type = signature.right_child();
-        let function_body = function_expression
-            .right_child()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                child_index: 1,
-            }))?;
+        let (function_name, function_expression) = node.binary_children()?;
+        let (signature, body) = function_expression.binary_children()?;
+        let value_parameter_list = signature.left_child()?;
+        let value_parameters = value_parameter_list.multiple_children()?;
+        let return_type = if signature.has_right_child() {
+            let right = signature.right_child()?;
+
+            Some(right)
+        } else {
+            None
+        };
 
         let function_scope_id = self.resolver.add_scope(Scope {
             kind: ScopeKind::Function,
@@ -172,7 +154,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             modules: SmallVec::new(),
         });
 
-        let function_symbol = self.create_symbol(&function_name)?;
+        let function_symbol = self.create_symbol(&function_name);
         let is_public = match node.kind() {
             SyntaxKind::PublicFunctionItem => true,
             SyntaxKind::FunctionItem => false,
@@ -188,12 +170,9 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         let function_declaration_id = self.resolver.add_declaration(function_declaration);
 
         for value_parameter in value_parameters {
-            let parameter_name = value_parameter.left_child().ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChild { child_index: 0 },
-            ))?;
-            let parameter_symbol = self.create_symbol(&parameter_name)?;
+            let parameter_name = value_parameter.left_child().map_err(CompileError::Syntax)?;
             let parameter_declaration = Declaration {
-                symbol: parameter_symbol,
+                symbol: self.create_symbol(&parameter_name),
                 kind: DeclarationKind::Local {
                     shadowed: None,
                     is_mutable: false,
@@ -208,19 +187,18 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                 .set_declaration_binding(parameter_name.id, parameter_declaration_id);
         }
 
-        if let Some(return_type_node) = return_type {
-            self.visit_type(return_type_node, ())?;
+        if let Some(type_node) = return_type {
+            self.visit_type(type_node, ())?;
         }
 
-        self.resolver
-            .add_scope_binding(function_body.id, function_scope_id);
+        self.resolver.add_scope_binding(body.id, function_scope_id);
         self.resolver
             .set_declaration_binding(function_expression.id, function_declaration_id);
 
         let mut function_declaration_binder =
             DeclarationBinder::new(function_scope_id, self.source, self.syntax, self.resolver);
 
-        function_declaration_binder.visit(function_body, ())?;
+        function_declaration_binder.visit(body, ())?;
 
         Ok(())
     }
@@ -229,7 +207,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         _: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding use item");
 
         todo!()
@@ -239,28 +217,13 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding struct item");
 
-        let struct_name =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let struct_fields = node
-            .right_child()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                child_index: 1,
-            }))?
-            .multiple_children()
-            .ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChildren {
-                    start_index: node.inner().children.0,
-                    count: node.inner().children.1,
-                },
-            ))?;
+        let (struct_name, struct_fields_list) = node.binary_children()?;
+        let struct_fields = struct_fields_list.multiple_children()?;
 
-        let struct_symbol = self.create_symbol(&struct_name)?;
+        let struct_symbol = self.create_symbol(&struct_name);
         let struct_declaration = Declaration {
             symbol: struct_symbol,
             kind: DeclarationKind::Type { parent: None },
@@ -273,14 +236,9 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         let mut field_ids = SmallVec::<[DeclarationId; 8]>::new();
 
         for field in struct_fields {
-            let field_name = field.left_child().ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChild { child_index: 0 },
-            ))?;
-            let field_type = field.right_child().ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChild { child_index: 1 },
-            ))?;
+            let (field_name, field_type) = field.binary_children()?;
 
-            let field_symbol = self.create_symbol(&field_name)?;
+            let field_symbol = self.create_symbol(&field_name);
             let field_declaration = Declaration {
                 symbol: field_symbol,
                 kind: DeclarationKind::Type {
@@ -305,21 +263,17 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
         Ok(())
     }
+}
 
+impl<'a> StatementVisitor for DeclarationBinder<'a> {
     fn visit_expression_statement(
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding expression statement");
 
-        let expression =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-
-        self.visit_expression(expression, ())?;
+        self.visit_expression(node.left_child()?, ())?;
 
         Ok(())
     }
@@ -328,36 +282,17 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         info!("Binding let statement");
 
-        let mut children = node.multiple_children().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChildren {
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
-            },
-        ))?;
-        let path =
-            children
-                .next()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let expression_statement =
-            children
-                .next()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 1,
-                }))?;
-        let expression = expression_statement
-            .left_child()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                child_index: 0,
-            }))?;
+        let mut children = node.multiple_children()?;
+        let path = children.expect_next()?;
+        let expression_statement = children.expect_next()?;
+        let expression = expression_statement.left_child()?;
 
         self.visit_expression(expression, ())?;
 
-        let symbol = self.create_symbol(&path)?;
+        let symbol = self.create_symbol(&path);
         let shadowed = self
             .resolver
             .find_declaration_in_scope(symbol, self.current_scope_id, None)
@@ -385,21 +320,14 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         input: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         info!("Binding binary assignment statement");
 
-        let path =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let expression = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (path, expression) = node.binary_children()?;
 
         self.visit_expression(expression, input)?;
 
-        let symbol = self.create_symbol(&path)?;
+        let symbol = self.create_symbol(&path);
         let (declaration_id, _) = self
             .resolver
             .find_declaration_in_scope(symbol, self.current_scope_id, None)
@@ -417,22 +345,11 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
-        let path =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let expression_statement = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
-        let expression = expression_statement
-            .left_child()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                child_index: 0,
-            }))?;
+    ) -> Result<Self::Output, Self::Error> {
+        let (path, expression_statement) = node.binary_children()?;
+        let expression = expression_statement.left_child()?;
 
-        let symbol = self.create_symbol(&path)?;
+        let symbol = self.create_symbol(&path);
         let (declaration_id, _) = self
             .resolver
             .find_declaration_in_scope(symbol, self.current_scope_id, None)
@@ -446,12 +363,14 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
 
         Ok(())
     }
+}
 
+impl<'a> ExpressionVisitor for DeclarationBinder<'a> {
     fn visit_boolean_expression(
         &mut self,
         _: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         Ok(())
     }
 
@@ -459,7 +378,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         _: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         Ok(())
     }
 
@@ -467,7 +386,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         _: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         Ok(())
     }
 
@@ -475,7 +394,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         _: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         Ok(())
     }
 
@@ -483,7 +402,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         _: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         Ok(())
     }
 
@@ -491,7 +410,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         _: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         Ok(())
     }
 
@@ -499,17 +418,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding list expression");
 
-        let elements = node.multiple_children().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChildren {
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
-            },
-        ))?;
-
-        for element in elements {
+        for element in node.multiple_children()? {
             self.visit_expression(element, ())?;
         }
 
@@ -520,17 +432,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding index expression");
 
-        let list =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let index = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (list, index) = node.binary_children()?;
 
         self.visit_expression(list, ())?;
         self.visit_expression(index, ())?;
@@ -542,26 +447,17 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding path expression");
 
-        let path =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let path_segments = path.multiple_children().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChildren {
-                start_index: path.inner().children.0,
-                count: path.inner().children.1,
-            },
-        ))?;
+        let path = node.left_child()?;
+        let path_segments = path.multiple_children()?;
 
         let mut current_declaration_id = DeclarationId(0);
         let mut current_scope_id = self.current_scope_id;
 
         for segment in path_segments {
-            let symbol = self.create_symbol(&segment)?;
+            let symbol = self.create_symbol(&segment);
             let (next_declaration_id, next_declaration) = self
                 .resolver
                 .find_declaration_in_scope(symbol, current_scope_id, None)
@@ -583,29 +479,13 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding struct expression");
 
-        let path =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let fields = node
-            .right_child()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                child_index: 1,
-            }))?
-            .multiple_children()
-            .ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChildren {
-                    start_index: node.inner().children.0,
-                    count: node.inner().children.1,
-                },
-            ))?;
+        let (path, fields_list) = node.binary_children()?;
+        let fields = fields_list.multiple_children()?;
 
-        let struct_symbol = self.create_symbol(&path)?;
-
+        let struct_symbol = self.create_symbol(&path);
         let (struct_declaration_id, struct_declaration) = self
             .resolver
             .find_declaration_in_scope(struct_symbol, self.current_scope_id, None)
@@ -619,14 +499,9 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
             .set_declaration_binding(node.id, struct_declaration_id);
 
         for field in fields {
-            let field_path = field.left_child().ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChild { child_index: 0 },
-            ))?;
-            let field_value = field.right_child().ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChild { child_index: 1 },
-            ))?;
+            let (field_path, field_value) = field.binary_children()?;
 
-            let field_symbol = self.create_symbol(&field_path)?;
+            let field_symbol = self.create_symbol(&field_path);
             let (field_declaration_id, _) = self
                 .resolver
                 .find_declaration_in_scope(
@@ -650,15 +525,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding block expression");
 
-        let children = node.multiple_children().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChildren {
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
-            },
-        ))?;
+        let children = node.multiple_children()?;
 
         let block_scope_id = self.resolver.add_scope(Scope {
             kind: ScopeKind::Block,
@@ -684,17 +554,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding if expression");
 
-        let children = node.multiple_children().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChildren {
-                start_index: node.inner().children.0,
-                count: node.inner().children.1,
-            },
-        ))?;
-
-        for child in children {
+        for child in node.multiple_children()? {
             self.visit(child, ())?;
         }
 
@@ -705,16 +568,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding else expression");
 
-        let child =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-
-        self.visit_expression(child, ())?;
+        self.visit_expression(node.left_child()?, ())?;
 
         Ok(())
     }
@@ -723,17 +580,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding math binary expression");
 
-        let left_expression =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let right_expression = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (left_expression, right_expression) = node.binary_children()?;
 
         self.visit_expression(left_expression, ())?;
         self.visit_expression(right_expression, ())?;
@@ -745,17 +595,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding comparison binary expression");
 
-        let left_expression =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let right_expression = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (left_expression, right_expression) = node.binary_children()?;
 
         self.visit_expression(left_expression, ())?;
         self.visit_expression(right_expression, ())?;
@@ -767,17 +610,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding logical binary expression");
 
-        let left_expression =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let right_expression = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (left_expression, right_expression) = node.binary_children()?;
 
         self.visit_expression(left_expression, ())?;
         self.visit_expression(right_expression, ())?;
@@ -789,16 +625,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding unary negation expression");
 
-        let expression =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-
-        self.visit_expression(expression, ())?;
+        self.visit_expression(node.left_child()?, ())?;
 
         Ok(())
     }
@@ -807,17 +637,10 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding while expression");
 
-        let condition =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let body = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (condition, body) = node.binary_children()?;
 
         self.visit_expression(condition, ())?;
         self.visit(body, ())?;
@@ -829,29 +652,11 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding function expression");
 
-        let signature =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let value_parameters = signature
-            .left_child()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                child_index: 0,
-            }))?
-            .multiple_children()
-            .ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChildren {
-                    start_index: signature.inner().children.0,
-                    count: signature.inner().children.1,
-                },
-            ))?;
-        let body = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (signature, body) = node.binary_children()?;
+        let value_parameters = signature.left_child()?.multiple_children()?;
 
         let function_scope_id = self.resolver.add_scope(Scope {
             kind: ScopeKind::Function,
@@ -863,11 +668,9 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         let mut parameter_ids = SmallVec::<[DeclarationId; 8]>::new();
 
         for value_parameter in value_parameters {
-            let parameter_name = value_parameter.left_child().ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChild { child_index: 0 },
-            ))?;
+            let parameter_name = value_parameter.left_child()?;
 
-            let parameter_symbol = self.create_symbol(&parameter_name)?;
+            let parameter_symbol = self.create_symbol(&parameter_name);
             let parameter_declaration = Declaration {
                 symbol: parameter_symbol,
                 kind: DeclarationKind::Local {
@@ -913,51 +716,38 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         debug!("Binding call expression");
 
-        let callee =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let arguments = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (callee, arguments_list) = node.binary_children()?;
+        let arguments = arguments_list.multiple_children()?;
 
         self.visit_expression(callee, ())?;
 
-        if let Some(argument_nodes) = arguments.multiple_children() {
-            for argument in argument_nodes {
-                self.visit_expression(argument, ())?;
-            }
+        for argument in arguments {
+            self.visit_expression(argument, ())?;
         }
 
         Ok(())
     }
+}
 
+impl<'a> OtherVisitor for DeclarationBinder<'a> {
     fn visit_type(
         &mut self,
         node: SyntaxReader,
         _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    ) -> Result<Self::Output, Self::Error> {
         if node.kind() == SyntaxKind::TypePath {
             debug!("Binding path type");
 
-            let path = node.left_child().ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChild { child_index: 0 },
-            ))?;
-            let path_segments = path.multiple_children().ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChildren {
-                    start_index: path.inner().children.0,
-                    count: path.inner().children.1,
-                },
-            ))?;
+            let path = node.left_child()?;
+            let path_segments = path.multiple_children()?;
 
             let mut current_declaration_id = None;
 
             for segment in path_segments {
-                let segment_symbol = self.create_symbol(&segment)?;
+                let segment_symbol = self.create_symbol(&segment);
                 let declaration_id = if let Some((id, _)) = self.resolver.find_declaration_in_scope(
                     segment_symbol,
                     self.current_scope_id,
@@ -991,5 +781,21 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         }
 
         Ok(())
+    }
+
+    fn visit_path(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, Self::Error> {
+        todo!()
+    }
+
+    fn visit_path_segment(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::Input,
+    ) -> Result<Self::Output, Self::Error> {
+        todo!()
     }
 }
