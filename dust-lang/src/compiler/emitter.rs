@@ -2770,19 +2770,6 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             }
         }
 
-        let return_type_id =
-            *self
-                .resolver
-                .get_type_binding(&node.id)
-                .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                    node.id,
-                )))?;
-        let return_operand_type =
-            self.resolver
-                .get_operand_type(return_type_id)
-                .ok_or(CompileError::Internal(InternalError::MissingType(
-                    return_type_id,
-                )))?;
         let callee_declaration_id =
             *self
                 .resolver
@@ -2810,6 +2797,20 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 .get_type(callee_type_id)
                 .ok_or(CompileError::Internal(InternalError::MissingType(
                     callee_type_id,
+                )))?;
+
+        let return_type_id =
+            *self
+                .resolver
+                .get_type_binding(&node.id)
+                .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
+                    node.id,
+                )))?;
+        let return_operand_type =
+            self.resolver
+                .get_operand_type(return_type_id)
+                .ok_or(CompileError::Internal(InternalError::MissingType(
+                    return_type_id,
                 )))?;
 
         let register_count = self.resolver.get_register_size(return_type_id).ok_or(

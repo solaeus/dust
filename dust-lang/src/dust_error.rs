@@ -21,7 +21,7 @@ pub enum DustError {
     Compile {
         error: Box<CompileError>,
         source: Source,
-        resolver: Resolver,
+        resolver: Box<Resolver>,
     },
     Jit(JitError),
 }
@@ -35,7 +35,7 @@ impl DustError {
         DustError::Compile {
             error: Box::new(error),
             source,
-            resolver,
+            resolver: Box::new(resolver),
         }
     }
 

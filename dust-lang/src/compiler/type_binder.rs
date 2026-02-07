@@ -52,21 +52,15 @@ impl<'a> TypeBinder<'a> {
         self.visit_main_function_item(main_root, ())
     }
 
-    pub fn infer_type(
-        &mut self,
-        type_id: TypeId,
-        position: Option<Position>,
-    ) -> Result<TypeId, CompileError> {
-        match self.resolver.get_type(type_id) {
-            Some(TypeNode::Inferred {
-                resolved: Some(resolved),
-                ..
-            }) => self.infer_type(*resolved, position),
-            Some(TypeNode::Inferred { resolved: None, .. }) => {
-                Err(CompileError::CannotInferType { type_id })
-            }
-            Some(_) => Ok(type_id),
-            None => Err(CompileError::Internal(InternalError::MissingType(type_id))),
+    pub fn infer_type(&mut self, type_id: TypeId) -> TypeId {
+        if let Some(TypeNode::Inferred {
+            resolved: Some(resolved),
+            ..
+        }) = self.resolver.get_type(type_id)
+        {
+            self.infer_type(*resolved)
+        } else {
+            type_id
         }
     }
 
@@ -77,8 +71,8 @@ impl<'a> TypeBinder<'a> {
         right: TypeId,
         right_position: Position,
     ) -> Result<(), CompileError> {
-        let left_inferred = self.infer_type(left, left_position)?;
-        let right_inferred = self.infer_type(right, Some(right_position))?;
+        let left_inferred = self.infer_type(left);
+        let right_inferred = self.infer_type(right);
 
         self.unify_inferred_types(left_inferred, left_position, right_inferred, right_position)
     }
@@ -289,12 +283,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             },
         ))?;
         let last_child = children.len() - 1;
-        let return_type_id = self.resolver.create_inferred_type();
-        let main_type_id = self.resolver.add_type(TypeNode::Function {
-            type_parameters: DeclarationMembers::default(),
-            value_parameters: TypeMembers::default(),
-            return_type_id,
-        });
+        let main_return_type_id = self.resolver.create_inferred_type();
 
         for (index, child) in children.into_iter().enumerate() {
             let child_type = self.visit(child, ())?;
@@ -303,7 +292,7 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
             if index == last_child {
                 self.unify_types(
-                    return_type_id,
+                    main_return_type_id,
                     Some(Position::new(self.file_id, node.span())),
                     child_type,
                     Position::new(self.file_id, child.span()),
@@ -311,9 +300,9 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
             }
         }
 
-        self.resolver.set_type_binding(node.id, return_type_id);
+        self.resolver.set_type_binding(node.id, main_return_type_id);
 
-        Ok(main_type_id)
+        Ok(main_return_type_id)
     }
 
     fn visit_module_item(
@@ -519,12 +508,12 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let path_type = {
             let raw = self.visit(path, input)?;
 
-            self.infer_type(raw, Some(Position::new(self.file_id, path.span())))?
+            self.infer_type(raw)
         };
         let expression_type = {
             let raw = self.visit(expression, input)?;
 
-            self.infer_type(raw, Some(Position::new(self.file_id, path.span())))?
+            self.infer_type(raw)
         };
 
         let is_character_concatenation = matches!(
@@ -734,15 +723,13 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         let list_type_id = {
             let raw = self.visit(list_expression, input)?;
-            let position = Position::new(self.file_id, list_expression.span());
 
-            self.infer_type(raw, Some(position))?
+            self.infer_type(raw)
         };
         let index_type_id = {
             let raw = self.visit(index_expression, input)?;
-            let position = Position::new(self.file_id, index_expression.span());
 
-            self.infer_type(raw, Some(position))?
+            self.infer_type(raw)
         };
 
         if index_type_id != TypeId::INTEGER {
@@ -903,9 +890,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         for child in children {
             let child_type = {
                 let raw = self.visit(child, ())?;
-                let position = Position::new(self.file_id, child.span());
 
-                self.infer_type(raw, Some(position))?
+                self.infer_type(raw)
             };
             block_type_id = child_type;
 
@@ -946,9 +932,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         let condition_type = {
             let raw = self.visit(condition, ())?;
-            let position = Position::new(self.file_id, condition.span());
 
-            self.infer_type(raw, Some(position))?
+            self.infer_type(raw)
         };
 
         if condition_type != TypeId::BOOLEAN {
@@ -1013,15 +998,13 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         let left_type = {
             let raw = self.visit(left_child, ())?;
-            let position = Position::new(self.file_id, left_child.span());
 
-            self.infer_type(raw, Some(position))?
+            self.infer_type(raw)
         };
         let right_type = {
             let raw = self.visit(right_child, ())?;
-            let position = Position::new(self.file_id, right_child.span());
 
-            self.infer_type(raw, Some(position))?
+            self.infer_type(raw)
         };
 
         let is_character_concatenation = matches!(
@@ -1099,15 +1082,13 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         let left_type = {
             let raw = self.visit(left_child, input)?;
-            let position = Position::new(self.file_id, left_child.span());
 
-            self.infer_type(raw, Some(position))?
+            self.infer_type(raw)
         };
         let right_type = {
             let raw = self.visit(right_child, input)?;
-            let position = Position::new(self.file_id, right_child.span());
 
-            self.infer_type(raw, Some(position))?
+            self.infer_type(raw)
         };
 
         if left_type != TypeId::BOOLEAN {
@@ -1145,9 +1126,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
                 }))?;
         let child_type = {
             let raw = self.visit(child, ())?;
-            let position = Position::new(self.file_id, child.span());
 
-            self.infer_type(raw, Some(position))?
+            self.infer_type(raw)
         };
 
         match child_type {
@@ -1188,9 +1168,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         let condition_type = {
             let raw = self.visit(condition, ())?;
-            let position = Position::new(self.file_id, condition.span());
 
-            self.infer_type(raw, Some(position))?
+            self.infer_type(raw)
         };
 
         if condition_type != TypeId::BOOLEAN {
@@ -1261,9 +1240,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         let return_type_id = {
             if let Some(return_type_node) = return_type {
                 let raw = self.visit_type(return_type_node, ())?;
-                let position = Position::new(self.file_id, return_type_node.span());
 
-                self.infer_type(raw, Some(position))?
+                self.infer_type(raw)
             } else {
                 TypeId::NONE
             }
@@ -1309,9 +1287,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
 
         let callee_type = {
             let raw = self.visit(callee, ())?;
-            let position = Position::new(self.file_id, callee.span());
 
-            self.infer_type(raw, Some(position))?
+            self.infer_type(raw)
         };
 
         let TypeNode::Function {
