@@ -1,5 +1,5 @@
 use crate::{
-    compiler::compile_main_prototype,
+    compiler::{Symbol, compile_main_prototype},
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::constant_cases,
@@ -14,6 +14,7 @@ fn boolean() {
     assert_eq!(
         prototype,
         Prototype {
+            name: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
@@ -32,6 +33,7 @@ fn byte() {
     assert_eq!(
         prototype,
         Prototype {
+            name: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
                 Address::encoded(42),
@@ -50,6 +52,7 @@ fn character() {
     assert_eq!(
         prototype,
         Prototype {
+            name: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Character),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
@@ -68,6 +71,7 @@ fn float() {
     assert_eq!(
         prototype,
         Prototype {
+            name: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
@@ -86,6 +90,7 @@ fn integer() {
     assert_eq!(
         prototype,
         Prototype {
+            name: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
@@ -104,6 +109,7 @@ fn string() {
     assert_eq!(
         prototype,
         Prototype {
+            name: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),

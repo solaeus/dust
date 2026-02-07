@@ -57,16 +57,18 @@ impl<'a> DeclarationBinder<'a> {
             imports: SmallVec::new(),
             modules: SmallVec::new(),
         });
-        let main_declaration = Declaration {
-            symbol: self.resolver.create_anonymous_symbol(),
+        let main_declaration_id = self.resolver.add_declaration(Declaration {
+            symbol: Symbol::MAIN,
             kind: DeclarationKind::Type { parent: None },
             scope_id: main_scope,
             is_public: true,
             position: Some(main_root.position()),
-        };
-        let main_declaration_id = self.resolver.add_declaration(main_declaration);
+        });
 
-        self.visit_main_function_item(main_root, ());
+        self.resolver
+            .set_declaration_binding(main_root.id, main_declaration_id);
+        self.resolver.add_scope_binding(main_root.id, main_scope);
+        self.visit_main_function_item(main_root, ())?;
 
         Ok(main_declaration_id)
     }

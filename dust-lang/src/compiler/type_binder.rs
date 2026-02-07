@@ -104,8 +104,17 @@ impl<'a> TypeBinder<'a> {
                     resolved: None,
                 },
                 _,
-            )
-            | (
+            ) => {
+                if let Some(node) = self.resolver.get_type_mut(left) {
+                    *node = TypeNode::Inferred {
+                        inferred_id: id,
+                        resolved: Some(right),
+                    };
+                }
+
+                Ok(())
+            }
+            (
                 _,
                 TypeNode::Inferred {
                     inferred_id: id,
@@ -284,6 +293,18 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         ))?;
         let last_child = children.len() - 1;
         let main_return_type_id = self.resolver.create_inferred_type();
+        let main_function_type_id = self.resolver.add_type(TypeNode::Function {
+            type_parameters: DeclarationMembers::default(),
+            value_parameters: TypeMembers::default(),
+            return_type_id: main_return_type_id,
+        });
+        let main_function_declaration_id =
+            *self
+                .resolver
+                .get_declaration_binding(&node.id)
+                .ok_or(CompileError::Internal(
+                    InternalError::MissingDeclarationBinding(node.id),
+                ))?;
 
         for (index, child) in children.into_iter().enumerate() {
             let child_type = self.visit(child, ())?;
@@ -301,6 +322,8 @@ impl<'a> SyntaxVisitor for TypeBinder<'a> {
         }
 
         self.resolver.set_type_binding(node.id, main_return_type_id);
+        self.resolver
+            .set_declaration_type(main_function_declaration_id, main_function_type_id);
 
         Ok(main_return_type_id)
     }

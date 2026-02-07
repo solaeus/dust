@@ -716,6 +716,8 @@ pub enum Symbol {
 }
 
 impl Symbol {
+    pub const MAIN: Self = Symbol::BuiltIn("main");
+
     pub fn get_str<'a>(&'a self, constants: &'a ConstantTable) -> Option<&'a str> {
         match self {
             Symbol::Anonymous(_) => None,
