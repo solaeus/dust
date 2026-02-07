@@ -303,7 +303,7 @@ fn list_index_boolean() {
                 span: Span(30, 31),
             },
             SyntaxNode {
-                kind: SyntaxKind::IndexExpression,
+                kind: SyntaxKind::ListIndexExpression,
                 children: (11, 12),
                 span: Span(30, 34),
             },
@@ -386,7 +386,7 @@ fn list_index_byte() {
                 span: Span(29, 30),
             },
             SyntaxNode {
-                kind: SyntaxKind::IndexExpression,
+                kind: SyntaxKind::ListIndexExpression,
                 children: (11, 12),
                 span: Span(29, 33),
             },
@@ -469,7 +469,7 @@ fn list_index_character() {
                 span: Span(26, 27),
             },
             SyntaxNode {
-                kind: SyntaxKind::IndexExpression,
+                kind: SyntaxKind::ListIndexExpression,
                 children: (11, 12),
                 span: Span(26, 30),
             },
@@ -552,7 +552,7 @@ fn list_index_float() {
                 span: Span(26, 27),
             },
             SyntaxNode {
-                kind: SyntaxKind::IndexExpression,
+                kind: SyntaxKind::ListIndexExpression,
                 children: (11, 12),
                 span: Span(26, 30),
             },
@@ -635,7 +635,7 @@ fn list_index_integer() {
                 span: Span(20, 21),
             },
             SyntaxNode {
-                kind: SyntaxKind::IndexExpression,
+                kind: SyntaxKind::ListIndexExpression,
                 children: (11, 12),
                 span: Span(20, 24),
             },
@@ -718,7 +718,7 @@ fn list_index_string() {
                 span: Span(32, 33),
             },
             SyntaxNode {
-                kind: SyntaxKind::IndexExpression,
+                kind: SyntaxKind::ListIndexExpression,
                 children: (11, 12),
                 span: Span(32, 36),
             },

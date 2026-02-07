@@ -16,6 +16,7 @@ use crate::{
     syntax::{
         Syntax, SyntaxId, SyntaxKind, SyntaxNode, SyntaxReader, SyntaxReaderIterator, SyntaxVisitor,
     },
+    r#type::Type,
 };
 
 #[derive(Debug)]
@@ -288,7 +289,7 @@ impl<'a> Emitter<'a> {
 
         Ok(Prototype {
             index: self.prototype_index,
-            name_position: declaration.name_position,
+            name_position: declaration.name,
             function_type,
             instructions: self.instructions,
             call_arguments: self.call_arguments,
@@ -1099,7 +1100,9 @@ impl<'a> Emitter<'a> {
 
                     match target {
                         Target::Register { index, .. } => Address::register(index),
-                        Target::Compound { base_register, .. } => Address::register(base_register + 1),
+                        Target::Compound { base_register, .. } => {
+                            Address::register(base_register + 1)
+                        }
                     }
                 } else if type_id == TypeId::NONE {
                     return_instructions.merge(instructions);
@@ -1738,6 +1741,18 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting struct expression");
 
+        fn flatten_leaf_operand_types(r#type: &Type, out: &mut Vec<OperandType>) {
+            match r#type {
+                Type::Struct { fields, .. } => {
+                    for (_, field_type) in fields {
+                        flatten_leaf_operand_types(field_type, out);
+                    }
+                }
+                Type::None => {}
+                other => out.push(other.as_operand_type()),
+            }
+        }
+
         let fields = node
             .right_child()
             .ok_or(CompileError::MissingChild {
@@ -1749,22 +1764,57 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 parent_kind: node.kind(),
                 start_index: node.inner().children.0,
                 count: node.inner().children.1,
-            })?;
+            })?
+            .collect::<Vec<_>>();
 
-        let field_count = fields.len() as u16;
+        // Struct values are represented as:
+        //   [header][flattened leaf values...]
+        // where nested structs are inlined into the leaf sequence.
+        let mut field_leaf_operand_types: Vec<(bool, Vec<OperandType>)> =
+            Vec::with_capacity(fields.len());
+        let mut total_leaf_count: u16 = 0;
+
+        for field in &fields {
+            let field_expression = field.right_child().ok_or(CompileError::MissingChild {
+                parent_kind: field.kind(),
+                child_index: 1,
+            })?;
+            let field_type_id = *self.resolver.get_type_binding(&field_expression.id).ok_or(
+                CompileError::MissingTypeBinding {
+                    syntax_id: field_expression.id,
+                },
+            )?;
+            let field_full_type = self
+                .resolver
+                .get_full_type(field_type_id, self.source)
+                .ok_or(CompileError::MissingType {
+                    type_id: field_type_id,
+                })?;
+
+            let is_struct_field = matches!(field_full_type, Type::Struct { .. });
+
+            let mut leaf_types = Vec::new();
+            flatten_leaf_operand_types(&field_full_type, &mut leaf_types);
+
+            total_leaf_count = total_leaf_count.saturating_add(leaf_types.len() as u16);
+            field_leaf_operand_types.push((is_struct_field, leaf_types));
+        }
+
+        let register_count = total_leaf_count.saturating_add(1).max(1);
         let target = if let Some(target) = target
-            && target.destination_count() == field_count + 1
+            && target.destination_count() == register_count
         {
             target
         } else {
-            self.allocate_temporary_registers(field_count + 1)
+            self.allocate_temporary_registers(register_count)
         };
-        let field_destinations = (target.index() + 1)..=(target.index() + field_count);
 
         let mut struct_emission = InstructionsEmission::new();
-        let mut base_register = None;
+        let mut next_destination = target.index() + 1;
 
-        for (field, destination) in fields.into_iter().zip(field_destinations) {
+        for (field, (is_struct_field, leaf_types)) in
+            fields.into_iter().zip(field_leaf_operand_types)
+        {
             let field_expression = field.right_child().ok_or(CompileError::MissingChild {
                 parent_kind: field.kind(),
                 child_index: 1,
@@ -1775,31 +1825,41 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 field_emission,
                 &field_expression,
             )?;
-            let field_type_id = *self.resolver.get_type_binding(&field_expression.id).ok_or(
-                CompileError::MissingTypeBinding {
-                    syntax_id: field_expression.id,
-                },
-            )?;
-            let operand_type =
-                self.resolver
-                    .get_operand_type(field_type_id)
-                    .ok_or(CompileError::MissingType {
-                        type_id: field_type_id,
-                    })?;
-            let field_move_instruction =
-                Instruction::r#move(destination, field_address, operand_type);
 
-            struct_emission.push(field_move_instruction);
+            if is_struct_field {
+                // Struct-typed field: copy its flattened leaf values from reg_(field_base+1..).
+                if field_address.memory != MemoryKind::REGISTER {
+                    return Err(CompileError::ExpectedExpression {
+                        node_kind: field_expression.kind(),
+                        position: Position::new(self.file_id, field_expression.span()),
+                    });
+                }
 
-            if base_register.is_none() {
-                base_register = Some(destination);
+                for (leaf_index, operand_type) in leaf_types.into_iter().enumerate() {
+                    let source = Address::register(field_address.index + 1 + leaf_index as u16);
+                    let field_move_instruction =
+                        Instruction::r#move(next_destination, source, operand_type);
+                    struct_emission.push(field_move_instruction);
+                    next_destination += 1;
+                }
+            } else {
+                let operand_type = *leaf_types.first().ok_or(CompileError::ExpectedExpression {
+                    node_kind: field_expression.kind(),
+                    position: Position::new(self.file_id, field_expression.span()),
+                })?;
+                let field_move_instruction =
+                    Instruction::r#move(next_destination, field_address, operand_type);
+                struct_emission.push(field_move_instruction);
+                next_destination += 1;
             }
         }
 
-        let struct_reference_instruction =
-            Instruction::reference(target.index(), base_register.unwrap_or(0), field_count);
+        if total_leaf_count > 0 {
+            let struct_reference_instruction =
+                Instruction::reference(target.index(), target.index() + 1, total_leaf_count);
+            struct_emission.push(struct_reference_instruction);
+        }
 
-        struct_emission.push(struct_reference_instruction);
         struct_emission.set_target(Some(target));
 
         Ok(Emission::Instructions(struct_emission))

@@ -58,9 +58,9 @@ pub fn compile_prototypes(source_code: String) -> Result<Vec<Prototype>, DustErr
 }
 
 pub struct Compiler {
-    context: Resolver,
-    source: Source,
     syntax: Syntax,
+    source: Source,
+    resolver: Resolver,
 }
 
 impl Compiler {
@@ -68,12 +68,12 @@ impl Compiler {
         Self {
             syntax: Syntax::with_capacity(source.file_count()),
             source,
-            context: Resolver::new(),
+            resolver: Resolver::new(),
         }
     }
 
     pub fn context(&self) -> &Resolver {
-        &self.context
+        &self.resolver
     }
 
     pub fn compile(self, name: Option<String>) -> Result<Program, DustError> {
@@ -151,12 +151,12 @@ impl Compiler {
                 ScopeId::PROJECT,
                 &self.source,
                 &self.syntax,
-                &mut self.context,
+                &mut self.resolver,
             );
 
             match main_declaration_binder.bind_main() {
                 Ok(()) => (),
-                Err(error) => return Err(DustError::compile(error, self.source)),
+                Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
             }
         }
 
@@ -169,12 +169,12 @@ impl Compiler {
                 SourceFileId::MAIN,
                 &self.source,
                 &self.syntax,
-                &mut self.context,
+                &mut self.resolver,
             );
 
-            match main_type_binder.resolve_main() {
+            match main_type_binder.bind_main() {
                 Ok(main_type) => main_type,
-                Err(error) => return Err(DustError::compile(error, self.source)),
+                Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
             }
         };
 
@@ -183,7 +183,7 @@ impl Compiler {
             let span = span!(Level::INFO, "emit");
             let _enter = span.enter();
 
-            self.context.prototypes.push(Prototype::default()); // Placeholder for main prototype
+            self.resolver.prototypes.push(Prototype::default()); // Placeholder for main prototype
 
             let main_emitter = match Emitter::new(
                 DeclarationId::MAIN,
@@ -192,18 +192,18 @@ impl Compiler {
                 main_function_type,
                 ScopeId::PROJECT,
                 None,
-                (&self.source, &self.syntax, &mut self.context),
+                (&self.source, &self.syntax, &mut self.resolver),
             ) {
                 Ok(emitter) => emitter,
-                Err(error) => return Err(DustError::compile(error, self.source)),
+                Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
             };
 
-            self.context.prototypes[0] = match main_emitter.emit_main() {
+            self.resolver.prototypes[0] = match main_emitter.emit_main() {
                 Ok(prototype) => prototype,
-                Err(error) => return Err(DustError::compile(error, self.source)),
+                Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
             };
         }
 
-        Ok((self.context, self.source, self.syntax))
+        Ok((self.resolver, self.source, self.syntax))
     }
 }

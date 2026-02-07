@@ -4,7 +4,6 @@ use cranelift_module::ModuleError;
 use crate::{
     dust_error::AnnotatedError,
     instruction::{MemoryKind, OperandType, Operation},
-    source::SourceFileId,
     r#type::Type,
 };
 
@@ -80,12 +79,10 @@ pub enum JitError {
     },
 }
 
-impl AnnotatedError for JitError {
-    fn file_id(&self) -> SourceFileId {
-        SourceFileId::default()
-    }
+impl<'a> AnnotatedError<'a> for JitError {
+    type Input = ();
 
-    fn annotated_error<'a>(&'a self, _source: &'a str) -> Group<'a> {
+    fn annotated_error(&'a self, _: Self::Input) -> Group<'a> {
         match self {
             JitError::CompilationError { message, .. } => {
                 let title = format!("JIT compilation failed: {message}");

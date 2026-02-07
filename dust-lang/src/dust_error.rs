@@ -5,63 +5,51 @@ use std::fmt::{self, Display, Formatter};
 use annotate_snippets::{Group, Renderer};
 
 use crate::{
-    compiler::CompileError,
+    compiler::{CompileError, Resolver},
     jit_vm::JitError,
     parser::ParseError,
-    source::{Source, SourceCode, SourceFile, SourceFileId},
+    source::Source,
 };
 
-const SOURCE_NOT_AVAILABLE: &str = "<source not available>";
-
-/// A top-level error that can occur during the interpretation of Dust code.
+/// An error that can occur during the interpretation of Dust code.
 #[derive(Debug)]
-pub struct DustError {
-    pub error: DustErrorKind,
-    pub source: Source,
+pub enum DustError {
+    Parse {
+        errors: Vec<ParseError>,
+        source: Source,
+    },
+    Compile {
+        error: Box<CompileError>,
+        source: Source,
+        resolver: Resolver,
+    },
+    Jit(JitError),
 }
 
 impl DustError {
     pub fn parse(errors: Vec<ParseError>, source: Source) -> Self {
-        DustError {
-            error: DustErrorKind::Parse(errors),
-            source,
-        }
+        DustError::Parse { errors, source }
     }
 
-    pub fn compile(error: CompileError, source: Source) -> Self {
-        DustError {
-            error: DustErrorKind::Compile(Box::new(error)),
+    pub fn compile(error: CompileError, source: Source, resolver: Resolver) -> Self {
+        DustError::Compile {
+            error: Box::new(error),
             source,
+            resolver,
         }
     }
 
     pub fn jit(error: JitError) -> Self {
-        let mut source = Source::new();
-
-        source.add_file(SourceFile {
-            name: SOURCE_NOT_AVAILABLE.to_string(),
-            source_code: SourceCode::String(SOURCE_NOT_AVAILABLE.to_string()),
-        });
-
-        DustError {
-            error: DustErrorKind::Jit(error),
-            source,
-        }
+        DustError::Jit(error)
     }
 
     pub fn report(&self) -> String {
-        match &self.error {
-            DustErrorKind::Parse(parse_errors) => {
+        match self {
+            DustError::Parse { errors, source } => {
                 let mut report = Vec::new();
 
-                for parse_error in parse_errors {
-                    let source = self
-                        .source
-                        .get_file(parse_error.file_id())
-                        .map_or(SOURCE_NOT_AVAILABLE, |file| unsafe {
-                            str::from_utf8_unchecked(file.source_code.as_ref())
-                        });
-                    let group = parse_error.annotated_error(source);
+                for parse_error in errors {
+                    let group = parse_error.annotated_error(&source);
 
                     report.push(group);
                 }
@@ -70,20 +58,18 @@ impl DustError {
 
                 renderer.render(&report)
             }
-            DustErrorKind::Compile(compile_error) => {
-                let source = self
-                    .source
-                    .get_file(compile_error.file_id())
-                    .map_or(SOURCE_NOT_AVAILABLE, |file| unsafe {
-                        str::from_utf8_unchecked(file.source_code.as_ref())
-                    });
-                let report = [compile_error.annotated_error(source)];
+            DustError::Compile {
+                error,
+                source,
+                resolver,
+            } => {
+                let report = [error.annotated_error((source, resolver))];
                 let renderer = Renderer::styled();
 
                 renderer.render(&report)
             }
-            DustErrorKind::Jit(jit_error) => {
-                let report = [jit_error.annotated_error(SOURCE_NOT_AVAILABLE)];
+            DustError::Jit(jit_error) => {
+                let report = [jit_error.annotated_error(())];
                 let renderer = Renderer::styled();
 
                 renderer.render(&report)
@@ -92,20 +78,14 @@ impl DustError {
     }
 }
 
-#[derive(Debug)]
-pub enum DustErrorKind {
-    Parse(Vec<ParseError>),
-    Compile(Box<CompileError>),
-    Jit(JitError),
-}
-
 impl Display for DustError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.report())
     }
 }
 
-pub trait AnnotatedError {
-    fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a>;
-    fn file_id(&self) -> SourceFileId;
+pub trait AnnotatedError<'a> {
+    type Input;
+
+    fn annotated_error(&'a self, input: Self::Input) -> Group<'a>;
 }

@@ -46,6 +46,16 @@ impl SyntaxTree {
         SyntaxId(index)
     }
 
+    pub fn last_node(&self) -> Option<&SyntaxNode> {
+        self.nodes.last()
+    }
+
+    pub fn last(&self) -> Option<(SyntaxId, &SyntaxNode)> {
+        let id = self.last_node_id();
+
+        self.last_node().map(|node| (id, node))
+    }
+
     pub fn push_node(&mut self, node: SyntaxNode) -> SyntaxId {
         let index = self.nodes.len() as u32;
 
@@ -83,10 +93,6 @@ impl SyntaxTree {
         self.children.extend_from_slice(children);
 
         (start_index, count)
-    }
-
-    pub fn last_node(&self) -> Option<&SyntaxNode> {
-        self.nodes.last()
     }
 
     pub fn sorted_nodes(&self) -> Vec<SyntaxNode> {

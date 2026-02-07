@@ -144,7 +144,7 @@ impl SyntaxNode {
             | SyntaxKind::GreaterThanOrEqualExpression
             | SyntaxKind::WhileExpression
             | SyntaxKind::CallExpression
-            | SyntaxKind::IndexExpression
+            | SyntaxKind::ListIndexExpression
             | SyntaxKind::AsExpression
             | SyntaxKind::FunctionType
             | SyntaxKind::StructItem
@@ -223,6 +223,11 @@ pub enum SyntaxKind {
     ModuloAssignmentStatement,
     ExponentAssignmentStatement,
 
+    // Paths
+    Path,
+    PathSegment,
+    PathExpression,
+
     // Literal Expressions
     BooleanExpression,
     ByteExpression,
@@ -255,22 +260,28 @@ pub enum SyntaxKind {
     NegationExpression,
     NotExpression,
 
-    // Other Expressions
+    // List Expressions
     ListExpression,
-    IndexExpression,
-    BlockExpression,
-    CallExpression,
+    ListIndexExpression,
+
+    // Function Expressions
     FunctionExpression,
     NativeFunctionExpression,
-    GroupedExpression,
+    CallExpression,
+
+    // Control Flow Expressions
     IfExpression,
     ElseExpression,
-    PathExpression,
+
+    // Loop Expressions
     WhileExpression,
+
     ReturnExpression,
     BreakExpression,
     AsExpression,
     StructExpression,
+    GroupedExpression,
+    BlockExpression,
 
     // Sub-Syntax
     CallValueArguments,
@@ -284,9 +295,6 @@ pub enum SyntaxKind {
     StructFieldDefinition,
     StructFields,
     StructField,
-
-    Path,
-    PathSegment,
 
     // Types (Sub-Syntax)
     BooleanType,
@@ -361,7 +369,7 @@ impl SyntaxKind {
                 | SyntaxKind::NegationExpression
                 | SyntaxKind::NotExpression
                 | SyntaxKind::ListExpression
-                | SyntaxKind::IndexExpression
+                | SyntaxKind::ListIndexExpression
                 | SyntaxKind::BlockExpression
                 | SyntaxKind::CallExpression
                 | SyntaxKind::FunctionExpression
@@ -445,7 +453,7 @@ impl Display for SyntaxKind {
             SyntaxKind::NotEqualExpression => write!(f, "not equal expression"),
             SyntaxKind::NegationExpression => write!(f, "negation expression"),
             SyntaxKind::NotExpression => write!(f, "not expression"),
-            SyntaxKind::IndexExpression => write!(f, "index expression"),
+            SyntaxKind::ListIndexExpression => write!(f, "index expression"),
             SyntaxKind::ListExpression => write!(f, "list expression"),
             SyntaxKind::BlockExpression => write!(f, "block expression"),
             SyntaxKind::CallExpression => write!(f, "call expression"),

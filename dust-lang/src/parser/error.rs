@@ -2,74 +2,75 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     dust_error::AnnotatedError,
-    source::{Position, SourceFileId},
-    syntax::{SyntaxId, SyntaxKind},
+    source::{Position, Source, SourceFileId},
+    syntax::SyntaxKind,
     token::TokenKind,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParseError {
+    // Lexer Errors
     InvalidUtf8 {
         position: Position,
     },
 
     // Syntax Errors
     ExpectedToken {
-        actual: TokenKind,
+        found: TokenKind,
         expected: TokenKind,
         position: Position,
     },
     ExpectedMultipleTokens {
-        actual: TokenKind,
+        found: TokenKind,
         expected: &'static [TokenKind],
         position: Position,
     },
     UnexpectedToken {
-        actual: TokenKind,
+        found: TokenKind,
         position: Position,
     },
 
     // Semantic Errors
     ExpectedItem {
-        actual: SyntaxKind,
+        found: SyntaxKind,
         position: Position,
     },
     ExpectedStatement {
-        actual: SyntaxKind,
+        found: SyntaxKind,
         position: Position,
     },
     ExpectedExpression {
-        actual: SyntaxKind,
+        found: Option<SyntaxKind>,
         position: Position,
-    },
-
-    // Internal Errors
-    MissingNode {
-        id: SyntaxId,
     },
 }
 
-impl AnnotatedError for ParseError {
+impl ParseError {
     fn file_id(&self) -> SourceFileId {
         match self {
-            ParseError::InvalidUtf8 { position } => position.file_id,
-            ParseError::ExpectedToken { position, .. } => position.file_id,
-            ParseError::ExpectedMultipleTokens { position, .. } => position.file_id,
-            ParseError::UnexpectedToken { position, .. } => position.file_id,
-            ParseError::ExpectedItem { position, .. } => position.file_id,
-            ParseError::ExpectedStatement { position, .. } => position.file_id,
-            ParseError::ExpectedExpression { position, .. } => position.file_id,
-            ParseError::MissingNode { .. } => SourceFileId::default(),
+            ParseError::InvalidUtf8 { position }
+            | ParseError::ExpectedToken { position, .. }
+            | ParseError::ExpectedMultipleTokens { position, .. }
+            | ParseError::UnexpectedToken { position, .. }
+            | ParseError::ExpectedItem { position, .. }
+            | ParseError::ExpectedStatement { position, .. }
+            | ParseError::ExpectedExpression { position, .. } => position.file_id,
         }
     }
+}
 
-    fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a> {
+impl<'a> AnnotatedError<'a> for ParseError {
+    type Input = &'a Source;
+
+    fn annotated_error(&'a self, source: Self::Input) -> Group<'a> {
+        let source_file_str = source.get_file_as_str(self.file_id());
+
         match self {
             ParseError::InvalidUtf8 { position } => {
                 let title = "Invalid UTF-8 sequence".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
+                    Snippet::source(source_file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label("This is not valid UTF-8"),
@@ -77,14 +78,14 @@ impl AnnotatedError for ParseError {
                 )
             }
             ParseError::ExpectedToken {
-                actual,
+                found: actual,
                 expected,
                 position,
             } => {
                 let title = "Expected a different token".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
+                    Snippet::source(source_file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!("Found {actual} but expected {expected} here")),
@@ -92,19 +93,27 @@ impl AnnotatedError for ParseError {
                 )
             }
             ParseError::ExpectedMultipleTokens {
-                actual,
+                found: actual,
                 expected,
                 position,
             } => {
                 let title = "Expected a different token".to_string();
                 let expected_list = expected
                     .iter()
-                    .map(|token| format!("{token}"))
-                    .collect::<Vec<String>>()
-                    .join(", ");
+                    .enumerate()
+                    .map(|(index, token)| {
+                        let is_last = index == expected.len() - 1;
+
+                        if is_last && expected.len() > 1 {
+                            format!("or {token}")
+                        } else {
+                            format!("{token}, ")
+                        }
+                    })
+                    .collect::<String>();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
+                    Snippet::source(source_file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!(
@@ -113,45 +122,43 @@ impl AnnotatedError for ParseError {
                     ),
                 )
             }
-            ParseError::UnexpectedToken { position, actual } => {
+            ParseError::UnexpectedToken { position, found } => {
                 let title = "Unexpected token".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
+                    Snippet::source(source_file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
-                            .label(format!("{actual} was not expected here")),
+                            .label(format!("{found} was not expected here")),
                     ),
                 )
             }
-            ParseError::ExpectedItem { position, .. } => {
-                let title = "Expected an item".to_string();
+            ParseError::ExpectedItem { position, found } => {
+                let title = format!("Expected an item, but found {found}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
+                    Snippet::source(source_file_str)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
-            ParseError::ExpectedStatement { position, .. } => {
-                let title = "Expected a statement".to_string();
+            ParseError::ExpectedStatement { position, found } => {
+                let title = format!("Expected a statement, but found {found}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
+                    Snippet::source(source_file_str)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
-            ParseError::ExpectedExpression { position, .. } => {
-                let title = "Expected an expression".to_string();
+            ParseError::ExpectedExpression { position, found } => {
+                let title = match found {
+                    Some(found) => format!("Expected an expression, but found {found}"),
+                    None => "Expected an expression".to_string(),
+                };
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
+                    Snippet::source(source_file_str)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
-            }
-            ParseError::MissingNode { id } => {
-                let title = format!("Internal error: Missing syntax node with ID {}", id.0);
-
-                Group::with_title(Level::ERROR.primary_title(title))
             }
         }
     }

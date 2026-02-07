@@ -3,12 +3,14 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use indexmap::{IndexMap, IndexSet, set::MutableValues};
+use indexmap::{
+    IndexMap, IndexSet,
+    set::{MutableValues, Slice},
+};
 use rustc_hash::{FxBuildHasher, FxHasher};
 use smallvec::SmallVec;
 
 use crate::{
-    compiler::CompileError,
     constant_table::ConstantTable,
     instruction::OperandType,
     native_function::NativeFunction,
@@ -59,7 +61,12 @@ impl Resolver {
             next_anonymous_symbol_id: AnonymousSymbolId(0),
         };
 
-        let _main_declaration_id = resolver.add_anonymous_declaration(Declaration::MAIN);
+        let _main_declaration_id = resolver.add_anonymous_declaration(Declaration {
+            kind: DeclarationKind::Function { parameters: (0, 0) },
+            scope_id: ScopeId::PROJECT,
+            name: DeclarationName::BuiltIn("main"),
+            is_public: false,
+        });
 
         debug_assert_eq!(_main_declaration_id, DeclarationId::MAIN);
 
@@ -101,42 +108,17 @@ impl Resolver {
     }
 
     pub fn add_native_functions(&mut self) {
-        self.add_named_declaration(
-            NativeFunction::NO_OP.name(),
-            Declaration {
-                kind: DeclarationKind::NativeFunction,
-                scope_id: ScopeId::NATIVE,
-                name_position: None,
-                is_public: true,
-            },
-        );
-        self.add_named_declaration(
-            NativeFunction::READ_LINE.name(),
-            Declaration {
-                kind: DeclarationKind::NativeFunction,
-                scope_id: ScopeId::NATIVE,
-                name_position: None,
-                is_public: true,
-            },
-        );
-        self.add_named_declaration(
-            NativeFunction::WRITE_LINE.name(),
-            Declaration {
-                kind: DeclarationKind::NativeFunction,
-                scope_id: ScopeId::NATIVE,
-                name_position: None,
-                is_public: true,
-            },
-        );
-        self.add_named_declaration(
-            NativeFunction::SPAWN.name(),
-            Declaration {
-                kind: DeclarationKind::NativeFunction,
-                scope_id: ScopeId::NATIVE,
-                name_position: None,
-                is_public: true,
-            },
-        );
+        for native_function in NativeFunction::ALL {
+            self.add_named_declaration(
+                native_function.name(),
+                Declaration {
+                    kind: DeclarationKind::NativeFunction,
+                    scope_id: ScopeId::NATIVE,
+                    name: DeclarationName::BuiltIn(native_function.name()),
+                    is_public: true,
+                },
+            );
+        }
     }
 
     pub fn declarations(&self) -> &IndexMap<DeclarationKey, Declaration, FxBuildHasher> {
@@ -279,6 +261,28 @@ impl Resolver {
         self.declaration_members.get_index(index as usize).copied()
     }
 
+    pub fn get_declaration_members(
+        &self,
+        start_index: u32,
+        count: u32,
+    ) -> Option<&Slice<DeclarationId>> {
+        let range = start_index as usize..(start_index + count) as usize;
+
+        self.declaration_members.get_range(range)
+    }
+
+    pub fn get_declaration_name<'a>(
+        &'a self,
+        name: &DeclarationName,
+        source: &'a Source,
+    ) -> Option<&'a str> {
+        match name {
+            DeclarationName::BuiltIn(name) => Some(name),
+            DeclarationName::Source(position) => Some(source.get_source_str(*position)),
+            DeclarationName::External(id) => self.constants.get_string(*id),
+        }
+    }
+
     pub fn find_declarations(
         &self,
         identifier: &str,
@@ -419,12 +423,13 @@ impl Resolver {
                 }
             }
             Type::Struct { name, fields } => {
+                let name_id = self.constants.add_string(name.as_bytes());
                 let struct_declaration_id = self.add_named_declaration(
                     name,
                     Declaration {
                         kind: DeclarationKind::Type { parent: None },
                         scope_id: ScopeId::PROJECT,
-                        name_position: None,
+                        name: DeclarationName::External(name_id),
                         is_public: false,
                     },
                 );
@@ -433,6 +438,7 @@ impl Resolver {
                     SmallVec::<[DeclarationId; 8]>::with_capacity(fields.len());
 
                 for (field_name, field_type) in fields {
+                    let name_id = self.constants.add_string(field_name.as_bytes());
                     let declaration_id = self.add_named_declaration(
                         field_name,
                         Declaration {
@@ -440,7 +446,7 @@ impl Resolver {
                                 parent: Some(struct_declaration_id),
                             },
                             scope_id: ScopeId::PROJECT,
-                            name_position: None,
+                            name: DeclarationName::External(name_id),
                             is_public: false,
                         },
                     );
@@ -511,13 +517,8 @@ impl Resolver {
                 ..
             } => {
                 let declaration = self.get_declaration(*declaration_id)?;
-                let name = declaration
-                    .name_position
-                    .and_then(|position| {
-                        source
-                            .get_file(position.file_id)
-                            .map(|file| file.source_code.get_span(position.span))
-                    })?
+                let name = self
+                    .get_declaration_name(&declaration.name, source)?
                     .to_string();
 
                 let start = fields.0 as usize;
@@ -528,13 +529,8 @@ impl Resolver {
                 for index in start..(start + count) {
                     let field_declaration_id = *self.declaration_members.get_index(index)?;
                     let field_declaration = self.get_declaration(field_declaration_id)?;
-                    let field_name = field_declaration
-                        .name_position
-                        .and_then(|position| {
-                            source
-                                .get_file(position.file_id)
-                                .map(|file| file.source_code.get_span(position.span))
-                        })?
+                    let field_name = self
+                        .get_declaration_name(&field_declaration.name, source)?
                         .to_string();
 
                     let field_type_id = self.get_declaration_type(&field_declaration_id)?;
@@ -640,19 +636,6 @@ impl Resolver {
         self.type_members.get(range)
     }
 
-    pub fn get_many_type_members<const COUNT: usize>(
-        &self,
-        members: [(u32, u32); COUNT],
-    ) -> Option<[&[TypeId]; COUNT]> {
-        let mut result: [&[TypeId]; COUNT] = [&[]; COUNT];
-
-        for (i, (start_index, count)) in members.iter().enumerate() {
-            result[i] = self.get_type_members(*start_index, *count)?;
-        }
-
-        Some(result)
-    }
-
     pub fn create_inferred_type(&mut self) -> TypeId {
         let inferred_type_node = TypeNode::Inferred {
             inferred_id: self.next_inferred_type_id,
@@ -664,197 +647,38 @@ impl Resolver {
         self.add_type(inferred_type_node)
     }
 
-    pub fn infer_type(&mut self, type_id: TypeId) -> TypeId {
-        if let Some(TypeNode::Inferred {
-            resolved: Some(resolved),
-            ..
-        }) = self.get_type(type_id)
-        {
-            self.infer_type(*resolved)
-        } else {
-            type_id
-        }
-    }
-
-    pub fn unify_types(&mut self, left: TypeId, right: TypeId) -> Result<bool, CompileError> {
-        let left_inferred = self.infer_type(left);
-        let right_inferred = self.infer_type(right);
-
-        self.unify_inferred_types(left_inferred, right_inferred)
-    }
-
-    pub fn unify_inferred_types(
-        &mut self,
-        left: TypeId,
-        right: TypeId,
-    ) -> Result<bool, CompileError> {
-        if left == right {
-            return Ok(true);
-        }
-
-        let left_node = *self
-            .get_type(left)
-            .ok_or(CompileError::MissingType { type_id: left })?;
-        let right_node = *self
-            .get_type(right)
-            .ok_or(CompileError::MissingType { type_id: right })?;
-
-        match (left_node, right_node) {
-            (
-                TypeNode::Inferred {
-                    inferred_id: id,
-                    resolved: None,
-                },
-                _,
-            ) => {
-                if let Some(node) = self.get_type_mut(left) {
-                    *node = TypeNode::Inferred {
-                        inferred_id: id,
-                        resolved: Some(right),
-                    };
-                }
-
-                Ok(true)
-            }
-            (
-                _,
-                TypeNode::Inferred {
-                    inferred_id: id,
-                    resolved: None,
-                },
-            ) => {
-                if let Some(node) = self.get_type_mut(right) {
-                    *node = TypeNode::Inferred {
-                        inferred_id: id,
-                        resolved: Some(left),
-                    };
-                }
-
-                Ok(true)
-            }
-            (
-                TypeNode::List {
-                    element_type: left_element_type,
-                },
-                TypeNode::List {
-                    element_type: right_element_type,
-                },
-            ) => self.unify_types(left_element_type, right_element_type),
-            (
-                TypeNode::Function {
-                    type_parameters: left_type_parameters,
-                    value_parameters: left_value_parameters,
-                    return_type_id: left_return_type,
-                },
-                TypeNode::Function {
-                    type_parameters: right_type_parameters,
-                    value_parameters: right_value_parameters,
-                    return_type_id: right_return_type,
-                },
-            ) => {
-                let mut unify_members =
-                    |left: (u32, u32), right: (u32, u32)| -> Result<bool, CompileError> {
-                        let left_members = self
-                            .get_type_members(left.0, left.1)
-                            .ok_or(CompileError::MissingTypeMembers {
-                                start_index: right.0,
-                                count: right.1,
-                            })?
-                            .to_vec();
-                        let right_members = self
-                            .get_type_members(right.0, right.1)
-                            .ok_or(CompileError::MissingTypeMembers {
-                                start_index: right.0,
-                                count: right.1,
-                            })?
-                            .to_vec();
-
-                        if left_members.len() != right_members.len() {
-                            return Ok(false);
-                        }
-
-                        for (left_member, right_member) in
-                            left_members.into_iter().zip(right_members.into_iter())
-                        {
-                            let unified = self.unify_types(left_member, right_member)?;
-
-                            if !unified {
-                                return Ok(false);
-                            }
-                        }
-
-                        Ok(true)
-                    };
-
-                let unified = unify_members(left_type_parameters, right_type_parameters)?
-                    && unify_members(left_value_parameters, right_value_parameters)?
-                    && self.unify_types(left_return_type, right_return_type)?;
-
-                Ok(unified)
-            }
-            (
-                TypeNode::Struct {
-                    declaration_id: left_declaration_id,
-                    generics: left_generics,
-                    fields: left_fields,
-                },
-                TypeNode::Struct {
-                    declaration_id: right_declaration_id,
-                    generics: right_generics,
-                    fields: right_fields,
-                },
-            ) => {
-                if left_declaration_id != right_declaration_id {
-                    return Ok(false);
-                }
-
-                let mut unify_members =
-                    |left: (u32, u32), right: (u32, u32)| -> Result<bool, CompileError> {
-                        let left_members = self
-                            .get_type_members(left.0, left.1)
-                            .ok_or(CompileError::MissingTypeMembers {
-                                start_index: right.0,
-                                count: right.1,
-                            })?
-                            .to_vec();
-                        let right_members = self
-                            .get_type_members(right.0, right.1)
-                            .ok_or(CompileError::MissingTypeMembers {
-                                start_index: right.0,
-                                count: right.1,
-                            })?
-                            .to_vec();
-
-                        if left_members.len() != right_members.len() {
-                            return Ok(false);
-                        }
-
-                        for (left_member, right_member) in
-                            left_members.into_iter().zip(right_members.into_iter())
-                        {
-                            let unified = self.unify_types(left_member, right_member)?;
-
-                            if !unified {
-                                return Ok(false);
-                            }
-                        }
-
-                        Ok(true)
-                    };
-
-                let unified = unify_members(left_generics, right_generics)?
-                    && unify_members(left_fields, right_fields)?;
-
-                Ok(unified)
-            }
-            (left, right) => Ok(left == right),
-        }
-    }
-
     pub fn get_register_size(&self, type_id: TypeId) -> Option<u16> {
         match self.get_type(type_id)? {
             TypeNode::None => Some(0),
-            TypeNode::Struct { fields, .. } => Some(fields.1 as u16 + 1),
+            TypeNode::Struct { fields, .. } => {
+                let mut leaf_count: u32 = 0;
+
+                for index in fields.0..(fields.0 + fields.1) {
+                    let field_declaration_id = self.get_declaration_member(index)?;
+                    let field_type_id = *self.get_declaration_type(&field_declaration_id)?;
+                    let field_register_size = self.get_register_size(field_type_id)? as u32;
+
+                    let mut resolved_field_type_id = field_type_id;
+
+                    while let Some(TypeNode::Inferred {
+                        resolved: Some(resolved),
+                        ..
+                    }) = self.get_type(resolved_field_type_id)
+                    {
+                        resolved_field_type_id = *resolved;
+                    }
+
+                    let field_leaf_count = match self.get_type(resolved_field_type_id)? {
+                        TypeNode::None => 0,
+                        TypeNode::Struct { .. } => field_register_size.saturating_sub(1),
+                        _ => 1,
+                    };
+
+                    leaf_count = leaf_count.saturating_add(field_leaf_count);
+                }
+
+                Some(leaf_count as u16 + 1)
+            }
             TypeNode::Inferred { resolved, .. } => match resolved {
                 Some(resolved) => self.get_register_size(*resolved),
                 None => None,
@@ -932,17 +756,15 @@ pub struct DeclarationKey {
 pub struct Declaration {
     pub kind: DeclarationKind,
     pub scope_id: ScopeId,
-    pub name_position: Option<Position>,
+    pub name: DeclarationName,
     pub is_public: bool,
 }
 
-impl Declaration {
-    pub const MAIN: Self = Declaration {
-        kind: DeclarationKind::Function { parameters: (0, 0) },
-        scope_id: ScopeId::PROJECT,
-        name_position: None,
-        is_public: false,
-    };
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum DeclarationName {
+    BuiltIn(&'static str),
+    Source(Position),
+    External(u16),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

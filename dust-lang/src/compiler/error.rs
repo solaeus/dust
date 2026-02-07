@@ -1,12 +1,14 @@
+use std::borrow::Cow;
+
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     compiler::{
-        TypeId,
-        resolver::{DeclarationId, ScopeId},
+        Resolver, TypeId,
+        resolver::{DeclarationId, DeclarationName, ScopeId},
     },
     dust_error::AnnotatedError,
-    source::{Position, SourceFileId},
+    source::{Position, Source, SourceFileId},
     syntax::{SyntaxId, SyntaxKind},
     r#type::Type,
 };
@@ -41,6 +43,10 @@ pub enum CompileError {
     DivisionByZero {
         position: Position,
     },
+    ExpectedIntegerIndex {
+        found: TypeId,
+        position: Position,
+    },
     ExpectedItem {
         node_kind: SyntaxKind,
         position: Position,
@@ -61,13 +67,11 @@ pub enum CompileError {
         node_kind: SyntaxKind,
         position: Position,
     },
-    ExpectedFunctionType {
-        type_id: TypeId,
-    },
     TypeConflict {
         expected: Type,
+        expected_name: DeclarationName,
         found: Type,
-        position: Position,
+        found_name: DeclarationName,
     },
     UndeclaredVariable {
         name: String,
@@ -77,131 +81,65 @@ pub enum CompileError {
         name: String,
         position: Position,
     },
-
-    // Internal Errors (from incorrect Parser output)
-    InvalidNativeFunction {
-        name: String,
-        position: Position,
-    },
-    MissingChild {
-        parent_kind: SyntaxKind,
-        child_index: u32,
-    },
-    MissingChildren {
-        parent_kind: SyntaxKind,
-        start_index: u32,
-        count: u32,
-    },
-    MissingDeclaration {
-        declaration_id: DeclarationId,
-    },
-    MissingLocal {
-        declaration_id: DeclarationId,
-    },
-    MissingSyntaxNode {
-        syntax_id: SyntaxId,
-    },
-    MissingType {
-        type_id: TypeId,
-    },
-    MissingScope {
-        scope_id: ScopeId,
-    },
-    MissingSourceFile {
-        file_id: SourceFileId,
-    },
-    MissingSyntaxTree {
-        file_id: SourceFileId,
-    },
-    MissingScopeBinding {
-        syntax_id: SyntaxId,
-    },
-    MissingTypeMembers {
-        start_index: u32,
-        count: u32,
-    },
-    InvalidSyntaxNode {
-        kind: SyntaxKind,
-    },
-    MissingDeclarationBinding {
-        syntax_id: SyntaxId,
-    },
-    MissingTypeBinding {
-        syntax_id: SyntaxId,
-    },
-    MissingDeclarationType {
-        declaration_id: DeclarationId,
-    },
-    MissingDeclarationMember {
-        declaration_id: DeclarationId,
-    },
-    InvalidTypeNode {
-        type_id: TypeId,
-    },
-    InvalidDeclarationKind {
-        declaration_id: DeclarationId,
-    },
+    Internal(InternalError),
 }
 
-impl AnnotatedError for CompileError {
-    fn file_id(&self) -> SourceFileId {
+impl CompileError {
+    fn primary_file_id(&self) -> SourceFileId {
         match self {
-            CompileError::InvalidNativeFunction { position, .. } => position.file_id,
-            CompileError::DivisionByZero { position } => position.file_id,
-            CompileError::ExpectedItem { position, .. } => position.file_id,
-            CompileError::ExpectedStatement { position, .. } => position.file_id,
-            CompileError::ExpectedBooleanExpression { position, .. } => position.file_id,
-            CompileError::ExpectedExpression { position, .. } => position.file_id,
-            CompileError::ExpectedFunction { position, .. } => position.file_id,
-            CompileError::ExpectedFunctionType { .. } => SourceFileId::default(),
-            CompileError::MissingChild { .. } => SourceFileId::default(),
-            CompileError::MissingChildren { .. } => SourceFileId::default(),
-            CompileError::MissingDeclaration { .. } => SourceFileId::default(),
-            CompileError::MissingLocal { .. } => SourceFileId::default(),
-            CompileError::MissingSyntaxNode { .. } => SourceFileId::default(),
-            CompileError::MissingType { .. } => SourceFileId::default(),
-            CompileError::MissingTypeMembers { .. } => SourceFileId::default(),
-            CompileError::MissingScope { .. } => SourceFileId::default(),
-            CompileError::MissingSourceFile { file_id } => *file_id,
-            CompileError::MissingSyntaxTree { .. } => SourceFileId::default(),
-            CompileError::UndeclaredVariable { position, .. } => position.file_id,
-            CompileError::CannotInferType { position } => position.file_id,
-            CompileError::MissingScopeBinding { .. } => SourceFileId::default(),
-            CompileError::TypeConflict { position, .. } => position.file_id,
-            CompileError::InvalidSyntaxNode { .. } => SourceFileId::default(),
-            CompileError::MissingDeclarationBinding { .. } => SourceFileId::default(),
-            CompileError::MissingTypeBinding { .. } => SourceFileId::default(),
-            CompileError::CannotApplyOperator { position, .. } => position.file_id,
-            CompileError::CannotIndex { position, .. } => position.file_id,
-            CompileError::MissingDeclarationType { .. } => SourceFileId::default(),
-            CompileError::UndeclaredType { position, .. } => position.file_id,
-            CompileError::AmbiguousType { position, .. } => position.file_id,
-            CompileError::MissingDeclarationMember { .. } => SourceFileId::default(),
-            CompileError::InvalidTypeNode { .. } => SourceFileId::default(),
-            CompileError::InvalidDeclarationKind { .. } => SourceFileId::default(),
-            CompileError::ConstantTypeConflict { position, .. } => position.file_id,
-            CompileError::CannotMutate { position } => position.file_id,
+            CompileError::AmbiguousType { position, .. }
+            | CompileError::CannotApplyOperator { position, .. }
+            | CompileError::CannotInferType { position, .. }
+            | CompileError::CannotIndex { position, .. }
+            | CompileError::CannotMutate { position, .. }
+            | CompileError::ConstantTypeConflict { position, .. }
+            | CompileError::DivisionByZero { position, .. }
+            | CompileError::ExpectedIntegerIndex { position, .. }
+            | CompileError::ExpectedItem { position, .. }
+            | CompileError::ExpectedStatement { position, .. }
+            | CompileError::ExpectedExpression { position, .. }
+            | CompileError::ExpectedFunction { position, .. }
+            | CompileError::ExpectedBooleanExpression { position, .. }
+            | CompileError::UndeclaredVariable { position, .. }
+            | CompileError::UndeclaredType { position, .. } => position.file_id,
+            CompileError::TypeConflict {
+                expected_name,
+                found_name,
+                ..
+            } => match (expected_name, found_name) {
+                (DeclarationName::Source(position), _) => position.file_id,
+                (_, DeclarationName::Source(position)) => position.file_id,
+                _ => SourceFileId::MAIN,
+            },
+            CompileError::Internal(_) => SourceFileId::MAIN,
         }
     }
+}
 
-    fn annotated_error<'a>(&'a self, source: &'a str) -> Group<'a> {
+impl<'a> AnnotatedError<'a> for CompileError {
+    type Input = (&'a Source, &'a Resolver);
+
+    fn annotated_error(&'a self, (source, resolver): Self::Input) -> Group<'a> {
+        let primary_source_file_str = source.get_file_as_str(self.primary_file_id());
+
         match self {
-            CompileError::InvalidNativeFunction { name, position } => {
-                let title = format!("Invalid native function: {name}");
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!("Found invalid native function {name} here")),
-                    ),
-                )
-            }
             CompileError::DivisionByZero { position } => {
                 let title = "Division by zero".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
+                    Snippet::source(primary_source_file_str)
+                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
+                )
+            }
+            CompileError::ExpectedIntegerIndex { found, position } => {
+                let found_type = resolver
+                    .get_full_type(*found, source)
+                    .map(|r#type| r#type.to_string())
+                    .unwrap_or("<invalid type>".to_string());
+                let title = format!("Expected an integer index, found {found_type}");
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(primary_source_file_str)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
@@ -212,7 +150,7 @@ impl AnnotatedError for CompileError {
                 let title = format!("Expected an item, found {node_kind}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
+                    Snippet::source(primary_source_file_str)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
@@ -223,7 +161,7 @@ impl AnnotatedError for CompileError {
                 let title = format!("Expected a statement, found {node_kind}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
+                    Snippet::source(primary_source_file_str)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
@@ -234,7 +172,7 @@ impl AnnotatedError for CompileError {
                 let title = format!("Expected a boolean expression, found {node_kind}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
+                    Snippet::source(primary_source_file_str)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
@@ -245,7 +183,7 @@ impl AnnotatedError for CompileError {
                 let title = format!("Expected an expression, found {node_kind}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
+                    Snippet::source(primary_source_file_str)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
@@ -256,89 +194,15 @@ impl AnnotatedError for CompileError {
                 let title = format!("Expected a function, found {node_kind}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
+                    Snippet::source(primary_source_file_str)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
-            }
-            CompileError::ExpectedFunctionType { type_id } => {
-                let title = format!("Expected a function type, found {type_id:?}");
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::MissingChild {
-                parent_kind,
-                child_index,
-            } => {
-                let title = format!(
-                    "Expected child {child_index} on {parent_kind}, but it was missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::MissingChildren {
-                parent_kind,
-                start_index,
-                count,
-            } => {
-                let title = format!(
-                    "Expected {count} children starting at {start_index} on {parent_kind}, but they were missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::MissingDeclaration { declaration_id: id } => {
-                let title = format!(
-                    "Declaration with id {id:?} was missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::MissingLocal { declaration_id } => {
-                let title = format!(
-                    "Local for declaration id {declaration_id:?} was missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::MissingSyntaxNode { syntax_id: id } => {
-                let title = format!(
-                    "Syntax node with id {id:?} was missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::MissingType { type_id } => {
-                let title = format!(
-                    "Type node with id {type_id:?} was missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::MissingScope { scope_id: id } => {
-                let title =
-                    format!("Scope with id {id:?} was missing, this is a bug in the compiler");
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::MissingSourceFile { file_id } => {
-                let title = format!(
-                    "Source file with id {file_id:?} was missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::MissingSyntaxTree { file_id } => {
-                let title = format!(
-                    "Syntax tree for file id {file_id:?} was missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::UndeclaredVariable { name, position } => {
                 let title = format!("Undeclared variable: {name}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
+                    Snippet::source(primary_source_file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!("Use of undeclared variable {name} here")),
@@ -349,59 +213,55 @@ impl AnnotatedError for CompileError {
                 let title = "Cannot infer type, please provide an explicit type".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
+                    Snippet::source(primary_source_file_str)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
-            CompileError::MissingScopeBinding { syntax_id } => {
-                let title = format!(
-                    "Scope binding for syntax id {syntax_id:?} was missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::MissingTypeMembers { start_index, count } => {
-                let title = format!(
-                    "Expected {count} type members starting at {start_index}, but they were missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
             CompileError::TypeConflict {
                 expected,
+                expected_name,
                 found,
-                position,
+                found_name,
             } => {
                 let title = format!("Type mismatch: expected {expected}, found {found}");
 
-                Group::with_title(Level::ERROR.primary_title(title)).elements(vec![
-                    Snippet::source(source).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!("Found type {found} here")),
-                    ),
-                ])
-            }
-            CompileError::InvalidSyntaxNode { kind } => {
-                let title = format!(
-                    "Invalid syntax node: {kind} is in an invalid position, this is a bug in the compiler"
-                );
+                let found_snippet = match found_name {
+                    DeclarationName::BuiltIn(name) => Snippet::source(Cow::Borrowed(*name)),
+                    DeclarationName::Source(position) => Snippet::source(primary_source_file_str)
+                        .annotation(
+                            AnnotationKind::Primary
+                                .span(position.span.as_usize_range())
+                                .label(format!("Found {found} type here")),
+                        ),
+                    DeclarationName::External(constant_index) => {
+                        let name = resolver
+                            .constants
+                            .get_string(*constant_index)
+                            .unwrap_or("<invalid constant index>");
+
+                        Snippet::source(name)
+                    }
+                };
+                let expected_snippet = match expected_name {
+                    DeclarationName::BuiltIn(name) => Snippet::source(Cow::Borrowed(*name)),
+                    DeclarationName::Source(position) => Snippet::source(primary_source_file_str)
+                        .annotation(
+                            AnnotationKind::Context
+                                .span(position.span.as_usize_range())
+                                .label(format!("The {expected} type was established here.")),
+                        ),
+                    DeclarationName::External(constant_index) => {
+                        let name = resolver
+                            .constants
+                            .get_string(*constant_index)
+                            .unwrap_or("<invalid constant index>");
+
+                        Snippet::source(name)
+                    }
+                };
 
                 Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::MissingDeclarationBinding { syntax_id } => {
-                let title = format!(
-                    "Declaration binding for syntax id {syntax_id:?} was missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::MissingTypeBinding { syntax_id } => {
-                let title = format!(
-                    "Type binding for syntax id {syntax_id:?} was missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
+                    .elements(vec![found_snippet, expected_snippet])
             }
             CompileError::CannotApplyOperator {
                 operator,
@@ -411,7 +271,7 @@ impl AnnotatedError for CompileError {
                 let title = format!("Cannot apply operator {operator} to type {type}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
+                    Snippet::source(primary_source_file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!(
@@ -424,25 +284,18 @@ impl AnnotatedError for CompileError {
                 let title = format!("Cannot index type {type}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
+                    Snippet::source(primary_source_file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!("Attempted to index type {type} here")),
                     ),
                 )
             }
-            CompileError::MissingDeclarationType { declaration_id } => {
-                let title = format!(
-                    "Type for declaration id {declaration_id:?} was missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
             CompileError::UndeclaredType { name, position } => {
                 let title = format!("Undeclared type: {name}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
+                    Snippet::source(primary_source_file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!("Use of undeclared type {name} here")),
@@ -453,33 +306,12 @@ impl AnnotatedError for CompileError {
                 let title = format!("Ambiguous type: {name}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
+                    Snippet::source(primary_source_file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!("Use of ambiguous type {name} here")),
                     ),
                 )
-            }
-            CompileError::MissingDeclarationMember { declaration_id } => {
-                let title = format!(
-                    "Member for declaration id {declaration_id:?} was missing, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::InvalidTypeNode { type_id } => {
-                let title = format!(
-                    "Type node with id {type_id:?} is invalid, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::InvalidDeclarationKind { declaration_id } => {
-                let title = format!(
-                    "Declaration with id {declaration_id:?} has an invalid kind, this is a bug in the compiler"
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::ConstantTypeConflict {
                 expected,
@@ -489,7 +321,7 @@ impl AnnotatedError for CompileError {
                 let title = format!("Constant type conflict: expected {expected}, found {found}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source).annotation(
+                    Snippet::source(primary_source_file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!(
@@ -502,10 +334,34 @@ impl AnnotatedError for CompileError {
                 let title = "Cannot mutate immutable value".to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(source)
+                    Snippet::source(primary_source_file_str)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
+            CompileError::Internal(internal_error) => {
+                let title = format!("Internal compiler error: {internal_error:?}");
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum InternalError {
+    MissingSyntaxNode(SyntaxId),
+    MissingType(TypeId),
+    MissingScope(ScopeId),
+    MissingSourceFile(SourceFileId),
+    MissingSyntaxTree(SourceFileId),
+    MissingScopeBinding(SyntaxId),
+    MissingTypeMembers { start_index: u32, count: u32 },
+    MissingDeclarationBinding(SyntaxId),
+    MissingTypeBinding(SyntaxId),
+    MissingDeclarationType(DeclarationId),
+    InvalidSyntaxNode(SyntaxKind),
+    InvalidTypeNode(TypeId),
+    InvalidDeclarationKind(DeclarationId),
+    MissingDeclarationMembers(DeclarationId),
+    ExpectedFunctionType(TypeId),
 }

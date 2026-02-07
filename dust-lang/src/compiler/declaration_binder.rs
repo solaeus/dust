@@ -178,7 +178,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                     is_mutable: false,
                 },
                 scope_id: function_scope_id,
-                name_position: Some(Position::new(self.file_id, parameter_name.span())),
+                name: Some(Position::new(self.file_id, parameter_name.span())),
                 is_public: false,
             };
             let parameter_declaration_id = self
@@ -199,7 +199,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         let function_declaration = Declaration {
             kind: DeclarationKind::Function { parameters },
             scope_id: self.current_scope_id,
-            name_position: Some(Position::new(self.file_id, function_name.span())),
+            name: Some(Position::new(self.file_id, function_name.span())),
             is_public,
         };
 
@@ -279,7 +279,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         let struct_declaration = Declaration {
             kind: DeclarationKind::Type { parent: None },
             scope_id: self.current_scope_id,
-            name_position: Some(Position::new(self.file_id, struct_name.span())),
+            name: Some(Position::new(self.file_id, struct_name.span())),
             is_public: false,
         };
         let struct_declaration_id = self
@@ -304,7 +304,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                     parent: Some(struct_declaration_id),
                 },
                 scope_id: self.current_scope_id,
-                name_position: Some(Position::new(self.file_id, field_name.span())),
+                name: Some(Position::new(self.file_id, field_name.span())),
                 is_public: false,
             };
             let field_declaration_id = self
@@ -393,7 +393,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                 is_mutable,
             },
             scope_id: self.current_scope_id,
-            name_position: Some(Position::new(self.file_id, path.span())),
+            name: Some(Position::new(self.file_id, path.span())),
             is_public: false,
         };
         let declaration_id = self
@@ -954,7 +954,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                     is_mutable: false,
                 },
                 scope_id: function_scope_id,
-                name_position: Some(Position::new(self.file_id, parameter_name.span())),
+                name: Some(Position::new(self.file_id, parameter_name.span())),
                 is_public: false,
             };
             let parameter_declaration_id = self
@@ -970,7 +970,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
         let function_declaration = Declaration {
             kind: DeclarationKind::Function { parameters },
             scope_id: self.current_scope_id,
-            name_position: None,
+            name: None,
             is_public: false,
         };
 
@@ -1064,7 +1064,7 @@ impl<'a> SyntaxVisitor for DeclarationBinder<'a> {
                             parent: current_declaration_id,
                         },
                         scope_id: self.current_scope_id,
-                        name_position: Some(Position::new(self.file_id, segment.span())),
+                        name: Some(Position::new(self.file_id, segment.span())),
                         is_public: false,
                     };
 

@@ -46,11 +46,7 @@ impl<'a> Disassembler<'a> {
             let prototype_name = if index == 0 {
                 "main"
             } else if let Some(name_position) = prototype.name_position {
-                source
-                    .get_file(name_position.file_id)
-                    .unwrap()
-                    .source_code
-                    .get_span(name_position.span)
+                source.get_source_str(name_position)
             } else {
                 "anonymous"
             };
@@ -436,13 +432,9 @@ impl Widget for &mut Disassembler<'_> {
             .render(title_area, buffer);
 
         let main_prototype = &self.program.main_prototype();
-        let main_prototype_name = main_prototype
-            .name_position
-            .and_then(|position| self.source.get_file(position.file_id))
-            .map(|file| file.name.as_str())
-            .unwrap_or("unknown");
+        let program_name = self.program.name();
 
-        Paragraph::new(format!("program: {main_prototype_name}",))
+        Paragraph::new(format!("program: {program_name}",))
             .centered()
             .wrap(Wrap { trim: true })
             .render(program_name_area, buffer);
