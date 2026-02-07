@@ -17,7 +17,7 @@ fn local_byte_division() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -49,7 +49,7 @@ fn local_float_division() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -81,7 +81,7 @@ fn local_integer_division() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -113,7 +113,7 @@ fn local_mut_byte_division() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -144,7 +144,7 @@ fn local_mut_float_division() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -178,7 +178,7 @@ fn local_mut_integer_division() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),

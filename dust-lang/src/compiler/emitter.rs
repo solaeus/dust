@@ -6,29 +6,23 @@ use tracing::{debug, trace};
 
 use crate::{
     compiler::{
-        CompileError, Resolver,
+        CompileError, Resolver, Symbol,
         error::InternalError,
-        resolver::{DeclarationId, DeclarationKind, ScopeId, TypeId, TypeNode},
+        resolver::{DeclarationId, ScopeId, TypeId, TypeNode},
     },
     instruction::{Address, Drop, Instruction, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
     prototype::Prototype,
     source::{Position, Source, SourceFileId, Span},
-    syntax::{
-        Syntax, SyntaxId, SyntaxKind, SyntaxNode, SyntaxReader, SyntaxReaderIterator, SyntaxVisitor,
-    },
+    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxReaderIterator, SyntaxVisitor},
     r#type::Type,
 };
 
 #[derive(Debug)]
 pub struct Emitter<'a> {
-    declaration_id: DeclarationId,
+    function_declaration_id: DeclarationId,
 
     prototype_index: u16,
-
-    file_id: SourceFileId,
-
-    function_type_id: TypeId,
 
     source: &'a Source,
 
@@ -70,27 +64,17 @@ pub struct Emitter<'a> {
 
 impl<'a> Emitter<'a> {
     pub fn new(
+        function: SyntaxReader,
         declaration_id: DeclarationId,
-        prototype_index: u16,
-        file_id: SourceFileId,
-        function_type_id: TypeId,
         starting_scope_id: ScopeId,
+        prototype_index: u16,
         parameters: Option<SyntaxReaderIterator<'a>>,
         (source, syntax, resolver): (&'a Source, &'a Syntax, &'a mut Resolver),
     ) -> Result<Self, CompileError> {
-        let declaration =
-            *resolver
-                .get_declaration(declaration_id)
-                .ok_or(CompileError::Internal(InternalError::MissingDeclaration(
-                    declaration_id,
-                )))?;
         let parameter_count = parameters.as_ref().map_or(0, |parameters| parameters.len());
-
         let mut emitter = Self {
-            declaration_id,
+            function_declaration_id: declaration_id,
             prototype_index,
-            file_id,
-            function_type_id,
             source,
             syntax,
             resolver,
@@ -109,15 +93,6 @@ impl<'a> Emitter<'a> {
             top_emitted_register: 0,
         };
 
-        let parameters_ids_start =
-            if let DeclarationKind::Function { parameters, .. } = declaration.kind {
-                parameters.0
-            } else {
-                return Err(CompileError::Internal(
-                    InternalError::InvalidDeclarationKind(declaration_id),
-                ));
-            };
-
         emitter.locals.insert(
             declaration_id,
             Place::Prototype {
@@ -126,24 +101,51 @@ impl<'a> Emitter<'a> {
         );
 
         if let Some(parameters) = parameters {
-            for (index, parameter) in parameters.enumerate() {
-                let current_parameter_index = parameters_ids_start + index as u32;
-                let parameter_id = emitter
+            let type_id = *emitter
+                .resolver
+                .get_declaration_type(&declaration_id)
+                .ok_or(CompileError::Internal(
+                    InternalError::MissingDeclarationType(declaration_id),
+                ))?;
+            let type_node = *emitter
+                .resolver
+                .get_type(type_id)
+                .ok_or(CompileError::Internal(InternalError::MissingType(type_id)))?;
+            let TypeNode::Function {
+                value_parameters, ..
+            } = type_node
+            else {
+                return Err(CompileError::ExpectedFunctionType {
+                    found: type_id,
+                    position: function.position(),
+                });
+            };
+            let value_parameter_types = emitter
+                .resolver
+                .get_type_members(value_parameters)
+                .ok_or(CompileError::Internal(InternalError::MissingTypeMembers(
+                    value_parameters,
+                )))?
+                .iter()
+                .copied()
+                .collect::<SmallVec<[TypeId; 8]>>();
+
+            for (parameter, expected_type) in parameters
+                .into_iter()
+                .zip(value_parameter_types.into_iter())
+            {
+                let parameter_id = *emitter
                     .resolver
-                    .get_declaration_member(current_parameter_index)
+                    .get_declaration_binding(&parameter.id)
                     .ok_or(CompileError::Internal(
-                        InternalError::MissingDeclarationMembers(declaration_id),
+                        InternalError::MissingDeclarationBinding(parameter.id),
                     ))?;
-                let parameter_type_id =
-                    *emitter.resolver.get_declaration_type(&parameter_id).ok_or(
-                        CompileError::Internal(InternalError::MissingDeclarationType(parameter_id)),
-                    )?;
-                let register_size = emitter
-                    .resolver
-                    .get_register_size(parameter_type_id)
-                    .ok_or(CompileError::CannotInferType {
-                        position: Position::new(file_id, parameter.span()),
-                    })?;
+                let register_size = emitter.resolver.get_register_size(expected_type).ok_or(
+                    CompileError::CannotInferType {
+                        type_id,
+                        position: Some(parameter.position()),
+                    },
+                )?;
                 let target = emitter.allocate_local_registers(register_size);
 
                 emitter.locals.insert(parameter_id, Place::Target(target));
@@ -156,9 +158,9 @@ impl<'a> Emitter<'a> {
     pub fn emit_main(self) -> Result<Prototype, CompileError> {
         let root = self
             .syntax
-            .get_tree(self.file_id)
+            .get_tree(SourceFileId::MAIN)
             .ok_or(CompileError::Internal(InternalError::MissingSyntaxTree(
-                self.file_id,
+                SourceFileId::MAIN,
             )))?
             .root()
             .ok_or(CompileError::Internal(InternalError::MissingSyntaxNode(
@@ -191,10 +193,7 @@ impl<'a> Emitter<'a> {
             }
             SyntaxKind::ExpressionStatement => {
                 let expression_node = node.left_child().ok_or(CompileError::Internal(
-                    InternalError::MissingSyntaxChild {
-                        parent_kind: node.kind(),
-                        expected_kind: SyntaxKind::Expression,
-                    },
+                    InternalError::MissingSyntaxChild { child_index: 0 },
                 ))?;
 
                 let mut expression_emission = self.handle_implicit_return(expression_node, None)?;
@@ -217,23 +216,6 @@ impl<'a> Emitter<'a> {
 
     pub fn finish(mut self) -> Result<Prototype, CompileError> {
         // self.context.constants.finalize_string_pool();
-
-        let declaration =
-            self.resolver
-                .get_declaration(self.declaration_id)
-                .ok_or(CompileError::Internal(InternalError::MissingDeclaration(
-                    self.declaration_id,
-                )))?;
-        let function_type = self
-            .resolver
-            .get_full_type(self.function_type_id, self.source)
-            .ok_or(CompileError::Internal(InternalError::MissingType(
-                self.function_type_id,
-            )))?
-            .into_function_type()
-            .ok_or(CompileError::Internal(InternalError::ExpectedFunctionType(
-                self.function_type_id,
-            )))?;
 
         for JumpPlacement {
             index,
@@ -289,7 +271,9 @@ impl<'a> Emitter<'a> {
                         *instruction = Instruction::test(operand, comparator, total_distance);
                     }
                     _ => {
-                        panic!("Expected MOVE or DROP instruction for coalesced jump");
+                        return Err(CompileError::Internal(
+                            InternalError::InvalidJumpAnchorInstruction(instruction.operation()),
+                        ));
                     }
                 }
             } else {
@@ -299,9 +283,42 @@ impl<'a> Emitter<'a> {
             }
         }
 
+        let declaration = self
+            .resolver
+            .get_declaration(self.function_declaration_id)
+            .ok_or(CompileError::Internal(InternalError::MissingDeclaration(
+                self.function_declaration_id,
+            )))?;
+        let type_id = *self
+            .resolver
+            .get_declaration_type(&self.function_declaration_id)
+            .ok_or(CompileError::Internal(
+                InternalError::MissingDeclarationType(self.function_declaration_id),
+            ))?;
+        let function_type = {
+            let get_type = self
+                .resolver
+                .get_full_type(type_id, self.source)
+                .ok_or(CompileError::Internal(InternalError::MissingType(type_id)))?
+                .into_function_type();
+
+            if let Some(function_type) = get_type {
+                function_type
+            } else {
+                let position = declaration.position.ok_or(CompileError::Internal(
+                    InternalError::MissingDeclarationPosition(self.function_declaration_id),
+                ))?;
+
+                return Err(CompileError::ExpectedFunctionType {
+                    found: type_id,
+                    position,
+                });
+            }
+        };
+
         Ok(Prototype {
+            name: declaration.symbol,
             index: self.prototype_index,
-            name_position: declaration.name,
             function_type,
             instructions: self.instructions,
             call_arguments: self.call_arguments,
@@ -491,7 +508,7 @@ impl<'a> Emitter<'a> {
     }
 
     fn get_constant_address(&mut self, constant: ConstantEmission) -> Address {
-        let index = match constant {
+        let constant_id = match constant {
             ConstantEmission::Boolean(boolean) => return Address::encoded(boolean as u16),
             ConstantEmission::Byte(byte) => return Address::encoded(byte as u16),
             ConstantEmission::Character(character) => {
@@ -506,19 +523,21 @@ impl<'a> Emitter<'a> {
                 .resolver
                 .constants
                 .add_pooled_string(pool_start, pool_end),
-            ConstantEmission::Function { prototype_index } => prototype_index,
+            ConstantEmission::Function { prototype_index } => {
+                return Address::constant(prototype_index);
+            }
         };
 
-        Address::constant(index)
+        Address::constant(constant_id.0)
     }
 
     fn combine_constants(
         &mut self,
         operation: SyntaxKind,
         left: ConstantEmission,
-        left_node: &SyntaxNode,
+        left_node: &SyntaxReader,
         right: ConstantEmission,
-        right_node: &SyntaxNode,
+        right_node: &SyntaxReader,
     ) -> Result<ConstantEmission, CompileError> {
         let check_for_division_by_zero = || {
             if matches!(
@@ -529,8 +548,8 @@ impl<'a> Emitter<'a> {
             ) {
                 Err(CompileError::DivisionByZero {
                     position: Position::new(
-                        self.file_id,
-                        Span::new(left_node.span.0, right_node.span.1),
+                        left_node.tree.file_id,
+                        Span::join(&left_node.span(), &right_node.span()),
                     ),
                 })
             } else {
@@ -830,11 +849,11 @@ impl<'a> Emitter<'a> {
             }
             _ => {
                 return Err(CompileError::ConstantTypeConflict {
-                    expected: left_node.kind,
-                    found: right_node.kind,
+                    expected: left_node.kind(),
+                    found: right_node.kind(),
                     position: Position::new(
-                        self.file_id,
-                        Span::new(left_node.span.0, right_node.span.1),
+                        left_node.tree.file_id,
+                        Span::join(&left_node.span(), &right_node.span()),
                     ),
                 });
             }
@@ -879,7 +898,8 @@ impl<'a> Emitter<'a> {
                         )))?;
                 let operand_type = self.resolver.get_operand_type(type_id).ok_or(
                     CompileError::CannotInferType {
-                        position: Position::new(self.file_id, node.span()),
+                        type_id,
+                        position: Some(node.position()),
                     },
                 )?;
                 let move_instruction =
@@ -998,7 +1018,7 @@ impl<'a> Emitter<'a> {
                     .target
                     .ok_or(CompileError::ExpectedExpression {
                         node_kind: node.kind(),
-                        position: Position::new(self.file_id, node.span()),
+                        position: node.position(),
                     })?
                     .index();
 
@@ -1008,7 +1028,7 @@ impl<'a> Emitter<'a> {
             }
             Emission::None => Err(CompileError::ExpectedExpression {
                 node_kind: node.kind(),
-                position: Position::new(self.file_id, node.span()),
+                position: node.position(),
             }),
         }
     }
@@ -1017,7 +1037,7 @@ impl<'a> Emitter<'a> {
         &mut self,
         instructions: &mut InstructionsEmission,
         emission: Emission,
-        node: &SyntaxNode,
+        node: &SyntaxReader,
     ) -> Result<(), CompileError> {
         match emission {
             Emission::Constant(constant) => {
@@ -1070,9 +1090,18 @@ impl<'a> Emitter<'a> {
                 instructions.merge(condition_instructions);
             }
             _ => {
+                let found =
+                    *self
+                        .resolver
+                        .get_type_binding(&node.id)
+                        .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
+                            node.id,
+                        )))?;
+
                 return Err(CompileError::ExpectedBooleanExpression {
-                    node_kind: node.kind,
-                    position: Position::new(self.file_id, node.span),
+                    found,
+                    node_kind: node.kind(),
+                    position: node.position(),
                 });
             }
         }
@@ -1138,7 +1167,8 @@ impl<'a> Emitter<'a> {
             self.resolver
                 .get_operand_type(type_id)
                 .ok_or(CompileError::CannotInferType {
-                    position: Position::new(self.file_id, node.span()),
+                    type_id,
+                    position: Some(node.position()),
                 })?;
         let address = match emission {
             Emission::Constant(constant) => self.get_constant_address(constant),
@@ -1163,7 +1193,7 @@ impl<'a> Emitter<'a> {
                 } else {
                     return Err(CompileError::ExpectedExpression {
                         node_kind: node.kind(),
-                        position: Position::new(self.file_id, node.span()),
+                        position: node.position(),
                     });
                 }
             }
@@ -1189,20 +1219,6 @@ impl<'a> Emitter<'a> {
                 return_emission.merge(instructions);
             }
 
-            let function_type_node = *self.resolver.get_type_mut(self.function_type_id).ok_or(
-                CompileError::CannotInferType {
-                    position: Position::new(self.file_id, node.span()),
-                },
-            )?;
-
-            if let TypeNode::Function { return_type_id, .. } = function_type_node {
-                self.resolver.unify_types(return_type_id, TypeId::NONE)?;
-            } else {
-                return Err(CompileError::Internal(InternalError::ExpectedFunctionType(
-                    self.function_type_id,
-                )));
-            }
-
             let return_instruction = Instruction::r#return(Address::default(), OperandType::NONE);
 
             return_emission.push(return_instruction);
@@ -1218,10 +1234,6 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     type Input = Option<Target>;
 
     type Output = Emission;
-
-    fn file_id(&self) -> SourceFileId {
-        self.file_id
-    }
 
     fn visit_main_function_item(
         &mut self,
@@ -1268,9 +1280,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         debug!("Emitting function item");
 
         let function_expression = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild {
-                parent_kind: node.kind(),
-            },
+            InternalError::MissingSyntaxChild { child_index: 1 },
         ))?;
 
         let function_emission = self.visit_function_expression(function_expression, None)?;
@@ -1322,7 +1332,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let expression =
             node.left_child()
                 .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: (),
+                    child_index: 0,
                 }))?;
 
         let expression_emission = self.visit_expression(expression, target)?;
@@ -1385,7 +1395,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             self.resolver
                 .get_register_size(type_id)
                 .ok_or(CompileError::CannotInferType {
-                    position: Position::new(self.file_id, expression.span()),
+                    type_id,
+                    position: Some(expression.position()),
                 })?;
         let target = self.allocate_local_registers(register_size);
         let expression_emission = self.visit_expression(expression, Some(target))?;
@@ -1414,7 +1425,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: expression.kind(),
-                    position: Position::new(self.file_id, expression.span()),
+                    position: expression.position(),
                 });
             }
         };
@@ -1462,7 +1473,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let path =
             node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaChild {
+                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
                     child_index: 0,
                 }))?;
         let expression_statement = node.right_child().ok_or(CompileError::Internal(
@@ -1488,7 +1499,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             )))?
             .into_target()
             .ok_or(CompileError::CannotMutate {
-                position: Position::new(self.file_id, path.span()),
+                position: path.position(),
             })?;
 
         let mut reassignment_emission = InstructionsEmission::new();
@@ -1512,7 +1523,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                         )))?;
                 let operand_type = self.resolver.get_operand_type(type_id).ok_or(
                     CompileError::CannotInferType {
-                        position: Position::new(self.file_id, expression.span()),
+                        type_id,
+                        position: Some(expression.position()),
                     },
                 )?;
                 let move_instruction =
@@ -1527,7 +1539,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             Emission::None => {
                 return Err(CompileError::ExpectedExpression {
                     node_kind: expression.kind(),
-                    position: Position::new(self.file_id, expression.span()),
+                    position: expression.position(),
                 });
             }
         }
@@ -1602,15 +1614,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting string expression");
 
-        let span_without_quotes = node.span().shrink(1);
-        let bytes = self
-            .source
-            .get_file(self.file_id)
-            .ok_or(CompileError::Internal(InternalError::MissingSourceFile(
-                self.file_id,
-            )))?
-            .source_code
-            .get_span_bytes(span_without_quotes);
+        let bytes = self.source.get_source_bytes(&node.position().shrink(1));
         let (pool_start, pool_end) = self.resolver.constants.push_str_to_string_pool(bytes);
 
         self.resolver.set_type_binding(node.id, TypeId::STRING);
@@ -1630,7 +1634,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             emitter: &mut Emitter,
             instructions: &mut InstructionsEmission,
             element_emission: Emission,
-            element_node: &SyntaxNode,
+            element_node: &SyntaxReader,
         ) -> Result<Address, CompileError> {
             match element_emission {
                 Emission::Constant(constant) => Ok(emitter.get_constant_address(constant)),
@@ -1641,8 +1645,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                     ..
                 }) => {
                     let target = target.ok_or(CompileError::ExpectedExpression {
-                        node_kind: element_node.kind,
-                        position: Position::new(emitter.file_id, element_node.span),
+                        node_kind: element_node.kind(),
+                        position: element_node.position(),
                     })?;
 
                     instructions.instructions.extend(element_instructions);
@@ -1650,8 +1654,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                     Ok(Address::register(target.index()))
                 }
                 Emission::None => Err(CompileError::ExpectedExpression {
-                    node_kind: element_node.kind,
-                    position: Position::new(emitter.file_id, element_node.span),
+                    node_kind: element_node.kind(),
+                    position: element_node.position(),
                 }),
             }
         }
@@ -1679,7 +1683,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         for (index, child) in children.enumerate() {
             let element_emission = self.visit_expression(child, None)?;
             let element_address =
-                handle_element_emission(self, &mut list_emission, element_emission, child.inner())?;
+                handle_element_emission(self, &mut list_emission, element_emission, &child)?;
             let index_address = self.get_constant_address(ConstantEmission::Integer(index as i64));
             let operand_type =
                 if let Some(operand_type) = operand_type {
@@ -1898,7 +1902,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 if field_address.memory != MemoryKind::REGISTER {
                     return Err(CompileError::ExpectedExpression {
                         node_kind: field_expression.kind(),
-                        position: Position::new(self.file_id, field_expression.span()),
+                        position: field_expression.position(),
                     });
                 }
 
@@ -1912,7 +1916,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             } else {
                 let operand_type = *leaf_types.first().ok_or(CompileError::ExpectedExpression {
                     node_kind: field_expression.kind(),
-                    position: Position::new(self.file_id, field_expression.span()),
+                    position: field_expression.position(),
                 })?;
                 let field_move_instruction =
                     Instruction::r#move(next_destination, field_address, operand_type);
@@ -2028,7 +2032,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                                 final_place
                                     .into_target()
                                     .ok_or(CompileError::CannotMutate {
-                                        position: Position::new(self.file_id, child.span()),
+                                        position: child.position(),
                                     })?;
 
                             block_emission.set_target(Some(target));
@@ -2094,7 +2098,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 }))?;
         let condition_emission = self.visit_expression(condition, None)?;
 
-        self.handle_condition_emission(&mut if_emission, condition_emission, condition.inner())?;
+        self.handle_condition_emission(&mut if_emission, condition_emission, &condition)?;
 
         let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
         let jump_over_then_id = self.create_jump_id();
@@ -2202,9 +2206,9 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             let combined = self.combine_constants(
                 node.kind(),
                 *left_value,
-                left_child.inner(),
+                &left_child,
                 *right_value,
-                right_child.inner(),
+                &right_child,
             )?;
 
             return Ok(Emission::Constant(combined));
@@ -2402,9 +2406,9 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             let combined = self.combine_constants(
                 node.kind(),
                 left_constant,
-                left_child.inner(),
+                &left_child,
                 right_constant,
-                right_child.inner(),
+                &right_child,
             )?;
 
             return Ok(Emission::Constant(combined));
@@ -2498,9 +2502,9 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             let combined = self.combine_constants(
                 node.kind(),
                 left_constant,
-                left_child.inner(),
+                &left_child,
                 right_constant,
-                right_child.inner(),
+                &right_child,
             )?;
 
             return Ok(Emission::Constant(combined));
@@ -2617,7 +2621,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let mut while_emission = InstructionsEmission::new();
         let condition_emission = self.visit_expression(condition, None)?;
 
-        self.handle_condition_emission(&mut while_emission, condition_emission, condition.inner())?;
+        self.handle_condition_emission(&mut while_emission, condition_emission, &condition)?;
 
         let jump_forward_id = self.create_jump_id();
         let jump_backward_id = self.create_jump_id();
@@ -2644,7 +2648,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             Emission::Place(_) => {
                 return Err(CompileError::ExpectedStatement {
                     node_kind: body.kind(),
-                    position: Position::new(self.file_id, body.span()),
+                    position: body.position(),
                 });
             }
             Emission::None => {}
@@ -2686,7 +2690,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 }))?;
         let parameters = signature
             .left_child()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntxChild {
+            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
                 child_index: 0,
             }))?
             .multiple_children()
@@ -2699,12 +2703,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let body = node.right_child().ok_or(CompileError::Internal(
             InternalError::MissingSyntaxChild { child_index: 0 },
         ))?;
-
-        let function_type =
+        let function_scope_id =
             *self
                 .resolver
-                .get_type_binding(&node.id)
-                .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
+                .get_scope_binding(&body.id)
+                .ok_or(CompileError::Internal(InternalError::MissingScopeBinding(
                     node.id,
                 )))?;
 
@@ -2714,20 +2717,11 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         self.resolver
             .set_declaration_prototype(declaration_id, prototype_index as u16);
 
-        let function_scope_id =
-            *self
-                .resolver
-                .get_scope_binding(&body.id)
-                .ok_or(CompileError::Internal(InternalError::MissingScopeBinding(
-                    node.id,
-                )))?;
-
         let function_emitter = Emitter::new(
+            node,
             declaration_id,
-            prototype_index as u16,
-            self.file_id,
-            function_type,
             function_scope_id,
+            prototype_index as u16,
             Some(parameters),
             (self.source, self.syntax, self.resolver),
         )?;
@@ -2802,7 +2796,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 )))?;
         let register_count = self.resolver.get_register_size(return_type_id).ok_or(
             CompileError::CannotInferType {
-                position: Position::new(self.file_id, callee.span()),
+                type_id: return_type_id,
+                position: Some(callee.position()),
             },
         )?;
         let target = if let Some(target) = target
@@ -2814,41 +2809,59 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         } else {
             None
         };
+        let callee_declaration_id =
+            *self
+                .resolver
+                .get_declaration_binding(&callee.id)
+                .ok_or(CompileError::Internal(
+                    InternalError::MissingDeclarationBinding(callee.id),
+                ))?;
+        let callee_declaration =
+            self.resolver
+                .get_declaration(callee_declaration_id)
+                .ok_or(CompileError::Internal(InternalError::MissingDeclaration(
+                    callee_declaration_id,
+                )))?;
 
-        let is_native = self
-            .resolver
-            .get_declaration_binding(&callee.id)
-            .and_then(|id| self.resolver.get_declaration(*id))
-            .is_some_and(|declaration| matches!(declaration.kind, DeclarationKind::NativeFunction));
+        let callee_type_id =
+            *self
+                .resolver
+                .get_type_binding(&callee.id)
+                .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
+                    callee.id,
+                )))?;
+        let callee_type_node =
+            self.resolver
+                .get_type(callee_type_id)
+                .ok_or(CompileError::Internal(InternalError::MissingType(
+                    callee_type_id,
+                )))?;
 
-        let call_instruction =
-            if is_native {
-                let source_file = self.source.files().get(self.file_id.0 as usize).ok_or(
-                    CompileError::Internal(InternalError::MissingSourceFile(self.file_id)),
-                )?;
-                let function_name = source_file.source_code.get_span(callee.span());
-                let native_function = NativeFunction::from_str(function_name).ok_or(
-                    CompileError::InvalidNativeFunction {
-                        name: function_name.to_string(),
-                        position: Position::new(self.file_id, callee.span()),
-                    },
-                )?;
-                let destination_register = target.map(|target| target.index()).unwrap_or(u16::MAX);
+        let is_native = matches!(callee_type_node, TypeNode::Function { .. })
+            && matches!(callee_declaration.symbol, Symbol::BuiltIn(_));
 
-                Instruction::call_native(
-                    destination_register,
-                    native_function,
-                    arguments_start,
-                    return_operand_type,
-                )
-            } else {
-                Instruction::call(
-                    target.map(|target| target.index()),
-                    callee_address,
-                    arguments_start,
-                    argument_count,
-                )
-            };
+        let call_instruction = if is_native {
+            let function_name = self.source.get_source_str(&callee.position());
+            let native_function =
+                NativeFunction::from_str(function_name).ok_or(CompileError::Internal(
+                    InternalError::InvalidNativeFunction(function_name.to_string()),
+                ))?;
+            let destination_register = target.map(|target| target.index()).unwrap_or(u16::MAX);
+
+            Instruction::call_native(
+                destination_register,
+                native_function,
+                arguments_start,
+                return_operand_type,
+            )
+        } else {
+            Instruction::call(
+                target.map(|target| target.index()),
+                callee_address,
+                arguments_start,
+                argument_count,
+            )
+        };
 
         call_emission.push(call_instruction);
 

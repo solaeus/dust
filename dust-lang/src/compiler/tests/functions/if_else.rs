@@ -17,7 +17,7 @@ fn if_else_true() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -45,7 +45,7 @@ fn if_else_logical_and() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -75,7 +75,7 @@ fn if_else_logical_or() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -105,7 +105,7 @@ fn if_else_false() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -133,7 +133,7 @@ fn if_else_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -168,7 +168,7 @@ fn if_else_not_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -203,7 +203,7 @@ fn if_else_less_than() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -238,7 +238,7 @@ fn if_else_greater_than() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -273,7 +273,7 @@ fn if_else_less_than_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -311,7 +311,7 @@ fn if_else_greater_than_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -346,7 +346,7 @@ fn if_else_if_chain_end() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -389,7 +389,7 @@ fn if_else_if_chain_middle() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -432,7 +432,7 @@ fn if_else_nested() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -475,7 +475,7 @@ fn if_else_double_nested() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),

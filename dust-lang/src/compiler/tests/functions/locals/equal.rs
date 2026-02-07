@@ -17,7 +17,7 @@ fn local_boolean_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -57,7 +57,7 @@ fn local_byte_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -97,7 +97,7 @@ fn local_character_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -137,7 +137,7 @@ fn local_float_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -177,7 +177,7 @@ fn local_integer_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -217,7 +217,7 @@ fn local_string_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),

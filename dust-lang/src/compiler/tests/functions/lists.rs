@@ -17,7 +17,7 @@ fn list_boolean() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -60,7 +60,7 @@ fn list_byte() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -103,7 +103,7 @@ fn list_character() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -146,7 +146,7 @@ fn list_float() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -189,7 +189,7 @@ fn list_integer() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -232,7 +232,7 @@ fn list_string() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -275,7 +275,7 @@ fn list_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -339,7 +339,7 @@ fn list_not_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -403,7 +403,7 @@ fn list_greater_than() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -467,7 +467,7 @@ fn list_less_than() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -531,7 +531,7 @@ fn list_greater_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -595,7 +595,7 @@ fn list_less_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -659,7 +659,7 @@ fn list_index_boolean() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -708,7 +708,7 @@ fn list_index_byte() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -757,7 +757,7 @@ fn list_index_character() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -806,7 +806,7 @@ fn list_index_float() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -855,7 +855,7 @@ fn list_index_integer() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -904,7 +904,7 @@ fn list_index_string() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -953,7 +953,7 @@ fn local_list_boolean() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -996,7 +996,7 @@ fn local_list_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -1060,7 +1060,7 @@ fn local_list_not_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -1124,7 +1124,7 @@ fn local_list_greater_than() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -1188,7 +1188,7 @@ fn local_list_less_than() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -1255,7 +1255,7 @@ fn local_list_greater_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -1322,7 +1322,7 @@ fn local_list_less_than_or_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),

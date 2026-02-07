@@ -17,7 +17,7 @@ fn local_boolean_or() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),

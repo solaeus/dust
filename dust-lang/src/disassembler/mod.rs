@@ -42,15 +42,14 @@ impl<'a> Disassembler<'a> {
             tabs.push(file.name.clone());
         }
 
-        for (index, prototype) in program.prototypes.iter().enumerate() {
-            let prototype_name = if index == 0 {
-                "main"
-            } else if let Some(name_position) = prototype.name_position {
-                source.get_source_str(&name_position)
-            } else {
-                "anonymous"
-            };
-            tabs.push(prototype_name.to_string());
+        for prototype in &program.prototypes {
+            let prototype_name = prototype
+                .name
+                .get_str(&program.constants)
+                .unwrap_or("anonymous")
+                .to_string();
+
+            tabs.push(prototype_name);
         }
 
         Self {

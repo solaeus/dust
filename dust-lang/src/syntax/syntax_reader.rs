@@ -6,8 +6,8 @@ use crate::{
 #[derive(Debug, Clone, Copy)]
 pub struct SyntaxReader<'a> {
     pub id: SyntaxId,
+    pub tree: &'a SyntaxTree,
     node: &'a SyntaxNode,
-    tree: &'a SyntaxTree,
 }
 
 impl<'a> SyntaxReader<'a> {

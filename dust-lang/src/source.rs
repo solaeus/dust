@@ -118,6 +118,13 @@ impl Position {
     pub fn new(file_id: SourceFileId, span: Span) -> Self {
         Self { file_id, span }
     }
+
+    pub fn shrink(&self, offset: u32) -> Position {
+        Position {
+            file_id: self.file_id,
+            span: self.span.shrink(offset),
+        }
+    }
 }
 
 #[derive(
@@ -131,6 +138,13 @@ impl Span {
             start.try_into().unwrap_or_default(),
             end.try_into().unwrap_or_default(),
         )
+    }
+
+    pub fn join(&self, other: &Span) -> Span {
+        let new_start = self.0.min(other.0);
+        let new_end = self.1.max(other.1);
+
+        Span(new_start, new_end)
     }
 
     pub fn as_usize_range(&self) -> Range<usize> {

@@ -24,7 +24,7 @@ use crate::{
     parser::{ParseResult, Parser},
     prototype::Prototype,
     source::{Source, SourceCode, SourceFile, SourceFileId},
-    syntax::Syntax,
+    syntax::{Syntax, SyntaxId},
 };
 
 pub const DEFAULT_PROGRAM_NAME: &str = "dust_program";
@@ -159,7 +159,7 @@ impl Compiler {
         };
 
         // Type binding phase
-        let main_function_type = {
+        let _main_function_type = {
             let span = span!(Level::INFO, "type");
             let _enter = span.enter();
 
@@ -183,12 +183,43 @@ impl Compiler {
             let span = span!(Level::INFO, "emit");
             let _enter = span.enter();
 
+            let main_syntax_tree = if let Some(tree) = self.syntax.get_tree(SourceFileId::MAIN) {
+                tree
+            } else {
+                return Err(DustError::compile(
+                    CompileError::Internal(InternalError::MissingSyntaxTree(SourceFileId::MAIN)),
+                    self.source,
+                    self.resolver,
+                ));
+            };
+            let main_function = if let Some(syntax_node) = main_syntax_tree.root() {
+                syntax_node
+            } else {
+                return Err(DustError::compile(
+                    CompileError::Internal(InternalError::MissingSyntaxNode(SyntaxId::ROOT)),
+                    self.source,
+                    self.resolver,
+                ));
+            };
+            let main_declaration = if let Some(declaration) =
+                self.resolver.get_declaration(main_function_declaration_id)
+            {
+                declaration
+            } else {
+                return Err(DustError::compile(
+                    CompileError::Internal(InternalError::MissingDeclaration(
+                        main_function_declaration_id,
+                    )),
+                    self.source,
+                    self.resolver,
+                ));
+            };
+
             let main_emitter = match Emitter::new(
+                main_function,
                 main_function_declaration_id,
+                main_declaration.scope_id,
                 0,
-                SourceFileId::MAIN,
-                main_function_type,
-                ScopeId::PROJECT,
                 None,
                 (&self.source, &self.syntax, &mut self.resolver),
             ) {

@@ -71,10 +71,9 @@ impl SyntaxTree {
     }
 
     pub fn root(&self) -> Option<SyntaxReader<'_>> {
-        let root_id = SyntaxId(0);
         let root_node = self.nodes.first()?;
 
-        Some(SyntaxReader::new(root_id, root_node, self))
+        Some(SyntaxReader::new(SyntaxId::ROOT, root_node, self))
     }
 
     pub fn get_node(&self, id: SyntaxId) -> Option<&SyntaxNode> {

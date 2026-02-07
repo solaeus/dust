@@ -196,19 +196,19 @@ impl ConstantTable {
         }
     }
 
-    pub fn add_pooled_string(&mut self, start: u32, end: u32) -> u16 {
+    pub fn add_pooled_string(&mut self, start: u32, end: u32) -> ConstantId {
         let str = self.get_string_pool_range(start as usize..end as usize);
         let key = ConstantKey::from_str(str);
 
         if let Some(existing_index) = self.payloads.get_index_of(&key) {
-            existing_index as u16
+            ConstantId(existing_index as u16)
         } else {
             let payload = (start as u64) << 32 | (end as u64);
 
             let (index, _) = self.payloads.insert_full(key, payload);
             self.tags.push(OperandType::STRING);
 
-            index as u16
+            ConstantId(index as u16)
         }
     }
 

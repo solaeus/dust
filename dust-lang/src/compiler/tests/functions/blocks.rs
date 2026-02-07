@@ -1,5 +1,6 @@
 use crate::{
-    compiler::compile_prototypes,
+    compiler::{Symbol, compile_prototypes},
+    constant_table::ConstantId,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     source::{Position, SourceFileId, Span},
@@ -17,10 +18,10 @@ fn empty_block() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
-                file_id: SourceFileId(0),
-                span: Span(16, 22)
-            }),
+            name: Symbol::Source {
+                constant_id: ConstantId(0),
+                position: Position::new(SourceFileId::MAIN, Span(16, 22))
+            },
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![Instruction::r#return(Address::default(), OperandType::NONE)],
             ..Default::default()
@@ -38,7 +39,7 @@ fn block_expression() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -62,7 +63,7 @@ fn block_statement() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -90,7 +91,7 @@ fn block_statement_and_expression() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -121,7 +122,7 @@ fn parent_scope_access() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -149,7 +150,7 @@ fn nested_parrent_scope_access() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -181,7 +182,7 @@ fn scope_shadowing() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
@@ -207,7 +208,7 @@ fn scope_deshadowing() {
         prototypes[1],
         Prototype {
             index: 1,
-            name_position: Some(Position {
+            name: Some(Position {
                 file_id: SourceFileId(0),
                 span: Span(16, 22)
             }),
