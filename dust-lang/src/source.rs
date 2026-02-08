@@ -67,7 +67,7 @@ impl Source {
         }
     }
 
-    pub fn iter(&self) -> SourceIterator {
+    pub fn iter(&self) -> SourceIterator<'_> {
         SourceIterator::new(self)
     }
 }

@@ -1130,7 +1130,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         }
     }
 
-    fn visit_path(&mut self, node: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
+    fn visit_path(&mut self, _node: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
         todo!()
     }
 }

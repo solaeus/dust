@@ -4,7 +4,6 @@ use crate::{
     compiler::compile_prototypes,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
-    source::{Position, SourceFileId, Span},
     tests::{create_function_case, list_cases},
     r#type::{FunctionType, Type},
 };

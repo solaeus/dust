@@ -261,6 +261,7 @@ impl Resolver {
     pub fn find_declaration_in_scope(
         &self,
         symbol: Symbol,
+        path: &SyntaxReader,
         target_scope_id: ScopeId,
         parent: Option<DeclarationId>,
         is_type_lookup: bool,
@@ -335,7 +336,10 @@ impl Resolver {
             }
         }
 
-        Err(CompileError::UndeclaredVariable { name: symbol })
+        Err(CompileError::UndeclaredVariable {
+            name: symbol,
+            position: path.position(),
+        })
     }
 
     pub fn set_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {

@@ -5,6 +5,7 @@ use crate::{
         Resolver, Symbol, TypeId, TypeNode,
         resolver::{DeclarationId, DeclarationMembers, ScopeId, TypeMembers},
     },
+    constant_table::ConstantId,
     dust_error::AnnotatedError,
     instruction::Operation,
     source::{Position, Source, SourceFileId},
@@ -63,9 +64,11 @@ pub enum CompileError {
     },
     UndeclaredVariable {
         name: Symbol,
+        position: Position,
     },
     UndeclaredType {
         name: Symbol,
+        position: Position,
     },
     ExpectedFunctionType {
         found: TypeId,
@@ -150,18 +153,21 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
-            CompileError::UndeclaredVariable { name } => {
+            CompileError::UndeclaredVariable { name, position } => {
+                let title = format!("Undeclared variable");
                 let file = source.get_file(position.file_id);
                 let file_str = file.full_source_str();
-                let variable_str = file.source_str(position.span);
-                let title = format!("Undeclared variable: {variable_str}");
+                let name_str = match name.get_str(&resolver.constants) {
+                    Ok(name_str) => name_str,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!(
-                                "\"{variable_str}\" was used here, but it was not declared in this scope."
+                                "\"{name_str}\" was used here, but it was not declared in this scope."
                             )),
                     ),
                 )
@@ -178,7 +184,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 } else {
                     None
                 };
-                let (type_string, position) = if let Some(declaration_id) = type_declaration_id {
+                let type_string = if let Some(declaration_id) = type_declaration_id {
                     let declaration = match resolver.get_declaration(declaration_id) {
                         Ok(declaration) => declaration,
                         Err(error) => return error.annotated_error((source, resolver)),
@@ -188,14 +194,14 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         Err(error) => return error.annotated_error((source, resolver)),
                     };
 
-                    (symbol_string, declaration.position)
+                    symbol_string
                 } else {
                     let type_string = match resolver.get_full_type(*type_id, source) {
                         Ok(r#type) => r#type.to_string(),
                         Err(error) => return error.annotated_error((source, resolver)),
                     };
 
-                    (type_string, None)
+                    type_string
                 };
                 let title = format!("Cannot infer type {type_string}");
 
@@ -431,6 +437,35 @@ impl<'a> AnnotatedError<'a> for CompileError {
                             )),
                     ),
                 )
+            }
+            CompileError::CannotInstantiateType { type_id, position } => {
+                let title = "Cannot instantiate type".to_string();
+                let r#type = match resolver.get_full_type(*type_id, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
+                let error_message = format!("Type {type} is an enum and cannot be instantiated.");
+                let help_message =
+                    "You must specify which variant of the enum you want to crete.".to_string();
+
+                if let Some(position) = position {
+                    let file_str = source.get_file(position.file_id).full_source_str();
+
+                    Group::with_title(Level::ERROR.primary_title(title))
+                        .element(
+                            Snippet::source(file_str).annotation(
+                                AnnotationKind::Primary
+                                    .span(position.span.as_usize_range())
+                                    .label(error_message),
+                            ),
+                        )
+                        .element(Level::HELP.message(help_message))
+                } else {
+                    Group::with_title(Level::ERROR.primary_title(title)).elements([
+                        Level::ERROR.message(error_message),
+                        Level::HELP.message(help_message),
+                    ])
+                }
             }
         }
     }

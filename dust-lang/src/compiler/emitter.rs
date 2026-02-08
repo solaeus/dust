@@ -1358,6 +1358,7 @@ impl SyntaxVisitor for Emitter<'_> {
             .get(declaration_id)
             .ok_or_else(|| CompileError::UndeclaredVariable {
                 name: self.resolver.create_symbol(&path, self.source),
+                position: path.position(),
             })?
             .expect_target(&path)?;
 
