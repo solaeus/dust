@@ -19,9 +19,8 @@ fn local_byte_division() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
@@ -51,9 +50,8 @@ fn local_float_division() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
@@ -83,9 +81,8 @@ fn local_integer_division() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -115,9 +112,8 @@ fn local_mut_byte_division() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
@@ -146,9 +142,8 @@ fn local_mut_float_division() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
@@ -180,9 +175,8 @@ fn local_mut_integer_division() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![

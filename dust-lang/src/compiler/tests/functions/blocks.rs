@@ -3,7 +3,6 @@ use crate::{
     constant_table::ConstantId,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
-    source::{Position, SourceFileId, Span},
     tests::{block_cases, create_function_case},
     r#type::{FunctionType, Type},
 };
@@ -18,9 +17,8 @@ fn empty_block() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![Instruction::r#return(Address::default(), OperandType::NONE)],
@@ -39,9 +37,8 @@ fn block_expression() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
@@ -63,9 +60,8 @@ fn block_statement() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
@@ -91,9 +87,8 @@ fn block_statement_and_expression() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -122,9 +117,8 @@ fn parent_scope_access() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -150,9 +144,8 @@ fn nested_parrent_scope_access() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -182,9 +175,8 @@ fn scope_shadowing() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -208,9 +200,8 @@ fn scope_deshadowing() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![

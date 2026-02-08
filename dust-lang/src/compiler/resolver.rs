@@ -15,7 +15,7 @@ use crate::{
     native_function::NativeFunction,
     prototype::Prototype,
     source::{Position, Source},
-    syntax::{SyntaxId, SyntaxReader},
+    syntax::{SyntaxId, SyntaxKind, SyntaxReader},
     r#type::{FunctionType, Type},
 };
 
@@ -96,6 +96,18 @@ impl Resolver {
         }
 
         resolver
+    }
+
+    pub fn create_symbol(&mut self, path: &SyntaxReader, source: &Source) -> Symbol {
+        debug_assert!(matches!(
+            path.kind(),
+            SyntaxKind::Path | SyntaxKind::PathSegment
+        ));
+
+        let bytes = source.get_file(path.file_id()).source_bytes(path.span());
+        let constant_id = self.constants.add_string(bytes);
+
+        Symbol::Constant { constant_id }
     }
 
     pub fn create_anonymous_symbol(&mut self) -> Symbol {
@@ -387,7 +399,7 @@ impl Resolver {
                 for type_parameter_name in &function_type.type_parameters {
                     let name_id = self.constants.add_string(type_parameter_name.as_bytes());
                     let type_parameter_id = self.add_declaration(Declaration {
-                        symbol: Symbol::External {
+                        symbol: Symbol::Constant {
                             constant_id: name_id,
                         },
                         kind: DeclarationKind::Type { parent: None },
@@ -419,7 +431,7 @@ impl Resolver {
                 let struct_declaration_id = self.add_declaration(Declaration {
                     kind: DeclarationKind::Type { parent: None },
                     scope_id: ScopeId::PROJECT,
-                    symbol: Symbol::External {
+                    symbol: Symbol::Constant {
                         constant_id: name_id,
                     },
                     is_public: false,
@@ -436,7 +448,7 @@ impl Resolver {
                             parent: Some(struct_declaration_id),
                         },
                         scope_id: ScopeId::PROJECT,
-                        symbol: Symbol::External {
+                        symbol: Symbol::Constant {
                             constant_id: name_id,
                         },
                         is_public: false,
@@ -594,7 +606,7 @@ impl Resolver {
     pub fn get_operand_type(
         &self,
         type_id: TypeId,
-        position: Position,
+        node: &SyntaxReader,
     ) -> Result<OperandType, CompileError> {
         let operand_type = match self.get_type(type_id)? {
             TypeNode::None => OperandType::NONE,
@@ -612,7 +624,7 @@ impl Resolver {
                 TypeId::INTEGER => OperandType::LIST_INTEGER,
                 TypeId::STRING => OperandType::LIST_STRING,
                 _ => {
-                    let element_operand_type = self.get_operand_type(*element_type, position)?;
+                    let element_operand_type = self.get_operand_type(*element_type, node)?;
 
                     match element_operand_type {
                         OperandType::LIST_BOOLEAN
@@ -626,7 +638,7 @@ impl Resolver {
                         _ => {
                             return Err(CompileError::CannotInferType {
                                 type_id,
-                                position: Some(position),
+                                position: Some(node.position()),
                             });
                         }
                     }
@@ -637,17 +649,11 @@ impl Resolver {
             TypeNode::Inferred {
                 resolved: Some(inferred),
                 ..
-            } => self.get_operand_type(*inferred, position)?,
-            TypeNode::Inferred { resolved: None, .. } => {
+            } => self.get_operand_type(*inferred, node)?,
+            TypeNode::Inferred { resolved: None, .. } | TypeNode::Enum { .. } => {
                 return Err(CompileError::CannotInferType {
                     type_id,
-                    position: Some(position),
-                });
-            }
-            TypeNode::Enum { .. } => {
-                return Err(CompileError::CannotInstantiateType {
-                    type_id,
-                    position: Some(position),
+                    position: Some(node.position()),
                 });
             }
         };
@@ -799,13 +805,7 @@ impl Declaration {
 pub enum Symbol {
     Anonymous(AnonymousSymbolId),
     BuiltIn(&'static str),
-    External {
-        constant_id: ConstantId,
-    },
-    Source {
-        constant_id: ConstantId,
-        position: Position,
-    },
+    Constant { constant_id: ConstantId },
 }
 
 impl Symbol {
@@ -819,11 +819,13 @@ impl Symbol {
         match self {
             Symbol::Anonymous(_) => Ok("<anonymous>"),
             Symbol::BuiltIn(name) => Ok(name),
-            Symbol::External { constant_id } | Symbol::Source { constant_id, .. } => constants
-                .get_string(*constant_id)
-                .ok_or(CompileError::Internal(
-                    InternalError::MissingConstantString(*constant_id),
-                )),
+            Symbol::Constant { constant_id } => {
+                constants
+                    .get_string(*constant_id)
+                    .ok_or(CompileError::Internal(
+                        InternalError::MissingConstantString(*constant_id),
+                    ))
+            }
         }
     }
 }
@@ -839,11 +841,7 @@ impl Hash for Symbol {
                 hasher.write_u8(1);
                 name.hash(hasher);
             }
-            Symbol::External { constant_id } => {
-                hasher.write_u8(2);
-                constant_id.hash(hasher);
-            }
-            Symbol::Source { constant_id, .. } => {
+            Symbol::Constant { constant_id, .. } => {
                 hasher.write_u8(2);
                 constant_id.hash(hasher);
             }

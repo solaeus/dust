@@ -166,7 +166,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     ),
                 )
             }
-            CompileError::CannotInferType { type_id } => {
+            CompileError::CannotInferType { type_id, position } => {
                 let type_node = match resolver.get_type(*type_id) {
                     Ok(type_node) => type_node,
                     Err(error) => return error.annotated_error((source, resolver)),

@@ -4,7 +4,6 @@ use crate::{
     compiler::compile_prototypes,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
-    source::{Position, SourceFileId, Span},
     tests::{create_function_case, if_else_cases},
     r#type::{FunctionType, Type},
 };
@@ -19,9 +18,8 @@ fn if_else_true() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -47,9 +45,8 @@ fn if_else_logical_and() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -77,9 +74,8 @@ fn if_else_logical_or() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -107,9 +103,8 @@ fn if_else_false() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -135,9 +130,8 @@ fn if_else_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -170,9 +164,8 @@ fn if_else_not_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -205,9 +198,8 @@ fn if_else_less_than() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -240,9 +232,8 @@ fn if_else_greater_than() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -275,9 +266,8 @@ fn if_else_less_than_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -313,9 +303,8 @@ fn if_else_greater_than_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -348,9 +337,8 @@ fn if_else_if_chain_end() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -391,9 +379,8 @@ fn if_else_if_chain_middle() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -434,9 +421,8 @@ fn if_else_nested() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -477,9 +463,8 @@ fn if_else_double_nested() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Source {
+            name: Symbol::Constant {
                 constant_id: ConstantId(0),
-                position: Position::new(SourceFileId::MAIN, Span(16, 22))
             },
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
