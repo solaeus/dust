@@ -6,7 +6,7 @@ use crate::{
     syntax::{SyntaxId, SyntaxKind, SyntaxPayload},
 };
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum SyntaxError {
     ExpectedItem {
         found: SyntaxKind,
@@ -74,7 +74,7 @@ impl<'a> AnnotatedError<'a> for SyntaxError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum InternalSyntaxError {
     ExpectedChild,
     MissingSyntaxNode(SyntaxId),

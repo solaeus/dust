@@ -1168,13 +1168,12 @@ impl<'a> Emitter<'a> {
     fn handle_implicit_return(
         &mut self,
         node: SyntaxReader,
-        input: Option<Target>,
+        target: Target,
     ) -> Result<Emission, CompileError> {
         let mut return_emission = InstructionsEmission::new();
-        let emission = self.visit(node, input)?;
 
         if node.kind().is_item() || node.kind().is_statement() {
-            if let Emission::Instructions(instructions) = emission {
+            if let Emission::Instructions(instructions) = expression_emission {
                 return_emission.merge(instructions);
             }
 
@@ -1182,29 +1181,39 @@ impl<'a> Emitter<'a> {
 
             return_emission.push(return_instruction);
         } else {
-            self.handle_return_emission(&mut return_emission, emission, node)?;
+            let expression_type_id = *self.resolver.get_type_binding(&node.id)?;
+            let target = target.unwrap_or_else(|| {
+                let register_size = self
+                    .resolver
+                    .get_register_size(expression_type_id)
+                    .unwrap_or(1);
+                self.allocate_temporary_registers()
+            });
+            let expression_emission = self.visit_expression(node, target)?;
+
+            self.handle_return_emission(&mut return_emission, expression_emission, node)?;
         }
 
         Ok(Emission::Instructions(return_emission))
     }
 }
 
-impl SyntaxVistorTypes for Emitter<'_> {
-    type Input = Option<Target>;
+impl SyntaxVisitor for Emitter<'_> {
+    type MainOutput = Emission;
 
-    type Output = Emission;
+    type ItemOutput = ();
 
-    type Error = CompileError;
-}
+    type StatementOutput = Emission;
 
-impl SyntaxVisitor for Emitter<'_> {}
+    type ExpressionInput = Target;
 
-impl<'a> ItemVisitor for Emitter<'a> {
-    fn visit_main_function_item(
-        &mut self,
-        node: SyntaxReader,
-        target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+    type ExpressionOutput = Emission;
+
+    type TypeOutput = ();
+
+    type PathOutput = ();
+
+    fn visit_main(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
         debug!("Emitting main function item");
 
         let children = node.multiple_children()?;
@@ -1212,10 +1221,8 @@ impl<'a> ItemVisitor for Emitter<'a> {
         let mut final_emission = Emission::None;
 
         for (index, child) in children.into_iter().enumerate() {
-            let child_emission = self.visit(child, target)?;
-
             if index == last_child {
-                final_emission = self.handle_implicit_return(child, target)?;
+                final_emission = self.handle_implicit_return(child)?;
             } else {
                 self.handle_top_emission(child_emission, child)?;
             }
@@ -1227,16 +1234,16 @@ impl<'a> ItemVisitor for Emitter<'a> {
     fn visit_module_item(
         &mut self,
         _: SyntaxReader<'_>,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _: Self::ItemInput,
+    ) -> Result<Self::ItemOutput, CompileError> {
         todo!()
     }
 
     fn visit_function_item(
         &mut self,
         node: SyntaxReader<'_>,
-        _target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _target: Self::ItemInput,
+    ) -> Result<Self::ItemOutput, CompileError> {
         debug!("Emitting function item");
 
         let function_expression = node.right_child()?;
@@ -1267,26 +1274,24 @@ impl<'a> ItemVisitor for Emitter<'a> {
     fn visit_use_item(
         &mut self,
         _: SyntaxReader<'_>,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _: Self::ItemInput,
+    ) -> Result<Self::ItemOutput, CompileError> {
         todo!()
     }
 
     fn visit_struct_item(
         &mut self,
         _: SyntaxReader,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _: Self::ItemInput,
+    ) -> Result<Self::ItemOutput, CompileError> {
         Ok(Emission::None)
     }
-}
 
-impl<'a> StatementVisitor for Emitter<'a> {
     fn visit_expression_statement(
         &mut self,
         node: SyntaxReader<'_>,
-        target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        target: Self::StatementInput,
+    ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Emitting expression statement");
 
         let expression = node.left_child()?;
@@ -1309,8 +1314,8 @@ impl<'a> StatementVisitor for Emitter<'a> {
     fn visit_let_statement(
         &mut self,
         node: SyntaxReader,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _: Self::StatementInput,
+    ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Emitting let statement");
 
         let mut children = node.multiple_children()?;
@@ -1379,8 +1384,8 @@ impl<'a> StatementVisitor for Emitter<'a> {
     fn visit_binary_assignment_statement(
         &mut self,
         node: SyntaxReader,
-        input: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        input: Self::StatementInput,
+    ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Emitting binary assignment statement");
 
         let mut emission = self.visit_math_binary_expression(node, input)?;
@@ -1395,8 +1400,8 @@ impl<'a> StatementVisitor for Emitter<'a> {
     fn visit_reassignment_statement(
         &mut self,
         node: SyntaxReader<'_>,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _: Self::StatementInput,
+    ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Emitting reassignment statement");
 
         let (path, expression_statement) = node.binary_children()?;
@@ -1455,14 +1460,12 @@ impl<'a> StatementVisitor for Emitter<'a> {
 
         Ok(Emission::Instructions(reassignment_emission))
     }
-}
 
-impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_boolean_expression(
         &mut self,
         node: SyntaxReader,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting boolean expression");
 
         Ok(Emission::Constant(ConstantEmission::Boolean(
@@ -1473,8 +1476,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_byte_expression(
         &mut self,
         node: SyntaxReader,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting byte expression");
 
         Ok(Emission::Constant(ConstantEmission::Byte(
@@ -1485,8 +1488,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_character_expression(
         &mut self,
         node: SyntaxReader,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting character expression");
 
         Ok(Emission::Constant(ConstantEmission::Character(
@@ -1497,8 +1500,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_float_expression(
         &mut self,
         node: SyntaxReader,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting float expression");
 
         Ok(Emission::Constant(ConstantEmission::Float(
@@ -1509,8 +1512,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_integer_expression(
         &mut self,
         node: SyntaxReader,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting integer expression");
 
         Ok(Emission::Constant(ConstantEmission::Integer(
@@ -1521,8 +1524,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_string_expression(
         &mut self,
         node: SyntaxReader,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting string expression");
 
         let bytes = self
@@ -1542,8 +1545,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_list_expression(
         &mut self,
         node: SyntaxReader,
-        target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        target: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         fn handle_element_emission(
             emitter: &mut Emitter,
             instructions: &mut InstructionsEmission,
@@ -1633,8 +1636,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_index_expression(
         &mut self,
         node: SyntaxReader,
-        target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        target: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting index expression");
 
         let (list_expression, index_expression) = node.binary_children()?;
@@ -1671,8 +1674,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_path_expression(
         &mut self,
         node: SyntaxReader,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting path expression");
 
         let declaration_id =
@@ -1694,8 +1697,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_struct_expression(
         &mut self,
         node: SyntaxReader,
-        target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        target: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting struct expression");
 
         fn flatten_leaf_operand_types(r#type: &Type, out: &mut Vec<OperandType>) {
@@ -1796,8 +1799,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_block_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        target: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting block expression");
 
         let children = node.multiple_children()?;
@@ -1925,8 +1928,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_if_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        target: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting if expression");
 
         let mut children = node.multiple_children()?;
@@ -1994,8 +1997,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_else_expression(
         &mut self,
         node: SyntaxReader,
-        target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        target: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting else expression");
 
         self.visit_block_expression(node.left_child()?, target)
@@ -2004,8 +2007,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_math_binary_expression(
         &mut self,
         node: SyntaxReader,
-        target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        target: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting math binary expression");
 
         let (left_expression, right_expression) = node.binary_children()?;
@@ -2180,8 +2183,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_comparison_binary_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        input: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting comparison binary expression");
 
         let (left_expression, right_expression) = node.binary_children()?;
@@ -2269,8 +2272,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_logical_binary_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        target: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting logical binary expression");
 
         let (left_expression, right_expression) = node.binary_children()?;
@@ -2327,8 +2330,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_unary_negation_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        input: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting unary negation expression");
 
         let expression = node.left_child()?;
@@ -2377,8 +2380,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_while_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting while expression");
 
         let (condition, body) = node.binary_children()?;
@@ -2430,8 +2433,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_function_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        _target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        _target: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting function expression");
 
         let (signature, body) = node.binary_children()?;
@@ -2483,8 +2486,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_call_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        target: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
+        target: Self::ExpressionInput,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting call expression");
 
         let (callee, argument_list) = node.binary_children()?;
@@ -2566,7 +2569,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
             && let Symbol::BuiltIn(name) = callee_declaration.symbol
         {
             let native_function = NativeFunction::from_str(name).ok_or(CompileError::Internal(
-                InternalError::InvalidNativeFunction(name.to_string()),
+                InternalError::InvalidNativeFunction(name),
             ))?;
             let destination_register = target.map(|target| target.index()).unwrap_or(u16::MAX);
 
@@ -2593,27 +2596,13 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
 
         Ok(Emission::Instructions(call_emission))
     }
-}
 
-impl<'a> OtherVisitor for Emitter<'a> {
-    fn visit_type(
-        &mut self,
-        _: SyntaxReader,
-        _: Self::Input,
-    ) -> Result<Self::Output, CompileError> {
-        Ok(Emission::None)
+    fn visit_type(&mut self, _: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
+        Ok(())
     }
 
-    fn visit_path(&mut self, _: SyntaxReader, _: Self::Input) -> Result<Self::Output, Self::Error> {
-        Ok(Emission::None)
-    }
-
-    fn visit_path_segment(
-        &mut self,
-        _: SyntaxReader,
-        _: Self::Input,
-    ) -> Result<Self::Output, Self::Error> {
-        Ok(Emission::None)
+    fn visit_path(&mut self, _: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
+        Ok(())
     }
 }
 

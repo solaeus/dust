@@ -372,7 +372,9 @@ fn adjacent_tokens() {
 #[test]
 fn adjacent_tokens_from_str() {
     let source = "let x:int=42;";
-    let tokens = Lexer::from_str(source).try_collect::<Vec<Token>>().unwrap();
+    let tokens = Lexer::validated(source)
+        .try_collect::<Vec<Token>>()
+        .unwrap();
 
     assert_eq!(
         tokens,

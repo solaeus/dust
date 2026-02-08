@@ -2,33 +2,33 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     compiler::{
-        Resolver, TypeId, TypeNode,
+        Resolver, Symbol, TypeId, TypeNode,
         resolver::{DeclarationId, DeclarationMembers, ScopeId, TypeMembers},
     },
     dust_error::AnnotatedError,
     instruction::Operation,
     source::{Position, Source, SourceFileId},
     syntax::{SyntaxError, SyntaxId, SyntaxKind},
-    r#type::Type,
 };
 
 const INVALID_TYPE: &str = "<invalid_type>";
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum CompileError {
     Syntax(SyntaxError),
     Internal(InternalError),
 
     CannotApplyOperator {
         operator: SyntaxKind,
-        r#type: Type,
+        type_id: TypeId,
         position: Position,
     },
     CannotInferType {
         type_id: TypeId,
+        position: Option<Position>,
     },
     CannotIndex {
-        r#type: Type,
+        type_id: TypeId,
         position: Position,
     },
     CannotMutate {
@@ -62,11 +62,10 @@ pub enum CompileError {
         found_position: Position,
     },
     UndeclaredVariable {
-        position: Position,
+        name: Symbol,
     },
     UndeclaredType {
-        name: String,
-        position: Position,
+        name: Symbol,
     },
     ExpectedFunctionType {
         found: TypeId,
@@ -85,6 +84,10 @@ pub enum CompileError {
     ExpectedNoneType {
         node_kind: SyntaxKind,
         position: Position,
+    },
+    CannotInstantiateType {
+        type_id: TypeId,
+        position: Option<Position>,
     },
 }
 
@@ -123,14 +126,10 @@ impl<'a> AnnotatedError<'a> for CompileError {
             } => {
                 let title = "Expected a boolean expression".to_string();
                 let file_str = source.get_file(position.file_id).full_source_str();
-                let found_type = resolver
-                    .get_full_type(*found_type_id, source)
-                    .map(|r#type| r#type.to_string())
-                    .unwrap_or_else(|| {
-                        let internal_error = InternalError::MissingType(*found_type_id);
-
-                        format!("{internal_error:#?}>")
-                    });
+                let found_type = match resolver.get_full_type(*found_type_id, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str)
@@ -151,7 +150,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
-            CompileError::UndeclaredVariable { position } => {
+            CompileError::UndeclaredVariable { name } => {
                 let file = source.get_file(position.file_id);
                 let file_str = file.full_source_str();
                 let variable_str = file.source_str(position.span);
@@ -168,13 +167,9 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 )
             }
             CompileError::CannotInferType { type_id } => {
-                let title = "Cannot infer type".to_string();
-
-                let type_node = if let Some(type_node) = resolver.get_type(*type_id) {
-                    type_node
-                } else {
-                    return CompileError::Internal(InternalError::MissingType(*type_id))
-                        .annotated_error((source, resolver));
+                let type_node = match resolver.get_type(*type_id) {
+                    Ok(type_node) => type_node,
+                    Err(error) => return error.annotated_error((source, resolver)),
                 };
                 let type_declaration_id = if let TypeNode::Struct { declaration_id, .. }
                 | TypeNode::Enum { declaration_id, .. } = type_node
@@ -183,33 +178,26 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 } else {
                     None
                 };
-                let (type_symbol_string, position) =
-                    if let Some(declaration_id) = type_declaration_id {
-                        let Some(declaration) = resolver.get_declaration(declaration_id) else {
-                            return CompileError::Internal(InternalError::MissingDeclaration(
-                                declaration_id,
-                            ))
-                            .annotated_error((source, resolver));
-                        };
-
-                        let symbol_string = declaration
-                            .symbol
-                            .get_str(&resolver.constants)
-                            .map(String::from)
-                            .or_else(|| {
-                                declaration.position.map(|position| {
-                                    source
-                                        .get_file(position.file_id)
-                                        .source_str(position.span)
-                                        .to_string()
-                                })
-                            })
-                            .unwrap_or_else(|| "<invalid symbol>".to_string());
-
-                        (symbol_string, declaration.position)
-                    } else {
-                        ("<anonymous_type>".to_string(), None)
+                let (type_string, position) = if let Some(declaration_id) = type_declaration_id {
+                    let declaration = match resolver.get_declaration(declaration_id) {
+                        Ok(declaration) => declaration,
+                        Err(error) => return error.annotated_error((source, resolver)),
                     };
+                    let symbol_string = match declaration.symbol.get_str(&resolver.constants) {
+                        Ok(symbol_string) => symbol_string.to_string(),
+                        Err(error) => return error.annotated_error((source, resolver)),
+                    };
+
+                    (symbol_string, declaration.position)
+                } else {
+                    let type_string = match resolver.get_full_type(*type_id, source) {
+                        Ok(r#type) => r#type.to_string(),
+                        Err(error) => return error.annotated_error((source, resolver)),
+                    };
+
+                    (type_string, None)
+                };
+                let title = format!("Cannot infer type {type_string}");
 
                 match position {
                     Some(position) => {
@@ -220,14 +208,13 @@ impl<'a> AnnotatedError<'a> for CompileError {
                                 AnnotationKind::Primary
                                     .span(position.span.as_usize_range())
                                     .label(format!(
-                                        "Type {type_symbol_string} was declared here, but its type cannot be inferred."
+                                        "Type {type_string} was declared here, but its type cannot be inferred."
                                     )),
                             ),
                         ])
                     }
                     None => Group::with_title(Level::ERROR.primary_title(title)).element(
-                        Level::ERROR
-                            .message(format!("Type {type_symbol_string} cannot be inferred.")),
+                        Level::ERROR.message(format!("Type {type_string} cannot be inferred.")),
                     ),
                 }
             }
@@ -239,12 +226,14 @@ impl<'a> AnnotatedError<'a> for CompileError {
             } => {
                 let title = "Type conflict".to_string();
 
-                let expected_type_string = resolver
-                    .get_full_type(*expected_type, source)
-                    .map_or_else(|| INVALID_TYPE.to_string(), |r#type| r#type.to_string());
-                let found_type_string = resolver
-                    .get_full_type(*found_type, source)
-                    .map_or_else(|| INVALID_TYPE.to_string(), |r#type| r#type.to_string());
+                let expected_type_string = match resolver.get_full_type(*expected_type, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
+                let found_type_string = match resolver.get_full_type(*found_type, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
 
                 if let Some(expected_position) = expected_position {
                     let expected_file_str =
@@ -281,9 +270,13 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::CannotApplyOperator {
                 operator,
-                r#type,
+                type_id,
                 position,
             } => {
+                let r#type = match resolver.get_full_type(*type_id, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
                 let title = format!("Cannot apply operator {operator} to type {type}");
                 let file_str = source.get_file(position.file_id).full_source_str();
 
@@ -297,7 +290,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     ),
                 )
             }
-            CompileError::CannotIndex { r#type, position } => {
+            CompileError::CannotIndex { type_id, position } => {
+                let r#type = match resolver.get_full_type(*type_id, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
                 let title = format!("Cannot index type {type}");
                 let file_str = source.get_file(position.file_id).full_source_str();
 
@@ -310,14 +307,18 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 )
             }
             CompileError::UndeclaredType { name, position } => {
-                let title = format!("Undeclared type: {name}");
+                let name_str = match name.get_str(&resolver.constants) {
+                    Ok(name_str) => name_str,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
+                let title = format!("Undeclared type: {name_str}");
                 let file_str = source.get_file(position.file_id).full_source_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
-                            .label(format!("Use of undeclared type {name} here")),
+                            .label(format!("Use of undeclared type {name_str} here")),
                     ),
                 )
             }
@@ -356,16 +357,17 @@ impl<'a> AnnotatedError<'a> for CompileError {
             CompileError::ExpectedFunctionType { found, position } => {
                 let title = "Expected a function type";
                 let file_str = source.get_file(position.file_id).full_source_str();
-                let found_string = resolver
-                    .get_full_type(*found, source)
-                    .map_or_else(|| INVALID_TYPE.to_string(), |r#type| r#type.to_string());
+                let found_type = match resolver.get_full_type(*found, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!(
-                                "Found {found_string}, but a function type is required."
+                                "Found {found_type}, but a function type is required."
                             )),
                     ),
                 )
@@ -378,9 +380,10 @@ impl<'a> AnnotatedError<'a> for CompileError {
             } => {
                 let title = "Incorrect argument count";
                 let file_str = source.get_file(found_position.file_id).full_source_str();
-                let function_type_string = resolver
-                    .get_full_type(*function_type, source)
-                    .map_or_else(|| INVALID_TYPE.to_string(), |r#type| r#type.to_string());
+                let function_type = match resolver.get_full_type(*function_type, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -390,7 +393,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                                 "Expected {expected_count} arguments but found {found_count}."
                             ))
                             .label(format!(
-                                "Type {function_type_string} has {expected_count} arguments."
+                                "Type {function_type} has {expected_count} arguments."
                             )),
                     ),
                 )
@@ -439,11 +442,17 @@ impl From<SyntaxError> for CompileError {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+pub enum ErrorContext {
+    SinglePosition(Position),
+    DoublePosition(Position, Position),
+}
+
+#[derive(Clone, Copy, Debug)]
 pub enum InternalError {
     InvalidDeclarationKind(DeclarationId),
     InvalidJumpAnchorInstruction(Operation),
-    InvalidNativeFunction(String),
+    InvalidNativeFunction(&'static str),
     InvalidSyntaxNode(SyntaxKind),
     InvalidTypeNode(TypeId),
     MissingDeclaration(DeclarationId),
@@ -462,4 +471,8 @@ pub enum InternalError {
     MissingType(TypeId),
     MissingTypeBinding(SyntaxId),
     MissingTypeMembers(TypeMembers),
+    AnonymousType(DeclarationId),
+    MissingDeclarationMember(u32),
+    MissingTypeMember(u32),
+    MissingConstantString(ConstantId),
 }

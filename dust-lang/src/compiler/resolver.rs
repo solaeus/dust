@@ -15,7 +15,7 @@ use crate::{
     native_function::NativeFunction,
     prototype::Prototype,
     source::{Position, Source},
-    syntax::SyntaxId,
+    syntax::{SyntaxId, SyntaxReader},
     r#type::{FunctionType, Type},
 };
 
@@ -113,8 +113,10 @@ impl Resolver {
         id
     }
 
-    pub fn get_scope(&self, id: ScopeId) -> Option<&Scope> {
-        self.scopes.get(id.0 as usize)
+    pub fn get_scope(&self, id: ScopeId) -> Result<&Scope, CompileError> {
+        self.scopes
+            .get(id.0 as usize)
+            .ok_or(CompileError::Internal(InternalError::MissingScope(id)))
     }
 
     pub fn get_scope_mut(&mut self, id: ScopeId) -> Option<&mut Scope> {
@@ -125,8 +127,12 @@ impl Resolver {
         self.scope_bindings.insert(syntax_id, scope_id);
     }
 
-    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Option<&ScopeId> {
-        self.scope_bindings.get(syntax_id)
+    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Result<&ScopeId, CompileError> {
+        self.scope_bindings
+            .get(syntax_id)
+            .ok_or(CompileError::Internal(InternalError::MissingScopeBinding(
+                *syntax_id,
+            )))
     }
 
     pub fn add_declaration(&mut self, declaration: Declaration) -> DeclarationId {
@@ -157,26 +163,43 @@ impl Resolver {
         declaration_id
     }
 
-    pub fn get_declaration(&self, id: DeclarationId) -> Option<Declaration> {
+    pub fn get_declaration(&self, id: DeclarationId) -> Result<Declaration, CompileError> {
         self.declarations
             .get_index(id.0 as usize)
             .map(|(key, value)| Declaration::from_key_and_value(key, value))
+            .ok_or(CompileError::Internal(InternalError::MissingDeclaration(
+                id,
+            )))
     }
 
-    pub fn set_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
+    pub fn add_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
         self.declaration_bindings.insert(syntax_id, declaration_id);
     }
 
-    pub fn get_declaration_binding(&self, syntax_id: &SyntaxId) -> Option<&DeclarationId> {
-        self.declaration_bindings.get(syntax_id)
+    pub fn get_declaration_binding(
+        &self,
+        syntax_id: &SyntaxId,
+    ) -> Result<&DeclarationId, CompileError> {
+        self.declaration_bindings
+            .get(syntax_id)
+            .ok_or(CompileError::Internal(
+                InternalError::MissingDeclarationBinding(*syntax_id),
+            ))
     }
 
     pub fn set_declaration_type(&mut self, declaration_id: DeclarationId, type_id: TypeId) {
         self.declaration_types.insert(declaration_id, type_id);
     }
 
-    pub fn get_declaration_type(&self, declaration_id: &DeclarationId) -> Option<&TypeId> {
-        self.declaration_types.get(declaration_id)
+    pub fn get_declaration_type(
+        &self,
+        declaration_id: &DeclarationId,
+    ) -> Result<&TypeId, CompileError> {
+        self.declaration_types
+            .get(declaration_id)
+            .ok_or(CompileError::Internal(
+                InternalError::MissingDeclarationType(*declaration_id),
+            ))
     }
 
     pub fn set_declaration_prototype(
@@ -204,12 +227,23 @@ impl Resolver {
         DeclarationMembers { start, count }
     }
 
-    pub fn get_declaration_member(&self, index: u32) -> Option<DeclarationId> {
-        self.declaration_members.get(index as usize).copied()
+    pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, CompileError> {
+        self.declaration_members
+            .get(index as usize)
+            .ok_or(CompileError::Internal(
+                InternalError::MissingDeclarationMember(index),
+            ))
     }
 
-    pub fn get_declaration_members(&self, members: DeclarationMembers) -> Option<&[DeclarationId]> {
-        self.declaration_members.get(members.as_usize_range())
+    pub fn get_declaration_members(
+        &self,
+        members: DeclarationMembers,
+    ) -> Result<&[DeclarationId], CompileError> {
+        self.declaration_members
+            .get(members.as_usize_range())
+            .ok_or(CompileError::Internal(
+                InternalError::MissingDeclarationMembers(members),
+            ))
     }
 
     pub fn find_declaration_in_scope(
@@ -217,9 +251,10 @@ impl Resolver {
         symbol: Symbol,
         target_scope_id: ScopeId,
         parent: Option<DeclarationId>,
-    ) -> Option<(DeclarationId, Declaration)> {
+        is_type_lookup: bool,
+    ) -> Result<(DeclarationId, Declaration), CompileError> {
         let mut current_scope_id = target_scope_id;
-        let mut current_scope = self.get_scope(current_scope_id)?;
+        let mut current_scope = self.get_scope(target_scope_id)?;
 
         loop {
             let key = DeclarationStorageKey {
@@ -228,10 +263,10 @@ impl Resolver {
                 parent,
             };
 
-            if let Some((index, _, declaration)) = self.declarations.get_full(&key) {
-                return Some((
+            if let Some((index, _, declaration_value)) = self.declarations.get_full(&key) {
+                return Ok((
                     DeclarationId(index as u32),
-                    Declaration::from_key_and_value(&key, declaration),
+                    Declaration::from_key_and_value(&key, declaration_value),
                 ));
             }
 
@@ -244,7 +279,7 @@ impl Resolver {
                 };
 
                 if self.declarations.contains_key(&key) {
-                    return Some((*import_id, import));
+                    return Ok((*import_id, import));
                 }
             }
 
@@ -257,16 +292,18 @@ impl Resolver {
                 };
 
                 if self.declarations.contains_key(&key) {
-                    return Some((*module_id, module));
+                    return Ok((*module_id, module));
                 }
-            }
-
-            if current_scope.kind != ScopeKind::Block || current_scope_id == ScopeId::PROJECT {
-                break;
             }
 
             current_scope_id = current_scope.parent;
             current_scope = self.get_scope(current_scope_id)?;
+
+            if (!is_type_lookup && current_scope.kind != ScopeKind::Block)
+                || current_scope_id == ScopeId::PROJECT
+            {
+                break;
+            }
         }
 
         if current_scope.kind == ScopeKind::Function {
@@ -279,14 +316,14 @@ impl Resolver {
             if let Some((index, _, declaration)) = self.declarations.get_full(&key)
                 && matches!(declaration.kind, DeclarationKind::Type { .. })
             {
-                return Some((
+                return Ok((
                     DeclarationId(index as u32),
                     Declaration::from_key_and_value(&key, declaration),
                 ));
             }
         }
 
-        None
+        Err(CompileError::UndeclaredVariable { name: symbol })
     }
 
     pub fn set_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {
@@ -312,8 +349,20 @@ impl Resolver {
         members
     }
 
-    pub fn get_type_members(&self, members: TypeMembers) -> Option<&[TypeId]> {
-        self.type_members.get(members.as_usize_range())
+    pub fn get_type_members(&self, members: TypeMembers) -> Result<&[TypeId], CompileError> {
+        self.type_members
+            .get(members.as_usize_range())
+            .ok_or(CompileError::Internal(InternalError::MissingTypeMembers(
+                members,
+            )))
+    }
+
+    pub fn get_type_member(&self, index: u32) -> Result<&TypeId, CompileError> {
+        self.type_members
+            .get(index as usize)
+            .ok_or(CompileError::Internal(InternalError::MissingTypeMember(
+                index,
+            )))
     }
 
     pub fn add_external_type(&mut self, new_type: &Type) -> TypeId {
@@ -412,21 +461,21 @@ impl Resolver {
         self.add_type(node)
     }
 
-    pub fn get_full_type(&self, id: TypeId, source: &Source) -> Option<Type> {
+    pub fn get_full_type(&self, id: TypeId, source: &Source) -> Result<Type, CompileError> {
         let type_node = self.get_type(id)?;
 
         match type_node {
-            TypeNode::None => Some(Type::None),
-            TypeNode::Boolean => Some(Type::Boolean),
-            TypeNode::Byte => Some(Type::Byte),
-            TypeNode::Character => Some(Type::Character),
-            TypeNode::Float => Some(Type::Float),
-            TypeNode::Integer => Some(Type::Integer),
-            TypeNode::String => Some(Type::String),
+            TypeNode::None => Ok(Type::None),
+            TypeNode::Boolean => Ok(Type::Boolean),
+            TypeNode::Byte => Ok(Type::Byte),
+            TypeNode::Character => Ok(Type::Character),
+            TypeNode::Float => Ok(Type::Float),
+            TypeNode::Integer => Ok(Type::Integer),
+            TypeNode::String => Ok(Type::String),
             TypeNode::List { element_type } => {
                 let element_type = self.get_full_type(*element_type, source)?;
 
-                Some(Type::list(element_type))
+                Ok(Type::list(element_type))
             }
             TypeNode::Function {
                 type_parameters,
@@ -434,22 +483,28 @@ impl Resolver {
                 return_type_id,
             } => {
                 let type_parameters = self
-                    .get_declaration_members_as_full_types(*type_parameters, source)
-                    .map(|(name, _)| name)
-                    .collect();
+                    .get_declaration_member_names(*type_parameters)
+                    .try_collect()?;
                 let value_parameters = self
                     .get_type_members_as_full_types(*value_parameters, source)
-                    .collect();
+                    .try_collect()?;
                 let return_type = self.get_full_type(*return_type_id, source)?;
 
-                Some(Type::Function(Box::new(FunctionType {
+                Ok(Type::Function(Box::new(FunctionType {
                     type_parameters,
                     value_parameters,
                     return_type,
                 })))
             }
             TypeNode::Inferred { resolved, .. } => {
-                resolved.and_then(|resolved_id| self.get_full_type(resolved_id, source))
+                if let Some(resolved) = resolved {
+                    self.get_full_type(*resolved, source)
+                } else {
+                    Err(CompileError::CannotInferType {
+                        type_id: id,
+                        position: None,
+                    })
+                }
             }
             TypeNode::Struct {
                 declaration_id,
@@ -462,26 +517,26 @@ impl Resolver {
                     .get_str(&self.constants)?
                     .to_string();
 
-                let start = fields.start as usize;
-                let count = fields.count as usize;
+                let fields = self.get_declaration_members(*fields)?;
+                let mut field_types = Vec::with_capacity(fields.len());
 
-                let mut fields = Vec::with_capacity(count);
-
-                for index in start..(start + count) {
-                    let field_declaration_id = *self.declaration_members.get(index)?;
-                    let field_declaration = self.get_declaration(field_declaration_id)?;
+                for field_id in fields {
+                    let field_declaration = self.get_declaration(*field_id)?;
                     let field_name = field_declaration
                         .symbol
                         .get_str(&self.constants)?
                         .to_string();
 
-                    let field_type_id = self.get_declaration_type(&field_declaration_id)?;
+                    let field_type_id = self.get_declaration_type(field_id)?;
                     let field_type = self.get_full_type(*field_type_id, source)?;
 
-                    fields.push((field_name, field_type));
+                    field_types.push((field_name, field_type));
                 }
 
-                Some(Type::Struct { name, fields })
+                Ok(Type::Struct {
+                    name,
+                    fields: field_types,
+                })
             }
             TypeNode::Enum { .. } => {
                 todo!()
@@ -489,37 +544,29 @@ impl Resolver {
         }
     }
 
-    fn get_declaration_members_as_full_types(
+    fn get_declaration_member_names(
         &self,
         members: DeclarationMembers,
-        source: &Source,
-    ) -> impl Iterator<Item = (String, Type)> {
-        self.get_declaration_members(members)
-            .unwrap_or_default()
-            .iter()
-            .map_while(|declaration_id| {
-                let declaration = self.get_declaration(*declaration_id)?;
-                let name = declaration.symbol.get_str(&self.constants)?.to_string();
-                let type_id = self.get_declaration_type(declaration_id)?;
-                let full_type = self.get_full_type(*type_id, source)?;
+    ) -> impl Iterator<Item = Result<String, CompileError>> {
+        members.as_range().map(|member_index| {
+            let declaration_id = self.get_declaration_member(member_index)?;
+            let declaration = self.get_declaration(*declaration_id)?;
+            let name = declaration.symbol.get_str(&self.constants)?.to_string();
 
-                Some((name, full_type))
-            })
+            Ok(name)
+        })
     }
 
     fn get_type_members_as_full_types(
         &self,
         members: TypeMembers,
         source: &Source,
-    ) -> impl Iterator<Item = Type> {
-        self.get_type_members(members)
-            .unwrap_or_default()
-            .iter()
-            .map_while(|type_id| {
-                let full_type = self.get_full_type(*type_id, source)?;
+    ) -> impl Iterator<Item = Result<Type, CompileError>> {
+        members.as_range().map(|member_index| {
+            let type_id = *self.get_type_member(member_index)?;
 
-                Some(full_type)
-            })
+            self.get_full_type(type_id, source)
+        })
     }
 
     pub fn add_type(&mut self, type_node: TypeNode) -> TypeId {
@@ -534,16 +581,22 @@ impl Resolver {
         type_id
     }
 
-    pub fn get_type(&self, id: TypeId) -> Option<&TypeNode> {
-        self.type_nodes.get_index(id.0 as usize)
+    pub fn get_type(&self, id: TypeId) -> Result<&TypeNode, CompileError> {
+        self.type_nodes
+            .get_index(id.0 as usize)
+            .ok_or(CompileError::Internal(InternalError::MissingType(id)))
     }
 
     pub fn get_type_mut(&mut self, id: TypeId) -> Option<&mut TypeNode> {
         self.type_nodes.get_index_mut2(id.0 as usize)
     }
 
-    pub fn get_operand_type(&self, id: TypeId) -> Option<OperandType> {
-        let operand_type = match self.get_type(id)? {
+    pub fn get_operand_type(
+        &self,
+        type_id: TypeId,
+        position: Position,
+    ) -> Result<OperandType, CompileError> {
+        let operand_type = match self.get_type(type_id)? {
             TypeNode::None => OperandType::NONE,
             TypeNode::Boolean => OperandType::BOOLEAN,
             TypeNode::Byte => OperandType::BYTE,
@@ -551,35 +604,55 @@ impl Resolver {
             TypeNode::Float => OperandType::FLOAT,
             TypeNode::Integer => OperandType::INTEGER,
             TypeNode::String => OperandType::STRING,
-            TypeNode::List { element_type } => {
-                let element_operand_type = self.get_operand_type(*element_type)?;
+            TypeNode::List { element_type } => match *element_type {
+                TypeId::BOOLEAN => OperandType::LIST_BOOLEAN,
+                TypeId::BYTE => OperandType::LIST_BYTE,
+                TypeId::CHARACTER => OperandType::LIST_CHARACTER,
+                TypeId::FLOAT => OperandType::LIST_FLOAT,
+                TypeId::INTEGER => OperandType::LIST_INTEGER,
+                TypeId::STRING => OperandType::LIST_STRING,
+                _ => {
+                    let element_operand_type = self.get_operand_type(*element_type, position)?;
 
-                match element_operand_type {
-                    OperandType::BOOLEAN => OperandType::LIST_BOOLEAN,
-                    OperandType::BYTE => OperandType::LIST_BYTE,
-                    OperandType::CHARACTER => OperandType::LIST_CHARACTER,
-                    OperandType::FLOAT => OperandType::LIST_FLOAT,
-                    OperandType::INTEGER => OperandType::LIST_INTEGER,
-                    OperandType::STRING => OperandType::LIST_STRING,
-                    OperandType::LIST_BOOLEAN
-                    | OperandType::LIST_BYTE
-                    | OperandType::LIST_CHARACTER
-                    | OperandType::LIST_FLOAT
-                    | OperandType::LIST_INTEGER
-                    | OperandType::LIST_STRING => OperandType::LIST_LIST,
-                    _ => return None,
+                    match element_operand_type {
+                        OperandType::LIST_BOOLEAN
+                        | OperandType::LIST_BYTE
+                        | OperandType::LIST_CHARACTER
+                        | OperandType::LIST_FLOAT
+                        | OperandType::LIST_INTEGER
+                        | OperandType::LIST_STRING
+                        | OperandType::LIST_LIST
+                        | OperandType::LIST_FUNCTION => OperandType::LIST_LIST,
+                        _ => {
+                            return Err(CompileError::CannotInferType {
+                                type_id,
+                                position: Some(position),
+                            });
+                        }
+                    }
                 }
-            }
+            },
             TypeNode::Function { .. } => OperandType::FUNCTION,
             TypeNode::Struct { .. } => OperandType::COMPOUND,
             TypeNode::Inferred {
                 resolved: Some(inferred),
                 ..
-            } => self.get_operand_type(*inferred)?,
-            _ => return None,
+            } => self.get_operand_type(*inferred, position)?,
+            TypeNode::Inferred { resolved: None, .. } => {
+                return Err(CompileError::CannotInferType {
+                    type_id,
+                    position: Some(position),
+                });
+            }
+            TypeNode::Enum { .. } => {
+                return Err(CompileError::CannotInstantiateType {
+                    type_id,
+                    position: Some(position),
+                });
+            }
         };
 
-        Some(operand_type)
+        Ok(operand_type)
     }
 
     pub fn create_inferred_type(&mut self) -> TypeId {
@@ -593,23 +666,30 @@ impl Resolver {
         self.add_type(inferred_type_node)
     }
 
-    pub fn get_register_size(&self, type_id: TypeId) -> Option<u16> {
+    pub fn get_register_size(
+        &self,
+        type_id: TypeId,
+        node: &SyntaxReader,
+    ) -> Result<u16, CompileError> {
         match self.get_type(type_id)? {
-            TypeNode::None => Some(0),
+            TypeNode::None => Err(CompileError::ExpectedValue {
+                node_kind: node.kind(),
+                position: node.position(),
+            }),
             TypeNode::Struct { fields, .. } => {
                 let mut leaf_count: u32 = 0;
 
                 for index in fields.start..(fields.start + fields.count) {
                     let field_declaration_id = self.get_declaration_member(index)?;
                     let field_type_id = *self.get_declaration_type(&field_declaration_id)?;
-                    let field_register_size = self.get_register_size(field_type_id)? as u32;
+                    let field_register_size = self.get_register_size(field_type_id, node)? as u32;
 
                     let mut resolved_field_type_id = field_type_id;
 
-                    while let Some(TypeNode::Inferred {
+                    while let TypeNode::Inferred {
                         resolved: Some(resolved),
                         ..
-                    }) = self.get_type(resolved_field_type_id)
+                    } = self.get_type(resolved_field_type_id)?
                     {
                         resolved_field_type_id = *resolved;
                     }
@@ -623,13 +703,16 @@ impl Resolver {
                     leaf_count = leaf_count.saturating_add(field_leaf_count);
                 }
 
-                Some(leaf_count as u16 + 1)
+                Ok(leaf_count as u16 + 1)
             }
             TypeNode::Inferred { resolved, .. } => match resolved {
-                Some(resolved) => self.get_register_size(*resolved),
-                None => None,
+                Some(resolved) => self.get_register_size(*resolved, node),
+                None => Err(CompileError::CannotInferType {
+                    type_id,
+                    position: Some(node.position()),
+                }),
             },
-            _ => Some(1),
+            _ => Ok(1),
         }
     }
 }
@@ -676,6 +759,13 @@ pub struct DeclarationMembers {
 }
 
 impl DeclarationMembers {
+    fn as_range(&self) -> Range<u32> {
+        let start = self.start;
+        let end = start.saturating_add(self.count);
+
+        Range { start, end }
+    }
+
     fn as_usize_range(&self) -> Range<usize> {
         let start = self.start as usize;
         let end = start.saturating_add(self.count as usize);
@@ -721,13 +811,19 @@ pub enum Symbol {
 impl Symbol {
     pub const MAIN: Self = Symbol::BuiltIn("main");
 
-    pub fn get_str<'a>(&'a self, constants: &'a ConstantTable) -> Option<&'a str> {
+    pub fn is_anonymous(&self) -> bool {
+        matches!(self, Symbol::Anonymous(_))
+    }
+
+    pub fn get_str<'a>(&'a self, constants: &'a ConstantTable) -> Result<&'a str, CompileError> {
         match self {
-            Symbol::Anonymous(_) => None,
-            Symbol::BuiltIn(name) => Some(name),
-            Symbol::External { constant_id } | Symbol::Source { constant_id, .. } => {
-                constants.get_string(*constant_id)
-            }
+            Symbol::Anonymous(_) => Ok("<anonymous>"),
+            Symbol::BuiltIn(name) => Ok(name),
+            Symbol::External { constant_id } | Symbol::Source { constant_id, .. } => constants
+                .get_string(*constant_id)
+                .ok_or(CompileError::Internal(
+                    InternalError::MissingConstantString(*constant_id),
+                )),
         }
     }
 }
@@ -810,7 +906,14 @@ pub struct TypeMembers {
 }
 
 impl TypeMembers {
-    pub fn as_usize_range(&self) -> Range<usize> {
+    fn as_range(&self) -> Range<u32> {
+        let start = self.start;
+        let end = start.saturating_add(self.count);
+
+        Range { start, end }
+    }
+
+    fn as_usize_range(&self) -> Range<usize> {
         let start = self.start as usize;
         let end = start.saturating_add(self.count as usize);
 

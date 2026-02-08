@@ -59,7 +59,7 @@ pub struct Compiler {
 impl Compiler {
     pub fn new(source: Source) -> Self {
         Self {
-            syntax: Syntax::with_capacity(source.file_count()),
+            syntax: Syntax::new(source.file_count()),
             source,
             resolver: Resolver::new(),
         }
@@ -112,9 +112,12 @@ impl Compiler {
 
             let mut parse_errors = Vec::new();
 
-            for (index, file) in self.source.files().iter().enumerate() {
-                let file_id = SourceFileId(index as u32);
-                let lexer = Lexer::new(file.full_source_bytes());
+            for (file_id, file) in self.source.iter() {
+                let lexer = if file.is_utf8_validated() {
+                    Lexer::validated(file.full_source_str())
+                } else {
+                    Lexer::new(file.full_source_bytes())
+                };
                 let parser = Parser::new(file_id, lexer);
                 let ParseResult {
                     syntax_tree,
@@ -125,7 +128,10 @@ impl Compiler {
                     parser.parse_file_module()
                 };
 
-                self.syntax.add_tree(syntax_tree);
+                self.syntax.add_tree(syntax_tree).map_err(|max| {
+                    panic!("File ID {file_id:#?} is out of bounds. Expected {max} files in total.");
+                });
+
                 parse_errors.extend(errors);
             }
 
@@ -195,18 +201,10 @@ impl Compiler {
                     self.resolver,
                 ));
             };
-            let main_declaration = if let Some(declaration) =
-                self.resolver.get_declaration(main_function_declaration_id)
+            let main_declaration = match self.resolver.get_declaration(main_function_declaration_id)
             {
-                declaration
-            } else {
-                return Err(DustError::compile(
-                    CompileError::Internal(InternalError::MissingDeclaration(
-                        main_function_declaration_id,
-                    )),
-                    self.source,
-                    self.resolver,
-                ));
+                Ok(declaration) => declaration,
+                Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
             };
 
             let main_emitter = match Emitter::new(

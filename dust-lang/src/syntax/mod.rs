@@ -8,51 +8,54 @@ pub use error::SyntaxError;
 pub use node::{SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxPayload};
 pub use reader::{SyntaxReader, SyntaxReaderIterator};
 pub use tree::SyntaxTree;
-pub use visitor::{
-    ExpressionVisitor, ItemVisitor, OtherVisitor, StatementVisitor, SyntaxVisitor,
-    SyntaxVistorTypes,
-};
+pub use visitor::SyntaxVisitor;
 
 use crate::source::SourceFileId;
 
 #[derive(Debug)]
 pub struct Syntax {
-    file_trees: Vec<SyntaxTree>,
+    trees: Vec<Option<SyntaxTree>>,
 }
 
 impl Syntax {
-    pub fn new() -> Self {
+    pub fn new(length: usize) -> Self {
         Self {
-            file_trees: Vec::new(),
+            trees: vec![None; length],
         }
     }
 
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            file_trees: Vec::with_capacity(capacity),
+    pub fn len(&self) -> usize {
+        self.trees.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.trees.is_empty()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &SyntaxTree> {
+        self.trees.iter().filter_map(|tree| tree.as_ref())
+    }
+
+    pub fn add_tree(&mut self, tree: SyntaxTree) -> Result<(), usize> {
+        let index = tree.file_id.inner() as usize;
+
+        if index < self.trees.len() {
+            self.trees[index] = Some(tree);
+
+            Ok(())
+        } else {
+            Err(self.trees.len())
         }
-    }
-
-    pub fn file_count(&self) -> usize {
-        self.file_trees.len()
-    }
-
-    pub fn add_tree(&mut self, tree: SyntaxTree) -> SourceFileId {
-        let id = SourceFileId(self.file_trees.len() as u32);
-
-        self.file_trees.push(tree);
-
-        id
     }
 
     pub fn get_tree(&self, file_id: SourceFileId) -> Option<&SyntaxTree> {
-        self.file_trees.get(file_id.0 as usize)
-    }
-}
+        let index = file_id.inner() as usize;
 
-impl Default for Syntax {
-    fn default() -> Self {
-        Self::new()
+        if index < self.trees.len() {
+            self.trees[index].as_ref()
+        } else {
+            None
+        }
     }
 }
 
@@ -60,8 +63,14 @@ impl Default for Syntax {
 pub struct SyntaxId(pub u32);
 
 impl SyntaxId {
+    /// ID of the root node of a syntax tree, which is always 0 because nodes are added in lexical
+    /// order.
     pub const ROOT: SyntaxId = SyntaxId(0);
-    pub const NONE: SyntaxId = SyntaxId(u32::MAX);
+
+    /// ID representing the absence of a syntax node. This is and SyntaxId::ROOT are both 0 because
+    /// the root node is always present and can never be used as a child of another node, so there
+    /// is no risk of confusion.
+    pub const NONE: SyntaxId = SyntaxId(0);
 
     pub fn is_none(&self) -> bool {
         *self == SyntaxId::NONE

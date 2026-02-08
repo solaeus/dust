@@ -110,7 +110,7 @@ fn main() {
 
             tokenize_bytes(&buffer);
         } else if let Some(eval) = eval {
-            let mut lexer = Lexer::from_str(&eval);
+            let mut lexer = Lexer::validated(&eval);
             let tokens = lexer
                 .try_collect::<Vec<Token>>()
                 .expect("Failed to tokenize source");

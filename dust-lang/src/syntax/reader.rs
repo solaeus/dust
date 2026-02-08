@@ -40,6 +40,18 @@ impl<'a> SyntaxReader<'a> {
         self.node.span
     }
 
+    pub fn is_item(&self) -> bool {
+        self.node.kind.is_item()
+    }
+
+    pub fn is_statement(&self) -> bool {
+        self.node.kind.is_statement()
+    }
+
+    pub fn is_expression(&self) -> bool {
+        self.node.kind.is_expression()
+    }
+
     pub fn file_id(&self) -> SourceFileId {
         self.tree.file_id
     }
@@ -49,11 +61,30 @@ impl<'a> SyntaxReader<'a> {
     }
 
     pub fn has_left_child(&self) -> bool {
-        self.node.payload.left != SyntaxId::NONE.0
+        let has_left_child = self.node.payload.left != SyntaxId::NONE.0;
+        let has_encoded_left_payload = matches!(
+            self.node.kind,
+            SyntaxKind::BooleanExpression
+                | SyntaxKind::ByteExpression
+                | SyntaxKind::CharacterExpression
+                | SyntaxKind::FloatExpression
+                | SyntaxKind::IntegerExpression
+                | SyntaxKind::StringExpression
+        );
+
+        has_left_child && !has_encoded_left_payload
     }
 
     pub fn has_right_child(&self) -> bool {
-        self.node.payload.right != SyntaxId::NONE.0
+        let has_right_child = self.node.payload.right != SyntaxId::NONE.0;
+        let has_encoded_right_payload = matches!(
+            self.node.kind,
+            SyntaxKind::FloatExpression
+                | SyntaxKind::IntegerExpression
+                | SyntaxKind::StringExpression
+        );
+
+        has_right_child && !has_encoded_right_payload
     }
 
     pub fn left_child(&self) -> Result<Self, SyntaxError> {

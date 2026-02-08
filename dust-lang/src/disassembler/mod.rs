@@ -14,7 +14,7 @@ use ratatui::{
 use crate::{
     dust_crate::Program,
     prototype::Prototype,
-    source::{Source, SourceFileId},
+    source::{Source, SourceFile},
     syntax::{Syntax, SyntaxTree},
 };
 
@@ -113,8 +113,8 @@ impl<'a> Disassembler<'a> {
                     self.selection_state.section = None;
                 }
                 KeyCode::Up | KeyCode::Char('k') => {
-                    if self.selection_state.tab >= self.syntax.file_count() {
-                        let prototype_index = self.selection_state.tab - self.syntax.file_count();
+                    if self.selection_state.tab >= self.syntax.len() {
+                        let prototype_index = self.selection_state.tab - self.syntax.len();
                         let prototype = &self.program.prototypes[prototype_index];
                         if self.selection_state.row > 0 {
                             self.selection_state.row -= 1;
@@ -155,8 +155,8 @@ impl<'a> Disassembler<'a> {
                     }
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
-                    if self.selection_state.tab >= self.syntax.file_count() {
-                        let prototype_index = self.selection_state.tab - self.syntax.file_count();
+                    if self.selection_state.tab >= self.syntax.len() {
+                        let prototype_index = self.selection_state.tab - self.syntax.len();
                         let prototype = &self.program.prototypes[prototype_index];
                         let section_length = match self.selection_state.section {
                             Some(PrototypeSection::Instructions) => prototype.instructions.len(),
@@ -195,8 +195,7 @@ impl<'a> Disassembler<'a> {
 
     fn draw_source_tab(
         &self,
-        file_name: &str,
-        source_code: &str,
+        source_file: &SourceFile,
         syntax_tree: &SyntaxTree,
         area: Rect,
         buffer: &mut Buffer,
@@ -204,7 +203,7 @@ impl<'a> Disassembler<'a> {
         let block = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Thick)
-            .title(Span::styled(file_name, Style::default().bold()))
+            .title(Span::styled(source_file.path(), Style::default().bold()))
             .title_alignment(Alignment::Center);
         let inner_area = block.inner(area);
 
@@ -213,7 +212,7 @@ impl<'a> Disassembler<'a> {
         let columns = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]);
         let [source_area, syntax_area] = columns.areas(inner_area);
 
-        let paragraph = Paragraph::new(source_code)
+        let paragraph = Paragraph::new(source_file.full_source_str())
             .wrap(Wrap { trim: false })
             .scroll((0, 0));
 
@@ -453,16 +452,9 @@ impl Widget for &mut Disassembler<'_> {
 
         if self.selection_state.tab < self.source.file_count() {
             let source_file = self.source.files().get(self.selection_state.tab).unwrap();
+            let syntax_tree = self.syntax.iter().nth(self.selection_state.tab).unwrap();
 
-            self.draw_source_tab(
-                source_file.path(),
-                source_file.full_source_str(),
-                self.syntax
-                    .get_tree(SourceFileId(self.selection_state.tab as u32))
-                    .unwrap(),
-                tab_content_area,
-                buffer,
-            );
+            self.draw_source_tab(source_file, syntax_tree, tab_content_area, buffer);
         } else {
             let prototype_index = self.selection_state.tab - self.source.file_count();
             let prototype = &self.program.prototypes[prototype_index];

@@ -104,9 +104,9 @@ impl Display for SyntaxNode {
                 write!(f, ": {integer}")?;
             }
             SyntaxKind::StringExpression => {
-                let span = self.span;
+                let string = self.payload.decode_string();
 
-                write!(f, ": <{span}>")?;
+                write!(f, ": {string}...")?;
             }
             _ => {}
         }
@@ -440,7 +440,7 @@ impl SyntaxPayload {
     pub fn encode_boolean(boolean: bool) -> Self {
         SyntaxPayload {
             left: boolean as u32,
-            right: 0,
+            right: SyntaxId::NONE.0,
         }
     }
 
@@ -451,7 +451,7 @@ impl SyntaxPayload {
     pub fn encode_byte(byte: u8) -> Self {
         SyntaxPayload {
             left: byte as u32,
-            right: 0,
+            right: SyntaxId::NONE.0,
         }
     }
 
@@ -466,7 +466,7 @@ impl SyntaxPayload {
 
         SyntaxPayload {
             left: encoded,
-            right: 0,
+            right: SyntaxId::NONE.0,
         }
     }
 
@@ -606,4 +606,13 @@ pub enum SyntaxNodeChildren {
     Single(SyntaxId),
     Binary(SyntaxId, SyntaxId),
     Multiple(SyntaxPayload),
+}
+
+pub enum SyntaxCategory {
+    Item,
+    Statement,
+    Expression,
+    Type,
+    SubSyntax,
+    Trivia,
 }

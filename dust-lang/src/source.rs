@@ -32,7 +32,7 @@ impl Source {
         self.files.len()
     }
 
-    pub fn files(&self) -> &Vec<SourceFile> {
+    pub fn files(&self) -> &[SourceFile] {
         &self.files
     }
 
@@ -44,10 +44,19 @@ impl Source {
         id
     }
 
+    /// Retrieves a reference to the `SourceFile` associated with the given `SourceFileId`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `SourceFileId` does not correspond to a valid file in the `Source`. This can
+    /// only happen if the `SourceFileId` was created erroneously, if `Source` was modified after
+    /// the `SourceFileId` was created or if the `SourceFileId` was created by a different `Source`
+    /// instance. `Source` is designed to be an append-only per-program singleton and `SourceFileId`
+    /// has no public constructors, so this should never happen in practice.
     pub fn get_file(&self, file_id: SourceFileId) -> &SourceFile {
         self.files
             .get(file_id.0 as usize)
-            .expect("Source file not found for given SourceFileId.")
+            .expect("Source file not found for {file_id:#?}")
     }
 
     pub fn set_utf8_validated(&mut self, file_id: SourceFileId) {
@@ -56,6 +65,10 @@ impl Source {
         {
             *utf8_validated = true;
         }
+    }
+
+    pub fn iter(&self) -> SourceIterator {
+        SourceIterator::new(self)
     }
 }
 
@@ -66,10 +79,14 @@ impl Default for Source {
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct SourceFileId(pub u32);
+pub struct SourceFileId(u32);
 
 impl SourceFileId {
     pub const MAIN: Self = SourceFileId(0);
+
+    pub fn inner(self) -> u32 {
+        self.0
+    }
 }
 
 #[derive(Debug)]
@@ -130,6 +147,14 @@ impl SourceFile {
         }
     }
 
+    pub fn is_utf8_validated(&self) -> bool {
+        match self {
+            Self::BuiltIn { .. } => true,
+            Self::Embedded { utf8_validated, .. } => *utf8_validated,
+            Self::File { utf8_validated, .. } => *utf8_validated,
+        }
+    }
+
     pub fn source_bytes(&self, span: Span) -> &[u8] {
         let full_source = self.full_source_bytes();
         let range = span.as_usize_range();
@@ -149,8 +174,8 @@ impl SourceFile {
     pub fn full_source_bytes(&self) -> &[u8] {
         match self {
             Self::BuiltIn { source_str, .. } => source_str.as_bytes(),
-            Self::Embedded { source_bytes, .. } => &source_bytes,
-            Self::File { mmap, .. } => &mmap,
+            Self::Embedded { source_bytes, .. } => source_bytes,
+            Self::File { mmap, .. } => mmap,
         }
     }
 
@@ -268,3 +293,32 @@ impl Display for Span {
         write!(f, "{}..{}", self.0, self.1)
     }
 }
+
+pub struct SourceIterator<'a> {
+    source: &'a Source,
+    position: usize,
+}
+
+impl<'a> SourceIterator<'a> {
+    pub fn new(source: &'a Source) -> Self {
+        Self {
+            source,
+            position: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for SourceIterator<'a> {
+    type Item = (SourceFileId, &'a SourceFile);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let file_id = SourceFileId(self.position as u32);
+        let file = self.source.files.get(self.position)?;
+
+        self.position += 1;
+
+        Some((file_id, file))
+    }
+}
+
+impl ExactSizeIterator for SourceIterator<'_> {}

@@ -23,7 +23,7 @@ fn() {
 
 fn parse_bench(source: &[u8]) {
     let lexer = Lexer::new(source);
-    let parser = Parser::new(SourceFileId(0), lexer);
+    let parser = Parser::new(SourceFileId::MAIN, lexer);
 
     parser.parse_main();
 }
