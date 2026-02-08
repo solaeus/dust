@@ -31,7 +31,7 @@ pub const DEFAULT_PROGRAM_NAME: &str = "dust_program";
 
 pub fn compile_main_prototype(source_code: String) -> Result<Prototype, DustError> {
     let mut source = Source::new();
-    source.add_file(SourceFile::embedded("eval".to_string(), source_code));
+    source.add_file(SourceFile::embedded_string("eval".to_string(), source_code));
 
     let compiler = Compiler::new(source);
     let mut program = compiler.compile(None)?;
@@ -42,7 +42,7 @@ pub fn compile_main_prototype(source_code: String) -> Result<Prototype, DustErro
 pub fn compile_prototypes(source_code: String) -> Result<Vec<Prototype>, DustError> {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::embedded("eval".to_string(), source_code));
+    source.add_file(SourceFile::embedded_string("eval".to_string(), source_code));
 
     let compiler = Compiler::new(source);
     let program = compiler.compile(None)?;

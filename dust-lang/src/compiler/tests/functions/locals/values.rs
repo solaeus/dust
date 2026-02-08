@@ -29,7 +29,7 @@ fn local_boolean() {
                 Instruction::r#return(Address::register(0), OperandType::BOOLEAN),
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -54,7 +54,7 @@ fn local_byte() {
                 Instruction::r#return(Address::register(0), OperandType::BYTE),
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -79,7 +79,7 @@ fn local_character() {
                 Instruction::r#return(Address::register(0), OperandType::CHARACTER),
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -104,7 +104,7 @@ fn local_float() {
                 Instruction::r#return(Address::register(0), OperandType::FLOAT),
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -129,7 +129,7 @@ fn local_integer() {
                 Instruction::r#return(Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -154,7 +154,7 @@ fn local_string() {
                 Instruction::r#return(Address::register(0), OperandType::STRING),
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }

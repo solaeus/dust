@@ -44,7 +44,7 @@ const STRING_ERROR_TEXT: &str = "Expected string object";
 pub fn run_main(source_code: String) -> Result<Option<Value>, DustError> {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::embedded("eval".to_string(), source_code));
+    source.add_file(SourceFile::embedded_string("eval".to_string(), source_code));
 
     let compiler = Compiler::new(source);
     let program = compiler.compile(Some("Dust Program".to_string()))?;

@@ -36,7 +36,7 @@ fn while_loop() {
                 Instruction::r#return(Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }

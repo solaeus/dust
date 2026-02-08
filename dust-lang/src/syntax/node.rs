@@ -552,7 +552,7 @@ impl SyntaxPayload {
         i64::from_le_bytes(integer_bytes)
     }
 
-    pub fn encode_string<'a>(str: &'a str) -> Self {
+    pub fn encode_string(str: &str) -> Self {
         let length = str.len().min(8);
         let mut bytes = [0u8; 8];
 

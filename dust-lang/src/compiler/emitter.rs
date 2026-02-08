@@ -1446,7 +1446,7 @@ impl<'a> StatementVisitor for Emitter<'a> {
                 reassignment_emission.set_target(None);
             }
             Emission::None => {
-                return Err(CompileError::ExpectedExpression {
+                return Err(CompileError::ExpectedValue {
                     node_kind: expression.kind(),
                     position: expression.position(),
                 });
@@ -1466,7 +1466,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
         debug!("Emitting boolean expression");
 
         Ok(Emission::Constant(ConstantEmission::Boolean(
-            node.inner().payload.0 != 0,
+            node.payload().decode_boolean(),
         )))
     }
 
@@ -1478,7 +1478,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
         debug!("Emitting byte expression");
 
         Ok(Emission::Constant(ConstantEmission::Byte(
-            node.inner().payload.0 as u8,
+            node.payload().decode_byte(),
         )))
     }
 
@@ -1490,7 +1490,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
         debug!("Emitting character expression");
 
         Ok(Emission::Constant(ConstantEmission::Character(
-            node.inner().decode_character(),
+            node.payload().decode_character(),
         )))
     }
 
@@ -1502,7 +1502,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
         debug!("Emitting float expression");
 
         Ok(Emission::Constant(ConstantEmission::Float(
-            node.inner().decode_float(),
+            node.payload().decode_float(),
         )))
     }
 
@@ -1514,7 +1514,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
         debug!("Emitting integer expression");
 
         Ok(Emission::Constant(ConstantEmission::Integer(
-            node.inner().decode_integer(),
+            node.payload().decode_integer(),
         )))
     }
 
@@ -1525,7 +1525,10 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting string expression");
 
-        let bytes = self.source.get_source_bytes(&node.position().shrink(1));
+        let bytes = self
+            .source
+            .get_file(node.file_id())
+            .source_bytes(node.span().shrink(1));
         let (pool_start, pool_end) = self.resolver.constants.push_str_to_string_pool(bytes);
 
         self.resolver.set_type_binding(node.id, TypeId::STRING);
@@ -1555,7 +1558,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
                     target,
                     ..
                 }) => {
-                    let target = target.ok_or(CompileError::ExpectedExpression {
+                    let target = target.ok_or(CompileError::ExpectedValue {
                         node_kind: element_node.kind(),
                         position: element_node.position(),
                     })?;
@@ -1564,7 +1567,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
 
                     Ok(Address::register(target.index()))
                 }
-                Emission::None => Err(CompileError::ExpectedExpression {
+                Emission::None => Err(CompileError::ExpectedValue {
                     node_kind: element_node.kind(),
                     position: element_node.position(),
                 }),
@@ -1572,12 +1575,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
         }
         debug!("Emitting list expression");
 
-        let children = node.multiple_children().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChildren {
-                start_index: node.inner().payload.0,
-                count: node.inner().payload.1,
-            },
-        ))?;
+        let children = node.multiple_children()?;
         let child_count_address =
             self.get_constant_address(ConstantEmission::Integer(children.len() as i64));
 
@@ -1596,34 +1594,26 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
             let element_address =
                 handle_element_emission(self, &mut list_emission, element_emission, &child)?;
             let index_address = self.get_constant_address(ConstantEmission::Integer(index as i64));
-            let operand_type =
-                if let Some(operand_type) = operand_type {
-                    operand_type
-                } else {
-                    let type_id = *self.resolver.get_type_binding(&child.id).ok_or(
-                        CompileError::Internal(InternalError::MissingTypeBinding(child.id)),
-                    )?;
-                    let element_operand_type = self
-                        .resolver
-                        .get_operand_type(type_id)
-                        .ok_or(CompileError::Internal(InternalError::MissingType(type_id)))?;
+            let operand_type = if let Some(operand_type) = operand_type {
+                operand_type
+            } else {
+                let type_id = *self.resolver.get_type_binding(&child.id)?;
+                let element_operand_type = self
+                    .resolver
+                    .get_operand_type(type_id)
+                    .ok_or(CompileError::Internal(InternalError::MissingType(type_id)))?;
 
-                    operand_type = Some(element_operand_type);
+                operand_type = Some(element_operand_type);
 
-                    element_operand_type
-                };
+                element_operand_type
+            };
             let set_list_instruction =
                 Instruction::set_list(target.index(), element_address, index_address, operand_type);
 
             list_emission.push(set_list_instruction);
         }
 
-        let list_type = *self
-            .resolver
-            .get_type_binding(&node.id)
-            .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                node.id,
-            )))?;
+        let list_type = *self.resolver.get_type_binding(&node.id)?;
         let operand_type =
             self.resolver
                 .get_operand_type(list_type)
@@ -1647,41 +1637,22 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting index expression");
 
-        let left_child =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let right_child = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (list_expression, index_expression) = node.binary_children()?;
 
-        let left_emission = self.visit_expression(left_child, None)?;
-        let right_emission = self.visit_expression(right_child, None)?;
+        let left_emission = self.visit_expression(list_expression, None)?;
+        let right_emission = self.visit_expression(index_expression, None)?;
 
         let mut index_emission = InstructionsEmission::new();
 
         let list_address =
-            self.handle_operand_emission(&mut index_emission, left_emission, &left_child)?;
+            self.handle_operand_emission(&mut index_emission, left_emission, &list_expression)?;
         let index_address =
-            self.handle_operand_emission(&mut index_emission, right_emission, &right_child)?;
+            self.handle_operand_emission(&mut index_emission, right_emission, &index_expression)?;
 
-        let list_type_id =
-            *self
-                .resolver
-                .get_type_binding(&left_child.id)
-                .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                    left_child.id,
-                )))?;
+        let list_type_id = *self.resolver.get_type_binding(&list_expression.id)?;
 
         let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
-        let element_type_id =
-            *self
-                .resolver
-                .get_type_binding(&node.id)
-                .ok_or(CompileError::Internal(InternalError::MissingType(
-                    list_type_id,
-                )))?;
+        let element_type_id = *self.resolver.get_type_binding(&node.id)?;
         let operand_type =
             self.resolver
                 .get_operand_type(element_type_id)
@@ -1739,34 +1710,14 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
             }
         }
 
-        let fields = node
-            .right_child()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                child_index: 1,
-            }))?
-            .multiple_children()
-            .ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChildren {
-                    start_index: node.inner().payload.0,
-                    count: node.inner().payload.1,
-                },
-            ))?
-            .collect::<Vec<_>>();
+        let fields = node.right_child()?.multiple_children()?;
 
-        // Struct values are represented as:
-        //   [header][flattened leaf values...]
-        // where nested structs are inlined into the leaf sequence.
-        let mut field_leaf_operand_types: Vec<(bool, Vec<OperandType>)> =
-            Vec::with_capacity(fields.len());
+        let mut field_leaf_operand_types = Vec::with_capacity(fields.len());
         let mut total_leaf_count: u16 = 0;
 
-        for field in &fields {
-            let field_expression = field.right_child().ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChild { child_index: 1 },
-            ))?;
-            let field_type_id = *self.resolver.get_type_binding(&field_expression.id).ok_or(
-                CompileError::Internal(InternalError::MissingTypeBinding(field_expression.id)),
-            )?;
+        for field in fields {
+            let field_expression = field.right_child()?;
+            let field_type_id = *self.resolver.get_type_binding(&field_expression.id)?;
             let field_full_type = self
                 .resolver
                 .get_full_type(field_type_id, self.source)
@@ -1777,9 +1728,11 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
             let is_struct_field = matches!(field_full_type, Type::Struct { .. });
 
             let mut leaf_types = Vec::new();
+
             flatten_leaf_operand_types(&field_full_type, &mut leaf_types);
 
-            total_leaf_count = total_leaf_count.saturating_add(leaf_types.len() as u16);
+            total_leaf_count += leaf_types.len() as u16;
+
             field_leaf_operand_types.push((is_struct_field, leaf_types));
         }
 
@@ -1798,9 +1751,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
         for (field, (is_struct_field, leaf_types)) in
             fields.into_iter().zip(field_leaf_operand_types)
         {
-            let field_expression = field.right_child().ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChild { child_index: 1 },
-            ))?;
+            let field_expression = field.right_child()?;
             let field_emission = self.visit_expression(field_expression, None)?;
             let field_address = self.handle_operand_emission(
                 &mut struct_emission,
@@ -1809,12 +1760,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
             )?;
 
             if is_struct_field {
-                // Struct-typed field: copy its flattened leaf values from reg_(field_base+1..).
                 if field_address.memory != MemoryKind::REGISTER {
-                    return Err(CompileError::ExpectedExpression {
-                        node_kind: field_expression.kind(),
-                        position: field_expression.position(),
-                    });
+                    todo!("Handle non-register struct field address");
                 }
 
                 for (leaf_index, operand_type) in leaf_types.into_iter().enumerate() {
@@ -1825,10 +1772,9 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
                     next_destination += 1;
                 }
             } else {
-                let operand_type = *leaf_types.first().ok_or(CompileError::ExpectedExpression {
-                    node_kind: field_expression.kind(),
-                    position: field_expression.position(),
-                })?;
+                let operand_type = *leaf_types.first().unwrap_or_else(|| {
+                    todo!("Handle missing operand type for struct field");
+                });
                 let field_move_instruction =
                     Instruction::r#move(next_destination, field_address, operand_type);
                 struct_emission.push(field_move_instruction);
@@ -1854,12 +1800,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting block expression");
 
-        let children = node.multiple_children().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChildren {
-                start_index: node.inner().payload.0,
-                count: node.inner().payload.1,
-            },
-        ))?;
+        let children = node.multiple_children()?;
 
         let block_scope_id =
             *self
@@ -1924,9 +1865,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
                         }
 
                         if let Some(block_target) = target {
-                            let type_id = *self.resolver.get_type_binding(&node.id).ok_or(
-                                CompileError::Internal(InternalError::MissingTypeBinding(node.id)),
-                            )?;
+                            let type_id = *self.resolver.get_type_binding(&node.id)?;
                             let operand_type = self.resolver.get_operand_type(type_id).ok_or(
                                 CompileError::Internal(InternalError::MissingType(type_id)),
                             )?;
@@ -1949,9 +1888,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
                             block_emission.set_target(Some(target));
                         } else {
                             let target = self.allocate_temporary_registers(1);
-                            let type_id = *self.resolver.get_type_binding(&node.id).ok_or(
-                                CompileError::Internal(InternalError::MissingTypeBinding(node.id)),
-                            )?;
+                            let type_id = *self.resolver.get_type_binding(&node.id)?;
                             let operand_type = self.resolver.get_operand_type(type_id).ok_or(
                                 CompileError::Internal(InternalError::MissingType(type_id)),
                             )?;
@@ -1992,21 +1929,13 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting if expression");
 
-        let mut children = node.multiple_children().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChildren {
-                start_index: node.inner().payload.0,
-                count: node.inner().payload.1,
-            },
-        ))?;
+        let mut children = node.multiple_children()?;
+        let condition = children.expect_next()?;
+        let then_block = children.expect_next()?;
+        let else_block = children.next();
 
         let mut if_emission = InstructionsEmission::new();
 
-        let condition =
-            children
-                .next()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
         let condition_emission = self.visit_expression(condition, None)?;
 
         self.handle_condition_emission(&mut if_emission, condition_emission, &condition)?;
@@ -2019,28 +1948,15 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
             id: jump_over_then_id,
         });
 
-        let then_expression =
-            children
-                .next()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 1,
-                }))?;
-        let then_emission = self.visit_expression(then_expression, Some(target))?;
+        let then_emission = self.visit_block_expression(then_block, Some(target))?;
 
-        self.handle_branch_emission(
-            &mut if_emission,
-            then_emission,
-            target.index(),
-            then_expression,
-        )?;
+        self.handle_branch_emission(&mut if_emission, then_emission, target.index(), then_block)?;
 
         if_emission.push_drop_anchor(JumpAnchor::ForwardToNext {
             id: jump_over_then_id,
         });
 
-        let else_expression = children.next();
-
-        if let Some(else_expression) = else_expression {
+        if let Some(else_expression) = else_block {
             let else_emission = self.visit_else_expression(else_expression, Some(target))?;
             let jump_over_else_id = self.create_jump_id();
 
@@ -2082,13 +1998,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting else expression");
 
-        let child =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-
-        self.visit_expression(child, target)
+        self.visit_block_expression(node.left_child()?, target)
     }
 
     fn visit_math_binary_expression(
@@ -2098,17 +2008,10 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting math binary expression");
 
-        let left_child =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let right_child = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (left_expression, right_expression) = node.binary_children()?;
 
-        let left_emission = self.visit_expression(left_child, None)?;
-        let right_emission = self.visit_expression(right_child, None)?;
+        let left_emission = self.visit_expression(left_expression, None)?;
+        let right_emission = self.visit_expression(right_expression, None)?;
 
         if target.is_none()
             && let (Emission::Constant(left_value), Emission::Constant(right_value)) =
@@ -2117,9 +2020,9 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
             let combined = self.combine_constants(
                 node.kind(),
                 *left_value,
-                &left_child,
+                &left_expression,
                 *right_value,
-                &right_child,
+                &right_expression,
             )?;
 
             return Ok(Emission::Constant(combined));
@@ -2129,31 +2032,13 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
 
         let left_target = left_emission.target();
         let left_address =
-            self.handle_operand_emission(&mut math_emission, left_emission, &left_child)?;
+            self.handle_operand_emission(&mut math_emission, left_emission, &left_expression)?;
         let right_address =
-            self.handle_operand_emission(&mut math_emission, right_emission, &right_child)?;
+            self.handle_operand_emission(&mut math_emission, right_emission, &right_expression)?;
 
-        let left_type =
-            *self
-                .resolver
-                .get_type_binding(&left_child.id)
-                .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                    left_child.id,
-                )))?;
-        let right_type =
-            *self
-                .resolver
-                .get_type_binding(&right_child.id)
-                .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                    right_child.id,
-                )))?;
-        let math_expression_type =
-            *self
-                .resolver
-                .get_type_binding(&node.id)
-                .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                    node.id,
-                )))?;
+        let left_type = *self.resolver.get_type_binding(&left_expression.id)?;
+        let right_type = *self.resolver.get_type_binding(&right_expression.id)?;
+        let math_expression_type = *self.resolver.get_type_binding(&node.id)?;
         let operand_type = match (left_type, right_type) {
             (TypeId::STRING, TypeId::CHARACTER) => OperandType::STRING_CHARACTER,
             (TypeId::CHARACTER, TypeId::STRING) => OperandType::CHARACTER_STRING,
@@ -2299,17 +2184,10 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting comparison binary expression");
 
-        let left_child =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let right_child = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (left_expression, right_expression) = node.binary_children()?;
 
-        let left_emission = self.visit_expression(left_child, None)?;
-        let right_emission = self.visit_expression(right_child, None)?;
+        let left_emission = self.visit_expression(left_expression, None)?;
+        let right_emission = self.visit_expression(right_expression, None)?;
 
         if let Emission::Constant(left_constant) = left_emission
             && let Emission::Constant(right_constant) = right_emission
@@ -2317,9 +2195,9 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
             let combined = self.combine_constants(
                 node.kind(),
                 left_constant,
-                &left_child,
+                &left_expression,
                 right_constant,
-                &right_child,
+                &right_expression,
             )?;
 
             return Ok(Emission::Constant(combined));
@@ -2327,20 +2205,20 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
 
         let mut comparison_emission = InstructionsEmission::new();
 
-        let left_address =
-            self.handle_operand_emission(&mut comparison_emission, left_emission, &left_child)?;
-        let right_address =
-            self.handle_operand_emission(&mut comparison_emission, right_emission, &right_child)?;
+        let left_address = self.handle_operand_emission(
+            &mut comparison_emission,
+            left_emission,
+            &left_expression,
+        )?;
+        let right_address = self.handle_operand_emission(
+            &mut comparison_emission,
+            right_emission,
+            &right_expression,
+        )?;
 
         let target = input.unwrap_or_else(|| self.allocate_temporary_registers(1));
 
-        let type_id =
-            *self
-                .resolver
-                .get_type_binding(&left_child.id)
-                .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                    node.id,
-                )))?;
+        let type_id = *self.resolver.get_type_binding(&left_expression.id)?;
         let operand_type = self
             .resolver
             .get_operand_type(type_id)
@@ -2395,17 +2273,10 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting logical binary expression");
 
-        let left_child =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let right_child = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (left_expression, right_expression) = node.binary_children()?;
 
-        let left_emission = self.visit_expression(left_child, None)?;
-        let right_emission = self.visit_expression(right_child, None)?;
+        let left_emission = self.visit_expression(left_expression, None)?;
+        let right_emission = self.visit_expression(right_expression, None)?;
 
         if let Emission::Constant(left_constant) = left_emission
             && let Emission::Constant(right_constant) = right_emission
@@ -2413,9 +2284,9 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
             let combined = self.combine_constants(
                 node.kind(),
                 left_constant,
-                &left_child,
+                &left_expression,
                 right_constant,
-                &right_child,
+                &right_expression,
             )?;
 
             return Ok(Emission::Constant(combined));
@@ -2424,9 +2295,9 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
         let mut logical_emission = InstructionsEmission::new();
 
         let left_address =
-            self.handle_operand_emission(&mut logical_emission, left_emission, &left_child)?;
+            self.handle_operand_emission(&mut logical_emission, left_emission, &left_expression)?;
         let right_address =
-            self.handle_operand_emission(&mut logical_emission, right_emission, &right_child)?;
+            self.handle_operand_emission(&mut logical_emission, right_emission, &right_expression)?;
 
         let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
 
@@ -2460,15 +2331,11 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting unary negation expression");
 
-        let child =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
+        let expression = node.left_child()?;
 
-        let child_emission = self.visit_expression(child, None)?;
+        let expression_emission = self.visit_expression(expression, None)?;
 
-        if let Emission::Constant(constant) = child_emission {
+        if let Emission::Constant(constant) = expression_emission {
             let negated = match constant {
                 ConstantEmission::Boolean(boolean) => ConstantEmission::Boolean(!boolean),
                 ConstantEmission::Byte(byte) => ConstantEmission::Byte(!byte),
@@ -2486,17 +2353,11 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
         let mut negation_emission = InstructionsEmission::new();
 
         let child_address =
-            self.handle_operand_emission(&mut negation_emission, child_emission, &child)?;
+            self.handle_operand_emission(&mut negation_emission, expression_emission, &expression)?;
         let target = input.unwrap_or_else(|| self.allocate_temporary_registers(1));
         let operand_type = match node.kind() {
             SyntaxKind::NegationExpression => {
-                let type_id =
-                    *self
-                        .resolver
-                        .get_type_binding(&node.id)
-                        .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                            node.id,
-                        )))?;
+                let type_id = *self.resolver.get_type_binding(&node.id)?;
                 self.resolver
                     .get_operand_type(type_id)
                     .ok_or(CompileError::Internal(InternalError::MissingType(type_id)))?
@@ -2520,14 +2381,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting while expression");
 
-        let condition =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let body = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (condition, body) = node.binary_children()?;
 
         let mut while_emission = InstructionsEmission::new();
         let condition_emission = self.visit_expression(condition, None)?;
@@ -2557,7 +2411,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
                 while_emission.instructions.extend(instructions);
             }
             Emission::Place(_) => {
-                return Err(CompileError::ExpectedStatement {
+                return Err(CompileError::ExpectedNoneType {
                     node_kind: body.kind(),
                     position: body.position(),
                 });
@@ -2580,6 +2434,16 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting function expression");
 
+        let (signature, body) = node.binary_children()?;
+        let parameters = signature.left_child()?.multiple_children()?;
+        let function_scope_id =
+            *self
+                .resolver
+                .get_scope_binding(&body.id)
+                .ok_or(CompileError::Internal(InternalError::MissingScopeBinding(
+                    node.id,
+                )))?;
+
         let declaration_id =
             *self
                 .resolver
@@ -2593,34 +2457,6 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
                 prototype_index: *prototype_index,
             }));
         }
-
-        let signature =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let parameters = signature
-            .left_child()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                child_index: 0,
-            }))?
-            .multiple_children()
-            .ok_or(CompileError::Internal(
-                InternalError::MissingSyntaxChildren {
-                    start_index: signature.inner().children.0,
-                    count: signature.inner().children.1,
-                },
-            ))?;
-        let body = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 0 },
-        ))?;
-        let function_scope_id =
-            *self
-                .resolver
-                .get_scope_binding(&body.id)
-                .ok_or(CompileError::Internal(InternalError::MissingScopeBinding(
-                    node.id,
-                )))?;
 
         let prototype_index = self.resolver.prototypes.len();
 
@@ -2651,14 +2487,8 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting call expression");
 
-        let callee =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let arguments = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let (callee, argument_list) = node.binary_children()?;
+        let arguments = argument_list.multiple_children()?;
 
         let mut call_emission = InstructionsEmission::new();
 
@@ -2669,27 +2499,21 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
         let arguments_start = self.call_arguments.len() as u16;
         let mut argument_count = 0u16;
 
-        if let Some(argument_nodes) = arguments.multiple_children() {
-            for argument in argument_nodes {
-                let argument_emission = self.visit_expression(argument, None)?;
-                let argument_address =
-                    self.handle_operand_emission(&mut call_emission, argument_emission, &argument)?;
-                let argument_type_id =
-                    *self
-                        .resolver
-                        .get_type_binding(&argument.id)
-                        .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                            argument.id,
-                        )))?;
-                let argument_operand_type =
-                    self.resolver.get_operand_type(argument_type_id).ok_or(
-                        CompileError::Internal(InternalError::MissingType(argument_type_id)),
-                    )?;
+        for argument in arguments {
+            let argument_emission = self.visit_expression(argument, None)?;
+            let argument_address =
+                self.handle_operand_emission(&mut call_emission, argument_emission, &argument)?;
+            let argument_type_id = *self.resolver.get_type_binding(&argument.id)?;
+            let argument_operand_type =
+                self.resolver
+                    .get_operand_type(argument_type_id)
+                    .ok_or(CompileError::Internal(InternalError::MissingType(
+                        argument_type_id,
+                    )))?;
 
-                self.call_arguments
-                    .push((argument_address, argument_operand_type));
-                argument_count += 1;
-            }
+            self.call_arguments
+                .push((argument_address, argument_operand_type));
+            argument_count += 1;
         }
 
         let callee_declaration_id =
@@ -2706,13 +2530,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
                     callee_declaration_id,
                 )))?;
 
-        let callee_type_id =
-            *self
-                .resolver
-                .get_type_binding(&callee.id)
-                .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                    callee.id,
-                )))?;
+        let callee_type_id = *self.resolver.get_type_binding(&callee.id)?;
         let callee_type_node =
             *self
                 .resolver
@@ -2721,13 +2539,7 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
                     callee_type_id,
                 )))?;
 
-        let return_type_id =
-            *self
-                .resolver
-                .get_type_binding(&node.id)
-                .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                    node.id,
-                )))?;
+        let return_type_id = *self.resolver.get_type_binding(&node.id)?;
         let return_operand_type =
             self.resolver
                 .get_operand_type(return_type_id)
@@ -2750,15 +2562,12 @@ impl<'a> ExpressionVisitor for Emitter<'a> {
             None
         };
 
-        let is_native = matches!(callee_type_node, TypeNode::Function { .. })
-            && matches!(callee_declaration.symbol, Symbol::BuiltIn(_));
-
-        let call_instruction = if is_native {
-            let function_name = self.source.get_source_str(&callee.position());
-            let native_function =
-                NativeFunction::from_str(function_name).ok_or(CompileError::Internal(
-                    InternalError::InvalidNativeFunction(function_name.to_string()),
-                ))?;
+        let call_instruction = if let TypeNode::Function { .. } = callee_type_node
+            && let Symbol::BuiltIn(name) = callee_declaration.symbol
+        {
+            let native_function = NativeFunction::from_str(name).ok_or(CompileError::Internal(
+                InternalError::InvalidNativeFunction(name.to_string()),
+            ))?;
             let destination_register = target.map(|target| target.index()).unwrap_or(u16::MAX);
 
             Instruction::call_native(

@@ -28,7 +28,7 @@ fn boolean() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -52,7 +52,7 @@ fn byte() {
                 Address::encoded(42),
                 OperandType::BYTE
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -76,7 +76,7 @@ fn character() {
                 Address::constant(0),
                 OperandType::CHARACTER
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -100,7 +100,7 @@ fn float() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -124,7 +124,7 @@ fn integer() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -148,7 +148,7 @@ fn string() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -172,7 +172,7 @@ fn constant_byte_addition() {
                 Address::encoded(42),
                 OperandType::BYTE
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -196,7 +196,7 @@ fn constant_float_addition() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -223,7 +223,7 @@ fn constant_integer_addition() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -247,7 +247,7 @@ fn constant_byte_subtraction() {
                 Address::encoded(42),
                 OperandType::BYTE
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -274,7 +274,7 @@ fn constant_float_subtraction() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -301,7 +301,7 @@ fn constant_integer_subtraction() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -328,7 +328,7 @@ fn constant_byte_multiplication() {
                 Address::encoded(42),
                 OperandType::BYTE
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -355,7 +355,7 @@ fn constant_float_multiplication() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -382,7 +382,7 @@ fn constant_integer_multiplication() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -406,7 +406,7 @@ fn constant_byte_division() {
                 Address::encoded(42),
                 OperandType::BYTE
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -430,7 +430,7 @@ fn constant_float_division() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -457,7 +457,7 @@ fn constant_integer_division() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -481,7 +481,7 @@ fn constant_byte_modulo() {
                 Address::encoded(4),
                 OperandType::BYTE
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -505,7 +505,7 @@ fn constant_float_modulo() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -532,7 +532,7 @@ fn constant_integer_modulo() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -559,7 +559,7 @@ fn constant_integer_negation() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -583,7 +583,7 @@ fn constant_float_negation() {
                 Address::constant(0),
                 OperandType::FLOAT
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -610,7 +610,7 @@ fn constant_string_concatenation() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -637,7 +637,7 @@ fn constant_character_concatentation() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -664,7 +664,7 @@ fn constant_string_character_concatenation() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -691,7 +691,7 @@ fn constant_character_string_concatenation() {
                 Address::constant(0),
                 OperandType::STRING
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -715,7 +715,7 @@ fn constant_boolean_and() {
                 Address::encoded(false as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -739,7 +739,7 @@ fn constant_boolean_or() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -763,7 +763,7 @@ fn constant_boolean_not() {
                 Address::encoded(false as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -790,7 +790,7 @@ fn constant_boolean_greater_than() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -817,7 +817,7 @@ fn constant_boolean_less_than() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -844,7 +844,7 @@ fn constant_boolean_greater_than_or_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -871,7 +871,7 @@ fn constant_boolean_less_than_or_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -895,7 +895,7 @@ fn constant_boolean_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -922,7 +922,7 @@ fn constant_boolean_not_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -949,7 +949,7 @@ fn constant_byte_greater_than() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -976,7 +976,7 @@ fn constant_byte_less_than() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1003,7 +1003,7 @@ fn constant_byte_greater_than_or_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1030,7 +1030,7 @@ fn constant_byte_less_than_or_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1054,7 +1054,7 @@ fn constant_byte_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1081,7 +1081,7 @@ fn constant_byte_not_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1108,7 +1108,7 @@ fn constant_character_greater_than() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1135,7 +1135,7 @@ fn constant_character_less_than() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1162,7 +1162,7 @@ fn constant_character_greater_than_or_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1189,7 +1189,7 @@ fn constant_character_less_than_or_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1216,7 +1216,7 @@ fn constant_character_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1243,7 +1243,7 @@ fn constant_character_not_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1270,7 +1270,7 @@ fn constant_float_greater_than() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1297,7 +1297,7 @@ fn constant_float_less_than() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1324,7 +1324,7 @@ fn constant_float_greater_than_or_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1351,7 +1351,7 @@ fn constant_float_less_than_or_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1375,7 +1375,7 @@ fn constant_float_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1402,7 +1402,7 @@ fn constant_float_not_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1429,7 +1429,7 @@ fn constant_integer_greater_than() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1456,7 +1456,7 @@ fn constant_integer_less_than() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1483,7 +1483,7 @@ fn constant_integer_greater_than_or_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1510,7 +1510,7 @@ fn constant_integer_less_than_or_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1534,7 +1534,7 @@ fn constant_integer_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1561,7 +1561,7 @@ fn constant_integer_not_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1588,7 +1588,7 @@ fn constant_string_greater_than() {
                 Address::encoded(false as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1615,7 +1615,7 @@ fn constant_string_less_than() {
                 Address::encoded(false as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1642,7 +1642,7 @@ fn constant_string_greater_than_or_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1669,7 +1669,7 @@ fn constant_string_less_than_or_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1693,7 +1693,7 @@ fn constant_string_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -1720,7 +1720,7 @@ fn constant_string_not_equal() {
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }

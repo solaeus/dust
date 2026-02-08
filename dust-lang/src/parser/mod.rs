@@ -25,7 +25,7 @@ use crate::{
 
 pub fn parse_main(source_code: String) -> (SyntaxTree, Option<DustError>) {
     let mut source = Source::new();
-    let file = SourceFile::embedded("eval".to_string(), source_code);
+    let file = SourceFile::embedded_string("eval".to_string(), source_code);
     let file_id = source.add_file(file);
     let file_bytes = source.get_file(file_id).full_source_bytes();
 

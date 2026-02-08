@@ -24,7 +24,7 @@ fn empty_block() {
             },
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![Instruction::r#return(Address::default(), OperandType::NONE)],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -48,7 +48,7 @@ fn block_expression() {
                 Address::constant(0),
                 OperandType::INTEGER
             )],
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -73,7 +73,7 @@ fn block_statement() {
                 Instruction::r#return(Address::default(), OperandType::NONE),
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -107,7 +107,7 @@ fn block_statement_and_expression() {
                 Instruction::r#return(Address::register(1), OperandType::INTEGER),
             ],
             register_count: 2,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -132,7 +132,7 @@ fn parent_scope_access() {
                 Instruction::r#return(Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -167,7 +167,7 @@ fn nested_parrent_scope_access() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -193,7 +193,7 @@ fn scope_shadowing() {
                 Instruction::r#return(Address::register(1), OperandType::INTEGER),
             ],
             register_count: 2,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -219,7 +219,7 @@ fn scope_deshadowing() {
                 Instruction::r#return(Address::register(0), OperandType::INTEGER),
             ],
             register_count: 2,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }

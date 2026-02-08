@@ -1,7 +1,8 @@
 use crate::{
     source::{Position, SourceFileId, Span},
     syntax::{
-        SyntaxError, SyntaxId, SyntaxKind, SyntaxNode, SyntaxTree, error::InternalSyntaxError,
+        SyntaxError, SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree,
+        error::InternalSyntaxError,
     },
 };
 
@@ -29,6 +30,10 @@ impl<'a> SyntaxReader<'a> {
 
     pub fn kind(&self) -> SyntaxKind {
         self.node.kind
+    }
+
+    pub fn payload(&self) -> SyntaxPayload {
+        self.node.payload
     }
 
     pub fn span(&self) -> Span {
@@ -92,6 +97,7 @@ impl<'a> SyntaxReader<'a> {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct SyntaxReaderIterator<'a> {
     child_ids: &'a [SyntaxId],
     tree: &'a SyntaxTree,

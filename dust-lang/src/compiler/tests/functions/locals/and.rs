@@ -33,7 +33,7 @@ fn local_boolean_and() {
                 Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }

@@ -30,7 +30,7 @@ fn local_boolean_not() {
                 Instruction::r#return(Address::register(1), OperandType::BOOLEAN)
             ],
             register_count: 2,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }

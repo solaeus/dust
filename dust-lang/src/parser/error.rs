@@ -2,7 +2,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     dust_error::AnnotatedError,
-    source::{Position, Source, SourceFileId},
+    source::{Position, Source},
     syntax::SyntaxKind,
     token::TokenKind,
 };
@@ -43,20 +43,6 @@ pub enum ParseError {
         found: Option<SyntaxKind>,
         position: Position,
     },
-}
-
-impl ParseError {
-    fn file_id(&self) -> SourceFileId {
-        match self {
-            ParseError::InvalidUtf8 { position }
-            | ParseError::ExpectedToken { position, .. }
-            | ParseError::ExpectedMultipleTokens { position, .. }
-            | ParseError::UnexpectedToken { position, .. }
-            | ParseError::ExpectedItem { position, .. }
-            | ParseError::ExpectedStatement { position, .. }
-            | ParseError::ExpectedExpression { position, .. } => position.file_id,
-        }
-    }
 }
 
 impl<'a> AnnotatedError<'a> for ParseError {

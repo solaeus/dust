@@ -36,7 +36,7 @@ fn local_byte_modulo() {
                 Instruction::r#return(Address::register(2), OperandType::BYTE)
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -68,7 +68,7 @@ fn local_float_modulo() {
                 Instruction::r#return(Address::register(2), OperandType::FLOAT)
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -100,7 +100,7 @@ fn local_integer_modulo() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER)
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -131,7 +131,7 @@ fn local_mut_byte_modulo() {
                 Instruction::r#return(Address::register(0), OperandType::BYTE)
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -162,7 +162,7 @@ fn local_mut_float_modulo() {
                 Instruction::r#return(Address::register(0), OperandType::FLOAT)
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -193,7 +193,7 @@ fn local_mut_integer_modulo() {
                 Instruction::r#return(Address::register(0), OperandType::INTEGER)
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }

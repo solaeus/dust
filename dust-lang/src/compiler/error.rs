@@ -78,6 +78,14 @@ pub enum CompileError {
         found_count: usize,
         found_position: Position,
     },
+    ExpectedValue {
+        node_kind: SyntaxKind,
+        position: Position,
+    },
+    ExpectedNoneType {
+        node_kind: SyntaxKind,
+        position: Position,
+    },
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
@@ -383,6 +391,40 @@ impl<'a> AnnotatedError<'a> for CompileError {
                             ))
                             .label(format!(
                                 "Type {function_type_string} has {expected_count} arguments."
+                            )),
+                    ),
+                )
+            }
+            CompileError::ExpectedValue {
+                node_kind,
+                position,
+            } => {
+                let title = "Expected a value".to_string();
+                let file_str = source.get_file(position.file_id).full_source_str();
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_str).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!(
+                                "Expected a value here, but found {node_kind} with type `none`."
+                            )),
+                    ),
+                )
+            }
+            CompileError::ExpectedNoneType {
+                node_kind,
+                position,
+            } => {
+                let title = "Expected type `none`".to_string();
+                let file_str = source.get_file(position.file_id).full_source_str();
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_str).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!(
+                                "Expected type `none` here, but found {node_kind} with a different type."
                             )),
                     ),
                 )

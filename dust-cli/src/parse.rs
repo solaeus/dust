@@ -21,7 +21,7 @@ pub fn handle_parse_command(
     let mut errors = Vec::new();
 
     for file in source.files() {
-        let lexer = Lexer::new(file.source_code.as_ref());
+        let lexer = Lexer::new(file.full_source_bytes());
         let parser = Parser::new(SourceFileId(0), lexer);
         let ParseResult {
             syntax_tree,

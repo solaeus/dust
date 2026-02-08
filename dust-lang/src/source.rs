@@ -80,7 +80,8 @@ pub enum SourceFile {
     },
     Embedded {
         path: String,
-        source_string: String,
+        source_bytes: Vec<u8>,
+        utf8_validated: bool,
     },
     File {
         path: PathBuf,
@@ -97,10 +98,19 @@ impl SourceFile {
         }
     }
 
-    pub fn embedded(path: String, source_code: String) -> Self {
+    pub fn embedded_string(path: String, source_code: String) -> Self {
         SourceFile::Embedded {
             path,
-            source_string: source_code,
+            source_bytes: source_code.into_bytes(),
+            utf8_validated: true,
+        }
+    }
+
+    pub fn embedded_bytes(path: String, source_code: Vec<u8>) -> Self {
+        SourceFile::Embedded {
+            path,
+            source_bytes: source_code,
+            utf8_validated: false,
         }
     }
 
@@ -139,66 +149,58 @@ impl SourceFile {
     pub fn full_source_bytes(&self) -> &[u8] {
         match self {
             Self::BuiltIn { source_str, .. } => source_str.as_bytes(),
-            Self::Embedded { source_string, .. } => source_string.as_bytes(),
-            Self::File { mmap, .. } => mmap.as_ref(),
+            Self::Embedded { source_bytes, .. } => &source_bytes,
+            Self::File { mmap, .. } => &mmap,
         }
     }
 
     pub fn full_source_str(&self) -> &str {
+        let handle_utf8_validation = |path: &str, source_bytes| -> &str {
+            warn!(
+                "Source file at {} is being accessed before UTF-8 validation. Doing\
+                    immediate validation now. All files should be validated by the lexer before\
+                    being accessed to avoid this warning.",
+                path
+            );
+
+            let utf8_bytes = match str::from_utf8(source_bytes) {
+                Ok(str) => return str,
+                Err(error) => {
+                    error!("Source file at {} contains invalid UTF-8.", path);
+
+                    &source_bytes[0..error.valid_up_to()]
+                }
+            };
+
+            unsafe { str::from_utf8_unchecked(utf8_bytes) }
+        };
+
         match self {
             Self::BuiltIn { source_str, .. } => source_str,
-            Self::Embedded { source_string, .. } => source_string.as_str(),
+            Self::Embedded {
+                path,
+                source_bytes,
+                utf8_validated: false,
+            } => handle_utf8_validation(path, source_bytes),
+            Self::Embedded {
+                source_bytes,
+                utf8_validated: true,
+                ..
+            } => unsafe { str::from_utf8_unchecked(source_bytes) },
             Self::File {
                 path,
                 mmap,
-                utf8_validated,
+                utf8_validated: false,
             } => {
-                let utf8_bytes = if *utf8_validated {
-                    mmap.as_ref()
-                } else {
-                    warn!(
-                        "Source file at {} is being accessed before UTF-8 validation. Doing\
-                        immediate validation now. All files should be validated by the lexer before\
-                        being accessed to avoid this warning.",
-                        path.display()
-                    );
+                let path_str = path.to_str().unwrap_or(PATH_INVALID_UTF8);
 
-                    match str::from_utf8(&mmap) {
-                        Ok(str) => return str,
-                        Err(error) => {
-                            error!("Source file at {} contains invalid UTF-8.", path.display());
-
-                            &mmap[0..error.valid_up_to()]
-                        }
-                    }
-                };
-
-                unsafe { str::from_utf8_unchecked(utf8_bytes) }
+                handle_utf8_validation(path_str, mmap)
             }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum SourcePath {
-    BuiltIn(&'static str),
-    External(String),
-    File(PathBuf),
-}
-
-#[derive(Debug)]
-pub enum SourceCode {
-    BuiltIn(&'static str),
-    External(String),
-    File(Mmap),
-}
-
-impl AsRef<[u8]> for SourceCode {
-    fn as_ref(&self) -> &[u8] {
-        match self {
-            SourceCode::BuiltIn(str) => str.as_bytes(),
-            SourceCode::External(string) => string.as_bytes(),
-            SourceCode::File(mmap) => mmap.as_ref(),
+            Self::File {
+                mmap,
+                utf8_validated: true,
+                ..
+            } => unsafe { str::from_utf8_unchecked(mmap) },
         }
     }
 }

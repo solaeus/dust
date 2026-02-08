@@ -47,7 +47,7 @@ fn local_boolean_less_than_or_equal() {
                 Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -90,7 +90,7 @@ fn local_byte_less_than_or_equal() {
                 Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -133,7 +133,7 @@ fn local_character_less_than_or_equal() {
                 Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -176,7 +176,7 @@ fn local_float_less_than_or_equal() {
                 Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -219,7 +219,7 @@ fn local_integer_less_than_or_equal() {
                 Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -262,7 +262,7 @@ fn local_string_less_than_or_equal() {
                 Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }

@@ -22,7 +22,7 @@ use clap::Parser as CliParser;
 use dust_lang::{
     lexer::Lexer,
     project::{EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
-    source::{Source, SourceCode, SourceFile},
+    source::{Source, SourceFile},
     token::Token,
 };
 use memmap2::MmapOptions;
@@ -245,11 +245,8 @@ pub fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
 fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> Source {
     let mut source = Source::new();
 
-    if let Some(code) = eval {
-        let file = SourceFile {
-            path: "eval".to_string(),
-            source_code: SourceCode::External(code),
-        };
+    if let Some(source_string) = eval {
+        let file = SourceFile::embedded_string("eval".to_string(), source_string);
 
         source.add_file(file);
     } else if let Some(path) = path {
@@ -281,16 +278,7 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
                 .expect("Failed to open main source file from project config");
             let mmap = unsafe { MmapOptions::new().map(&main_file) }
                 .expect("Failed to memory map main source file");
-            let source_code = SourceCode::File(mmap);
-            let name = main_file_path
-                .file_name()
-                .unwrap_or_else(|| "main.ds".as_ref())
-                .to_string_lossy()
-                .to_string();
-            let file = SourceFile {
-                path: name,
-                source_code,
-            };
+            let file = SourceFile::file(main_file_path, mmap);
 
             source.add_file(file);
 
@@ -301,28 +289,14 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
                     .expect("Failed to open library source file from project config");
                 let mmap = unsafe { MmapOptions::new().map(&lib_file) }
                     .expect("Failed to memory map library source file");
-                let source_code = SourceCode::File(mmap);
-                let name = lib_file_path
-                    .file_name()
-                    .unwrap_or_else(|| "lib.ds".as_ref())
-                    .to_string_lossy()
-                    .to_string();
-                let file = SourceFile {
-                    path: name,
-                    source_code,
-                };
+                let file = SourceFile::file(lib_file_path, mmap);
 
                 source.add_file(file);
             }
         } else {
-            let name = path.to_string_lossy().to_string();
             let file = File::open(&path).expect("Failed to open file");
             let mmap = unsafe { MmapOptions::new().map(&file).expect("Failed to map file") };
-            let source_code = SourceCode::File(mmap);
-            let file = SourceFile {
-                path: name,
-                source_code,
-            };
+            let file = SourceFile::file(path, mmap);
 
             source.add_file(file);
         }
@@ -333,10 +307,7 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
             .read_to_end(&mut buffer)
             .expect("Failed to read from stdin");
 
-        let file = SourceFile {
-            path: "stdin".to_string(),
-            source_code: SourceCode::Bytes(buffer),
-        };
+        let file = SourceFile::embedded_bytes("stdin".to_string(), buffer);
 
         source.add_file(file);
     } else {

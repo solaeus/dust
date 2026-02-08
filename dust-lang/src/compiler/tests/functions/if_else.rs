@@ -32,7 +32,7 @@ fn if_else_true() {
                 Instruction::r#return(Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -62,7 +62,7 @@ fn if_else_logical_and() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -92,7 +92,7 @@ fn if_else_logical_or() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -120,7 +120,7 @@ fn if_else_false() {
                 Instruction::r#return(Address::register(0), OperandType::INTEGER),
             ],
             register_count: 1,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -155,7 +155,7 @@ fn if_else_equal() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -190,7 +190,7 @@ fn if_else_not_equal() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -225,7 +225,7 @@ fn if_else_less_than() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -260,7 +260,7 @@ fn if_else_greater_than() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -295,7 +295,7 @@ fn if_else_less_than_equal() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -333,7 +333,7 @@ fn if_else_greater_than_equal() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -376,7 +376,7 @@ fn if_else_if_chain_end() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -419,7 +419,7 @@ fn if_else_if_chain_middle() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -462,7 +462,7 @@ fn if_else_nested() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
@@ -513,7 +513,7 @@ fn if_else_double_nested() {
                 Instruction::r#return(Address::register(2), OperandType::INTEGER),
             ],
             register_count: 3,
-            ..Default::default()
+            ..Prototype::dummy()
         }
     );
 }
