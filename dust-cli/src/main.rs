@@ -247,8 +247,8 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
 
     if let Some(code) = eval {
         let file = SourceFile {
-            name: "eval".to_string(),
-            source_code: SourceCode::String(code),
+            path: "eval".to_string(),
+            source_code: SourceCode::External(code),
         };
 
         source.add_file(file);
@@ -281,13 +281,16 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
                 .expect("Failed to open main source file from project config");
             let mmap = unsafe { MmapOptions::new().map(&main_file) }
                 .expect("Failed to memory map main source file");
-            let source_code = SourceCode::Mmap(mmap);
+            let source_code = SourceCode::File(mmap);
             let name = main_file_path
                 .file_name()
                 .unwrap_or_else(|| "main.ds".as_ref())
                 .to_string_lossy()
                 .to_string();
-            let file = SourceFile { name, source_code };
+            let file = SourceFile {
+                path: name,
+                source_code,
+            };
 
             source.add_file(file);
 
@@ -298,13 +301,16 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
                     .expect("Failed to open library source file from project config");
                 let mmap = unsafe { MmapOptions::new().map(&lib_file) }
                     .expect("Failed to memory map library source file");
-                let source_code = SourceCode::Mmap(mmap);
+                let source_code = SourceCode::File(mmap);
                 let name = lib_file_path
                     .file_name()
                     .unwrap_or_else(|| "lib.ds".as_ref())
                     .to_string_lossy()
                     .to_string();
-                let file = SourceFile { name, source_code };
+                let file = SourceFile {
+                    path: name,
+                    source_code,
+                };
 
                 source.add_file(file);
             }
@@ -312,8 +318,11 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
             let name = path.to_string_lossy().to_string();
             let file = File::open(&path).expect("Failed to open file");
             let mmap = unsafe { MmapOptions::new().map(&file).expect("Failed to map file") };
-            let source_code = SourceCode::Mmap(mmap);
-            let file = SourceFile { name, source_code };
+            let source_code = SourceCode::File(mmap);
+            let file = SourceFile {
+                path: name,
+                source_code,
+            };
 
             source.add_file(file);
         }
@@ -325,7 +334,7 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
             .expect("Failed to read from stdin");
 
         let file = SourceFile {
-            name: "stdin".to_string(),
+            path: "stdin".to_string(),
             source_code: SourceCode::Bytes(buffer),
         };
 

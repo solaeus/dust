@@ -17,12 +17,10 @@ impl<'a> SyntaxReader<'a> {
         Self { id, node, tree }
     }
 
-    pub fn root(&self) -> Option<Self> {
-        Some(SyntaxReader::new(
-            SyntaxId(0),
-            self.tree.nodes.first()?,
-            self.tree,
-        ))
+    pub fn root(&self) -> Result<Self, SyntaxError> {
+        self.tree
+            .root()
+            .ok_or(SyntaxError::Internal(InternalSyntaxError::EmptySyntaxTree))
     }
 
     pub fn inner(&self) -> &'a SyntaxNode {

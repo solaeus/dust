@@ -23,7 +23,7 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     prototype::Prototype,
-    source::{Source, SourceCode, SourceFile, SourceFileId},
+    source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, SyntaxId},
 };
 
@@ -31,10 +31,7 @@ pub const DEFAULT_PROGRAM_NAME: &str = "dust_program";
 
 pub fn compile_main_prototype(source_code: String) -> Result<Prototype, DustError> {
     let mut source = Source::new();
-    source.add_file(SourceFile {
-        name: "main".to_string(),
-        source_code: SourceCode::String(source_code),
-    });
+    source.add_file(SourceFile::embedded("eval".to_string(), source_code));
 
     let compiler = Compiler::new(source);
     let mut program = compiler.compile(None)?;
@@ -45,10 +42,7 @@ pub fn compile_main_prototype(source_code: String) -> Result<Prototype, DustErro
 pub fn compile_prototypes(source_code: String) -> Result<Vec<Prototype>, DustError> {
     let mut source = Source::new();
 
-    source.add_file(SourceFile {
-        name: "main".to_string(),
-        source_code: SourceCode::String(source_code),
-    });
+    source.add_file(SourceFile::embedded("eval".to_string(), source_code));
 
     let compiler = Compiler::new(source);
     let program = compiler.compile(None)?;
@@ -120,7 +114,7 @@ impl Compiler {
 
             for (index, file) in self.source.files().iter().enumerate() {
                 let file_id = SourceFileId(index as u32);
-                let lexer = Lexer::new(file.source_code.as_ref());
+                let lexer = Lexer::new(file.full_source_bytes());
                 let parser = Parser::new(file_id, lexer);
                 let ParseResult {
                     syntax_tree,

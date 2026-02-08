@@ -18,21 +18,18 @@ use crate::{
     dust_error::DustError,
     lexer::Lexer,
     parser::parse_rule::{Associativity, ParseRule, Precedence},
-    source::{Position, Source, SourceCode, SourceFile, SourceFileId, Span},
+    source::{Position, Source, SourceFile, SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree},
     token::{Token, TokenKind},
 };
 
 pub fn parse_main(source_code: String) -> (SyntaxTree, Option<DustError>) {
     let mut source = Source::new();
-    let file = SourceFile {
-        name: "eval".to_string(),
-        source_code: SourceCode::String(source_code),
-    };
+    let file = SourceFile::embedded("eval".to_string(), source_code);
+    let file_id = source.add_file(file);
+    let file_bytes = source.get_file(file_id).full_source_bytes();
 
-    source.add_file(file);
-
-    let lexer = Lexer::new(source.files()[0].source_code.as_ref());
+    let lexer = Lexer::new(file_bytes);
     let parser = Parser::new(SourceFileId::MAIN, lexer);
     let ParseResult {
         syntax_tree,

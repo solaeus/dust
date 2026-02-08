@@ -4,10 +4,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::compiler::{
-    Declaration, DeclarationKind, DeclarationMembers, Resolver, ScopeId, TypeId, TypeMembers,
-    TypeNode,
-};
+use crate::compiler::{DeclarationMembers, Resolver, TypeId, TypeMembers, TypeNode};
 
 /// A Dust-native function.
 ///

@@ -24,7 +24,7 @@ use crate::{
     dust_crate::Program,
     dust_error::DustError,
     jit_vm::thread_pool::{ThreadMessage, ThreadPool},
-    source::{Source, SourceCode, SourceFile},
+    source::{Source, SourceFile},
     value::Value,
 };
 
@@ -44,10 +44,7 @@ const STRING_ERROR_TEXT: &str = "Expected string object";
 pub fn run_main(source_code: String) -> Result<Option<Value>, DustError> {
     let mut source = Source::new();
 
-    source.add_file(SourceFile {
-        name: "main.ds".to_string(),
-        source_code: SourceCode::String(source_code),
-    });
+    source.add_file(SourceFile::embedded("eval".to_string(), source_code));
 
     let compiler = Compiler::new(source);
     let program = compiler.compile(Some("Dust Program".to_string()))?;

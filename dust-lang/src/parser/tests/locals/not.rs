@@ -1,7 +1,7 @@
 use crate::{
     parser::parse_main,
     source::Span,
-    syntax::{SyntaxKind, SyntaxNode},
+    syntax::{SyntaxKind, SyntaxNode, SyntaxPayload},
     tests::local_cases,
 };
 
@@ -16,57 +16,57 @@ fn local_boolean_not() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: (5, 2),
+                payload: SyntaxPayload::children(5, 2),
                 span: Span(0, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: (1, 3),
+                payload: SyntaxPayload::children(1, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: (0, 0),
+                payload: SyntaxPayload::children(0, 0),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: (0, 1),
+                payload: SyntaxPayload::children(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanType,
-                payload: (0, 0),
+                payload: SyntaxPayload::children(0, 0),
                 span: Span(8, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::BooleanExpression,
-                payload: (1, 0),
+                payload: SyntaxPayload::children(1, 0),
                 span: Span(15, 19),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: (4, 0),
+                payload: SyntaxPayload::children(4, 0),
                 span: Span(15, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::NotExpression,
-                payload: (9, 0),
+                payload: SyntaxPayload::children(9, 0),
                 span: Span(21, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: (0, 0),
+                payload: SyntaxPayload::children(0, 0),
                 span: Span(22, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: (4, 1),
+                payload: SyntaxPayload::children(4, 1),
                 span: Span(22, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: (8, 0),
+                payload: SyntaxPayload::children(8, 0),
                 span: Span(22, 23),
             },
         ]

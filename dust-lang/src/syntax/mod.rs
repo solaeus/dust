@@ -37,8 +37,12 @@ impl Syntax {
         self.file_trees.len()
     }
 
-    pub fn add_tree(&mut self, tree: SyntaxTree) {
+    pub fn add_tree(&mut self, tree: SyntaxTree) -> SourceFileId {
+        let id = SourceFileId(self.file_trees.len() as u32);
+
         self.file_trees.push(tree);
+
+        id
     }
 
     pub fn get_tree(&self, file_id: SourceFileId) -> Option<&SyntaxTree> {

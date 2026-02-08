@@ -83,7 +83,7 @@ impl<'a> DeclarationBinder<'a> {
         ));
 
         let position = path.position();
-        let bytes = self.source.get_source_bytes(&position);
+        let bytes = self.source.get_file(position.file_id).full_source_bytes();
         let constant_id = self.resolver.constants.add_string(bytes);
 
         Symbol::Source {

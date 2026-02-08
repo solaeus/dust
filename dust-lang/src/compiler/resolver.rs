@@ -9,6 +9,7 @@ use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 
 use crate::{
+    compiler::{CompileError, InternalError},
     constant_table::{ConstantId, ConstantTable},
     instruction::OperandType,
     native_function::NativeFunction,
@@ -292,8 +293,12 @@ impl Resolver {
         self.type_bindings.insert(syntax_id, type_id);
     }
 
-    pub fn get_type_binding(&self, syntax_id: &SyntaxId) -> Option<&TypeId> {
-        self.type_bindings.get(syntax_id)
+    pub fn get_type_binding(&self, syntax_id: &SyntaxId) -> Result<&TypeId, CompileError> {
+        self.type_bindings
+            .get(syntax_id)
+            .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
+                *syntax_id,
+            )))
     }
 
     pub fn add_type_members(&mut self, types: &[TypeId]) -> TypeMembers {

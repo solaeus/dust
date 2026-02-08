@@ -19,10 +19,6 @@ pub enum CompileError {
     Syntax(SyntaxError),
     Internal(InternalError),
 
-    AmbiguousType {
-        name: String,
-        position: Position,
-    },
     CannotApplyOperator {
         operator: SyntaxKind,
         r#type: Type,
@@ -89,9 +85,10 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
     fn annotated_error(&self, (source, resolver): Self::Input) -> Group<'a> {
         match self {
+            CompileError::Syntax(syntax_error) => syntax_error.annotated_error(source),
             CompileError::DivisionByZero { position } => {
                 let title = "Division by zero".to_string();
-                let file_str = source.get_file_as_str(position.file_id);
+                let file_str = source.get_file(position.file_id).full_source_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str)
@@ -104,31 +101,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     .map(|r#type| r#type.to_string())
                     .unwrap_or("<invalid type>".to_string());
                 let title = format!("Expected an integer index, found {found_type}");
-                let file_str = source.get_file_as_str(position.file_id);
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str)
-                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
-                )
-            }
-            CompileError::ExpectedItem {
-                node_kind,
-                position,
-            } => {
-                let title = format!("Expected an item, found {node_kind}");
-                let file_str = source.get_file_as_str(position.file_id);
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str)
-                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
-                )
-            }
-            CompileError::ExpectedStatement {
-                node_kind,
-                position,
-            } => {
-                let title = format!("Expected a statement, found {node_kind}");
-                let file_str = source.get_file_as_str(position.file_id);
+                let file_str = source.get_file(position.file_id).full_source_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str)
@@ -141,7 +114,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = "Expected a boolean expression".to_string();
-                let file_str = source.get_file_as_str(position.file_id);
+                let file_str = source.get_file(position.file_id).full_source_str();
                 let found_type = resolver
                     .get_full_type(*found_type_id, source)
                     .map(|r#type| r#type.to_string())
@@ -158,24 +131,12 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         ))),
                 )
             }
-            CompileError::ExpectedExpression {
-                node_kind,
-                position,
-            } => {
-                let title = format!("Expected an expression, found {node_kind}");
-                let file_str = source.get_file_as_str(position.file_id);
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str)
-                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
-                )
-            }
             CompileError::ExpectedFunction {
                 node_kind,
                 position,
             } => {
                 let title = format!("Expected a function, found {node_kind}");
-                let file_str = source.get_file_as_str(position.file_id);
+                let file_str = source.get_file(position.file_id).full_source_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str)
@@ -183,8 +144,9 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 )
             }
             CompileError::UndeclaredVariable { position } => {
-                let variable_str = source.get_source_str(position);
-                let file_str = source.get_file_as_str(position.file_id);
+                let file = source.get_file(position.file_id);
+                let file_str = file.full_source_str();
+                let variable_str = file.source_str(position.span);
                 let title = format!("Undeclared variable: {variable_str}");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
@@ -227,9 +189,12 @@ impl<'a> AnnotatedError<'a> for CompileError {
                             .get_str(&resolver.constants)
                             .map(String::from)
                             .or_else(|| {
-                                declaration
-                                    .position
-                                    .map(|position| source.get_source_str(&position).to_string())
+                                declaration.position.map(|position| {
+                                    source
+                                        .get_file(position.file_id)
+                                        .source_str(position.span)
+                                        .to_string()
+                                })
                             })
                             .unwrap_or_else(|| "<invalid symbol>".to_string());
 
@@ -240,7 +205,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 match position {
                     Some(position) => {
-                        let file_str = source.get_file_as_str(position.file_id);
+                        let file_str = source.get_file(position.file_id).full_source_str();
 
                         Group::with_title(Level::ERROR.primary_title(title)).elements([
                             Snippet::source(file_str).annotation(
@@ -274,8 +239,9 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     .map_or_else(|| INVALID_TYPE.to_string(), |r#type| r#type.to_string());
 
                 if let Some(expected_position) = expected_position {
-                    let expected_file_str = source.get_file_as_str(expected_position.file_id);
-                    let found_file_str = source.get_file_as_str(found_position.file_id);
+                    let expected_file_str =
+                        source.get_file(expected_position.file_id).full_source_str();
+                    let found_file_str = source.get_file(found_position.file_id).full_source_str();
 
                     Group::with_title(Level::ERROR.primary_title(title)).elements([
                         Snippet::source(found_file_str).annotation(
@@ -292,7 +258,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         ),
                     ])
                 } else {
-                    let file_str = source.get_file_as_str(found_position.file_id);
+                    let file_str = source.get_file(found_position.file_id).full_source_str();
 
                     Group::with_title(Level::ERROR.primary_title(title))
                         .element(
@@ -311,7 +277,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = format!("Cannot apply operator {operator} to type {type}");
-                let file_str = source.get_file_as_str(position.file_id);
+                let file_str = source.get_file(position.file_id).full_source_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -325,7 +291,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::CannotIndex { r#type, position } => {
                 let title = format!("Cannot index type {type}");
-                let file_str = source.get_file_as_str(position.file_id);
+                let file_str = source.get_file(position.file_id).full_source_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -337,7 +303,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::UndeclaredType { name, position } => {
                 let title = format!("Undeclared type: {name}");
-                let file_str = source.get_file_as_str(position.file_id);
+                let file_str = source.get_file(position.file_id).full_source_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -347,25 +313,13 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     ),
                 )
             }
-            CompileError::AmbiguousType { name, position } => {
-                let title = format!("Ambiguous type: {name}");
-                let file_str = source.get_file_as_str(position.file_id);
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!("Use of ambiguous type {name} here")),
-                    ),
-                )
-            }
             CompileError::ConstantTypeConflict {
                 expected,
                 found,
                 position,
             } => {
                 let title = format!("Constant type conflict: expected {expected}, found {found}");
-                let file_str = source.get_file_as_str(position.file_id);
+                let file_str = source.get_file(position.file_id).full_source_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -379,7 +333,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::CannotMutate { position } => {
                 let title = "Cannot mutate immutable value".to_string();
-                let file_str = source.get_file_as_str(position.file_id);
+                let file_str = source.get_file(position.file_id).full_source_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str)
@@ -393,7 +347,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::ExpectedFunctionType { found, position } => {
                 let title = "Expected a function type";
-                let file_str = source.get_file_as_str(position.file_id);
+                let file_str = source.get_file(position.file_id).full_source_str();
                 let found_string = resolver
                     .get_full_type(*found, source)
                     .map_or_else(|| INVALID_TYPE.to_string(), |r#type| r#type.to_string());
@@ -410,12 +364,12 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::ExpectedArguments {
                 function_type,
-                found_position: function_position,
+                found_position,
                 expected_count,
                 found_count,
             } => {
                 let title = "Incorrect argument count";
-                let file_str = source.get_file_as_str(function_position.file_id);
+                let file_str = source.get_file(found_position.file_id).full_source_str();
                 let function_type_string = resolver
                     .get_full_type(*function_type, source)
                     .map_or_else(|| INVALID_TYPE.to_string(), |r#type| r#type.to_string());
@@ -423,7 +377,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
                         AnnotationKind::Primary
-                            .span(function_position.span.as_usize_range())
+                            .span(found_position.span.as_usize_range())
                             .label(format!(
                                 "Expected {expected_count} arguments but found {found_count}."
                             ))

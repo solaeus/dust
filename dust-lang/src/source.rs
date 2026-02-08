@@ -1,10 +1,16 @@
 use std::{
     fmt::{self, Display, Formatter},
     ops::Range,
+    path::PathBuf,
 };
 
 use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
+use tracing::{error, warn};
+
+const FILE_NOT_FOUND: &str = "<dust internal error: file not found>";
+const SOURCE_NOT_FOUND: &str = "<dust internal error: source not found>";
+const PATH_INVALID_UTF8: &str = "<dust internal error: path contains invalid UTF-8>";
 
 #[derive(Debug)]
 pub struct Source {
@@ -12,9 +18,6 @@ pub struct Source {
 }
 
 impl Source {
-    const FILE_UNAVAILABLE: &str = "<internal error: file not found>";
-    const SOURCE_UNAVAILABLE: &str = "<internal error: source not found>";
-
     pub fn new() -> Self {
         Self { files: Vec::new() }
     }
@@ -41,34 +44,18 @@ impl Source {
         id
     }
 
-    pub fn get_file_as_str(&self, file_id: SourceFileId) -> &str {
+    pub fn get_file(&self, file_id: SourceFileId) -> &SourceFile {
         self.files
             .get(file_id.0 as usize)
-            .map_or(Self::FILE_UNAVAILABLE, |file| {
-                let bytes = file.source_code.as_ref();
-
-                unsafe { str::from_utf8_unchecked(bytes) }
-            })
+            .expect("Source file not found for given SourceFileId.")
     }
 
-    pub fn get_source_bytes(&self, position: &Position) -> &[u8] {
-        let Some(file) = self.files.get(position.file_id.0 as usize) else {
-            return Self::SOURCE_UNAVAILABLE.as_bytes();
-        };
-        let file_bytes = file.source_code.as_ref();
-        let span_range = position.span.as_usize_range();
-
-        if span_range.end <= file_bytes.len() {
-            &file_bytes[span_range]
-        } else {
-            Self::SOURCE_UNAVAILABLE.as_bytes()
+    pub fn set_utf8_validated(&mut self, file_id: SourceFileId) {
+        if let Some(SourceFile::File { utf8_validated, .. }) =
+            self.files.get_mut(file_id.0 as usize)
+        {
+            *utf8_validated = true;
         }
-    }
-
-    pub fn get_source_str(&self, position: &Position) -> &str {
-        let bytes = self.get_source_bytes(position);
-
-        unsafe { str::from_utf8_unchecked(bytes) }
     }
 }
 
@@ -86,24 +73,132 @@ impl SourceFileId {
 }
 
 #[derive(Debug)]
-pub struct SourceFile {
-    pub name: String,
-    pub source_code: SourceCode,
+pub enum SourceFile {
+    BuiltIn {
+        path: &'static str,
+        source_str: &'static str,
+    },
+    Embedded {
+        path: String,
+        source_string: String,
+    },
+    File {
+        path: PathBuf,
+        mmap: Mmap,
+        utf8_validated: bool,
+    },
+}
+
+impl SourceFile {
+    pub fn built_in(path: &'static str, source_code: &'static str) -> Self {
+        SourceFile::BuiltIn {
+            path,
+            source_str: source_code,
+        }
+    }
+
+    pub fn embedded(path: String, source_code: String) -> Self {
+        SourceFile::Embedded {
+            path,
+            source_string: source_code,
+        }
+    }
+
+    pub fn file(path: PathBuf, source_code: Mmap) -> Self {
+        SourceFile::File {
+            path,
+            mmap: source_code,
+            utf8_validated: false,
+        }
+    }
+
+    pub fn path(&self) -> &str {
+        match self {
+            Self::BuiltIn { path, .. } => path,
+            Self::Embedded { path, .. } => path.as_str(),
+            Self::File { path, .. } => path.to_str().unwrap_or(PATH_INVALID_UTF8),
+        }
+    }
+
+    pub fn source_bytes(&self, span: Span) -> &[u8] {
+        let full_source = self.full_source_bytes();
+        let range = span.as_usize_range();
+
+        full_source
+            .get(range)
+            .unwrap_or_else(|| SOURCE_NOT_FOUND.as_bytes())
+    }
+
+    pub fn source_str(&self, span: Span) -> &str {
+        let full_source = self.full_source_str();
+        let range = span.as_usize_range();
+
+        full_source.get(range).unwrap_or(SOURCE_NOT_FOUND)
+    }
+
+    pub fn full_source_bytes(&self) -> &[u8] {
+        match self {
+            Self::BuiltIn { source_str, .. } => source_str.as_bytes(),
+            Self::Embedded { source_string, .. } => source_string.as_bytes(),
+            Self::File { mmap, .. } => mmap.as_ref(),
+        }
+    }
+
+    pub fn full_source_str(&self) -> &str {
+        match self {
+            Self::BuiltIn { source_str, .. } => source_str,
+            Self::Embedded { source_string, .. } => source_string.as_str(),
+            Self::File {
+                path,
+                mmap,
+                utf8_validated,
+            } => {
+                let utf8_bytes = if *utf8_validated {
+                    mmap.as_ref()
+                } else {
+                    warn!(
+                        "Source file at {} is being accessed before UTF-8 validation. Doing\
+                        immediate validation now. All files should be validated by the lexer before\
+                        being accessed to avoid this warning.",
+                        path.display()
+                    );
+
+                    match str::from_utf8(&mmap) {
+                        Ok(str) => return str,
+                        Err(error) => {
+                            error!("Source file at {} contains invalid UTF-8.", path.display());
+
+                            &mmap[0..error.valid_up_to()]
+                        }
+                    }
+                };
+
+                unsafe { str::from_utf8_unchecked(utf8_bytes) }
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum SourcePath {
+    BuiltIn(&'static str),
+    External(String),
+    File(PathBuf),
 }
 
 #[derive(Debug)]
 pub enum SourceCode {
-    Bytes(Vec<u8>),
-    String(String),
-    Mmap(Mmap),
+    BuiltIn(&'static str),
+    External(String),
+    File(Mmap),
 }
 
 impl AsRef<[u8]> for SourceCode {
     fn as_ref(&self) -> &[u8] {
         match self {
-            SourceCode::Bytes(bytes) => bytes.as_ref(),
-            SourceCode::String(string) => string.as_bytes(),
-            SourceCode::Mmap(mmap) => mmap.as_ref(),
+            SourceCode::BuiltIn(str) => str.as_bytes(),
+            SourceCode::External(string) => string.as_bytes(),
+            SourceCode::File(mmap) => mmap.as_ref(),
         }
     }
 }

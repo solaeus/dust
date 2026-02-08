@@ -14,7 +14,10 @@ use crate::{
     native_function::NativeFunction,
     prototype::Prototype,
     source::{Position, Source, SourceFileId, Span},
-    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxReaderIterator, SyntaxVisitor},
+    syntax::{
+        ExpressionVisitor, ItemVisitor, OtherVisitor, StatementVisitor, Syntax, SyntaxError,
+        SyntaxId, SyntaxKind, SyntaxReader, SyntaxReaderIterator, SyntaxVisitor, SyntaxVistorTypes,
+    },
     r#type::Type,
 };
 
@@ -172,12 +175,7 @@ impl<'a> Emitter<'a> {
     pub fn emit(mut self, node: SyntaxReader) -> Result<Prototype, CompileError> {
         match node.kind() {
             SyntaxKind::MainFunctionItem | SyntaxKind::BlockExpression => {
-                let children = node.multiple_children().ok_or(CompileError::Internal(
-                    InternalError::MissingSyntaxChildren {
-                        start_index: node.inner().payload.0,
-                        count: node.inner().payload.1,
-                    },
-                ))?;
+                let children = node.multiple_children()?;
                 let last_index = children.len() - 1;
 
                 for (index, child) in children.into_iter().enumerate() {
@@ -191,9 +189,7 @@ impl<'a> Emitter<'a> {
                 }
             }
             SyntaxKind::ExpressionStatement => {
-                let expression_node = node.left_child().ok_or(CompileError::Internal(
-                    InternalError::MissingSyntaxChild { child_index: 0 },
-                ))?;
+                let expression_node = node.left_child()?;
 
                 let mut expression_emission = self.handle_implicit_return(expression_node, None)?;
 
@@ -547,7 +543,7 @@ impl<'a> Emitter<'a> {
             ) {
                 Err(CompileError::DivisionByZero {
                     position: Position::new(
-                        left_node.tree.file_id,
+                        left_node.file_id(),
                         Span::join(&left_node.span(), &right_node.span()),
                     ),
                 })
@@ -851,7 +847,7 @@ impl<'a> Emitter<'a> {
                     expected: left_node.kind(),
                     found: right_node.kind(),
                     position: Position::new(
-                        left_node.tree.file_id,
+                        left_node.file_id(),
                         Span::join(&left_node.span(), &right_node.span()),
                     ),
                 });
@@ -866,12 +862,7 @@ impl<'a> Emitter<'a> {
         emission: Emission,
         node: SyntaxReader,
     ) -> Result<(), CompileError> {
-        let type_id = *self
-            .resolver
-            .get_type_binding(&node.id)
-            .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                node.id,
-            )))?;
+        let type_id = *self.resolver.get_type_binding(&node.id)?;
 
         match emission {
             Emission::Constant(constant) => {
@@ -888,13 +879,7 @@ impl<'a> Emitter<'a> {
             }
             Emission::Place(place) => {
                 let destination = self.allocate_temporary_registers(1);
-                let type_id =
-                    *self
-                        .resolver
-                        .get_type_binding(&node.id)
-                        .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                            node.id,
-                        )))?;
+                let type_id = *self.resolver.get_type_binding(&node.id)?;
                 let operand_type = self
                     .resolver
                     .get_operand_type(type_id)
@@ -1013,20 +998,20 @@ impl<'a> Emitter<'a> {
             Emission::Instructions(operand_instructions) => {
                 let destination = operand_instructions
                     .target
-                    .ok_or(CompileError::ExpectedExpression {
-                        node_kind: node.kind(),
+                    .ok_or(CompileError::Syntax(SyntaxError::ExpectedExpression {
+                        found: node.kind(),
                         position: node.position(),
-                    })?
+                    }))?
                     .index();
 
                 instructions.merge(operand_instructions);
 
                 Ok(Address::register(destination))
             }
-            Emission::None => Err(CompileError::ExpectedExpression {
-                node_kind: node.kind(),
+            Emission::None => Err(CompileError::Syntax(SyntaxError::ExpectedExpression {
+                found: node.kind(),
                 position: node.position(),
-            }),
+            })),
         }
     }
 
@@ -1087,13 +1072,7 @@ impl<'a> Emitter<'a> {
                 instructions.merge(condition_instructions);
             }
             _ => {
-                let found =
-                    *self
-                        .resolver
-                        .get_type_binding(&node.id)
-                        .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                            node.id,
-                        )))?;
+                let found = *self.resolver.get_type_binding(&node.id)?;
 
                 return Err(CompileError::ExpectedBooleanExpression {
                     found,
@@ -1123,13 +1102,7 @@ impl<'a> Emitter<'a> {
                 instructions_emission.push(move_instruction);
             }
             Emission::Place(place) => {
-                let type_id =
-                    *self
-                        .resolver
-                        .get_type_binding(&node.id)
-                        .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                            node.id,
-                        )))?;
+                let type_id = *self.resolver.get_type_binding(&node.id)?;
                 let operand_type = self
                     .resolver
                     .get_operand_type(type_id)
@@ -1154,12 +1127,7 @@ impl<'a> Emitter<'a> {
         emission: Emission,
         node: SyntaxReader,
     ) -> Result<(), CompileError> {
-        let type_id = *self
-            .resolver
-            .get_type_binding(&node.id)
-            .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                node.id,
-            )))?;
+        let type_id = *self.resolver.get_type_binding(&node.id)?;
         let operand_type = self
             .resolver
             .get_operand_type(type_id)
@@ -1180,15 +1148,12 @@ impl<'a> Emitter<'a> {
                             Address::register(base_register + 1)
                         }
                     }
-                } else if type_id == TypeId::NONE {
+                } else {
+                    debug_assert_eq!(type_id, TypeId::NONE);
+
                     return_instructions.merge(instructions);
 
                     Address::default()
-                } else {
-                    return Err(CompileError::ExpectedExpression {
-                        node_kind: node.kind(),
-                        position: node.position(),
-                    });
                 }
             }
             Emission::None => Address::default(),
@@ -1224,11 +1189,17 @@ impl<'a> Emitter<'a> {
     }
 }
 
-impl<'a> SyntaxVisitor for Emitter<'a> {
+impl SyntaxVistorTypes for Emitter<'_> {
     type Input = Option<Target>;
 
     type Output = Emission;
 
+    type Error = CompileError;
+}
+
+impl SyntaxVisitor for Emitter<'_> {}
+
+impl<'a> ItemVisitor for Emitter<'a> {
     fn visit_main_function_item(
         &mut self,
         node: SyntaxReader,
@@ -1236,12 +1207,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting main function item");
 
-        let children = node.multiple_children().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChildren {
-                start_index: node.inner().payload.0,
-                count: node.inner().payload.1,
-            },
-        ))?;
+        let children = node.multiple_children()?;
         let last_child = children.len() - 1;
         let mut final_emission = Emission::None;
 
@@ -1273,9 +1239,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting function item");
 
-        let function_expression = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
+        let function_expression = node.right_child()?;
 
         let function_emission = self.visit_function_expression(function_expression, None)?;
 
@@ -1315,7 +1279,9 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         Ok(Emission::None)
     }
+}
 
+impl<'a> StatementVisitor for Emitter<'a> {
     fn visit_expression_statement(
         &mut self,
         node: SyntaxReader<'_>,
@@ -1323,11 +1289,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting expression statement");
 
-        let expression =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
+        let expression = node.left_child()?;
 
         let expression_emission = self.visit_expression(expression, target)?;
 
@@ -1351,37 +1313,12 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting let statement");
 
-        let mut children = node.multiple_children().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChildren {
-                start_index: node.inner().payload.0,
-                count: node.inner().payload.1,
-            },
-        ))?;
-        let path =
-            children
-                .next()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let expression_statement =
-            children
-                .next()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 1,
-                }))?;
-        let expression = expression_statement
-            .left_child()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                child_index: 0,
-            }))?;
+        let mut children = node.multiple_children()?;
+        let path = children.expect_next()?;
+        let expression_statement = children.expect_next()?;
+        let expression = expression_statement.left_child()?;
 
-        let type_id =
-            *self
-                .resolver
-                .get_type_binding(&expression.id)
-                .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                    node.id,
-                )))?;
+        let type_id = *self.resolver.get_type_binding(&expression.id)?;
 
         let mut let_statement_emission = InstructionsEmission::new();
 
@@ -1414,7 +1351,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 let_statement_emission.merge(expression_instructions);
             }
             Emission::None => {
-                return Err(CompileError::ExpectedExpression {
+                return Err(CompileError::ExpectedValue {
                     node_kind: expression.kind(),
                     position: expression.position(),
                 });
@@ -1462,19 +1399,8 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
     ) -> Result<Self::Output, CompileError> {
         debug!("Emitting reassignment statement");
 
-        let path =
-            node.left_child()
-                .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                    child_index: 0,
-                }))?;
-        let expression_statement = node.right_child().ok_or(CompileError::Internal(
-            InternalError::MissingSyntaxChild { child_index: 1 },
-        ))?;
-        let expression = expression_statement
-            .left_child()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxChild {
-                child_index: 0,
-            }))?;
+        let (path, expression_statement) = node.binary_children()?;
+        let expression = expression_statement.left_child()?;
 
         let declaration_id =
             self.resolver
@@ -1505,13 +1431,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 reassignment_emission.push(move_instruction);
             }
             Emission::Place(expression_target) => {
-                let type_id =
-                    *self
-                        .resolver
-                        .get_type_binding(&node.id)
-                        .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                            node.id,
-                        )))?;
+                let type_id = *self.resolver.get_type_binding(&node.id)?;
                 let operand_type = self
                     .resolver
                     .get_operand_type(type_id)
@@ -1535,7 +1455,9 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         Ok(Emission::Instructions(reassignment_emission))
     }
+}
 
+impl<'a> ExpressionVisitor for Emitter<'a> {
     fn visit_boolean_expression(
         &mut self,
         node: SyntaxReader,
@@ -2862,12 +2784,26 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         Ok(Emission::Instructions(call_emission))
     }
+}
 
+impl<'a> OtherVisitor for Emitter<'a> {
     fn visit_type(
         &mut self,
         _: SyntaxReader,
         _: Self::Input,
     ) -> Result<Self::Output, CompileError> {
+        Ok(Emission::None)
+    }
+
+    fn visit_path(&mut self, _: SyntaxReader, _: Self::Input) -> Result<Self::Output, Self::Error> {
+        Ok(Emission::None)
+    }
+
+    fn visit_path_segment(
+        &mut self,
+        _: SyntaxReader,
+        _: Self::Input,
+    ) -> Result<Self::Output, Self::Error> {
         Ok(Emission::None)
     }
 }

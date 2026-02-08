@@ -31,7 +31,7 @@ pub struct Disassembler<'a> {
 
     state: TuiState,
     selection_state: SelectionState,
-    tabs: Vec<String>,
+    tabs: Vec<&'a str>,
 }
 
 impl<'a> Disassembler<'a> {
@@ -39,15 +39,14 @@ impl<'a> Disassembler<'a> {
         let mut tabs = Vec::with_capacity(source.file_count() + program.prototypes.len());
 
         for file in source.files() {
-            tabs.push(file.name.clone());
+            tabs.push(file.path());
         }
 
         for prototype in &program.prototypes {
             let prototype_name = prototype
                 .name
                 .get_str(&program.constants)
-                .unwrap_or("anonymous")
-                .to_string();
+                .unwrap_or("anonymous");
 
             tabs.push(prototype_name);
         }
@@ -456,8 +455,8 @@ impl Widget for &mut Disassembler<'_> {
             let source_file = self.source.files().get(self.selection_state.tab).unwrap();
 
             self.draw_source_tab(
-                &source_file.name,
-                unsafe { str::from_utf8_unchecked(source_file.source_code.as_ref()) },
+                source_file.path(),
+                source_file.full_source_str(),
                 self.syntax
                     .get_tree(SourceFileId(self.selection_state.tab as u32))
                     .unwrap(),
