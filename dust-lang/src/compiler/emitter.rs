@@ -119,7 +119,7 @@ impl<'a> Emitter<'a> {
             let value_parameter_types = emitter
                 .resolver
                 .get_type_members(value_parameters)?
-                .into_iter()
+                .iter()
                 .copied()
                 .collect::<SmallVec<[TypeId; 8]>>();
 

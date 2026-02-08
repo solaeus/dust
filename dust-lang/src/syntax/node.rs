@@ -608,11 +608,4 @@ pub enum SyntaxNodeChildren {
     Multiple(SyntaxPayload),
 }
 
-pub enum SyntaxCategory {
-    Item,
-    Statement,
-    Expression,
-    Type,
-    SubSyntax,
-    Trivia,
-}
+

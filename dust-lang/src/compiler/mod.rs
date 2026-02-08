@@ -163,12 +163,8 @@ impl Compiler {
             let span = span!(Level::INFO, "type");
             let _enter = span.enter();
 
-            let main_type_binder = TypeBinder::new(
-                SourceFileId::MAIN,
-                &self.source,
-                &self.syntax,
-                &mut self.resolver,
-            );
+            let main_type_binder =
+                TypeBinder::new(SourceFileId::MAIN, &self.syntax, &mut self.resolver);
 
             match main_type_binder.bind_main() {
                 Ok(main_type) => main_type,

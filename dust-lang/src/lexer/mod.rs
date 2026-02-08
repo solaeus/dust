@@ -31,7 +31,6 @@ impl<'src> Lexer<'src> {
         }
     }
 
-    #[expect(clippy::should_implement_trait)]
     pub fn validated(source: &'src str) -> Self {
         Self {
             source: source.as_bytes(),

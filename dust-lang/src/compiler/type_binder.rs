@@ -7,7 +7,7 @@ use crate::{
         error::InternalError,
         resolver::{DeclarationId, DeclarationMembers, TypeMembers},
     },
-    source::{Position, Source, SourceFileId},
+    source::{Position, SourceFileId},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
 };
 
@@ -15,24 +15,16 @@ use crate::{
 pub struct TypeBinder<'a> {
     file_id: SourceFileId,
 
-    source: &'a Source,
-
     syntax: &'a Syntax,
 
     resolver: &'a mut Resolver,
 }
 
 impl<'a> TypeBinder<'a> {
-    pub fn new(
-        file_id: SourceFileId,
-        source: &'a Source,
-        syntax: &'a Syntax,
-        resolver: &'a mut Resolver,
-    ) -> Self {
+    pub fn new(file_id: SourceFileId, syntax: &'a Syntax, resolver: &'a mut Resolver) -> Self {
         Self {
             file_id,
             syntax,
-            source,
             resolver,
         }
     }

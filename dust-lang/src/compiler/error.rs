@@ -12,8 +12,6 @@ use crate::{
     syntax::{SyntaxError, SyntaxId, SyntaxKind},
 };
 
-const INVALID_TYPE: &str = "<invalid_type>";
-
 #[derive(Clone, Copy, Debug)]
 pub enum CompileError {
     Syntax(SyntaxError),
@@ -154,7 +152,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 )
             }
             CompileError::UndeclaredVariable { name, position } => {
-                let title = format!("Undeclared variable");
+                let title = "Undeclared variable".to_string();
                 let file = source.get_file(position.file_id);
                 let file_str = file.full_source_str();
                 let name_str = match name.get_str(&resolver.constants) {
@@ -189,19 +187,16 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         Ok(declaration) => declaration,
                         Err(error) => return error.annotated_error((source, resolver)),
                     };
-                    let symbol_string = match declaration.symbol.get_str(&resolver.constants) {
+
+                    match declaration.symbol.get_str(&resolver.constants) {
                         Ok(symbol_string) => symbol_string.to_string(),
                         Err(error) => return error.annotated_error((source, resolver)),
-                    };
-
-                    symbol_string
+                    }
                 } else {
-                    let type_string = match resolver.get_full_type(*type_id, source) {
+                    match resolver.get_full_type(*type_id, source) {
                         Ok(r#type) => r#type.to_string(),
                         Err(error) => return error.annotated_error((source, resolver)),
-                    };
-
-                    type_string
+                    }
                 };
                 let title = format!("Cannot infer type {type_string}");
 
@@ -475,12 +470,6 @@ impl From<SyntaxError> for CompileError {
     fn from(syntax_error: SyntaxError) -> Self {
         CompileError::Syntax(syntax_error)
     }
-}
-
-#[derive(Debug)]
-pub enum ErrorContext {
-    SinglePosition(Position),
-    DoublePosition(Position, Position),
 }
 
 #[derive(Clone, Copy, Debug)]

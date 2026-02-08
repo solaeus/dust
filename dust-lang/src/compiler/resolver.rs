@@ -691,7 +691,7 @@ impl Resolver {
 
                 for index in fields.start..(fields.start + fields.count) {
                     let field_declaration_id = self.get_declaration_member(index)?;
-                    let field_type_id = *self.get_declaration_type(&field_declaration_id)?;
+                    let field_type_id = *self.get_declaration_type(field_declaration_id)?;
                     let field_register_size = self.get_register_size(field_type_id, node)? as u32;
 
                     let mut resolved_field_type_id = field_type_id;
