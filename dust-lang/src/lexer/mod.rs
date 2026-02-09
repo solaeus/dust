@@ -42,14 +42,17 @@ impl<'src> Lexer<'src> {
         }
     }
 
+    #[inline(always)]
     pub fn source(&self) -> &'src [u8] {
         self.source
     }
 
+    #[inline(always)]
     fn len(&self) -> usize {
         self.source.len()
     }
 
+    #[inline(always)]
     fn next_byte(&self) -> Option<Byte> {
         if self.index + 1 < self.source.len() {
             Some(Byte(self.source[self.index + 1]))
@@ -58,6 +61,7 @@ impl<'src> Lexer<'src> {
         }
     }
 
+    #[inline(always)]
     fn finish_token(&mut self) -> Option<Token> {
         fn finish(kind: TokenKind, span: Span, lexer: &mut Lexer) -> Option<Token> {
             lexer.token_start = None;
@@ -106,6 +110,7 @@ impl<'src> Lexer<'src> {
         finish(TokenKind::Unknown, span, self)
     }
 
+    #[inline(always)]
     fn handle_non_ascii(&mut self) -> Result<(), usize> {
         match self.scan_utf8_sequence(self.index) {
             Ok(width) => {
@@ -151,6 +156,7 @@ impl<'src> Lexer<'src> {
         }
     }
 
+    #[inline(always)]
     fn scan_utf8_sequence(&self, start: usize) -> Result<usize, usize> {
         let first_byte = Byte(self.source[start]);
 
@@ -219,6 +225,7 @@ impl<'src> Lexer<'src> {
         Ok(width)
     }
 
+    #[inline(always)]
     fn scan_string(&mut self) -> Result<Option<Token>, usize> {
         let start = self.index;
 
@@ -266,6 +273,7 @@ impl<'src> Lexer<'src> {
         }))
     }
 
+    #[inline(always)]
     fn scan_chararacter(&mut self) -> Result<Option<Token>, usize> {
         let start = self.index;
 
@@ -313,6 +321,7 @@ impl<'src> Lexer<'src> {
         }))
     }
 
+    #[inline(always)]
     fn classify_single_operator(&self) -> TokenKind {
         let byte = self.source[self.index];
 
@@ -345,6 +354,7 @@ impl<'src> Lexer<'src> {
 impl Iterator for Lexer<'_> {
     type Item = Result<Token, usize>;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if self.is_eof_or_error {
@@ -548,58 +558,180 @@ impl Iterator for Lexer<'_> {
     }
 }
 
+#[inline(always)]
 fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
-    match (token.len(), token.first()?) {
-        (2, b'a') if token == b"as" => Some(TokenKind::As),
-        (2, b'f') if token == b"fn" => Some(TokenKind::Fn),
-        (2, b'i') if token == b"if" => Some(TokenKind::If),
-
-        (3, b'a') if token == b"any" => Some(TokenKind::Any),
-        (3, b'i') if token == b"int" => Some(TokenKind::Int),
-        (3, b'l') if token == b"let" => Some(TokenKind::Let),
-        (3, b'm') => match token {
-            b"map" => Some(TokenKind::Map),
-            b"mod" => Some(TokenKind::Mod),
-            b"mut" => Some(TokenKind::Mut),
+    match token.len() {
+        2 => match token[0] {
+            b'a' => {
+                if token[1] == b's' {
+                    Some(TokenKind::As)
+                } else {
+                    None
+                }
+            }
+            b'f' => {
+                if token[1] == b'n' {
+                    Some(TokenKind::Fn)
+                } else {
+                    None
+                }
+            }
+            b'i' => {
+                if token[1] == b'f' {
+                    Some(TokenKind::If)
+                } else {
+                    None
+                }
+            }
             _ => None,
         },
-        (3, b'p') if token == b"pub" => Some(TokenKind::Pub),
-        (3, b's') if token == b"str" => Some(TokenKind::Str),
-        (3, b'u') if token == b"use" => Some(TokenKind::Use),
-
-        (4, b'b') => match token {
-            b"bool" => Some(TokenKind::Bool),
-            b"byte" => Some(TokenKind::Byte),
+        3 => match token[0] {
+            b'a' => {
+                if &token[1..3] == b"ny" {
+                    Some(TokenKind::Any)
+                } else {
+                    None
+                }
+            }
+            b'i' => {
+                if &token[1..3] == b"nt" {
+                    Some(TokenKind::Int)
+                } else {
+                    None
+                }
+            }
+            b'l' => {
+                if &token[1..3] == b"et" {
+                    Some(TokenKind::Let)
+                } else {
+                    None
+                }
+            }
+            b'm' => match &token[1..3] {
+                b"ap" => Some(TokenKind::Map),
+                b"od" => Some(TokenKind::Mod),
+                b"ut" => Some(TokenKind::Mut),
+                _ => None,
+            },
+            b'p' => {
+                if &token[1..3] == b"ub" {
+                    Some(TokenKind::Pub)
+                } else {
+                    None
+                }
+            }
+            b's' => {
+                if &token[1..3] == b"tr" {
+                    Some(TokenKind::Str)
+                } else {
+                    None
+                }
+            }
+            b'u' => {
+                if &token[1..3] == b"se" {
+                    Some(TokenKind::Use)
+                } else {
+                    None
+                }
+            }
             _ => None,
         },
-        (4, b'c') => match token {
-            b"char" => Some(TokenKind::Char),
-            b"cell" => Some(TokenKind::Cell),
+        4 => match token[0] {
+            b'b' => match &token[1..4] {
+                b"ool" => Some(TokenKind::Bool),
+                b"yte" => Some(TokenKind::Byte),
+                _ => None,
+            },
+            b'c' => match &token[1..4] {
+                b"har" => Some(TokenKind::Char),
+                b"ell" => Some(TokenKind::Cell),
+                _ => None,
+            },
+            b'e' => {
+                if &token[1..4] == b"lse" {
+                    Some(TokenKind::Else)
+                } else {
+                    None
+                }
+            }
+            b'l' => match &token[1..4] {
+                b"oop" => Some(TokenKind::Loop),
+                _ => None,
+            },
+            b't' => {
+                if &token[1..4] == b"rue" {
+                    Some(TokenKind::TrueValue)
+                } else {
+                    None
+                }
+            }
             _ => None,
         },
-        (4, b'e') if token == b"else" => Some(TokenKind::Else),
-        (4, b'l') if token == b"loop" => Some(TokenKind::Loop),
-        (4, b't') if token == b"true" => Some(TokenKind::TrueValue),
-
-        (5, b'a') if token == b"async" => Some(TokenKind::Async),
-        (5, b'b') if token == b"break" => Some(TokenKind::Break),
-        (5, b'c') if token == b"const" => Some(TokenKind::Const),
-        (5, b'f') => match token {
-            b"false" => Some(TokenKind::FalseValue),
-            b"float" => Some(TokenKind::Float),
+        5 => match token[0] {
+            b'a' => {
+                if &token[1..5] == b"sync" {
+                    Some(TokenKind::Async)
+                } else {
+                    None
+                }
+            }
+            b'b' => {
+                if &token[1..5] == b"reak" {
+                    Some(TokenKind::Break)
+                } else {
+                    None
+                }
+            }
+            b'c' => {
+                if &token[1..5] == b"onst" {
+                    Some(TokenKind::Const)
+                } else {
+                    None
+                }
+            }
+            b'f' => match &token[1..5] {
+                b"alse" => Some(TokenKind::FalseValue),
+                b"loat" => Some(TokenKind::Float),
+                _ => None,
+            },
+            b'w' => {
+                if &token[1..5] == b"hile" {
+                    Some(TokenKind::While)
+                } else {
+                    None
+                }
+            }
             _ => None,
         },
-        (5, b'w') if token == b"while" => Some(TokenKind::While),
-
-        (6, b'r') if token == b"return" => Some(TokenKind::Return),
-        (6, b's') if token == b"struct" => Some(TokenKind::Struct),
-
-        (8, b'I') if token == b"Infinity" => Some(TokenKind::FloatValue),
-
+        6 => match token[0] {
+            b'r' => {
+                if &token[1..6] == b"eturn" {
+                    Some(TokenKind::Return)
+                } else {
+                    None
+                }
+            }
+            b's' => {
+                if &token[1..6] == b"truct" {
+                    Some(TokenKind::Struct)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        },
+        8 => {
+            if token == b"Infinity" {
+                Some(TokenKind::FloatValue)
+            } else {
+                None
+            }
+        }
         _ => None,
     }
 }
 
+#[inline(always)]
 fn classify_two_operator_u16(op: u16) -> Option<TokenKind> {
     Some(match op {
         0x3E2D => TokenKind::ArrowThin,
@@ -637,6 +769,7 @@ struct TokenFlags {
 }
 
 impl TokenFlags {
+    #[inline(always)]
     fn start(first_byte: Byte) -> Self {
         Self {
             starts_with_digit: first_byte.is_ascii_digit(),
@@ -653,6 +786,7 @@ impl TokenFlags {
         }
     }
 
+    #[inline(always)]
     fn push(&mut self, byte: Byte, next: Option<Byte>) {
         self.len += 1;
 
@@ -725,6 +859,7 @@ impl TokenFlags {
     }
 }
 
+#[inline(always)]
 fn decode_utf8_code_point(first: u8, tail: &[u8]) -> char {
     if first < 128 {
         return first as char;
@@ -777,36 +912,43 @@ const UTF8_CHAR_WIDTHS: &[u8; 256] = &[
 struct Byte(u8);
 
 impl Byte {
+    #[inline(always)]
     fn ascii_class(&self) -> Option<AsciiClass> {
-        if self.0.is_ascii() {
+        if self.0 < 128 {
             Some(ASCII_CLASSES[self.0 as usize])
         } else {
             None
         }
     }
 
+    #[inline(always)]
     fn is_ascii(&self) -> bool {
         self.0.is_ascii()
     }
 
+    #[inline(always)]
     fn is_ascii_digit(&self) -> bool {
         self.0.is_ascii_digit()
     }
 
+    #[inline(always)]
     fn is_ascii_hexdigit(&self) -> bool {
         self.0.is_ascii_hexdigit()
     }
 
+    #[inline(always)]
     fn is_whitespace(&self) -> bool {
         self.0.is_ascii_whitespace()
     }
 
+    #[inline(always)]
     fn uft8_width(&self) -> usize {
         UTF8_CHAR_WIDTHS[self.0 as usize] as usize
     }
 }
 
 impl PartialEq<u8> for Byte {
+    #[inline(always)]
     fn eq(&self, other: &u8) -> bool {
         self.0 == *other
     }
