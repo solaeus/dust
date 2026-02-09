@@ -50,14 +50,6 @@ impl<'src> Lexer<'src> {
         self.source.len()
     }
 
-    fn current_byte(&self) -> Byte {
-        if self.index < self.source.len() {
-            Byte(self.source[self.index])
-        } else {
-            self.source.last().copied().map(Byte).unwrap_or_default()
-        }
-    }
-
     fn next_byte(&self) -> Option<Byte> {
         if self.index + 1 < self.source.len() {
             Some(Byte(self.source[self.index + 1]))
@@ -117,7 +109,7 @@ impl<'src> Lexer<'src> {
     fn handle_non_ascii(&mut self) -> Result<(), usize> {
         match self.scan_utf8_sequence(self.index) {
             Ok(width) => {
-                let first_byte = self.current_byte();
+                let first_byte = Byte(self.source[self.index]);
                 let next_bytes = &self.source[self.index + 1..self.index + width];
                 let code_point = decode_utf8_code_point(first_byte.0, next_bytes);
 
@@ -160,7 +152,7 @@ impl<'src> Lexer<'src> {
     }
 
     fn scan_utf8_sequence(&self, start: usize) -> Result<usize, usize> {
-        let first_byte = self.current_byte();
+        let first_byte = Byte(self.source[start]);
 
         if first_byte.is_ascii() {
             return Ok(1);
@@ -374,7 +366,7 @@ impl Iterator for Lexer<'_> {
                 }));
             }
 
-            let byte = self.current_byte();
+            let byte = Byte(self.source[self.index]);
             let Some(class) = byte.ascii_class() else {
                 cold_path();
 
@@ -395,7 +387,7 @@ impl Iterator for Lexer<'_> {
                 self.index += 1;
 
                 while self.index < self.len() {
-                    let byte = self.current_byte();
+                    let byte = Byte(self.source[self.index]);
 
                     if !byte.is_whitespace() {
                         break;
