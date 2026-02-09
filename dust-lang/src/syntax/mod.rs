@@ -60,7 +60,7 @@ impl Syntax {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SyntaxId(pub u32);
+pub struct SyntaxId(u32);
 
 impl SyntaxId {
     /// ID of the root node of a syntax tree, which is always 0 because nodes are added in lexical

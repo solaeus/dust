@@ -16,17 +16,17 @@ fn empty_block() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::children(0, 1),
+                payload: SyntaxPayload::child(2),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(0, 2),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::children(1, 0),
+                payload: SyntaxPayload::child(1),
                 span: Span(0, 2),
             },
         ]
@@ -44,17 +44,17 @@ fn block_expression() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::children(1, 1),
+                payload: SyntaxPayload::binary_children(1, 1),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::children(0, 1),
+                payload: SyntaxPayload::binary_children(0, 1),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::children(42, 0),
+                payload: SyntaxPayload::encode_integer(42),
                 span: Span(2, 4),
             },
         ]
@@ -72,47 +72,47 @@ fn block_statement() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::children(5, 1),
+                payload: SyntaxPayload::binary_children(5, 1),
                 span: Span(0, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::children(4, 1),
+                payload: SyntaxPayload::binary_children(4, 1),
                 span: Span(0, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::children(7, 0),
+                payload: SyntaxPayload::child(7),
                 span: Span(0, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::children(1, 3),
+                payload: SyntaxPayload::binary_children(0, 3),
                 span: Span(2, 18),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(6, 7),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(0, 1),
+                payload: SyntaxPayload::child(1),
                 span: Span(6, 7),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(9, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::children(42, 0),
+                payload: SyntaxPayload::encode_integer(42),
                 span: Span(15, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::children(4, 0),
+                payload: SyntaxPayload::child(4),
                 span: Span(15, 18),
             },
         ]
@@ -130,67 +130,67 @@ fn block_statement_and_expression() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::children(7, 1),
+                payload: SyntaxPayload::binary_children(7, 1),
                 span: Span(0, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::children(5, 2),
+                payload: SyntaxPayload::binary_children(5, 2),
                 span: Span(0, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::children(1, 3),
+                payload: SyntaxPayload::binary_children(0, 3),
                 span: Span(2, 18),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(6, 7),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(0, 1),
+                payload: SyntaxPayload::child(1),
                 span: Span(6, 7),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(9, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::children(42, 0),
+                payload: SyntaxPayload::encode_integer(42),
                 span: Span(15, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::children(4, 0),
+                payload: SyntaxPayload::child(4),
                 span: Span(15, 18),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(19, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(4, 1),
+                payload: SyntaxPayload::child(7),
                 span: Span(19, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::children(8, 0),
+                payload: SyntaxPayload::child(8),
                 span: Span(19, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                payload: SyntaxPayload::children(9, 10),
+                payload: SyntaxPayload::binary_children(9, 10),
                 span: Span(19, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::children(1, 0),
+                payload: SyntaxPayload::encode_integer(1),
                 span: Span(23, 24),
             },
         ]
@@ -208,62 +208,62 @@ fn parent_scope_access() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::children(8, 1),
+                payload: SyntaxPayload::binary_children(8, 1),
                 span: Span(0, 36),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::children(6, 2),
+                payload: SyntaxPayload::binary_children(6, 2),
                 span: Span(1, 35),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::children(1, 3),
+                payload: SyntaxPayload::binary_children(0, 3),
                 span: Span(7, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(11, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(0, 1),
+                payload: SyntaxPayload::child(1),
                 span: Span(11, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(14, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::children(42, 0),
+                payload: SyntaxPayload::encode_integer(42),
                 span: Span(20, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::children(4, 0),
+                payload: SyntaxPayload::child(4),
                 span: Span(20, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::children(5, 1),
+                payload: SyntaxPayload::binary_children(5, 1),
                 span: Span(28, 33),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(30, 31),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(4, 1),
+                payload: SyntaxPayload::child(7),
                 span: Span(30, 31),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::children(8, 0),
+                payload: SyntaxPayload::child(8),
                 span: Span(30, 31),
             },
         ]
@@ -281,117 +281,117 @@ fn nested_parrent_scope_access() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::children(15, 1),
+                payload: SyntaxPayload::binary_children(15, 1),
                 span: Span(0, 100),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::children(13, 2),
+                payload: SyntaxPayload::binary_children(13, 2),
                 span: Span(1, 99),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::children(1, 3),
+                payload: SyntaxPayload::binary_children(0, 3),
                 span: Span(7, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(11, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(0, 1),
+                payload: SyntaxPayload::child(1),
                 span: Span(11, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(14, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::children(41, 0),
+                payload: SyntaxPayload::encode_integer(41),
                 span: Span(20, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::children(4, 0),
+                payload: SyntaxPayload::child(4),
                 span: Span(20, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::children(11, 2),
+                payload: SyntaxPayload::binary_children(11, 2),
                 span: Span(28, 97),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::children(5, 3),
+                payload: SyntaxPayload::binary_children(3, 3),
                 span: Span(38, 53),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(42, 43),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(4, 1),
+                payload: SyntaxPayload::child(7),
                 span: Span(42, 43),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(45, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::children(1, 0),
+                payload: SyntaxPayload::encode_integer(1),
                 span: Span(51, 52),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::children(10, 0),
+                payload: SyntaxPayload::child(10),
                 span: Span(51, 53),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::children(10, 1),
+                payload: SyntaxPayload::binary_children(10, 1),
                 span: Span(62, 91),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(76, 77),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(8, 1),
+                payload: SyntaxPayload::child(13),
                 span: Span(76, 77),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::children(14, 0),
+                payload: SyntaxPayload::child(14),
                 span: Span(76, 77),
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                payload: SyntaxPayload::children(15, 18),
+                payload: SyntaxPayload::binary_children(15, 18),
                 span: Span(76, 81),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(80, 81),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(9, 1),
+                payload: SyntaxPayload::child(16),
                 span: Span(80, 81),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::children(17, 0),
+                payload: SyntaxPayload::child(17),
                 span: Span(80, 81),
             },
         ]
@@ -409,92 +409,92 @@ fn scope_shadowing() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::children(13, 1),
+                payload: SyntaxPayload::binary_children(13, 1),
                 span: Span(0, 73),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::children(11, 2),
+                payload: SyntaxPayload::binary_children(11, 2),
                 span: Span(1, 72),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::children(1, 3),
+                payload: SyntaxPayload::binary_children(0, 3),
                 span: Span(7, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(11, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(0, 1),
+                payload: SyntaxPayload::child(1),
                 span: Span(11, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(14, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::children(42, 0),
+                payload: SyntaxPayload::encode_integer(42),
                 span: Span(20, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::children(4, 0),
+                payload: SyntaxPayload::child(4),
                 span: Span(20, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::children(9, 2),
+                payload: SyntaxPayload::binary_children(9, 2),
                 span: Span(28, 70),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::children(5, 3),
+                payload: SyntaxPayload::binary_children(3, 3),
                 span: Span(38, 54),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(42, 43),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(4, 1),
+                payload: SyntaxPayload::child(7),
                 span: Span(42, 43),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(45, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::children(43, 0),
+                payload: SyntaxPayload::encode_integer(43),
                 span: Span(51, 53),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::children(10, 0),
+                payload: SyntaxPayload::child(10),
                 span: Span(51, 54),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(63, 64),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(8, 1),
+                payload: SyntaxPayload::child(13),
                 span: Span(63, 64),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::children(14, 0),
+                payload: SyntaxPayload::child(14),
                 span: Span(63, 64),
             },
         ]
@@ -512,97 +512,97 @@ fn scope_deshadowing() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::children(13, 1),
+                payload: SyntaxPayload::binary_children(13, 1),
                 span: Span(0, 68),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::children(10, 3),
+                payload: SyntaxPayload::binary_children(10, 3),
                 span: Span(1, 67),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::children(1, 3),
+                payload: SyntaxPayload::binary_children(0, 3),
                 span: Span(7, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(11, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(0, 1),
+                payload: SyntaxPayload::child(1),
                 span: Span(11, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(14, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::children(42, 0),
+                payload: SyntaxPayload::encode_integer(42),
                 span: Span(20, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::children(4, 0),
+                payload: SyntaxPayload::child(4),
                 span: Span(20, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::children(8, 1),
+                payload: SyntaxPayload::binary_children(8, 1),
                 span: Span(28, 59),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::children(13, 0),
+                payload: SyntaxPayload::child(13),
                 span: Span(28, 59),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::children(5, 3),
+                payload: SyntaxPayload::binary_children(3, 3),
                 span: Span(38, 53),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(42, 43),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(4, 1),
+                payload: SyntaxPayload::child(7),
                 span: Span(42, 43),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerType,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(45, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::children(1, 0),
+                payload: SyntaxPayload::encode_integer(1),
                 span: Span(51, 52),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::children(10, 0),
+                payload: SyntaxPayload::child(10),
                 span: Span(51, 53),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathSegment,
-                payload: SyntaxPayload::children(0, 0),
+                payload: SyntaxPayload::empty(),
                 span: Span(64, 65),
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::children(9, 1),
+                payload: SyntaxPayload::child(16),
                 span: Span(64, 65),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::children(16, 0),
+                payload: SyntaxPayload::child(16),
                 span: Span(64, 65),
             },
         ]

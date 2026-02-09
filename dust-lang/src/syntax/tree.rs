@@ -86,6 +86,10 @@ impl SyntaxTree {
     }
 
     pub fn get_children(&self, payload: SyntaxPayload) -> &[SyntaxId] {
+        if payload.left_id() == SyntaxId::NONE || payload.right_id() == SyntaxId::NONE {
+            return &[];
+        }
+
         let start = payload.left as usize;
         let end = start + payload.right as usize;
 
@@ -102,14 +106,18 @@ impl SyntaxTree {
     }
 
     pub fn add_children(&mut self, children: &[SyntaxId]) -> SyntaxPayload {
-        let payload = SyntaxPayload {
-            left: self.children.len() as u32,
-            right: children.len() as u32,
-        };
+        if children.is_empty() {
+            SyntaxPayload::empty()
+        } else {
+            let payload = SyntaxPayload {
+                left: self.children.len() as u32,
+                right: children.len() as u32,
+            };
 
-        self.children.extend_from_slice(children);
+            self.children.extend_from_slice(children);
 
-        payload
+            payload
+        }
     }
 
     pub fn sorted_nodes(&self) -> Vec<SyntaxNode> {
@@ -123,45 +131,49 @@ impl SyntaxTree {
     fn as_text_tree(&self) -> String {
         fn build_text_tree<'a>(
             leaf_id: SyntaxId,
-            parent_tree: &mut Tree<&'a SyntaxNode>,
+            parent_tree: Option<&mut Tree<&'a SyntaxNode>>,
             syntax_tree: &'a SyntaxTree,
-        ) {
-            let leaf_node = match syntax_tree.get_node(leaf_id) {
+        ) -> Option<Tree<&'a SyntaxNode>> {
+            let node = match syntax_tree.get_node(leaf_id) {
                 Some(node) => node,
-                None => return,
-            };
-            let mut leaf = Tree::new(leaf_node);
+                None => {
+                    error!("Failed to build text tree: missing syntax node with ID {leaf_id:?}");
 
-            match leaf_node.children() {
+                    return parent_tree.cloned();
+                }
+            };
+            let mut leaf = Tree::new(node);
+
+            match node.children() {
                 SyntaxNodeChildren::None => {}
                 SyntaxNodeChildren::Single(id) => {
-                    build_text_tree(id, &mut leaf, syntax_tree);
+                    build_text_tree(id, Some(&mut leaf), syntax_tree);
                 }
                 SyntaxNodeChildren::Binary(left, right) => {
-                    build_text_tree(left, &mut leaf, syntax_tree);
-                    build_text_tree(right, &mut leaf, syntax_tree);
+                    build_text_tree(left, Some(&mut leaf), syntax_tree);
+                    build_text_tree(right, Some(&mut leaf), syntax_tree);
                 }
                 SyntaxNodeChildren::Multiple(payload) => {
                     let child_ids = syntax_tree.get_children(payload);
 
                     for child_id in child_ids {
-                        build_text_tree(*child_id, &mut leaf, syntax_tree);
+                        build_text_tree(*child_id, Some(&mut leaf), syntax_tree);
                     }
                 }
-            };
+            }
 
-            parent_tree.leaves.push(leaf);
+            if let Some(parent_tree) = parent_tree {
+                parent_tree.leaves.push(leaf);
+
+                None
+            } else {
+                Some(leaf)
+            }
         }
 
-        let root = match self.nodes.first() {
-            Some(node) => node,
-            None => return "<empty>".to_string(),
-        };
-        let mut text_tree = Tree::new(root);
-
-        build_text_tree(SyntaxId::ROOT, &mut text_tree, self);
-
-        text_tree.to_string()
+        build_text_tree(SyntaxId::ROOT, None, self)
+            .map(|tree| tree.to_string())
+            .unwrap_or_else(|| "<empty>".to_string())
     }
 }
 

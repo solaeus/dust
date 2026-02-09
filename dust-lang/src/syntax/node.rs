@@ -421,20 +421,37 @@ impl Display for SyntaxKind {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SyntaxPayload {
-    pub left: u32,
-    pub right: u32,
+    pub(super) left: u32,
+    pub(super) right: u32,
 }
 
 impl SyntaxPayload {
-    pub fn child(value: u32) -> Self {
+    pub fn empty() -> Self {
         Self {
-            left: value,
+            left: SyntaxId::NONE.0,
             right: SyntaxId::NONE.0,
         }
     }
 
-    pub fn children(left: u32, right: u32) -> Self {
-        Self { left, right }
+    pub fn child(child_id: SyntaxId) -> Self {
+        Self {
+            left: child_id.0,
+            right: SyntaxId::NONE.0,
+        }
+    }
+
+    pub fn binary_children(left: SyntaxId, right: SyntaxId) -> Self {
+        Self {
+            left: left.0,
+            right: right.0,
+        }
+    }
+
+    pub fn children(start_index: usize, count: usize) -> Self {
+        Self {
+            left: start_index as u32,
+            right: count as u32,
+        }
     }
 
     pub fn encode_boolean(boolean: bool) -> Self {
@@ -601,15 +618,6 @@ impl SyntaxPayload {
 
     pub fn right_id(&self) -> SyntaxId {
         SyntaxId(self.right)
-    }
-}
-
-impl Default for SyntaxPayload {
-    fn default() -> Self {
-        SyntaxPayload {
-            left: SyntaxId::NONE.0,
-            right: SyntaxId::NONE.0,
-        }
     }
 }
 
