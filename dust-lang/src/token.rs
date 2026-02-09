@@ -109,20 +109,6 @@ pub enum TokenKind {
     OuterBlockDocComment,
 }
 
-impl TokenKind {
-    pub fn is_comment(&self) -> bool {
-        matches!(
-            self,
-            TokenKind::LineComment
-                | TokenKind::BlockComment
-                | TokenKind::InnerLineDocComment
-                | TokenKind::OuterLineDocComment
-                | TokenKind::InnerBlockDocComment
-                | TokenKind::OuterBlockDocComment
-        )
-    }
-}
-
 impl Display for TokenKind {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {

@@ -92,7 +92,7 @@ impl<'src> Lexer<'src> {
 
         if first_byte
             .ascii_class()
-            .is_some_and(|class| matches!(class, AsciiClass::ALPHABETICAL | AsciiClass::UNDERSCORE))
+            .is_some_and(|class| class.is_alphabetical() || class.is_underscore())
         {
             if let Some(keyword_kind) = keyword_kind(bytes) {
                 return finish(keyword_kind, span, self);
@@ -238,21 +238,17 @@ impl<'src> Lexer<'src> {
         while index < self.len() {
             let byte = self.source[index];
 
-            if byte < 0x80 {
-                if byte == b'"' {
-                    let end = index + 1;
+            if byte == b'"' {
+                self.index = index + 1;
 
-                    self.index = end;
+                return Ok(Some(Token {
+                    kind: TokenKind::StringValue,
+                    span: Span::new(start, self.index),
+                }));
+            }
 
-                    let span = Span(start as u32, end as u32);
-
-                    return Ok(Some(Token {
-                        kind: TokenKind::StringValue,
-                        span,
-                    }));
-                } else {
-                    index += 1;
-                }
+            if byte < 128 {
+                index += 1;
             } else {
                 match self.scan_utf8_sequence(index) {
                     Ok(width) => index += width,
@@ -261,15 +257,11 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        let end = self.len();
-
-        self.index = end;
-
-        let span = Span(start as u32, end as u32);
+        self.index = self.len();
 
         Ok(Some(Token {
             kind: TokenKind::StringValue,
-            span,
+            span: Span::new(start, self.index),
         }))
     }
 
@@ -320,35 +312,6 @@ impl<'src> Lexer<'src> {
             span,
         }))
     }
-
-    #[inline(always)]
-    fn classify_single_operator(&self) -> TokenKind {
-        let byte = self.source[self.index];
-
-        match byte {
-            b'*' => TokenKind::Asterisk,
-            b'!' => TokenKind::Bang,
-            b'^' => TokenKind::Caret,
-            b':' => TokenKind::Colon,
-            b',' => TokenKind::Comma,
-            b'.' => TokenKind::Dot,
-            b'=' => TokenKind::Equal,
-            b'>' => TokenKind::Greater,
-            b'{' => TokenKind::LeftCurlyBrace,
-            b'[' => TokenKind::LeftSquareBracket,
-            b'(' => TokenKind::LeftParenthesis,
-            b'<' => TokenKind::Less,
-            b'-' => TokenKind::Minus,
-            b'%' => TokenKind::Percent,
-            b'+' => TokenKind::Plus,
-            b'}' => TokenKind::RightCurlyBrace,
-            b']' => TokenKind::RightSquareBracket,
-            b')' => TokenKind::RightParenthesis,
-            b';' => TokenKind::Semicolon,
-            b'/' => TokenKind::Slash,
-            _ => TokenKind::Unknown,
-        }
-    }
 }
 
 impl Iterator for Lexer<'_> {
@@ -389,7 +352,7 @@ impl Iterator for Lexer<'_> {
             };
 
             // Skip whitespace
-            if class == AsciiClass::WHITESPACE {
+            if class.is_whitespace() {
                 if let Some(token) = self.finish_token() {
                     return Some(Ok(token));
                 }
@@ -471,7 +434,7 @@ impl Iterator for Lexer<'_> {
                 }
             }
 
-            if class == AsciiClass::OPERATOR_OR_PUNCTUATION {
+            if class.is_operator_or_punctuation() {
                 if let Some(tok) = self.finish_token() {
                     return Some(Ok(tok));
                 }
@@ -492,25 +455,9 @@ impl Iterator for Lexer<'_> {
                     }
                 }
 
-                if self.index + 1 < self.len() {
-                    let operator_u16 =
-                        u16::from_le_bytes([self.source[self.index], self.source[self.index + 1]]);
-
-                    if let Some(two_kind) = classify_two_operator_u16(operator_u16) {
-                        let span = Span(self.index as u32, (self.index + 2) as u32);
-
-                        self.index += 2;
-
-                        return Some(Ok(Token {
-                            kind: two_kind,
-                            span,
-                        }));
-                    }
-                }
-
-                let span = Span(self.index as u32, (self.index + 1) as u32);
-                let kind = self.classify_single_operator();
-                self.index += 1;
+                let (kind, width) = byte.operator_or_punctuation_kind(self.next_byte());
+                let span = Span::new(self.index, self.index + width);
+                self.index += width;
 
                 return Some(Ok(Token { kind, span }));
             }
@@ -527,10 +474,7 @@ impl Iterator for Lexer<'_> {
                         let next_byte = Byte(self.source[next_index]);
 
                         if next_byte.ascii_class().is_none_or(|class| {
-                            matches!(
-                                class,
-                                AsciiClass::WHITESPACE | AsciiClass::OPERATOR_OR_PUNCTUATION
-                            )
+                            class.is_whitespace() || class.is_operator_or_punctuation()
                         }) {
                             break;
                         }
@@ -731,28 +675,6 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
     }
 }
 
-#[inline(always)]
-fn classify_two_operator_u16(op: u16) -> Option<TokenKind> {
-    Some(match op {
-        0x3E2D => TokenKind::ArrowThin,
-        0x3D2A => TokenKind::AsteriskEqual,
-        0x3D21 => TokenKind::BangEqual,
-        0x3D5E => TokenKind::CaretEqual,
-        0x2626 => TokenKind::DoubleAmpersand,
-        0x3A3A => TokenKind::DoubleColon,
-        0x2E2E => TokenKind::DoubleDot,
-        0x3D3D => TokenKind::DoubleEqual,
-        0x7C7C => TokenKind::DoublePipe,
-        0x3D3E => TokenKind::GreaterEqual,
-        0x3D3C => TokenKind::LessEqual,
-        0x3D2D => TokenKind::MinusEqual,
-        0x3D25 => TokenKind::PercentEqual,
-        0x3D2B => TokenKind::PlusEqual,
-        0x3D2F => TokenKind::SlashEqual,
-        _ => return None,
-    })
-}
-
 #[derive(Debug, Clone, Copy, Default)]
 struct TokenFlags {
     starts_with_digit: bool,
@@ -820,15 +742,10 @@ impl TokenFlags {
                     return;
                 }
 
-                let next_is_digit = if let Some(next) = next
+                if let Some(next) = next
                     && let Some(class) = next.ascii_class()
+                    && (class.is_digit() || class.is_underscore())
                 {
-                    matches!(class, AsciiClass::DIGIT | AsciiClass::UNDERSCORE)
-                } else {
-                    false
-                };
-
-                if next_is_digit {
                     self.has_decimal = true;
                 } else {
                     self.unknown = true;
@@ -851,7 +768,7 @@ impl TokenFlags {
 
             if byte
                 .ascii_class()
-                .is_none_or(|class| !matches!(class, AsciiClass::DIGIT | AsciiClass::UNDERSCORE))
+                .is_none_or(|class| class.is_whitespace() || class.is_underscore())
             {
                 self.unknown = true;
             }
@@ -945,6 +862,141 @@ impl Byte {
     fn uft8_width(&self) -> usize {
         UTF8_CHAR_WIDTHS[self.0 as usize] as usize
     }
+
+    #[inline(always)]
+    fn operator_or_punctuation_kind(&self, next: Option<Self>) -> (TokenKind, usize) {
+        match self.0 {
+            b'*' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::AsteriskEqual, 2)
+                } else {
+                    (TokenKind::Asterisk, 1)
+                }
+            }
+            b'!' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::BangEqual, 2)
+                } else {
+                    (TokenKind::Bang, 1)
+                }
+            }
+            b'^' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::CaretEqual, 2)
+                } else {
+                    (TokenKind::Caret, 1)
+                }
+            }
+            b':' => {
+                if let Some(next) = next
+                    && next == b':'
+                {
+                    (TokenKind::DoubleColon, 2)
+                } else {
+                    (TokenKind::Colon, 1)
+                }
+            }
+            b',' => (TokenKind::Comma, 1),
+            b'.' => {
+                if let Some(next) = next
+                    && next == b'.'
+                {
+                    (TokenKind::DoubleDot, 2)
+                } else {
+                    (TokenKind::Dot, 1)
+                }
+            }
+            b'=' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::DoubleEqual, 2)
+                } else {
+                    (TokenKind::Equal, 1)
+                }
+            }
+            b'>' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::GreaterEqual, 2)
+                } else {
+                    (TokenKind::Greater, 1)
+                }
+            }
+            b'{' => (TokenKind::LeftCurlyBrace, 1),
+            b'[' => (TokenKind::LeftSquareBracket, 1),
+            b'(' => (TokenKind::LeftParenthesis, 1),
+            b'<' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::LessEqual, 2)
+                } else {
+                    (TokenKind::Less, 1)
+                }
+            }
+            b'-' => {
+                if let Some(next) = next {
+                    match next.0 {
+                        b'=' => (TokenKind::MinusEqual, 2),
+                        b'>' => (TokenKind::ArrowThin, 2),
+                        _ => (TokenKind::Minus, 1),
+                    }
+                } else {
+                    (TokenKind::Minus, 1)
+                }
+            }
+            b'%' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::PercentEqual, 2)
+                } else {
+                    (TokenKind::Percent, 1)
+                }
+            }
+            b'+' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::PlusEqual, 2)
+                } else {
+                    (TokenKind::Plus, 1)
+                }
+            }
+            b'}' => (TokenKind::RightCurlyBrace, 1),
+            b']' => (TokenKind::RightSquareBracket, 1),
+            b')' => (TokenKind::RightParenthesis, 1),
+            b';' => (TokenKind::Semicolon, 1),
+            b'/' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::SlashEqual, 2)
+                } else {
+                    (TokenKind::Slash, 1)
+                }
+            }
+            _ => {
+                let Some(next) = next else {
+                    return (TokenKind::Unknown, 1);
+                };
+
+                match (self.0, next.0) {
+                    (b'&', b'&') => (TokenKind::DoubleAmpersand, 2),
+                    (b'|', b'|') => (TokenKind::DoublePipe, 2),
+                    _ => (TokenKind::Unknown, 1),
+                }
+            }
+        }
+    }
 }
 
 impl PartialEq<u8> for Byte {
@@ -954,7 +1006,7 @@ impl PartialEq<u8> for Byte {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy)]
 struct AsciiClass(u8);
 
 impl AsciiClass {
@@ -964,6 +1016,31 @@ impl AsciiClass {
     const DIGIT: Self = Self(4);
     const ALPHABETICAL: Self = Self(8);
     const UNDERSCORE: Self = Self(16);
+
+    #[inline(always)]
+    fn is_whitespace(&self) -> bool {
+        (self.0 & Self::WHITESPACE.0) != 0
+    }
+
+    #[inline(always)]
+    fn is_operator_or_punctuation(&self) -> bool {
+        (self.0 & Self::OPERATOR_OR_PUNCTUATION.0) != 0
+    }
+
+    #[inline(always)]
+    fn is_digit(&self) -> bool {
+        (self.0 & Self::DIGIT.0) != 0
+    }
+
+    #[inline(always)]
+    fn is_alphabetical(&self) -> bool {
+        (self.0 & Self::ALPHABETICAL.0) != 0
+    }
+
+    #[inline(always)]
+    fn is_underscore(&self) -> bool {
+        (self.0 & Self::UNDERSCORE.0) != 0
+    }
 }
 
 const ASCII_CLASSES: [AsciiClass; 128] = {
