@@ -1011,10 +1011,13 @@ impl<'src> Parser<'src> {
     fn parse_string_expression(&mut self) -> Result<(), ParseError> {
         info!("Parsing string expression");
 
+        let span_without_quotes = self.current_token.span.shrink(1);
+        let string_source = &self.source()[span_without_quotes.as_usize_range()];
+        let payload = SyntaxPayload::encode_string(string_source);
         let node = SyntaxNode {
             kind: SyntaxKind::StringExpression,
             span: self.current_token.span,
-            payload: SyntaxPayload::default(),
+            payload,
         };
 
         self.advance()?;

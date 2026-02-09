@@ -106,7 +106,7 @@ impl Display for SyntaxNode {
             SyntaxKind::StringExpression => {
                 let string = self.payload.decode_string();
 
-                write!(f, ": {string}...")?;
+                write!(f, ": \"{string}\"")?;
             }
             _ => {}
         }
@@ -552,14 +552,12 @@ impl SyntaxPayload {
         i64::from_le_bytes(integer_bytes)
     }
 
-    pub fn encode_string(str: &str) -> Self {
-        let length = str.len().min(7);
+    pub fn encode_string(string_bytes: &[u8]) -> Self {
+        let length = string_bytes.len().min(7);
         let mut encoded_bytes = [0u8; 8];
-        let string_bytes = &str.as_bytes()[..length];
 
         encoded_bytes[0] = length as u8;
-
-        encoded_bytes[1..].copy_from_slice(string_bytes);
+        encoded_bytes[1..length + 1].copy_from_slice(string_bytes);
 
         let left = u32::from_le_bytes([
             encoded_bytes[0],
@@ -591,15 +589,10 @@ impl SyntaxPayload {
             right_bytes[2],
             right_bytes[3],
         ];
-        let mut string_bytes = vec![0; length];
 
-        println!("length {length}");
+        let string_bytes: Vec<u8> = encoded_bytes.into_iter().take(length).collect();
 
-        for encoded_byte in encoded_bytes.into_iter().take(length) {
-            string_bytes.push(encoded_byte);
-        }
-
-        unsafe { String::from_utf8_unchecked(string_bytes) }
+        String::from_utf8(string_bytes).unwrap_or_default()
     }
 
     pub fn left_id(&self) -> SyntaxId {

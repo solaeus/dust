@@ -1,10 +1,8 @@
-use tracing::error;
-
 use crate::{
     source::{Position, SourceFileId, Span},
     syntax::{
-        SyntaxError, SyntaxId, SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxPayload,
-        SyntaxTree, error::InternalSyntaxError,
+        SyntaxError, SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree,
+        error::InternalSyntaxError,
     },
 };
 
