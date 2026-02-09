@@ -1,8 +1,10 @@
+use tracing::error;
+
 use crate::{
     source::{Position, SourceFileId, Span},
     syntax::{
-        SyntaxError, SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree,
-        error::InternalSyntaxError,
+        SyntaxError, SyntaxId, SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxPayload,
+        SyntaxTree, error::InternalSyntaxError,
     },
 };
 
@@ -112,13 +114,8 @@ impl<'a> SyntaxReader<'a> {
         Ok((left_child, right_child))
     }
 
-    pub fn multiple_children(&self) -> Result<SyntaxReaderIterator<'a>, SyntaxError> {
-        let child_ids = self
-            .tree
-            .get_children(self.node.payload)
-            .ok_or(SyntaxError::Internal(
-                InternalSyntaxError::MissingSyntaxChildren(self.node.payload),
-            ))?;
+    pub fn multiple_children(&self) -> Result<SyntaxReaderMultipleIterator<'a>, SyntaxError> {
+        let child_ids = self.tree.get_children(self.node.payload);
 
         if child_ids.is_empty() {
             return Err(SyntaxError::Internal(
@@ -126,7 +123,7 @@ impl<'a> SyntaxReader<'a> {
             ));
         }
 
-        Ok(SyntaxReaderIterator {
+        Ok(SyntaxReaderMultipleIterator {
             child_ids,
             tree: self.tree,
             current_index: 0,
@@ -135,13 +132,13 @@ impl<'a> SyntaxReader<'a> {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct SyntaxReaderIterator<'a> {
+pub struct SyntaxReaderMultipleIterator<'a> {
     child_ids: &'a [SyntaxId],
     tree: &'a SyntaxTree,
     current_index: usize,
 }
 
-impl<'a> SyntaxReaderIterator<'a> {
+impl<'a> SyntaxReaderMultipleIterator<'a> {
     pub fn len(&self) -> usize {
         self.child_ids.len()
     }
@@ -164,7 +161,7 @@ impl<'a> SyntaxReaderIterator<'a> {
     }
 }
 
-impl<'a> Iterator for SyntaxReaderIterator<'a> {
+impl<'a> Iterator for SyntaxReaderMultipleIterator<'a> {
     type Item = SyntaxReader<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -176,4 +173,4 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
     }
 }
 
-impl ExactSizeIterator for SyntaxReaderIterator<'_> {}
+impl ExactSizeIterator for SyntaxReaderMultipleIterator<'_> {}

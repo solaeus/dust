@@ -104,7 +104,7 @@ impl Resolver {
         let bytes = source
             .get_file(path_segment.file_id())
             .source_bytes(path_segment.span());
-        let constant_id = self.constants.add_string(bytes);
+        let constant_id = self.constants.add_utf8(bytes);
 
         Symbol::Constant { constant_id }
     }
@@ -279,7 +279,9 @@ impl Resolver {
 
             let key = DeclarationStorageKey { symbol, parent };
 
-            if let Some((index, _, declaration_value)) = self.declarations.get_full(&key) {
+            if let Some((index, _, declaration_value)) = self.declarations.get_full(&key)
+                && declaration_value.scope_id == current_scope_id
+            {
                 return Ok((
                     DeclarationId(index as u32),
                     Declaration::from_key_and_value(&key, declaration_value),
@@ -312,7 +314,9 @@ impl Resolver {
             let key = DeclarationStorageKey { symbol, parent };
 
             if let Some((index, _, declaration)) = self.declarations.get_full(&key)
-                && matches!(declaration.kind, DeclarationKind::Type { .. })
+                && (matches!(declaration.kind, DeclarationKind::Type { .. })
+                    || matches!(declaration.kind, DeclarationKind::Local { .. }))
+                && declaration.scope_id == current_scope_id
             {
                 return Ok((
                     DeclarationId(index as u32),
@@ -386,7 +390,7 @@ impl Resolver {
                 );
 
                 for type_parameter_name in &function_type.type_parameters {
-                    let name_id = self.constants.add_string(type_parameter_name.as_bytes());
+                    let name_id = self.constants.add_string(type_parameter_name);
                     let type_parameter_id = self.add_declaration(Declaration {
                         symbol: Symbol::Constant {
                             constant_id: name_id,
@@ -416,7 +420,7 @@ impl Resolver {
                 }
             }
             Type::Struct { name, fields } => {
-                let name_id = self.constants.add_string(name.as_bytes());
+                let name_id = self.constants.add_string(name);
                 let struct_declaration_id = self.add_declaration(Declaration {
                     kind: DeclarationKind::Type { parent: None },
                     scope_id: ScopeId::PROJECT,
@@ -431,7 +435,7 @@ impl Resolver {
                     SmallVec::<[DeclarationId; 8]>::with_capacity(fields.len());
 
                 for (field_name, field_type) in fields {
-                    let name_id = self.constants.add_string(field_name.as_bytes());
+                    let name_id = self.constants.add_string(field_name);
                     let declaration_id = self.add_declaration(Declaration {
                         kind: DeclarationKind::Type {
                             parent: Some(struct_declaration_id),
@@ -515,7 +519,7 @@ impl Resolver {
                 let struct_declaration = self.get_declaration(*declaration_id)?;
                 let name = struct_declaration
                     .symbol
-                    .get_str(&self.constants)?
+                    .get_str(&self.constants)
                     .to_string();
 
                 let fields = self.get_declaration_members(*fields)?;
@@ -525,7 +529,7 @@ impl Resolver {
                     let field_declaration = self.get_declaration(*field_id)?;
                     let field_name = field_declaration
                         .symbol
-                        .get_str(&self.constants)?
+                        .get_str(&self.constants)
                         .to_string();
 
                     let field_type_id = self.get_declaration_type(field_id)?;
@@ -552,7 +556,7 @@ impl Resolver {
         members.as_range().map(|member_index| {
             let declaration_id = self.get_declaration_member(member_index)?;
             let declaration = self.get_declaration(*declaration_id)?;
-            let name = declaration.symbol.get_str(&self.constants)?.to_string();
+            let name = declaration.symbol.get_str(&self.constants).to_string();
 
             Ok(name)
         })
@@ -803,17 +807,11 @@ impl Symbol {
         matches!(self, Symbol::Anonymous(_))
     }
 
-    pub fn get_str<'a>(&'a self, constants: &'a ConstantTable) -> Result<&'a str, CompileError> {
+    pub fn get_str<'a>(&self, constants: &'a ConstantTable) -> &'a str {
         match self {
-            Symbol::Anonymous(_) => Ok("<anonymous>"),
-            Symbol::BuiltIn(name) => Ok(name),
-            Symbol::Constant { constant_id } => {
-                constants
-                    .get_string(*constant_id)
-                    .ok_or(CompileError::Internal(
-                        InternalError::MissingConstantString(*constant_id),
-                    ))
-            }
+            Symbol::Anonymous(_) => "<anonymous>",
+            Symbol::BuiltIn(name) => name,
+            Symbol::Constant { constant_id } => constants.get_string(*constant_id),
         }
     }
 }

@@ -44,19 +44,10 @@ impl Source {
         id
     }
 
-    /// Retrieves a reference to the `SourceFile` associated with the given `SourceFileId`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the `SourceFileId` does not correspond to a valid file in the `Source`. This can
-    /// only happen if the `SourceFileId` was created erroneously, if `Source` was modified after
-    /// the `SourceFileId` was created or if the `SourceFileId` was created by a different `Source`
-    /// instance. `Source` is designed to be an append-only per-program singleton and `SourceFileId`
-    /// has no public constructors, so this should never happen in practice.
     pub fn get_file(&self, file_id: SourceFileId) -> &SourceFile {
         self.files
             .get(file_id.0 as usize)
-            .expect("Source file not found for {file_id:#?}")
+            .unwrap_or(&SourceFile::NOT_FOUND)
     }
 
     pub fn set_utf8_validated(&mut self, file_id: SourceFileId) {
@@ -108,6 +99,11 @@ pub enum SourceFile {
 }
 
 impl SourceFile {
+    pub const NOT_FOUND: Self = SourceFile::BuiltIn {
+        path: FILE_NOT_FOUND,
+        source_str: FILE_NOT_FOUND,
+    };
+
     pub fn built_in(path: &'static str, source_code: &'static str) -> Self {
         SourceFile::BuiltIn {
             path,

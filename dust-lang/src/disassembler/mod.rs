@@ -43,10 +43,7 @@ impl<'a> Disassembler<'a> {
         }
 
         for prototype in &program.prototypes {
-            let prototype_name = prototype
-                .name
-                .get_str(&program.constants)
-                .unwrap_or("anonymous");
+            let prototype_name = prototype.name.get_str(&program.constants);
 
             tabs.push(prototype_name);
         }

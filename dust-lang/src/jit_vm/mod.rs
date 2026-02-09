@@ -47,7 +47,7 @@ pub fn run_main(source_code: String) -> Result<Option<Value>, DustError> {
     source.add_file(SourceFile::embedded_string("eval".to_string(), source_code));
 
     let compiler = Compiler::new(source);
-    let program = compiler.compile(Some("Dust Program".to_string()))?;
+    let program = compiler.compile(None)?;
     let vm = JitVm::new(
         Arc::new(program),
         MINIMUM_OBJECT_HEAP_DEFAULT,

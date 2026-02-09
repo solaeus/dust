@@ -155,10 +155,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let title = "Undeclared variable".to_string();
                 let file = source.get_file(position.file_id);
                 let file_str = file.full_source_str();
-                let name_str = match name.get_str(&resolver.constants) {
-                    Ok(name_str) => name_str,
-                    Err(error) => return error.annotated_error((source, resolver)),
-                };
+                let name_str = name.get_str(&resolver.constants);
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -188,10 +185,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         Err(error) => return error.annotated_error((source, resolver)),
                     };
 
-                    match declaration.symbol.get_str(&resolver.constants) {
-                        Ok(symbol_string) => symbol_string.to_string(),
-                        Err(error) => return error.annotated_error((source, resolver)),
-                    }
+                    declaration.symbol.get_str(&resolver.constants).to_string()
                 } else {
                     match resolver.get_full_type(*type_id, source) {
                         Ok(r#type) => r#type.to_string(),
@@ -308,10 +302,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 )
             }
             CompileError::UndeclaredType { name, position } => {
-                let name_str = match name.get_str(&resolver.constants) {
-                    Ok(name_str) => name_str,
-                    Err(error) => return error.annotated_error((source, resolver)),
-                };
+                let name_str = name.get_str(&resolver.constants);
                 let title = format!("Undeclared type: {name_str}");
                 let file_str = source.get_file(position.file_id).full_source_str();
 

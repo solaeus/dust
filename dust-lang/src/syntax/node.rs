@@ -14,6 +14,8 @@ impl SyntaxNode {
         match self.kind {
             SyntaxKind::MainFunctionItem
             | SyntaxKind::ModuleItem
+            | SyntaxKind::LetStatement
+            | SyntaxKind::LetMutStatement
             | SyntaxKind::BlockExpression
             | SyntaxKind::ListExpression
             | SyntaxKind::Path
@@ -30,8 +32,6 @@ impl SyntaxNode {
             | SyntaxKind::ElseExpression => SyntaxNodeChildren::Single(SyntaxId(self.payload.left)),
             SyntaxKind::FunctionItem
             | SyntaxKind::PublicFunctionItem
-            | SyntaxKind::LetStatement
-            | SyntaxKind::LetMutStatement
             | SyntaxKind::ReassignmentStatement
             | SyntaxKind::FunctionExpression
             | SyntaxKind::ValueParameterDefinition
@@ -553,15 +553,26 @@ impl SyntaxPayload {
     }
 
     pub fn encode_string(str: &str) -> Self {
-        let length = str.len().min(8);
-        let mut bytes = [0u8; 8];
+        let length = str.len().min(7);
+        let mut encoded_bytes = [0u8; 8];
+        let string_bytes = &str.as_bytes()[..length];
 
-        for (i, byte) in str.as_bytes().iter().take(length).enumerate() {
-            bytes[i] = *byte;
-        }
+        encoded_bytes[0] = length as u8;
 
-        let left = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
-        let right = u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
+        encoded_bytes[1..].copy_from_slice(string_bytes);
+
+        let left = u32::from_le_bytes([
+            encoded_bytes[0],
+            encoded_bytes[1],
+            encoded_bytes[2],
+            encoded_bytes[3],
+        ]);
+        let right = u32::from_le_bytes([
+            encoded_bytes[4],
+            encoded_bytes[5],
+            encoded_bytes[6],
+            encoded_bytes[7],
+        ]);
 
         SyntaxPayload { left, right }
     }
@@ -569,8 +580,9 @@ impl SyntaxPayload {
     pub fn decode_string(&self) -> String {
         let left_bytes = self.left.to_le_bytes();
         let right_bytes = self.right.to_le_bytes();
-        let string_bytes = vec![
-            left_bytes[0],
+
+        let length = left_bytes[0] as usize;
+        let encoded_bytes = [
             left_bytes[1],
             left_bytes[2],
             left_bytes[3],
@@ -579,6 +591,13 @@ impl SyntaxPayload {
             right_bytes[2],
             right_bytes[3],
         ];
+        let mut string_bytes = vec![0; length];
+
+        println!("length {length}");
+
+        for encoded_byte in encoded_bytes.into_iter().take(length) {
+            string_bytes.push(encoded_byte);
+        }
 
         unsafe { String::from_utf8_unchecked(string_bytes) }
     }
@@ -607,5 +626,3 @@ pub enum SyntaxNodeChildren {
     Binary(SyntaxId, SyntaxId),
     Multiple(SyntaxPayload),
 }
-
-

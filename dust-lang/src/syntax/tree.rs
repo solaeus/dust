@@ -85,11 +85,20 @@ impl SyntaxTree {
         self.nodes.get(id.0 as usize)
     }
 
-    pub fn get_children(&self, payload: SyntaxPayload) -> Option<&[SyntaxId]> {
-        let start_index = payload.left as usize;
-        let count = payload.right as usize;
+    pub fn get_children(&self, payload: SyntaxPayload) -> &[SyntaxId] {
+        let start = payload.left as usize;
+        let end = start + payload.right as usize;
 
-        self.children.get(start_index..start_index + count)
+        if start > end || end > self.children.len() {
+            error!(
+                "Failed to get syntax children: invalid range {start}..{end} with length {}",
+                self.children.len()
+            );
+
+            &[]
+        } else {
+            &self.children[start..end]
+        }
     }
 
     pub fn add_children(&mut self, children: &[SyntaxId]) -> SyntaxPayload {
@@ -112,57 +121,47 @@ impl SyntaxTree {
     }
 
     fn as_text_tree(&self) -> String {
-        fn build_tree(
-            parent: &mut Tree<SyntaxNode>,
-            current_child_id: SyntaxId,
-            syntax_tree: &SyntaxTree,
+        fn build_text_tree<'a>(
+            leaf_id: SyntaxId,
+            parent_tree: &mut Tree<&'a SyntaxNode>,
+            syntax_tree: &'a SyntaxTree,
         ) {
-            if current_child_id == SyntaxId::NONE {
-                return;
-            }
+            let leaf_node = match syntax_tree.get_node(leaf_id) {
+                Some(node) => node,
+                None => return,
+            };
+            let mut leaf = Tree::new(leaf_node);
 
-            let current_child = &syntax_tree.nodes[current_child_id.0 as usize];
-            let mut leaf = Tree::new(*current_child);
-
-            match current_child.children() {
+            match leaf_node.children() {
                 SyntaxNodeChildren::None => {}
-                SyntaxNodeChildren::Single(syntax_id) => {
-                    build_tree(&mut leaf, syntax_id, syntax_tree);
+                SyntaxNodeChildren::Single(id) => {
+                    build_text_tree(id, &mut leaf, syntax_tree);
                 }
                 SyntaxNodeChildren::Binary(left, right) => {
-                    build_tree(&mut leaf, left, syntax_tree);
-                    build_tree(&mut leaf, right, syntax_tree);
+                    build_text_tree(left, &mut leaf, syntax_tree);
+                    build_text_tree(right, &mut leaf, syntax_tree);
                 }
-                SyntaxNodeChildren::Multiple(children) => {
-                    for child_id in syntax_tree.get_children(children).unwrap_or_else(|| {
-                        error!(
-                            "Failed to get {} syntax nodes starting at index {}",
-                            children.right, children.left
-                        );
+                SyntaxNodeChildren::Multiple(payload) => {
+                    let child_ids = syntax_tree.get_children(payload);
 
-                        &[]
-                    }) {
-                        build_tree(&mut leaf, *child_id, syntax_tree);
+                    for child_id in child_ids {
+                        build_text_tree(*child_id, &mut leaf, syntax_tree);
                     }
                 }
-            }
+            };
 
-            // Prevent displaying the root node twice
-            if leaf.root == parent.root {
-                parent.leaves.extend(leaf.leaves);
-            } else {
-                parent.leaves.push(leaf);
-            }
+            parent_tree.leaves.push(leaf);
         }
 
-        let top_node = match self.root() {
+        let root = match self.nodes.first() {
             Some(node) => node,
             None => return "<empty>".to_string(),
         };
-        let mut root = Tree::new(*top_node.inner());
+        let mut text_tree = Tree::new(root);
 
-        build_tree(&mut root, SyntaxId(0), self);
-        root.to_string()
+        build_text_tree(SyntaxId::ROOT, &mut text_tree, self);
+
+        text_tree.to_string()
     }
 }
 
@@ -174,5 +173,59 @@ impl Display for SyntaxTree {
             self.node_count(),
             self.as_text_tree()
         )
+    }
+}
+
+pub struct SyntaxNodeIterator<'a> {
+    child_ids: &'a [SyntaxId],
+    tree: &'a SyntaxTree,
+    current_index: usize,
+    continuations: Vec<SyntaxNodeIterator<'a>>,
+}
+
+impl<'a> SyntaxNodeIterator<'a> {
+    pub fn new(child_ids: &'a [SyntaxId], tree: &'a SyntaxTree) -> Self {
+        SyntaxNodeIterator {
+            child_ids,
+            tree,
+            current_index: 0,
+            continuations: Vec::new(),
+        }
+    }
+
+    pub fn empty(tree: &'a SyntaxTree) -> Self {
+        SyntaxNodeIterator {
+            child_ids: &[],
+            tree,
+            current_index: 0,
+            continuations: Vec::new(),
+        }
+    }
+}
+
+impl<'a> Iterator for SyntaxNodeIterator<'a> {
+    type Item = (&'a SyntaxNode, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(continuation) = self.continuations.last_mut() {
+            if let Some(node) = continuation.next() {
+                return Some(node);
+            } else {
+                self.continuations.pop();
+            }
+        }
+
+        let next_id = *self.child_ids.get(self.current_index)?;
+        let next_node = self.tree.get_node(next_id)?;
+
+        self.current_index += 1;
+
+        let depth = self.continuations.len();
+        let child_ids = self.tree.get_children(next_node.payload);
+        let child_iterator = SyntaxNodeIterator::new(child_ids, self.tree);
+
+        self.continuations.push(child_iterator);
+
+        Some((next_node, depth))
     }
 }

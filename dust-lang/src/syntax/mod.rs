@@ -6,7 +6,7 @@ mod visitor;
 
 pub use error::SyntaxError;
 pub use node::{SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxPayload};
-pub use reader::{SyntaxReader, SyntaxReaderIterator};
+pub use reader::{SyntaxReader, SyntaxReaderMultipleIterator};
 pub use tree::SyntaxTree;
 pub use visitor::SyntaxVisitor;
 
@@ -67,10 +67,8 @@ impl SyntaxId {
     /// order.
     pub const ROOT: SyntaxId = SyntaxId(0);
 
-    /// ID representing the absence of a syntax node. This is and SyntaxId::ROOT are both 0 because
-    /// the root node is always present and can never be used as a child of another node, so there
-    /// is no risk of confusion.
-    pub const NONE: SyntaxId = SyntaxId(0);
+    /// ID representing the absence of a syntax node.
+    pub const NONE: SyntaxId = SyntaxId(u32::MAX);
 
     pub fn is_none(&self) -> bool {
         *self == SyntaxId::NONE

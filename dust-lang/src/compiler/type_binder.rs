@@ -392,7 +392,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
             .set_type_binding(expression.id, expression_type_id);
         self.resolver.set_type_binding(node.id, TypeId::NONE);
 
-        println!("Setting declaration type for {declaration_id:?}",);
         self.resolver
             .set_declaration_type(declaration_id, expression_type_id);
 

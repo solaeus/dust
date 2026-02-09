@@ -1,5 +1,5 @@
 use smallvec::SmallVec;
-use tracing::{debug, info};
+use tracing::debug;
 
 use crate::{
     compiler::{
@@ -87,6 +87,9 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .add_declaration_binding(node.id, main_declaration_id);
         self.resolver.add_scope_binding(node.id, main_scope);
 
+        let parent_scope_id = self.current_scope_id;
+        self.current_scope_id = main_scope;
+
         for child in children {
             if child.kind().is_item() {
                 self.visit_item(child)?;
@@ -96,6 +99,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 self.visit_expression(child, ())?;
             }
         }
+
+        self.current_scope_id = parent_scope_id;
 
         Ok(main_declaration_id)
     }
@@ -770,7 +775,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 &segment,
                 current_scope_id,
                 None,
-                true,
+                false,
             )?;
 
             current_declaration_id = next_declaration_id;

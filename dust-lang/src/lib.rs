@@ -5,7 +5,8 @@
     formatting_options,
     generic_const_exprs,
     int_from_ascii,
-    iterator_try_collect
+    iterator_try_collect,
+    string_from_utf8_lossy_owned
 )]
 
 pub mod compiler;

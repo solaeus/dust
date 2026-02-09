@@ -49,7 +49,7 @@ impl DustError {
                 let mut report = Vec::new();
 
                 for parse_error in errors {
-                    let group = parse_error.annotated_error(&source);
+                    let group = parse_error.annotated_error(source);
 
                     report.push(group);
                 }

@@ -33,8 +33,8 @@ impl ConstantTable {
         self.payloads.is_empty()
     }
 
-    pub fn get_string_pool_range(&self, range: Range<usize>) -> &str {
-        unsafe { str::from_utf8_unchecked(self.string_pool.get(range).unwrap_or_default()) }
+    pub fn get_string_pool_range(&self, range: Range<usize>) -> &[u8] {
+        self.string_pool.get(range).unwrap_or_default()
     }
 
     pub fn finalize_string_pool(&mut self) {
@@ -128,26 +128,31 @@ impl ConstantTable {
         }
     }
 
-    pub fn add_string(&mut self, bytes: &[u8]) -> ConstantId {
-        let start = self.string_pool.len();
-        let end = self.string_pool.len() + bytes.len();
-        let payload = (start as u64) << 32 | (end as u64);
-        let key = ConstantKey::from_payload_and_tag(payload, OperandType::STRING);
+    pub fn add_string(&mut self, string: &str) -> ConstantId {
+        self.add_utf8(string.as_bytes())
+    }
+
+    pub fn add_utf8(&mut self, bytes: &[u8]) -> ConstantId {
+        let key = ConstantKey::from_bytes(bytes);
 
         if let Some(existing_index) = self.payloads.get_index_of(&key) {
             ConstantId(existing_index as u16)
         } else {
-            let index = self.payloads.len() as u16;
+            let start = self.string_pool.len();
+            let end = self.string_pool.len() + bytes.len();
+            let payload = (start as u64) << 32 | (end as u64);
 
             self.string_pool.extend_from_slice(bytes);
-            self.payloads.insert(key, payload);
+
+            let (index, _) = self.payloads.insert_full(key, payload);
+
             self.tags.push(OperandType::STRING);
 
             ConstantId(index as u16)
         }
     }
 
-    pub fn get_string(&self, id: ConstantId) -> Option<&str> {
+    pub fn get_string_bytes(&self, id: ConstantId) -> Option<&[u8]> {
         let index = id.0 as usize;
         let payload = *self.payloads.get_index(index)?.1;
         let start = (payload >> 32) as usize;
@@ -157,6 +162,14 @@ impl ConstantTable {
             Some(self.get_string_pool_range(start..end))
         } else {
             None
+        }
+    }
+
+    pub fn get_string(&self, id: ConstantId) -> &str {
+        if let Some(bytes) = self.get_string_bytes(id) {
+            unsafe { str::from_utf8_unchecked(bytes) }
+        } else {
+            ""
         }
     }
 
@@ -198,7 +211,7 @@ impl ConstantTable {
 
     pub fn add_pooled_string(&mut self, start: u32, end: u32) -> ConstantId {
         let str = self.get_string_pool_range(start as usize..end as usize);
-        let key = ConstantKey::from_str(str);
+        let key = ConstantKey::from_bytes(str);
 
         if let Some(existing_index) = self.payloads.get_index_of(&key) {
             ConstantId(existing_index as u16)
@@ -226,7 +239,7 @@ pub struct ConstantId(pub u16);
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 enum ConstantKey {
     Payload(u64, OperandType),
-    String(u64),
+    Bytes(u64),
 }
 
 impl ConstantKey {
@@ -234,12 +247,12 @@ impl ConstantKey {
         Self::Payload(payload, tag)
     }
 
-    pub fn from_str(str: &str) -> Self {
+    pub fn from_bytes(bytes: &[u8]) -> Self {
         let mut hasher = FxHasher::default();
 
-        str.hash(&mut hasher);
+        bytes.hash(&mut hasher);
 
-        Self::String(hasher.finish())
+        Self::Bytes(hasher.finish())
     }
 }
 
@@ -266,9 +279,9 @@ impl Iterator for ConstantTableDisplayIterator<'_> {
                 let payload = *self.table.payloads.get_index(self.index)?.1;
                 let start = (payload >> 32) as usize;
                 let end = (payload & 0xFFFFFFFF) as usize;
-                let slice = self.table.get_string_pool_range(start..end);
+                let bytes = self.table.get_string_pool_range(start..end);
 
-                String::from(slice)
+                String::from_utf8_lossy(bytes).to_string()
             }
             _ => todo!(),
         };
@@ -314,9 +327,9 @@ mod tests {
     #[test]
     fn string() {
         let mut table = ConstantTable::new();
-        let string_index = table.add_string(b"foobar");
-        let retrieved_string = table.get_string(string_index).unwrap();
+        let string_index = table.add_utf8(b"foobar");
+        let retrieved_string = table.get_string_bytes(string_index).unwrap();
 
-        assert_eq!(retrieved_string, "foobar");
+        assert_eq!(retrieved_string, b"foobar");
     }
 }

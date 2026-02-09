@@ -1783,12 +1783,13 @@ impl<'a> InstructionCompiler<'a> {
                     total_register_count: self.ssa_registers.len(),
                 }),
             MemoryKind::CONSTANT => {
-                let string = self.constants.get_string(ConstantId(address.index)).ok_or(
-                    JitError::ConstantIndexOutOfBounds {
+                let string = self
+                    .constants
+                    .get_string_bytes(ConstantId(address.index))
+                    .ok_or(JitError::ConstantIndexOutOfBounds {
                         constant_index: address.index,
                         total_constant_count: self.constants.len(),
-                    },
-                )?;
+                    })?;
 
                 let allocate_string_function = self.get_allocate_string_function(builder)?;
                 let string_pointer = builder

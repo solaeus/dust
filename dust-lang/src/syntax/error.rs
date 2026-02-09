@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
@@ -74,10 +76,56 @@ impl<'a> AnnotatedError<'a> for SyntaxError {
     }
 }
 
+impl Display for SyntaxError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            SyntaxError::ExpectedItem { found, position } => {
+                write!(
+                    f,
+                    "Syntax Error: expected item, found {found} at {}",
+                    position.span
+                )
+            }
+            SyntaxError::ExpectedStatement { found, position } => {
+                write!(
+                    f,
+                    "Syntax Error: expected statement, found {found} at {}",
+                    position.span
+                )
+            }
+            SyntaxError::ExpectedExpression { found, position } => {
+                write!(
+                    f,
+                    "Syntax Error: expected expression, found {found} at {}",
+                    position.span
+                )
+            }
+            SyntaxError::Internal(internal_syntax_error) => {
+                write!(f, "Internal Syntax Error: {internal_syntax_error}")
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum InternalSyntaxError {
     ExpectedChild,
     MissingSyntaxNode(SyntaxId),
     MissingSyntaxChildren(SyntaxPayload),
     EmptySyntaxTree,
+}
+
+impl Display for InternalSyntaxError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            InternalSyntaxError::ExpectedChild => write!(f, "Expected child node"),
+            InternalSyntaxError::MissingSyntaxNode(id) => {
+                write!(f, "Missing syntax node with id {id:?}")
+            }
+            InternalSyntaxError::MissingSyntaxChildren(payload) => {
+                write!(f, "Missing syntax children for payload {payload:?}")
+            }
+            InternalSyntaxError::EmptySyntaxTree => write!(f, "The syntax tree is empty"),
+        }
+    }
 }

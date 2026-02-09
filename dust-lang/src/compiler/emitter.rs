@@ -16,7 +16,7 @@ use crate::{
     prototype::Prototype,
     source::{Position, Source, SourceFileId, Span},
     syntax::{
-        Syntax, SyntaxError, SyntaxId, SyntaxKind, SyntaxReader, SyntaxReaderIterator,
+        Syntax, SyntaxError, SyntaxId, SyntaxKind, SyntaxReader, SyntaxReaderMultipleIterator,
         SyntaxVisitor,
     },
     r#type::Type,
@@ -72,7 +72,7 @@ impl<'a> Emitter<'a> {
         declaration_id: DeclarationId,
         starting_scope_id: ScopeId,
         prototype_index: u16,
-        parameters: Option<SyntaxReaderIterator<'a>>,
+        parameters: Option<SyntaxReaderMultipleIterator<'a>>,
         (source, syntax, resolver): (&'a Source, &'a Syntax, &'a mut Resolver),
     ) -> Result<Self, CompileError> {
         let parameter_count = parameters.as_ref().map_or(0, |parameters| parameters.len());
@@ -728,15 +728,12 @@ impl<'a> Emitter<'a> {
                             });
                         }
 
-                        let mut string = String::with_capacity(left.len() + right.len());
+                        let mut bytes = Vec::with_capacity(left.len() + right.len());
 
-                        string.push_str(left);
-                        string.push_str(right);
+                        bytes.extend_from_slice(left);
+                        bytes.extend_from_slice(right);
 
-                        let combined = self
-                            .resolver
-                            .constants
-                            .push_str_to_string_pool(string.as_bytes());
+                        let combined = self.resolver.constants.push_str_to_string_pool(&bytes);
 
                         ConstantEmission::String {
                             pool_start: combined.0,
@@ -771,16 +768,15 @@ impl<'a> Emitter<'a> {
                     .resolver
                     .constants
                     .get_string_pool_range(pool_start as usize..pool_end as usize);
-                let mut string = String::with_capacity(1 + right.len());
+                let mut bytes = Vec::with_capacity(left.len_utf8() + right.len());
 
-                string.push(left);
-                string.push_str(right);
+                left.encode_utf8(&mut bytes);
+                bytes.extend_from_slice(right);
 
                 let combined = match operation {
-                    SyntaxKind::AdditionExpression => self
-                        .resolver
-                        .constants
-                        .push_str_to_string_pool(string.as_bytes()),
+                    SyntaxKind::AdditionExpression => {
+                        self.resolver.constants.push_str_to_string_pool(&bytes)
+                    }
                     _ => {
                         return Err(CompileError::Internal(InternalError::InvalidSyntaxNode(
                             operation,
@@ -804,16 +800,15 @@ impl<'a> Emitter<'a> {
                     .resolver
                     .constants
                     .get_string_pool_range(pool_start as usize..pool_end as usize);
-                let mut string = String::with_capacity(left.len() + 1);
+                let mut bytes = Vec::with_capacity(left.len() + right.len_utf8());
 
-                string.push_str(left);
-                string.push(right);
+                bytes.extend_from_slice(left);
+                right.encode_utf8(&mut bytes);
 
                 let combined = match operation {
-                    SyntaxKind::AdditionExpression => self
-                        .resolver
-                        .constants
-                        .push_str_to_string_pool(string.as_bytes()),
+                    SyntaxKind::AdditionExpression => {
+                        self.resolver.constants.push_str_to_string_pool(&bytes)
+                    }
                     _ => {
                         return Err(CompileError::Internal(InternalError::InvalidSyntaxNode(
                             operation,

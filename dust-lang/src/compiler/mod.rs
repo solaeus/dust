@@ -27,8 +27,6 @@ use crate::{
     syntax::{Syntax, SyntaxId},
 };
 
-pub const DEFAULT_PROGRAM_NAME: &str = "dust_program";
-
 pub fn compile_main_prototype(source_code: String) -> Result<Prototype, DustError> {
     let mut source = Source::new();
     source.add_file(SourceFile::embedded_string("eval".to_string(), source_code));
@@ -69,36 +67,27 @@ impl Compiler {
         &self.resolver
     }
 
-    pub fn compile(self, name: Option<String>) -> Result<Program, DustError> {
-        self.compile_with_extras(name)
+    pub fn compile(self, program_name: Option<&str>) -> Result<Program, DustError> {
+        self.compile_with_extras(program_name)
             .map(|(program, _, _)| program)
     }
 
     pub fn compile_with_extras(
         self,
-        name: Option<String>,
+        program_name: Option<&str>,
     ) -> Result<(Program, Source, Syntax), DustError> {
         let (
             Resolver {
-                mut constants,
+                constants,
                 prototypes,
                 ..
             },
             source,
             syntax,
         ) = self.compile_inner()?;
-        let name_index =
-            constants.add_string(name.as_deref().unwrap_or(DEFAULT_PROGRAM_NAME).as_bytes());
+        let program = Program::new(program_name, constants, prototypes);
 
-        Ok((
-            Program {
-                name_id: name_index,
-                constants,
-                prototypes,
-            },
-            source,
-            syntax,
-        ))
+        Ok((program, source, syntax))
     }
 
     fn compile_inner(mut self) -> Result<(Resolver, Source, Syntax), DustError> {
