@@ -120,6 +120,12 @@ impl<'a> SyntaxReader<'a> {
                 InternalSyntaxError::MissingSyntaxChildren(self.node.payload),
             ))?;
 
+        if child_ids.is_empty() {
+            return Err(SyntaxError::Internal(
+                InternalSyntaxError::MissingSyntaxChildren(self.node.payload),
+            ));
+        }
+
         Ok(SyntaxReaderIterator {
             child_ids,
             tree: self.tree,

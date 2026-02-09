@@ -78,7 +78,7 @@ impl Resolver {
 
         let _project_scope_id = resolver.add_scope(Scope {
             kind: ScopeKind::Module,
-            parent: ScopeId::NONE,
+            parent: ScopeId::PROJECT,
             imports: SmallVec::new(),
             modules: SmallVec::new(),
         });
@@ -90,7 +90,7 @@ impl Resolver {
                 symbol: Symbol::BuiltIn(native_function.name()),
                 position: None,
                 kind: DeclarationKind::Type { parent: None },
-                scope_id: ScopeId::NONE,
+                scope_id: ScopeId::PROJECT,
                 is_public: true,
             });
         }
@@ -98,13 +98,12 @@ impl Resolver {
         resolver
     }
 
-    pub fn create_symbol(&mut self, path: &SyntaxReader, source: &Source) -> Symbol {
-        debug_assert!(matches!(
-            path.kind(),
-            SyntaxKind::Path | SyntaxKind::PathSegment
-        ));
+    pub fn create_symbol(&mut self, path_segment: &SyntaxReader, source: &Source) -> Symbol {
+        debug_assert_eq!(path_segment.kind(), SyntaxKind::PathSegment);
 
-        let bytes = source.get_file(path.file_id()).source_bytes(path.span());
+        let bytes = source
+            .get_file(path_segment.file_id())
+            .source_bytes(path_segment.span());
         let constant_id = self.constants.add_string(bytes);
 
         Symbol::Constant { constant_id }
@@ -155,7 +154,6 @@ impl Resolver {
         };
         let key = DeclarationStorageKey {
             symbol: declaration.symbol,
-            scope_id: declaration.scope_id,
             parent,
         };
 
@@ -165,9 +163,10 @@ impl Resolver {
 
         let declaration_id = DeclarationId(self.declarations.len() as u32);
         let value = DeclarationStorageValue {
-            position: declaration.position,
             kind: declaration.kind,
+            scope_id: declaration.scope_id,
             is_public: declaration.is_public,
+            position: declaration.position,
         };
 
         self.declarations.insert(key, value);
@@ -261,20 +260,24 @@ impl Resolver {
     pub fn find_declaration_in_scope(
         &self,
         symbol: Symbol,
-        path: &SyntaxReader,
+        path_segment: &SyntaxReader,
         target_scope_id: ScopeId,
         parent: Option<DeclarationId>,
         is_type_lookup: bool,
     ) -> Result<(DeclarationId, Declaration), CompileError> {
+        debug_assert_eq!(path_segment.kind(), SyntaxKind::PathSegment);
+
         let mut current_scope_id = target_scope_id;
         let mut current_scope = self.get_scope(target_scope_id)?;
 
         loop {
-            let key = DeclarationStorageKey {
-                symbol,
-                scope_id: current_scope_id,
-                parent,
-            };
+            if (!is_type_lookup && current_scope.kind != ScopeKind::Block)
+                || current_scope_id == ScopeId::PROJECT
+            {
+                break;
+            }
+
+            let key = DeclarationStorageKey { symbol, parent };
 
             if let Some((index, _, declaration_value)) = self.declarations.get_full(&key) {
                 return Ok((
@@ -285,11 +288,7 @@ impl Resolver {
 
             for import_id in &current_scope.imports {
                 let import = self.get_declaration(*import_id)?;
-                let key = DeclarationStorageKey {
-                    symbol,
-                    scope_id: import.scope_id,
-                    parent,
-                };
+                let key = DeclarationStorageKey { symbol, parent };
 
                 if self.declarations.contains_key(&key) {
                     return Ok((*import_id, import));
@@ -298,11 +297,7 @@ impl Resolver {
 
             for module_id in &current_scope.modules {
                 let module = self.get_declaration(*module_id)?;
-                let key = DeclarationStorageKey {
-                    symbol,
-                    scope_id: module.scope_id,
-                    parent,
-                };
+                let key = DeclarationStorageKey { symbol, parent };
 
                 if self.declarations.contains_key(&key) {
                     return Ok((*module_id, module));
@@ -311,20 +306,10 @@ impl Resolver {
 
             current_scope_id = current_scope.parent;
             current_scope = self.get_scope(current_scope_id)?;
-
-            if (!is_type_lookup && current_scope.kind != ScopeKind::Block)
-                || current_scope_id == ScopeId::PROJECT
-            {
-                break;
-            }
         }
 
         if current_scope.kind == ScopeKind::Function {
-            let key = DeclarationStorageKey {
-                symbol,
-                scope_id: current_scope.parent,
-                parent,
-            };
+            let key = DeclarationStorageKey { symbol, parent };
 
             if let Some((index, _, declaration)) = self.declarations.get_full(&key)
                 && matches!(declaration.kind, DeclarationKind::Type { .. })
@@ -338,7 +323,7 @@ impl Resolver {
 
         Err(CompileError::UndeclaredVariable {
             name: symbol,
-            position: path.position(),
+            position: path_segment.position(),
         })
     }
 
@@ -740,7 +725,6 @@ pub struct AnonymousSymbolId(u32);
 pub struct ScopeId(pub u32);
 
 impl ScopeId {
-    pub const NONE: Self = ScopeId(u32::MAX);
     pub const PROJECT: Self = ScopeId(0);
 }
 
@@ -799,7 +783,7 @@ impl Declaration {
             symbol: key.symbol,
             position: value.position,
             kind: value.kind,
-            scope_id: key.scope_id,
+            scope_id: value.scope_id,
             is_public: value.is_public,
         }
     }
@@ -871,13 +855,13 @@ pub enum DeclarationKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct DeclarationStorageKey {
     symbol: Symbol,
-    scope_id: ScopeId,
     parent: Option<DeclarationId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct DeclarationStorageValue {
     kind: DeclarationKind,
+    scope_id: ScopeId,
     is_public: bool,
     position: Option<Position>,
 }

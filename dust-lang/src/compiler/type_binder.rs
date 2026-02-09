@@ -391,6 +391,8 @@ impl SyntaxVisitor for TypeBinder<'_> {
         self.resolver
             .set_type_binding(expression.id, expression_type_id);
         self.resolver.set_type_binding(node.id, TypeId::NONE);
+
+        println!("Setting declaration type for {declaration_id:?}",);
         self.resolver
             .set_declaration_type(declaration_id, expression_type_id);
 
@@ -639,9 +641,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for path expression");
+        debug_assert_eq!(node.kind(), SyntaxKind::PathExpression);
 
-        let declaration_id = *self.resolver.get_declaration_binding(&node.id)?;
-        let type_id = *self.resolver.get_declaration_type(&declaration_id)?;
+        let declaration_id = self.resolver.get_declaration_binding(&node.id)?;
+        let type_id = *self.resolver.get_declaration_type(declaration_id)?;
 
         self.resolver.set_type_binding(node.id, type_id);
 
@@ -651,7 +654,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_struct_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for struct expression");
 
@@ -666,7 +669,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
             let declared_field_type_id =
                 *self.resolver.get_declaration_type(&field_declaration_id)?;
-            let actual_field_type_id = self.visit_expression(field_expression, input)?;
+            let actual_field_type_id = self.visit_expression(field_expression, ())?;
 
             self.unify_types(
                 declared_field_type_id,

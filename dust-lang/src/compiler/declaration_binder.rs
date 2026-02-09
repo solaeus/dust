@@ -246,19 +246,32 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
-        info!("Binding let statement");
+        debug!("Binding let statement");
+        debug_assert!(matches!(
+            node.kind(),
+            SyntaxKind::LetStatement | SyntaxKind::LetMutStatement
+        ));
 
         let mut children = node.multiple_children()?;
         let path = children.expect_next()?;
+        let path_segment = {
+            let mut segments = path.multiple_children()?;
+
+            if segments.len() != 1 {
+                todo!("Handle multi-segment paths in let statements");
+            }
+
+            segments.next().unwrap()
+        };
         let expression_statement = children.expect_next()?;
         let expression = expression_statement.left_child()?;
 
         self.visit_expression(expression, ())?;
 
-        let symbol = self.resolver.create_symbol(&path, self.source);
+        let symbol = self.resolver.create_symbol(&path_segment, self.source);
         let shadowed = self
             .resolver
-            .find_declaration_in_scope(symbol, &path, self.current_scope_id, None, false)
+            .find_declaration_in_scope(symbol, &path_segment, self.current_scope_id, None, false)
             .map(|(id, _)| id)
             .ok();
         let is_mutable = node.kind() == SyntaxKind::LetMutStatement;
@@ -284,7 +297,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
-        info!("Binding binary assignment statement");
+        debug!("Binding binary assignment statement");
 
         let (path, expression) = node.binary_children()?;
 
@@ -309,6 +322,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
+        debug!("Binding reassignment statement");
+
         let (path, expression_statement) = node.binary_children()?;
         let expression = expression_statement.left_child()?;
 
@@ -407,9 +422,17 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_path_expression(
         &mut self,
-        _: SyntaxReader,
+        path_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
+        debug!("Binding path expression");
+
+        let path = path_expression.left_child()?;
+        let declaration_id = self.visit_path(path)?;
+
+        self.resolver
+            .add_declaration_binding(path_expression.id, declaration_id);
+
         Ok(())
     }
 
@@ -729,14 +752,18 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_path(&mut self, node: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
-        let path = node.left_child()?;
+    fn visit_path(&mut self, path: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
+        debug!("Binding path");
+        debug_assert_eq!(path.kind(), SyntaxKind::Path);
+
         let path_segments = path.multiple_children()?;
 
         let mut current_declaration_id = DeclarationId(0);
         let mut current_scope_id = self.current_scope_id;
 
         for segment in path_segments {
+            debug_assert_eq!(segment.kind(), SyntaxKind::PathSegment);
+
             let symbol = self.resolver.create_symbol(&segment, self.source);
             let (next_declaration_id, next_declaration) = self.resolver.find_declaration_in_scope(
                 symbol,
@@ -749,9 +776,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             current_declaration_id = next_declaration_id;
             current_scope_id = next_declaration.scope_id;
         }
-
-        self.resolver
-            .add_declaration_binding(node.id, current_declaration_id);
 
         Ok(current_declaration_id)
     }
