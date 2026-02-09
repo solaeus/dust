@@ -252,10 +252,10 @@ pub struct Span(pub(crate) u32, pub(crate) u32);
 
 impl Span {
     pub fn new<T: TryInto<u32>>(start: T, end: T) -> Self {
-        Self(
-            start.try_into().unwrap_or_default(),
-            end.try_into().unwrap_or_default(),
-        )
+        let start = start.try_into().unwrap_or_default();
+        let end = end.try_into().unwrap_or_default().max(start);
+
+        Self(start, end)
     }
 
     pub fn join(&self, other: &Span) -> Span {

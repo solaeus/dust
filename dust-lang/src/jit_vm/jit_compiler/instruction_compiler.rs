@@ -12,7 +12,6 @@ use cranelift_jit::JITModule;
 use cranelift_module::{FuncId, Linkage, Module};
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
-use tracing::trace;
 
 use crate::{
     constant_table::{ConstantId, ConstantTable},
@@ -67,6 +66,8 @@ impl<'a> InstructionCompiler<'a> {
 
         #[cfg(debug_assertions)]
         {
+            use tracing::trace;
+
             trace!(
                 "JIT compiling {operation} at IP {ip} for proto_{}",
                 self.prototype.index

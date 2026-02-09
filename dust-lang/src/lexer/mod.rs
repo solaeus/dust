@@ -67,87 +67,70 @@ impl<'src> Lexer<'src> {
     }
 
     fn finish_token(&mut self) -> Option<Token> {
-        if let Some(start) = self.token_start.take() {
-            let end = self.index;
+        fn finish(kind: TokenKind, span: Span, lexer: &mut Lexer) -> Option<Token> {
+            lexer.token_start = None;
+            lexer.token_flags = TokenFlags::default();
 
-            if end > start {
-                let span = Span(start as u32, end as u32);
-                let token = &self.source[start..end];
-
-                let kind = if self.token_flags.starts_with_digit {
-                    if self.token_flags.in_hexadecimal {
-                        if !self.token_flags.unknown && self.token_flags.hex_digits > 0 {
-                            TokenKind::ByteValue
-                        } else {
-                            TokenKind::Unknown
-                        }
-                    } else if !self.token_flags.unknown {
-                        if self.token_flags.has_decimal {
-                            TokenKind::FloatValue
-                        } else {
-                            TokenKind::IntegerValue
-                        }
-                    } else {
-                        TokenKind::Unknown
-                    }
-                } else if !token.is_empty() {
-                    let first = token[0];
-
-                    if first < 128 && (first.is_ascii_alphabetic() || first == b'_') {
-                        if self.token_flags.saw_non_ascii {
-                            if self.token_flags.unicode_identifier_valid {
-                                TokenKind::Identifier
-                            } else {
-                                TokenKind::Unknown
-                            }
-                        } else if let Some(kind) = keyword_kind(token) {
-                            kind
-                        } else {
-                            TokenKind::Identifier
-                        }
-                    } else if first >= 128 {
-                        if self.token_flags.unicode_identifier_started_non_ascii
-                            && self.token_flags.unicode_identifier_valid
-                        {
-                            TokenKind::Identifier
-                        } else {
-                            TokenKind::Unknown
-                        }
-                    } else {
-                        TokenKind::Unknown
-                    }
-                } else {
-                    TokenKind::Unknown
-                };
-
-                self.token_flags = TokenFlags::default();
-
-                return Some(Token { kind, span });
-            }
+            Some(Token { kind, span })
         }
-        None
+
+        let start = self.token_start?;
+        let span = Span::new(start, self.index);
+        let bytes = &self.source[span.as_usize_range()];
+
+        if self.token_flags.unknown || bytes.is_empty() {
+            return finish(TokenKind::Unknown, span, self);
+        }
+
+        if self.token_flags.starts_with_digit {
+            if self.token_flags.in_hexadecimal && self.token_flags.hex_digits > 0 {
+                return finish(TokenKind::ByteValue, span, self);
+            } else if self.token_flags.has_decimal {
+                return finish(TokenKind::FloatValue, span, self);
+            }
+
+            return finish(TokenKind::IntegerValue, span, self);
+        }
+
+        let first_byte = Byte(bytes[0]);
+
+        if first_byte
+            .ascii_class()
+            .is_some_and(|class| matches!(class, AsciiClass::ALPHABETICAL | AsciiClass::UNDERSCORE))
+        {
+            if let Some(keyword_kind) = keyword_kind(bytes) {
+                return finish(keyword_kind, span, self);
+            }
+
+            return finish(TokenKind::Identifier, span, self);
+        }
+
+        if self.token_flags.unicode_identifier_started_non_ascii
+            && self.token_flags.unicode_identifier_valid
+        {
+            return finish(TokenKind::Identifier, span, self);
+        }
+
+        finish(TokenKind::Unknown, span, self)
     }
 
     fn handle_non_ascii(&mut self) -> Result<(), usize> {
         match self.scan_utf8_sequence(self.index) {
             Ok(width) => {
-                let first = Byte(self.source[self.index]);
-                let next_slice_start = self.index + 1;
-                let code_point = decode_utf8_code_point(
-                    first.0,
-                    &self.source[next_slice_start..next_slice_start + (width - 1)],
-                );
+                let first_byte = self.current_byte();
+                let next_bytes = &self.source[self.index + 1..self.index + width];
+                let code_point = decode_utf8_code_point(first_byte.0, next_bytes);
 
                 if self.token_start.is_none() {
                     if is_xid_start(code_point) {
                         self.token_start = Some(self.index);
-                        self.token_flags = TokenFlags::start(first);
+                        self.token_flags = TokenFlags::start(first_byte);
                         self.token_flags.saw_non_ascii = true;
                         self.token_flags.unicode_identifier_started_non_ascii = true;
                         self.token_flags.unicode_identifier_valid = true;
                     } else {
                         self.token_start = Some(self.index);
-                        self.token_flags = TokenFlags::start(first);
+                        self.token_flags = TokenFlags::start(first_byte);
                         self.token_flags.saw_non_ascii = true;
                         self.token_flags.unknown = true;
                     }
@@ -177,23 +160,20 @@ impl<'src> Lexer<'src> {
     }
 
     fn scan_utf8_sequence(&self, start: usize) -> Result<usize, usize> {
-        let first_byte = self.source[start];
+        let first_byte = self.current_byte();
 
-        if first_byte < 128 {
+        if first_byte.is_ascii() {
             return Ok(1);
         }
 
-        let width = utf8_char_width(first_byte);
-
-        if self.utf8_validated {
-            if width == 0 || start + width > self.source.len() {
-                return Err(start);
-            }
-            return Ok(width);
-        }
+        let width = first_byte.uft8_width();
 
         if width == 0 || start + width > self.source.len() {
             return Err(start);
+        }
+
+        if self.utf8_validated {
+            return Ok(width);
         }
 
         match width {
@@ -207,13 +187,14 @@ impl<'src> Lexer<'src> {
             3 => {
                 let second = self.source[start + 1];
 
-                match (first_byte, second) {
+                match (first_byte.0, second) {
                     (0xE0, 0xA0..=0xBF)
                     | (0xE1..=0xEC, 0x80..=0xBF)
                     | (0xED, 0x80..=0x9F)
                     | (0xEE..=0xEF, 0x80..=0xBF) => {}
                     _ => return Err(start),
                 }
+
                 let third = self.source[start + 2];
 
                 if (third as i8) >= -64 {
@@ -223,10 +204,11 @@ impl<'src> Lexer<'src> {
             4 => {
                 let second = self.source[start + 1];
 
-                match (first_byte, second) {
+                match (first_byte.0, second) {
                     (0xF0, 0x90..=0xBF) | (0xF1..=0xF3, 0x80..=0xBF) | (0xF4, 0x80..=0x8F) => {}
                     _ => return Err(start),
                 }
+
                 let third = self.source[start + 2];
 
                 if (third as i8) >= -64 {
@@ -536,29 +518,19 @@ impl Iterator for Lexer<'_> {
                 self.token_start = Some(self.index);
                 self.token_flags = TokenFlags::start(byte);
 
-                if !self.token_flags.starts_with_digit {
-                    let mut index = self.index + 1;
-                    let end = self.len();
+                // if !self.token_flags.starts_with_digit {
+                //     while self.index < self.len()
+                //         && let Some(class) = self.current_byte().ascii_class()
+                //         && !matches!(
+                //             class,
+                //             AsciiClass::WHITESPACE | AsciiClass::OPERATOR_OR_PUNCTUATION
+                //         )
+                //     {
+                //         self.index += 1;
+                //     }
 
-                    while index < end {
-                        let byte = self.current_byte();
-
-                        if let Some(class) = byte.ascii_class()
-                            && !matches!(
-                                class,
-                                AsciiClass::WHITESPACE | AsciiClass::OPERATOR_OR_PUNCTUATION
-                            )
-                        {
-                            index += 1;
-                        } else {
-                            break;
-                        }
-                    }
-
-                    self.index = index;
-
-                    continue;
-                }
+                //     continue;
+                // }
             }
 
             if self.token_flags.starts_with_digit
@@ -571,180 +543,58 @@ impl Iterator for Lexer<'_> {
             }
 
             self.index += 1;
-
-            continue;
         }
     }
 }
 
 fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
-    match token.len() {
-        2 => match token[0] {
-            b'a' => {
-                if token[1] == b's' {
-                    Some(TokenKind::As)
-                } else {
-                    None
-                }
-            }
-            b'f' => {
-                if token[1] == b'n' {
-                    Some(TokenKind::Fn)
-                } else {
-                    None
-                }
-            }
-            b'i' => {
-                if token[1] == b'f' {
-                    Some(TokenKind::If)
-                } else {
-                    None
-                }
-            }
+    match (token.len(), token.first()?) {
+        (2, b'a') if token == b"as" => Some(TokenKind::As),
+        (2, b'f') if token == b"fn" => Some(TokenKind::Fn),
+        (2, b'i') if token == b"if" => Some(TokenKind::If),
+        
+        (3, b'a') if token == b"any" => Some(TokenKind::Any),
+        (3, b'i') if token == b"int" => Some(TokenKind::Int),
+        (3, b'l') if token == b"let" => Some(TokenKind::Let),
+        (3, b'm') => match token {
+            b"map" => Some(TokenKind::Map),
+            b"mod" => Some(TokenKind::Mod),
+            b"mut" => Some(TokenKind::Mut),
             _ => None,
         },
-        3 => match token[0] {
-            b'a' => {
-                if &token[1..3] == b"ny" {
-                    Some(TokenKind::Any)
-                } else {
-                    None
-                }
-            }
-            b'i' => {
-                if &token[1..3] == b"nt" {
-                    Some(TokenKind::Int)
-                } else {
-                    None
-                }
-            }
-            b'l' => {
-                if &token[1..3] == b"et" {
-                    Some(TokenKind::Let)
-                } else {
-                    None
-                }
-            }
-            b'm' => match &token[1..3] {
-                b"ap" => Some(TokenKind::Map),
-                b"od" => Some(TokenKind::Mod),
-                b"ut" => Some(TokenKind::Mut),
-                _ => None,
-            },
-            b'p' => {
-                if &token[1..3] == b"ub" {
-                    Some(TokenKind::Pub)
-                } else {
-                    None
-                }
-            }
-            b's' => {
-                if &token[1..3] == b"tr" {
-                    Some(TokenKind::Str)
-                } else {
-                    None
-                }
-            }
-            b'u' => {
-                if &token[1..3] == b"se" {
-                    Some(TokenKind::Use)
-                } else {
-                    None
-                }
-            }
+        (3, b'p') if token == b"pub" => Some(TokenKind::Pub),
+        (3, b's') if token == b"str" => Some(TokenKind::Str),
+        (3, b'u') if token == b"use" => Some(TokenKind::Use),
+        
+        (4, b'b') => match token {
+            b"bool" => Some(TokenKind::Bool),
+            b"byte" => Some(TokenKind::Byte),
             _ => None,
         },
-        4 => match token[0] {
-            b'b' => match &token[1..4] {
-                b"ool" => Some(TokenKind::Bool),
-                b"yte" => Some(TokenKind::Byte),
-                _ => None,
-            },
-            b'c' => match &token[1..4] {
-                b"har" => Some(TokenKind::Char),
-                b"ell" => Some(TokenKind::Cell),
-                _ => None,
-            },
-            b'e' => {
-                if &token[1..4] == b"lse" {
-                    Some(TokenKind::Else)
-                } else {
-                    None
-                }
-            }
-            b'l' => match &token[1..4] {
-                b"oop" => Some(TokenKind::Loop),
-                _ => None,
-            },
-            b't' => {
-                if &token[1..4] == b"rue" {
-                    Some(TokenKind::TrueValue)
-                } else {
-                    None
-                }
-            }
+        (4, b'c') => match token {
+            b"char" => Some(TokenKind::Char),
+            b"cell" => Some(TokenKind::Cell),
             _ => None,
         },
-        5 => match token[0] {
-            b'a' => {
-                if &token[1..5] == b"sync" {
-                    Some(TokenKind::Async)
-                } else {
-                    None
-                }
-            }
-            b'b' => {
-                if &token[1..5] == b"reak" {
-                    Some(TokenKind::Break)
-                } else {
-                    None
-                }
-            }
-            b'c' => {
-                if &token[1..5] == b"onst" {
-                    Some(TokenKind::Const)
-                } else {
-                    None
-                }
-            }
-            b'f' => match &token[1..5] {
-                b"alse" => Some(TokenKind::FalseValue),
-                b"loat" => Some(TokenKind::Float),
-                _ => None,
-            },
-            b'w' => {
-                if &token[1..5] == b"hile" {
-                    Some(TokenKind::While)
-                } else {
-                    None
-                }
-            }
+        (4, b'e') if token == b"else" => Some(TokenKind::Else),
+        (4, b'l') if token == b"loop" => Some(TokenKind::Loop),
+        (4, b't') if token == b"true" => Some(TokenKind::TrueValue),
+        
+        (5, b'a') if token == b"async" => Some(TokenKind::Async),
+        (5, b'b') if token == b"break" => Some(TokenKind::Break),
+        (5, b'c') if token == b"const" => Some(TokenKind::Const),
+        (5, b'f') => match token {
+            b"false" => Some(TokenKind::FalseValue),
+            b"float" => Some(TokenKind::Float),
             _ => None,
         },
-        6 => match token[0] {
-            b'r' => {
-                if &token[1..6] == b"eturn" {
-                    Some(TokenKind::Return)
-                } else {
-                    None
-                }
-            }
-            b's' => {
-                if &token[1..6] == b"truct" {
-                    Some(TokenKind::Struct)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        },
-        8 => {
-            if token == b"Infinity" {
-                Some(TokenKind::FloatValue)
-            } else {
-                None
-            }
-        }
+        (5, b'w') if token == b"while" => Some(TokenKind::While),
+        
+        (6, b'r') if token == b"return" => Some(TokenKind::Return),
+        (6, b's') if token == b"struct" => Some(TokenKind::Struct),
+        
+        (8, b'I') if token == b"Infinity" => Some(TokenKind::FloatValue),
+        
         _ => None,
     }
 }
@@ -874,30 +724,31 @@ impl TokenFlags {
     }
 }
 
-/// Given a first byte, determines how many bytes are in this UTF-8 character.
-const fn utf8_char_width(b: u8) -> usize {
-    UTF8_CHAR_WIDTHS[b as usize] as usize
-}
-
 fn decode_utf8_code_point(first: u8, tail: &[u8]) -> char {
     if first < 128 {
         return first as char;
     }
+
     if first & 0xE0 == 0xC0 {
-        let u = ((first as u32 & 0x1F) << 6) | (tail[0] as u32 & 0x3F);
-        return char::from_u32(u).unwrap();
+        let bytes = ((first as u32 & 0x1F) << 6) | (tail[0] as u32 & 0x3F);
+
+        return char::from_u32(bytes).unwrap();
     }
+
     if first & 0xF0 == 0xE0 {
-        let u = ((first as u32 & 0x0F) << 12)
+        let bytes = ((first as u32 & 0x0F) << 12)
             | ((tail[0] as u32 & 0x3F) << 6)
             | (tail[1] as u32 & 0x3F);
-        return char::from_u32(u).unwrap();
+
+        return char::from_u32(bytes).unwrap();
     }
-    let u = ((first as u32 & 0x07) << 18)
+
+    let bytes = ((first as u32 & 0x07) << 18)
         | ((tail[0] as u32 & 0x3F) << 12)
         | ((tail[1] as u32 & 0x3F) << 6)
         | (tail[2] as u32 & 0x3F);
-    char::from_u32(u).unwrap()
+
+    char::from_u32(bytes).unwrap()
 }
 
 // https://tools.ietf.org/html/rfc3629
@@ -933,6 +784,10 @@ impl Byte {
         }
     }
 
+    fn is_ascii(&self) -> bool {
+        self.0.is_ascii()
+    }
+
     fn is_ascii_digit(&self) -> bool {
         self.0.is_ascii_digit()
     }
@@ -943,6 +798,10 @@ impl Byte {
 
     fn is_whitespace(&self) -> bool {
         self.0.is_ascii_whitespace()
+    }
+
+    fn uft8_width(&self) -> usize {
+        UTF8_CHAR_WIDTHS[self.0 as usize] as usize
     }
 }
 
@@ -972,9 +831,7 @@ const ASCII_CLASSES: [AsciiClass; 128] = {
         let character = index as u8 as char;
 
         match character {
-            '0'..='9' => {
-                classes[index] = AsciiClass::DIGIT;
-            }
+            '0'..='9' => classes[index] = AsciiClass::DIGIT,
             'A'..='Z' | 'a'..='z' => classes[index] = AsciiClass::ALPHABETICAL,
             ' ' | '\t' | '\n' | '\r' => classes[index] = AsciiClass::WHITESPACE,
             '!' | '"' | '#' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.'
