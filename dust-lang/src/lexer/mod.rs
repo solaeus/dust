@@ -518,19 +518,28 @@ impl Iterator for Lexer<'_> {
                 self.token_start = Some(self.index);
                 self.token_flags = TokenFlags::start(byte);
 
-                // if !self.token_flags.starts_with_digit {
-                //     while self.index < self.len()
-                //         && let Some(class) = self.current_byte().ascii_class()
-                //         && !matches!(
-                //             class,
-                //             AsciiClass::WHITESPACE | AsciiClass::OPERATOR_OR_PUNCTUATION
-                //         )
-                //     {
-                //         self.index += 1;
-                //     }
+                if !self.token_flags.starts_with_digit {
+                    let mut next_index = self.index + 1;
 
-                //     continue;
-                // }
+                    while next_index < self.len() {
+                        let next_byte = Byte(self.source[next_index]);
+
+                        if next_byte.ascii_class().is_none_or(|class| {
+                            matches!(
+                                class,
+                                AsciiClass::WHITESPACE | AsciiClass::OPERATOR_OR_PUNCTUATION
+                            )
+                        }) {
+                            break;
+                        }
+
+                        next_index += 1;
+                    }
+
+                    self.index = next_index;
+
+                    continue;
+                }
             }
 
             if self.token_flags.starts_with_digit
@@ -552,7 +561,7 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
         (2, b'a') if token == b"as" => Some(TokenKind::As),
         (2, b'f') if token == b"fn" => Some(TokenKind::Fn),
         (2, b'i') if token == b"if" => Some(TokenKind::If),
-        
+
         (3, b'a') if token == b"any" => Some(TokenKind::Any),
         (3, b'i') if token == b"int" => Some(TokenKind::Int),
         (3, b'l') if token == b"let" => Some(TokenKind::Let),
@@ -565,7 +574,7 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
         (3, b'p') if token == b"pub" => Some(TokenKind::Pub),
         (3, b's') if token == b"str" => Some(TokenKind::Str),
         (3, b'u') if token == b"use" => Some(TokenKind::Use),
-        
+
         (4, b'b') => match token {
             b"bool" => Some(TokenKind::Bool),
             b"byte" => Some(TokenKind::Byte),
@@ -579,7 +588,7 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
         (4, b'e') if token == b"else" => Some(TokenKind::Else),
         (4, b'l') if token == b"loop" => Some(TokenKind::Loop),
         (4, b't') if token == b"true" => Some(TokenKind::TrueValue),
-        
+
         (5, b'a') if token == b"async" => Some(TokenKind::Async),
         (5, b'b') if token == b"break" => Some(TokenKind::Break),
         (5, b'c') if token == b"const" => Some(TokenKind::Const),
@@ -589,12 +598,12 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
             _ => None,
         },
         (5, b'w') if token == b"while" => Some(TokenKind::While),
-        
+
         (6, b'r') if token == b"return" => Some(TokenKind::Return),
         (6, b's') if token == b"struct" => Some(TokenKind::Struct),
-        
+
         (8, b'I') if token == b"Infinity" => Some(TokenKind::FloatValue),
-        
+
         _ => None,
     }
 }
