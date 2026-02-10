@@ -2,7 +2,7 @@ use crate::{jit_vm::run_main, tests::list_cases, value::Value};
 
 #[test]
 fn list_boolean() {
-    let source = list_cases::LIST_BOOLEAN.to_string();
+    let source = list_cases::LIST_BOOLEAN;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean_list(vec![true, false, true])));
@@ -10,7 +10,7 @@ fn list_boolean() {
 
 #[test]
 fn list_byte() {
-    let source = list_cases::LIST_BYTE.to_string();
+    let source = list_cases::LIST_BYTE;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::byte_list(vec![0x2A, 0x2B, 0x2C])));
@@ -18,7 +18,7 @@ fn list_byte() {
 
 #[test]
 fn list_character() {
-    let source = list_cases::LIST_CHARACTER.to_string();
+    let source = list_cases::LIST_CHARACTER;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::character_list(vec!['a', 'b', 'c'])));
@@ -26,7 +26,7 @@ fn list_character() {
 
 #[test]
 fn list_float() {
-    let source = list_cases::LIST_FLOAT.to_string();
+    let source = list_cases::LIST_FLOAT;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::float_list(vec![1.0, 2.0, 3.0])));
@@ -34,7 +34,7 @@ fn list_float() {
 
 #[test]
 fn list_integer() {
-    let source = list_cases::LIST_INTEGER.to_string();
+    let source = list_cases::LIST_INTEGER;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::integer_list(vec![1, 2, 3])));
@@ -42,7 +42,7 @@ fn list_integer() {
 
 #[test]
 fn list_string() {
-    let source = list_cases::LIST_STRING.to_string();
+    let source = list_cases::LIST_STRING;
     let result = run_main(source).unwrap();
 
     assert_eq!(
@@ -57,7 +57,7 @@ fn list_string() {
 
 #[test]
 fn list_equal() {
-    let source = list_cases::LIST_EQUAL.to_string();
+    let source = list_cases::LIST_EQUAL;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -65,7 +65,7 @@ fn list_equal() {
 
 #[test]
 fn list_not_equal() {
-    let source = list_cases::LIST_NOT_EQUAL.to_string();
+    let source = list_cases::LIST_NOT_EQUAL;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -73,7 +73,7 @@ fn list_not_equal() {
 
 #[test]
 fn list_greater_than() {
-    let source = list_cases::LIST_GREATER_THAN.to_string();
+    let source = list_cases::LIST_GREATER_THAN;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -81,7 +81,7 @@ fn list_greater_than() {
 
 #[test]
 fn list_less_than() {
-    let source = list_cases::LIST_LESS_THAN.to_string();
+    let source = list_cases::LIST_LESS_THAN;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -89,7 +89,7 @@ fn list_less_than() {
 
 #[test]
 fn list_greater_than_or_equal() {
-    let source = list_cases::LIST_GREATER_THAN_OR_EQUAL.to_string();
+    let source = list_cases::LIST_GREATER_THAN_OR_EQUAL;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -97,7 +97,7 @@ fn list_greater_than_or_equal() {
 
 #[test]
 fn list_less_than_or_equal() {
-    let source = list_cases::LIST_LESS_THAN_OR_EQUAL.to_string();
+    let source = list_cases::LIST_LESS_THAN_OR_EQUAL;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -105,7 +105,7 @@ fn list_less_than_or_equal() {
 
 #[test]
 fn list_index_boolean() {
-    let source = list_cases::LIST_INDEX_BOOLEAN.to_string();
+    let source = list_cases::LIST_INDEX_BOOLEAN;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -113,7 +113,7 @@ fn list_index_boolean() {
 
 #[test]
 fn list_index_byte() {
-    let source = list_cases::LIST_INDEX_BYTE.to_string();
+    let source = list_cases::LIST_INDEX_BYTE;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::byte(0x2B)));
@@ -121,7 +121,7 @@ fn list_index_byte() {
 
 #[test]
 fn list_index_character() {
-    let source = list_cases::LIST_INDEX_CHARACTER.to_string();
+    let source = list_cases::LIST_INDEX_CHARACTER;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::character('c')));
@@ -129,7 +129,7 @@ fn list_index_character() {
 
 #[test]
 fn list_index_float() {
-    let source = list_cases::LIST_INDEX_FLOAT.to_string();
+    let source = list_cases::LIST_INDEX_FLOAT;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::float(2.0)));
@@ -137,7 +137,7 @@ fn list_index_float() {
 
 #[test]
 fn list_index_integer() {
-    let source = list_cases::LIST_INDEX_INTEGER.to_string();
+    let source = list_cases::LIST_INDEX_INTEGER;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::integer(1)));
@@ -145,7 +145,7 @@ fn list_index_integer() {
 
 #[test]
 fn list_index_string() {
-    let source = list_cases::LIST_INDEX_STRING.to_string();
+    let source = list_cases::LIST_INDEX_STRING;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::string("baz".to_string())));
@@ -153,7 +153,7 @@ fn list_index_string() {
 
 #[test]
 fn local_list_boolean() {
-    let source = list_cases::LOCAL_LIST_BOOLEAN.to_string();
+    let source = list_cases::LOCAL_LIST_BOOLEAN;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean_list(vec![true, false, true])));
@@ -161,7 +161,7 @@ fn local_list_boolean() {
 
 #[test]
 fn local_list_equal() {
-    let source = list_cases::LOCAL_LIST_EQUAL.to_string();
+    let source = list_cases::LOCAL_LIST_EQUAL;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -169,7 +169,7 @@ fn local_list_equal() {
 
 #[test]
 fn local_list_not_equal() {
-    let source = list_cases::LOCAL_LIST_NOT_EQUAL.to_string();
+    let source = list_cases::LOCAL_LIST_NOT_EQUAL;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -177,7 +177,7 @@ fn local_list_not_equal() {
 
 #[test]
 fn local_list_greater_than() {
-    let source = list_cases::LOCAL_LIST_GREATER_THAN.to_string();
+    let source = list_cases::LOCAL_LIST_GREATER_THAN;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -185,7 +185,7 @@ fn local_list_greater_than() {
 
 #[test]
 fn local_list_less_than() {
-    let source = list_cases::LOCAL_LIST_LESS_THAN.to_string();
+    let source = list_cases::LOCAL_LIST_LESS_THAN;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -193,7 +193,7 @@ fn local_list_less_than() {
 
 #[test]
 fn local_list_greater_than_or_equal() {
-    let source = list_cases::LOCAL_LIST_GREATER_THAN_OR_EQUAL.to_string();
+    let source = list_cases::LOCAL_LIST_GREATER_THAN_OR_EQUAL;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
@@ -201,7 +201,7 @@ fn local_list_greater_than_or_equal() {
 
 #[test]
 fn local_list_less_than_or_equal() {
-    let source = list_cases::LOCAL_LIST_LESS_THAN_OR_EQUAL.to_string();
+    let source = list_cases::LOCAL_LIST_LESS_THAN_OR_EQUAL;
     let result = run_main(source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));

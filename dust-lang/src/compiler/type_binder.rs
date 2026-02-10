@@ -8,7 +8,7 @@ use crate::{
         resolver::{DeclarationId, DeclarationMembers, TypeMembers},
     },
     source::{Position, SourceFileId},
-    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
+    parser::syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
 };
 
 #[derive(Debug)]

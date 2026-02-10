@@ -9,7 +9,7 @@ use crate::{
 
 #[test]
 fn local_boolean_equal() {
-    let source = local_cases::LOCAL_BOOLEAN_EQUAL.to_string();
+    let source = local_cases::LOCAL_BOOLEAN_EQUAL;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -44,7 +44,7 @@ fn local_boolean_equal() {
 
 #[test]
 fn local_byte_equal() {
-    let source = local_cases::LOCAL_BYTE_EQUAL.to_string();
+    let source = local_cases::LOCAL_BYTE_EQUAL;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -79,7 +79,7 @@ fn local_byte_equal() {
 
 #[test]
 fn local_character_equal() {
-    let source = local_cases::LOCAL_CHARACTER_EQUAL.to_string();
+    let source = local_cases::LOCAL_CHARACTER_EQUAL;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -114,7 +114,7 @@ fn local_character_equal() {
 
 #[test]
 fn local_float_equal() {
-    let source = local_cases::LOCAL_FLOAT_EQUAL.to_string();
+    let source = local_cases::LOCAL_FLOAT_EQUAL;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -149,7 +149,7 @@ fn local_float_equal() {
 
 #[test]
 fn local_integer_equal() {
-    let source = local_cases::LOCAL_INTEGER_EQUAL.to_string();
+    let source = local_cases::LOCAL_INTEGER_EQUAL;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -184,7 +184,7 @@ fn local_integer_equal() {
 
 #[test]
 fn local_string_equal() {
-    let source = local_cases::LOCAL_STRING_EQUAL.to_string();
+    let source = local_cases::LOCAL_STRING_EQUAL;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(

@@ -21,7 +21,6 @@ pub mod parser;
 pub mod project;
 pub mod prototype;
 pub mod source;
-pub mod syntax;
 pub mod token;
 pub mod r#type;
 pub mod value;

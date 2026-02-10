@@ -11,7 +11,7 @@ use crate::{
 #[test]
 fn while_loop() {
     let source = create_function_case(loop_cases::WHILE_LOOP, OperandType::INTEGER);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(

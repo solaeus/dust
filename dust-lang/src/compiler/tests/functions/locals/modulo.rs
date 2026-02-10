@@ -11,7 +11,7 @@ use crate::{
 #[test]
 fn local_byte_modulo() {
     let source = create_function_case(local_cases::LOCAL_BYTE_MODULO, OperandType::BYTE);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -42,7 +42,7 @@ fn local_byte_modulo() {
 #[test]
 fn local_float_modulo() {
     let source = create_function_case(local_cases::LOCAL_FLOAT_MODULO, OperandType::FLOAT);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -73,7 +73,7 @@ fn local_float_modulo() {
 #[test]
 fn local_integer_modulo() {
     let source = create_function_case(local_cases::LOCAL_INTEGER_MODULO, OperandType::INTEGER);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -104,7 +104,7 @@ fn local_integer_modulo() {
 #[test]
 fn local_mut_byte_modulo() {
     let source = create_function_case(local_cases::LOCAL_MUT_BYTE_MODULO, OperandType::BYTE);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -134,7 +134,7 @@ fn local_mut_byte_modulo() {
 #[test]
 fn local_mut_float_modulo() {
     let source = create_function_case(local_cases::LOCAL_MUT_FLOAT_MODULO, OperandType::FLOAT);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -164,7 +164,7 @@ fn local_mut_float_modulo() {
 #[test]
 fn local_mut_integer_modulo() {
     let source = create_function_case(local_cases::LOCAL_MUT_INTEGER_MODULO, OperandType::INTEGER);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(

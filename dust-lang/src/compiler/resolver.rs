@@ -13,9 +13,9 @@ use crate::{
     constant_table::{ConstantId, ConstantTable},
     instruction::OperandType,
     native_function::NativeFunction,
+    parser::syntax::{SyntaxId, SyntaxKind, SyntaxReader},
     prototype::Prototype,
     source::{Position, Source},
-    syntax::{SyntaxId, SyntaxKind, SyntaxReader},
     r#type::{FunctionType, Type},
 };
 

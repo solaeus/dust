@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{source::Span, syntax::SyntaxId};
+use crate::{parser::syntax::SyntaxId, source::Span};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SyntaxNode {
@@ -19,11 +19,11 @@ impl SyntaxNode {
             | SyntaxKind::BlockExpression
             | SyntaxKind::ListExpression
             | SyntaxKind::Path
-            | SyntaxKind::CallValueArguments
             | SyntaxKind::ValueParametersDefinition
             | SyntaxKind::IfExpression
             | SyntaxKind::StructFieldsDefinition
-            | SyntaxKind::StructFields => SyntaxNodeChildren::Multiple(self.payload),
+            | SyntaxKind::StructFields
+            | SyntaxKind::CallValueArguments => SyntaxNodeChildren::Multiple(self.payload),
             SyntaxKind::ExpressionStatement
             | SyntaxKind::PathExpression
             | SyntaxKind::GroupedExpression
@@ -106,7 +106,7 @@ impl Display for SyntaxNode {
             SyntaxKind::StringExpression => {
                 let string = self.payload.decode_string();
 
-                write!(f, ": \"{string}\"")?;
+                write!(f, ": \"{string}\" (length: {})", self.span.length() - 2)?;
             }
             _ => {}
         }
@@ -574,7 +574,7 @@ impl SyntaxPayload {
         let mut encoded_bytes = [0u8; 8];
 
         encoded_bytes[0] = length as u8;
-        encoded_bytes[1..length + 1].copy_from_slice(string_bytes);
+        encoded_bytes[1..length + 1].copy_from_slice(&string_bytes[..length]);
 
         let left = u32::from_le_bytes([
             encoded_bytes[0],

@@ -9,7 +9,7 @@ use crate::{
 
 #[test]
 fn local_boolean_greater_than_or_equal() {
-    let source = local_cases::LOCAL_BOOLEAN_GREATER_THAN_OR_EQUAL.to_string();
+    let source = local_cases::LOCAL_BOOLEAN_GREATER_THAN_OR_EQUAL;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -44,7 +44,7 @@ fn local_boolean_greater_than_or_equal() {
 
 #[test]
 fn local_byte_greater_than_or_equal() {
-    let source = local_cases::LOCAL_BYTE_GREATER_THAN_OR_EQUAL.to_string();
+    let source = local_cases::LOCAL_BYTE_GREATER_THAN_OR_EQUAL;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -79,7 +79,7 @@ fn local_byte_greater_than_or_equal() {
 
 #[test]
 fn local_character_greater_than_or_equal() {
-    let source = local_cases::LOCAL_CHARACTER_GREATER_THAN_OR_EQUAL.to_string();
+    let source = local_cases::LOCAL_CHARACTER_GREATER_THAN_OR_EQUAL;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -114,7 +114,7 @@ fn local_character_greater_than_or_equal() {
 
 #[test]
 fn local_float_greater_than_or_equal() {
-    let source = local_cases::LOCAL_FLOAT_GREATER_THAN_OR_EQUAL.to_string();
+    let source = local_cases::LOCAL_FLOAT_GREATER_THAN_OR_EQUAL;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -149,7 +149,7 @@ fn local_float_greater_than_or_equal() {
 
 #[test]
 fn local_integer_greater_than_or_equal() {
-    let source = local_cases::LOCAL_INTEGER_GREATER_THAN_OR_EQUAL.to_string();
+    let source = local_cases::LOCAL_INTEGER_GREATER_THAN_OR_EQUAL;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -184,7 +184,7 @@ fn local_integer_greater_than_or_equal() {
 
 #[test]
 fn local_string_greater_than_or_equal() {
-    let source = local_cases::LOCAL_STRING_GREATER_THAN_OR_EQUAL.to_string();
+    let source = local_cases::LOCAL_STRING_GREATER_THAN_OR_EQUAL;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(

@@ -1,14 +1,14 @@
 use crate::{
-    parser::parse_main,
+    parser::parse,
+    parser::syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload},
     source::Span,
-    syntax::{SyntaxKind, SyntaxNode, SyntaxPayload},
     tests::local_cases,
 };
 
 #[test]
 fn local_boolean_and() {
-    let source = local_cases::LOCAL_BOOLEAN_AND.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_BOOLEAN_AND;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -16,12 +16,12 @@ fn local_boolean_and() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(6, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
                 span: Span(0, 49),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -31,7 +31,7 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -46,12 +46,12 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(15, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(3, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
                 span: Span(21, 41),
             },
             SyntaxNode {
@@ -61,7 +61,7 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(25, 26),
             },
             SyntaxNode {
@@ -76,7 +76,7 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(35, 41),
             },
             SyntaxNode {
@@ -86,17 +86,17 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(42, 43),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(14),
+                payload: SyntaxPayload::child(SyntaxId(14)),
                 span: Span(42, 43),
             },
             SyntaxNode {
                 kind: SyntaxKind::AndExpression,
-                payload: SyntaxPayload::binary_children(15, 18),
+                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(18)),
                 span: Span(42, 48),
             },
             SyntaxNode {
@@ -106,12 +106,12 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(47, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(17),
+                payload: SyntaxPayload::child(SyntaxId(17)),
                 span: Span(47, 48),
             },
         ]

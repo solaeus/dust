@@ -9,7 +9,7 @@ use crate::{
 
 #[test]
 fn local_boolean_not() {
-    let source = local_cases::LOCAL_BOOLEAN_NOT.to_string();
+    let source = local_cases::LOCAL_BOOLEAN_NOT;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(

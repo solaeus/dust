@@ -21,15 +21,17 @@ use crate::{
     dust_crate::Program,
     dust_error::DustError,
     lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::{
+        ParseResult, Parser,
+        syntax::{Syntax, SyntaxId},
+    },
     prototype::Prototype,
     source::{Source, SourceFile, SourceFileId},
-    syntax::{Syntax, SyntaxId},
 };
 
-pub fn compile_main_prototype(source_code: String) -> Result<Prototype, DustError> {
+pub fn compile_main_prototype<'src>(source_code: &'src str) -> Result<Prototype, DustError<'src>> {
     let mut source = Source::new();
-    source.add_file(SourceFile::embedded_string("eval".to_string(), source_code));
+    source.add_file(SourceFile::embedded_validated("eval", source_code));
 
     let compiler = Compiler::new(source);
     let mut program = compiler.compile(None)?;
@@ -37,10 +39,10 @@ pub fn compile_main_prototype(source_code: String) -> Result<Prototype, DustErro
     Ok(program.prototypes.remove(0))
 }
 
-pub fn compile_prototypes(source_code: String) -> Result<Vec<Prototype>, DustError> {
+pub fn compile_prototypes<'src>(source_code: &'src str) -> Result<Vec<Prototype>, DustError<'src>> {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::embedded_string("eval".to_string(), source_code));
+    source.add_file(SourceFile::embedded_validated("eval", source_code));
 
     let compiler = Compiler::new(source);
     let program = compiler.compile(None)?;
@@ -48,14 +50,14 @@ pub fn compile_prototypes(source_code: String) -> Result<Vec<Prototype>, DustErr
     Ok(program.prototypes)
 }
 
-pub struct Compiler {
+pub struct Compiler<'src> {
     syntax: Syntax,
-    source: Source,
+    source: Source<'src>,
     resolver: Resolver,
 }
 
-impl Compiler {
-    pub fn new(source: Source) -> Self {
+impl<'src> Compiler<'src> {
+    pub fn new(source: Source<'src>) -> Self {
         Self {
             syntax: Syntax::new(source.file_count()),
             source,
@@ -67,15 +69,15 @@ impl Compiler {
         &self.resolver
     }
 
-    pub fn compile(self, program_name: Option<&str>) -> Result<Program, DustError> {
+    pub fn compile(self, program_name: Option<&'src str>) -> Result<Program, DustError<'src>> {
         self.compile_with_extras(program_name)
             .map(|(program, _, _)| program)
     }
 
     pub fn compile_with_extras(
         self,
-        program_name: Option<&str>,
-    ) -> Result<(Program, Source, Syntax), DustError> {
+        program_name: Option<&'src str>,
+    ) -> Result<(Program, Source<'src>, Syntax), DustError<'src>> {
         let (
             Resolver {
                 constants,
@@ -90,7 +92,7 @@ impl Compiler {
         Ok((program, source, syntax))
     }
 
-    fn compile_inner(mut self) -> Result<(Resolver, Source, Syntax), DustError> {
+    fn compile_inner(mut self) -> Result<(Resolver, Source<'src>, Syntax), DustError<'src>> {
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
 
@@ -103,9 +105,9 @@ impl Compiler {
 
             for (file_id, file) in self.source.iter() {
                 let lexer = if file.is_utf8_validated() {
-                    Lexer::validated(file.full_source_str())
+                    Lexer::from_utf8(file.content_as_str())
                 } else {
-                    Lexer::new(file.full_source_bytes())
+                    Lexer::from_bytes(file.content_as_bytes())
                 };
                 let parser = Parser::new(file_id, lexer);
                 let ParseResult {

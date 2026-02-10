@@ -4,10 +4,55 @@ mod tests;
 use std::hint::cold_path;
 
 use crate::{
-    source::Span,
+    dust_error::DustError,
+    parser::ParseError,
+    source::{Position, Source, SourceFile, Span},
     token::{Token, TokenKind},
 };
 use unicode_ident::{is_xid_continue, is_xid_start};
+
+pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, DustError<'_>> {
+    let mut source = Source::with_capacity(1);
+    let file_id = source.add_file(SourceFile::embedded("tokenize", bytes));
+
+    let mut lexer = Lexer::from_bytes(bytes);
+    let mut tokens = Vec::new();
+
+    for token in &mut lexer {
+        tokens.push(token);
+    }
+
+    if lexer.error {
+        let error_index = lexer.error_index().unwrap_or(0);
+        let position = Position::new(file_id, Span::new(error_index, error_index));
+        let error = ParseError::InvalidUtf8 { position };
+
+        return Err(DustError::parse(vec![error], source));
+    }
+
+    Ok(tokens)
+}
+
+pub fn tokenize_str(str: &str) -> Result<Vec<Token>, DustError<'_>> {
+    let mut source = Source::with_capacity(1);
+    let file_id = source.add_file(SourceFile::embedded_validated("tokenize", str));
+
+    let mut lexer = Lexer::from_utf8(str);
+    let mut tokens = Vec::new();
+
+    for token in &mut lexer {
+        tokens.push(token);
+    }
+
+    if let Some(error_index) = lexer.error_index() {
+        let position = Position::new(file_id, Span::new(error_index, error_index));
+        let error = ParseError::InvalidUtf8 { position };
+
+        return Err(DustError::parse(vec![error], source));
+    }
+
+    Ok(tokens)
+}
 
 #[derive(Debug)]
 pub struct Lexer<'src> {
@@ -15,36 +60,34 @@ pub struct Lexer<'src> {
     index: usize,
     token_start: Option<usize>,
     token_flags: TokenFlags,
-    is_eof_or_error: bool,
+    eof: bool,
+    error: bool,
     utf8_validated: bool,
 }
 
 impl<'src> Lexer<'src> {
-    pub fn new(source: &'src [u8]) -> Self {
+    pub fn from_bytes(source: &'src [u8]) -> Self {
         Self {
             source,
             index: 0,
             token_start: None,
             token_flags: TokenFlags::default(),
-            is_eof_or_error: false,
+            eof: false,
+            error: false,
             utf8_validated: false,
         }
     }
 
-    pub fn validated(source: &'src str) -> Self {
-        Self {
-            source: source.as_bytes(),
-            index: 0,
-            token_start: None,
-            token_flags: TokenFlags::default(),
-            is_eof_or_error: false,
-            utf8_validated: true,
-        }
+    pub fn from_utf8(source: &'src str) -> Self {
+        Self::from_bytes(source.as_bytes())
     }
 
-    #[inline(always)]
     pub fn source(&self) -> &'src [u8] {
         self.source
+    }
+
+    pub fn error_index(&self) -> Option<usize> {
+        if self.error { Some(self.index) } else { None }
     }
 
     #[inline(always)]
@@ -104,7 +147,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline(always)]
-    fn handle_non_ascii(&mut self) -> Result<(), usize> {
+    fn handle_non_ascii(&mut self) -> Result<(), ()> {
         match self.scan_utf8_sequence(self.index) {
             Ok(width) => {
                 let first_byte = self.source[self.index];
@@ -142,9 +185,10 @@ impl<'src> Lexer<'src> {
                 Ok(())
             }
             Err(err_index) => {
-                self.is_eof_or_error = true;
+                self.error = true;
+                self.index = err_index;
 
-                Err(err_index)
+                Err(())
             }
         }
     }
@@ -253,7 +297,7 @@ impl<'src> Lexer<'src> {
         self.index = self.source.len();
 
         Ok(Some(Token {
-            kind: TokenKind::StringValue,
+            kind: TokenKind::Unknown,
             span: Span::new(start, self.index),
         }))
     }
@@ -304,33 +348,33 @@ impl<'src> Lexer<'src> {
 }
 
 impl Iterator for Lexer<'_> {
-    type Item = Result<Token, usize>;
+    type Item = Token;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if self.is_eof_or_error {
+            if self.eof || self.error {
                 return None;
             }
 
             if self.index >= self.source.len() {
                 if let Some(token) = self.finish_token() {
-                    return Some(Ok(token));
+                    return Some(token);
                 }
 
-                self.is_eof_or_error = true;
+                self.eof = true;
 
-                return Some(Ok(Token {
+                return Some(Token {
                     kind: TokenKind::Eof,
                     span: Span::new(self.source.len(), self.source.len()),
-                }));
+                });
             }
 
             let mut current_byte = self.source[self.index];
 
             if current_byte.is_ascii_whitespace() {
                 if let Some(token) = self.finish_token() {
-                    return Some(Ok(token));
+                    return Some(token);
                 }
 
                 self.index += 1;
@@ -347,55 +391,58 @@ impl Iterator for Lexer<'_> {
 
                 if self.index >= self.source.len() {
                     if let Some(token) = self.finish_token() {
-                        return Some(Ok(token));
+                        return Some(token);
                     }
 
-                    self.is_eof_or_error = true;
+                    self.eof = true;
 
                     let length = self.source.len() as u32;
 
-                    return Some(Ok(Token {
+                    return Some(Token {
                         kind: TokenKind::Eof,
                         span: Span(length, length),
-                    }));
+                    });
                 }
             }
 
             if current_byte == b'"' {
                 if let Some(token) = self.finish_token() {
-                    return Some(Ok(token));
+                    return Some(token);
                 }
+
                 match self.scan_string() {
-                    Ok(Some(token)) => return Some(Ok(token)),
+                    Ok(Some(token)) => return Some(token),
                     Ok(None) => {
                         self.index += 1;
 
                         continue;
                     }
-                    Err(err_index) => {
-                        self.is_eof_or_error = true;
+                    Err(error_index) => {
+                        self.error = true;
+                        self.index = error_index;
 
-                        return Some(Err(err_index));
+                        return None;
                     }
                 }
             }
 
             if current_byte == b'\'' {
                 if let Some(token) = self.finish_token() {
-                    return Some(Ok(token));
+                    return Some(token);
                 }
 
                 match self.scan_chararacter() {
-                    Ok(Some(token)) => return Some(Ok(token)),
+                    Ok(Some(token)) => return Some(token),
                     Ok(None) => {
                         self.index += 1;
 
                         continue;
                     }
-                    Err(err_index) => {
-                        self.is_eof_or_error = true;
+                    Err(error_index) => {
+                        self.error = true;
+                        self.index = error_index;
 
-                        return Some(Err(err_index));
+                        return None;
                     }
                 }
             }
@@ -423,8 +470,8 @@ impl Iterator for Lexer<'_> {
             let current_class = current_byte.class();
 
             if current_class.is_operator_or_punctuation() {
-                if let Some(tok) = self.finish_token() {
-                    return Some(Ok(tok));
+                if let Some(token) = self.finish_token() {
+                    return Some(token);
                 }
 
                 if current_byte == b'-' && self.index + 9 <= self.source.len() {
@@ -438,7 +485,7 @@ impl Iterator for Lexer<'_> {
                             let kind = TokenKind::FloatValue;
                             self.index += 9;
 
-                            return Some(Ok(Token { kind, span }));
+                            return Some(Token { kind, span });
                         }
                     }
                 }
@@ -447,7 +494,7 @@ impl Iterator for Lexer<'_> {
                 let span = Span::new(self.index, self.index + width);
                 self.index += width;
 
-                return Some(Ok(Token { kind, span }));
+                return Some(Token { kind, span });
             }
 
             if self.token_start.is_none() {
@@ -491,9 +538,7 @@ impl Iterator for Lexer<'_> {
 
                 match self.handle_non_ascii() {
                     Ok(()) => continue,
-                    Err(err_index) => {
-                        return Some(Err(err_index));
-                    }
+                    Err(_) => return None,
                 }
             }
 

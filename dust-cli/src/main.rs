@@ -9,6 +9,7 @@ mod cli;
 mod compile;
 mod parse;
 mod run;
+mod tokenize;
 
 use std::{
     fmt::{self},
@@ -20,14 +21,11 @@ use std::{
 
 use clap::Parser as CliParser;
 use dust_lang::{
-    dust_error::DustError,
-    lexer::Lexer,
     project::{EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
     source::{Source, SourceFile},
-    token::Token,
 };
 use memmap2::MmapOptions;
-use tracing::{Event, Level, Subscriber, error, level_filters::LevelFilter};
+use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
     fmt::{FmtContext, FormatEvent, FormatFields, format::Writer},
     registry::LookupSpan,
@@ -38,6 +36,7 @@ use crate::{
     compile::handle_compile_command,
     parse::handle_parse_command,
     run::handle_run_command,
+    tokenize::handle_tokenize_command,
 };
 
 fn main() {
@@ -78,72 +77,7 @@ fn main() {
     }
 
     if mode == Mode::Tokenize {
-        let tokenize_bytes = |source: &[u8]| {
-            let lexer = Lexer::new(source);
-            let tokenize_time = start_time.elapsed();
-
-            if !no_output {
-                let mut output_buffer = Vec::new();
-
-                for ut8_result in lexer {
-                    match ut8_result {
-                        Ok(token) => println!("{token}"),
-                        Err(error_index) => {
-                            error!("Invalid UTF-8 sequence starting at byte index {error_index}");
-                        }
-                    }
-
-                    if output_buffer.len() >= 1024 {
-                        io::stdout()
-                            .write_all(&output_buffer)
-                            .expect("Failed to write to stdout");
-                        output_buffer.clear();
-                    }
-                }
-
-                io::stdout()
-                    .write_all(&output_buffer)
-                    .expect("Failed to write to stdout");
-            }
-
-            if time {
-                print_times(&[("Tokenization", tokenize_time, None)]);
-            }
-        };
-
-        if let Some(path) = path {
-            let file = File::open(&path).expect("Failed to open source file");
-            let mmap =
-                unsafe { MmapOptions::new().map(&file) }.expect("Failed to memory map source file");
-
-            tokenize_bytes(&mmap);
-        } else if stdin {
-            let mut buffer = Vec::new();
-
-            io::stdin()
-                .read_to_end(&mut buffer)
-                .expect("Failed to read from stdin");
-
-            tokenize_bytes(&buffer);
-        } else if let Some(eval) = eval {
-            let mut lexer = Lexer::validated(&eval);
-            let tokens = lexer
-                .try_collect::<Vec<Token>>()
-                .expect("Failed to tokenize source");
-            let tokenize_time = start_time.elapsed();
-
-            if !no_output {
-                for token in &tokens {
-                    println!("{token}");
-                }
-            }
-
-            if time {
-                print_times(&[("Tokenization", tokenize_time, None)]);
-            }
-        } else {
-            panic!("No readable input source provided");
-        };
+        handle_tokenize_command(eval, path, stdin, no_output, time, start_time);
 
         return;
     }
@@ -258,14 +192,20 @@ pub fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
     }
 }
 
-fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> Source {
+fn handle_source<'src>(
+    eval: &'src Option<String>,
+    path: Option<PathBuf>,
+    stdin: bool,
+) -> Source<'src> {
     let mut source = Source::new();
 
     if let Some(source_string) = eval {
-        let file = SourceFile::embedded_string("eval".to_string(), source_string);
+        let file = SourceFile::embedded_validated("CLI Input", source_string);
 
         source.add_file(file);
-    } else if let Some(path) = path {
+    }
+
+    if let Some(path) = path {
         if path.is_dir() {
             let config_path = path.join(PROJECT_CONFIG_PATH);
             let config = if config_path.exists() {
@@ -285,16 +225,18 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
                     config_path.display()
                 );
             };
+
             let main_file_path = if let Some(program) = config.program {
                 path.join(program.path)
             } else {
                 path.join("src").join("main.ds")
             };
-            let main_file = File::open(&main_file_path)
-                .expect("Failed to open main source file from project config");
+            let main_file = File::open(&main_file_path).expect("Failed to open main source file");
             let mmap = unsafe { MmapOptions::new().map(&main_file) }
                 .expect("Failed to memory map main source file");
-            let file = SourceFile::file(main_file_path, mmap);
+            let file = SourceFile::file(main_file_path, mmap).unwrap_or_else(|error| {
+                panic!("Failed to create source file for main source file: {error}")
+            });
 
             source.add_file(file);
 
@@ -305,30 +247,31 @@ fn handle_source(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> So
                     .expect("Failed to open library source file from project config");
                 let mmap = unsafe { MmapOptions::new().map(&lib_file) }
                     .expect("Failed to memory map library source file");
-                let file = SourceFile::file(lib_file_path, mmap);
+                let file =
+                    SourceFile::file(lib_file_path, mmap).unwrap_or_else(|error| panic!("{error}"));
 
                 source.add_file(file);
             }
         } else {
             let file = File::open(&path).expect("Failed to open file");
             let mmap = unsafe { MmapOptions::new().map(&file).expect("Failed to map file") };
-            let file = SourceFile::file(path, mmap);
+            let file = SourceFile::file(path, mmap).unwrap_or_else(|error| panic!("{error}"));
 
             source.add_file(file);
         }
-    } else if stdin {
+    }
+
+    if stdin {
         let mut buffer = Vec::new();
 
         io::stdin()
             .read_to_end(&mut buffer)
             .expect("Failed to read from stdin");
 
-        let file = SourceFile::embedded_bytes("stdin".to_string(), buffer);
+        let file = SourceFile::embedded_owned("stdin", buffer);
 
         source.add_file(file);
-    } else {
-        panic!("No source code provided")
-    };
+    }
 
     source
 }

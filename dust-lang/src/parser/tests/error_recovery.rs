@@ -1,9 +1,9 @@
-use crate::{parser::parse_main, syntax::SyntaxKind};
+use crate::{parser::parse, parser::syntax::SyntaxKind};
 
 #[test]
 fn unclosed_block() {
     let source = "{";
-    let (syntax_tree, error) = parse_main(source.to_string());
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_some());
 
@@ -15,7 +15,7 @@ fn unclosed_block() {
 #[test]
 fn unclosed_list() {
     let source = "[";
-    let (syntax_tree, _error) = parse_main(source.to_string());
+    let (syntax_tree, _error) = parse(source);
 
     let nodes = syntax_tree.sorted_nodes();
     assert!(!nodes.is_empty());
@@ -25,7 +25,7 @@ fn unclosed_list() {
 #[test]
 fn unclosed_call() {
     let source = "test(";
-    let (syntax_tree, _error) = parse_main(source.to_string());
+    let (syntax_tree, _error) = parse(source);
 
     let nodes = syntax_tree.sorted_nodes();
     assert!(!nodes.is_empty());
@@ -35,7 +35,7 @@ fn unclosed_call() {
 #[test]
 fn unclosed_function_parameters() {
     let source = "fn test(";
-    let (syntax_tree, error) = parse_main(source.to_string());
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_some());
 
@@ -47,7 +47,7 @@ fn unclosed_function_parameters() {
 #[test]
 fn nested_unclosed_blocks() {
     let source = "{ { {";
-    let (syntax_tree, error) = parse_main(source.to_string());
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_some());
 
@@ -59,7 +59,7 @@ fn nested_unclosed_blocks() {
 #[test]
 fn mixed_unclosed_delimiters() {
     let source = "{ [ (";
-    let (syntax_tree, error) = parse_main(source.to_string());
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_some());
 
@@ -71,7 +71,7 @@ fn mixed_unclosed_delimiters() {
 #[test]
 fn unclosed_block_with_content() {
     let source = "{ let x = 42";
-    let (syntax_tree, error) = parse_main(source.to_string());
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_some());
 

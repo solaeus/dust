@@ -1,14 +1,14 @@
 use crate::{
-    parser::parse_main,
+    parser::parse,
+    parser::syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload},
     source::Span,
-    syntax::{SyntaxKind, SyntaxNode, SyntaxPayload},
     tests::list_cases,
 };
 
 #[test]
 fn list_equal() {
-    let source = list_cases::LIST_EQUAL.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = list_cases::LIST_EQUAL;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -16,17 +16,17 @@ fn list_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(4, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
                 span: Span(0, 30),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(0, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(2)),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
-                payload: SyntaxPayload::binary_children(3, 6),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(6)),
                 span: Span(0, 30),
             },
             SyntaxNode {
@@ -41,7 +41,7 @@ fn list_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(2, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(2)),
                 span: Span(17, 30),
             },
             SyntaxNode {
@@ -60,8 +60,8 @@ fn list_equal() {
 
 #[test]
 fn list_not_equal() {
-    let source = list_cases::LIST_NOT_EQUAL.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = list_cases::LIST_NOT_EQUAL;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -69,17 +69,17 @@ fn list_not_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(4, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
                 span: Span(0, 28),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(0, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(2)),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
-                payload: SyntaxPayload::binary_children(3, 6),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(6)),
                 span: Span(0, 28),
             },
             SyntaxNode {
@@ -94,7 +94,7 @@ fn list_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(2, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(2)),
                 span: Span(16, 28),
             },
             SyntaxNode {
@@ -113,8 +113,8 @@ fn list_not_equal() {
 
 #[test]
 fn list_greater_than() {
-    let source = list_cases::LIST_GREATER_THAN.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = list_cases::LIST_GREATER_THAN;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -122,42 +122,42 @@ fn list_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(4, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(0, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(2)),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                payload: SyntaxPayload::binary_children(3, 6),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(6)),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                payload: SyntaxPayload::child(98),
+                payload: SyntaxPayload::child(SyntaxId(98)),
                 span: Span(1, 4),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                payload: SyntaxPayload::child(97),
+                payload: SyntaxPayload::child(SyntaxId(97)),
                 span: Span(6, 9),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(2, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(2)),
                 span: Span(13, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                payload: SyntaxPayload::child(97),
+                payload: SyntaxPayload::child(SyntaxId(97)),
                 span: Span(14, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                payload: SyntaxPayload::child(98),
+                payload: SyntaxPayload::child(SyntaxId(98)),
                 span: Span(19, 22),
             },
         ]
@@ -166,8 +166,8 @@ fn list_greater_than() {
 
 #[test]
 fn list_less_than() {
-    let source = list_cases::LIST_LESS_THAN.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = list_cases::LIST_LESS_THAN;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -175,17 +175,17 @@ fn list_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(4, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(0, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(2)),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                payload: SyntaxPayload::binary_children(3, 6),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(6)),
                 span: Span(0, 23),
             },
             SyntaxNode {
@@ -200,7 +200,7 @@ fn list_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(2, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(2)),
                 span: Span(13, 23),
             },
             SyntaxNode {
@@ -219,8 +219,8 @@ fn list_less_than() {
 
 #[test]
 fn list_greater_than_or_equal() {
-    let source = list_cases::LIST_GREATER_THAN_OR_EQUAL.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = list_cases::LIST_GREATER_THAN_OR_EQUAL;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -228,17 +228,17 @@ fn list_greater_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(4, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
                 span: Span(0, 16),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(0, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(2)),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
-                payload: SyntaxPayload::binary_children(3, 6),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(6)),
                 span: Span(0, 16),
             },
             SyntaxNode {
@@ -253,7 +253,7 @@ fn list_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(2, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(2)),
                 span: Span(10, 16),
             },
             SyntaxNode {
@@ -272,8 +272,8 @@ fn list_greater_than_or_equal() {
 
 #[test]
 fn list_less_than_or_equal() {
-    let source = list_cases::LIST_LESS_THAN_OR_EQUAL.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = list_cases::LIST_LESS_THAN_OR_EQUAL;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -281,17 +281,17 @@ fn list_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(4, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
                 span: Span(0, 32),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(0, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(2)),
                 span: Span(0, 14),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                payload: SyntaxPayload::binary_children(3, 6),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(6)),
                 span: Span(0, 32),
             },
             SyntaxNode {
@@ -306,7 +306,7 @@ fn list_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(2, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(2)),
                 span: Span(18, 32),
             },
             SyntaxNode {

@@ -13,12 +13,12 @@ use crate::{
     constant_table::ConstantId,
     instruction::{Address, Drop, Instruction, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
-    prototype::Prototype,
-    source::{Position, Source, SourceFileId, Span},
-    syntax::{
+    parser::syntax::{
         Syntax, SyntaxError, SyntaxId, SyntaxKind, SyntaxReader, SyntaxReaderMultipleIterator,
         SyntaxVisitor,
     },
+    prototype::Prototype,
+    source::{Position, Source, SourceFileId, Span},
     r#type::Type,
 };
 
@@ -28,7 +28,7 @@ pub struct Emitter<'a> {
 
     prototype_index: u16,
 
-    source: &'a Source,
+    source: &'a Source<'a>,
 
     syntax: &'a Syntax,
 

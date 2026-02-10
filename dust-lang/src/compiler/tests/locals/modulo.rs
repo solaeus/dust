@@ -9,7 +9,7 @@ use crate::{
 
 #[test]
 fn local_byte_modulo() {
-    let source = local_cases::LOCAL_BYTE_MODULO.to_string();
+    let source = local_cases::LOCAL_BYTE_MODULO;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -36,7 +36,7 @@ fn local_byte_modulo() {
 
 #[test]
 fn local_float_modulo() {
-    let source = local_cases::LOCAL_FLOAT_MODULO.to_string();
+    let source = local_cases::LOCAL_FLOAT_MODULO;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -63,7 +63,7 @@ fn local_float_modulo() {
 
 #[test]
 fn local_integer_modulo() {
-    let source = local_cases::LOCAL_INTEGER_MODULO.to_string();
+    let source = local_cases::LOCAL_INTEGER_MODULO;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -90,7 +90,7 @@ fn local_integer_modulo() {
 
 #[test]
 fn local_mut_byte_modulo() {
-    let source = local_cases::LOCAL_MUT_BYTE_MODULO.to_string();
+    let source = local_cases::LOCAL_MUT_BYTE_MODULO;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -116,7 +116,7 @@ fn local_mut_byte_modulo() {
 
 #[test]
 fn local_mut_float_modulo() {
-    let source = local_cases::LOCAL_MUT_FLOAT_MODULO.to_string();
+    let source = local_cases::LOCAL_MUT_FLOAT_MODULO;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -142,7 +142,7 @@ fn local_mut_float_modulo() {
 
 #[test]
 fn local_mut_integer_modulo() {
-    let source = local_cases::LOCAL_MUT_INTEGER_MODULO.to_string();
+    let source = local_cases::LOCAL_MUT_INTEGER_MODULO;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(

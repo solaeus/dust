@@ -14,7 +14,7 @@ fn local_boolean_greater_than() {
         local_cases::LOCAL_BOOLEAN_GREATER_THAN,
         OperandType::BOOLEAN,
     );
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -53,7 +53,7 @@ fn local_boolean_greater_than() {
 #[test]
 fn local_byte_greater_than() {
     let source = create_function_case(local_cases::LOCAL_BYTE_GREATER_THAN, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -95,7 +95,7 @@ fn local_character_greater_than() {
         local_cases::LOCAL_CHARACTER_GREATER_THAN,
         OperandType::BOOLEAN,
     );
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -134,7 +134,7 @@ fn local_character_greater_than() {
 #[test]
 fn local_float_greater_than() {
     let source = create_function_case(local_cases::LOCAL_FLOAT_GREATER_THAN, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -176,7 +176,7 @@ fn local_integer_greater_than() {
         local_cases::LOCAL_INTEGER_GREATER_THAN,
         OperandType::BOOLEAN,
     );
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -215,7 +215,7 @@ fn local_integer_greater_than() {
 #[test]
 fn local_string_greater_than() {
     let source = create_function_case(local_cases::LOCAL_STRING_GREATER_THAN, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(

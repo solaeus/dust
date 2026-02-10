@@ -1,14 +1,14 @@
 use crate::{
-    parser::parse_main,
+    parser::parse,
+    parser::syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload},
     source::Span,
-    syntax::{SyntaxKind, SyntaxNode, SyntaxPayload},
     tests::loop_cases,
 };
 
 #[test]
 fn while_loop() {
-    let source = loop_cases::WHILE_LOOP.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = loop_cases::WHILE_LOOP;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -16,12 +16,12 @@ fn while_loop() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(5, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(5), SyntaxId(3)),
                 span: Span(0, 49),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
-                payload: SyntaxPayload::binary_children(1, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(3)),
                 span: Span(1, 15),
             },
             SyntaxNode {
@@ -31,7 +31,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(9, 10),
             },
             SyntaxNode {
@@ -41,17 +41,17 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(3),
+                payload: SyntaxPayload::child(SyntaxId(3)),
                 span: Span(13, 15),
             },
             SyntaxNode {
                 kind: SyntaxKind::WhileExpression,
-                payload: SyntaxPayload::binary_children(10, 17),
+                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(17)),
                 span: Span(17, 45),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(18),
+                payload: SyntaxPayload::child(SyntaxId(18)),
                 span: Span(17, 45),
             },
             SyntaxNode {
@@ -61,17 +61,17 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(23, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(23, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                payload: SyntaxPayload::binary_children(8, 9),
+                payload: SyntaxPayload::binary_children(SyntaxId(8), SyntaxId(9)),
                 span: Span(23, 29),
             },
             SyntaxNode {
@@ -81,12 +81,12 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(6, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(1)),
                 span: Span(30, 45),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(30, 45),
             },
             SyntaxNode {
@@ -96,17 +96,17 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(8),
+                payload: SyntaxPayload::child(SyntaxId(8)),
                 span: Span(36, 37),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(12),
+                payload: SyntaxPayload::child(SyntaxId(12)),
                 span: Span(36, 37),
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionAssignmentStatement,
-                payload: SyntaxPayload::binary_children(13, 14),
+                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(14)),
                 span: Span(36, 43),
             },
             SyntaxNode {
@@ -121,12 +121,12 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(47, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(21),
+                payload: SyntaxPayload::child(SyntaxId(21)),
                 span: Span(47, 48),
             },
         ]

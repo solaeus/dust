@@ -1,14 +1,14 @@
 use crate::{
-    parser::parse_main,
+    parser::parse,
+    parser::syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload},
     source::Span,
-    syntax::{SyntaxKind, SyntaxNode, SyntaxPayload},
     tests::block_cases,
 };
 
 #[test]
 fn empty_block() {
-    let source = block_cases::EMPTY_BLOCK.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = block_cases::EMPTY_BLOCK;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -16,7 +16,7 @@ fn empty_block() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::child(2),
+                payload: SyntaxPayload::child(SyntaxId(2)),
                 span: Span(0, 2),
             },
             SyntaxNode {
@@ -26,7 +26,7 @@ fn empty_block() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(0, 2),
             },
         ]
@@ -35,8 +35,8 @@ fn empty_block() {
 
 #[test]
 fn block_expression() {
-    let source = block_cases::BLOCK_EXPRESSION.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = block_cases::BLOCK_EXPRESSION;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -44,12 +44,12 @@ fn block_expression() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(1, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(1)),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(0, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(1)),
                 span: Span(0, 6),
             },
             SyntaxNode {
@@ -63,8 +63,8 @@ fn block_expression() {
 
 #[test]
 fn block_statement() {
-    let source = block_cases::BLOCK_STATEMENT.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = block_cases::BLOCK_STATEMENT;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -72,22 +72,22 @@ fn block_statement() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(5, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(5), SyntaxId(1)),
                 span: Span(0, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(4, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
                 span: Span(0, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(0, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(2, 18),
             },
             SyntaxNode {
@@ -97,7 +97,7 @@ fn block_statement() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(6, 7),
             },
             SyntaxNode {
@@ -112,7 +112,7 @@ fn block_statement() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(15, 18),
             },
         ]
@@ -121,8 +121,8 @@ fn block_statement() {
 
 #[test]
 fn block_statement_and_expression() {
-    let source = block_cases::BLOCK_STATEMENT_AND_EXPRESSION.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = block_cases::BLOCK_STATEMENT_AND_EXPRESSION;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -130,17 +130,17 @@ fn block_statement_and_expression() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(7, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(7), SyntaxId(1)),
                 span: Span(0, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(5, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(5), SyntaxId(2)),
                 span: Span(0, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(2, 18),
             },
             SyntaxNode {
@@ -150,7 +150,7 @@ fn block_statement_and_expression() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(6, 7),
             },
             SyntaxNode {
@@ -165,7 +165,7 @@ fn block_statement_and_expression() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(15, 18),
             },
             SyntaxNode {
@@ -175,17 +175,17 @@ fn block_statement_and_expression() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(19, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(8),
+                payload: SyntaxPayload::child(SyntaxId(8)),
                 span: Span(19, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                payload: SyntaxPayload::binary_children(9, 10),
+                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(10)),
                 span: Span(19, 24),
             },
             SyntaxNode {
@@ -199,8 +199,8 @@ fn block_statement_and_expression() {
 
 #[test]
 fn parent_scope_access() {
-    let source = block_cases::PARENT_SCOPE_ACCESS.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = block_cases::PARENT_SCOPE_ACCESS;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -208,17 +208,17 @@ fn parent_scope_access() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(8, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(8), SyntaxId(1)),
                 span: Span(0, 36),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(6, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(2)),
                 span: Span(1, 35),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(7, 23),
             },
             SyntaxNode {
@@ -228,7 +228,7 @@ fn parent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(11, 12),
             },
             SyntaxNode {
@@ -243,12 +243,12 @@ fn parent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(20, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(5, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(5), SyntaxId(1)),
                 span: Span(28, 33),
             },
             SyntaxNode {
@@ -258,12 +258,12 @@ fn parent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(30, 31),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(8),
+                payload: SyntaxPayload::child(SyntaxId(8)),
                 span: Span(30, 31),
             },
         ]
@@ -272,8 +272,8 @@ fn parent_scope_access() {
 
 #[test]
 fn nested_parrent_scope_access() {
-    let source = block_cases::NESTED_PARRENT_SCOPE_ACCESS.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = block_cases::NESTED_PARRENT_SCOPE_ACCESS;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -281,17 +281,17 @@ fn nested_parrent_scope_access() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(15, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(1)),
                 span: Span(0, 100),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(13, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(2)),
                 span: Span(1, 99),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(7, 23),
             },
             SyntaxNode {
@@ -301,7 +301,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(11, 12),
             },
             SyntaxNode {
@@ -316,17 +316,17 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(20, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(11, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(2)),
                 span: Span(28, 97),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(3, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
                 span: Span(38, 53),
             },
             SyntaxNode {
@@ -336,7 +336,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -351,12 +351,12 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(51, 53),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(10, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
                 span: Span(62, 91),
             },
             SyntaxNode {
@@ -366,17 +366,17 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(76, 77),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(14),
+                payload: SyntaxPayload::child(SyntaxId(14)),
                 span: Span(76, 77),
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                payload: SyntaxPayload::binary_children(15, 18),
+                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(18)),
                 span: Span(76, 81),
             },
             SyntaxNode {
@@ -386,12 +386,12 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(80, 81),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(17),
+                payload: SyntaxPayload::child(SyntaxId(17)),
                 span: Span(80, 81),
             },
         ]
@@ -400,8 +400,8 @@ fn nested_parrent_scope_access() {
 
 #[test]
 fn scope_shadowing() {
-    let source = block_cases::SCOPE_SHADOWING.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = block_cases::SCOPE_SHADOWING;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -409,17 +409,17 @@ fn scope_shadowing() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(13, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
                 span: Span(0, 73),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(11, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(2)),
                 span: Span(1, 72),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(7, 23),
             },
             SyntaxNode {
@@ -429,7 +429,7 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(11, 12),
             },
             SyntaxNode {
@@ -444,17 +444,17 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(20, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(9, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(2)),
                 span: Span(28, 70),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(3, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
                 span: Span(38, 54),
             },
             SyntaxNode {
@@ -464,7 +464,7 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -479,7 +479,7 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(51, 54),
             },
             SyntaxNode {
@@ -489,12 +489,12 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(63, 64),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(14),
+                payload: SyntaxPayload::child(SyntaxId(14)),
                 span: Span(63, 64),
             },
         ]
@@ -503,8 +503,8 @@ fn scope_shadowing() {
 
 #[test]
 fn scope_deshadowing() {
-    let source = block_cases::SCOPE_DESHADOWING.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = block_cases::SCOPE_DESHADOWING;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -512,17 +512,17 @@ fn scope_deshadowing() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(13, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
                 span: Span(0, 68),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(10, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(3)),
                 span: Span(1, 67),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(7, 23),
             },
             SyntaxNode {
@@ -532,7 +532,7 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(11, 12),
             },
             SyntaxNode {
@@ -547,22 +547,22 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(20, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(8, 1),
+                payload: SyntaxPayload::binary_children(SyntaxId(8), SyntaxId(1)),
                 span: Span(28, 59),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(28, 59),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(3, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
                 span: Span(38, 53),
             },
             SyntaxNode {
@@ -572,7 +572,7 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -587,7 +587,7 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(51, 53),
             },
             SyntaxNode {
@@ -597,12 +597,12 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(64, 65),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(64, 65),
             },
         ]

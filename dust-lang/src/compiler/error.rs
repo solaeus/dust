@@ -8,8 +8,8 @@ use crate::{
     constant_table::ConstantId,
     dust_error::AnnotatedError,
     instruction::Operation,
+    parser::syntax::{SyntaxError, SyntaxId, SyntaxKind},
     source::{Position, Source, SourceFileId},
-    syntax::{SyntaxError, SyntaxId, SyntaxKind},
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -93,14 +93,14 @@ pub enum CompileError {
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
-    type Input = (&'a Source, &'a Resolver);
+    type Input = (&'a Source<'a>, &'a Resolver);
 
     fn annotated_error(&self, (source, resolver): Self::Input) -> Group<'a> {
         match self {
             CompileError::Syntax(syntax_error) => syntax_error.annotated_error(source),
             CompileError::DivisionByZero { position } => {
                 let title = "Division by zero".to_string();
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str)
@@ -113,7 +113,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     .map(|r#type| r#type.to_string())
                     .unwrap_or("<invalid type>".to_string());
                 let title = format!("Expected an integer index, found {found_type}");
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str)
@@ -126,7 +126,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = "Expected a boolean expression".to_string();
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
                 let found_type = match resolver.get_full_type(*found_type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => return error.annotated_error((source, resolver)),
@@ -144,7 +144,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = format!("Expected a function, found {node_kind}");
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str)
@@ -154,7 +154,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             CompileError::UndeclaredVariable { name, position } => {
                 let title = "Undeclared variable".to_string();
                 let file = source.get_file(position.file_id);
-                let file_str = file.full_source_str();
+                let file_str = file.content_as_str();
                 let name_str = name.get_str(&resolver.constants);
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
@@ -196,7 +196,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 match position {
                     Some(position) => {
-                        let file_str = source.get_file(position.file_id).full_source_str();
+                        let file_str = source.get_file(position.file_id).content_as_str();
 
                         Group::with_title(Level::ERROR.primary_title(title)).elements([
                             Snippet::source(file_str).annotation(
@@ -232,8 +232,8 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 if let Some(expected_position) = expected_position {
                     let expected_file_str =
-                        source.get_file(expected_position.file_id).full_source_str();
-                    let found_file_str = source.get_file(found_position.file_id).full_source_str();
+                        source.get_file(expected_position.file_id).content_as_str();
+                    let found_file_str = source.get_file(found_position.file_id).content_as_str();
 
                     Group::with_title(Level::ERROR.primary_title(title)).elements([
                         Snippet::source(found_file_str).annotation(
@@ -250,7 +250,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         ),
                     ])
                 } else {
-                    let file_str = source.get_file(found_position.file_id).full_source_str();
+                    let file_str = source.get_file(found_position.file_id).content_as_str();
 
                     Group::with_title(Level::ERROR.primary_title(title))
                         .element(
@@ -273,7 +273,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     Err(error) => return error.annotated_error((source, resolver)),
                 };
                 let title = format!("Cannot apply operator {operator} to type {type}");
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -291,7 +291,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     Err(error) => return error.annotated_error((source, resolver)),
                 };
                 let title = format!("Cannot index type {type}");
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -304,7 +304,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             CompileError::UndeclaredType { name, position } => {
                 let name_str = name.get_str(&resolver.constants);
                 let title = format!("Undeclared type: {name_str}");
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -320,7 +320,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = format!("Constant type conflict: expected {expected}, found {found}");
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -334,7 +334,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::CannotMutate { position } => {
                 let title = "Cannot mutate immutable value".to_string();
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str)
@@ -348,7 +348,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::ExpectedFunctionType { found, position } => {
                 let title = "Expected a function type";
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
                 let found_type = match resolver.get_full_type(*found, source) {
                     Ok(r#type) => r#type,
                     Err(error) => return error.annotated_error((source, resolver)),
@@ -371,7 +371,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 found_count,
             } => {
                 let title = "Incorrect argument count";
-                let file_str = source.get_file(found_position.file_id).full_source_str();
+                let file_str = source.get_file(found_position.file_id).content_as_str();
                 let function_type = match resolver.get_full_type(*function_type, source) {
                     Ok(r#type) => r#type,
                     Err(error) => return error.annotated_error((source, resolver)),
@@ -395,7 +395,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = "Expected a value".to_string();
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -412,7 +412,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = "Expected type `none`".to_string();
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -435,7 +435,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     "You must specify which variant of the enum you want to crete.".to_string();
 
                 if let Some(position) = position {
-                    let file_str = source.get_file(position.file_id).full_source_str();
+                    let file_str = source.get_file(position.file_id).content_as_str();
 
                     Group::with_title(Level::ERROR.primary_title(title))
                         .element(

@@ -1,23 +1,22 @@
+use core::panic;
 use std::{
     fmt::{self, Display, Formatter},
     ops::Range,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-const FILE_NOT_FOUND: &str = "<dust internal error: file not found>";
 const SOURCE_NOT_FOUND: &str = "<dust internal error: source not found>";
-const PATH_INVALID_UTF8: &str = "<dust internal error: path contains invalid UTF-8>";
 
 #[derive(Debug)]
-pub struct Source {
-    files: Vec<SourceFile>,
+pub struct Source<'src> {
+    files: Vec<SourceFile<'src>>,
 }
 
-impl Source {
+impl<'src> Source<'src> {
     pub fn new() -> Self {
         Self { files: Vec::new() }
     }
@@ -32,11 +31,11 @@ impl Source {
         self.files.len()
     }
 
-    pub fn files(&self) -> &[SourceFile] {
+    pub fn files(&self) -> &[SourceFile<'src>] {
         &self.files
     }
 
-    pub fn add_file(&mut self, file: SourceFile) -> SourceFileId {
+    pub fn add_file(&mut self, file: SourceFile<'src>) -> SourceFileId {
         let id = SourceFileId(self.files.len() as u32);
 
         self.files.push(file);
@@ -44,10 +43,15 @@ impl Source {
         id
     }
 
-    pub fn get_file(&self, file_id: SourceFileId) -> &SourceFile {
-        self.files
-            .get(file_id.0 as usize)
-            .unwrap_or(&SourceFile::NOT_FOUND)
+    pub fn get_file(&self, file_id: SourceFileId) -> &SourceFile<'src> {
+        if let Some(file) = self.files.get(file_id.0 as usize) {
+            file
+        } else {
+            panic!(
+                "Failed to find source file for {file_id:?}. This indicates a misuse of the `Source`
+                type, which must be an append-only singleton."
+            );
+        }
     }
 
     pub fn set_utf8_validated(&mut self, file_id: SourceFileId) {
@@ -63,13 +67,13 @@ impl Source {
     }
 }
 
-impl Default for Source {
+impl Default for Source<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct SourceFileId(u32);
 
 impl SourceFileId {
@@ -81,14 +85,15 @@ impl SourceFileId {
 }
 
 #[derive(Debug)]
-pub enum SourceFile {
-    BuiltIn {
-        path: &'static str,
-        source_str: &'static str,
-    },
+pub enum SourceFile<'src> {
     Embedded {
-        path: String,
-        source_bytes: Vec<u8>,
+        path: &'src str,
+        content: &'src [u8],
+        utf8_validated: bool,
+    },
+    EmbeddedOwned {
+        path: &'src str,
+        content: Vec<u8>,
         utf8_validated: bool,
     },
     File {
@@ -98,96 +103,146 @@ pub enum SourceFile {
     },
 }
 
-impl SourceFile {
-    pub const NOT_FOUND: Self = SourceFile::BuiltIn {
-        path: FILE_NOT_FOUND,
-        source_str: FILE_NOT_FOUND,
-    };
-
-    pub fn built_in(path: &'static str, source_code: &'static str) -> Self {
-        SourceFile::BuiltIn {
-            path,
-            source_str: source_code,
-        }
-    }
-
-    pub fn embedded_string(path: String, source_code: String) -> Self {
+impl<'src> SourceFile<'src> {
+    pub fn built_in(path: &'static str, content: &'static str) -> Self {
         SourceFile::Embedded {
             path,
-            source_bytes: source_code.into_bytes(),
+            content: content.as_bytes(),
             utf8_validated: true,
         }
     }
 
-    pub fn embedded_bytes(path: String, source_code: Vec<u8>) -> Self {
+    pub fn embedded(path: &'src str, content: &'src [u8]) -> Self {
         SourceFile::Embedded {
             path,
-            source_bytes: source_code,
+            content,
             utf8_validated: false,
         }
     }
 
-    pub fn file(path: PathBuf, source_code: Mmap) -> Self {
-        SourceFile::File {
+    pub fn embedded_validated(path: &'src str, content: &'src str) -> Self {
+        SourceFile::Embedded {
             path,
-            mmap: source_code,
+            content: content.as_bytes(),
+            utf8_validated: true,
+        }
+    }
+
+    pub fn embedded_owned(path: &'src str, content: Vec<u8>) -> Self {
+        SourceFile::EmbeddedOwned {
+            path,
+            content,
             utf8_validated: false,
         }
+    }
+
+    pub fn file(path: PathBuf, mmap: Mmap) -> Result<Self, SourceFileError> {
+        let Ok(path) = path.canonicalize() else {
+            error!(
+                "Path does not exist or is invalid for this platform \"{}\"",
+                path.display()
+            );
+
+            return Err(SourceFileError::InvalidPath {
+                found: path.display().to_string(),
+            });
+        };
+
+        if !path.is_file() {
+            error!("Path does not point to a file: \"{}\"", path.display());
+
+            return Err(SourceFileError::ExpectedFilePath {
+                found: path.display().to_string(),
+            });
+        }
+
+        if path.to_str().is_none() {
+            error!("Path contains non-UTF-8 characters: {}", path.display());
+
+            return Err(SourceFileError::ExpectedUtf8Path {
+                found: path.display().to_string(),
+            });
+        }
+
+        Ok(SourceFile::File {
+            path,
+            mmap,
+            utf8_validated: false,
+        })
     }
 
     pub fn path(&self) -> &str {
         match self {
-            Self::BuiltIn { path, .. } => path,
-            Self::Embedded { path, .. } => path.as_str(),
-            Self::File { path, .. } => path.to_str().unwrap_or(PATH_INVALID_UTF8),
+            Self::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => path,
+            Self::File { path, .. } => unsafe { path.to_str().unwrap_unchecked() },
+        }
+    }
+
+    pub fn file_name(&self) -> &str {
+        match self {
+            SourceFile::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => path,
+            SourceFile::File { path, .. } => unsafe {
+                path.file_name()
+                    .unwrap_unchecked()
+                    .to_str()
+                    .unwrap_unchecked()
+            },
         }
     }
 
     pub fn is_utf8_validated(&self) -> bool {
         match self {
-            Self::BuiltIn { .. } => true,
-            Self::Embedded { utf8_validated, .. } => *utf8_validated,
-            Self::File { utf8_validated, .. } => *utf8_validated,
+            Self::Embedded { utf8_validated, .. }
+            | Self::EmbeddedOwned { utf8_validated, .. }
+            | Self::File { utf8_validated, .. } => *utf8_validated,
         }
     }
 
     pub fn source_bytes(&self, span: Span) -> &[u8] {
-        let full_source = self.full_source_bytes();
+        let full_source = self.content_as_bytes();
         let range = span.as_usize_range();
 
-        full_source
-            .get(range)
-            .unwrap_or_else(|| SOURCE_NOT_FOUND.as_bytes())
+        full_source.get(range).unwrap_or_else(|| {
+            let path = self.path();
+
+            error!("Failed to get source at {path}:{span}");
+
+            SOURCE_NOT_FOUND.as_bytes()
+        })
     }
 
     pub fn source_str(&self, span: Span) -> &str {
-        let full_source = self.full_source_str();
+        let full_source = self.content_as_str();
         let range = span.as_usize_range();
 
         full_source.get(range).unwrap_or(SOURCE_NOT_FOUND)
     }
 
-    pub fn full_source_bytes(&self) -> &[u8] {
+    pub fn content_as_bytes(&self) -> &[u8] {
         match self {
-            Self::BuiltIn { source_str, .. } => source_str.as_bytes(),
-            Self::Embedded { source_bytes, .. } => source_bytes,
+            Self::Embedded { content, .. } => content,
+            Self::EmbeddedOwned { content, .. } => content,
             Self::File { mmap, .. } => mmap,
         }
     }
 
-    pub fn full_source_str(&self) -> &str {
-        let handle_utf8_validation = |path: &str, source_bytes| -> &str {
+    pub fn content_as_str(&self) -> &str {
+        let handle_utf8_validation = |path: &Path, source_bytes| -> &str {
             warn!(
-                "Source file at {} is being accessed before UTF-8 validation. Doing\
-                    immediate validation now. All files should be validated by the lexer before\
-                    being accessed to avoid this warning.",
-                path
+                "Source file {} is being accessed before UTF-8 validation. Doing immediate \
+                validation now. All files should be validated by the lexer before being accessed \
+                to avoid this warning.",
+                path.display()
             );
 
             let utf8_bytes = match str::from_utf8(source_bytes) {
                 Ok(str) => return str,
                 Err(error) => {
-                    error!("Source file at {} contains invalid UTF-8.", path);
+                    error!(
+                        "Source file {} contains invalid UTF-8 at byte index {}.",
+                        path.display(),
+                        error.valid_up_to()
+                    );
 
                     &source_bytes[0..error.valid_up_to()]
                 }
@@ -197,36 +252,48 @@ impl SourceFile {
         };
 
         match self {
-            Self::BuiltIn { source_str, .. } => source_str,
             Self::Embedded {
                 path,
-                source_bytes,
-                utf8_validated: false,
-            } => handle_utf8_validation(path, source_bytes),
-            Self::Embedded {
-                source_bytes,
-                utf8_validated: true,
-                ..
-            } => unsafe { str::from_utf8_unchecked(source_bytes) },
-            Self::File {
-                path,
-                mmap,
-                utf8_validated: false,
+                content: source_bytes,
+                utf8_validated,
             } => {
-                let path_str = path.to_str().unwrap_or(PATH_INVALID_UTF8);
+                if *utf8_validated {
+                    unsafe { str::from_utf8_unchecked(source_bytes) }
+                } else {
+                    let path = Path::new(path);
 
-                handle_utf8_validation(path_str, mmap)
+                    handle_utf8_validation(path, source_bytes)
+                }
+            }
+            Self::EmbeddedOwned {
+                path,
+                content: source_bytes,
+                utf8_validated,
+            } => {
+                if *utf8_validated {
+                    unsafe { str::from_utf8_unchecked(source_bytes) }
+                } else {
+                    let path = Path::new(path);
+
+                    handle_utf8_validation(path, source_bytes)
+                }
             }
             Self::File {
+                path,
                 mmap,
-                utf8_validated: true,
-                ..
-            } => unsafe { str::from_utf8_unchecked(mmap) },
+                utf8_validated,
+            } => {
+                if *utf8_validated {
+                    unsafe { str::from_utf8_unchecked(mmap) }
+                } else {
+                    handle_utf8_validation(path, mmap)
+                }
+            }
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Position {
     pub file_id: SourceFileId,
     pub span: Span,
@@ -265,6 +332,10 @@ impl Span {
         Span(new_start, new_end)
     }
 
+    pub fn length(&self) -> u32 {
+        self.1.saturating_sub(self.0)
+    }
+
     pub fn as_usize_range(&self) -> Range<usize> {
         Range {
             start: self.0 as usize,
@@ -291,7 +362,7 @@ impl Display for Span {
 }
 
 pub struct SourceIterator<'a> {
-    source: &'a Source,
+    source: &'a Source<'a>,
     position: usize,
 }
 
@@ -305,7 +376,7 @@ impl<'a> SourceIterator<'a> {
 }
 
 impl<'a> Iterator for SourceIterator<'a> {
-    type Item = (SourceFileId, &'a SourceFile);
+    type Item = (SourceFileId, &'a SourceFile<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
         let file_id = SourceFileId(self.position as u32);
@@ -318,3 +389,34 @@ impl<'a> Iterator for SourceIterator<'a> {
 }
 
 impl ExactSizeIterator for SourceIterator<'_> {}
+
+#[derive(Debug)]
+pub enum SourceFileError {
+    InvalidPath { found: String },
+    ExpectedFilePath { found: String },
+    ExpectedUtf8Path { found: String },
+    SpanOutOfBounds { span: Span, length: usize },
+}
+
+impl Display for SourceFileError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            SourceFileError::InvalidPath { found } => write!(
+                f,
+                "The path \"{found}\" does not exist or is invalid for this platform."
+            ),
+            SourceFileError::ExpectedFilePath { found } => {
+                write!(f, "The path \"{found}\" does not point to a file.")
+            }
+            SourceFileError::ExpectedUtf8Path { found } => {
+                write!(f, "The path {found} contains non-UTF-8 characters.")
+            }
+            SourceFileError::SpanOutOfBounds { span, length } => {
+                write!(
+                    f,
+                    "The span ({span}) is out of bounds, the file's length is {length}."
+                )
+            }
+        }
+    }
+}

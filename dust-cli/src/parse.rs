@@ -16,14 +16,14 @@ pub fn handle_parse_command(
     time: bool,
     start_time: Instant,
 ) {
-    let source = handle_source(eval, path, stdin);
+    let source = handle_source(&eval, path, stdin);
     let mut errors = Vec::new();
 
     for (file_id, file) in source.iter() {
         let lexer = if file.is_utf8_validated() {
-            Lexer::validated(file.full_source_str())
+            Lexer::from_utf8(file.content_as_str())
         } else {
-            Lexer::new(file.full_source_bytes())
+            Lexer::from_bytes(file.content_as_bytes())
         };
         let parser = Parser::new(file_id, lexer);
         let ParseResult {

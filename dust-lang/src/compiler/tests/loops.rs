@@ -9,7 +9,7 @@ use crate::{
 
 #[test]
 fn while_loop() {
-    let source = loop_cases::WHILE_LOOP.to_string();
+    let source = loop_cases::WHILE_LOOP;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(

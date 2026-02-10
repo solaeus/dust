@@ -7,7 +7,7 @@ use crate::{
 #[test]
 fn single_identifier() {
     let source = b"foo";
-    let tokens = Lexer::new(source).try_collect::<Vec<Token>>().unwrap();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -27,7 +27,7 @@ fn single_identifier() {
 #[test]
 fn identifier_with_digits_and_underscores() {
     let source = b"a1_b2";
-    let tokens = Lexer::new(source).try_collect::<Vec<Token>>().unwrap();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -47,7 +47,7 @@ fn identifier_with_digits_and_underscores() {
 #[test]
 fn multiple_identifiers() {
     let source = b"foo bar_baz qux123";
-    let tokens = Lexer::new(source).try_collect::<Vec<Token>>().unwrap();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -75,7 +75,7 @@ fn multiple_identifiers() {
 #[test]
 fn booleans() {
     let source = b"true false";
-    let tokens = Lexer::new(source).try_collect::<Vec<Token>>().unwrap();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -99,7 +99,7 @@ fn booleans() {
 #[test]
 fn bytes() {
     let source = b"0x42 0xFF";
-    let tokens = Lexer::new(source).try_collect::<Vec<Token>>().unwrap();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -123,7 +123,7 @@ fn bytes() {
 #[test]
 fn characters() {
     let source = b"'a' 'b' 'c'";
-    let tokens = Lexer::new(source).try_collect::<Vec<Token>>().unwrap();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -151,7 +151,7 @@ fn characters() {
 #[test]
 fn floats() {
     let source = b"3.14 0.001 42.0";
-    let tokens = Lexer::new(source).try_collect::<Vec<Token>>().unwrap();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -179,7 +179,7 @@ fn floats() {
 #[test]
 fn integers() {
     let source = b"0 123 456789";
-    let tokens = Lexer::new(source).try_collect::<Vec<Token>>().unwrap();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -207,7 +207,7 @@ fn integers() {
 #[test]
 fn strings() {
     let source = b"\"hello\" \"world\"";
-    let tokens = Lexer::new(source).try_collect::<Vec<Token>>().unwrap();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -263,10 +263,9 @@ fn keywords() {
         .collect::<Vec<_>>()
         .join(" ");
     let expected = keywords.iter().map(|(_, kind)| *kind).collect::<Vec<_>>();
-    let actual = Lexer::new(source.as_bytes())
-        .map(|result| result.map(|token| token.kind))
-        .try_collect::<Vec<TokenKind>>()
-        .unwrap();
+    let actual = Lexer::from_bytes(source.as_bytes())
+        .map(|token| token.kind)
+        .collect::<Vec<_>>();
 
     assert_eq!(actual[..actual.len() - 1], expected);
 }
@@ -317,10 +316,9 @@ fn operators_and_punctuation() {
         .collect::<Vec<_>>()
         .join(" ");
     let expected = symbols.iter().map(|(_, kind)| *kind).collect::<Vec<_>>();
-    let actual = Lexer::new(source.as_bytes())
-        .map(|result| result.map(|token| token.kind))
-        .try_collect::<Vec<TokenKind>>()
-        .unwrap();
+    let actual = Lexer::from_bytes(source.as_bytes())
+        .map(|token| token.kind)
+        .collect::<Vec<_>>();
 
     assert_eq!(actual[..actual.len() - 1], expected);
 }
@@ -328,7 +326,7 @@ fn operators_and_punctuation() {
 #[test]
 fn adjacent_tokens() {
     let source = b"let x:int=42;";
-    let tokens = Lexer::new(source).try_collect::<Vec<Token>>().unwrap();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -372,6 +370,9 @@ fn adjacent_tokens() {
 #[test]
 fn invalid_utf8_in_bytes_errors() {
     let source = b"abc\xFFdef";
-    let err = Lexer::new(source).try_collect::<Vec<Token>>().unwrap_err();
-    assert_eq!(err, 3);
+    let mut lexer = Lexer::from_bytes(source);
+
+    lexer.next();
+
+    assert_eq!(lexer.error_index(), Some(3));
 }

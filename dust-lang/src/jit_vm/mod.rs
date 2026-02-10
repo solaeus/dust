@@ -41,10 +41,10 @@ pub const MINIMUM_OBJECT_SWEEP_DEFAULT: usize = if cfg!(debug_assertions) {
 
 const STRING_ERROR_TEXT: &str = "Expected string object";
 
-pub fn run_main(source_code: String) -> Result<Option<Value>, DustError> {
+pub fn run_main<'a>(source_code: &'a str) -> Result<Option<Value>, DustError<'a>> {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::embedded_string("eval".to_string(), source_code));
+    source.add_file(SourceFile::embedded_validated("eval", source_code));
 
     let compiler = Compiler::new(source);
     let program = compiler.compile(None)?;
@@ -72,7 +72,7 @@ impl JitVm {
         }
     }
 
-    pub fn run(self) -> Result<Option<Value>, DustError> {
+    pub fn run<'a>(self) -> Result<Option<Value>, DustError<'a>> {
         let span = span!(Level::INFO, "jit_vm");
         let _enter = span.enter();
 

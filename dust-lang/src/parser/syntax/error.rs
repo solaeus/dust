@@ -4,8 +4,8 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     dust_error::AnnotatedError,
+    parser::syntax::{SyntaxId, SyntaxKind, SyntaxPayload},
     source::{Position, Source},
-    syntax::{SyntaxId, SyntaxKind, SyntaxPayload},
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -26,13 +26,13 @@ pub enum SyntaxError {
 }
 
 impl<'a> AnnotatedError<'a> for SyntaxError {
-    type Input = &'a Source;
+    type Input = &'a Source<'a>;
 
     fn annotated_error(&self, source: Self::Input) -> Group<'a> {
         match self {
             SyntaxError::ExpectedItem { found, position } => {
                 let title = "Syntax Error: expected item".to_string();
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -44,7 +44,7 @@ impl<'a> AnnotatedError<'a> for SyntaxError {
             }
             SyntaxError::ExpectedStatement { found, position } => {
                 let title = "Syntax Error: expected statement".to_string();
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -56,7 +56,7 @@ impl<'a> AnnotatedError<'a> for SyntaxError {
             }
             SyntaxError::ExpectedExpression { found, position } => {
                 let title = "Syntax Error: expected expression".to_string();
-                let file_str = source.get_file(position.file_id).full_source_str();
+                let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(

@@ -9,7 +9,7 @@ use crate::{
 
 #[test]
 fn local_byte_exponent() {
-    let source = local_cases::LOCAL_BYTE_EXPONENT.to_string();
+    let source = local_cases::LOCAL_BYTE_EXPONENT;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -36,7 +36,7 @@ fn local_byte_exponent() {
 
 #[test]
 fn local_float_exponent() {
-    let source = local_cases::LOCAL_FLOAT_EXPONENT.to_string();
+    let source = local_cases::LOCAL_FLOAT_EXPONENT;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -63,7 +63,7 @@ fn local_float_exponent() {
 
 #[test]
 fn local_integer_exponent() {
-    let source = local_cases::LOCAL_INTEGER_EXPONENT.to_string();
+    let source = local_cases::LOCAL_INTEGER_EXPONENT;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -90,7 +90,7 @@ fn local_integer_exponent() {
 
 #[test]
 fn local_mut_byte_exponent() {
-    let source = local_cases::LOCAL_MUT_BYTE_EXPONENT.to_string();
+    let source = local_cases::LOCAL_MUT_BYTE_EXPONENT;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -116,7 +116,7 @@ fn local_mut_byte_exponent() {
 
 #[test]
 fn local_mut_float_exponent() {
-    let source = local_cases::LOCAL_MUT_FLOAT_EXPONENT.to_string();
+    let source = local_cases::LOCAL_MUT_FLOAT_EXPONENT;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(
@@ -142,7 +142,7 @@ fn local_mut_float_exponent() {
 
 #[test]
 fn local_mut_integer_exponent() {
-    let source = local_cases::LOCAL_MUT_INTEGER_EXPONENT.to_string();
+    let source = local_cases::LOCAL_MUT_INTEGER_EXPONENT;
     let prototype = compile_main_prototype(source).unwrap();
 
     assert_eq!(

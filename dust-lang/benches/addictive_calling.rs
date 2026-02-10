@@ -15,7 +15,7 @@ while i < 10_000_000 {
 }
 ";
 
-fn addictive_calling(source: String) {
+fn addictive_calling(source: &str) {
     run_main(source).unwrap();
 }
 
@@ -23,11 +23,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("addictive_calling");
 
     group.bench_function("addictive_calling", |b| {
-        b.iter_batched(
-            || SOURCE.to_string(),
-            |input: String| addictive_calling(black_box(input)),
-            criterion::BatchSize::SmallInput,
-        )
+        b.iter(|| addictive_calling(black_box(SOURCE)))
     });
     group.finish();
 }

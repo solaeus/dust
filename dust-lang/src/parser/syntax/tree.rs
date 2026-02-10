@@ -4,8 +4,10 @@ use termtree::Tree;
 use tracing::error;
 
 use crate::{
+    parser::syntax::{
+        SyntaxId, SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxPayload, SyntaxReader,
+    },
     source::SourceFileId,
-    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxPayload, SyntaxReader},
 };
 
 /// Lossless abstract syntax tree representing a Dust source code file.
@@ -134,6 +136,10 @@ impl SyntaxTree {
             parent_tree: Option<&mut Tree<&'a SyntaxNode>>,
             syntax_tree: &'a SyntaxTree,
         ) -> Option<Tree<&'a SyntaxNode>> {
+            if leaf_id == SyntaxId::NONE {
+                return None;
+            }
+
             let node = match syntax_tree.get_node(leaf_id) {
                 Some(node) => node,
                 None => {

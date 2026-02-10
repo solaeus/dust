@@ -11,7 +11,7 @@ use crate::{
 #[test]
 fn local_boolean_less_than() {
     let source = create_function_case(local_cases::LOCAL_BOOLEAN_LESS_THAN, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -50,7 +50,7 @@ fn local_boolean_less_than() {
 #[test]
 fn local_byte_less_than() {
     let source = create_function_case(local_cases::LOCAL_BYTE_LESS_THAN, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -89,7 +89,7 @@ fn local_byte_less_than() {
 #[test]
 fn local_character_less_than() {
     let source = create_function_case(local_cases::LOCAL_CHARACTER_LESS_THAN, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -128,7 +128,7 @@ fn local_character_less_than() {
 #[test]
 fn local_float_less_than() {
     let source = create_function_case(local_cases::LOCAL_FLOAT_LESS_THAN, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -167,7 +167,7 @@ fn local_float_less_than() {
 #[test]
 fn local_integer_less_than() {
     let source = create_function_case(local_cases::LOCAL_INTEGER_LESS_THAN, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -206,7 +206,7 @@ fn local_integer_less_than() {
 #[test]
 fn local_string_less_than() {
     let source = create_function_case(local_cases::LOCAL_STRING_LESS_THAN, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(

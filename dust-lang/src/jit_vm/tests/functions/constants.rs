@@ -8,7 +8,7 @@ use crate::{
 #[test]
 fn boolean() {
     let source = create_function_with_call_case(constant_cases::BOOLEAN, OperandType::BOOLEAN);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -16,7 +16,7 @@ fn boolean() {
 #[test]
 fn byte() {
     let source = create_function_with_call_case(constant_cases::BYTE, OperandType::BYTE);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::byte(42)));
 }
@@ -24,7 +24,7 @@ fn byte() {
 #[test]
 fn character() {
     let source = create_function_with_call_case(constant_cases::CHARACTER, OperandType::CHARACTER);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::character('q')));
 }
@@ -32,7 +32,7 @@ fn character() {
 #[test]
 fn float() {
     let source = create_function_with_call_case(constant_cases::FLOAT, OperandType::FLOAT);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::float(42.0)));
 }
@@ -40,7 +40,7 @@ fn float() {
 #[test]
 fn integer() {
     let source = create_function_with_call_case(constant_cases::INTEGER, OperandType::INTEGER);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
 }
@@ -48,7 +48,7 @@ fn integer() {
 #[test]
 fn string() {
     let source = create_function_with_call_case(constant_cases::STRING, OperandType::STRING);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::string("foobar")));
 }
@@ -57,7 +57,7 @@ fn string() {
 fn constant_byte_addition() {
     let source =
         create_function_with_call_case(constant_cases::CONSTANT_BYTE_ADDITION, OperandType::BYTE);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::byte(42)));
 }
@@ -66,7 +66,7 @@ fn constant_byte_addition() {
 fn constant_float_addition() {
     let source =
         create_function_with_call_case(constant_cases::CONSTANT_FLOAT_ADDITION, OperandType::FLOAT);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::float(42.0)));
 }
@@ -77,7 +77,7 @@ fn constant_integer_addition() {
         constant_cases::CONSTANT_INTEGER_ADDITION,
         OperandType::INTEGER,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
 }
@@ -88,7 +88,7 @@ fn constant_byte_subtraction() {
         constant_cases::CONSTANT_BYTE_SUBTRACTION,
         OperandType::BYTE,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::byte(42)));
 }
@@ -99,7 +99,7 @@ fn constant_float_subtraction() {
         constant_cases::CONSTANT_FLOAT_SUBTRACTION,
         OperandType::FLOAT,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::float(42.0)));
 }
@@ -110,7 +110,7 @@ fn constant_integer_subtraction() {
         constant_cases::CONSTANT_INTEGER_SUBTRACTION,
         OperandType::INTEGER,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
 }
@@ -121,7 +121,7 @@ fn constant_byte_multiplication() {
         constant_cases::CONSTANT_BYTE_MULTIPLICATION,
         OperandType::BYTE,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::byte(42)));
 }
@@ -132,7 +132,7 @@ fn constant_float_multiplication() {
         constant_cases::CONSTANT_FLOAT_MULTIPLICATION,
         OperandType::FLOAT,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::float(42.0)));
 }
@@ -143,7 +143,7 @@ fn constant_integer_multiplication() {
         constant_cases::CONSTANT_INTEGER_MULTIPLICATION,
         OperandType::INTEGER,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
 }
@@ -152,7 +152,7 @@ fn constant_integer_multiplication() {
 fn constant_byte_division() {
     let source =
         create_function_with_call_case(constant_cases::CONSTANT_BYTE_DIVISION, OperandType::BYTE);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::byte(42)));
 }
@@ -161,7 +161,7 @@ fn constant_byte_division() {
 fn constant_float_division() {
     let source =
         create_function_with_call_case(constant_cases::CONSTANT_FLOAT_DIVISION, OperandType::FLOAT);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::float(42.0)));
 }
@@ -172,7 +172,7 @@ fn constant_integer_division() {
         constant_cases::CONSTANT_INTEGER_DIVISION,
         OperandType::INTEGER,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
 }
@@ -181,7 +181,7 @@ fn constant_integer_division() {
 fn constant_byte_modulo() {
     let source =
         create_function_with_call_case(constant_cases::CONSTANT_BYTE_MODULO, OperandType::BYTE);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::byte(4)));
 }
@@ -190,7 +190,7 @@ fn constant_byte_modulo() {
 fn constant_float_modulo() {
     let source =
         create_function_with_call_case(constant_cases::CONSTANT_FLOAT_MODULO, OperandType::FLOAT);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::float(4.0)));
 }
@@ -201,7 +201,7 @@ fn constant_integer_modulo() {
         constant_cases::CONSTANT_INTEGER_MODULO,
         OperandType::INTEGER,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(4)));
 }
@@ -212,7 +212,7 @@ fn constant_integer_negation() {
         constant_cases::CONSTANT_INTEGER_NEGATION,
         OperandType::INTEGER,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(-42)));
 }
@@ -221,7 +221,7 @@ fn constant_integer_negation() {
 fn constant_float_negation() {
     let source =
         create_function_with_call_case(constant_cases::CONSTANT_FLOAT_NEGATION, OperandType::FLOAT);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::float(-42.0)));
 }
@@ -232,7 +232,7 @@ fn constant_string_concatenation() {
         constant_cases::CONSTANT_STRING_CONCATENATION,
         OperandType::STRING,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::string("foobar")));
 }
@@ -243,7 +243,7 @@ fn constant_character_concatentation() {
         constant_cases::CONSTANT_CHARACTER_CONCATENATION,
         OperandType::STRING,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::string("qq")));
 }
@@ -254,7 +254,7 @@ fn constant_string_character_concatenation() {
         constant_cases::CONSTANT_STRING_CHARACTER_CONCATENATION,
         OperandType::STRING,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::string("fooq")));
 }
@@ -265,7 +265,7 @@ fn constant_character_string_concatenation() {
         constant_cases::CONSTANT_CHARACTER_STRING_CONCATENATION,
         OperandType::STRING,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::string("qfoo")));
 }
@@ -274,7 +274,7 @@ fn constant_character_string_concatenation() {
 fn constant_boolean_and() {
     let source =
         create_function_with_call_case(constant_cases::CONSTANT_BOOLEAN_AND, OperandType::BOOLEAN);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(false)));
 }
@@ -283,7 +283,7 @@ fn constant_boolean_and() {
 fn constant_boolean_or() {
     let source =
         create_function_with_call_case(constant_cases::CONSTANT_BOOLEAN_OR, OperandType::BOOLEAN);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -292,7 +292,7 @@ fn constant_boolean_or() {
 fn constant_boolean_not() {
     let source =
         create_function_with_call_case(constant_cases::CONSTANT_BOOLEAN_NOT, OperandType::BOOLEAN);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(false)));
 }
@@ -303,7 +303,7 @@ fn constant_boolean_greater_than() {
         constant_cases::CONSTANT_BOOLEAN_GREATER_THAN,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -314,7 +314,7 @@ fn constant_boolean_less_than() {
         constant_cases::CONSTANT_BOOLEAN_LESS_THAN,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -325,7 +325,7 @@ fn constant_boolean_greater_than_or_equal() {
         constant_cases::CONSTANT_BOOLEAN_GREATER_THAN_OR_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -336,7 +336,7 @@ fn constant_boolean_less_than_or_equal() {
         constant_cases::CONSTANT_BOOLEAN_LESS_THAN_OR_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -347,7 +347,7 @@ fn constant_boolean_equal() {
         constant_cases::CONSTANT_BOOLEAN_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -358,7 +358,7 @@ fn constant_boolean_not_equal() {
         constant_cases::CONSTANT_BOOLEAN_NOT_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -369,7 +369,7 @@ fn constant_byte_greater_than() {
         constant_cases::CONSTANT_BYTE_GREATER_THAN,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -380,7 +380,7 @@ fn constant_byte_less_than() {
         constant_cases::CONSTANT_BYTE_LESS_THAN,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -391,7 +391,7 @@ fn constant_byte_greater_than_or_equal() {
         constant_cases::CONSTANT_BYTE_GREATER_THAN_OR_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -402,7 +402,7 @@ fn constant_byte_less_than_or_equal() {
         constant_cases::CONSTANT_BYTE_LESS_THAN_OR_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -411,7 +411,7 @@ fn constant_byte_less_than_or_equal() {
 fn constant_byte_equal() {
     let source =
         create_function_with_call_case(constant_cases::CONSTANT_BYTE_EQUAL, OperandType::BOOLEAN);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -422,7 +422,7 @@ fn constant_byte_not_equal() {
         constant_cases::CONSTANT_BYTE_NOT_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -433,7 +433,7 @@ fn constant_character_greater_than() {
         constant_cases::CONSTANT_CHARACTER_GREATER_THAN,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -444,7 +444,7 @@ fn constant_character_less_than() {
         constant_cases::CONSTANT_CHARACTER_LESS_THAN,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -455,7 +455,7 @@ fn constant_character_greater_than_or_equal() {
         constant_cases::CONSTANT_CHARACTER_GREATER_THAN_OR_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -466,7 +466,7 @@ fn constant_character_less_than_or_equal() {
         constant_cases::CONSTANT_CHARACTER_LESS_THAN_OR_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -477,7 +477,7 @@ fn constant_character_equal() {
         constant_cases::CONSTANT_CHARACTER_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -488,7 +488,7 @@ fn constant_character_not_equal() {
         constant_cases::CONSTANT_CHARACTER_NOT_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -499,7 +499,7 @@ fn constant_float_greater_than() {
         constant_cases::CONSTANT_FLOAT_GREATER_THAN,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -510,7 +510,7 @@ fn constant_float_less_than() {
         constant_cases::CONSTANT_FLOAT_LESS_THAN,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -521,7 +521,7 @@ fn constant_float_greater_than_or_equal() {
         constant_cases::CONSTANT_FLOAT_GREATER_THAN_OR_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -532,7 +532,7 @@ fn constant_float_less_than_or_equal() {
         constant_cases::CONSTANT_FLOAT_LESS_THAN_OR_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -541,7 +541,7 @@ fn constant_float_less_than_or_equal() {
 fn constant_float_equal() {
     let source =
         create_function_with_call_case(constant_cases::CONSTANT_FLOAT_EQUAL, OperandType::BOOLEAN);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -552,7 +552,7 @@ fn constant_float_not_equal() {
         constant_cases::CONSTANT_FLOAT_NOT_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -563,7 +563,7 @@ fn constant_integer_greater_than() {
         constant_cases::CONSTANT_INTEGER_GREATER_THAN,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -574,7 +574,7 @@ fn constant_integer_less_than() {
         constant_cases::CONSTANT_INTEGER_LESS_THAN,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -585,7 +585,7 @@ fn constant_integer_greater_than_or_equal() {
         constant_cases::CONSTANT_INTEGER_GREATER_THAN_OR_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -596,7 +596,7 @@ fn constant_integer_less_than_or_equal() {
         constant_cases::CONSTANT_INTEGER_LESS_THAN_OR_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -607,7 +607,7 @@ fn constant_integer_equal() {
         constant_cases::CONSTANT_INTEGER_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -618,7 +618,7 @@ fn constant_integer_not_equal() {
         constant_cases::CONSTANT_INTEGER_NOT_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -629,7 +629,7 @@ fn constant_string_greater_than() {
         constant_cases::CONSTANT_STRING_GREATER_THAN,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(false)));
 }
@@ -640,7 +640,7 @@ fn constant_string_less_than() {
         constant_cases::CONSTANT_STRING_LESS_THAN,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(false)));
 }
@@ -651,7 +651,7 @@ fn constant_string_greater_than_or_equal() {
         constant_cases::CONSTANT_STRING_GREATER_THAN_OR_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -662,7 +662,7 @@ fn constant_string_less_than_or_equal() {
         constant_cases::CONSTANT_STRING_LESS_THAN_OR_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -671,7 +671,7 @@ fn constant_string_less_than_or_equal() {
 fn constant_string_equal() {
     let source =
         create_function_with_call_case(constant_cases::CONSTANT_STRING_EQUAL, OperandType::BOOLEAN);
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }
@@ -682,7 +682,7 @@ fn constant_string_not_equal() {
         constant_cases::CONSTANT_STRING_NOT_EQUAL,
         OperandType::BOOLEAN,
     );
-    let result = run_main(source).unwrap();
+    let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::boolean(true)));
 }

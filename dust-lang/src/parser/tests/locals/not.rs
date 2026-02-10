@@ -1,14 +1,14 @@
 use crate::{
-    parser::parse_main,
+    parser::parse,
+    parser::syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload},
     source::Span,
-    syntax::{SyntaxKind, SyntaxNode, SyntaxPayload},
     tests::local_cases,
 };
 
 #[test]
 fn local_boolean_not() {
-    let source = local_cases::LOCAL_BOOLEAN_NOT.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_BOOLEAN_NOT;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -16,12 +16,12 @@ fn local_boolean_not() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(3, 2),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(2)),
                 span: Span(0, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -31,7 +31,7 @@ fn local_boolean_not() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -46,12 +46,12 @@ fn local_boolean_not() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(15, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::NotExpression,
-                payload: SyntaxPayload::child(9),
+                payload: SyntaxPayload::child(SyntaxId(9)),
                 span: Span(21, 23),
             },
             SyntaxNode {
@@ -61,12 +61,12 @@ fn local_boolean_not() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(22, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(8),
+                payload: SyntaxPayload::child(SyntaxId(8)),
                 span: Span(22, 23),
             },
         ]

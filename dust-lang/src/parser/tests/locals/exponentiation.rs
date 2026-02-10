@@ -1,14 +1,14 @@
 use crate::{
-    parser::parse_main,
+    parser::parse,
+    parser::syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload},
     source::Span,
-    syntax::{SyntaxKind, SyntaxNode, SyntaxPayload},
     tests::local_cases,
 };
 
 #[test]
 fn local_byte_exponent() {
-    let source = local_cases::LOCAL_BYTE_EXPONENT.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_BYTE_EXPONENT;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -16,12 +16,12 @@ fn local_byte_exponent() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(6, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
                 span: Span(0, 47),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -31,7 +31,7 @@ fn local_byte_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -46,12 +46,12 @@ fn local_byte_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(15, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(3, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
                 span: Span(21, 40),
             },
             SyntaxNode {
@@ -61,7 +61,7 @@ fn local_byte_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(25, 26),
             },
             SyntaxNode {
@@ -76,7 +76,7 @@ fn local_byte_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(35, 40),
             },
             SyntaxNode {
@@ -86,17 +86,17 @@ fn local_byte_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(41, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(14),
+                payload: SyntaxPayload::child(SyntaxId(14)),
                 span: Span(41, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExponentExpression,
-                payload: SyntaxPayload::binary_children(15, 18),
+                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(18)),
                 span: Span(41, 46),
             },
             SyntaxNode {
@@ -106,12 +106,12 @@ fn local_byte_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(45, 46),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(17),
+                payload: SyntaxPayload::child(SyntaxId(17)),
                 span: Span(45, 46),
             },
         ]
@@ -120,8 +120,8 @@ fn local_byte_exponent() {
 
 #[test]
 fn local_float_exponent() {
-    let source = local_cases::LOCAL_FLOAT_EXPONENT.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_FLOAT_EXPONENT;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -129,12 +129,12 @@ fn local_float_exponent() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(6, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
                 span: Span(0, 47),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -144,7 +144,7 @@ fn local_float_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -159,12 +159,12 @@ fn local_float_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(16, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(3, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
                 span: Span(21, 40),
             },
             SyntaxNode {
@@ -174,7 +174,7 @@ fn local_float_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(25, 26),
             },
             SyntaxNode {
@@ -189,7 +189,7 @@ fn local_float_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(36, 40),
             },
             SyntaxNode {
@@ -199,17 +199,17 @@ fn local_float_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(41, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(14),
+                payload: SyntaxPayload::child(SyntaxId(14)),
                 span: Span(41, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExponentExpression,
-                payload: SyntaxPayload::binary_children(15, 18),
+                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(18)),
                 span: Span(41, 46),
             },
             SyntaxNode {
@@ -219,12 +219,12 @@ fn local_float_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(45, 46),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(17),
+                payload: SyntaxPayload::child(SyntaxId(17)),
                 span: Span(45, 46),
             },
         ]
@@ -233,8 +233,8 @@ fn local_float_exponent() {
 
 #[test]
 fn local_integer_exponent() {
-    let source = local_cases::LOCAL_INTEGER_EXPONENT.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_INTEGER_EXPONENT;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -242,12 +242,12 @@ fn local_integer_exponent() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(6, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
                 span: Span(0, 39),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(1, 16),
             },
             SyntaxNode {
@@ -257,7 +257,7 @@ fn local_integer_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -272,12 +272,12 @@ fn local_integer_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(14, 16),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(3, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
                 span: Span(17, 32),
             },
             SyntaxNode {
@@ -287,7 +287,7 @@ fn local_integer_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(21, 22),
             },
             SyntaxNode {
@@ -302,7 +302,7 @@ fn local_integer_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(30, 32),
             },
             SyntaxNode {
@@ -312,17 +312,17 @@ fn local_integer_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(33, 34),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(14),
+                payload: SyntaxPayload::child(SyntaxId(14)),
                 span: Span(33, 34),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExponentExpression,
-                payload: SyntaxPayload::binary_children(15, 18),
+                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(18)),
                 span: Span(33, 38),
             },
             SyntaxNode {
@@ -332,12 +332,12 @@ fn local_integer_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(37, 38),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(17),
+                payload: SyntaxPayload::child(SyntaxId(17)),
                 span: Span(37, 38),
             },
         ]
@@ -346,8 +346,8 @@ fn local_integer_exponent() {
 
 #[test]
 fn local_mut_byte_exponent() {
-    let source = local_cases::LOCAL_MUT_BYTE_EXPONENT.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_MUT_BYTE_EXPONENT;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -355,12 +355,12 @@ fn local_mut_byte_exponent() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(6, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
                 span: Span(0, 38),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
-                payload: SyntaxPayload::binary_children(1, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(3)),
                 span: Span(1, 24),
             },
             SyntaxNode {
@@ -370,7 +370,7 @@ fn local_mut_byte_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(9, 10),
             },
             SyntaxNode {
@@ -385,7 +385,7 @@ fn local_mut_byte_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(19, 24),
             },
             SyntaxNode {
@@ -395,17 +395,17 @@ fn local_mut_byte_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(8),
+                payload: SyntaxPayload::child(SyntaxId(8)),
                 span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExponentAssignmentStatement,
-                payload: SyntaxPayload::binary_children(9, 10),
+                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(10)),
                 span: Span(25, 35),
             },
             SyntaxNode {
@@ -420,12 +420,12 @@ fn local_mut_byte_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(8),
+                payload: SyntaxPayload::child(SyntaxId(8)),
                 span: Span(36, 37),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(36, 37),
             },
         ]
@@ -434,8 +434,8 @@ fn local_mut_byte_exponent() {
 
 #[test]
 fn local_mut_float_exponent() {
-    let source = local_cases::LOCAL_MUT_FLOAT_EXPONENT.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_MUT_FLOAT_EXPONENT;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -443,12 +443,12 @@ fn local_mut_float_exponent() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(6, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
                 span: Span(0, 37),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
-                payload: SyntaxPayload::binary_children(1, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(3)),
                 span: Span(1, 24),
             },
             SyntaxNode {
@@ -458,7 +458,7 @@ fn local_mut_float_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(9, 10),
             },
             SyntaxNode {
@@ -473,7 +473,7 @@ fn local_mut_float_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(20, 24),
             },
             SyntaxNode {
@@ -483,22 +483,22 @@ fn local_mut_float_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(8),
+                payload: SyntaxPayload::child(SyntaxId(8)),
                 span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExponentAssignmentStatement,
-                payload: SyntaxPayload::binary_children(9, 10),
+                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(10)),
                 span: Span(25, 34),
             },
             SyntaxNode {
                 kind: SyntaxKind::FloatExpression,
-                payload: SyntaxPayload::binary_children(0, 1074266112),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(1074266112)),
                 span: Span(30, 33),
             },
             SyntaxNode {
@@ -508,12 +508,12 @@ fn local_mut_float_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(8),
+                payload: SyntaxPayload::child(SyntaxId(8)),
                 span: Span(35, 36),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(35, 36),
             },
         ]
@@ -522,8 +522,8 @@ fn local_mut_float_exponent() {
 
 #[test]
 fn local_mut_integer_exponent() {
-    let source = local_cases::LOCAL_MUT_INTEGER_EXPONENT.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_MUT_INTEGER_EXPONENT;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -531,12 +531,12 @@ fn local_mut_integer_exponent() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(6, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
                 span: Span(0, 31),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
-                payload: SyntaxPayload::binary_children(1, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(3)),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -546,7 +546,7 @@ fn local_mut_integer_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(9, 10),
             },
             SyntaxNode {
@@ -561,7 +561,7 @@ fn local_mut_integer_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(18, 20),
             },
             SyntaxNode {
@@ -571,17 +571,17 @@ fn local_mut_integer_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(21, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(8),
+                payload: SyntaxPayload::child(SyntaxId(8)),
                 span: Span(21, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::ExponentAssignmentStatement,
-                payload: SyntaxPayload::binary_children(9, 10),
+                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(10)),
                 span: Span(21, 28),
             },
             SyntaxNode {
@@ -596,12 +596,12 @@ fn local_mut_integer_exponent() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(8),
+                payload: SyntaxPayload::child(SyntaxId(8)),
                 span: Span(29, 30),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(29, 30),
             },
         ]

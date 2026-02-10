@@ -11,7 +11,7 @@ use crate::{
 #[test]
 fn local_boolean_equal() {
     let source = create_function_case(local_cases::LOCAL_BOOLEAN_EQUAL, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -50,7 +50,7 @@ fn local_boolean_equal() {
 #[test]
 fn local_byte_equal() {
     let source = create_function_case(local_cases::LOCAL_BYTE_EQUAL, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -89,7 +89,7 @@ fn local_byte_equal() {
 #[test]
 fn local_character_equal() {
     let source = create_function_case(local_cases::LOCAL_CHARACTER_EQUAL, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -128,7 +128,7 @@ fn local_character_equal() {
 #[test]
 fn local_float_equal() {
     let source = create_function_case(local_cases::LOCAL_FLOAT_EQUAL, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -167,7 +167,7 @@ fn local_float_equal() {
 #[test]
 fn local_integer_equal() {
     let source = create_function_case(local_cases::LOCAL_INTEGER_EQUAL, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -206,7 +206,7 @@ fn local_integer_equal() {
 #[test]
 fn local_string_equal() {
     let source = create_function_case(local_cases::LOCAL_STRING_EQUAL, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(

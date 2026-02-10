@@ -11,7 +11,7 @@ use crate::{
 #[test]
 fn local_boolean_not() {
     let source = create_function_case(local_cases::LOCAL_BOOLEAN_NOT, OperandType::BOOLEAN);
-    let prototypes = compile_prototypes(source).unwrap();
+    let prototypes = compile_prototypes(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(

@@ -1,5 +1,6 @@
 mod error;
 mod parse_rule;
+pub mod syntax;
 
 #[cfg(test)]
 mod tests;
@@ -17,20 +18,22 @@ use tracing::{error, info};
 use crate::{
     dust_error::DustError,
     lexer::Lexer,
-    parser::parse_rule::{Associativity, ParseRule, Precedence},
+    parser::{
+        parse_rule::{Associativity, ParseRule, Precedence},
+        syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree},
+    },
     source::{Position, Source, SourceFile, SourceFileId, Span},
-    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree},
     token::{Token, TokenKind},
 };
 
-pub fn parse_main(source_code: String) -> (SyntaxTree, Option<DustError>) {
+pub fn parse<'src>(source_code: &'src str) -> (SyntaxTree, Option<DustError<'src>>) {
     let mut source = Source::new();
-    let file = SourceFile::embedded_string("eval".to_string(), source_code);
+    let file = SourceFile::embedded_validated("eval", source_code);
     let file_id = source.add_file(file);
-    let file_bytes = source.get_file(file_id).full_source_bytes();
+    let file_str = source.get_file(file_id).content_as_str();
 
-    let lexer = Lexer::new(file_bytes);
-    let parser = Parser::new(SourceFileId::MAIN, lexer);
+    let lexer = Lexer::from_utf8(file_str);
+    let parser = Parser::new(file_id, lexer);
     let ParseResult {
         syntax_tree,
         errors,
@@ -67,25 +70,7 @@ impl<'src> Parser<'src> {
     }
 
     pub fn parse_main(mut self) -> ParseResult {
-        self.current_token = match self.lexer.next() {
-            Some(Ok(token)) => token,
-            Some(Err(index)) => {
-                let position = Position::new(self.syntax_tree.file_id, Span::new(index, index + 1));
-                let error = ParseError::InvalidUtf8 { position };
-
-                self.recover(error);
-
-                return ParseResult {
-                    syntax_tree: self.syntax_tree,
-                    errors: self.errors,
-                };
-            }
-            None => Token {
-                kind: TokenKind::Eof,
-                span: Span(0, 0),
-            },
-        };
-
+        self.advance();
         self.parse_main_function_item()
             .unwrap_or_else(|error| self.recover(error));
 
@@ -146,24 +131,14 @@ impl<'src> Parser<'src> {
     }
 
     fn advance(&mut self) {
-        match self.lexer.next() {
-            Some(Ok(next_token)) => {
-                self.previous_token = replace(&mut self.current_token, next_token);
-            }
-            Some(Err(index)) => {
-                let invalid_start = self.current_token.span.1;
-                let invalid_end = (index + 1) as u32;
+        if let Some(next_token) = self.lexer.next() {
+            self.previous_token = replace(&mut self.current_token, next_token);
+        }
 
-                let error = ParseError::InvalidUtf8 {
-                    position: Position::new(
-                        self.syntax_tree.file_id,
-                        Span::new(invalid_start, invalid_end),
-                    ),
-                };
+        if let Some(index) = self.lexer.error_index() {
+            let position = Position::new(self.syntax_tree.file_id, Span::new(index, index));
 
-                self.recover(error);
-            }
-            None => {}
+            self.recover(ParseError::InvalidUtf8 { position });
         }
     }
 

@@ -1,14 +1,14 @@
 use crate::{
-    parser::parse_main,
+    parser::parse,
+    parser::syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload},
     source::Span,
-    syntax::{SyntaxKind, SyntaxNode, SyntaxPayload},
     tests::local_cases,
 };
 
 #[test]
 fn local_boolean_greater_than() {
-    let source = local_cases::LOCAL_BOOLEAN_GREATER_THAN.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_BOOLEAN_GREATER_THAN;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -16,12 +16,12 @@ fn local_boolean_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(6, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
                 span: Span(0, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -31,7 +31,7 @@ fn local_boolean_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -46,12 +46,12 @@ fn local_boolean_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(15, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(3, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
                 span: Span(21, 41),
             },
             SyntaxNode {
@@ -61,7 +61,7 @@ fn local_boolean_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(25, 26),
             },
             SyntaxNode {
@@ -76,7 +76,7 @@ fn local_boolean_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(35, 41),
             },
             SyntaxNode {
@@ -86,17 +86,17 @@ fn local_boolean_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(42, 43),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(14),
+                payload: SyntaxPayload::child(SyntaxId(14)),
                 span: Span(42, 43),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                payload: SyntaxPayload::binary_children(15, 18),
+                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(18)),
                 span: Span(42, 47),
             },
             SyntaxNode {
@@ -106,12 +106,12 @@ fn local_boolean_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(46, 47),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(17),
+                payload: SyntaxPayload::child(SyntaxId(17)),
                 span: Span(46, 47),
             },
         ]
@@ -120,8 +120,8 @@ fn local_boolean_greater_than() {
 
 #[test]
 fn local_byte_greater_than() {
-    let source = local_cases::LOCAL_BYTE_GREATER_THAN.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_BYTE_GREATER_THAN;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -129,12 +129,12 @@ fn local_byte_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(6, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
                 span: Span(0, 47),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -144,7 +144,7 @@ fn local_byte_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -159,12 +159,12 @@ fn local_byte_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(15, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(3, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
                 span: Span(21, 40),
             },
             SyntaxNode {
@@ -174,7 +174,7 @@ fn local_byte_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(25, 26),
             },
             SyntaxNode {
@@ -189,7 +189,7 @@ fn local_byte_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(35, 40),
             },
             SyntaxNode {
@@ -199,17 +199,17 @@ fn local_byte_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(41, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(14),
+                payload: SyntaxPayload::child(SyntaxId(14)),
                 span: Span(41, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                payload: SyntaxPayload::binary_children(15, 18),
+                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(18)),
                 span: Span(41, 46),
             },
             SyntaxNode {
@@ -219,12 +219,12 @@ fn local_byte_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(45, 46),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(17),
+                payload: SyntaxPayload::child(SyntaxId(17)),
                 span: Span(45, 46),
             },
         ]
@@ -233,8 +233,8 @@ fn local_byte_greater_than() {
 
 #[test]
 fn local_character_greater_than() {
-    let source = local_cases::LOCAL_CHARACTER_GREATER_THAN.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_CHARACTER_GREATER_THAN;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -242,12 +242,12 @@ fn local_character_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(6, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
                 span: Span(0, 45),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(1, 19),
             },
             SyntaxNode {
@@ -257,7 +257,7 @@ fn local_character_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -272,12 +272,12 @@ fn local_character_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(15, 19),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(3, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
                 span: Span(20, 38),
             },
             SyntaxNode {
@@ -287,7 +287,7 @@ fn local_character_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(24, 25),
             },
             SyntaxNode {
@@ -302,7 +302,7 @@ fn local_character_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(34, 38),
             },
             SyntaxNode {
@@ -312,17 +312,17 @@ fn local_character_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(39, 40),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(14),
+                payload: SyntaxPayload::child(SyntaxId(14)),
                 span: Span(39, 40),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                payload: SyntaxPayload::binary_children(15, 18),
+                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(18)),
                 span: Span(39, 44),
             },
             SyntaxNode {
@@ -332,12 +332,12 @@ fn local_character_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(43, 44),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(17),
+                payload: SyntaxPayload::child(SyntaxId(17)),
                 span: Span(43, 44),
             },
         ]
@@ -346,8 +346,8 @@ fn local_character_greater_than() {
 
 #[test]
 fn local_float_greater_than() {
-    let source = local_cases::LOCAL_FLOAT_GREATER_THAN.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_FLOAT_GREATER_THAN;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -355,12 +355,12 @@ fn local_float_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(6, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
                 span: Span(0, 49),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(1, 21),
             },
             SyntaxNode {
@@ -370,7 +370,7 @@ fn local_float_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -385,12 +385,12 @@ fn local_float_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(16, 21),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(3, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
                 span: Span(22, 42),
             },
             SyntaxNode {
@@ -400,7 +400,7 @@ fn local_float_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(26, 27),
             },
             SyntaxNode {
@@ -415,7 +415,7 @@ fn local_float_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(37, 42),
             },
             SyntaxNode {
@@ -425,17 +425,17 @@ fn local_float_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(43, 44),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(14),
+                payload: SyntaxPayload::child(SyntaxId(14)),
                 span: Span(43, 44),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                payload: SyntaxPayload::binary_children(15, 18),
+                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(18)),
                 span: Span(43, 48),
             },
             SyntaxNode {
@@ -445,12 +445,12 @@ fn local_float_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(47, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(17),
+                payload: SyntaxPayload::child(SyntaxId(17)),
                 span: Span(47, 48),
             },
         ]
@@ -459,8 +459,8 @@ fn local_float_greater_than() {
 
 #[test]
 fn local_integer_greater_than() {
-    let source = local_cases::LOCAL_INTEGER_GREATER_THAN.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_INTEGER_GREATER_THAN;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -468,12 +468,12 @@ fn local_integer_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(6, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
                 span: Span(0, 41),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(1, 17),
             },
             SyntaxNode {
@@ -483,7 +483,7 @@ fn local_integer_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -498,12 +498,12 @@ fn local_integer_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(14, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(3, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
                 span: Span(18, 34),
             },
             SyntaxNode {
@@ -513,7 +513,7 @@ fn local_integer_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(22, 23),
             },
             SyntaxNode {
@@ -528,7 +528,7 @@ fn local_integer_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(31, 34),
             },
             SyntaxNode {
@@ -538,17 +538,17 @@ fn local_integer_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(35, 36),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(14),
+                payload: SyntaxPayload::child(SyntaxId(14)),
                 span: Span(35, 36),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                payload: SyntaxPayload::binary_children(15, 18),
+                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(18)),
                 span: Span(35, 40),
             },
             SyntaxNode {
@@ -558,12 +558,12 @@ fn local_integer_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(39, 40),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(17),
+                payload: SyntaxPayload::child(SyntaxId(17)),
                 span: Span(39, 40),
             },
         ]
@@ -572,8 +572,8 @@ fn local_integer_greater_than() {
 
 #[test]
 fn local_string_greater_than() {
-    let source = local_cases::LOCAL_STRING_GREATER_THAN.to_string();
-    let (syntax_tree, error) = parse_main(source);
+    let source = local_cases::LOCAL_STRING_GREATER_THAN;
+    let (syntax_tree, error) = parse(source);
 
     assert!(error.is_none(), "{error:?}");
     assert_eq!(
@@ -581,12 +581,12 @@ fn local_string_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(6, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
                 span: Span(0, 47),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(0, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -596,7 +596,7 @@ fn local_string_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(1),
+                payload: SyntaxPayload::child(SyntaxId(1)),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -611,12 +611,12 @@ fn local_string_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(4),
+                payload: SyntaxPayload::child(SyntaxId(4)),
                 span: Span(14, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(3, 3),
+                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
                 span: Span(21, 40),
             },
             SyntaxNode {
@@ -626,7 +626,7 @@ fn local_string_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(7),
+                payload: SyntaxPayload::child(SyntaxId(7)),
                 span: Span(25, 26),
             },
             SyntaxNode {
@@ -641,7 +641,7 @@ fn local_string_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ExpressionStatement,
-                payload: SyntaxPayload::child(10),
+                payload: SyntaxPayload::child(SyntaxId(10)),
                 span: Span(34, 40),
             },
             SyntaxNode {
@@ -651,17 +651,17 @@ fn local_string_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(13),
+                payload: SyntaxPayload::child(SyntaxId(13)),
                 span: Span(41, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(14),
+                payload: SyntaxPayload::child(SyntaxId(14)),
                 span: Span(41, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                payload: SyntaxPayload::binary_children(15, 18),
+                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(18)),
                 span: Span(41, 46),
             },
             SyntaxNode {
@@ -671,12 +671,12 @@ fn local_string_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(16),
+                payload: SyntaxPayload::child(SyntaxId(16)),
                 span: Span(45, 46),
             },
             SyntaxNode {
                 kind: SyntaxKind::PathExpression,
-                payload: SyntaxPayload::child(17),
+                payload: SyntaxPayload::child(SyntaxId(17)),
                 span: Span(45, 46),
             },
         ]

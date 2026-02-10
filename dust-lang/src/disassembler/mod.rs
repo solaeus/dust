@@ -13,16 +13,16 @@ use ratatui::{
 
 use crate::{
     dust_crate::Program,
+    parser::syntax::{Syntax, SyntaxTree},
     prototype::Prototype,
     source::{Source, SourceFile},
-    syntax::{Syntax, SyntaxTree},
 };
 
 use block_table::BlockTable;
 
 pub struct Disassembler<'a> {
     program: &'a Program,
-    source: &'a Source,
+    source: &'a Source<'a>,
     syntax: &'a Syntax,
 
     show_constants: bool,
@@ -209,7 +209,7 @@ impl<'a> Disassembler<'a> {
         let columns = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]);
         let [source_area, syntax_area] = columns.areas(inner_area);
 
-        let paragraph = Paragraph::new(source_file.full_source_str())
+        let paragraph = Paragraph::new(source_file.content_as_str())
             .wrap(Wrap { trim: false })
             .scroll((0, 0));
 

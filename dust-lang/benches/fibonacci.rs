@@ -17,20 +17,14 @@ const SOURCE: &str = r"
     fib(25)
 ";
 
-fn fibonacci(source: String) {
+fn fibonacci(source: &str) {
     run_main(source).unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("fibonacci");
 
-    group.bench_function("fibonacci", |b| {
-        b.iter_batched(
-            || SOURCE.to_string(),
-            |input: String| fibonacci(black_box(input)),
-            criterion::BatchSize::SmallInput,
-        )
-    });
+    group.bench_function("fibonacci", |b| b.iter(|| fibonacci(black_box(SOURCE))));
     group.finish();
 }
 

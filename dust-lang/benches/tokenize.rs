@@ -45,9 +45,7 @@ hello_world();
 "#;
 
 fn tokenize(source: &[u8]) {
-    for result in Lexer::new(source) {
-        result.unwrap();
-    }
+    for _ in Lexer::from_bytes(source) {}
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

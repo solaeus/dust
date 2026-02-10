@@ -10,14 +10,14 @@ use crate::{
             Symbol,
         },
     },
+    parser::syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
     source::{Source, SourceFileId},
-    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
 };
 
 pub struct DeclarationBinder<'a> {
     current_scope_id: ScopeId,
 
-    source: &'a Source,
+    source: &'a Source<'a>,
 
     syntax: &'a Syntax,
 

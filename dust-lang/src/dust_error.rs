@@ -13,25 +13,25 @@ use crate::{
 
 /// An error that can occur during the interpretation of Dust code.
 #[derive(Debug)]
-pub enum DustError {
+pub enum DustError<'src> {
     Parse {
         errors: Vec<ParseError>,
-        source: Source,
+        source: Source<'src>,
     },
     Compile {
         error: Box<CompileError>,
-        source: Source,
+        source: Source<'src>,
         resolver: Box<Resolver>,
     },
     Jit(JitError),
 }
 
-impl DustError {
-    pub fn parse(errors: Vec<ParseError>, source: Source) -> Self {
+impl<'src> DustError<'src> {
+    pub fn parse(errors: Vec<ParseError>, source: Source<'src>) -> Self {
         DustError::Parse { errors, source }
     }
 
-    pub fn compile(error: CompileError, source: Source, resolver: Resolver) -> Self {
+    pub fn compile(error: CompileError, source: Source<'src>, resolver: Resolver) -> Self {
         DustError::Compile {
             error: Box::new(error),
             source,
@@ -78,7 +78,7 @@ impl DustError {
     }
 }
 
-impl Display for DustError {
+impl Display for DustError<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.report())
     }
