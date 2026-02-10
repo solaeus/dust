@@ -325,6 +325,8 @@ impl<'src> Lexer<'src> {
                         kind: TokenKind::CharacterValue,
                         span: Span::new(start, end),
                     }));
+                } else if byte == b'\\' {
+                    index += 2;
                 } else {
                     index += 1;
                 }

@@ -150,7 +150,7 @@ fn characters() {
         );
     }
 
-    let source = "'\''".as_bytes();
+    let source = br"'\''";
     let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
@@ -158,11 +158,11 @@ fn characters() {
         vec![
             Token {
                 kind: TokenKind::CharacterValue,
-                span: Span(0, 3)
+                span: Span(0, 4)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(3, 3)
+                span: Span(4, 4)
             }
         ]
     );
