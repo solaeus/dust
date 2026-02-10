@@ -114,13 +114,13 @@ impl<'src> Lexer<'src> {
                 if self.token_start.is_none() {
                     if is_xid_start(code_point) {
                         self.token_start = Some(self.index);
-                        self.token_flags = TokenFlags::start(first_byte);
+                        self.token_flags = TokenFlags::new(first_byte);
                         self.token_flags.saw_non_ascii = true;
                         self.token_flags.unicode_identifier_started_non_ascii = true;
                         self.token_flags.unicode_identifier_valid = true;
                     } else {
                         self.token_start = Some(self.index);
-                        self.token_flags = TokenFlags::start(first_byte);
+                        self.token_flags = TokenFlags::new(first_byte);
                         self.token_flags.saw_non_ascii = true;
                         self.token_flags.unknown = true;
                     }
@@ -326,9 +326,9 @@ impl Iterator for Lexer<'_> {
                 }));
             }
 
-            let mut byte = self.source[self.index];
+            let mut current_byte = self.source[self.index];
 
-            if byte.is_ascii_whitespace() {
+            if current_byte.is_ascii_whitespace() {
                 if let Some(token) = self.finish_token() {
                     return Some(Ok(token));
                 }
@@ -336,9 +336,9 @@ impl Iterator for Lexer<'_> {
                 self.index += 1;
 
                 while self.index < self.source.len() {
-                    byte = self.source[self.index];
+                    current_byte = self.source[self.index];
 
-                    if !byte.is_ascii_whitespace() {
+                    if !current_byte.is_ascii_whitespace() {
                         break;
                     }
 
@@ -361,7 +361,7 @@ impl Iterator for Lexer<'_> {
                 }
             }
 
-            if byte == b'"' {
+            if current_byte == b'"' {
                 if let Some(token) = self.finish_token() {
                     return Some(Ok(token));
                 }
@@ -380,7 +380,7 @@ impl Iterator for Lexer<'_> {
                 }
             }
 
-            if byte == b'\'' {
+            if current_byte == b'\'' {
                 if let Some(token) = self.finish_token() {
                     return Some(Ok(token));
                 }
@@ -400,10 +400,10 @@ impl Iterator for Lexer<'_> {
                 }
             }
 
-            if byte == b'.'
+            if current_byte == b'.'
                 && let Some(start) = self.token_start
             {
-                let token_first = self.source[start];
+                let first_byte = self.source[start];
 
                 let next_is_digit = (self.index + 1) < self.source.len() && {
                     let byte = self.source[self.index + 1];
@@ -411,7 +411,7 @@ impl Iterator for Lexer<'_> {
                     byte.is_ascii_digit() || byte == b'_'
                 };
 
-                if token_first.is_ascii_digit() && next_is_digit {
+                if first_byte.is_ascii_digit() && next_is_digit {
                     self.index += 1;
                     self.token_flags.len += 1;
                     self.token_flags.has_decimal = true;
@@ -420,17 +420,17 @@ impl Iterator for Lexer<'_> {
                 }
             }
 
-            let class = byte.class();
+            let current_class = current_byte.class();
 
-            if class.is_operator_or_punctuation() {
+            if current_class.is_operator_or_punctuation() {
                 if let Some(tok) = self.finish_token() {
                     return Some(Ok(tok));
                 }
 
-                if byte == b'-' && self.index + 9 <= self.source.len() {
-                    let next = self.source[self.index + 1];
+                if current_byte == b'-' && self.index + 9 <= self.source.len() {
+                    let next_byte = self.source[self.index + 1];
 
-                    if next == b'I' {
+                    if next_byte == b'I' {
                         let slice = &self.source[self.index..self.index + 9];
 
                         if slice == b"-Infinity" {
@@ -443,7 +443,7 @@ impl Iterator for Lexer<'_> {
                     }
                 }
 
-                let (kind, width) = byte.operator_or_punctuation_kind(self.next_byte());
+                let (kind, width) = current_byte.operator_or_punctuation_kind(self.next_byte());
                 let span = Span::new(self.index, self.index + width);
                 self.index += width;
 
@@ -452,7 +452,7 @@ impl Iterator for Lexer<'_> {
 
             if self.token_start.is_none() {
                 self.token_start = Some(self.index);
-                self.token_flags = TokenFlags::start(byte);
+                self.token_flags = TokenFlags::new(current_byte);
 
                 if !self.token_flags.starts_with_digit {
                     let mut next_index = self.index + 1;
@@ -461,7 +461,7 @@ impl Iterator for Lexer<'_> {
                         let next_byte = self.source[next_index];
                         let next_class = next_byte.class();
 
-                        if class.is_whitespace()
+                        if next_class.is_whitespace()
                             || next_class.is_operator_or_punctuation()
                             || !next_class.is_ascii()
                         {
@@ -481,12 +481,12 @@ impl Iterator for Lexer<'_> {
                 && let Some(start) = self.token_start
                 && self.index > start
             {
-                let next = self.next_byte();
+                let next_byte = self.next_byte();
 
-                self.token_flags.push(byte, next);
+                self.token_flags.push(current_byte, next_byte);
             }
 
-            if !class.is_ascii() {
+            if !current_class.is_ascii() {
                 cold_path();
 
                 match self.handle_non_ascii() {
@@ -698,7 +698,7 @@ struct TokenFlags {
 
 impl TokenFlags {
     #[inline(always)]
-    fn start(first_byte: u8) -> Self {
+    fn new(first_byte: u8) -> Self {
         Self {
             starts_with_digit: first_byte.is_ascii_digit(),
             in_hexadecimal: false,
