@@ -499,11 +499,11 @@ impl Iterator for Lexer<'_> {
                 return Some(Token { kind, span });
             }
 
-            if self.token_start.is_none() {
+            if self.token_start.is_none() && current_class.is_ascii() {
                 self.token_start = Some(self.index);
                 self.token_flags = TokenFlags::new(current_byte);
 
-                if !self.token_flags.starts_with_digit && current_class.is_ascii() {
+                if !self.token_flags.starts_with_digit {
                     let mut next_index = self.index + 1;
 
                     while next_index < self.source.len() {

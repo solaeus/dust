@@ -122,7 +122,35 @@ fn bytes() {
 
 #[test]
 fn characters() {
-    let source = b"'a' 'b' 'c'";
+    let utf_8_range = 0..=0x10FFFF;
+    let surrogate_range = 0xD800..=0xDFFF;
+
+    for codepoint in utf_8_range {
+        if surrogate_range.contains(&codepoint) || codepoint == '\'' as u32 {
+            continue;
+        }
+
+        let character = char::from_u32(codepoint).unwrap();
+        let source = format!("'{character}'");
+        let tokens = Lexer::from_bytes(source.as_bytes()).collect::<Vec<_>>();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token {
+                    kind: TokenKind::CharacterValue,
+                    span: Span::new(0, source.len())
+                },
+                Token {
+                    kind: TokenKind::Eof,
+                    span: Span::new(source.len(), source.len())
+                }
+            ],
+            "Failed to tokenize character literal {character} (U+{codepoint:04X})"
+        );
+    }
+
+    let source = "'\''".as_bytes();
     let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
@@ -133,16 +161,8 @@ fn characters() {
                 span: Span(0, 3)
             },
             Token {
-                kind: TokenKind::CharacterValue,
-                span: Span(4, 7)
-            },
-            Token {
-                kind: TokenKind::CharacterValue,
-                span: Span(8, 11)
-            },
-            Token {
                 kind: TokenKind::Eof,
-                span: Span(11, 11)
+                span: Span(3, 3)
             }
         ]
     );
@@ -455,4 +475,184 @@ fn invalid_utf8_in_bytes_errors() {
     lexer.next();
 
     assert_eq!(lexer.error_index(), Some(3));
+}
+
+#[test]
+fn unicode_identifier() {
+    let source = "α".as_bytes();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span(0, 2)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(2, 2)
+            }
+        ]
+    );
+}
+
+#[test]
+fn multiple_unicode_identifier() {
+    let source = "αβγ".as_bytes();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span(0, 6)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(6, 6)
+            }
+        ]
+    );
+}
+
+#[test]
+fn ascii_followed_by_unicode_identifier() {
+    let source = "fooα".as_bytes();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span(0, 5)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(5, 5)
+            }
+        ]
+    );
+}
+
+#[test]
+fn unicode_followed_by_ascii_identifier() {
+    let source = "αfoo".as_bytes();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span(0, 5)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(5, 5)
+            }
+        ]
+    );
+}
+
+#[test]
+fn underscore_followed_by_unicode_identifier() {
+    let source = "_α".as_bytes();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span(0, 3)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(3, 3)
+            }
+        ]
+    );
+}
+
+#[test]
+fn chinese_identifier() {
+    let source = "中文".as_bytes();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span(0, 6)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(6, 6)
+            }
+        ]
+    );
+}
+
+#[test]
+fn emoji_is_not_identifier() {
+    let source = "🎉".as_bytes();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Unknown,
+                span: Span(0, 4)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(4, 4)
+            }
+        ]
+    );
+}
+
+#[test]
+fn emoji_character() {
+    let source = "'🎉'".as_bytes();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::CharacterValue,
+                span: Span(0, 6)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(6, 6)
+            }
+        ]
+    );
+}
+
+#[test]
+fn emoji_string() {
+    let source = "\"🎉\"".as_bytes();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::StringValue,
+                span: Span(0, 6)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span(6, 6)
+            }
+        ]
+    );
 }
