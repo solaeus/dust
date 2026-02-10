@@ -45,7 +45,16 @@ hello_world();
 "#;
 
 fn tokenize(source: &[u8]) {
-    for _ in Lexer::from_bytes(source) {}
+    let mut lexer = Lexer::from_bytes(source);
+
+    for _ in &mut lexer {}
+
+    if let Some(index) = lexer.error_index() {
+        panic!(
+            "Invalid UTF-8 detected at {index}: \"{}\".",
+            String::from_utf8_lossy(&source[index..])
+        );
+    }
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -103,25 +112,24 @@ fn criterion_benchmark(c: &mut Criterion) {
     }
 
     let mut all_ascii = all_ascii.into_iter().cycle();
+    let mut byte_buffer = [0; 4];
     let mut mixed_bytes = Vec::new();
 
-    for (index, codepoint) in utf8_range.enumerate() {
+    for codepoint in utf8_range {
         if surrogate_range.contains(&codepoint) {
             continue;
         }
 
-        if index % 2 == 0 {
-            let ascii = all_ascii.next().or_else(|| all_ascii.next()).unwrap();
+        let ascii = all_ascii.next().or_else(|| all_ascii.next()).unwrap();
 
-            mixed_bytes.push(ascii);
+        mixed_bytes.push(b' ');
+        mixed_bytes.push(ascii);
 
-            continue;
-        }
+        let utf8_character = std::char::from_u32(codepoint).unwrap();
 
-        let character = std::char::from_u32(codepoint).unwrap();
-
-        character.encode_utf8(&mut bytes);
-        mixed_bytes.extend_from_slice(&bytes[..character.len_utf8()]);
+        utf8_character.encode_utf8(&mut byte_buffer);
+        mixed_bytes.push(b' ');
+        mixed_bytes.extend_from_slice(&byte_buffer[..utf8_character.len_utf8()]);
     }
 
     {

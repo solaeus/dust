@@ -370,7 +370,7 @@ impl Iterator for Lexer<'_> {
                 });
             }
 
-            let mut current_byte = self.source[self.index];
+            let current_byte = self.source[self.index];
 
             if current_byte.is_ascii_whitespace() {
                 if let Some(token) = self.finish_token() {
@@ -380,7 +380,7 @@ impl Iterator for Lexer<'_> {
                 self.index += 1;
 
                 while self.index < self.source.len() {
-                    current_byte = self.source[self.index];
+                    let current_byte = self.source[self.index];
 
                     if !current_byte.is_ascii_whitespace() {
                         break;
@@ -404,6 +404,8 @@ impl Iterator for Lexer<'_> {
                     });
                 }
             }
+
+            let current_byte = self.source[self.index];
 
             if current_byte == b'"' {
                 if let Some(token) = self.finish_token() {
@@ -501,7 +503,7 @@ impl Iterator for Lexer<'_> {
                 self.token_start = Some(self.index);
                 self.token_flags = TokenFlags::new(current_byte);
 
-                if !self.token_flags.starts_with_digit {
+                if !self.token_flags.starts_with_digit && current_class.is_ascii() {
                     let mut next_index = self.index + 1;
 
                     while next_index < self.source.len() {

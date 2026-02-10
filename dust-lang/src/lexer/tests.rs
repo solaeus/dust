@@ -368,6 +368,86 @@ fn adjacent_tokens() {
 }
 
 #[test]
+fn example_source_code() {
+    let source = br#"
+        fn fib (n: int) -> int {
+            if n <= 0 {
+                0
+            } else if n == 1 {
+                1
+            } else {
+                fib(n - 1) + fib(n - 2)
+            }
+        }
+
+        let mut count = 1;
+
+        while count <= 15 {
+        if count % 15 == 0 {
+       	write_line("fizzbuzz");
+        } else if count % 3 == 0 {
+       	write_line("fizz");
+        } else if count % 5 == 0 {
+       	write_line("buzz");
+        } else {
+            write_line(count as str);
+        }
+
+        count += 1;
+        }
+
+        fn hello_world() {
+            write_line("Hello, world!");
+            write_line("Enter your name...");
+
+            let name = read_line();
+
+            write_line("Hello " + name + "!");
+        }
+
+        hello_world();
+    "#;
+
+    let mut lexer = Lexer::from_bytes(source);
+
+    for _ in &mut lexer {}
+
+    assert_eq!(lexer.error_index(), None);
+}
+
+#[test]
+fn mixed_utf8_input() {
+    let mut all_ascii = (0..128).cycle();
+    let utf8_range = 0..=0x10FFFF;
+    let surrogate_range = 0xD800..=0xDFFF;
+    let mut byte_buffer = [0; 4];
+    let mut mixed_bytes = Vec::new();
+
+    for codepoint in utf8_range {
+        if surrogate_range.contains(&codepoint) {
+            continue;
+        }
+
+        let ascii = all_ascii.next().or_else(|| all_ascii.next()).unwrap();
+
+        mixed_bytes.push(b' ');
+        mixed_bytes.push(ascii);
+
+        let utf8_character = std::char::from_u32(codepoint).unwrap();
+
+        utf8_character.encode_utf8(&mut byte_buffer);
+        mixed_bytes.push(b' ');
+        mixed_bytes.extend_from_slice(&byte_buffer[..utf8_character.len_utf8()]);
+    }
+
+    let mut lexer = Lexer::from_bytes(&mixed_bytes);
+
+    for _ in &mut lexer {}
+
+    assert_eq!(lexer.error_index(), None);
+}
+
+#[test]
 fn invalid_utf8_in_bytes_errors() {
     let source = b"abc\xFFdef";
     let mut lexer = Lexer::from_bytes(source);
