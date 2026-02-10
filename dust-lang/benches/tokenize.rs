@@ -5,6 +5,45 @@ use std::hint::black_box;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use dust_lang::lexer::Lexer;
 
+const SOURCE: &[u8] = br#"
+fn fib (n: int) -> int {
+    if n <= 0 {
+        0
+    } else if n == 1 {
+        1
+    } else {
+        fib(n - 1) + fib(n - 2)
+    }
+}
+
+let mut count = 1;
+
+while count <= 15 {
+	if count % 15 == 0 {
+		write_line("fizzbuzz");
+	} else if count % 3 == 0 {
+		write_line("fizz");
+	} else if count % 5 == 0 {
+		write_line("buzz");
+	} else {
+	    write_line(count as str);
+	}
+
+	count += 1;
+}
+
+fn hello_world() {
+    write_line("Hello, world!");
+    write_line("Enter your name...");
+
+    let name = read_line();
+
+    write_line("Hello " + name + "!");
+}
+
+hello_world();
+"#;
+
 fn tokenize(source: &[u8]) {
     for result in Lexer::new(source) {
         result.unwrap();
@@ -100,6 +139,24 @@ fn criterion_benchmark(c: &mut Criterion) {
         group.throughput(Throughput::Bytes(mixed_bytes_5x.len() as u64));
         group.bench_function("Mixed ASCII and non-ASCII x5", |b| {
             b.iter(|| tokenize(black_box(&mixed_bytes_5x)))
+        });
+    }
+
+    let small_source = SOURCE.repeat(100);
+
+    {
+        group.throughput(Throughput::Bytes(small_source.len() as u64));
+        group.bench_function("Small source", |b| {
+            b.iter(|| tokenize(black_box(&small_source)))
+        });
+    }
+
+    let large_source = SOURCE.repeat(100_000);
+
+    {
+        group.throughput(Throughput::Bytes(large_source.len() as u64));
+        group.bench_function("Large source", |b| {
+            b.iter(|| tokenize(black_box(&large_source)))
         });
     }
 
