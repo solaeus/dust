@@ -48,14 +48,9 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline(always)]
-    fn len(&self) -> usize {
-        self.source.len()
-    }
-
-    #[inline(always)]
-    fn next_byte(&self) -> Option<Byte> {
+    fn next_byte(&self) -> Option<u8> {
         if self.index + 1 < self.source.len() {
-            Some(Byte(self.source[self.index + 1]))
+            Some(self.source[self.index + 1])
         } else {
             None
         }
@@ -63,6 +58,7 @@ impl<'src> Lexer<'src> {
 
     #[inline(always)]
     fn finish_token(&mut self) -> Option<Token> {
+        #[inline(always)]
         fn finish(kind: TokenKind, span: Span, lexer: &mut Lexer) -> Option<Token> {
             lexer.token_start = None;
             lexer.token_flags = TokenFlags::default();
@@ -88,12 +84,9 @@ impl<'src> Lexer<'src> {
             return finish(TokenKind::IntegerValue, span, self);
         }
 
-        let first_byte = Byte(bytes[0]);
+        let class = bytes[0].class();
 
-        if first_byte
-            .ascii_class()
-            .is_some_and(|class| class.is_alphabetical() || class.is_underscore())
-        {
+        if class.is_alphabetical() || class.is_underscore() {
             if let Some(keyword_kind) = keyword_kind(bytes) {
                 return finish(keyword_kind, span, self);
             }
@@ -114,9 +107,9 @@ impl<'src> Lexer<'src> {
     fn handle_non_ascii(&mut self) -> Result<(), usize> {
         match self.scan_utf8_sequence(self.index) {
             Ok(width) => {
-                let first_byte = Byte(self.source[self.index]);
+                let first_byte = self.source[self.index];
                 let next_bytes = &self.source[self.index + 1..self.index + width];
-                let code_point = decode_utf8_code_point(first_byte.0, next_bytes);
+                let code_point = decode_utf8_code_point(first_byte, next_bytes);
 
                 if self.token_start.is_none() {
                     if is_xid_start(code_point) {
@@ -158,13 +151,13 @@ impl<'src> Lexer<'src> {
 
     #[inline(always)]
     fn scan_utf8_sequence(&self, start: usize) -> Result<usize, usize> {
-        let first_byte = Byte(self.source[start]);
+        let first_byte = self.source[start];
 
         if first_byte.is_ascii() {
             return Ok(1);
         }
 
-        let width = first_byte.uft8_width();
+        let width = first_byte.utf8_width();
 
         if width == 0 || start + width > self.source.len() {
             return Err(start);
@@ -185,7 +178,7 @@ impl<'src> Lexer<'src> {
             3 => {
                 let second = self.source[start + 1];
 
-                match (first_byte.0, second) {
+                match (first_byte, second) {
                     (0xE0, 0xA0..=0xBF)
                     | (0xE1..=0xEC, 0x80..=0xBF)
                     | (0xED, 0x80..=0x9F)
@@ -202,7 +195,7 @@ impl<'src> Lexer<'src> {
             4 => {
                 let second = self.source[start + 1];
 
-                match (first_byte.0, second) {
+                match (first_byte, second) {
                     (0xF0, 0x90..=0xBF) | (0xF1..=0xF3, 0x80..=0xBF) | (0xF4, 0x80..=0x8F) => {}
                     _ => return Err(start),
                 }
@@ -235,7 +228,7 @@ impl<'src> Lexer<'src> {
 
         let mut index = start + 1;
 
-        while index < self.len() {
+        while index < self.source.len() {
             let byte = self.source[index];
 
             if byte == b'"' {
@@ -257,7 +250,7 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        self.index = self.len();
+        self.index = self.source.len();
 
         Ok(Some(Token {
             kind: TokenKind::StringValue,
@@ -275,7 +268,7 @@ impl<'src> Lexer<'src> {
 
         let mut index = start + 1;
 
-        while index < self.len() {
+        while index < self.source.len() {
             let byte = self.source[index];
 
             if byte < 0x80 {
@@ -284,11 +277,9 @@ impl<'src> Lexer<'src> {
 
                     self.index = end;
 
-                    let span = Span(start as u32, end as u32);
-
                     return Ok(Some(Token {
                         kind: TokenKind::CharacterValue,
-                        span,
+                        span: Span::new(start, end),
                     }));
                 } else {
                     index += 1;
@@ -301,15 +292,13 @@ impl<'src> Lexer<'src> {
             }
         }
 
-        let end = self.len();
+        let end = self.source.len();
 
         self.index = end;
 
-        let span = Span(start as u32, end as u32);
-
         Ok(Some(Token {
             kind: TokenKind::CharacterValue,
-            span,
+            span: Span::new(start, end),
         }))
     }
 }
@@ -324,55 +313,54 @@ impl Iterator for Lexer<'_> {
                 return None;
             }
 
-            if self.index >= self.len() {
+            if self.index >= self.source.len() {
                 if let Some(token) = self.finish_token() {
                     return Some(Ok(token));
                 }
 
                 self.is_eof_or_error = true;
 
-                let length = self.source.len() as u32;
-
                 return Some(Ok(Token {
                     kind: TokenKind::Eof,
-                    span: Span(length, length),
+                    span: Span::new(self.source.len(), self.source.len()),
                 }));
             }
 
-            let byte = Byte(self.source[self.index]);
-            let Some(class) = byte.ascii_class() else {
-                cold_path();
+            let mut byte = self.source[self.index];
 
-                match self.handle_non_ascii() {
-                    Ok(()) => continue,
-                    Err(err_index) => {
-                        return Some(Err(err_index));
-                    }
-                }
-            };
-
-            // Skip whitespace
-            if class.is_whitespace() {
+            if byte.is_ascii_whitespace() {
                 if let Some(token) = self.finish_token() {
                     return Some(Ok(token));
                 }
 
                 self.index += 1;
 
-                while self.index < self.len() {
-                    let byte = Byte(self.source[self.index]);
+                while self.index < self.source.len() {
+                    byte = self.source[self.index];
 
-                    if !byte.is_whitespace() {
+                    if !byte.is_ascii_whitespace() {
                         break;
                     }
 
                     self.index += 1;
                 }
 
-                continue;
+                if self.index >= self.source.len() {
+                    if let Some(token) = self.finish_token() {
+                        return Some(Ok(token));
+                    }
+
+                    self.is_eof_or_error = true;
+
+                    let length = self.source.len() as u32;
+
+                    return Some(Ok(Token {
+                        kind: TokenKind::Eof,
+                        span: Span(length, length),
+                    }));
+                }
             }
 
-            // String literal
             if byte == b'"' {
                 if let Some(token) = self.finish_token() {
                     return Some(Ok(token));
@@ -392,7 +380,6 @@ impl Iterator for Lexer<'_> {
                 }
             }
 
-            // Character literal
             if byte == b'\'' {
                 if let Some(token) = self.finish_token() {
                     return Some(Ok(token));
@@ -413,13 +400,12 @@ impl Iterator for Lexer<'_> {
                 }
             }
 
-            // Float literal
             if byte == b'.'
                 && let Some(start) = self.token_start
             {
                 let token_first = self.source[start];
 
-                let next_is_digit = (self.index + 1) < self.len() && {
+                let next_is_digit = (self.index + 1) < self.source.len() && {
                     let byte = self.source[self.index + 1];
 
                     byte.is_ascii_digit() || byte == b'_'
@@ -434,12 +420,14 @@ impl Iterator for Lexer<'_> {
                 }
             }
 
+            let class = byte.class();
+
             if class.is_operator_or_punctuation() {
                 if let Some(tok) = self.finish_token() {
                     return Some(Ok(tok));
                 }
 
-                if byte == b'-' && self.index + 9 <= self.len() {
+                if byte == b'-' && self.index + 9 <= self.source.len() {
                     let next = self.source[self.index + 1];
 
                     if next == b'I' {
@@ -462,7 +450,6 @@ impl Iterator for Lexer<'_> {
                 return Some(Ok(Token { kind, span }));
             }
 
-            // Start a new token
             if self.token_start.is_none() {
                 self.token_start = Some(self.index);
                 self.token_flags = TokenFlags::start(byte);
@@ -470,12 +457,14 @@ impl Iterator for Lexer<'_> {
                 if !self.token_flags.starts_with_digit {
                     let mut next_index = self.index + 1;
 
-                    while next_index < self.len() {
-                        let next_byte = Byte(self.source[next_index]);
+                    while next_index < self.source.len() {
+                        let next_byte = self.source[next_index];
+                        let next_class = next_byte.class();
 
-                        if next_byte.ascii_class().is_none_or(|class| {
-                            class.is_whitespace() || class.is_operator_or_punctuation()
-                        }) {
+                        if class.is_whitespace()
+                            || next_class.is_operator_or_punctuation()
+                            || !next_class.is_ascii()
+                        {
                             break;
                         }
 
@@ -497,8 +486,25 @@ impl Iterator for Lexer<'_> {
                 self.token_flags.push(byte, next);
             }
 
+            if !class.is_ascii() {
+                cold_path();
+
+                match self.handle_non_ascii() {
+                    Ok(()) => continue,
+                    Err(err_index) => {
+                        return Some(Err(err_index));
+                    }
+                }
+            }
+
             self.index += 1;
         }
+    }
+}
+
+impl ExactSizeIterator for Lexer<'_> {
+    fn len(&self) -> usize {
+        self.source.len() - self.index
     }
 }
 
@@ -687,12 +693,12 @@ struct TokenFlags {
     unicode_identifier_valid: bool,
     unicode_identifier_started_non_ascii: bool,
     len: usize,
-    first_byte: Byte,
+    first_byte: u8,
 }
 
 impl TokenFlags {
     #[inline(always)]
-    fn start(first_byte: Byte) -> Self {
+    fn start(first_byte: u8) -> Self {
         Self {
             starts_with_digit: first_byte.is_ascii_digit(),
             in_hexadecimal: false,
@@ -709,7 +715,7 @@ impl TokenFlags {
     }
 
     #[inline(always)]
-    fn push(&mut self, byte: Byte, next: Option<Byte>) {
+    fn push(&mut self, byte: u8, next: Option<u8>) {
         self.len += 1;
 
         if self.in_hexadecimal {
@@ -742,12 +748,16 @@ impl TokenFlags {
                     return;
                 }
 
-                if let Some(next) = next
-                    && let Some(class) = next.ascii_class()
-                    && (class.is_digit() || class.is_underscore())
-                {
+                let Some(next) = next else {
+                    self.unknown = true;
+
+                    return;
+                };
+                let next_class = next.class();
+
+                if next_class.is_digit() || next_class.is_underscore() {
                     self.has_decimal = true;
-                } else {
+                } else if !next_class.is_ascii() {
                     self.unknown = true;
                 }
 
@@ -766,10 +776,9 @@ impl TokenFlags {
                 }
             }
 
-            if byte
-                .ascii_class()
-                .is_none_or(|class| class.is_whitespace() || class.is_underscore())
-            {
+            let class = byte.class();
+
+            if class.is_digit() || class.is_underscore() || !class.is_ascii() {
                 self.unknown = true;
             }
         }
@@ -804,68 +813,98 @@ fn decode_utf8_code_point(first: u8, tail: &[u8]) -> char {
     char::from_u32(bytes).unwrap()
 }
 
-// https://tools.ietf.org/html/rfc3629
-const UTF8_CHAR_WIDTHS: &[u8; 256] = &[
-    // 1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 1
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 2
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 3
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 4
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 5
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 6
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 7
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 8
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 9
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // A
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // B
-    0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // C
-    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // D
-    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, // E
-    4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // F
-];
+#[derive(Clone, Copy)]
+struct Utf8Class(u8);
 
-#[derive(Debug, Clone, Copy, Default)]
-struct Byte(u8);
-
-impl Byte {
-    #[inline(always)]
-    fn ascii_class(&self) -> Option<AsciiClass> {
-        if self.0 < 128 {
-            Some(ASCII_CLASSES[self.0 as usize])
-        } else {
-            None
-        }
-    }
+impl Utf8Class {
+    const CONTROL: Self = Self(0);
+    const WHITESPACE: Self = Self(1);
+    const OPERATOR_OR_PUNCTUATION: Self = Self(2);
+    const DIGIT: Self = Self(4);
+    const ALPHABETICAL: Self = Self(8);
+    const UNDERSCORE: Self = Self(16);
+    const NON_ASCII: Self = Self(32);
 
     #[inline(always)]
     fn is_ascii(&self) -> bool {
-        self.0.is_ascii()
-    }
-
-    #[inline(always)]
-    fn is_ascii_digit(&self) -> bool {
-        self.0.is_ascii_digit()
-    }
-
-    #[inline(always)]
-    fn is_ascii_hexdigit(&self) -> bool {
-        self.0.is_ascii_hexdigit()
+        (self.0 & Self::NON_ASCII.0) == 0
     }
 
     #[inline(always)]
     fn is_whitespace(&self) -> bool {
-        self.0.is_ascii_whitespace()
+        (self.0 & Self::WHITESPACE.0) != 0
     }
 
     #[inline(always)]
-    fn uft8_width(&self) -> usize {
-        UTF8_CHAR_WIDTHS[self.0 as usize] as usize
+    fn is_operator_or_punctuation(&self) -> bool {
+        (self.0 & Self::OPERATOR_OR_PUNCTUATION.0) != 0
     }
 
     #[inline(always)]
-    fn operator_or_punctuation_kind(&self, next: Option<Self>) -> (TokenKind, usize) {
-        match self.0 {
+    fn is_digit(&self) -> bool {
+        (self.0 & Self::DIGIT.0) != 0
+    }
+
+    #[inline(always)]
+    fn is_alphabetical(&self) -> bool {
+        (self.0 & Self::ALPHABETICAL.0) != 0
+    }
+
+    #[inline(always)]
+    fn is_underscore(&self) -> bool {
+        (self.0 & Self::UNDERSCORE.0) != 0
+    }
+}
+
+const ASCII_CLASSES: [Utf8Class; 128] = {
+    let mut classes = [Utf8Class(0); 128];
+    let mut index = 0;
+
+    while index < 128 {
+        let character = index as u8 as char;
+
+        match character {
+            '0'..='9' => classes[index] = Utf8Class::DIGIT,
+            'A'..='Z' | 'a'..='z' => classes[index] = Utf8Class::ALPHABETICAL,
+            ' ' | '\t' | '\n' | '\r' => classes[index] = Utf8Class::WHITESPACE,
+            '!' | '"' | '#' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.'
+            | '/' | ':' | ';' | '<' | '=' | '>' | '?' | '@' | '[' | '\\' | ']' | '^' | '`'
+            | '{' | '|' | '}' | '~' => classes[index] = Utf8Class::OPERATOR_OR_PUNCTUATION,
+            '_' => classes[index] = Utf8Class::UNDERSCORE,
+            '\0'..='\u{8}'
+            | '\u{b}'
+            | '\u{c}'
+            | '\u{e}'..='\u{1f}'
+            | '\u{7f}'..='\u{d7ff}'
+            | '\u{e000}'..='\u{10ffff}' => classes[index] = Utf8Class::CONTROL,
+        }
+
+        index += 1;
+    }
+
+    classes
+};
+
+trait Utf8Byte {
+    fn utf8_width(self) -> usize;
+    fn class(self) -> Utf8Class;
+    fn operator_or_punctuation_kind(self, next: Option<u8>) -> (TokenKind, usize);
+}
+
+impl Utf8Byte for u8 {
+    #[inline(always)]
+    fn utf8_width(self) -> usize {
+        UTF8_CHAR_WIDTHS[self as usize] as usize
+    }
+
+    #[inline(always)]
+    fn class(self) -> Utf8Class {
+        ASCII_CLASSES[self as usize]
+    }
+
+    #[inline(always)]
+    fn operator_or_punctuation_kind(self, next: Option<u8>) -> (TokenKind, usize) {
+        match self {
             b'*' => {
                 if let Some(next) = next
                     && next == b'='
@@ -944,7 +983,7 @@ impl Byte {
             }
             b'-' => {
                 if let Some(next) = next {
-                    match next.0 {
+                    match next {
                         b'=' => (TokenKind::MinusEqual, 2),
                         b'>' => (TokenKind::ArrowThin, 2),
                         _ => (TokenKind::Minus, 1),
@@ -989,7 +1028,7 @@ impl Byte {
                     return (TokenKind::Unknown, 1);
                 };
 
-                match (self.0, next.0) {
+                match (self, next) {
                     (b'&', b'&') => (TokenKind::DoubleAmpersand, 2),
                     (b'|', b'|') => (TokenKind::DoublePipe, 2),
                     _ => (TokenKind::Unknown, 1),
@@ -999,75 +1038,23 @@ impl Byte {
     }
 }
 
-impl PartialEq<u8> for Byte {
-    #[inline(always)]
-    fn eq(&self, other: &u8) -> bool {
-        self.0 == *other
-    }
-}
-
-#[derive(Clone, Copy)]
-struct AsciiClass(u8);
-
-impl AsciiClass {
-    const CONTROL: Self = Self(0);
-    const WHITESPACE: Self = Self(1);
-    const OPERATOR_OR_PUNCTUATION: Self = Self(2);
-    const DIGIT: Self = Self(4);
-    const ALPHABETICAL: Self = Self(8);
-    const UNDERSCORE: Self = Self(16);
-
-    #[inline(always)]
-    fn is_whitespace(&self) -> bool {
-        (self.0 & Self::WHITESPACE.0) != 0
-    }
-
-    #[inline(always)]
-    fn is_operator_or_punctuation(&self) -> bool {
-        (self.0 & Self::OPERATOR_OR_PUNCTUATION.0) != 0
-    }
-
-    #[inline(always)]
-    fn is_digit(&self) -> bool {
-        (self.0 & Self::DIGIT.0) != 0
-    }
-
-    #[inline(always)]
-    fn is_alphabetical(&self) -> bool {
-        (self.0 & Self::ALPHABETICAL.0) != 0
-    }
-
-    #[inline(always)]
-    fn is_underscore(&self) -> bool {
-        (self.0 & Self::UNDERSCORE.0) != 0
-    }
-}
-
-const ASCII_CLASSES: [AsciiClass; 128] = {
-    let mut classes = [AsciiClass(0); 128];
-    let mut index = 0;
-
-    while index < 128 {
-        let character = index as u8 as char;
-
-        match character {
-            '0'..='9' => classes[index] = AsciiClass::DIGIT,
-            'A'..='Z' | 'a'..='z' => classes[index] = AsciiClass::ALPHABETICAL,
-            ' ' | '\t' | '\n' | '\r' => classes[index] = AsciiClass::WHITESPACE,
-            '!' | '"' | '#' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.'
-            | '/' | ':' | ';' | '<' | '=' | '>' | '?' | '@' | '[' | '\\' | ']' | '^' | '`'
-            | '{' | '|' | '}' | '~' => classes[index] = AsciiClass::OPERATOR_OR_PUNCTUATION,
-            '_' => classes[index] = AsciiClass::UNDERSCORE,
-            '\0'..='\u{8}'
-            | '\u{b}'
-            | '\u{c}'
-            | '\u{e}'..='\u{1f}'
-            | '\u{7f}'..='\u{d7ff}'
-            | '\u{e000}'..='\u{10ffff}' => classes[index] = AsciiClass::CONTROL,
-        }
-
-        index += 1;
-    }
-
-    classes
-};
+// https://tools.ietf.org/html/rfc3629
+const UTF8_CHAR_WIDTHS: &[u8; 256] = &[
+    // 1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 1
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 2
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 3
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 4
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 5
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 6
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 7
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 8
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 9
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // A
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // B
+    0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // C
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // D
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, // E
+    4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // F
+];
