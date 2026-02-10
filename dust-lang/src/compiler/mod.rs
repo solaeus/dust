@@ -120,7 +120,7 @@ impl<'src> Compiler<'src> {
                 };
 
                 self.syntax.add_tree(syntax_tree).map_err(|max| {
-                    panic!("File ID {file_id:#?} is out of bounds. Expected {max} files in total.");
+                    panic!("The compiler expected {max} syntax trees in total.");
                 });
 
                 parse_errors.extend(errors);

@@ -60,9 +60,6 @@ impl Syntax {
 }
 
 /// A unique identifier for a syntax node within a syntax tree.
-///
-/// For soundness, `SyntaxId` can only be constructed within the `parser` module. This prevents
-/// accidental creation of invalid `SyntaxId`s outside of the parser.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SyntaxId(pub(super) u32);
 

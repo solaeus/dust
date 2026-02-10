@@ -15,13 +15,12 @@ use crate::{
 pub struct SyntaxTree {
     pub file_id: SourceFileId,
 
-    /// List of nodes in the tree in the order they were parsed according to the Pratt algorithm
-    /// used by the parser.
-    pub nodes: Vec<SyntaxNode>,
+    /// Append-only list of syntax nodes. Each node's ID is its index in this list.
+    pub(crate) nodes: Vec<SyntaxNode>,
 
-    /// Concatenated list of node indexes that represent children for nodes whose child indexes
-    /// cannot be stored directly in the node (i.e. blocks and the root node).
-    pub children: Vec<SyntaxId>,
+    /// Concatenated list of node indexes that represent children for nodes with more than two
+    /// children.
+    pub(crate) children: Vec<SyntaxId>,
 }
 
 impl SyntaxTree {
