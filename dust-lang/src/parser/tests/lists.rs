@@ -16,12 +16,12 @@ fn list_boolean() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(1)),
                 span: Span(0, 19),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(3)),
                 span: Span(0, 19),
             },
             SyntaxNode {
@@ -54,12 +54,12 @@ fn list_byte() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(1)),
                 span: Span(0, 18),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(3)),
                 span: Span(0, 18),
             },
             SyntaxNode {
@@ -92,12 +92,12 @@ fn list_character() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(1)),
                 span: Span(0, 15),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(3)),
                 span: Span(0, 15),
             },
             SyntaxNode {
@@ -130,12 +130,12 @@ fn list_float() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(1)),
                 span: Span(0, 15),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(3)),
                 span: Span(0, 15),
             },
             SyntaxNode {
@@ -168,12 +168,12 @@ fn list_integer() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(1)),
                 span: Span(0, 9),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(3)),
                 span: Span(0, 9),
             },
             SyntaxNode {
@@ -206,27 +206,27 @@ fn list_string() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(1)),
                 span: Span(0, 21),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(3)),
                 span: Span(0, 21),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"foo"),
                 span: Span(1, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"bar"),
                 span: Span(8, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"baz"),
                 span: Span(15, 20),
             }
         ]
@@ -244,12 +244,12 @@ fn list_index_boolean() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(8), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(8), SyntaxId(2)),
                 span: Span(0, 35),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(3)),
                 span: Span(1, 29),
             },
             SyntaxNode {
@@ -259,12 +259,12 @@ fn list_index_boolean() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(3)),
                 span: Span(9, 28),
             },
             SyntaxNode {
@@ -294,7 +294,7 @@ fn list_index_boolean() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(10)),
+                payload: SyntaxPayload::child_indices(7, 1),
                 span: Span(30, 31),
             },
             SyntaxNode {
@@ -304,12 +304,12 @@ fn list_index_boolean() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListIndexExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(12)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(12)),
                 span: Span(30, 34),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(32, 33),
             },
         ]
@@ -327,12 +327,12 @@ fn list_index_byte() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(8), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(8), SyntaxId(2)),
                 span: Span(0, 34),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(3)),
                 span: Span(1, 28),
             },
             SyntaxNode {
@@ -342,12 +342,12 @@ fn list_index_byte() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(3)),
                 span: Span(9, 27),
             },
             SyntaxNode {
@@ -377,7 +377,7 @@ fn list_index_byte() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(10)),
+                payload: SyntaxPayload::child_indices(7, 1),
                 span: Span(29, 30),
             },
             SyntaxNode {
@@ -387,7 +387,7 @@ fn list_index_byte() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListIndexExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(12)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(12)),
                 span: Span(29, 33),
             },
             SyntaxNode {
@@ -410,12 +410,12 @@ fn list_index_character() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(8), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(8), SyntaxId(2)),
                 span: Span(0, 31),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(3)),
                 span: Span(1, 25),
             },
             SyntaxNode {
@@ -425,12 +425,12 @@ fn list_index_character() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(3)),
                 span: Span(9, 24),
             },
             SyntaxNode {
@@ -440,17 +440,17 @@ fn list_index_character() {
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                payload: SyntaxPayload::child(SyntaxId(97)),
+                payload: SyntaxPayload::encode_character('a'),
                 span: Span(10, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                payload: SyntaxPayload::child(SyntaxId(98)),
+                payload: SyntaxPayload::encode_character('b'),
                 span: Span(15, 18),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                payload: SyntaxPayload::child(SyntaxId(99)),
+                payload: SyntaxPayload::encode_character('c'),
                 span: Span(20, 23),
             },
             SyntaxNode {
@@ -460,7 +460,7 @@ fn list_index_character() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(10)),
+                payload: SyntaxPayload::child_indices(7, 1),
                 span: Span(26, 27),
             },
             SyntaxNode {
@@ -470,7 +470,7 @@ fn list_index_character() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListIndexExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(12)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(12)),
                 span: Span(26, 30),
             },
             SyntaxNode {
@@ -493,12 +493,12 @@ fn list_index_float() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(8), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(8), SyntaxId(2)),
                 span: Span(0, 31),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(3)),
                 span: Span(1, 25),
             },
             SyntaxNode {
@@ -508,12 +508,12 @@ fn list_index_float() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(3)),
                 span: Span(9, 24),
             },
             SyntaxNode {
@@ -543,7 +543,7 @@ fn list_index_float() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(10)),
+                payload: SyntaxPayload::child_indices(7, 1),
                 span: Span(26, 27),
             },
             SyntaxNode {
@@ -553,7 +553,7 @@ fn list_index_float() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListIndexExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(12)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(12)),
                 span: Span(26, 30),
             },
             SyntaxNode {
@@ -576,12 +576,12 @@ fn list_index_integer() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(8), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(8), SyntaxId(2)),
                 span: Span(0, 25),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(3)),
                 span: Span(1, 19),
             },
             SyntaxNode {
@@ -591,12 +591,12 @@ fn list_index_integer() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(3)),
                 span: Span(9, 18),
             },
             SyntaxNode {
@@ -626,7 +626,7 @@ fn list_index_integer() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(10)),
+                payload: SyntaxPayload::child_indices(7, 1),
                 span: Span(20, 21),
             },
             SyntaxNode {
@@ -636,12 +636,12 @@ fn list_index_integer() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListIndexExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(12)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(12)),
                 span: Span(20, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(22, 23),
             },
         ]
@@ -659,12 +659,12 @@ fn list_index_string() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(8), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(8), SyntaxId(2)),
                 span: Span(0, 37),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(3)),
                 span: Span(1, 31),
             },
             SyntaxNode {
@@ -674,12 +674,12 @@ fn list_index_string() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(3)),
                 span: Span(9, 30),
             },
             SyntaxNode {
@@ -689,17 +689,17 @@ fn list_index_string() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"foo"),
                 span: Span(10, 15),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"bar"),
                 span: Span(17, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"baz"),
                 span: Span(24, 29),
             },
             SyntaxNode {
@@ -709,7 +709,7 @@ fn list_index_string() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(10)),
+                payload: SyntaxPayload::child_indices(7, 1),
                 span: Span(32, 33),
             },
             SyntaxNode {
@@ -719,7 +719,7 @@ fn list_index_string() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListIndexExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(12)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(12)),
                 span: Span(32, 36),
             },
             SyntaxNode {
@@ -742,12 +742,12 @@ fn local_list_boolean() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(8), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(8), SyntaxId(2)),
                 span: Span(0, 32),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(3)),
                 span: Span(1, 29),
             },
             SyntaxNode {
@@ -757,12 +757,12 @@ fn local_list_boolean() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(3)),
                 span: Span(9, 28),
             },
             SyntaxNode {
@@ -792,7 +792,7 @@ fn local_list_boolean() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(10)),
+                payload: SyntaxPayload::child_indices(7, 1),
                 span: Span(30, 31),
             },
             SyntaxNode {
@@ -815,12 +815,12 @@ fn local_list_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(14), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(14), SyntaxId(3)),
                 span: Span(0, 54),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(3)),
                 span: Span(1, 23),
             },
             SyntaxNode {
@@ -830,12 +830,12 @@ fn local_list_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(2)),
                 span: Span(9, 22),
             },
             SyntaxNode {
@@ -855,7 +855,7 @@ fn local_list_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(9), SyntaxId(3)),
                 span: Span(24, 46),
             },
             SyntaxNode {
@@ -865,12 +865,12 @@ fn local_list_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(9)),
+                payload: SyntaxPayload::child_indices(6, 1),
                 span: Span(28, 29),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(7), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(7), SyntaxId(2)),
                 span: Span(32, 45),
             },
             SyntaxNode {
@@ -895,7 +895,7 @@ fn local_list_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(12, 1),
                 span: Span(47, 48),
             },
             SyntaxNode {
@@ -905,7 +905,7 @@ fn local_list_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(17), SyntaxId(20)),
+                payload: SyntaxPayload::children(SyntaxId(17), SyntaxId(20)),
                 span: Span(47, 53),
             },
             SyntaxNode {
@@ -915,7 +915,7 @@ fn local_list_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(13, 1),
                 span: Span(52, 53),
             },
             SyntaxNode {
@@ -938,12 +938,12 @@ fn local_list_not_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(14), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(14), SyntaxId(3)),
                 span: Span(0, 52),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(3)),
                 span: Span(1, 22),
             },
             SyntaxNode {
@@ -953,12 +953,12 @@ fn local_list_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(2)),
                 span: Span(9, 21),
             },
             SyntaxNode {
@@ -978,7 +978,7 @@ fn local_list_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(9), SyntaxId(3)),
                 span: Span(23, 44),
             },
             SyntaxNode {
@@ -988,12 +988,12 @@ fn local_list_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(9)),
+                payload: SyntaxPayload::child_indices(6, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(7), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(7), SyntaxId(2)),
                 span: Span(31, 43),
             },
             SyntaxNode {
@@ -1018,7 +1018,7 @@ fn local_list_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(12, 1),
                 span: Span(45, 46),
             },
             SyntaxNode {
@@ -1028,7 +1028,7 @@ fn local_list_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(17), SyntaxId(20)),
+                payload: SyntaxPayload::children(SyntaxId(17), SyntaxId(20)),
                 span: Span(45, 51),
             },
             SyntaxNode {
@@ -1038,7 +1038,7 @@ fn local_list_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(13, 1),
                 span: Span(50, 51),
             },
             SyntaxNode {
@@ -1061,12 +1061,12 @@ fn local_list_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(14), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(14), SyntaxId(3)),
                 span: Span(0, 47),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(3)),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -1076,12 +1076,12 @@ fn local_list_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(2)),
                 span: Span(9, 19),
             },
             SyntaxNode {
@@ -1091,17 +1091,17 @@ fn local_list_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                payload: SyntaxPayload::child(SyntaxId(98)),
+                payload: SyntaxPayload::encode_character('b'),
                 span: Span(10, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                payload: SyntaxPayload::child(SyntaxId(97)),
+                payload: SyntaxPayload::encode_character('a'),
                 span: Span(15, 18),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(9), SyntaxId(3)),
                 span: Span(21, 40),
             },
             SyntaxNode {
@@ -1111,12 +1111,12 @@ fn local_list_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(9)),
+                payload: SyntaxPayload::child_indices(6, 1),
                 span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(7), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(7), SyntaxId(2)),
                 span: Span(29, 39),
             },
             SyntaxNode {
@@ -1126,12 +1126,12 @@ fn local_list_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                payload: SyntaxPayload::child(SyntaxId(97)),
+                payload: SyntaxPayload::encode_character('a'),
                 span: Span(30, 33),
             },
             SyntaxNode {
                 kind: SyntaxKind::CharacterExpression,
-                payload: SyntaxPayload::child(SyntaxId(98)),
+                payload: SyntaxPayload::encode_character('b'),
                 span: Span(35, 38),
             },
             SyntaxNode {
@@ -1141,7 +1141,7 @@ fn local_list_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(12, 1),
                 span: Span(41, 42),
             },
             SyntaxNode {
@@ -1151,7 +1151,7 @@ fn local_list_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(17), SyntaxId(20)),
+                payload: SyntaxPayload::children(SyntaxId(17), SyntaxId(20)),
                 span: Span(41, 46),
             },
             SyntaxNode {
@@ -1161,7 +1161,7 @@ fn local_list_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(13, 1),
                 span: Span(45, 46),
             },
             SyntaxNode {
@@ -1184,12 +1184,12 @@ fn local_list_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(14), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(14), SyntaxId(3)),
                 span: Span(0, 47),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(3)),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -1199,12 +1199,12 @@ fn local_list_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(2)),
                 span: Span(9, 19),
             },
             SyntaxNode {
@@ -1224,7 +1224,7 @@ fn local_list_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(9), SyntaxId(3)),
                 span: Span(21, 40),
             },
             SyntaxNode {
@@ -1234,12 +1234,12 @@ fn local_list_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(9)),
+                payload: SyntaxPayload::child_indices(6, 1),
                 span: Span(25, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(7), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(7), SyntaxId(2)),
                 span: Span(29, 39),
             },
             SyntaxNode {
@@ -1264,7 +1264,7 @@ fn local_list_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(12, 1),
                 span: Span(41, 42),
             },
             SyntaxNode {
@@ -1274,7 +1274,7 @@ fn local_list_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(17), SyntaxId(20)),
+                payload: SyntaxPayload::children(SyntaxId(17), SyntaxId(20)),
                 span: Span(41, 46),
             },
             SyntaxNode {
@@ -1284,7 +1284,7 @@ fn local_list_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(13, 1),
                 span: Span(45, 46),
             },
             SyntaxNode {
@@ -1307,12 +1307,12 @@ fn local_list_greater_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(14), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(14), SyntaxId(3)),
                 span: Span(0, 40),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(3)),
                 span: Span(1, 16),
             },
             SyntaxNode {
@@ -1322,12 +1322,12 @@ fn local_list_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(2)),
                 span: Span(9, 15),
             },
             SyntaxNode {
@@ -1347,7 +1347,7 @@ fn local_list_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(9), SyntaxId(3)),
                 span: Span(17, 32),
             },
             SyntaxNode {
@@ -1357,12 +1357,12 @@ fn local_list_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(9)),
+                payload: SyntaxPayload::child_indices(6, 1),
                 span: Span(21, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(7), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(7), SyntaxId(2)),
                 span: Span(25, 31),
             },
             SyntaxNode {
@@ -1387,7 +1387,7 @@ fn local_list_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(12, 1),
                 span: Span(33, 34),
             },
             SyntaxNode {
@@ -1397,7 +1397,7 @@ fn local_list_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(17), SyntaxId(20)),
+                payload: SyntaxPayload::children(SyntaxId(17), SyntaxId(20)),
                 span: Span(33, 39),
             },
             SyntaxNode {
@@ -1407,7 +1407,7 @@ fn local_list_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(13, 1),
                 span: Span(38, 39),
             },
             SyntaxNode {
@@ -1430,12 +1430,12 @@ fn local_list_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(14), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(14), SyntaxId(3)),
                 span: Span(0, 56),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(3)),
                 span: Span(1, 24),
             },
             SyntaxNode {
@@ -1445,12 +1445,12 @@ fn local_list_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(2)),
                 span: Span(9, 23),
             },
             SyntaxNode {
@@ -1460,17 +1460,17 @@ fn local_list_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"foo"),
                 span: Span(10, 15),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"bar"),
                 span: Span(17, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(9), SyntaxId(3)),
                 span: Span(25, 48),
             },
             SyntaxNode {
@@ -1480,12 +1480,12 @@ fn local_list_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(9)),
+                payload: SyntaxPayload::child_indices(6, 1),
                 span: Span(29, 30),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(7), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(7), SyntaxId(2)),
                 span: Span(33, 47),
             },
             SyntaxNode {
@@ -1495,12 +1495,12 @@ fn local_list_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"foo"),
                 span: Span(34, 39),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"bar"),
                 span: Span(41, 46),
             },
             SyntaxNode {
@@ -1510,7 +1510,7 @@ fn local_list_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(12, 1),
                 span: Span(49, 50),
             },
             SyntaxNode {
@@ -1520,7 +1520,7 @@ fn local_list_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(17), SyntaxId(20)),
+                payload: SyntaxPayload::children(SyntaxId(17), SyntaxId(20)),
                 span: Span(49, 55),
             },
             SyntaxNode {
@@ -1530,7 +1530,7 @@ fn local_list_less_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(13, 1),
                 span: Span(54, 55),
             },
             SyntaxNode {

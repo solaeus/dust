@@ -13,17 +13,6 @@ pub struct Address {
 }
 
 impl Address {
-    pub fn new(index: u16, memory: MemoryKind) -> Self {
-        Self { index, memory }
-    }
-
-    pub fn cell(index: u16) -> Self {
-        Address {
-            index,
-            memory: MemoryKind::CELL,
-        }
-    }
-
     pub fn constant(index: u16) -> Self {
         Address {
             index,
@@ -45,13 +34,6 @@ impl Address {
         }
     }
 
-    pub fn function_self() -> Self {
-        Address {
-            index: u16::MAX,
-            memory: MemoryKind::CONSTANT,
-        }
-    }
-
     pub fn display(&self, f: &mut Formatter<'_>, r#type: OperandType) -> fmt::Result {
         match r#type {
             OperandType::BOOLEAN if self.memory == MemoryKind::ENCODED => {
@@ -68,7 +50,7 @@ impl Address {
         }
     }
 
-    pub fn to_string(&self, r#type: OperandType) -> String {
+    pub fn as_string(&self, r#type: OperandType) -> String {
         let mut string = String::new();
         let mut formatter = Formatter::new(&mut string, FormattingOptions::default());
 

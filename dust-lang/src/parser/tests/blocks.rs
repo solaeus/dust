@@ -16,7 +16,7 @@ fn empty_block() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::child(SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(0, 2),
             },
             SyntaxNode {
@@ -44,12 +44,12 @@ fn block_expression() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(1)),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(1)),
                 span: Span(0, 6),
             },
             SyntaxNode {
@@ -72,12 +72,12 @@ fn block_statement() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(5), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(5, 1),
                 span: Span(0, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(0, 20),
             },
             SyntaxNode {
@@ -87,7 +87,7 @@ fn block_statement() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(2, 18),
             },
             SyntaxNode {
@@ -97,7 +97,7 @@ fn block_statement() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(6, 7),
             },
             SyntaxNode {
@@ -130,17 +130,17 @@ fn block_statement_and_expression() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(7), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(7, 1),
                 span: Span(0, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(5), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(5, 2),
                 span: Span(0, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(2, 18),
             },
             SyntaxNode {
@@ -150,7 +150,7 @@ fn block_statement_and_expression() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(6, 7),
             },
             SyntaxNode {
@@ -175,7 +175,7 @@ fn block_statement_and_expression() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(19, 20),
             },
             SyntaxNode {
@@ -185,7 +185,7 @@ fn block_statement_and_expression() {
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(10)),
+                payload: SyntaxPayload::children(SyntaxId(9), SyntaxId(10)),
                 span: Span(19, 24),
             },
             SyntaxNode {
@@ -208,17 +208,17 @@ fn parent_scope_access() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(8), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(0, 36),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(6, 2),
                 span: Span(1, 35),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(7, 23),
             },
             SyntaxNode {
@@ -228,7 +228,7 @@ fn parent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(11, 12),
             },
             SyntaxNode {
@@ -248,7 +248,7 @@ fn parent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(5), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(5, 1),
                 span: Span(28, 33),
             },
             SyntaxNode {
@@ -258,7 +258,7 @@ fn parent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(30, 31),
             },
             SyntaxNode {
@@ -281,17 +281,17 @@ fn nested_parrent_scope_access() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(15, 1),
                 span: Span(0, 100),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(13, 2),
                 span: Span(1, 99),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(7, 23),
             },
             SyntaxNode {
@@ -301,7 +301,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(11, 12),
             },
             SyntaxNode {
@@ -321,12 +321,12 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(11, 2),
                 span: Span(28, 97),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(38, 53),
             },
             SyntaxNode {
@@ -336,7 +336,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -356,7 +356,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(10, 1),
                 span: Span(62, 91),
             },
             SyntaxNode {
@@ -366,7 +366,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(76, 77),
             },
             SyntaxNode {
@@ -376,7 +376,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(18)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(18)),
                 span: Span(76, 81),
             },
             SyntaxNode {
@@ -386,7 +386,7 @@ fn nested_parrent_scope_access() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(80, 81),
             },
             SyntaxNode {
@@ -409,17 +409,17 @@ fn scope_shadowing() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(13, 1),
                 span: Span(0, 73),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(11, 2),
                 span: Span(1, 72),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(7, 23),
             },
             SyntaxNode {
@@ -429,7 +429,7 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(11, 12),
             },
             SyntaxNode {
@@ -449,12 +449,12 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(9, 2),
                 span: Span(28, 70),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(38, 54),
             },
             SyntaxNode {
@@ -464,7 +464,7 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -489,7 +489,7 @@ fn scope_shadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(63, 64),
             },
             SyntaxNode {
@@ -512,17 +512,17 @@ fn scope_deshadowing() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(13, 1),
                 span: Span(0, 68),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(10, 3),
                 span: Span(1, 67),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(7, 23),
             },
             SyntaxNode {
@@ -532,7 +532,7 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(11, 12),
             },
             SyntaxNode {
@@ -552,7 +552,7 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(8), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(28, 59),
             },
             SyntaxNode {
@@ -562,7 +562,7 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(38, 53),
             },
             SyntaxNode {
@@ -572,7 +572,7 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -597,7 +597,7 @@ fn scope_deshadowing() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(64, 65),
             },
             SyntaxNode {

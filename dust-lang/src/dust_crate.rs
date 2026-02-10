@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use crate::{
     constant_table::{ConstantId, ConstantTable},
-    prototype::Prototype,
     parser::syntax::SyntaxTree,
+    prototype::Prototype,
 };
 
 pub enum DustCrate {

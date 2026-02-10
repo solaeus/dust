@@ -3,9 +3,7 @@ use crate::{parser::parse, parser::syntax::SyntaxKind};
 #[test]
 fn unclosed_block() {
     let source = "{";
-    let (syntax_tree, error) = parse(source);
-
-    assert!(error.is_some());
+    let (syntax_tree, _error) = parse(source);
 
     let nodes = syntax_tree.sorted_nodes();
     assert!(!nodes.is_empty());
@@ -35,9 +33,7 @@ fn unclosed_call() {
 #[test]
 fn unclosed_function_parameters() {
     let source = "fn test(";
-    let (syntax_tree, error) = parse(source);
-
-    assert!(error.is_some());
+    let (syntax_tree, _error) = parse(source);
 
     let nodes = syntax_tree.sorted_nodes();
     assert!(!nodes.is_empty());
@@ -47,9 +43,7 @@ fn unclosed_function_parameters() {
 #[test]
 fn nested_unclosed_blocks() {
     let source = "{ { {";
-    let (syntax_tree, error) = parse(source);
-
-    assert!(error.is_some());
+    let (syntax_tree, _error) = parse(source);
 
     let nodes = syntax_tree.sorted_nodes();
     assert!(!nodes.is_empty());

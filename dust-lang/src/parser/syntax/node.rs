@@ -1,4 +1,7 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    ops::Range,
+};
 
 use crate::{parser::syntax::SyntaxId, source::Span};
 
@@ -421,8 +424,8 @@ impl Display for SyntaxKind {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SyntaxPayload {
-    pub(super) left: u32,
-    pub(super) right: u32,
+    left: u32,
+    right: u32,
 }
 
 impl SyntaxPayload {
@@ -440,14 +443,14 @@ impl SyntaxPayload {
         }
     }
 
-    pub fn binary_children(left: SyntaxId, right: SyntaxId) -> Self {
+    pub fn children(left: SyntaxId, right: SyntaxId) -> Self {
         Self {
             left: left.0,
             right: right.0,
         }
     }
 
-    pub fn children(start_index: usize, count: usize) -> Self {
+    pub fn child_indices(start_index: usize, count: usize) -> Self {
         Self {
             left: start_index as u32,
             right: count as u32,
@@ -618,6 +621,13 @@ impl SyntaxPayload {
 
     pub fn right_id(&self) -> SyntaxId {
         SyntaxId(self.right)
+    }
+
+    pub fn as_usize_range(&self) -> Range<usize> {
+        let start = self.left as usize;
+        let end = start.saturating_add(self.right as usize);
+
+        start..end
     }
 }
 

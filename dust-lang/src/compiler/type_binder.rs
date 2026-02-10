@@ -7,8 +7,8 @@ use crate::{
         error::InternalError,
         resolver::{DeclarationId, DeclarationMembers, TypeMembers},
     },
-    source::{Position, SourceFileId},
     parser::syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
+    source::{Position, SourceFileId},
 };
 
 #[derive(Debug)]

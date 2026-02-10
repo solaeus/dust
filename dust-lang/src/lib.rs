@@ -9,21 +9,22 @@
 )]
 
 pub mod compiler;
-pub mod constant_table;
 pub mod disassembler;
 pub mod dust_crate;
 pub mod dust_error;
-pub mod instruction;
 pub mod jit_vm;
 pub mod lexer;
-pub mod native_function;
 pub mod parser;
 pub mod project;
-pub mod prototype;
 pub mod source;
-pub mod token;
-pub mod r#type;
-pub mod value;
+
+mod constant_table;
+mod instruction;
+mod native_function;
+mod prototype;
+mod token;
+mod r#type;
+mod value;
 
 #[cfg(test)]
 mod tests;

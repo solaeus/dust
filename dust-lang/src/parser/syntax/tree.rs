@@ -91,18 +91,19 @@ impl SyntaxTree {
             return &[];
         }
 
-        let start = payload.left as usize;
-        let end = start + payload.right as usize;
+        let child_range = payload.as_usize_range();
 
-        if start > end || end > self.children.len() {
+        if child_range.end > self.children.len() {
             error!(
-                "Failed to get syntax children: invalid range {start}..{end} with length {}",
+                "Failed to get syntax nodes: invalid range {}..{} with length {}",
+                child_range.start,
+                child_range.end,
                 self.children.len()
             );
 
             &[]
         } else {
-            &self.children[start..end]
+            &self.children[child_range]
         }
     }
 
@@ -110,10 +111,7 @@ impl SyntaxTree {
         if children.is_empty() {
             SyntaxPayload::empty()
         } else {
-            let payload = SyntaxPayload {
-                left: self.children.len() as u32,
-                right: children.len() as u32,
-            };
+            let payload = SyntaxPayload::child_indices(self.children.len(), children.len());
 
             self.children.extend_from_slice(children);
 

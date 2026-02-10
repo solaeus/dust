@@ -16,17 +16,17 @@ fn list_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(1)),
                 span: Span(0, 30),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(2)),
                 span: Span(0, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(6)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(6)),
                 span: Span(0, 30),
             },
             SyntaxNode {
@@ -41,7 +41,7 @@ fn list_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(2), SyntaxId(2)),
                 span: Span(17, 30),
             },
             SyntaxNode {
@@ -69,17 +69,17 @@ fn list_not_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(1)),
                 span: Span(0, 28),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(2)),
                 span: Span(0, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(6)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(6)),
                 span: Span(0, 28),
             },
             SyntaxNode {
@@ -94,7 +94,7 @@ fn list_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(2), SyntaxId(2)),
                 span: Span(16, 28),
             },
             SyntaxNode {
@@ -122,17 +122,17 @@ fn list_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(1)),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(2)),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(6)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(6)),
                 span: Span(0, 23),
             },
             SyntaxNode {
@@ -147,7 +147,7 @@ fn list_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(2), SyntaxId(2)),
                 span: Span(13, 23),
             },
             SyntaxNode {
@@ -175,17 +175,17 @@ fn list_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(1)),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(2)),
                 span: Span(0, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(6)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(6)),
                 span: Span(0, 23),
             },
             SyntaxNode {
@@ -200,7 +200,7 @@ fn list_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(2), SyntaxId(2)),
                 span: Span(13, 23),
             },
             SyntaxNode {
@@ -228,17 +228,17 @@ fn list_greater_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(1)),
                 span: Span(0, 16),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(2)),
                 span: Span(0, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(6)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(6)),
                 span: Span(0, 16),
             },
             SyntaxNode {
@@ -253,7 +253,7 @@ fn list_greater_than_or_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(2), SyntaxId(2)),
                 span: Span(10, 16),
             },
             SyntaxNode {
@@ -281,42 +281,42 @@ fn list_less_than_or_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(1)),
                 span: Span(0, 32),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(2)),
                 span: Span(0, 14),
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(6)),
+                payload: SyntaxPayload::children(SyntaxId(3), SyntaxId(6)),
                 span: Span(0, 32),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"foo"),
                 span: Span(1, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"bar"),
                 span: Span(8, 13),
             },
             SyntaxNode {
                 kind: SyntaxKind::ListExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(2)),
+                payload: SyntaxPayload::children(SyntaxId(2), SyntaxId(2)),
                 span: Span(18, 32),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"foo"),
                 span: Span(19, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::StringExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_string(b"bar"),
                 span: Span(26, 31),
             },
         ]

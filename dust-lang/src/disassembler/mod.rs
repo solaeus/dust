@@ -349,7 +349,7 @@ impl<'a> Disassembler<'a> {
                 .map(|(index, (address, operand_type))| {
                     [
                         index.to_string(),
-                        address.to_string(*operand_type),
+                        address.as_string(*operand_type),
                         operand_type.to_string(),
                     ]
                 })

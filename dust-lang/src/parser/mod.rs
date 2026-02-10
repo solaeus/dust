@@ -364,7 +364,7 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind,
             span: Span(start, end),
-            payload: SyntaxPayload::children(first_child, child_count),
+            payload: SyntaxPayload::child_indices(first_child, child_count),
         };
 
         self.syntax_tree.nodes[node_index] = node;
@@ -431,7 +431,7 @@ impl<'src> Parser<'src> {
                 let field_node = SyntaxNode {
                     kind: SyntaxKind::StructFieldDefinition,
                     span: Span(field_start, field_end),
-                    payload: SyntaxPayload::binary_children(field_name_id, field_type_id),
+                    payload: SyntaxPayload::children(field_name_id, field_type_id),
                 };
                 let field_node_id = self.syntax_tree.add_node(field_node);
 
@@ -454,7 +454,7 @@ impl<'src> Parser<'src> {
             let node = SyntaxNode {
                 kind: struct_kind,
                 span: Span(start, end),
-                payload: SyntaxPayload::binary_children(path_id, struct_fields_id),
+                payload: SyntaxPayload::children(path_id, struct_fields_id),
             };
 
             self.syntax_tree.add_node(node);
@@ -496,7 +496,7 @@ impl<'src> Parser<'src> {
                 let node = SyntaxNode {
                     kind,
                     span: Span(start, end),
-                    payload: SyntaxPayload::binary_children(path_id, function_expression_id),
+                    payload: SyntaxPayload::children(path_id, function_expression_id),
                 };
 
                 self.syntax_tree.add_node(node);
@@ -529,7 +529,7 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::FunctionExpression,
             span: Span(start, end),
-            payload: SyntaxPayload::binary_children(function_signature_id, block_id),
+            payload: SyntaxPayload::children(function_signature_id, block_id),
         };
 
         self.syntax_tree.add_node(node);
@@ -552,10 +552,7 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::FunctionSignature,
             span: Span(start, end),
-            payload: SyntaxPayload::binary_children(
-                value_parameter_list_node_id,
-                return_type_node_id,
-            ),
+            payload: SyntaxPayload::children(value_parameter_list_node_id, return_type_node_id),
         };
         let node_id = self.syntax_tree.add_node(node);
 
@@ -596,7 +593,7 @@ impl<'src> Parser<'src> {
             let node = SyntaxNode {
                 kind: SyntaxKind::ValueParameterDefinition,
                 span: Span(parameter_start, parameter_end),
-                payload: SyntaxPayload::binary_children(parameter_name_node_id, type_node_id),
+                payload: SyntaxPayload::children(parameter_name_node_id, type_node_id),
             };
             let node_id = self.syntax_tree.add_node(node);
 
@@ -704,10 +701,7 @@ impl<'src> Parser<'src> {
 
                 (
                     SyntaxKind::FunctionType,
-                    SyntaxPayload::binary_children(
-                        value_parameter_types_node_id,
-                        return_type_node_id,
-                    ),
+                    SyntaxPayload::children(value_parameter_types_node_id, return_type_node_id),
                 )
             }
             _ => {
@@ -826,7 +820,7 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::ReassignmentStatement,
             span: Span(start, end),
-            payload: SyntaxPayload::binary_children(path_id, expression_statement_id),
+            payload: SyntaxPayload::children(path_id, expression_statement_id),
         };
 
         self.syntax_tree.add_node(node);
@@ -1084,7 +1078,7 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: node_kind,
             span: Span(start, end),
-            payload: SyntaxPayload::binary_children(left_id, right_id),
+            payload: SyntaxPayload::children(left_id, right_id),
         };
 
         self.syntax_tree.add_node(node);
@@ -1111,7 +1105,7 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::AsExpression,
             span: Span(start, end),
-            payload: SyntaxPayload::binary_children(expression_id, type_id),
+            payload: SyntaxPayload::children(expression_id, type_id),
         };
 
         self.syntax_tree.add_node(node);
@@ -1164,7 +1158,7 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::CallExpression,
             span: Span(start, end),
-            payload: SyntaxPayload::binary_children(function_node_id, call_value_arguments_id),
+            payload: SyntaxPayload::children(function_node_id, call_value_arguments_id),
         };
 
         self.syntax_tree.add_node(node);
@@ -1369,7 +1363,7 @@ impl<'src> Parser<'src> {
         let while_node = SyntaxNode {
             kind: SyntaxKind::WhileExpression,
             span: Span(start, end),
-            payload: SyntaxPayload::binary_children(condition_id, body_id),
+            payload: SyntaxPayload::children(condition_id, body_id),
         };
         let while_node_id = self.syntax_tree.add_node(while_node);
         let expression_statement_node = SyntaxNode {
@@ -1462,7 +1456,7 @@ impl<'src> Parser<'src> {
                 let field_node = SyntaxNode {
                     kind: SyntaxKind::StructField,
                     span: Span(field_start, field_end),
-                    payload: SyntaxPayload::binary_children(field_path_id, field_expression_id),
+                    payload: SyntaxPayload::children(field_path_id, field_expression_id),
                 };
                 let field_node_id = self.syntax_tree.add_node(field_node);
 
@@ -1484,7 +1478,7 @@ impl<'src> Parser<'src> {
             SyntaxNode {
                 kind: SyntaxKind::StructExpression,
                 span,
-                payload: SyntaxPayload::binary_children(path_id, struct_fields_node_id),
+                payload: SyntaxPayload::children(path_id, struct_fields_node_id),
             }
         } else {
             SyntaxNode {
@@ -1554,7 +1548,7 @@ impl<'src> Parser<'src> {
         let node = SyntaxNode {
             kind: SyntaxKind::ListIndexExpression,
             span: Span(start, end),
-            payload: SyntaxPayload::binary_children(target_id, index_id),
+            payload: SyntaxPayload::children(target_id, index_id),
         };
 
         self.syntax_tree.add_node(node);

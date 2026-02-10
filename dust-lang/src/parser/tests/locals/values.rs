@@ -16,12 +16,12 @@ fn local_boolean() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(5, 2),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -31,7 +31,7 @@ fn local_boolean() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -56,7 +56,7 @@ fn local_boolean() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(21, 22),
             },
             SyntaxNode {
@@ -79,12 +79,12 @@ fn local_byte() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(5, 2),
                 span: Span(0, 23),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -94,7 +94,7 @@ fn local_byte() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -119,7 +119,7 @@ fn local_byte() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(21, 22),
             },
             SyntaxNode {
@@ -142,12 +142,12 @@ fn local_character() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(5, 2),
                 span: Span(0, 22),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 19),
             },
             SyntaxNode {
@@ -157,7 +157,7 @@ fn local_character() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -182,7 +182,7 @@ fn local_character() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(20, 21),
             },
             SyntaxNode {
@@ -205,12 +205,12 @@ fn local_float() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(5, 2),
                 span: Span(0, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 21),
             },
             SyntaxNode {
@@ -220,7 +220,7 @@ fn local_float() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -245,7 +245,7 @@ fn local_float() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(22, 23),
             },
             SyntaxNode {
@@ -268,12 +268,12 @@ fn local_integer() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(5, 2),
                 span: Span(0, 20),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 17),
             },
             SyntaxNode {
@@ -283,7 +283,7 @@ fn local_integer() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -308,7 +308,7 @@ fn local_integer() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(18, 19),
             },
             SyntaxNode {
@@ -331,12 +331,12 @@ fn local_string() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(5, 2),
                 span: Span(0, 26),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 23),
             },
             SyntaxNode {
@@ -346,7 +346,7 @@ fn local_string() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -371,7 +371,7 @@ fn local_string() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(24, 25),
             },
             SyntaxNode {
@@ -394,12 +394,12 @@ fn local_function() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(10, 2),
                 span: Span(0, 72),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(1, 59),
             },
             SyntaxNode {
@@ -409,17 +409,17 @@ fn local_function() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 12),
             },
             SyntaxNode {
                 kind: SyntaxKind::ValueParameterTypes,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(4294967295)),
+                payload: SyntaxPayload::child_indices(1, 1),
                 span: Span(14, 21),
             },
             SyntaxNode {
                 kind: SyntaxKind::FunctionType,
-                payload: SyntaxPayload::binary_children(SyntaxId(4), SyntaxId(5)),
+                payload: SyntaxPayload::children(SyntaxId(4), SyntaxId(5)),
                 span: Span(14, 28),
             },
             SyntaxNode {
@@ -434,17 +434,17 @@ fn local_function() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ValueParametersDefinition,
-                payload: SyntaxPayload::binary_children(SyntaxId(9), SyntaxId(4294967295)),
+                payload: SyntaxPayload::child_indices(2, 1),
                 span: Span(33, 41),
             },
             SyntaxNode {
                 kind: SyntaxKind::FunctionSignature,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(11)),
+                payload: SyntaxPayload::children(SyntaxId(10), SyntaxId(11)),
                 span: Span(33, 48),
             },
             SyntaxNode {
                 kind: SyntaxKind::FunctionExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(18)),
+                payload: SyntaxPayload::children(SyntaxId(12), SyntaxId(18)),
                 span: Span(33, 58),
             },
             SyntaxNode {
@@ -459,7 +459,7 @@ fn local_function() {
             },
             SyntaxNode {
                 kind: SyntaxKind::ValueParameterDefinition,
-                payload: SyntaxPayload::binary_children(SyntaxId(7), SyntaxId(8)),
+                payload: SyntaxPayload::children(SyntaxId(7), SyntaxId(8)),
                 span: Span(34, 40),
             },
             SyntaxNode {
@@ -474,7 +474,7 @@ fn local_function() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(17), SyntaxId(4294967295)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(49, 58),
             },
             SyntaxNode {
@@ -484,7 +484,7 @@ fn local_function() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(4294967295)),
+                payload: SyntaxPayload::child_indices(3, 1),
                 span: Span(51, 52),
             },
             SyntaxNode {
@@ -494,7 +494,7 @@ fn local_function() {
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(16)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(16)),
                 span: Span(51, 56),
             },
             SyntaxNode {
@@ -509,7 +509,7 @@ fn local_function() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(22), SyntaxId(4294967295)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(60, 67),
             },
             SyntaxNode {
@@ -519,12 +519,12 @@ fn local_function() {
             },
             SyntaxNode {
                 kind: SyntaxKind::CallExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(24), SyntaxId(26)),
+                payload: SyntaxPayload::children(SyntaxId(24), SyntaxId(26)),
                 span: Span(60, 71),
             },
             SyntaxNode {
                 kind: SyntaxKind::CallValueArguments,
-                payload: SyntaxPayload::binary_children(SyntaxId(25), SyntaxId(4294967295)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(67, 71),
             },
             SyntaxNode {

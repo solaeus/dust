@@ -16,12 +16,12 @@ fn if_else_true() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(5), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(5), SyntaxId(1)),
                 span: Span(0, 35),
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(2), SyntaxId(3)),
                 span: Span(1, 34),
             },
             SyntaxNode {
@@ -31,7 +31,7 @@ fn if_else_true() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(1)),
                 span: Span(9, 19),
             },
             SyntaxNode {
@@ -41,7 +41,7 @@ fn if_else_true() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(1)),
                 span: Span(25, 34),
             },
             SyntaxNode {
@@ -51,7 +51,7 @@ fn if_else_true() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(31, 32),
             },
         ]
@@ -69,12 +69,12 @@ fn if_else_false() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(5), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(5), SyntaxId(1)),
                 span: Span(0, 36),
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(2), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(2), SyntaxId(3)),
                 span: Span(1, 35),
             },
             SyntaxNode {
@@ -84,17 +84,17 @@ fn if_else_false() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(0), SyntaxId(1)),
                 span: Span(10, 19),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(16, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(1)),
                 span: Span(25, 35),
             },
             SyntaxNode {
@@ -122,12 +122,12 @@ fn if_else_logical_and() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(3)),
                 span: Span(0, 66),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 14),
             },
             SyntaxNode {
@@ -137,7 +137,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -152,7 +152,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(15, 28),
             },
             SyntaxNode {
@@ -162,7 +162,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(19, 20),
             },
             SyntaxNode {
@@ -177,7 +177,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(12), SyntaxId(3)),
                 span: Span(30, 65),
             },
             SyntaxNode {
@@ -187,7 +187,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(33, 34),
             },
             SyntaxNode {
@@ -197,7 +197,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::AndExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(16)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(16)),
                 span: Span(33, 39),
             },
             SyntaxNode {
@@ -207,7 +207,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(38, 39),
             },
             SyntaxNode {
@@ -217,7 +217,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(10), SyntaxId(1)),
                 span: Span(40, 50),
             },
             SyntaxNode {
@@ -227,7 +227,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(1)),
                 span: Span(56, 65),
             },
             SyntaxNode {
@@ -237,7 +237,7 @@ fn if_else_logical_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(62, 63),
             },
         ]
@@ -255,12 +255,12 @@ fn if_else_logical_or() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(3)),
                 span: Span(0, 67),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 15),
             },
             SyntaxNode {
@@ -270,7 +270,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -285,7 +285,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(16, 29),
             },
             SyntaxNode {
@@ -295,7 +295,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(20, 21),
             },
             SyntaxNode {
@@ -310,7 +310,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(12), SyntaxId(3)),
                 span: Span(31, 66),
             },
             SyntaxNode {
@@ -320,7 +320,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(34, 35),
             },
             SyntaxNode {
@@ -330,7 +330,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::OrExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(16)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(16)),
                 span: Span(34, 40),
             },
             SyntaxNode {
@@ -340,7 +340,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(39, 40),
             },
             SyntaxNode {
@@ -350,7 +350,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(10), SyntaxId(1)),
                 span: Span(41, 51),
             },
             SyntaxNode {
@@ -360,7 +360,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(1)),
                 span: Span(57, 66),
             },
             SyntaxNode {
@@ -370,7 +370,7 @@ fn if_else_logical_or() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(63, 64),
             },
         ]
@@ -388,12 +388,12 @@ fn if_else_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(3)),
                 span: Span(0, 60),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -403,12 +403,12 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(9, 10),
             },
             SyntaxNode {
@@ -418,7 +418,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -428,12 +428,12 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(20, 21),
             },
             SyntaxNode {
@@ -443,7 +443,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(12), SyntaxId(3)),
                 span: Span(24, 59),
             },
             SyntaxNode {
@@ -453,7 +453,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -463,7 +463,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(16)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(16)),
                 span: Span(27, 33),
             },
             SyntaxNode {
@@ -473,7 +473,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(32, 33),
             },
             SyntaxNode {
@@ -483,7 +483,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(10), SyntaxId(1)),
                 span: Span(34, 44),
             },
             SyntaxNode {
@@ -493,7 +493,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(1)),
                 span: Span(50, 59),
             },
             SyntaxNode {
@@ -503,7 +503,7 @@ fn if_else_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(56, 57),
             },
         ]
@@ -521,12 +521,12 @@ fn if_else_not_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(3)),
                 span: Span(0, 60),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -536,12 +536,12 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(9, 10),
             },
             SyntaxNode {
@@ -551,7 +551,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -561,7 +561,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -576,7 +576,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(12), SyntaxId(3)),
                 span: Span(24, 59),
             },
             SyntaxNode {
@@ -586,7 +586,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -596,7 +596,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(16)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(16)),
                 span: Span(27, 33),
             },
             SyntaxNode {
@@ -606,7 +606,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(32, 33),
             },
             SyntaxNode {
@@ -616,7 +616,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(10), SyntaxId(1)),
                 span: Span(34, 44),
             },
             SyntaxNode {
@@ -626,7 +626,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(1)),
                 span: Span(50, 59),
             },
             SyntaxNode {
@@ -636,7 +636,7 @@ fn if_else_not_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(56, 57),
             },
         ]
@@ -654,12 +654,12 @@ fn if_else_less_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(3)),
                 span: Span(0, 59),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -669,12 +669,12 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(9, 10),
             },
             SyntaxNode {
@@ -684,7 +684,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -694,7 +694,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -709,7 +709,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(12), SyntaxId(3)),
                 span: Span(24, 58),
             },
             SyntaxNode {
@@ -719,7 +719,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -729,7 +729,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(16)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(16)),
                 span: Span(27, 32),
             },
             SyntaxNode {
@@ -739,7 +739,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(31, 32),
             },
             SyntaxNode {
@@ -749,7 +749,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(10), SyntaxId(1)),
                 span: Span(33, 43),
             },
             SyntaxNode {
@@ -759,7 +759,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(1)),
                 span: Span(49, 58),
             },
             SyntaxNode {
@@ -769,7 +769,7 @@ fn if_else_less_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(55, 56),
             },
         ]
@@ -787,12 +787,12 @@ fn if_else_greater_than() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(3)),
                 span: Span(0, 59),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -802,7 +802,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -817,7 +817,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -827,12 +827,12 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(20, 21),
             },
             SyntaxNode {
@@ -842,7 +842,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(12), SyntaxId(3)),
                 span: Span(24, 58),
             },
             SyntaxNode {
@@ -852,7 +852,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -862,7 +862,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(16)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(16)),
                 span: Span(27, 32),
             },
             SyntaxNode {
@@ -872,7 +872,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(31, 32),
             },
             SyntaxNode {
@@ -882,7 +882,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(10), SyntaxId(1)),
                 span: Span(33, 43),
             },
             SyntaxNode {
@@ -892,7 +892,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(1)),
                 span: Span(49, 58),
             },
             SyntaxNode {
@@ -902,7 +902,7 @@ fn if_else_greater_than() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(55, 56),
             },
         ]
@@ -920,12 +920,12 @@ fn if_else_less_than_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(3)),
                 span: Span(0, 60),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -935,12 +935,12 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(9, 10),
             },
             SyntaxNode {
@@ -950,7 +950,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -960,12 +960,12 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(20, 21),
             },
             SyntaxNode {
@@ -975,7 +975,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(12), SyntaxId(3)),
                 span: Span(24, 59),
             },
             SyntaxNode {
@@ -985,7 +985,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -995,7 +995,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanOrEqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(16)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(16)),
                 span: Span(27, 33),
             },
             SyntaxNode {
@@ -1005,7 +1005,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(32, 33),
             },
             SyntaxNode {
@@ -1015,7 +1015,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(10), SyntaxId(1)),
                 span: Span(34, 44),
             },
             SyntaxNode {
@@ -1025,7 +1025,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(1)),
                 span: Span(50, 59),
             },
             SyntaxNode {
@@ -1035,7 +1035,7 @@ fn if_else_less_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(56, 57),
             },
         ]
@@ -1053,12 +1053,12 @@ fn if_else_greater_than_equal() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(3)),
                 span: Span(0, 60),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -1068,7 +1068,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -1083,7 +1083,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -1093,12 +1093,12 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(20, 21),
             },
             SyntaxNode {
@@ -1108,7 +1108,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(12), SyntaxId(3)),
                 span: Span(24, 59),
             },
             SyntaxNode {
@@ -1118,7 +1118,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -1128,7 +1128,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanOrEqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(16)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(16)),
                 span: Span(27, 33),
             },
             SyntaxNode {
@@ -1138,7 +1138,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(32, 33),
             },
             SyntaxNode {
@@ -1148,7 +1148,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(10), SyntaxId(1)),
                 span: Span(34, 44),
             },
             SyntaxNode {
@@ -1158,7 +1158,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(11), SyntaxId(1)),
                 span: Span(50, 59),
             },
             SyntaxNode {
@@ -1168,7 +1168,7 @@ fn if_else_greater_than_equal() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(56, 57),
             },
         ]
@@ -1186,12 +1186,12 @@ fn if_else_if_chain_end() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(21), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(21), SyntaxId(3)),
                 span: Span(0, 84),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -1201,7 +1201,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -1216,7 +1216,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -1226,7 +1226,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -1241,7 +1241,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(18), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(18), SyntaxId(3)),
                 span: Span(24, 83),
             },
             SyntaxNode {
@@ -1251,7 +1251,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -1261,7 +1261,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(16)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(16)),
                 span: Span(27, 32),
             },
             SyntaxNode {
@@ -1271,7 +1271,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(31, 32),
             },
             SyntaxNode {
@@ -1281,17 +1281,17 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(10), SyntaxId(1)),
                 span: Span(33, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(39, 40),
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(3)),
                 span: Span(48, 83),
             },
             SyntaxNode {
@@ -1306,7 +1306,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(11, 1),
                 span: Span(51, 52),
             },
             SyntaxNode {
@@ -1316,7 +1316,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(22), SyntaxId(25)),
+                payload: SyntaxPayload::children(SyntaxId(22), SyntaxId(25)),
                 span: Span(51, 57),
             },
             SyntaxNode {
@@ -1326,7 +1326,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(12, 1),
                 span: Span(56, 57),
             },
             SyntaxNode {
@@ -1336,7 +1336,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(1)),
                 span: Span(58, 67),
             },
             SyntaxNode {
@@ -1346,7 +1346,7 @@ fn if_else_if_chain_end() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(14), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(14), SyntaxId(1)),
                 span: Span(73, 83),
             },
             SyntaxNode {
@@ -1374,12 +1374,12 @@ fn if_else_if_chain_middle() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(21), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(21), SyntaxId(3)),
                 span: Span(0, 84),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -1389,7 +1389,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -1404,7 +1404,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -1414,7 +1414,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -1429,7 +1429,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(18), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(18), SyntaxId(3)),
                 span: Span(24, 83),
             },
             SyntaxNode {
@@ -1439,7 +1439,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -1449,7 +1449,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(16)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(16)),
                 span: Span(27, 32),
             },
             SyntaxNode {
@@ -1459,7 +1459,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(31, 32),
             },
             SyntaxNode {
@@ -1469,17 +1469,17 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(10), SyntaxId(1)),
                 span: Span(33, 42),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(39, 40),
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(3)),
                 span: Span(48, 83),
             },
             SyntaxNode {
@@ -1494,7 +1494,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(11, 1),
                 span: Span(51, 52),
             },
             SyntaxNode {
@@ -1504,7 +1504,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::EqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(22), SyntaxId(25)),
+                payload: SyntaxPayload::children(SyntaxId(22), SyntaxId(25)),
                 span: Span(51, 57),
             },
             SyntaxNode {
@@ -1514,7 +1514,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(12, 1),
                 span: Span(56, 57),
             },
             SyntaxNode {
@@ -1524,7 +1524,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(1)),
                 span: Span(58, 68),
             },
             SyntaxNode {
@@ -1534,7 +1534,7 @@ fn if_else_if_chain_middle() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(14), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(14), SyntaxId(1)),
                 span: Span(74, 83),
             },
             SyntaxNode {
@@ -1562,12 +1562,12 @@ fn if_else_nested() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(22), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(22), SyntaxId(3)),
                 span: Span(0, 107),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -1577,7 +1577,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -1592,7 +1592,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -1602,7 +1602,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -1617,7 +1617,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(19), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(19), SyntaxId(3)),
                 span: Span(24, 106),
             },
             SyntaxNode {
@@ -1627,7 +1627,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -1637,7 +1637,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(16)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(16)),
                 span: Span(27, 32),
             },
             SyntaxNode {
@@ -1647,7 +1647,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(31, 32),
             },
             SyntaxNode {
@@ -1657,12 +1657,12 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(17), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(17), SyntaxId(1)),
                 span: Span(33, 91),
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(14), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(14), SyntaxId(3)),
                 span: Span(39, 89),
             },
             SyntaxNode {
@@ -1672,7 +1672,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(10, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -1682,7 +1682,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(20), SyntaxId(23)),
+                payload: SyntaxPayload::children(SyntaxId(20), SyntaxId(23)),
                 span: Span(42, 47),
             },
             SyntaxNode {
@@ -1692,7 +1692,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(11, 1),
                 span: Span(46, 47),
             },
             SyntaxNode {
@@ -1702,7 +1702,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(12), SyntaxId(1)),
                 span: Span(48, 66),
             },
             SyntaxNode {
@@ -1712,7 +1712,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(1)),
                 span: Span(72, 89),
             },
             SyntaxNode {
@@ -1722,12 +1722,12 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(82, 83),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(18), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(18), SyntaxId(1)),
                 span: Span(97, 106),
             },
             SyntaxNode {
@@ -1737,7 +1737,7 @@ fn if_else_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(103, 104),
             },
         ]
@@ -1755,12 +1755,12 @@ fn if_else_double_nested() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(28), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(28), SyntaxId(3)),
                 span: Span(0, 172),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 11),
             },
             SyntaxNode {
@@ -1770,7 +1770,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -1785,7 +1785,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(12, 22),
             },
             SyntaxNode {
@@ -1795,7 +1795,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(16, 17),
             },
             SyntaxNode {
@@ -1810,7 +1810,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(25), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(25), SyntaxId(3)),
                 span: Span(24, 171),
             },
             SyntaxNode {
@@ -1820,7 +1820,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(27, 28),
             },
             SyntaxNode {
@@ -1830,7 +1830,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(16)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(16)),
                 span: Span(27, 32),
             },
             SyntaxNode {
@@ -1840,7 +1840,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(31, 32),
             },
             SyntaxNode {
@@ -1850,12 +1850,12 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(23), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(23), SyntaxId(1)),
                 span: Span(33, 156),
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(20), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(20), SyntaxId(3)),
                 span: Span(39, 154),
             },
             SyntaxNode {
@@ -1865,7 +1865,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(10, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -1875,7 +1875,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::GreaterThanExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(20), SyntaxId(23)),
+                payload: SyntaxPayload::children(SyntaxId(20), SyntaxId(23)),
                 span: Span(42, 47),
             },
             SyntaxNode {
@@ -1885,7 +1885,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(11), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(11, 1),
                 span: Span(46, 47),
             },
             SyntaxNode {
@@ -1895,12 +1895,12 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(18), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(18), SyntaxId(1)),
                 span: Span(48, 131),
             },
             SyntaxNode {
                 kind: SyntaxKind::IfExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(3)),
                 span: Span(58, 125),
             },
             SyntaxNode {
@@ -1910,7 +1910,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::binary_children(SyntaxId(12), SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(12, 1),
                 span: Span(61, 62),
             },
             SyntaxNode {
@@ -1920,17 +1920,17 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::NotEqualExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(27), SyntaxId(28)),
+                payload: SyntaxPayload::children(SyntaxId(27), SyntaxId(28)),
                 span: Span(61, 67),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(66, 67),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(1)),
                 span: Span(68, 94),
             },
             SyntaxNode {
@@ -1940,7 +1940,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(14), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(14), SyntaxId(1)),
                 span: Span(100, 125),
             },
             SyntaxNode {
@@ -1950,12 +1950,12 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(114, 115),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(19), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(19), SyntaxId(1)),
                 span: Span(137, 154),
             },
             SyntaxNode {
@@ -1965,12 +1965,12 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(147, 148),
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(24), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(24), SyntaxId(1)),
                 span: Span(162, 171),
             },
             SyntaxNode {
@@ -1980,7 +1980,7 @@ fn if_else_double_nested() {
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(168, 169),
             },
         ]

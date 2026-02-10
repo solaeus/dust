@@ -80,11 +80,10 @@ use crate::native_function::NativeFunction;
 pub struct Instruction(pub(crate) u64);
 
 impl Instruction {
-    pub fn destination(&self) -> Address {
-        Address {
-            index: self.a_field(),
-            memory: MemoryKind::REGISTER,
-        }
+    pub fn operation(&self) -> Operation {
+        let bits_0_to_4 = (self.0 & 0x1F) as u8;
+
+        Operation(bits_0_to_4)
     }
 
     pub fn b_address(&self) -> Address {
@@ -101,12 +100,6 @@ impl Instruction {
         }
     }
 
-    pub fn operation(&self) -> Operation {
-        let bits_0_to_4 = (self.0 & 0x1F) as u8;
-
-        Operation(bits_0_to_4)
-    }
-
     pub fn b_memory_kind(&self) -> MemoryKind {
         let bits_7_to_8 = (self.0 >> 7) & 0x3;
 
@@ -117,12 +110,6 @@ impl Instruction {
         let bits_9_to_10 = (self.0 >> 9) & 0x3;
 
         MemoryKind(bits_9_to_10 as u8)
-    }
-
-    pub fn operand_type(&self) -> OperandType {
-        let bits_11_to_15 = (self.0 >> 11) & 0x1F;
-
-        OperandType(bits_11_to_15 as u8)
     }
 
     pub fn a_field(&self) -> u16 {
@@ -149,10 +136,10 @@ impl Instruction {
         bits_11_to_15 as u16
     }
 
-    pub fn set_a_field(&mut self, bits: u16) {
-        let mut fields = InstructionFields::from(&*self);
-        fields.a_field = bits;
-        *self = fields.build();
+    pub fn operand_type(&self) -> OperandType {
+        let bits_11_to_15 = (self.0 >> 11) & 0x1F;
+
+        OperandType(bits_11_to_15 as u8)
     }
 
     pub fn set_b_field(&mut self, bits: u16) {
@@ -164,32 +151,6 @@ impl Instruction {
     pub fn set_c_field(&mut self, bits: u16) {
         let mut fields = InstructionFields::from(&*self);
         fields.c_field = bits;
-        *self = fields.build();
-    }
-
-    pub fn set_d_field(&mut self, bits: u16) {
-        let mut fields = InstructionFields::from(&*self);
-        fields.d_field = Some(bits);
-        *self = fields.build();
-    }
-
-    pub fn set_destination(&mut self, address: Address) {
-        let mut fields = InstructionFields::from(&*self);
-        fields.a_field = address.index;
-        *self = fields.build();
-    }
-
-    pub fn set_b_address(&mut self, address: Address) {
-        let mut fields = InstructionFields::from(&*self);
-        fields.b_field = address.index;
-        fields.b_memory_kind = address.memory;
-        *self = fields.build();
-    }
-
-    pub fn set_c_address(&mut self, address: Address) {
-        let mut fields = InstructionFields::from(&*self);
-        fields.c_field = address.index;
-        fields.c_memory_kind = address.memory;
         *self = fields.build();
     }
 
@@ -504,42 +465,6 @@ impl Instruction {
         }
     }
 
-    pub fn is_math(&self) -> bool {
-        self.operation().is_math()
-    }
-
-    pub fn is_comparison(&self) -> bool {
-        self.operation().is_comparison()
-    }
-
-    pub fn yields_value(&self) -> bool {
-        match self.operation() {
-            Operation::MOVE
-            | Operation::NEW_LIST
-            | Operation::GET_LIST
-            | Operation::ADD
-            | Operation::SUBTRACT
-            | Operation::MULTIPLY
-            | Operation::DIVIDE
-            | Operation::MODULO
-            | Operation::POWER
-            | Operation::NEGATE
-            | Operation::CALL
-            | Operation::TO_STRING => true,
-            Operation::DROP
-            | Operation::SET_LIST
-            | Operation::EQUAL
-            | Operation::LESS
-            | Operation::LESS_EQUAL
-            | Operation::TEST
-            | Operation::JUMP
-            | Operation::RETURN
-            | Operation::NO_OP => false,
-            Operation::CALL_NATIVE => self.operand_type() != OperandType::NONE,
-            unknown => panic!("Unknown operation: {}", unknown.0),
-        }
-    }
-
     pub fn disassembly_info(&self) -> String {
         let operation = self.operation();
 
@@ -651,7 +576,7 @@ mod tests {
         Instruction::add(
             42,
             Address::register(1),
-            Address::cell(2),
+            Address::constant(2),
             OperandType::INTEGER,
         )
     }

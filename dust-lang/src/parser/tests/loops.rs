@@ -16,12 +16,12 @@ fn while_loop() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(5), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(8, 3),
                 span: Span(0, 49),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetMutStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(1), SyntaxId(3)),
+                payload: SyntaxPayload::children(SyntaxId(1), SyntaxId(3)),
                 span: Span(1, 15),
             },
             SyntaxNode {
@@ -31,12 +31,12 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(9, 10),
             },
             SyntaxNode {
                 kind: SyntaxKind::IntegerExpression,
-                payload: SyntaxPayload::empty(),
+                payload: SyntaxPayload::encode_integer(0),
                 span: Span(13, 14),
             },
             SyntaxNode {
@@ -46,7 +46,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::WhileExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(10), SyntaxId(17)),
+                payload: SyntaxPayload::children(SyntaxId(10), SyntaxId(17)),
                 span: Span(17, 45),
             },
             SyntaxNode {
@@ -61,7 +61,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(23, 24),
             },
             SyntaxNode {
@@ -71,7 +71,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LessThanExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(8), SyntaxId(9)),
+                payload: SyntaxPayload::children(SyntaxId(8), SyntaxId(9)),
                 span: Span(23, 29),
             },
             SyntaxNode {
@@ -81,7 +81,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::BlockExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(1)),
+                payload: SyntaxPayload::children(SyntaxId(6), SyntaxId(1)),
                 span: Span(30, 45),
             },
             SyntaxNode {
@@ -96,7 +96,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(8)),
+                payload: SyntaxPayload::child_indices(5, 1),
                 span: Span(36, 37),
             },
             SyntaxNode {
@@ -106,7 +106,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::AdditionAssignmentStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(13), SyntaxId(14)),
+                payload: SyntaxPayload::children(SyntaxId(13), SyntaxId(14)),
                 span: Span(36, 43),
             },
             SyntaxNode {
@@ -121,7 +121,7 @@ fn while_loop() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(10)),
+                payload: SyntaxPayload::child_indices(7, 1),
                 span: Span(47, 48),
             },
             SyntaxNode {

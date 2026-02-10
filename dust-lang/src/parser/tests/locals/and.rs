@@ -16,12 +16,12 @@ fn local_boolean_and() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(6), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(10, 3),
                 span: Span(0, 49),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -31,7 +31,7 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -51,7 +51,7 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(5, 3),
                 span: Span(21, 41),
             },
             SyntaxNode {
@@ -61,7 +61,7 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(25, 26),
             },
             SyntaxNode {
@@ -86,7 +86,7 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(13)),
+                payload: SyntaxPayload::child_indices(8, 1),
                 span: Span(42, 43),
             },
             SyntaxNode {
@@ -96,7 +96,7 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::AndExpression,
-                payload: SyntaxPayload::binary_children(SyntaxId(15), SyntaxId(18)),
+                payload: SyntaxPayload::children(SyntaxId(15), SyntaxId(18)),
                 span: Span(42, 48),
             },
             SyntaxNode {
@@ -106,7 +106,7 @@ fn local_boolean_and() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(16)),
+                payload: SyntaxPayload::child_indices(9, 1),
                 span: Span(47, 48),
             },
             SyntaxNode {

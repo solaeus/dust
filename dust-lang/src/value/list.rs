@@ -17,7 +17,7 @@ pub enum List {
     Float(Vec<f64>),
     Integer(Vec<i64>),
     String(Vec<String>),
-    List(Vec<List>),
+    Nested(Vec<List>),
     Function(Vec<usize>),
 }
 
@@ -48,7 +48,7 @@ impl List {
 
     #[expect(clippy::self_named_constructors)]
     pub fn list<T: Into<Vec<List>>>(lists: T) -> Self {
-        List::List(lists.into())
+        List::Nested(lists.into())
     }
 
     pub fn function<T: Into<Vec<usize>>>(prototype_indexes: T) -> Self {
@@ -63,7 +63,7 @@ impl List {
             List::Float(_) => OperandType::LIST_FLOAT,
             List::Integer(_) => OperandType::LIST_INTEGER,
             List::String(_) => OperandType::LIST_STRING,
-            List::List(_) => OperandType::LIST_LIST,
+            List::Nested(_) => OperandType::LIST_LIST,
             List::Function(_) => OperandType::LIST_FUNCTION,
         }
     }
@@ -128,7 +128,7 @@ impl Display for List {
                     write!(f, "\"{string}\"")?;
                 }
             }
-            List::List(lists) => {
+            List::Nested(lists) => {
                 for (index, list) in lists.iter().enumerate() {
                     if index > 0 {
                         write!(f, ", ")?;
@@ -171,7 +171,7 @@ impl PartialEq for List {
             }
             (List::Integer(left), List::Integer(right)) => left == right,
             (List::String(left), List::String(right)) => left == right,
-            (List::List(left), List::List(right)) => left == right,
+            (List::Nested(left), List::Nested(right)) => left == right,
             (List::Function(left), List::Function(right)) => left == right,
             _ => false,
         }
@@ -203,7 +203,7 @@ impl Ord for List {
             }
             (List::Integer(left), List::Integer(right)) => left.cmp(right),
             (List::String(left), List::String(right)) => left.cmp(right),
-            (List::List(left), List::List(right)) => left.cmp(right),
+            (List::Nested(left), List::Nested(right)) => left.cmp(right),
             (List::Function(left), List::Function(right)) => left.cmp(right),
             _ => Ordering::Equal,
         }
@@ -223,7 +223,7 @@ impl Hash for List {
             }
             List::Integer(value) => value.hash(state),
             List::String(value) => value.hash(state),
-            List::List(value) => value.hash(state),
+            List::Nested(value) => value.hash(state),
             List::Function(value) => value.hash(state),
         }
     }

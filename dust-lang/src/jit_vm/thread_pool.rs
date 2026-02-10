@@ -483,7 +483,7 @@ fn get_list_from_object_index(
                             inner_lists.push(inner_list);
                         }
 
-                        List::List(inner_lists)
+                        List::Nested(inner_lists)
                     }
                     _ => {
                         return Err(JitError::InvalidConstantType {
@@ -495,7 +495,7 @@ fn get_list_from_object_index(
                 items.push(list);
             }
 
-            Ok(List::List(items))
+            Ok(List::Nested(items))
         }
         _ => Err(JitError::InvalidConstantType {
             expected_type: OperandType::LIST_BOOLEAN,

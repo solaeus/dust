@@ -16,12 +16,12 @@ fn local_boolean_not() {
         vec![
             SyntaxNode {
                 kind: SyntaxKind::MainFunctionItem,
-                payload: SyntaxPayload::binary_children(SyntaxId(3), SyntaxId(2)),
+                payload: SyntaxPayload::child_indices(5, 2),
                 span: Span(0, 24),
             },
             SyntaxNode {
                 kind: SyntaxKind::LetStatement,
-                payload: SyntaxPayload::binary_children(SyntaxId(0), SyntaxId(3)),
+                payload: SyntaxPayload::child_indices(1, 3),
                 span: Span(1, 20),
             },
             SyntaxNode {
@@ -31,7 +31,7 @@ fn local_boolean_not() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(1)),
+                payload: SyntaxPayload::child_indices(0, 1),
                 span: Span(5, 6),
             },
             SyntaxNode {
@@ -61,7 +61,7 @@ fn local_boolean_not() {
             },
             SyntaxNode {
                 kind: SyntaxKind::Path,
-                payload: SyntaxPayload::child(SyntaxId(7)),
+                payload: SyntaxPayload::child_indices(4, 1),
                 span: Span(22, 23),
             },
             SyntaxNode {
