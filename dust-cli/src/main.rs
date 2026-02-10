@@ -20,13 +20,14 @@ use std::{
 
 use clap::Parser as CliParser;
 use dust_lang::{
+    dust_error::DustError,
     lexer::Lexer,
     project::{EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
     source::{Source, SourceFile},
     token::Token,
 };
 use memmap2::MmapOptions;
-use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
+use tracing::{Event, Level, Subscriber, error, level_filters::LevelFilter};
 use tracing_subscriber::{
     fmt::{FmtContext, FormatEvent, FormatFields, format::Writer},
     registry::LookupSpan,
@@ -78,16 +79,31 @@ fn main() {
 
     if mode == Mode::Tokenize {
         let tokenize_bytes = |source: &[u8]| {
-            let mut lexer = Lexer::new(source);
-            let tokens = lexer
-                .try_collect::<Vec<Token>>()
-                .expect("Failed to tokenize source");
+            let lexer = Lexer::new(source);
             let tokenize_time = start_time.elapsed();
 
             if !no_output {
-                for token in &tokens {
-                    println!("{token}");
+                let mut output_buffer = Vec::new();
+
+                for ut8_result in lexer {
+                    match ut8_result {
+                        Ok(token) => println!("{token}"),
+                        Err(error_index) => {
+                            error!("Invalid UTF-8 sequence starting at byte index {error_index}");
+                        }
+                    }
+
+                    if output_buffer.len() >= 1024 {
+                        io::stdout()
+                            .write_all(&output_buffer)
+                            .expect("Failed to write to stdout");
+                        output_buffer.clear();
+                    }
                 }
+
+                io::stdout()
+                    .write_all(&output_buffer)
+                    .expect("Failed to write to stdout");
             }
 
             if time {

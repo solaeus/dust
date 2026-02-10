@@ -114,7 +114,7 @@ impl Compiler {
                 } = if file_id == SourceFileId::MAIN {
                     parser.parse_main()
                 } else {
-                    parser.parse_file_module()
+                    parser.parse_module()
                 };
 
                 self.syntax.add_tree(syntax_tree).map_err(|max| {
