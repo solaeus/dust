@@ -778,7 +778,7 @@ impl TokenFlags {
 
             let class = byte.class();
 
-            if class.is_digit() || class.is_underscore() || !class.is_ascii() {
+            if !class.is_digit() && !class.is_underscore() && class.is_ascii() {
                 self.unknown = true;
             }
         }
@@ -899,7 +899,11 @@ impl Utf8Byte for u8 {
 
     #[inline(always)]
     fn class(self) -> Utf8Class {
-        ASCII_CLASSES[self as usize]
+        if self < 128 {
+            ASCII_CLASSES[self as usize]
+        } else {
+            Utf8Class::NON_ASCII
+        }
     }
 
     #[inline(always)]
