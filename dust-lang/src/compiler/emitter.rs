@@ -1500,8 +1500,8 @@ impl SyntaxVisitor for Emitter<'_> {
             element_node: &SyntaxReader,
         ) -> Result<Address, CompileError> {
             match element_emission {
-                Emission::Constant(constant) => Ok(emitter.get_constant_address(constant)),
                 Emission::Place(place) => Ok(place.address()),
+                Emission::Constant(constant) => Ok(emitter.get_constant_address(constant)),
                 Emission::Instructions(InstructionsEmission {
                     instructions: element_instructions,
                     target,
@@ -1516,11 +1516,9 @@ impl SyntaxVisitor for Emitter<'_> {
 
                     Ok(Address::register(target.index()))
                 }
-                Emission::NativeFunction(_) => {
-                    return Err(CompileError::ExpectedNativeFunctionCall {
-                        position: element_node.position(),
-                    });
-                }
+                Emission::NativeFunction(_) => Err(CompileError::ExpectedNativeFunctionCall {
+                    position: element_node.position(),
+                }),
                 Emission::None => Err(CompileError::ExpectedValue {
                     node_kind: element_node.kind(),
                     position: element_node.position(),
@@ -2387,15 +2385,6 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let mut call_emission = InstructionsEmission::new();
 
-        let callee_emission = self.visit_expression(callee, None)?;
-        let callee_address = match callee_emission {
-            Emission::Instructions(instructions_emission) => todo!(),
-            Emission::Constant(constant_emission) => todo!(),
-            Emission::NativeFunction(native_function) => todo!(),
-            Emission::Place(place) => todo!(),
-            Emission::None => todo!(),
-        };
-
         let arguments_start = self.call_arguments.len() as u16;
         let mut argument_count = 0u16;
 
@@ -2413,11 +2402,29 @@ impl SyntaxVisitor for Emitter<'_> {
             argument_count += 1;
         }
 
-        let callee_declaration_id = *self.resolver.get_declaration_binding(&callee.id)?;
-        let callee_declaration = self.resolver.get_declaration(callee_declaration_id)?;
+        let callee_emission = self.visit_expression(callee, None)?;
+        let callee_address = match callee_emission {
+            Emission::Place(place) => place.address(),
+            Emission::NativeFunction(native_function) => {
+                let destination_register = target.map(|target| target.index()).unwrap_or_default();
+                let call_native_instruction = Instruction::call_native(
+                    destination_register,
+                    native_function,
+                    0,
+                    OperandType::NONE,
+                );
 
-        let callee_type_id = *self.resolver.get_type_binding(&callee.id)?;
-        let callee_type_node = *self.resolver.get_type(callee_type_id)?;
+                call_emission.push(call_native_instruction);
+
+                return Ok(Emission::Instructions(call_emission));
+            }
+            _ => {
+                return Err(CompileError::ExpectedFunction {
+                    node_kind: callee.kind(),
+                    position: callee.position(),
+                });
+            }
+        };
 
         let return_type_id = *self.resolver.get_type_binding(&node.id)?;
         let return_operand_type = self.resolver.get_operand_type(return_type_id, &node)?;
@@ -2433,28 +2440,12 @@ impl SyntaxVisitor for Emitter<'_> {
             None
         };
 
-        let call_instruction = if let TypeNode::Function { .. } = callee_type_node
-            && let Symbol::BuiltIn(name) = callee_declaration.symbol
-        {
-            let native_function = NativeFunction::from_str(name).ok_or(CompileError::Internal(
-                InternalError::InvalidNativeFunction(name),
-            ))?;
-            let destination_register = target.map(|target| target.index()).unwrap_or(u16::MAX);
-
-            Instruction::call_native(
-                destination_register,
-                native_function,
-                arguments_start,
-                return_operand_type,
-            )
-        } else {
-            Instruction::call(
-                target.map(|target| target.index()),
-                callee_address,
-                arguments_start,
-                argument_count,
-            )
-        };
+        let call_instruction = Instruction::call(
+            target.map(|target| target.index()),
+            callee_address,
+            arguments_start,
+            argument_count,
+        );
 
         call_emission.push(call_instruction);
 

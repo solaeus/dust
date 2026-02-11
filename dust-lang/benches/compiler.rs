@@ -27,7 +27,7 @@ fn compile_bench(source: &str) {
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut source = String::new();
-    let mut group = c.benchmark_group("compile");
+    let mut group = c.benchmark_group("compiler");
 
     group.measurement_time(Duration::from_secs(15));
     group.sample_size(10);

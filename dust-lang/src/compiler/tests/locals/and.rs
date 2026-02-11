@@ -1,6 +1,6 @@
 use crate::compiler::Symbol;
 use crate::{
-    compiler::compile_main_prototype,
+    compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::local_cases,
@@ -10,7 +10,7 @@ use crate::{
 #[test]
 fn local_boolean_and() {
     let source = local_cases::LOCAL_BOOLEAN_AND;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,

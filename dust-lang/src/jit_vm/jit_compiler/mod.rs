@@ -178,21 +178,21 @@ impl<'a> JitCompiler<'a> {
                     transmute::<*const u8, JitFunctionReturnNone>(program_function_pointer)
                 };
 
-                JitFunction::ReturnNone(logic)
+                JitFunction::None(logic)
             }
             Type::Struct { .. } => {
                 let logic = unsafe {
                     transmute::<*const u8, JitFunctionReturnStruct>(program_function_pointer)
                 };
 
-                JitFunction::ReturnStruct(logic)
+                JitFunction::Struct(logic)
             }
             _ => {
                 let logic = unsafe {
                     transmute::<*const u8, JitFunctionReturnScalar>(program_function_pointer)
                 };
 
-                JitFunction::ReturnScalar(logic)
+                JitFunction::Scalar(logic)
             }
         };
 
@@ -386,9 +386,9 @@ pub type JitFunctionReturnScalar = extern "C" fn(&mut ThreadContext, usize) -> i
 pub type JitFunctionReturnStruct = extern "C" fn(*mut i64, &mut ThreadContext, usize);
 
 pub enum JitFunction {
-    ReturnNone(JitFunctionReturnNone),
-    ReturnScalar(JitFunctionReturnScalar),
-    ReturnStruct(JitFunctionReturnStruct),
+    None(JitFunctionReturnNone),
+    Scalar(JitFunctionReturnScalar),
+    Struct(JitFunctionReturnStruct),
 }
 
 // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm

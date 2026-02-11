@@ -1,6 +1,6 @@
 use crate::compiler::Symbol;
 use crate::{
-    compiler::compile_main_prototype,
+    compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::list_cases,
@@ -10,7 +10,7 @@ use crate::{
 #[test]
 fn list_boolean() {
     let source = list_cases::LIST_BOOLEAN;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -48,7 +48,7 @@ fn list_boolean() {
 #[test]
 fn list_byte() {
     let source = list_cases::LIST_BYTE;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -86,7 +86,7 @@ fn list_byte() {
 #[test]
 fn list_character() {
     let source = list_cases::LIST_CHARACTER;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -124,7 +124,7 @@ fn list_character() {
 #[test]
 fn list_float() {
     let source = list_cases::LIST_FLOAT;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -162,7 +162,7 @@ fn list_float() {
 #[test]
 fn list_integer() {
     let source = list_cases::LIST_INTEGER;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -200,7 +200,7 @@ fn list_integer() {
 #[test]
 fn list_equal() {
     let source = list_cases::LIST_EQUAL;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -259,7 +259,7 @@ fn list_equal() {
 #[test]
 fn list_not_equal() {
     let source = list_cases::LIST_NOT_EQUAL;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -318,7 +318,7 @@ fn list_not_equal() {
 #[test]
 fn list_greater_than() {
     let source = list_cases::LIST_GREATER_THAN;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -377,7 +377,7 @@ fn list_greater_than() {
 #[test]
 fn list_less_than() {
     let source = list_cases::LIST_LESS_THAN;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -436,7 +436,7 @@ fn list_less_than() {
 #[test]
 fn list_greater_than_or_equal() {
     let source = list_cases::LIST_GREATER_THAN_OR_EQUAL;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -495,7 +495,7 @@ fn list_greater_than_or_equal() {
 #[test]
 fn list_less_than_or_equal() {
     let source = list_cases::LIST_LESS_THAN_OR_EQUAL;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -554,7 +554,7 @@ fn list_less_than_or_equal() {
 #[test]
 fn list_index_boolean() {
     let source = list_cases::LIST_INDEX_BOOLEAN;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -598,7 +598,7 @@ fn list_index_boolean() {
 #[test]
 fn list_index_byte() {
     let source = list_cases::LIST_INDEX_BYTE;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -642,7 +642,7 @@ fn list_index_byte() {
 #[test]
 fn list_index_character() {
     let source = list_cases::LIST_INDEX_CHARACTER;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -686,7 +686,7 @@ fn list_index_character() {
 #[test]
 fn list_index_float() {
     let source = list_cases::LIST_INDEX_FLOAT;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -730,7 +730,7 @@ fn list_index_float() {
 #[test]
 fn list_index_integer() {
     let source = list_cases::LIST_INDEX_INTEGER;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -774,7 +774,7 @@ fn list_index_integer() {
 #[test]
 fn list_index_string() {
     let source = list_cases::LIST_INDEX_STRING;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -818,7 +818,7 @@ fn list_index_string() {
 #[test]
 fn local_list_boolean() {
     let source = list_cases::LOCAL_LIST_BOOLEAN;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -856,7 +856,7 @@ fn local_list_boolean() {
 #[test]
 fn local_list_equal() {
     let source = list_cases::LOCAL_LIST_EQUAL;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -915,7 +915,7 @@ fn local_list_equal() {
 #[test]
 fn local_list_not_equal() {
     let source = list_cases::LOCAL_LIST_NOT_EQUAL;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -974,7 +974,7 @@ fn local_list_not_equal() {
 #[test]
 fn local_list_greater_than() {
     let source = list_cases::LOCAL_LIST_GREATER_THAN;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -1033,7 +1033,7 @@ fn local_list_greater_than() {
 #[test]
 fn local_list_less_than() {
     let source = list_cases::LOCAL_LIST_LESS_THAN;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -1092,7 +1092,7 @@ fn local_list_less_than() {
 #[test]
 fn local_list_greater_than_or_equal() {
     let source = list_cases::LOCAL_LIST_GREATER_THAN_OR_EQUAL;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -1151,7 +1151,7 @@ fn local_list_greater_than_or_equal() {
 #[test]
 fn local_list_less_than_or_equal() {
     let source = list_cases::LOCAL_LIST_LESS_THAN_OR_EQUAL;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -1210,7 +1210,7 @@ fn local_list_less_than_or_equal() {
 #[test]
 fn list_string() {
     let source = list_cases::LIST_STRING;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,

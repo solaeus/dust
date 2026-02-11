@@ -1,7 +1,7 @@
 use crate::compiler::Symbol;
 use crate::constant_table::ConstantId;
 use crate::{
-    compiler::compile_prototypes,
+    compiler::compile,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::{create_function_case, local_cases},
@@ -11,7 +11,7 @@ use crate::{
 #[test]
 fn local_byte_subtraction() {
     let source = create_function_case(local_cases::LOCAL_BYTE_SUBTRACTION, OperandType::BYTE);
-    let prototypes = compile_prototypes(&source).unwrap();
+    let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -42,7 +42,7 @@ fn local_byte_subtraction() {
 #[test]
 fn local_float_subtraction() {
     let source = create_function_case(local_cases::LOCAL_FLOAT_SUBTRACTION, OperandType::FLOAT);
-    let prototypes = compile_prototypes(&source).unwrap();
+    let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -73,7 +73,7 @@ fn local_float_subtraction() {
 #[test]
 fn local_integer_subtraction() {
     let source = create_function_case(local_cases::LOCAL_INTEGER_SUBTRACTION, OperandType::INTEGER);
-    let prototypes = compile_prototypes(&source).unwrap();
+    let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -104,7 +104,7 @@ fn local_integer_subtraction() {
 #[test]
 fn local_mut_byte_subtraction() {
     let source = create_function_case(local_cases::LOCAL_MUT_BYTE_SUBTRACTION, OperandType::BYTE);
-    let prototypes = compile_prototypes(&source).unwrap();
+    let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -134,7 +134,7 @@ fn local_mut_byte_subtraction() {
 #[test]
 fn local_mut_float_subtraction() {
     let source = create_function_case(local_cases::LOCAL_MUT_FLOAT_SUBTRACTION, OperandType::FLOAT);
-    let prototypes = compile_prototypes(&source).unwrap();
+    let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(
@@ -167,7 +167,7 @@ fn local_mut_integer_subtraction() {
         local_cases::LOCAL_MUT_INTEGER_SUBTRACTION,
         OperandType::INTEGER,
     );
-    let prototypes = compile_prototypes(&source).unwrap();
+    let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
     assert_eq!(

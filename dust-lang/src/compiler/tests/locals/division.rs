@@ -1,6 +1,6 @@
 use crate::compiler::Symbol;
 use crate::{
-    compiler::compile_main_prototype,
+    compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::local_cases,
@@ -10,7 +10,7 @@ use crate::{
 #[test]
 fn local_byte_division() {
     let source = local_cases::LOCAL_BYTE_DIVISION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -37,7 +37,7 @@ fn local_byte_division() {
 #[test]
 fn local_float_division() {
     let source = local_cases::LOCAL_FLOAT_DIVISION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -64,7 +64,7 @@ fn local_float_division() {
 #[test]
 fn local_integer_division() {
     let source = local_cases::LOCAL_INTEGER_DIVISION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -91,7 +91,7 @@ fn local_integer_division() {
 #[test]
 fn local_mut_byte_division() {
     let source = local_cases::LOCAL_MUT_BYTE_DIVISION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -117,7 +117,7 @@ fn local_mut_byte_division() {
 #[test]
 fn local_mut_float_division() {
     let source = local_cases::LOCAL_MUT_FLOAT_DIVISION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -143,7 +143,7 @@ fn local_mut_float_division() {
 #[test]
 fn local_mut_integer_division() {
     let source = local_cases::LOCAL_MUT_INTEGER_DIVISION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,

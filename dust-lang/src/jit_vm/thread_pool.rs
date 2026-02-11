@@ -41,8 +41,8 @@ impl ThreadPool {
             spawner: Arc::new(Mutex::new(ThreadSpawner {
                 program,
                 threads: HashMap::default(),
-                sender: Arc::new(sender),
-                receiver,
+                message_sender: Arc::new(sender),
+                message_receiver: receiver,
                 minimum_object_heap,
                 minimum_object_sweep,
             })),
@@ -62,9 +62,12 @@ impl ThreadPool {
 
 pub struct ThreadSpawner {
     program: Arc<Program>,
+
     threads: HashMap<ThreadId, JoinHandle<()>, FxBuildHasher>,
-    sender: Arc<Sender<ThreadMessage>>,
-    receiver: Receiver<ThreadMessage>,
+
+    message_sender: Arc<Sender<ThreadMessage>>,
+    message_receiver: Receiver<ThreadMessage>,
+
     minimum_object_heap: usize,
     minimum_object_sweep: usize,
 }
@@ -79,29 +82,28 @@ impl ThreadSpawner {
         prototype_index: u16,
         spawner: Arc<Mutex<ThreadSpawner>>,
     ) -> Result<(), JitError> {
+        let message_sender = Arc::clone(&self.message_sender);
+        let program = Arc::clone(&self.program);
+        let minimum_object_heap = self.minimum_object_heap;
+        let minimum_object_sweep = self.minimum_object_sweep;
         let join_handle = ThreadBuilder::new()
-            .spawn({
-                let result_sender = Arc::clone(&self.sender);
-                let program = Arc::clone(&self.program);
-                let minimum_object_heap = self.minimum_object_heap;
-                let minimum_object_sweep = self.minimum_object_sweep;
+            .spawn(move || {
+                let result = run_thread(
+                    program,
+                    prototype_index,
+                    minimum_object_heap,
+                    minimum_object_sweep,
+                    spawner,
+                );
+                let thread_message = ThreadMessage::Complete {
+                    thread_id: thread::current().id(),
+                    result,
+                    prototype_index,
+                };
 
-                move || {
-                    let result = run_thread(
-                        program,
-                        prototype_index,
-                        minimum_object_heap,
-                        minimum_object_sweep,
-                        spawner,
-                    );
-
-                    let thread_message = ThreadMessage::Complete {
-                        thread_id: thread::current().id(),
-                        result,
-                        prototype_index,
-                    };
-                    let _ = result_sender.send(thread_message);
-                }
+                message_sender
+                    .send(thread_message)
+                    .expect("Failed to send thread message");
             })
             .expect("Failed to spawn thread");
 
@@ -116,30 +118,29 @@ impl ThreadSpawner {
         prototype_index: u16,
         spawner: Arc<Mutex<ThreadSpawner>>,
     ) -> Result<(), JitError> {
+        let message_sender = Arc::clone(&self.message_sender);
+        let program = Arc::clone(&self.program);
+        let minimum_object_heap = self.minimum_object_heap;
+        let minimum_object_sweep = self.minimum_object_sweep;
         let join_handle = ThreadBuilder::new()
             .name(thread_name)
-            .spawn({
-                let result_sender = Arc::clone(&self.sender);
-                let program = Arc::clone(&self.program);
-                let minimum_object_heap = self.minimum_object_heap;
-                let minimum_object_sweep = self.minimum_object_sweep;
+            .spawn(move || {
+                let result = run_thread(
+                    program,
+                    prototype_index,
+                    minimum_object_heap,
+                    minimum_object_sweep,
+                    spawner,
+                );
+                let thread_message = ThreadMessage::Complete {
+                    thread_id: thread::current().id(),
+                    result,
+                    prototype_index,
+                };
 
-                move || {
-                    let result = run_thread(
-                        program,
-                        prototype_index,
-                        minimum_object_heap,
-                        minimum_object_sweep,
-                        spawner,
-                    );
-
-                    let thread_message = ThreadMessage::Complete {
-                        thread_id: thread::current().id(),
-                        result,
-                        prototype_index,
-                    };
-                    let _ = result_sender.send(thread_message);
-                }
+                message_sender
+                    .send(thread_message)
+                    .expect("Failed to send thread message");
             })
             .expect("Failed to spawn thread");
 
@@ -148,8 +149,8 @@ impl ThreadSpawner {
         Ok(())
     }
 
-    pub fn clone_receiver(&self) -> Receiver<ThreadMessage> {
-        self.receiver.clone()
+    pub fn clone_message_receiver(&self) -> Receiver<ThreadMessage> {
+        self.message_receiver.clone()
     }
 
     pub fn threads_mut(&mut self) -> &mut HashMap<ThreadId, JoinHandle<()>, FxBuildHasher> {
@@ -380,13 +381,13 @@ fn run_thread(
     let mut return_registers = vec![0_i64; return_register_count];
 
     match jit_function {
-        JitFunction::ReturnNone(logic) => {
+        JitFunction::None(logic) => {
             logic(&mut thread_context, 0);
         }
-        JitFunction::ReturnScalar(logic) => {
+        JitFunction::Scalar(logic) => {
             return_registers[0] = logic(&mut thread_context, 0);
         }
-        JitFunction::ReturnStruct(logic) => {
+        JitFunction::Struct(logic) => {
             logic(return_registers.as_mut_ptr(), &mut thread_context, 0);
         }
     }

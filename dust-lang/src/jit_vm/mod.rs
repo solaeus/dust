@@ -9,14 +9,11 @@ mod tests;
 pub mod thread_pool;
 
 pub use error::JitError;
-pub use jit_compiler::{
-    JitCompiler, JitFunction, JitFunctionReturnNone, JitFunctionReturnScalar,
-    JitFunctionReturnStruct,
-};
-pub use object::Object;
-pub use object_pool::ObjectPool;
-pub use register::{Register, RegisterTag};
-pub use thread_pool::ThreadStatus;
+use jit_compiler::{JitCompiler, JitFunction};
+use object::Object;
+use object_pool::ObjectPool;
+use register::{Register, RegisterTag};
+use thread_pool::ThreadStatus;
 
 use std::sync::Arc;
 
@@ -79,22 +76,23 @@ impl JitVm {
         let span = span!(Level::INFO, "jit_vm");
         let _enter = span.enter();
 
-        let receiver = {
+        let message_receiver = {
             info!("Spawning main JIT VM thread");
 
+            let mut thread_spawner = self.thread_pool.lock_spawner();
             let spawner_clone = self.thread_pool.clone_spawner();
-            let mut spawner_lock = self.thread_pool.lock_spawner();
 
-            spawner_lock
+            thread_spawner
                 .spawn_named_thread("Dust Program".to_string(), 0, spawner_clone)
                 .map_err(DustError::jit)?;
 
-            spawner_lock.clone_receiver()
+            thread_spawner.clone_message_receiver()
         };
+
         let mut return_result = None;
 
-        while !self.thread_pool.lock_spawner().is_empty() {
-            match receiver.recv() {
+        loop {
+            match message_receiver.recv() {
                 Ok(ThreadMessage::Spawn {
                     thread_name,
                     prototype_index,
@@ -125,9 +123,13 @@ impl JitVm {
                         .lock_spawner()
                         .threads_mut()
                         .remove(&thread_id);
+
+                    break;
                 }
                 Err(error) => {
                     error!("JIT VM Thread Pool Error: {}", error);
+
+                    break;
                 }
             }
         }

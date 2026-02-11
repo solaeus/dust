@@ -171,4 +171,20 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
     }
 }
 
+impl<'a> DoubleEndedIterator for SyntaxReaderIterator<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.current_index >= self.child_ids.len() {
+            return None;
+        }
+
+        let child_id = *self
+            .child_ids
+            .get(self.child_ids.len() - 1 - self.current_index)?;
+        let child_node = self.tree.get_node(child_id)?;
+        self.current_index += 1;
+
+        Some(SyntaxReader::new(child_id, child_node, self.tree))
+    }
+}
+
 impl ExactSizeIterator for SyntaxReaderIterator<'_> {}

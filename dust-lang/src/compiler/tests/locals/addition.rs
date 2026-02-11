@@ -1,6 +1,6 @@
 use crate::compiler::Symbol;
 use crate::{
-    compiler::compile_main_prototype,
+    compiler::compile_main,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::local_cases,
@@ -10,7 +10,7 @@ use crate::{
 #[test]
 fn local_byte_addition() {
     let source = local_cases::LOCAL_BYTE_ADDITION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -37,7 +37,7 @@ fn local_byte_addition() {
 #[test]
 fn local_float_addition() {
     let source = local_cases::LOCAL_FLOAT_ADDITION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -64,7 +64,7 @@ fn local_float_addition() {
 #[test]
 fn local_integer_addition() {
     let source = local_cases::LOCAL_INTEGER_ADDITION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -91,7 +91,7 @@ fn local_integer_addition() {
 #[test]
 fn local_string_concatenation() {
     let source = local_cases::LOCAL_STRING_CONCATENATION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -118,7 +118,7 @@ fn local_string_concatenation() {
 #[test]
 fn local_character_concatenation() {
     let source = local_cases::LOCAL_CHARACTER_CONCATENATION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -145,7 +145,7 @@ fn local_character_concatenation() {
 #[test]
 fn local_string_character_concatenation() {
     let source = local_cases::LOCAL_STRING_CHARACTER_CONCATENATION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -172,7 +172,7 @@ fn local_string_character_concatenation() {
 #[test]
 fn local_character_string_concatenation() {
     let source = local_cases::LOCAL_CHARACTER_STRING_CONCATENATION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -199,7 +199,7 @@ fn local_character_string_concatenation() {
 #[test]
 fn local_mut_byte_addition() {
     let source = local_cases::LOCAL_MUT_BYTE_ADDITION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -225,7 +225,7 @@ fn local_mut_byte_addition() {
 #[test]
 fn local_mut_float_addition() {
     let source = local_cases::LOCAL_MUT_FLOAT_ADDITION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -251,7 +251,7 @@ fn local_mut_float_addition() {
 #[test]
 fn local_mut_integer_addition() {
     let source = local_cases::LOCAL_MUT_INTEGER_ADDITION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -277,7 +277,7 @@ fn local_mut_integer_addition() {
 #[test]
 fn local_mut_string_concatenation() {
     let source = local_cases::LOCAL_MUT_STRING_CONCATENATION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,
@@ -303,7 +303,7 @@ fn local_mut_string_concatenation() {
 #[test]
 fn local_mut_string_character_concatenation() {
     let source = local_cases::LOCAL_MUT_STRING_CHARACTER_CONCATENATION;
-    let prototype = compile_main_prototype(source).unwrap();
+    let prototype = compile_main(source).unwrap();
 
     assert_eq!(
         prototype,

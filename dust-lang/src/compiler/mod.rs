@@ -29,17 +29,7 @@ use crate::{
     source::{Source, SourceFile, SourceFileId},
 };
 
-pub fn compile_main_prototype<'src>(source_code: &'src str) -> Result<Prototype, DustError<'src>> {
-    let mut source = Source::new();
-    source.add_file(SourceFile::embedded_validated("eval", source_code));
-
-    let compiler = Compiler::new(source);
-    let mut program = compiler.compile(None)?;
-
-    Ok(program.prototypes.remove(0))
-}
-
-pub fn compile_prototypes<'src>(source_code: &'src str) -> Result<Vec<Prototype>, DustError<'src>> {
+pub fn compile<'src>(source_code: &'src str) -> Result<Vec<Prototype>, DustError<'src>> {
     let mut source = Source::new();
 
     source.add_file(SourceFile::embedded_validated("eval", source_code));
@@ -48,6 +38,15 @@ pub fn compile_prototypes<'src>(source_code: &'src str) -> Result<Vec<Prototype>
     let program = compiler.compile(None)?;
 
     Ok(program.prototypes)
+}
+
+pub fn compile_main<'src>(source_code: &'src str) -> Result<Prototype, DustError<'src>> {
+    let prototype = compile(source_code)?
+        .into_iter()
+        .next()
+        .expect("The compiler failed to produce a prototype");
+
+    Ok(prototype)
 }
 
 pub struct Compiler<'src> {

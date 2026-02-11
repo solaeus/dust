@@ -249,6 +249,8 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_main(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
         debug!("Binding types for main function");
 
+        let children = node.multiple_children()?;
+
         let main_return_type_id = self.resolver.create_inferred_type();
         let main_function_type_id = self.resolver.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
@@ -262,11 +264,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
         self.resolver
             .set_declaration_type(main_function_declaration_id, main_function_type_id);
 
-        let children = node.multiple_children()?;
-        let last_child = children.len() - 1;
+        let mut child_type_id = TypeId::NONE;
 
-        for (index, child) in children.enumerate() {
-            let child_type = if child.is_item() {
+        for child in children {
+            child_type_id = if child.is_item() {
                 self.visit_item(child)?;
 
                 TypeId::NONE
@@ -278,15 +279,15 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 self.visit_expression(child, ())?
             };
 
-            if index == last_child {
-                self.unify_types(
-                    main_return_type_id,
-                    Some(Position::new(self.file_id, node.span())),
-                    child_type,
-                    Position::new(self.file_id, child.span()),
-                )?;
+            if child_type_id != TypeId::NONE {
+                return Err(CompileError::ExpectedNoneType {
+                    node_kind: child.kind(),
+                    position: child.position(),
+                });
             }
         }
+
+        self.unify_types(child_type_id, None, main_return_type_id, node.position())?;
 
         Ok(main_return_type_id)
     }
@@ -380,9 +381,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
             self.unify_types(
                 expression_type_id,
-                Some(Position::new(self.file_id, expression.span())),
+                Some(expression.position()),
                 explicit_type,
-                Position::new(self.file_id, type_notation.span()),
+                type_notation.position(),
             )?;
         }
 
@@ -427,9 +428,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         let unified = self.unify_inferred_types(
             path_type,
-            Some(Position::new(self.file_id, path.span())),
+            Some(path.position()),
             expression_type,
-            Position::new(self.file_id, expression.span()),
+            expression.position(),
         );
 
         if unified.is_err() && is_character_concatenation {
@@ -463,9 +464,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         self.unify_types(
             path_type,
-            Some(Position::new(self.file_id, path.span())),
+            Some(path.position()),
             expression_type,
-            Position::new(self.file_id, path.span()),
+            expression.position(),
         )?;
         self.resolver.set_type_binding(path.id, path_type);
         self.resolver
@@ -561,12 +562,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
         for child in children {
             let child_type = self.visit_expression(child, ())?;
 
-            if let Some((element_type, previous_span)) = previous {
+            if let Some((previous_type, previous_span)) = previous {
                 self.unify_types(
-                    element_type,
+                    previous_type,
                     Some(Position::new(self.file_id, previous_span)),
                     child_type,
-                    Position::new(self.file_id, child.span()),
+                    child.position(),
                 )?;
             } else {
                 previous = Some((child_type, child.span()));
@@ -608,7 +609,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         if index_type_id != TypeId::INTEGER {
             return Err(CompileError::ExpectedIntegerIndex {
                 found: index_type_id,
-                position: Position::new(self.file_id, index_expression.span()),
+                position: index_expression.position(),
             });
         }
 
@@ -622,7 +623,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             _ => {
                 return Err(CompileError::CannotIndex {
                     type_id: list_type_id,
-                    position: Position::new(self.file_id, list_expression.span()),
+                    position: list_expression.position(),
                 });
             }
         };
@@ -672,9 +673,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
             self.unify_types(
                 declared_field_type_id,
-                Some(Position::new(self.file_id, field_name.span())),
+                Some(field_name.position()),
                 actual_field_type_id,
-                Position::new(self.file_id, field_expression.span()),
+                field_expression.position(),
             )?;
             self.resolver
                 .set_type_binding(field_expression.id, declared_field_type_id);
@@ -742,7 +743,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             return Err(CompileError::ExpectedBooleanExpression {
                 found: condition_type,
                 node_kind: node.kind(),
-                position: Position::new(self.file_id, condition.span()),
+                position: condition.position(),
             });
         }
 
@@ -835,9 +836,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         self.unify_types(
             left_type,
-            Some(Position::new(self.file_id, left_expression.span())),
+            Some(left_expression.position()),
             right_type,
-            Position::new(self.file_id, right_expression.span()),
+            right_expression.position(),
         )?;
         self.resolver.set_type_binding(node.id, TypeId::BOOLEAN);
 
@@ -868,7 +869,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             return Err(CompileError::ExpectedBooleanExpression {
                 found: left_type,
                 node_kind: left_expression.kind(),
-                position: Position::new(self.file_id, left_expression.span()),
+                position: left_expression.position(),
             });
         }
 
@@ -876,7 +877,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             return Err(CompileError::ExpectedBooleanExpression {
                 found: right_type,
                 node_kind: right_expression.kind(),
-                position: Position::new(self.file_id, right_expression.span()),
+                position: right_expression.position(),
             });
         }
 
@@ -908,7 +909,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             _ => Err(CompileError::CannotApplyOperator {
                 operator: node.kind(),
                 type_id: child_type,
-                position: Position::new(self.file_id, expression.span()),
+                position: expression.position(),
             }),
         }
     }
@@ -932,7 +933,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             return Err(CompileError::ExpectedBooleanExpression {
                 found: condition_type,
                 node_kind: condition.kind(),
-                position: Position::new(self.file_id, condition.span()),
+                position: condition.position(),
             });
         }
 
@@ -1027,7 +1028,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         else {
             return Err(CompileError::ExpectedFunctionType {
                 found: callee_type,
-                position: Position::new(self.file_id, callee.span()),
+                position: callee.position(),
             });
         };
 
@@ -1058,7 +1059,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(return_type_id)
     }
 
-    fn visit_type(&mut self, node: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_type(&mut self, node: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
         match node.kind() {
             SyntaxKind::BooleanType => Ok(TypeId::BOOLEAN),
             SyntaxKind::ByteType => Ok(TypeId::BYTE),
@@ -1124,7 +1125,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         }
     }
 
-    fn visit_path(&mut self, _node: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
+    fn visit_path(&mut self, _: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
         todo!()
     }
 }

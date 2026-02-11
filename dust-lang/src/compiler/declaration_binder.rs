@@ -65,7 +65,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     type PathOutput = DeclarationId;
 
     fn visit_main(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
-        debug!("Binding main function");
+        debug!("On main function");
         debug_assert_eq!(node.kind(), SyntaxKind::MainFunctionItem);
 
         let children = node.multiple_children()?;
@@ -107,7 +107,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     }
 
     fn visit_module_item(&mut self, _: SyntaxReader) -> Result<Self::ItemOutput, CompileError> {
-        debug!("Binding module item");
+        debug!("On module item");
 
         todo!()
     }
@@ -116,7 +116,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
     ) -> Result<Self::ItemOutput, CompileError> {
-        debug!("Binding function item");
+        debug!("On function item");
 
         let (function_name, function_expression) = node.binary_children()?;
         let (signature, body) = function_expression.binary_children()?;
@@ -187,13 +187,13 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     }
 
     fn visit_use_item(&mut self, _: SyntaxReader) -> Result<Self::ItemOutput, CompileError> {
-        debug!("Binding use item");
+        debug!("On use item");
 
         todo!()
     }
 
     fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, CompileError> {
-        debug!("Binding struct item");
+        debug!("On struct item");
 
         let (struct_name, struct_fields_list) = node.binary_children()?;
         let struct_fields = struct_fields_list.multiple_children()?;
@@ -243,7 +243,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
-        debug!("Binding expression statement");
+        debug!("On expression statement");
 
         self.visit_expression(node.left_child()?, ())
     }
@@ -252,7 +252,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
-        debug!("Binding let statement");
+        debug!("On let statement");
         debug_assert!(matches!(
             node.kind(),
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement
@@ -303,7 +303,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
-        debug!("Binding binary assignment statement");
+        debug!("On binary assignment statement");
 
         let (path, expression) = node.binary_children()?;
 
@@ -328,7 +328,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
-        debug!("Binding reassignment statement");
+        debug!("On reassignment statement");
 
         let (path, expression_statement) = node.binary_children()?;
         let expression = expression_statement.left_child()?;
@@ -402,7 +402,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding list expression");
+        debug!("On list expression");
 
         for element in node.multiple_children()? {
             self.visit_expression(element, ())?;
@@ -416,7 +416,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding index expression");
+        debug!("On index expression");
 
         let (list, index) = node.binary_children()?;
 
@@ -431,7 +431,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         path_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding path expression");
+        debug!("On path expression");
 
         let path = path_expression.left_child()?;
 
@@ -448,7 +448,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding struct expression");
+        debug!("On struct expression");
 
         let (path, fields_list) = node.binary_children()?;
         let fields = fields_list.multiple_children()?;
@@ -492,7 +492,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding block expression");
+        debug!("On block expression");
 
         let children = node.multiple_children()?;
 
@@ -527,7 +527,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding if expression");
+        debug!("On if expression");
 
         let mut children = node.multiple_children()?;
         let condition = children.expect_next()?;
@@ -549,7 +549,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding else expression");
+        debug!("On else expression");
 
         self.visit_expression(node.left_child()?, ())?;
 
@@ -561,7 +561,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding math binary expression");
+        debug!("On math binary expression");
 
         let (left_expression, right_expression) = node.binary_children()?;
 
@@ -576,7 +576,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding comparison binary expression");
+        debug!("On comparison binary expression");
 
         let (left_expression, right_expression) = node.binary_children()?;
 
@@ -591,7 +591,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding logical binary expression");
+        debug!("On logical binary expression");
 
         let (left_expression, right_expression) = node.binary_children()?;
 
@@ -606,7 +606,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding unary negation expression");
+        debug!("On unary negation expression");
 
         self.visit_expression(node.left_child()?, ())?;
 
@@ -618,7 +618,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding while expression");
+        debug!("On while expression");
 
         let (condition, body) = node.binary_children()?;
 
@@ -633,7 +633,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding function expression");
+        debug!("On function expression");
 
         let (signature, body) = node.binary_children()?;
         let value_parameters = signature.left_child()?.multiple_children()?;
@@ -697,7 +697,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Binding call expression");
+        debug!("On call expression");
 
         let (callee, arguments_list) = node.binary_children()?;
         let arguments = arguments_list.multiple_children()?;
@@ -713,7 +713,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_type(&mut self, node: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
         if node.kind() == SyntaxKind::TypePath {
-            debug!("Binding path type");
+            debug!("On path type");
 
             let path = node.left_child()?;
             let path_segments = path.multiple_children()?;
@@ -760,7 +760,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     }
 
     fn visit_path(&mut self, path: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
-        debug!("Binding path");
+        debug!("On path");
         debug_assert_eq!(path.kind(), SyntaxKind::Path);
 
         let path_segments = path.multiple_children()?;
@@ -768,7 +768,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let mut current_declaration_id = DeclarationId(0);
         let mut current_scope_id = self.current_scope_id;
 
-        for segment in path_segments {
+        for segment in path_segments.rev() {
             debug_assert_eq!(segment.kind(), SyntaxKind::PathSegment);
 
             let symbol = self.resolver.create_symbol(&segment, self.source);
@@ -779,11 +779,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 None,
                 false,
             )?;
-
-            println!(
-                "Found declaration for segment '{:?}': {:?}",
-                symbol, next_declaration
-            );
 
             current_declaration_id = next_declaration_id;
             current_scope_id = next_declaration.scope_id;

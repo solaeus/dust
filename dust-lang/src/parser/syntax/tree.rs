@@ -140,7 +140,9 @@ impl SyntaxTree {
             let node = match syntax_tree.get_node(leaf_id) {
                 Some(node) => node,
                 None => {
-                    error!("Failed to build text tree: missing syntax node with ID {leaf_id:?}");
+                    error!(
+                        "Failed to create correctly render the syntax tree, missing node with ID {leaf_id:?}"
+                    );
 
                     return parent_tree.cloned();
                 }
@@ -149,12 +151,12 @@ impl SyntaxTree {
 
             match node.children() {
                 SyntaxNodeChildren::None => {}
-                SyntaxNodeChildren::Single(id) => {
-                    build_text_tree(id, Some(&mut leaf), syntax_tree);
+                SyntaxNodeChildren::Single(child_id) => {
+                    build_text_tree(child_id, Some(&mut leaf), syntax_tree);
                 }
-                SyntaxNodeChildren::Binary(left, right) => {
-                    build_text_tree(left, Some(&mut leaf), syntax_tree);
-                    build_text_tree(right, Some(&mut leaf), syntax_tree);
+                SyntaxNodeChildren::Binary(left_id, right_id) => {
+                    build_text_tree(left_id, Some(&mut leaf), syntax_tree);
+                    build_text_tree(right_id, Some(&mut leaf), syntax_tree);
                 }
                 SyntaxNodeChildren::Multiple(payload) => {
                     let child_ids = syntax_tree.get_children(payload);
