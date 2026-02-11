@@ -81,7 +81,7 @@ impl Resolver {
             position: None,
             kind: DeclarationKind::Module {
                 kind: ModuleKind::Inline,
-                scope_id: ScopeId::CORE,
+                inner_scope_id: ScopeId::CORE,
             },
             scope_id: ScopeId::PROJECT,
             is_public: true,
@@ -293,12 +293,11 @@ impl Resolver {
     ) -> Result<(DeclarationId, Declaration), CompileError> {
         fn search(
             resolver: &Resolver,
-            symbol: Symbol,
+            target_name: &str,
+            target_key: DeclarationStorageKey,
             target_scope_id: ScopeId,
-            parent: Option<DeclarationId>,
             is_type_lookup: bool,
         ) -> Result<Option<(DeclarationId, Declaration)>, CompileError> {
-            let target_key = DeclarationStorageKey { symbol, parent };
             let mut current_scope = resolver.get_scope(target_scope_id)?;
 
             loop {
@@ -314,9 +313,17 @@ impl Resolver {
                 for module_id in &current_scope.modules {
                     let module = resolver.get_declaration(*module_id)?;
 
-                    if let DeclarationKind::Module { scope_id, .. } = module.kind
-                        && let Some(found) =
-                            search(resolver, symbol, scope_id, parent, is_type_lookup)?
+                    if let DeclarationKind::Module {
+                        inner_scope_id: module_scope_id,
+                        ..
+                    } = module.kind
+                        && let Some(found) = search(
+                            resolver,
+                            target_name,
+                            target_key,
+                            module_scope_id,
+                            is_type_lookup,
+                        )?
                     {
                         return Ok(Some(found));
                     }
@@ -324,13 +331,24 @@ impl Resolver {
 
                 for import_id in &current_scope.imports {
                     let import = resolver.get_declaration(*import_id)?;
-                    let import_key = DeclarationStorageKey {
-                        symbol: import.symbol,
-                        parent,
-                    };
+                    let import_name = import
+                        .symbol
+                        .get_str(&resolver.constants)
+                        .expect("Modules cannot be anonymous");
 
-                    if import_key == target_key {
-                        return Ok(Some((*import_id, import)));
+                    if import_name == target_name && target_key.parent.is_none() {
+                        return Ok(Some((
+                            *import_id,
+                            Declaration::from_key_and_value(
+                                target_key,
+                                DeclarationStorageValue {
+                                    kind: import.kind,
+                                    scope_id: import.scope_id,
+                                    is_public: import.is_public,
+                                    position: import.position,
+                                },
+                            ),
+                        )));
                     }
                 }
 
@@ -352,7 +370,18 @@ impl Resolver {
 
         debug_assert_eq!(path_segment.kind(), SyntaxKind::PathSegment);
 
-        match search(self, symbol, target_scope_id, parent, is_type_lookup)? {
+        let target_name = symbol
+            .get_str(&self.constants)
+            .expect("Tried to look up an anonymous declaration by name");
+        let target_key = DeclarationStorageKey { symbol, parent };
+
+        match search(
+            self,
+            target_name,
+            target_key,
+            target_scope_id,
+            is_type_lookup,
+        )? {
             Some(found) => Ok(found),
             None => Err(CompileError::UndeclaredVariable {
                 name: symbol,
@@ -869,10 +898,10 @@ impl Hash for Symbol {
             }
             Symbol::BuiltIn(index) => {
                 hasher.write_u8(1);
-                BUILT_IN_NAMES[*index].hash(hasher);
+                index.hash(hasher);
             }
             Symbol::Constant { constant_id } => {
-                hasher.write_u8(1);
+                hasher.write_u8(2);
                 constant_id.hash(hasher);
             }
         }
@@ -887,7 +916,7 @@ pub enum DeclarationKind {
     },
     Module {
         kind: ModuleKind,
-        scope_id: ScopeId,
+        inner_scope_id: ScopeId,
     },
     Function,
     NativeFunction(NativeFunction),
