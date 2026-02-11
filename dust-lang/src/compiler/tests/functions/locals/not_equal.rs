@@ -18,9 +18,7 @@ fn local_boolean_not_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -57,9 +55,7 @@ fn local_byte_not_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(0x2A), OperandType::BYTE),
@@ -96,9 +92,7 @@ fn local_character_not_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
@@ -135,9 +129,7 @@ fn local_float_not_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -174,9 +166,7 @@ fn local_integer_not_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -213,9 +203,7 @@ fn local_string_not_equal() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),

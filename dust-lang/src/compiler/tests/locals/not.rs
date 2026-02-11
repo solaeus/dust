@@ -15,7 +15,7 @@ fn local_boolean_not() {
     assert_eq!(
         prototype,
         Prototype {
-            name: Symbol::MAIN,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),

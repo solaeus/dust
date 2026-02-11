@@ -4,7 +4,7 @@ use tracing::debug;
 use crate::{
     compiler::{
         CompileError, Resolver, TypeId, TypeNode,
-        error::InternalError,
+        error::InternalCompileError,
         resolver::{DeclarationId, DeclarationMembers, TypeMembers},
     },
     parser::syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
@@ -33,13 +33,13 @@ impl<'a> TypeBinder<'a> {
         let main_root = self
             .syntax
             .get_tree(SourceFileId::MAIN)
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxTree(
-                SourceFileId::MAIN,
-            )))?
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingSyntaxTree(SourceFileId::MAIN),
+            ))?
             .root()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxNode(
-                SyntaxId::ROOT,
-            )))?;
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingSyntaxNode(SyntaxId::ROOT),
+            ))?;
 
         self.visit_main(main_root)
     }
@@ -443,10 +443,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         unified?;
 
-        self.resolver.set_type_binding(path.id, path_type);
-        self.resolver
-            .set_type_binding(expression.id, expression_type);
-
         Ok(())
     }
 
@@ -637,16 +633,15 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_path_expression(
         &mut self,
-        node: SyntaxReader,
+        path_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for path expression");
-        debug_assert_eq!(node.kind(), SyntaxKind::PathExpression);
+        debug_assert_eq!(path_expression.kind(), SyntaxKind::PathExpression);
 
-        let declaration_id = self.resolver.get_declaration_binding(&node.id)?;
-        let type_id = *self.resolver.get_declaration_type(declaration_id)?;
+        let type_id = self.visit_path(path_expression.left_child()?)?;
 
-        self.resolver.set_type_binding(node.id, type_id);
+        self.resolver.set_type_binding(path_expression.id, type_id);
 
         Ok(type_id)
     }
@@ -1119,13 +1114,18 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
                 Ok(*type_id)
             }
-            _ => Err(CompileError::Internal(InternalError::InvalidSyntaxNode(
-                node.kind(),
-            ))),
+            _ => Err(CompileError::Internal(
+                InternalCompileError::InvalidSyntaxNode(node.kind()),
+            )),
         }
     }
 
-    fn visit_path(&mut self, _: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
-        todo!()
+    fn visit_path(&mut self, path: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
+        debug!("Binding types for path");
+
+        self.resolver
+            .get_declaration_binding(&path.id)
+            .and_then(|declaration_id| self.resolver.get_declaration_type(declaration_id))
+            .copied()
     }
 }

@@ -18,9 +18,7 @@ fn local_byte_addition() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(40), OperandType::BYTE),
@@ -49,9 +47,7 @@ fn local_float_addition() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -80,9 +76,7 @@ fn local_integer_addition() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -111,9 +105,7 @@ fn local_string_concatenation() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
@@ -145,9 +137,7 @@ fn local_character_concatenation() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
@@ -179,9 +169,7 @@ fn local_string_character_concatenation() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
@@ -213,9 +201,7 @@ fn local_character_string_concatenation() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
@@ -244,9 +230,7 @@ fn local_mut_byte_addition() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(40), OperandType::BYTE),
@@ -274,9 +258,7 @@ fn local_mut_float_addition() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -307,9 +289,7 @@ fn local_mut_integer_addition() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -340,9 +320,7 @@ fn local_mut_string_concatenation() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
@@ -373,9 +351,7 @@ fn local_mut_string_character_concatenation() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),

@@ -18,9 +18,7 @@ fn while_loop() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

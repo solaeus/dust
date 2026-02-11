@@ -18,9 +18,7 @@ fn local_boolean() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -42,9 +40,7 @@ fn local_byte() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(42), OperandType::BYTE),
@@ -66,9 +62,7 @@ fn local_character() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Character),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
@@ -90,9 +84,7 @@ fn local_float() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -114,9 +106,7 @@ fn local_integer() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -138,9 +128,7 @@ fn local_string() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),

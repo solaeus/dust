@@ -19,7 +19,7 @@ pub enum DustError<'src> {
         source: Source<'src>,
     },
     Compile {
-        error: Box<CompileError>,
+        error: CompileError,
         source: Source<'src>,
         resolver: Box<Resolver>,
     },
@@ -33,7 +33,7 @@ impl<'src> DustError<'src> {
 
     pub fn compile(error: CompileError, source: Source<'src>, resolver: Resolver) -> Self {
         DustError::Compile {
-            error: Box::new(error),
+            error,
             source,
             resolver: Box::new(resolver),
         }

@@ -48,8 +48,8 @@ impl<'src> Source<'src> {
             file
         } else {
             panic!(
-                "Failed to find source file for {file_id:?}. This indicates a misuse of the `Source`
-                type, which must be an append-only singleton."
+                "Failed to find source file for {file_id:?}. This indicates a misuse of the\
+                `Source` type, which must be an append-only singleton"
             );
         }
     }
@@ -171,22 +171,21 @@ impl<'src> SourceFile<'src> {
         })
     }
 
-    pub fn path(&self) -> &str {
+    pub fn full_path(&self) -> &Path {
         match self {
-            Self::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => path,
-            Self::File { path, .. } => unsafe { path.to_str().unwrap_unchecked() },
+            Self::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => Path::new(path),
+            Self::File { path, .. } => path.as_path(),
         }
     }
 
-    pub fn file_name(&self) -> &str {
+    pub fn file_name(&self) -> &Path {
         match self {
-            SourceFile::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => path,
-            SourceFile::File { path, .. } => unsafe {
-                path.file_name()
-                    .unwrap_unchecked()
-                    .to_str()
-                    .unwrap_unchecked()
-            },
+            Self::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => Path::new(path),
+            Self::File { path, .. } => path
+                .as_path()
+                .file_name()
+                .map(Path::new)
+                .unwrap_or_else(|| path.as_path()),
         }
     }
 
@@ -198,20 +197,20 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn source_bytes(&self, span: Span) -> &[u8] {
+    pub fn content_bytes(&self, span: Span) -> &[u8] {
         let full_source = self.content_as_bytes();
         let range = span.as_usize_range();
 
         full_source.get(range).unwrap_or_else(|| {
-            let path = self.path();
+            let path = self.full_path();
 
-            error!("Failed to get source at {path}:{span}");
+            error!("Failed to get source at {}:{span}", path.display());
 
             SOURCE_NOT_FOUND.as_bytes()
         })
     }
 
-    pub fn source_str(&self, span: Span) -> &str {
+    pub fn content_str(&self, span: Span) -> &str {
         let full_source = self.content_as_str();
         let range = span.as_usize_range();
 
@@ -227,7 +226,7 @@ impl<'src> SourceFile<'src> {
     }
 
     pub fn content_as_str(&self) -> &str {
-        let handle_utf8_validation = |path: &Path, source_bytes| -> &str {
+        fn handle_utf8_validation<'a>(path: &Path, source_bytes: &'a [u8]) -> &'a str {
             warn!(
                 "Source file {} is being accessed before UTF-8 validation. Doing immediate \
                 validation now. All files should be validated by the lexer before being accessed \
@@ -249,7 +248,7 @@ impl<'src> SourceFile<'src> {
             };
 
             unsafe { str::from_utf8_unchecked(utf8_bytes) }
-        };
+        }
 
         match self {
             Self::Embedded {

@@ -17,9 +17,7 @@ fn empty_block() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![Instruction::r#return(Address::default(), OperandType::NONE)],
             ..Prototype::dummy()
@@ -37,9 +35,7 @@ fn block_expression() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
@@ -60,9 +56,7 @@ fn block_statement() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -87,9 +81,7 @@ fn block_statement_and_expression() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -117,9 +109,7 @@ fn parent_scope_access() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -144,9 +134,7 @@ fn nested_parrent_scope_access() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -175,9 +163,7 @@ fn scope_shadowing() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -200,9 +186,7 @@ fn scope_deshadowing() {
         prototypes[1],
         Prototype {
             index: 1,
-            name: Symbol::Constant {
-                constant_id: ConstantId(0),
-            },
+            symbol: Symbol::Constant(ConstantId(0)),
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

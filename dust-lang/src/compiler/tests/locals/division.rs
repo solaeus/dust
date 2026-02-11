@@ -15,7 +15,7 @@ fn local_byte_division() {
     assert_eq!(
         prototype,
         Prototype {
-            name: Symbol::MAIN,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(84), OperandType::BYTE),
@@ -42,7 +42,7 @@ fn local_float_division() {
     assert_eq!(
         prototype,
         Prototype {
-            name: Symbol::MAIN,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -69,7 +69,7 @@ fn local_integer_division() {
     assert_eq!(
         prototype,
         Prototype {
-            name: Symbol::MAIN,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -96,7 +96,7 @@ fn local_mut_byte_division() {
     assert_eq!(
         prototype,
         Prototype {
-            name: Symbol::MAIN,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(84), OperandType::BYTE),
@@ -122,7 +122,7 @@ fn local_mut_float_division() {
     assert_eq!(
         prototype,
         Prototype {
-            name: Symbol::MAIN,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -148,7 +148,7 @@ fn local_mut_integer_division() {
     assert_eq!(
         prototype,
         Prototype {
-            name: Symbol::MAIN,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

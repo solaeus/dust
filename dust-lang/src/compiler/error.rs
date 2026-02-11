@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
@@ -15,7 +17,7 @@ use crate::{
 #[derive(Clone, Copy, Debug)]
 pub enum CompileError {
     Syntax(SyntaxError),
-    Internal(InternalError),
+    Internal(InternalCompileError),
 
     CannotApplyOperator {
         operator: SyntaxKind,
@@ -60,13 +62,13 @@ pub enum CompileError {
         found_type: TypeId,
         found_position: Position,
     },
-    UndeclaredVariable {
-        name: Symbol,
-        position: Position,
+    OutOfScope {
+        declaration_id: DeclarationId,
+        usage_position: Position,
     },
-    UndeclaredType {
-        name: Symbol,
-        position: Position,
+    Undeclared {
+        symbol: Symbol,
+        usage_position: Position,
     },
     ExpectedFunctionType {
         found: TypeId,
@@ -100,6 +102,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
     fn annotated_error(&self, (source, resolver): Self::Input) -> Group<'a> {
         match self {
+            CompileError::Internal(internal_error) => {
+                let title = format!("Internal compiler error: {internal_error}");
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
             CompileError::Syntax(syntax_error) => syntax_error.annotated_error(source),
             CompileError::DivisionByZero { position } => {
                 let title = "Division by zero".to_string();
@@ -154,20 +161,40 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
-            CompileError::UndeclaredVariable { name, position } => {
+            CompileError::OutOfScope {
+                declaration_id,
+                usage_position,
+            } => {
                 let title = "Undeclared variable".to_string();
-                let file = source.get_file(position.file_id);
+
+                let declaration = match resolver.get_declaration(*declaration_id) {
+                    Ok(declaration) => declaration,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
+                let name = declaration.symbol.get_name(&resolver.constants).unwrap();
+                let file = source.get_file(usage_position.file_id);
                 let file_str = file.content_as_str();
-                let name_str = name
-                    .get_str(&resolver.constants)
-                    .expect("Variables cannot be anonymous");
+
+                let Some(position) = declaration.position else {
+                    return Group::with_title(Level::ERROR.primary_title(title)).element(
+                        Snippet::source(file_str).annotation(
+                            AnnotationKind::Primary
+                                .span(usage_position.span.as_usize_range())
+                                .label(format!("Attempted to use \"{name}\" but it is not available in this scope.")),
+                        ),
+                    )
+                    .element(Level::HELP.message(
+                        "\"{name}\" is not in the source code. It was declared externally via the API.",
+                    ))
+                    ;
+                };
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!(
-                                "\"{name_str}\" was used here, but it was not declared in this scope."
+                                "\"{name}\" was used here, but it was not declared in this scope."
                             )),
                     ),
                 )
@@ -192,7 +219,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                     declaration
                         .symbol
-                        .get_str(&resolver.constants)
+                        .get_name(&resolver.constants)
                         .expect("Declared types cannot be anonymous")
                         .to_string()
                 } else {
@@ -310,18 +337,22 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     ),
                 )
             }
-            CompileError::UndeclaredType { name, position } => {
-                let name_str = name
-                    .get_str(&resolver.constants)
-                    .expect("Types cannot be anonymous");
-                let title = format!("Undeclared type: {name_str}");
-                let file_str = source.get_file(position.file_id).content_as_str();
+            CompileError::Undeclared {
+                symbol,
+                usage_position,
+            } => {
+                let title = "Undeclared symbol".to_string();
+                let file_str = source.get_file(usage_position.file_id).content_as_str();
+                let name_str = match symbol.get_name(&resolver.constants) {
+                    Ok(name) => name,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
                         AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!("Use of undeclared type {name_str} here")),
+                            .span(usage_position.span.as_usize_range())
+                            .label(format!("\"{name_str}\" was never declared.")),
                     ),
                 )
             }
@@ -351,11 +382,6 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     Snippet::source(file_str)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
-            }
-            CompileError::Internal(internal_error) => {
-                let title = format!("Internal compiler error: {internal_error:?}");
-
-                Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::ExpectedFunctionType { found, position } => {
                 let title = "Expected a function type";
@@ -490,7 +516,7 @@ impl From<SyntaxError> for CompileError {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum InternalError {
+pub enum InternalCompileError {
     InvalidDeclarationKind(DeclarationId),
     InvalidJumpAnchorInstruction(Operation),
     InvalidNativeFunction(&'static str),
@@ -516,4 +542,138 @@ pub enum InternalError {
     MissingDeclarationMember(u32),
     MissingTypeMember(u32),
     MissingConstantString(ConstantId),
+    AnonymousSymbolLookup,
+}
+
+impl Display for InternalCompileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InternalCompileError::InvalidDeclarationKind(declaration_id) => {
+                write!(
+                    f,
+                    "Invalid declaration kind for declaration ID {}",
+                    declaration_id.inner()
+                )
+            }
+            InternalCompileError::InvalidJumpAnchorInstruction(instruction) => {
+                write!(f, "Invalid jump anchor instruction: {:?}", instruction)
+            }
+            InternalCompileError::InvalidNativeFunction(name) => {
+                write!(f, "Invalid native function: {}", name)
+            }
+            InternalCompileError::InvalidSyntaxNode(kind) => {
+                write!(f, "Invalid syntax node kind: {:?}", kind)
+            }
+            InternalCompileError::InvalidTypeNode(type_id) => {
+                write!(f, "Invalid type node for type ID {}", type_id.inner())
+            }
+            InternalCompileError::MissingDeclaration(declaration_id) => {
+                write!(
+                    f,
+                    "Missing declaration for declaration ID {}",
+                    declaration_id.inner()
+                )
+            }
+            InternalCompileError::MissingDeclarationBinding(syntax_id) => {
+                write!(
+                    f,
+                    "Missing declaration binding for syntax ID {}",
+                    syntax_id.inner()
+                )
+            }
+            InternalCompileError::MissingDeclarationMembers(members) => {
+                write!(f, "Missing declaration members: {:?}", members)
+            }
+            InternalCompileError::MissingDeclarationPosition(declaration_id) => {
+                write!(
+                    f,
+                    "Missing declaration position for declaration ID {}",
+                    declaration_id.inner()
+                )
+            }
+            InternalCompileError::MissingDeclarationType(declaration_id) => {
+                write!(
+                    f,
+                    "Missing declaration type for declaration ID {}",
+                    declaration_id.inner()
+                )
+            }
+            InternalCompileError::MissingLocal(declaration_id) => {
+                write!(
+                    f,
+                    "Missing local for declaration ID {}",
+                    declaration_id.inner()
+                )
+            }
+            InternalCompileError::MissingScope(scope_id) => {
+                write!(f, "Missing scope for scope ID {}", scope_id.inner())
+            }
+            InternalCompileError::MissingScopeBinding(syntax_id) => {
+                write!(
+                    f,
+                    "Missing scope binding for syntax ID {}",
+                    syntax_id.inner()
+                )
+            }
+            InternalCompileError::MissingSourceFile(file_id) => {
+                write!(f, "Missing source file for file ID {}", file_id.inner())
+            }
+            InternalCompileError::MissingSyntaxChild(syntax_id) => {
+                write!(
+                    f,
+                    "Missing syntax child for syntax ID {}",
+                    syntax_id.inner()
+                )
+            }
+            InternalCompileError::MissingSyntaxChildren { start_index, count } => {
+                write!(
+                    f,
+                    "Missing {} syntax children starting from index {}",
+                    count, start_index
+                )
+            }
+            InternalCompileError::MissingSyntaxNode(syntax_id) => {
+                write!(f, "Missing syntax node for syntax ID {}", syntax_id.inner())
+            }
+            InternalCompileError::MissingSyntaxTree(file_id) => {
+                write!(f, "Missing syntax tree for file ID {}", file_id.inner())
+            }
+            InternalCompileError::MissingType(type_id) => {
+                write!(f, "Missing type for type ID {}", type_id.inner())
+            }
+            InternalCompileError::MissingTypeBinding(syntax_id) => {
+                write!(
+                    f,
+                    "Missing type binding for syntax ID {}",
+                    syntax_id.inner()
+                )
+            }
+            InternalCompileError::MissingTypeMembers(members) => {
+                write!(f, "Missing type members: {:?}", members)
+            }
+            InternalCompileError::AnonymousType(declaration_id) => {
+                write!(
+                    f,
+                    "Anonymous type for declaration ID {}",
+                    declaration_id.inner()
+                )
+            }
+            InternalCompileError::MissingDeclarationMember(index) => {
+                write!(f, "Missing declaration member at index {}", index)
+            }
+            InternalCompileError::MissingTypeMember(index) => {
+                write!(f, "Missing type member at index {}", index)
+            }
+            InternalCompileError::MissingConstantString(constant_id) => {
+                write!(
+                    f,
+                    "Missing constant string for constant ID {}",
+                    constant_id.inner()
+                )
+            }
+            InternalCompileError::AnonymousSymbolLookup => {
+                write!(f, "Attempted to lookup an anonymous symbol")
+            }
+        }
+    }
 }

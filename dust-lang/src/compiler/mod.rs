@@ -8,7 +8,7 @@ mod type_binder;
 mod tests;
 
 pub use emitter::Emitter;
-pub use error::{CompileError, InternalError};
+pub use error::{CompileError, InternalCompileError};
 pub use resolver::{
     Declaration, DeclarationKind, DeclarationMembers, ModuleKind, Resolver, Scope, ScopeId,
     ScopeKind, Symbol, TypeId, TypeMembers, TypeNode,
@@ -91,6 +91,13 @@ impl<'src> Compiler<'src> {
         Ok((program, source, syntax))
     }
 
+    fn handle_error(
+        self,
+        error: CompileError,
+    ) -> Result<(Resolver, Source<'src>, Syntax), DustError<'src>> {
+        Err(DustError::compile(error, self.source, self.resolver))
+    }
+
     fn compile_inner(mut self) -> Result<(Resolver, Source<'src>, Syntax), DustError<'src>> {
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
@@ -135,16 +142,12 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "declare");
             let _enter = span.enter();
 
-            let main_declaration_binder = DeclarationBinder::new(
-                ScopeId::PROJECT,
-                &self.source,
-                &self.syntax,
-                &mut self.resolver,
-            );
+            let declaration_binder =
+                DeclarationBinder::new(&self.source, &self.syntax, &mut self.resolver);
 
-            match main_declaration_binder.bind_main() {
+            match declaration_binder.bind_main() {
                 Ok(main_declaration_id) => main_declaration_id,
-                Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
+                Err(error) => return self.handle_error(error),
             }
         };
 
@@ -153,12 +156,11 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "type");
             let _enter = span.enter();
 
-            let main_type_binder =
-                TypeBinder::new(SourceFileId::MAIN, &self.syntax, &mut self.resolver);
+            let type_binder = TypeBinder::new(SourceFileId::MAIN, &self.syntax, &mut self.resolver);
 
-            match main_type_binder.bind_main() {
+            match type_binder.bind_main() {
                 Ok(main_type) => main_type,
-                Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
+                Err(error) => return self.handle_error(error),
             }
         };
 
@@ -172,19 +174,15 @@ impl<'src> Compiler<'src> {
             let main_syntax_tree = if let Some(tree) = self.syntax.get_tree(SourceFileId::MAIN) {
                 tree
             } else {
-                return Err(DustError::compile(
-                    CompileError::Internal(InternalError::MissingSyntaxTree(SourceFileId::MAIN)),
-                    self.source,
-                    self.resolver,
+                return self.handle_error(CompileError::Internal(
+                    InternalCompileError::MissingSyntaxTree(SourceFileId::MAIN),
                 ));
             };
             let main_function = if let Some(syntax_node) = main_syntax_tree.root() {
                 syntax_node
             } else {
-                return Err(DustError::compile(
-                    CompileError::Internal(InternalError::MissingSyntaxNode(SyntaxId::ROOT)),
-                    self.source,
-                    self.resolver,
+                return self.handle_error(CompileError::Internal(
+                    InternalCompileError::MissingSyntaxNode(SyntaxId::ROOT),
                 ));
             };
             let main_declaration = match self.resolver.get_declaration(main_function_declaration_id)

@@ -61,7 +61,7 @@ impl<'a> SyntaxReader<'a> {
     }
 
     pub fn has_left_child(&self) -> bool {
-        let has_left_child = self.node.payload.left_id() != SyntaxId::NONE;
+        let has_left_child = !self.node.payload.left_id().is_none();
         let has_encoded_left_payload = matches!(
             self.node.kind,
             SyntaxKind::BooleanExpression
@@ -76,7 +76,7 @@ impl<'a> SyntaxReader<'a> {
     }
 
     pub fn has_right_child(&self) -> bool {
-        let has_right_child = self.node.payload.right_id() != SyntaxId::NONE;
+        let has_right_child = !self.node.payload.right_id().is_none();
         let has_encoded_right_payload = matches!(
             self.node.kind,
             SyntaxKind::FloatExpression

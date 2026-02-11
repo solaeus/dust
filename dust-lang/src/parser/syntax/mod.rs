@@ -71,6 +71,10 @@ impl SyntaxId {
     /// ID representing the absence of a syntax node.
     pub const NONE: SyntaxId = SyntaxId(u32::MAX);
 
+    pub fn inner(&self) -> u32 {
+        self.0
+    }
+
     pub fn is_none(&self) -> bool {
         *self == SyntaxId::NONE
     }

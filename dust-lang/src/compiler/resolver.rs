@@ -9,7 +9,7 @@ use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 
 use crate::{
-    compiler::{CompileError, InternalError},
+    compiler::{CompileError, InternalCompileError},
     constant_table::{ConstantId, ConstantTable},
     instruction::OperandType,
     native_function::NativeFunction,
@@ -124,15 +124,10 @@ impl Resolver {
         resolver
     }
 
-    pub fn create_symbol(&mut self, path_segment: &SyntaxReader, source: &Source) -> Symbol {
-        debug_assert_eq!(path_segment.kind(), SyntaxKind::PathSegment);
+    pub fn create_named_symbol(&mut self, name: &str) -> Symbol {
+        let constant_id = self.constants.add_string(name);
 
-        let bytes = source
-            .get_file(path_segment.file_id())
-            .source_bytes(path_segment.span());
-        let constant_id = self.constants.add_string_bytes(bytes);
-
-        Symbol::Constant { constant_id }
+        Symbol::Constant(constant_id)
     }
 
     pub fn create_anonymous_symbol(&mut self) -> Symbol {
@@ -151,9 +146,9 @@ impl Resolver {
     }
 
     pub fn get_scope(&self, id: ScopeId) -> Result<&Scope, CompileError> {
-        self.scopes
-            .get(id.0 as usize)
-            .ok_or(CompileError::Internal(InternalError::MissingScope(id)))
+        self.scopes.get(id.0 as usize).ok_or(CompileError::Internal(
+            InternalCompileError::MissingScope(id),
+        ))
     }
 
     pub fn get_scope_mut(&mut self, id: ScopeId) -> Option<&mut Scope> {
@@ -167,9 +162,9 @@ impl Resolver {
     pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Result<&ScopeId, CompileError> {
         self.scope_bindings
             .get(syntax_id)
-            .ok_or(CompileError::Internal(InternalError::MissingScopeBinding(
-                *syntax_id,
-            )))
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingScopeBinding(*syntax_id),
+            ))
     }
 
     pub fn add_declaration(&mut self, declaration: Declaration) -> DeclarationId {
@@ -204,9 +199,9 @@ impl Resolver {
         self.declarations
             .get_index(id.0 as usize)
             .map(|(key, value)| Declaration::from_key_and_value(*key, *value))
-            .ok_or(CompileError::Internal(InternalError::MissingDeclaration(
-                id,
-            )))
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingDeclaration(id),
+            ))
     }
 
     pub fn add_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
@@ -220,7 +215,7 @@ impl Resolver {
         self.declaration_bindings
             .get(syntax_id)
             .ok_or(CompileError::Internal(
-                InternalError::MissingDeclarationBinding(*syntax_id),
+                InternalCompileError::MissingDeclarationBinding(*syntax_id),
             ))
     }
 
@@ -235,7 +230,7 @@ impl Resolver {
         self.declaration_types
             .get(declaration_id)
             .ok_or(CompileError::Internal(
-                InternalError::MissingDeclarationType(*declaration_id),
+                InternalCompileError::MissingDeclarationType(*declaration_id),
             ))
     }
 
@@ -268,7 +263,7 @@ impl Resolver {
         self.declaration_members
             .get(index as usize)
             .ok_or(CompileError::Internal(
-                InternalError::MissingDeclarationMember(index),
+                InternalCompileError::MissingDeclarationMember(index),
             ))
     }
 
@@ -279,7 +274,7 @@ impl Resolver {
         self.declaration_members
             .get(members.as_usize_range())
             .ok_or(CompileError::Internal(
-                InternalError::MissingDeclarationMembers(members),
+                InternalCompileError::MissingDeclarationMembers(members),
             ))
     }
 
@@ -333,7 +328,7 @@ impl Resolver {
                     let import = resolver.get_declaration(*import_id)?;
                     let import_name = import
                         .symbol
-                        .get_str(&resolver.constants)
+                        .get_name(&resolver.constants)
                         .expect("Modules cannot be anonymous");
 
                     if import_name == target_name && target_key.parent.is_none() {
@@ -371,7 +366,7 @@ impl Resolver {
         debug_assert_eq!(path_segment.kind(), SyntaxKind::PathSegment);
 
         let target_name = symbol
-            .get_str(&self.constants)
+            .get_name(&self.constants)
             .expect("Tried to look up an anonymous declaration by name");
         let target_key = DeclarationStorageKey { symbol, parent };
 
@@ -383,9 +378,9 @@ impl Resolver {
             is_type_lookup,
         )? {
             Some(found) => Ok(found),
-            None => Err(CompileError::UndeclaredVariable {
-                name: symbol,
-                position: path_segment.position(),
+            None => Err(CompileError::Undeclared {
+                symbol,
+                usage_position: path_segment.position(),
             }),
         }
     }
@@ -397,9 +392,9 @@ impl Resolver {
     pub fn get_type_binding(&self, syntax_id: &SyntaxId) -> Result<&TypeId, CompileError> {
         self.type_bindings
             .get(syntax_id)
-            .ok_or(CompileError::Internal(InternalError::MissingTypeBinding(
-                *syntax_id,
-            )))
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingTypeBinding(*syntax_id),
+            ))
     }
 
     pub fn add_type_members(&mut self, types: &[TypeId]) -> TypeMembers {
@@ -416,17 +411,17 @@ impl Resolver {
     pub fn get_type_members(&self, members: TypeMembers) -> Result<&[TypeId], CompileError> {
         self.type_members
             .get(members.as_usize_range())
-            .ok_or(CompileError::Internal(InternalError::MissingTypeMembers(
-                members,
-            )))
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingTypeMembers(members),
+            ))
     }
 
     pub fn get_type_member(&self, index: u32) -> Result<&TypeId, CompileError> {
         self.type_members
             .get(index as usize)
-            .ok_or(CompileError::Internal(InternalError::MissingTypeMember(
-                index,
-            )))
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingTypeMember(index),
+            ))
     }
 
     pub fn add_external_type(&mut self, new_type: &Type) -> TypeId {
@@ -451,9 +446,7 @@ impl Resolver {
                 for type_parameter_name in &function_type.type_parameters {
                     let name_id = self.constants.add_string(type_parameter_name);
                     let type_parameter_id = self.add_declaration(Declaration {
-                        symbol: Symbol::Constant {
-                            constant_id: name_id,
-                        },
+                        symbol: Symbol::Constant(name_id),
                         kind: DeclarationKind::Type { parent: None },
                         scope_id: ScopeId::PROJECT,
                         is_public: false,
@@ -483,9 +476,7 @@ impl Resolver {
                 let struct_declaration_id = self.add_declaration(Declaration {
                     kind: DeclarationKind::Type { parent: None },
                     scope_id: ScopeId::PROJECT,
-                    symbol: Symbol::Constant {
-                        constant_id: name_id,
-                    },
+                    symbol: Symbol::Constant(name_id),
                     is_public: false,
                     position: None,
                 });
@@ -500,9 +491,7 @@ impl Resolver {
                             parent: Some(struct_declaration_id),
                         },
                         scope_id: ScopeId::PROJECT,
-                        symbol: Symbol::Constant {
-                            constant_id: name_id,
-                        },
+                        symbol: Symbol::Constant(name_id),
                         is_public: false,
                         position: None,
                     });
@@ -578,7 +567,7 @@ impl Resolver {
                 let struct_declaration = self.get_declaration(*declaration_id)?;
                 let name = struct_declaration
                     .symbol
-                    .get_str(&self.constants)
+                    .get_name(&self.constants)
                     .unwrap_or("<invalid anonymous type>")
                     .to_string();
 
@@ -589,7 +578,7 @@ impl Resolver {
                     let field_declaration = self.get_declaration(*field_id)?;
                     let field_name = field_declaration
                         .symbol
-                        .get_str(&self.constants)
+                        .get_name(&self.constants)
                         .unwrap_or("<invalid anonymous type>")
                         .to_string();
 
@@ -619,7 +608,7 @@ impl Resolver {
             let declaration = self.get_declaration(*declaration_id)?;
             let name = declaration
                 .symbol
-                .get_str(&self.constants)
+                .get_name(&self.constants)
                 .unwrap_or("<invalid anonymous declaration>")
                 .to_string();
 
@@ -654,7 +643,9 @@ impl Resolver {
     pub fn get_type(&self, id: TypeId) -> Result<&TypeNode, CompileError> {
         self.type_nodes
             .get_index(id.0 as usize)
-            .ok_or(CompileError::Internal(InternalError::MissingType(id)))
+            .ok_or(CompileError::Internal(InternalCompileError::MissingType(
+                id,
+            )))
     }
 
     pub fn get_type_mut(&mut self, id: TypeId) -> Option<&mut TypeNode> {
@@ -791,11 +782,15 @@ impl Default for Resolver {
 pub struct AnonymousSymbolId(u32);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ScopeId(pub u32);
+pub struct ScopeId(u32);
 
 impl ScopeId {
     pub const PROJECT: Self = ScopeId(0);
     pub const CORE: Self = ScopeId(1);
+
+    pub fn inner(self) -> u32 {
+        self.0
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -814,10 +809,14 @@ pub enum ScopeKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DeclarationId(pub u32);
+pub struct DeclarationId(u32);
 
 impl DeclarationId {
     pub const CORE: Self = DeclarationId(0);
+
+    pub fn inner(self) -> u32 {
+        self.0
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -867,7 +866,7 @@ impl Declaration {
 pub enum Symbol {
     Anonymous(AnonymousSymbolId),
     BuiltIn(usize),
-    Constant { constant_id: ConstantId },
+    Constant(ConstantId),
 }
 
 impl Symbol {
@@ -878,11 +877,19 @@ impl Symbol {
     pub const WRITE_LINE: Self = Symbol::BuiltIn(4);
     pub const SPAWN: Self = Symbol::BuiltIn(5);
 
-    pub fn get_str<'a>(&self, constants: &'a ConstantTable) -> Option<&'a str> {
+    pub fn get_name<'a>(&self, constants: &'a ConstantTable) -> Result<&'a str, CompileError> {
         match self {
-            Symbol::Anonymous(_) => None,
-            Symbol::BuiltIn(index) => Some(BUILT_IN_NAMES[*index]),
-            Symbol::Constant { constant_id } => constants.get_string(*constant_id),
+            Symbol::Anonymous(_) => Err(CompileError::Internal(
+                InternalCompileError::AnonymousSymbolLookup,
+            )),
+            Symbol::BuiltIn(index) => Ok(BUILT_IN_NAMES[*index]),
+            Symbol::Constant(constant_id) => {
+                constants
+                    .get_string(*constant_id)
+                    .ok_or(CompileError::Internal(
+                        InternalCompileError::MissingConstantString(*constant_id),
+                    ))
+            }
         }
     }
 }
@@ -900,7 +907,7 @@ impl Hash for Symbol {
                 hasher.write_u8(1);
                 index.hash(hasher);
             }
-            Symbol::Constant { constant_id } => {
+            Symbol::Constant(constant_id) => {
                 hasher.write_u8(2);
                 constant_id.hash(hasher);
             }
@@ -946,7 +953,7 @@ pub enum ModuleKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypeId(pub u32);
+pub struct TypeId(u32);
 
 impl TypeId {
     pub const NONE: Self = TypeId(0);
@@ -956,6 +963,10 @@ impl TypeId {
     pub const FLOAT: Self = TypeId(4);
     pub const INTEGER: Self = TypeId(5);
     pub const STRING: Self = TypeId(6);
+
+    pub fn inner(self) -> u32 {
+        self.0
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]

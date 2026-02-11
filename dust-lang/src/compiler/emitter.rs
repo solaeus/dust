@@ -6,8 +6,8 @@ use tracing::{debug, trace};
 
 use crate::{
     compiler::{
-        CompileError, DeclarationKind, Resolver, Symbol,
-        error::InternalError,
+        CompileError, DeclarationKind, Resolver,
+        error::InternalCompileError,
         resolver::{DeclarationId, ScopeId, TypeId, TypeNode},
     },
     constant_table::ConstantId,
@@ -141,13 +141,13 @@ impl<'a> Emitter<'a> {
         let root = self
             .syntax
             .get_tree(SourceFileId::MAIN)
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxTree(
-                SourceFileId::MAIN,
-            )))?
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingSyntaxTree(SourceFileId::MAIN),
+            ))?
             .root()
-            .ok_or(CompileError::Internal(InternalError::MissingSyntaxNode(
-                SyntaxId::ROOT,
-            )))?;
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingSyntaxNode(SyntaxId::ROOT),
+            ))?;
 
         self.emit(root)
     }
@@ -188,9 +188,9 @@ impl<'a> Emitter<'a> {
                 self.handle_top_emission(expression_emission, expression_node)?;
             }
             _ => {
-                return Err(CompileError::Internal(InternalError::InvalidSyntaxNode(
-                    node.kind(),
-                )));
+                return Err(CompileError::Internal(
+                    InternalCompileError::InvalidSyntaxNode(node.kind()),
+                ));
             }
         }
 
@@ -255,7 +255,9 @@ impl<'a> Emitter<'a> {
                     }
                     _ => {
                         return Err(CompileError::Internal(
-                            InternalError::InvalidJumpAnchorInstruction(instruction.operation()),
+                            InternalCompileError::InvalidJumpAnchorInstruction(
+                                instruction.operation(),
+                            ),
                         ));
                     }
                 }
@@ -282,7 +284,7 @@ impl<'a> Emitter<'a> {
                 function_type
             } else {
                 let position = declaration.position.ok_or(CompileError::Internal(
-                    InternalError::MissingDeclarationPosition(self.function_declaration_id),
+                    InternalCompileError::MissingDeclarationPosition(self.function_declaration_id),
                 ))?;
 
                 return Err(CompileError::ExpectedFunctionType {
@@ -293,7 +295,7 @@ impl<'a> Emitter<'a> {
         };
 
         Ok(Prototype {
-            name: declaration.symbol,
+            symbol: declaration.symbol,
             index: self.prototype_index,
             function_type,
             instructions: self.instructions,
@@ -546,9 +548,9 @@ impl<'a> Emitter<'a> {
                     SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
                     SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                     _ => {
-                        return Err(CompileError::Internal(InternalError::InvalidSyntaxNode(
-                            operation,
-                        )));
+                        return Err(CompileError::Internal(
+                            InternalCompileError::InvalidSyntaxNode(operation),
+                        ));
                     }
                 }
             }
@@ -584,9 +586,9 @@ impl<'a> Emitter<'a> {
                 SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
                 SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                 _ => {
-                    return Err(CompileError::Internal(InternalError::InvalidSyntaxNode(
-                        operation,
-                    )));
+                    return Err(CompileError::Internal(
+                        InternalCompileError::InvalidSyntaxNode(operation),
+                    ));
                 }
             },
             (ConstantEmission::Float(left), ConstantEmission::Float(right)) => match operation {
@@ -613,9 +615,9 @@ impl<'a> Emitter<'a> {
                 SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
                 SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                 _ => {
-                    return Err(CompileError::Internal(InternalError::InvalidSyntaxNode(
-                        operation,
-                    )));
+                    return Err(CompileError::Internal(
+                        InternalCompileError::InvalidSyntaxNode(operation),
+                    ));
                 }
             },
             (ConstantEmission::Integer(left), ConstantEmission::Integer(right)) => {
@@ -653,9 +655,9 @@ impl<'a> Emitter<'a> {
                     SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
                     SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                     _ => {
-                        return Err(CompileError::Internal(InternalError::InvalidSyntaxNode(
-                            operation,
-                        )));
+                        return Err(CompileError::Internal(
+                            InternalCompileError::InvalidSyntaxNode(operation),
+                        ));
                     }
                 }
             }
@@ -667,10 +669,7 @@ impl<'a> Emitter<'a> {
                         string.push(left);
                         string.push(right);
 
-                        let combined = self
-                            .resolver
-                            .constants
-                            .push_str_to_string_pool(string.as_bytes());
+                        let combined = self.resolver.constants.push_str_to_string_pool(&string);
 
                         ConstantEmission::String {
                             pool_start: combined.0,
@@ -688,9 +687,9 @@ impl<'a> Emitter<'a> {
                     SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
                     SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                     _ => {
-                        return Err(CompileError::Internal(InternalError::InvalidSyntaxNode(
-                            operation,
-                        )));
+                        return Err(CompileError::Internal(
+                            InternalCompileError::InvalidSyntaxNode(operation),
+                        ));
                     }
                 }
             }
@@ -722,16 +721,19 @@ impl<'a> Emitter<'a> {
                             });
                         }
 
-                        let mut bytes = Vec::with_capacity(left.len() + right.len());
+                        let mut concetenated = String::with_capacity(left.len() + right.len());
 
-                        bytes.extend_from_slice(left);
-                        bytes.extend_from_slice(right);
+                        concetenated.push_str(left);
+                        concetenated.push_str(right);
 
-                        let combined = self.resolver.constants.push_str_to_string_pool(&bytes);
+                        let (pool_start, pool_end) = self
+                            .resolver
+                            .constants
+                            .push_str_to_string_pool(&concetenated);
 
                         ConstantEmission::String {
-                            pool_start: combined.0,
-                            pool_end: combined.1,
+                            pool_start,
+                            pool_end,
                         }
                     }
                     SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
@@ -745,9 +747,9 @@ impl<'a> Emitter<'a> {
                     SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
                     SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                     _ => {
-                        return Err(CompileError::Internal(InternalError::InvalidSyntaxNode(
-                            operation,
-                        )));
+                        return Err(CompileError::Internal(
+                            InternalCompileError::InvalidSyntaxNode(operation),
+                        ));
                     }
                 }
             }
@@ -762,19 +764,20 @@ impl<'a> Emitter<'a> {
                     .resolver
                     .constants
                     .get_string_pool_range(pool_start as usize..pool_end as usize);
-                let mut bytes = Vec::with_capacity(left.len_utf8() + right.len());
+                let mut concatenated = String::with_capacity(left.len_utf8() + right.len());
 
-                left.encode_utf8(&mut bytes);
-                bytes.extend_from_slice(right);
+                concatenated.push(left);
+                concatenated.push_str(right);
 
                 let combined = match operation {
-                    SyntaxKind::AdditionExpression => {
-                        self.resolver.constants.push_str_to_string_pool(&bytes)
-                    }
+                    SyntaxKind::AdditionExpression => self
+                        .resolver
+                        .constants
+                        .push_str_to_string_pool(&concatenated),
                     _ => {
-                        return Err(CompileError::Internal(InternalError::InvalidSyntaxNode(
-                            operation,
-                        )));
+                        return Err(CompileError::Internal(
+                            InternalCompileError::InvalidSyntaxNode(operation),
+                        ));
                     }
                 };
 
@@ -794,19 +797,19 @@ impl<'a> Emitter<'a> {
                     .resolver
                     .constants
                     .get_string_pool_range(pool_start as usize..pool_end as usize);
-                let mut bytes = Vec::with_capacity(left.len() + right.len_utf8());
+                let mut bytes = String::with_capacity(left.len() + right.len_utf8());
 
-                bytes.extend_from_slice(left);
-                right.encode_utf8(&mut bytes);
+                bytes.push_str(left);
+                bytes.push(right);
 
                 let combined = match operation {
                     SyntaxKind::AdditionExpression => {
                         self.resolver.constants.push_str_to_string_pool(&bytes)
                     }
                     _ => {
-                        return Err(CompileError::Internal(InternalError::InvalidSyntaxNode(
-                            operation,
-                        )));
+                        return Err(CompileError::Internal(
+                            InternalCompileError::InvalidSyntaxNode(operation),
+                        ));
                     }
                 };
 
@@ -1188,7 +1191,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
     type TypeOutput = ();
 
-    type PathOutput = Symbol;
+    type PathOutput = DeclarationId;
 
     fn visit_main(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
         debug!("Emitting main function item");
@@ -1362,9 +1365,9 @@ impl SyntaxVisitor for Emitter<'_> {
         let target = self
             .locals
             .get(declaration_id)
-            .ok_or_else(|| CompileError::UndeclaredVariable {
-                name: self.resolver.create_symbol(&path, self.source),
-                position: path.position(),
+            .ok_or_else(|| CompileError::OutOfScope {
+                declaration_id: *declaration_id,
+                usage_position: path.position(),
             })?
             .expect_target(&path)?;
 
@@ -1477,7 +1480,7 @@ impl SyntaxVisitor for Emitter<'_> {
         let bytes = self
             .source
             .get_file(node.file_id())
-            .source_bytes(node.span().shrink(1));
+            .content_str(node.span().shrink(1));
         let (pool_start, pool_end) = self.resolver.constants.push_str_to_string_pool(bytes);
 
         self.resolver.set_type_binding(node.id, TypeId::STRING);
@@ -1607,28 +1610,29 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_path_expression(
         &mut self,
-        node: SyntaxReader,
+        path_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting path expression");
 
-        let declaration_id = self.resolver.get_declaration_binding(&node.id)?;
-        let local = if let Some(place) = self.locals.get(declaration_id) {
-            *place
+        let path = path_expression.left_child()?;
+
+        let declaration_id = self.visit_path(path)?;
+
+        if let Some(local) = self.locals.get(&declaration_id) {
+            return Ok(Emission::Place(*local));
+        }
+
+        let declaration = self.resolver.get_declaration(declaration_id)?;
+
+        if let DeclarationKind::NativeFunction(function) = declaration.kind {
+            Ok(Emission::NativeFunction(function))
         } else {
-            let declaration = self.resolver.get_declaration(*declaration_id)?;
-
-            if let DeclarationKind::NativeFunction(function) = declaration.kind {
-                return Ok(Emission::NativeFunction(function));
-            } else {
-                return Err(CompileError::UndeclaredVariable {
-                    name: declaration.symbol,
-                    position: node.position(),
-                });
-            }
-        };
-
-        Ok(Emission::Place(local))
+            Err(CompileError::OutOfScope {
+                declaration_id,
+                usage_position: path_expression.position(),
+            })
+        }
     }
 
     fn visit_struct_expression(
@@ -2460,8 +2464,11 @@ impl SyntaxVisitor for Emitter<'_> {
         Ok(())
     }
 
-    fn visit_path(&mut self, _: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
-        unreachable!()
+    fn visit_path(&mut self, path: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
+        debug!("Emitting path");
+        debug_assert_eq!(path.kind(), SyntaxKind::Path);
+
+        self.resolver.get_declaration_binding(&path.id).copied()
     }
 }
 

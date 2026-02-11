@@ -31,27 +31,10 @@ pub struct Disassembler<'a> {
 
     state: TuiState,
     selection_state: SelectionState,
-    tabs: Vec<String>,
 }
 
 impl<'a> Disassembler<'a> {
     pub fn new(program: &'a Program, source: &'a Source, syntax: &'a Syntax) -> Self {
-        let mut tabs = Vec::with_capacity(source.file_count() + program.prototypes.len());
-
-        for file in source.files() {
-            tabs.push(file.path().to_string());
-        }
-
-        for (index, prototype) in program.prototypes.iter().enumerate() {
-            let prototype_name = prototype
-                .name
-                .get_str(&program.constants)
-                .map(|name| name.to_string())
-                .unwrap_or_else(|| format!("proto_{index}"));
-
-            tabs.push(prototype_name);
-        }
-
         Self {
             program,
             source,
@@ -67,7 +50,6 @@ impl<'a> Disassembler<'a> {
                 section: None,
                 row: 0,
             },
-            tabs,
         }
     }
 
@@ -90,13 +72,37 @@ impl<'a> Disassembler<'a> {
         Ok(())
     }
 
+    fn tab_count(&self) -> usize {
+        self.source.file_count() + self.program.prototypes.len()
+    }
+
+    fn get_tabs(&self) -> Vec<String> {
+        let mut tabs = Vec::with_capacity(self.tab_count());
+
+        for source_file in self.source.files() {
+            let file_path = source_file.file_name().display().to_string();
+
+            tabs.push(file_path);
+        }
+
+        for (index, prototype) in self.program.prototypes.iter().enumerate() {
+            if let Ok(name) = prototype.symbol.get_name(&self.program.constants) {
+                tabs.push(name.to_string());
+            } else {
+                tabs.push(format!("proto_{index}"));
+            }
+        }
+
+        tabs
+    }
+
     fn handle_events(&mut self) -> std::io::Result<()> {
         if let Event::Key(key) = event::read()?
             && key.kind == KeyEventKind::Press
         {
             match key.code {
                 KeyCode::Right | KeyCode::Char('l') => {
-                    if self.selection_state.tab < self.tabs.len() - 1 {
+                    if self.selection_state.tab < self.tab_count() - 1 {
                         self.selection_state.tab += 1;
                     } else {
                         self.selection_state.tab = 0;
@@ -108,7 +114,7 @@ impl<'a> Disassembler<'a> {
                     if self.selection_state.tab > 0 {
                         self.selection_state.tab -= 1;
                     } else {
-                        self.selection_state.tab = self.tabs.len() - 1;
+                        self.selection_state.tab = self.tab_count() - 1;
                     }
 
                     self.selection_state.section = None;
@@ -204,7 +210,10 @@ impl<'a> Disassembler<'a> {
         let block = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Thick)
-            .title(Span::styled(source_file.path(), Style::default().bold()))
+            .title(Span::styled(
+                source_file.full_path().display().to_string(),
+                Style::default().bold(),
+            ))
             .title_alignment(Alignment::Center);
         let inner_area = block.inner(area);
 
@@ -446,7 +455,7 @@ impl Widget for &mut Disassembler<'_> {
         .wrap(Wrap { trim: true })
         .render(program_info_area, buffer);
 
-        Tabs::new(self.tabs.clone())
+        Tabs::new(self.get_tabs())
             .highlight_style(Style::default().cyan().bold())
             .select(self.selection_state.tab)
             .render(prototype_tabs_header_area, buffer);

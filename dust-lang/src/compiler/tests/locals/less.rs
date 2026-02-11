@@ -15,7 +15,7 @@ fn local_boolean_less_than() {
     assert_eq!(
         prototype,
         Prototype {
-            name: Symbol::MAIN,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(false as u16), OperandType::BOOLEAN),
@@ -50,7 +50,7 @@ fn local_byte_less_than() {
     assert_eq!(
         prototype,
         Prototype {
-            name: Symbol::MAIN,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(0x29), OperandType::BYTE),
@@ -85,7 +85,7 @@ fn local_character_less_than() {
     assert_eq!(
         prototype,
         Prototype {
-            name: Symbol::MAIN,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
@@ -120,7 +120,7 @@ fn local_float_less_than() {
     assert_eq!(
         prototype,
         Prototype {
-            name: Symbol::MAIN,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -155,7 +155,7 @@ fn local_integer_less_than() {
     assert_eq!(
         prototype,
         Prototype {
-            name: Symbol::MAIN,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -190,7 +190,7 @@ fn local_string_less_than() {
     assert_eq!(
         prototype,
         Prototype {
-            name: Symbol::MAIN,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
