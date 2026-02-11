@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::compiler::{DeclarationMembers, Resolver, TypeId, TypeMembers, TypeNode};
+use crate::compiler::{DeclarationMembers, Resolver, Symbol, TypeId, TypeMembers, TypeNode};
 
 /// A Dust-native function.
 ///
@@ -60,10 +60,14 @@ impl NativeFunction {
 macro_rules! define_native_functions {
     (
         $count: literal,
-        $(($id: literal, $name: expr, $const_name: ident, $argument_count: literal, $signature: ident)),
-        *
+        $((
+            $id: literal,
+            $name: expr,
+            $const_name: ident,
+            $signature: ident
+            $argument_count: literal,
+        )),*
     ) => {
-
         impl NativeFunction {
             pub const COUNT: usize = $count;
 
@@ -98,10 +102,10 @@ macro_rules! define_native_functions {
                 }
             }
 
-            pub fn argument_count(&self) -> u16 {
+            pub fn symbol(&self) -> Symbol {
                 match self.id {
                     $(
-                        $id => $argument_count,
+                        $id => Symbol::$const_name,
                     )*
                     _ => unreachable!(),
                 }
@@ -111,6 +115,15 @@ macro_rules! define_native_functions {
                 match self.id {
                     $(
                         $id => Self::$signature(resolver),
+                    )*
+                    _ => unreachable!(),
+                }
+            }
+
+            pub fn argument_count(&self) -> u16 {
+                match self.id {
+                    $(
+                        $id => $argument_count,
                     )*
                     _ => unreachable!(),
                 }
@@ -127,6 +140,19 @@ macro_rules! define_native_functions {
                 }
             }
         }
+
+        #[cfg(test)]
+        mod tests {
+            use super::*;
+
+            #[test]
+            fn test_native_function_from_str() {
+                $(
+                    assert_eq!(NativeFunction::from_str($name), Some(NativeFunction { id: $id }));
+                )*
+                assert_eq!(NativeFunction::from_str("invalid"), None);
+            }
+        }
     }
 }
 
@@ -136,28 +162,28 @@ define_native_functions! {
         0,
         "no_op",
         NO_OP,
-        0,
         no_op_signature
+        0,
     ),
     (
         1,
         "read_line",
         READ_LINE,
-        0,
         read_line_signature
+        0,
     ),
     (
         2,
         "write_line",
         WRITE_LINE,
-        1,
         write_line_signature
+        1,
     ),
     (
         4,
         "spawn",
         SPAWN,
-        1,
         spawn_signature
+        1,
     )
 }

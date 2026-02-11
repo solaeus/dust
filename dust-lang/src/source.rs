@@ -232,7 +232,7 @@ impl<'src> SourceFile<'src> {
                 "Source file {} is being accessed before UTF-8 validation. Doing immediate \
                 validation now. All files should be validated by the lexer before being accessed \
                 to avoid this warning.",
-                path.display()
+                path.file_name().unwrap().display()
             );
 
             let utf8_bytes = match str::from_utf8(source_bytes) {

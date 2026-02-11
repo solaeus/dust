@@ -28,7 +28,7 @@ pub struct Prototype {
 impl Prototype {
     pub fn dummy() -> Self {
         Self {
-            name: Symbol::BuiltIn("dummy_prototype"),
+            name: Symbol::NO_OP,
             index: 0,
             function_type: FunctionType::default(),
             instructions: vec![],

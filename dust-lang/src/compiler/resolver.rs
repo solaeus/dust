@@ -77,7 +77,7 @@ impl Resolver {
         debug_assert_eq!(_string_id, TypeId::STRING);
 
         let _core_declaration_id = resolver.add_declaration(Declaration {
-            symbol: Symbol::BuiltIn("core"),
+            symbol: Symbol::CORE,
             position: None,
             kind: DeclarationKind::Module {
                 kind: ModuleKind::Inline,
@@ -92,11 +92,8 @@ impl Resolver {
         let mut core_imports = SmallVec::<[DeclarationId; 4]>::with_capacity(NativeFunction::COUNT);
 
         for native_function in NativeFunction::ALL {
-            let name_id = resolver.constants.add_string(native_function.name());
             let declaration_id = resolver.add_declaration(Declaration {
-                symbol: Symbol::Constant {
-                    constant_id: name_id,
-                },
+                symbol: native_function.symbol(),
                 position: None,
                 kind: DeclarationKind::NativeFunction(native_function),
                 scope_id: ScopeId::CORE,
@@ -133,7 +130,7 @@ impl Resolver {
         let bytes = source
             .get_file(path_segment.file_id())
             .source_bytes(path_segment.span());
-        let constant_id = self.constants.add_utf8(bytes);
+        let constant_id = self.constants.add_string_bytes(bytes);
 
         Symbol::Constant { constant_id }
     }
@@ -553,6 +550,7 @@ impl Resolver {
                 let name = struct_declaration
                     .symbol
                     .get_str(&self.constants)
+                    .unwrap_or("<invalid anonymous type>")
                     .to_string();
 
                 let fields = self.get_declaration_members(*fields)?;
@@ -563,6 +561,7 @@ impl Resolver {
                     let field_name = field_declaration
                         .symbol
                         .get_str(&self.constants)
+                        .unwrap_or("<invalid anonymous type>")
                         .to_string();
 
                     let field_type_id = self.get_declaration_type(field_id)?;
@@ -589,7 +588,11 @@ impl Resolver {
         members.as_range().map(|member_index| {
             let declaration_id = self.get_declaration_member(member_index)?;
             let declaration = self.get_declaration(*declaration_id)?;
-            let name = declaration.symbol.get_str(&self.constants).to_string();
+            let name = declaration
+                .symbol
+                .get_str(&self.constants)
+                .unwrap_or("<invalid anonymous declaration>")
+                .to_string();
 
             Ok(name)
         })
@@ -831,28 +834,31 @@ impl Declaration {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Symbol {
     Anonymous(AnonymousSymbolId),
-    BuiltIn(&'static str),
+    BuiltIn(usize),
     Constant { constant_id: ConstantId },
 }
 
 impl Symbol {
-    pub const MAIN: Self = Symbol::BuiltIn("main");
+    pub const MAIN: Self = Symbol::BuiltIn(0);
+    pub const CORE: Self = Symbol::BuiltIn(1);
+    pub const NO_OP: Self = Symbol::BuiltIn(2);
+    pub const READ_LINE: Self = Symbol::BuiltIn(3);
+    pub const WRITE_LINE: Self = Symbol::BuiltIn(4);
+    pub const SPAWN: Self = Symbol::BuiltIn(5);
 
-    pub fn is_anonymous(&self) -> bool {
-        matches!(self, Symbol::Anonymous(_))
-    }
-
-    pub fn get_str<'a>(&self, constants: &'a ConstantTable) -> &'a str {
+    pub fn get_str<'a>(&self, constants: &'a ConstantTable) -> Option<&'a str> {
         match self {
-            Symbol::Anonymous(_) => "<anonymous>",
-            Symbol::BuiltIn(name) => name,
+            Symbol::Anonymous(_) => None,
+            Symbol::BuiltIn(index) => Some(BUILT_IN_NAMES[*index]),
             Symbol::Constant { constant_id } => constants.get_string(*constant_id),
         }
     }
 }
+
+const BUILT_IN_NAMES: [&str; 6] = ["main", "core", "no_op", "read_line", "write_line", "spawn"];
 
 impl Hash for Symbol {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
@@ -861,12 +867,12 @@ impl Hash for Symbol {
                 hasher.write_u8(0);
                 id.hash(hasher);
             }
-            Symbol::BuiltIn(name) => {
+            Symbol::BuiltIn(index) => {
                 hasher.write_u8(1);
-                name.hash(hasher);
+                BUILT_IN_NAMES[*index].hash(hasher);
             }
             Symbol::Constant { constant_id } => {
-                hasher.write_u8(2);
+                hasher.write_u8(1);
                 constant_id.hash(hasher);
             }
         }

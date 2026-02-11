@@ -158,7 +158,9 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let title = "Undeclared variable".to_string();
                 let file = source.get_file(position.file_id);
                 let file_str = file.content_as_str();
-                let name_str = name.get_str(&resolver.constants);
+                let name_str = name
+                    .get_str(&resolver.constants)
+                    .expect("Variables cannot be anonymous");
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
@@ -188,7 +190,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         Err(error) => return error.annotated_error((source, resolver)),
                     };
 
-                    declaration.symbol.get_str(&resolver.constants).to_string()
+                    declaration
+                        .symbol
+                        .get_str(&resolver.constants)
+                        .expect("Declared types cannot be anonymous")
+                        .to_string()
                 } else {
                     match resolver.get_full_type(*type_id, source) {
                         Ok(r#type) => r#type.to_string(),
@@ -305,7 +311,9 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 )
             }
             CompileError::UndeclaredType { name, position } => {
-                let name_str = name.get_str(&resolver.constants);
+                let name_str = name
+                    .get_str(&resolver.constants)
+                    .expect("Types cannot be anonymous");
                 let title = format!("Undeclared type: {name_str}");
                 let file_str = source.get_file(position.file_id).content_as_str();
 

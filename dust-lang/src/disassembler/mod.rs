@@ -31,7 +31,7 @@ pub struct Disassembler<'a> {
 
     state: TuiState,
     selection_state: SelectionState,
-    tabs: Vec<&'a str>,
+    tabs: Vec<String>,
 }
 
 impl<'a> Disassembler<'a> {
@@ -39,11 +39,15 @@ impl<'a> Disassembler<'a> {
         let mut tabs = Vec::with_capacity(source.file_count() + program.prototypes.len());
 
         for file in source.files() {
-            tabs.push(file.path());
+            tabs.push(file.path().to_string());
         }
 
-        for prototype in &program.prototypes {
-            let prototype_name = prototype.name.get_str(&program.constants);
+        for (index, prototype) in program.prototypes.iter().enumerate() {
+            let prototype_name = prototype
+                .name
+                .get_str(&program.constants)
+                .map(|name| name.to_string())
+                .unwrap_or_else(|| format!("proto_{index}"));
 
             tabs.push(prototype_name);
         }

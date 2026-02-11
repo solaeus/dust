@@ -5,11 +5,10 @@ use std::{
 
 use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
-use serde::{Deserialize, Serialize};
 
 use crate::instruction::OperandType;
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default)]
 pub struct ConstantTable {
     payloads: IndexMap<ConstantKey, u64, FxBuildHasher>,
     tags: Vec<OperandType>,
@@ -129,10 +128,10 @@ impl ConstantTable {
     }
 
     pub fn add_string(&mut self, string: &str) -> ConstantId {
-        self.add_utf8(string.as_bytes())
+        self.add_string_bytes(string.as_bytes())
     }
 
-    pub fn add_utf8(&mut self, bytes: &[u8]) -> ConstantId {
+    pub fn add_string_bytes(&mut self, bytes: &[u8]) -> ConstantId {
         let key = ConstantKey::from_bytes(bytes);
 
         if let Some(existing_index) = self.payloads.get_index_of(&key) {
@@ -152,6 +151,26 @@ impl ConstantTable {
         }
     }
 
+    pub fn get_string(&self, id: ConstantId) -> Option<&str> {
+        if let Some(bytes) = self.get_string_bytes(id) {
+            Some(unsafe { str::from_utf8_unchecked(bytes) })
+        } else {
+            None
+        }
+    }
+
+    pub fn get_string_from_key(&self, key: &ConstantKey) -> Option<&str> {
+        if let Some(index) = self.payloads.get_index_of(key) {
+            let constant_id = ConstantId(index as u16);
+
+            if let Some(bytes) = self.get_string_bytes(constant_id) {
+                return Some(unsafe { str::from_utf8_unchecked(bytes) });
+            }
+        }
+
+        None
+    }
+
     pub fn get_string_bytes(&self, id: ConstantId) -> Option<&[u8]> {
         let index = id.0 as usize;
         let payload = *self.payloads.get_index(index)?.1;
@@ -162,14 +181,6 @@ impl ConstantTable {
             Some(self.get_string_pool_range(start..end))
         } else {
             None
-        }
-    }
-
-    pub fn get_string(&self, id: ConstantId) -> &str {
-        if let Some(bytes) = self.get_string_bytes(id) {
-            unsafe { str::from_utf8_unchecked(bytes) }
-        } else {
-            ""
         }
     }
 
@@ -234,10 +245,10 @@ impl ConstantTable {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ConstantId(pub u16);
+pub struct ConstantId(pub(crate) u16);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-enum ConstantKey {
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub enum ConstantKey {
     Payload(u64, OperandType),
     Bytes(u64),
 }
@@ -327,7 +338,7 @@ mod tests {
     #[test]
     fn string() {
         let mut table = ConstantTable::new();
-        let string_index = table.add_utf8(b"foobar");
+        let string_index = table.add_string_bytes(b"foobar");
         let retrieved_string = table.get_string_bytes(string_index).unwrap();
 
         assert_eq!(retrieved_string, b"foobar");

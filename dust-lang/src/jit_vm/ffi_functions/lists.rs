@@ -137,7 +137,7 @@ pub unsafe extern "C" fn get_from_list(
                 if booleans[index] { 1 } else { 0 }
             } else {
                 let thread_context = unsafe { &mut *thread_context };
-                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+                thread_context.status = ThreadStatus::ERROR_LIST_INDEX_OUT_OF_BOUNDS;
 
                 0
             }
@@ -147,7 +147,7 @@ pub unsafe extern "C" fn get_from_list(
                 bytes[index] as i64
             } else {
                 let thread_context = unsafe { &mut *thread_context };
-                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+                thread_context.status = ThreadStatus::ERROR_LIST_INDEX_OUT_OF_BOUNDS;
 
                 0
             }
@@ -157,7 +157,7 @@ pub unsafe extern "C" fn get_from_list(
                 characters[index] as u32 as i64
             } else {
                 let thread_context = unsafe { &mut *thread_context };
-                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+                thread_context.status = ThreadStatus::ERROR_LIST_INDEX_OUT_OF_BOUNDS;
 
                 0
             }
@@ -167,7 +167,7 @@ pub unsafe extern "C" fn get_from_list(
                 floats[index].to_bits() as i64
             } else {
                 let thread_context = unsafe { &mut *thread_context };
-                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+                thread_context.status = ThreadStatus::ERROR_LIST_INDEX_OUT_OF_BOUNDS;
 
                 0
             }
@@ -177,7 +177,7 @@ pub unsafe extern "C" fn get_from_list(
                 integers[index]
             } else {
                 let thread_context = unsafe { &mut *thread_context };
-                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+                thread_context.status = ThreadStatus::ERROR_LIST_INDEX_OUT_OF_BOUNDS;
 
                 0
             }
@@ -187,7 +187,7 @@ pub unsafe extern "C" fn get_from_list(
                 object_pointers[index] as i64
             } else {
                 let thread_context = unsafe { &mut *thread_context };
-                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+                thread_context.status = ThreadStatus::ERROR_LIST_INDEX_OUT_OF_BOUNDS;
 
                 0
             }
@@ -197,12 +197,12 @@ pub unsafe extern "C" fn get_from_list(
                 function_indices[index] as i64
             } else {
                 let thread_context = unsafe { &mut *thread_context };
-                thread_context.status = ThreadStatus::ErrorListIndexOutOfBounds;
+                thread_context.status = ThreadStatus::ERROR_LIST_INDEX_OUT_OF_BOUNDS;
 
                 0
             }
         }
-        _ => panic!("Object is not a list"),
+        _ => panic!("Expected a list object"),
     }
 }
 

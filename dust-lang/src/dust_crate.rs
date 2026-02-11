@@ -18,7 +18,7 @@ pub struct Program {
 }
 
 impl Program {
-    pub const DEFAULT_NAME: &str = "dust_program";
+    const DEFAULT_NAME: &str = "dust_program";
 
     pub fn new(
         name: Option<&str>,
@@ -37,12 +37,14 @@ impl Program {
     }
 
     pub fn name(&self) -> &str {
-        self.constants.get_string(self.name_id)
+        self.constants
+            .get_string(self.name_id)
+            .expect("Invalid Dust program, program name not found in constant tabel")
     }
 
     pub fn main_prototype(&self) -> &Prototype {
         self.prototypes
             .first()
-            .expect("Invalid program: no prototypes found")
+            .expect("Invalid Dust program, no prototypes")
     }
 }

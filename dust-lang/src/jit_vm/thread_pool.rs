@@ -8,7 +8,7 @@ use std::{
 use bumpalo::Bump;
 use cranelift::prelude::{
     FunctionBuilder, InstBuilder, MemFlags, Type as CraneliftType, Value as CraneliftValue,
-    types::{I32, I64},
+    types::{I8, I64},
 };
 use crossbeam_channel::{Receiver, Sender};
 use rustc_hash::FxBuildHasher;
@@ -171,18 +171,14 @@ pub enum ThreadMessage {
 }
 
 #[repr(C)]
-pub enum ThreadStatus {
-    Ok = 0,
-    ErrorDivisionByZero = 1,
-    ErrorListIndexOutOfBounds = 2,
-}
+pub struct ThreadStatus(u8);
 
 impl ThreadStatus {
-    pub const CRANELIFT_TYPE: CraneliftType = match size_of::<ThreadStatus>() {
-        4 => I32,
-        8 => I64,
-        _ => panic!("Unsupported ThreadStatus size"),
-    };
+    pub const OK: Self = Self(0);
+    pub const ERROR_LIST_INDEX_OUT_OF_BOUNDS: Self = Self(1);
+    pub const ERROR_DIVISION_BY_ZERO: Self = Self(2);
+
+    pub const CRANELIFT_TYPE: CraneliftType = I8;
 }
 
 #[repr(C)]
@@ -360,7 +356,7 @@ fn run_thread(
         thread_spawner_pointer: &thread_spawner,
         jit_prototype_buffer_pointer: jit_prototypes.as_mut_ptr(),
         function_arguments: [0; 10],
-        status: ThreadStatus::Ok,
+        status: ThreadStatus::OK,
         recursive_return_register: 0,
     };
 
