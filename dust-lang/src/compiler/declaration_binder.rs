@@ -73,8 +73,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let main_scope_id = self.resolver.add_scope(Scope {
             kind: ScopeKind::Function,
             parent: self.current_scope_id,
-            imports: smallvec![DeclarationId::CORE],
-            modules: SmallVec::new(),
+            imports: SmallVec::new(),
+            modules: smallvec![DeclarationId::CORE],
         });
         let main_declaration_id = self.resolver.add_declaration(Declaration {
             symbol: Symbol::MAIN,

@@ -6,7 +6,7 @@ use tracing::{debug, trace};
 
 use crate::{
     compiler::{
-        CompileError, Resolver, Symbol,
+        CompileError, DeclarationKind, Resolver, Symbol,
         error::InternalError,
         resolver::{DeclarationId, ScopeId, TypeId, TypeNode},
     },
@@ -97,12 +97,9 @@ impl<'a> Emitter<'a> {
             top_emitted_register: 0,
         };
 
-        emitter.locals.insert(
-            declaration_id,
-            Place::Prototype {
-                index: prototype_index,
-            },
-        );
+        emitter
+            .locals
+            .insert(declaration_id, Place::Prototype { prototype_index });
 
         if let Some(parameters) = parameters {
             let type_id = *emitter.resolver.get_declaration_type(&declaration_id)?;
@@ -502,9 +499,6 @@ impl<'a> Emitter<'a> {
                 .resolver
                 .constants
                 .add_pooled_string(pool_start, pool_end),
-            ConstantEmission::Function { prototype_index } => {
-                return Address::constant(prototype_index);
-            }
         };
 
         Address::constant(constant_id.0)
@@ -953,6 +947,11 @@ impl<'a> Emitter<'a> {
                     }
                 }
             }
+            Emission::NativeFunction(_) => {
+                return Err(CompileError::ExpectedNativeFunctionCall {
+                    position: node.position(),
+                });
+            }
             Emission::None => {}
         }
 
@@ -981,6 +980,9 @@ impl<'a> Emitter<'a> {
 
                 Ok(Address::register(destination))
             }
+            Emission::NativeFunction(_) => Err(CompileError::ExpectedNativeFunctionCall {
+                position: node.position(),
+            }),
             Emission::None => Err(CompileError::Syntax(SyntaxError::ExpectedExpression {
                 found: node.kind(),
                 position: node.position(),
@@ -1085,6 +1087,11 @@ impl<'a> Emitter<'a> {
             Emission::Instructions(branch_instructions) => {
                 instructions_emission.merge(branch_instructions);
             }
+            Emission::NativeFunction(_) => {
+                return Err(CompileError::ExpectedNativeFunctionCall {
+                    position: node.position(),
+                });
+            }
             Emission::None => {}
         }
 
@@ -1124,6 +1131,11 @@ impl<'a> Emitter<'a> {
 
                     Address::default()
                 }
+            }
+            Emission::NativeFunction(_) => {
+                return Err(CompileError::ExpectedNativeFunctionCall {
+                    position: node.position(),
+                });
             }
             Emission::None => Address::default(),
         };
@@ -1176,7 +1188,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
     type TypeOutput = ();
 
-    type PathOutput = ();
+    type PathOutput = Symbol;
 
     fn visit_main(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
         debug!("Emitting main function item");
@@ -1218,19 +1230,13 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let function_emission = self.visit_function_expression(function_expression, None)?;
 
-        if let Emission::Constant(ConstantEmission::Function { prototype_index }) =
-            function_emission
-        {
+        if let Emission::Place(Place::Prototype { prototype_index }) = function_emission {
             let declaration_id = *self
                 .resolver
                 .get_declaration_binding(&function_expression.id)?;
 
-            self.locals.insert(
-                declaration_id,
-                Place::Prototype {
-                    index: prototype_index,
-                },
-            );
+            self.locals
+                .insert(declaration_id, Place::Prototype { prototype_index });
         }
 
         Ok(())
@@ -1299,6 +1305,11 @@ impl SyntaxVisitor for Emitter<'_> {
             }
             Emission::Instructions(expression_instructions) => {
                 let_statement_instructions.merge(expression_instructions);
+            }
+            Emission::NativeFunction(_) => {
+                return Err(CompileError::ExpectedNativeFunctionCall {
+                    position: node.position(),
+                });
             }
             Emission::None => {
                 return Err(CompileError::ExpectedValue {
@@ -1379,6 +1390,11 @@ impl SyntaxVisitor for Emitter<'_> {
             Emission::Instructions(instructions) => {
                 reassignment_instructions.merge(instructions);
                 reassignment_instructions.set_target(None);
+            }
+            Emission::NativeFunction(_) => {
+                return Err(CompileError::ExpectedNativeFunctionCall {
+                    position: node.position(),
+                });
             }
             Emission::None => {
                 return Err(CompileError::ExpectedValue {
@@ -1500,6 +1516,11 @@ impl SyntaxVisitor for Emitter<'_> {
 
                     Ok(Address::register(target.index()))
                 }
+                Emission::NativeFunction(_) => {
+                    return Err(CompileError::ExpectedNativeFunctionCall {
+                        position: element_node.position(),
+                    });
+                }
                 Emission::None => Err(CompileError::ExpectedValue {
                     node_kind: element_node.kind(),
                     position: element_node.position(),
@@ -1594,12 +1615,20 @@ impl SyntaxVisitor for Emitter<'_> {
         debug!("Emitting path expression");
 
         let declaration_id = self.resolver.get_declaration_binding(&node.id)?;
-        let local = *self
-            .locals
-            .get(declaration_id)
-            .ok_or(CompileError::Internal(InternalError::MissingLocal(
-                *declaration_id,
-            )))?;
+        let local = if let Some(place) = self.locals.get(declaration_id) {
+            *place
+        } else {
+            let declaration = self.resolver.get_declaration(*declaration_id)?;
+
+            if let DeclarationKind::NativeFunction(function) = declaration.kind {
+                return Ok(Emission::NativeFunction(function));
+            } else {
+                return Err(CompileError::UndeclaredVariable {
+                    name: declaration.symbol,
+                    position: node.position(),
+                });
+            }
+        };
 
         Ok(Emission::Place(local))
     }
@@ -1805,6 +1834,11 @@ impl SyntaxVisitor for Emitter<'_> {
                     }
                     Emission::Instructions(instructions) => {
                         block_emission.merge(instructions);
+                    }
+                    Emission::NativeFunction(_) => {
+                        return Err(CompileError::ExpectedNativeFunctionCall {
+                            position: node.position(),
+                        });
                     }
                     Emission::None => {}
                 }
@@ -2314,7 +2348,7 @@ impl SyntaxVisitor for Emitter<'_> {
         let declaration_id = *self.resolver.get_declaration_binding(&node.id)?;
 
         if let Some(prototype_index) = self.resolver.get_declaration_prototype(&declaration_id) {
-            return Ok(Emission::Constant(ConstantEmission::Function {
+            return Ok(Emission::Place(Place::Prototype {
                 prototype_index: *prototype_index,
             }));
         }
@@ -2336,7 +2370,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
         self.resolver.prototypes[prototype_index] = function_emitter.emit(body)?;
 
-        Ok(Emission::Constant(ConstantEmission::Function {
+        Ok(Emission::Place(Place::Prototype {
             prototype_index: prototype_index as u16,
         }))
     }
@@ -2354,8 +2388,13 @@ impl SyntaxVisitor for Emitter<'_> {
         let mut call_emission = InstructionsEmission::new();
 
         let callee_emission = self.visit_expression(callee, None)?;
-        let callee_address =
-            self.handle_operand_emission(&mut call_emission, callee_emission, &callee)?;
+        let callee_address = match callee_emission {
+            Emission::Instructions(instructions_emission) => todo!(),
+            Emission::Constant(constant_emission) => todo!(),
+            Emission::NativeFunction(native_function) => todo!(),
+            Emission::Place(place) => todo!(),
+            Emission::None => todo!(),
+        };
 
         let arguments_start = self.call_arguments.len() as u16;
         let mut argument_count = 0u16;
@@ -2431,7 +2470,7 @@ impl SyntaxVisitor for Emitter<'_> {
     }
 
     fn visit_path(&mut self, _: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
-        Ok(())
+        unreachable!()
     }
 }
 
@@ -2439,6 +2478,7 @@ impl SyntaxVisitor for Emitter<'_> {
 pub enum Emission {
     Instructions(InstructionsEmission),
     Constant(ConstantEmission),
+    NativeFunction(NativeFunction),
     Place(Place),
     None,
 }
@@ -2512,7 +2552,7 @@ impl InstructionsEmission {
 #[derive(Clone, Copy, Debug)]
 pub enum Place {
     Constant { id: ConstantId },
-    Prototype { index: u16 },
+    Prototype { prototype_index: u16 },
     Target(TargetRegister),
 }
 
@@ -2529,7 +2569,9 @@ impl Place {
     fn address(&self) -> Address {
         match self {
             Place::Constant { id } => Address::constant(id.0),
-            Place::Prototype { index } => Address::constant(*index),
+            Place::Prototype {
+                prototype_index: index,
+            } => Address::constant(*index),
             Place::Target(target) => target.address(),
         }
     }
@@ -2592,7 +2634,6 @@ pub enum ConstantEmission {
     Float(f64),
     Integer(i64),
     String { pool_start: u32, pool_end: u32 },
-    Function { prototype_index: u16 },
 }
 
 impl ConstantEmission {
@@ -2604,7 +2645,6 @@ impl ConstantEmission {
             ConstantEmission::Float(_) => OperandType::FLOAT,
             ConstantEmission::Integer(_) => OperandType::INTEGER,
             ConstantEmission::String { .. } => OperandType::STRING,
-            ConstantEmission::Function { .. } => OperandType::FUNCTION,
         }
     }
 }

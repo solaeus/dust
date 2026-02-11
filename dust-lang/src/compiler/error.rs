@@ -90,6 +90,9 @@ pub enum CompileError {
         type_id: TypeId,
         position: Option<Position>,
     },
+    ExpectedNativeFunctionCall {
+        position: Position,
+    },
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
@@ -452,6 +455,21 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         Level::HELP.message(help_message),
                     ])
                 }
+            }
+            CompileError::ExpectedNativeFunctionCall { position } => {
+                let title = "Expected a native function to be called".to_string();
+                let file_str = source.get_file(position.file_id).content_as_str();
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_str).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(
+                                "Native functions cannot be used as values, they must be called.",
+                            ),
+                    )
+                ).element(Level::HELP.message("To call this native function, add `()` after it."))
+                .element(Level::HELP.message("If you wanted to use a function value, declare a function that wraps the native function and use that instead."))
             }
         }
     }

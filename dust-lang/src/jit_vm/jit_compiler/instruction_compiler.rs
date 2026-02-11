@@ -158,11 +158,10 @@ impl<'a> InstructionCompiler<'a> {
             length,
         } = Reference::from(instruction);
 
-        // Pack the start and end into a 64-bit value:
-        // start in low 32 bits, end (inclusive) in high 32 bits.
-        let end = start + length - 1;
         let start_value = builder.ins().iconst(I64, start as i64);
-        let end_value = builder.ins().iconst(I64, end as i64);
+        let end_value = builder.ins().iconst(I64, (start + length - 1) as i64);
+
+        // Pack a 64-bit value with the start in the low 32 bits and the end in the high 32 bits.
         let shifted_end = builder.ins().ishl_imm(end_value, 32);
         let encoded = builder.ins().bor(shifted_end, start_value);
 

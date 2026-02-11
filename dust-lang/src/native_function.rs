@@ -9,7 +9,7 @@ use crate::compiler::{DeclarationMembers, Resolver, TypeId, TypeMembers, TypeNod
 /// A Dust-native function.
 ///
 /// See the [module-level documentation](index.html) for more information.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct NativeFunction {
     pub id: u16,
 }

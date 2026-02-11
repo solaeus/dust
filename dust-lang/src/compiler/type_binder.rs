@@ -642,7 +642,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
         debug!("Binding types for path expression");
         debug_assert_eq!(node.kind(), SyntaxKind::PathExpression);
 
-        let path = node.left_child()?;
         let declaration_id = self.resolver.get_declaration_binding(&node.id)?;
         let type_id = *self.resolver.get_declaration_type(declaration_id)?;
 
