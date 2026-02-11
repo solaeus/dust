@@ -120,7 +120,7 @@ impl<'a> JitCompiler<'a> {
         })
     }
 
-    pub fn compile(&mut self) -> Result<(JitEntry, Vec<JitPrototype>), JitError> {
+    pub fn compile(&mut self) -> Result<(JitFunction, Vec<JitPrototype>), JitError> {
         let (compile_order, recursive_calls) = get_compile_order_and_recursive_calls(self.program);
 
         let mut compiled = FxHashSet::default();
@@ -172,22 +172,31 @@ impl<'a> JitCompiler<'a> {
             .function_type
             .return_type;
 
-        let entry = match main_return_type {
+        let logic = match main_return_type {
             Type::None => {
-                let f = unsafe { transmute::<*const u8, JitLogicNone>(program_function_pointer) };
-                JitEntry::None(f)
+                let logic = unsafe {
+                    transmute::<*const u8, JitFunctionReturnNone>(program_function_pointer)
+                };
+
+                JitFunction::ReturnNone(logic)
             }
             Type::Struct { .. } => {
-                let f = unsafe { transmute::<*const u8, JitLogicStruct>(program_function_pointer) };
-                JitEntry::Struct(f)
+                let logic = unsafe {
+                    transmute::<*const u8, JitFunctionReturnStruct>(program_function_pointer)
+                };
+
+                JitFunction::ReturnStruct(logic)
             }
             _ => {
-                let f = unsafe { transmute::<*const u8, JitLogicScalar>(program_function_pointer) };
-                JitEntry::Scalar(f)
+                let logic = unsafe {
+                    transmute::<*const u8, JitFunctionReturnScalar>(program_function_pointer)
+                };
+
+                JitFunction::ReturnScalar(logic)
             }
         };
 
-        Ok((entry, jit_prototypes))
+        Ok((logic, jit_prototypes))
     }
 
     fn compile_prototype(
@@ -372,14 +381,14 @@ impl<'a> JitCompiler<'a> {
     }
 }
 
-pub type JitLogicNone = extern "C" fn(&mut ThreadContext, usize);
-pub type JitLogicScalar = extern "C" fn(&mut ThreadContext, usize) -> i64;
-pub type JitLogicStruct = extern "C" fn(*mut i64, &mut ThreadContext, usize);
+pub type JitFunctionReturnNone = extern "C" fn(&mut ThreadContext, usize);
+pub type JitFunctionReturnScalar = extern "C" fn(&mut ThreadContext, usize) -> i64;
+pub type JitFunctionReturnStruct = extern "C" fn(*mut i64, &mut ThreadContext, usize);
 
-pub enum JitEntry {
-    None(JitLogicNone),
-    Scalar(JitLogicScalar),
-    Struct(JitLogicStruct),
+pub enum JitFunction {
+    ReturnNone(JitFunctionReturnNone),
+    ReturnScalar(JitFunctionReturnScalar),
+    ReturnStruct(JitFunctionReturnStruct),
 }
 
 // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm

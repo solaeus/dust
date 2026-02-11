@@ -18,7 +18,8 @@ use crate::{
     dust_crate::Program,
     instruction::OperandType,
     jit_vm::{
-        JitCompiler, JitError, Object, ObjectPool, Register, RegisterTag, object::ObjectValue,
+        JitCompiler, JitError, JitFunction, Object, ObjectPool, Register, RegisterTag,
+        object::ObjectValue,
     },
     r#type::Type,
     value::{List, Value},
@@ -337,7 +338,7 @@ fn run_thread(
     info!("Starting JIT compilation for proto_{prototype_index}");
 
     let mut jit = JitCompiler::new(&program, prototype_index)?;
-    let (jit_entry, mut jit_prototypes) = jit.compile()?;
+    let (jit_function, mut jit_prototypes) = jit.compile()?;
 
     info!("JIT compilation complete");
 
@@ -371,29 +372,29 @@ fn run_thread(
         })?
         .function_type
         .return_type;
-    let return_word_count = jit_prototypes
+    let return_register_count = jit_prototypes
         .get(prototype_index as usize)
         .map(|prototype| prototype.return_value_count)
         .unwrap_or(1)
         .max(1);
-    let mut return_words = vec![0_i64; return_word_count];
+    let mut return_registers = vec![0_i64; return_register_count];
 
-    match jit_entry {
-        crate::jit_vm::jit_compiler::JitEntry::None(f) => {
-            f(&mut thread_context, 0);
+    match jit_function {
+        JitFunction::ReturnNone(logic) => {
+            logic(&mut thread_context, 0);
         }
-        crate::jit_vm::jit_compiler::JitEntry::Scalar(f) => {
-            return_words[0] = f(&mut thread_context, 0);
+        JitFunction::ReturnScalar(logic) => {
+            return_registers[0] = logic(&mut thread_context, 0);
         }
-        crate::jit_vm::jit_compiler::JitEntry::Struct(f) => {
-            f(return_words.as_mut_ptr(), &mut thread_context, 0);
+        JitFunction::ReturnStruct(logic) => {
+            logic(return_registers.as_mut_ptr(), &mut thread_context, 0);
         }
     }
 
     let return_value = match return_type {
         Type::None => None,
         _ => {
-            let (value, _) = decode_value_from_return_words(return_type, &return_words, 0)?;
+            let (value, _) = decode_value_from_return_words(return_type, &return_registers, 0)?;
 
             Some(value)
         }

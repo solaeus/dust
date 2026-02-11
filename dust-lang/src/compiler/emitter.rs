@@ -14,7 +14,7 @@ use crate::{
     instruction::{Address, Drop, Instruction, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
     parser::syntax::{
-        Syntax, SyntaxError, SyntaxId, SyntaxKind, SyntaxReader, SyntaxReaderMultipleIterator,
+        Syntax, SyntaxError, SyntaxId, SyntaxKind, SyntaxReader, SyntaxReaderIterator,
         SyntaxVisitor,
     },
     prototype::Prototype,
@@ -72,7 +72,7 @@ impl<'a> Emitter<'a> {
         declaration_id: DeclarationId,
         starting_scope_id: ScopeId,
         prototype_index: u16,
-        parameters: Option<SyntaxReaderMultipleIterator<'a>>,
+        parameters: Option<SyntaxReaderIterator<'a>>,
         (source, syntax, resolver): (&'a Source, &'a Syntax, &'a mut Resolver),
     ) -> Result<Self, CompileError> {
         let parameter_count = parameters.as_ref().map_or(0, |parameters| parameters.len());

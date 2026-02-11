@@ -76,24 +76,50 @@ impl Resolver {
         debug_assert_eq!(_integer_id, TypeId::INTEGER);
         debug_assert_eq!(_string_id, TypeId::STRING);
 
+        let _core_declaration_id = resolver.add_declaration(Declaration {
+            symbol: Symbol::BuiltIn("core"),
+            position: None,
+            kind: DeclarationKind::Module {
+                kind: ModuleKind::Inline,
+                scope_id: ScopeId::CORE,
+            },
+            scope_id: ScopeId::PROJECT,
+            is_public: true,
+        });
+
+        debug_assert_eq!(_core_declaration_id, DeclarationId::CORE);
+
+        let mut core_imports = SmallVec::<[DeclarationId; 4]>::with_capacity(NativeFunction::COUNT);
+
+        for native_function in NativeFunction::ALL {
+            let declaration_id = resolver.add_declaration(Declaration {
+                symbol: Symbol::BuiltIn(native_function.name()),
+                position: None,
+                kind: DeclarationKind::Function,
+                scope_id: ScopeId::CORE,
+                is_public: true,
+            });
+            let type_id = native_function.signature(&mut resolver);
+
+            resolver.set_declaration_type(declaration_id, type_id);
+            core_imports.push(declaration_id);
+        }
+
         let _project_scope_id = resolver.add_scope(Scope {
             kind: ScopeKind::Module,
             parent: ScopeId::PROJECT,
             imports: SmallVec::new(),
             modules: SmallVec::new(),
         });
+        let _core_scope_id = resolver.add_scope(Scope {
+            kind: ScopeKind::Module,
+            parent: ScopeId::PROJECT,
+            imports: core_imports,
+            modules: SmallVec::new(),
+        });
 
         debug_assert_eq!(_project_scope_id, ScopeId::PROJECT);
-
-        for native_function in NativeFunction::ALL {
-            resolver.add_declaration(Declaration {
-                symbol: Symbol::BuiltIn(native_function.name()),
-                position: None,
-                kind: DeclarationKind::Type { parent: None },
-                scope_id: ScopeId::PROJECT,
-                is_public: true,
-            });
-        }
+        debug_assert_eq!(_core_scope_id, ScopeId::CORE);
 
         resolver
     }
@@ -265,70 +291,86 @@ impl Resolver {
         parent: Option<DeclarationId>,
         is_type_lookup: bool,
     ) -> Result<(DeclarationId, Declaration), CompileError> {
+        fn search(
+            resolver: &Resolver,
+            symbol: Symbol,
+            target_scope_id: ScopeId,
+            parent: Option<DeclarationId>,
+            is_type_lookup: bool,
+        ) -> Result<Option<(DeclarationId, Declaration)>, CompileError> {
+            let mut current_scope_id = target_scope_id;
+            let mut current_scope = resolver.get_scope(target_scope_id)?;
+
+            loop {
+                if current_scope_id == ScopeId::PROJECT {
+                    break;
+                }
+
+                println!(
+                    "Searching in scope {:?} for symbol {:?}",
+                    current_scope_id, symbol
+                );
+
+                let key = DeclarationStorageKey { symbol, parent };
+
+                if let Some((index, _, declaration_value)) = resolver.declarations.get_full(&key) {
+                    return Ok(Some((
+                        DeclarationId(index as u32),
+                        Declaration::from_key_and_value(&key, declaration_value),
+                    )));
+                }
+
+                for module_id in &current_scope.modules {
+                    let module = resolver.get_declaration(*module_id)?;
+
+                    if let Some(found) =
+                        search(resolver, symbol, module.scope_id, parent, is_type_lookup)?
+                    {
+                        return Ok(Some(found));
+                    }
+                }
+
+                for import_id in &current_scope.imports {
+                    let import = resolver.get_declaration(*import_id)?;
+
+                    if let Some(found) =
+                        search(resolver, symbol, import.scope_id, parent, is_type_lookup)?
+                    {
+                        return Ok(Some(found));
+                    }
+                }
+
+                current_scope_id = current_scope.parent;
+                current_scope = resolver.get_scope(current_scope_id)?;
+            }
+
+            if current_scope.kind == ScopeKind::Function {
+                let key = DeclarationStorageKey { symbol, parent };
+
+                if let Some((index, _, declaration)) = resolver.declarations.get_full(&key)
+                    && (matches!(declaration.kind, DeclarationKind::Type { .. })
+                        || matches!(declaration.kind, DeclarationKind::Local { .. }))
+                    && declaration.scope_id == current_scope_id
+                {
+                    return Ok(Some((
+                        DeclarationId(index as u32),
+                        Declaration::from_key_and_value(&key, declaration),
+                    )));
+                }
+            }
+
+            Ok(None)
+        }
+
         debug_assert_eq!(path_segment.kind(), SyntaxKind::PathSegment);
 
-        let mut current_scope_id = target_scope_id;
-        let mut current_scope = self.get_scope(target_scope_id)?;
-
-        loop {
-            if (!is_type_lookup && current_scope.kind != ScopeKind::Block)
-                || current_scope_id == ScopeId::PROJECT
-            {
-                break;
-            }
-
-            let key = DeclarationStorageKey { symbol, parent };
-
-            if let Some((index, _, declaration_value)) = self.declarations.get_full(&key)
-                && declaration_value.scope_id == current_scope_id
-            {
-                return Ok((
-                    DeclarationId(index as u32),
-                    Declaration::from_key_and_value(&key, declaration_value),
-                ));
-            }
-
-            for import_id in &current_scope.imports {
-                let import = self.get_declaration(*import_id)?;
-                let key = DeclarationStorageKey { symbol, parent };
-
-                if self.declarations.contains_key(&key) {
-                    return Ok((*import_id, import));
-                }
-            }
-
-            for module_id in &current_scope.modules {
-                let module = self.get_declaration(*module_id)?;
-                let key = DeclarationStorageKey { symbol, parent };
-
-                if self.declarations.contains_key(&key) {
-                    return Ok((*module_id, module));
-                }
-            }
-
-            current_scope_id = current_scope.parent;
-            current_scope = self.get_scope(current_scope_id)?;
+        match search(self, symbol, target_scope_id, parent, is_type_lookup)? {
+            Some(found) => Ok(found),
+            None => Err(CompileError::UndeclaredVariable {
+                name: symbol,
+                position: path_segment.position(),
+            }),
         }
-
-        if current_scope.kind == ScopeKind::Function {
-            let key = DeclarationStorageKey { symbol, parent };
-
-            if let Some((index, _, declaration)) = self.declarations.get_full(&key)
-                && (matches!(declaration.kind, DeclarationKind::Type { .. })
-                    || matches!(declaration.kind, DeclarationKind::Local { .. }))
-                && declaration.scope_id == current_scope_id
-            {
-                return Ok((
-                    DeclarationId(index as u32),
-                    Declaration::from_key_and_value(&key, declaration),
-                ));
-            }
-        }
-
-        Err(CompileError::UndeclaredVariable {
-            name: symbol,
-            position: path_segment.position(),
-        })
     }
 
     pub fn set_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {
@@ -730,6 +772,7 @@ pub struct ScopeId(pub u32);
 
 impl ScopeId {
     pub const PROJECT: Self = ScopeId(0);
+    pub const CORE: Self = ScopeId(1);
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -750,6 +793,10 @@ pub enum ScopeKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DeclarationId(pub u32);
 
+impl DeclarationId {
+    pub const CORE: Self = DeclarationId(0);
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DeclarationMembers {
     pub start: u32,
@@ -768,7 +815,7 @@ impl DeclarationMembers {
         let start = self.start as usize;
         let end = start.saturating_add(self.count as usize);
 
-        Range { start, end }
+        start..end
     }
 }
 
@@ -843,8 +890,9 @@ pub enum DeclarationKind {
     },
     Module {
         kind: ModuleKind,
-        inner_scope_id: ScopeId,
+        scope_id: ScopeId,
     },
+    Function,
     Type {
         parent: Option<DeclarationId>,
     },

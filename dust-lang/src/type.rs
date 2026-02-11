@@ -157,9 +157,3 @@ impl Display for FunctionType {
         Ok(())
     }
 }
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct TypeConflict {
-    pub expected: Type,
-    pub actual: Type,
-}

@@ -6,7 +6,7 @@ mod visitor;
 
 pub use error::SyntaxError;
 pub use node::{SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxPayload};
-pub use reader::{SyntaxReader, SyntaxReaderMultipleIterator};
+pub use reader::{SyntaxReader, SyntaxReaderIterator};
 pub use tree::SyntaxTree;
 pub use visitor::SyntaxVisitor;
 

@@ -1,4 +1,4 @@
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 use tracing::debug;
 
 use crate::{
@@ -66,29 +66,30 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_main(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
         debug!("Binding main function");
+        debug_assert_eq!(node.kind(), SyntaxKind::MainFunctionItem);
 
         let children = node.multiple_children()?;
 
-        let main_scope = self.resolver.add_scope(Scope {
+        let main_scope_id = self.resolver.add_scope(Scope {
             kind: ScopeKind::Function,
-            parent: ScopeId::PROJECT,
-            imports: SmallVec::new(),
+            parent: self.current_scope_id,
+            imports: smallvec![DeclarationId::CORE],
             modules: SmallVec::new(),
         });
         let main_declaration_id = self.resolver.add_declaration(Declaration {
             symbol: Symbol::MAIN,
-            kind: DeclarationKind::Type { parent: None },
-            scope_id: main_scope,
+            kind: DeclarationKind::Function,
+            scope_id: main_scope_id,
             is_public: true,
             position: Some(node.position()),
         });
 
         self.resolver
             .add_declaration_binding(node.id, main_declaration_id);
-        self.resolver.add_scope_binding(node.id, main_scope);
+        self.resolver.add_scope_binding(node.id, main_scope_id);
 
         let parent_scope_id = self.current_scope_id;
-        self.current_scope_id = main_scope;
+        self.current_scope_id = main_scope_id;
 
         for child in children {
             if child.kind().is_item() {
@@ -144,7 +145,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         };
         let function_declaration = Declaration {
             symbol: function_symbol,
-            kind: DeclarationKind::Type { parent: None },
+            kind: DeclarationKind::Function,
             scope_id: self.current_scope_id,
             is_public,
             position: Some(signature.position()),
@@ -433,6 +434,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         debug!("Binding path expression");
 
         let path = path_expression.left_child()?;
+
         let declaration_id = self.visit_path(path)?;
 
         self.resolver
@@ -669,7 +671,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let function_symbol = self.resolver.create_anonymous_symbol();
         let function_declaration = Declaration {
             symbol: function_symbol,
-            kind: DeclarationKind::Type { parent: None },
+            kind: DeclarationKind::Function,
             scope_id: self.current_scope_id,
             is_public: false,
             position: Some(signature.position()),
@@ -777,6 +779,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 None,
                 false,
             )?;
+
+            println!(
+                "Found declaration for segment '{:?}': {:?}",
+                symbol, next_declaration
+            );
 
             current_declaration_id = next_declaration_id;
             current_scope_id = next_declaration.scope_id;

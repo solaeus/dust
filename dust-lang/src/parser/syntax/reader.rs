@@ -112,7 +112,7 @@ impl<'a> SyntaxReader<'a> {
         Ok((left_child, right_child))
     }
 
-    pub fn multiple_children(&self) -> Result<SyntaxReaderMultipleIterator<'a>, SyntaxError> {
+    pub fn multiple_children(&self) -> Result<SyntaxReaderIterator<'a>, SyntaxError> {
         let child_ids = self.tree.get_children(self.node.payload);
 
         if child_ids.is_empty() {
@@ -121,7 +121,7 @@ impl<'a> SyntaxReader<'a> {
             ));
         }
 
-        Ok(SyntaxReaderMultipleIterator {
+        Ok(SyntaxReaderIterator {
             child_ids,
             tree: self.tree,
             current_index: 0,
@@ -130,13 +130,13 @@ impl<'a> SyntaxReader<'a> {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct SyntaxReaderMultipleIterator<'a> {
+pub struct SyntaxReaderIterator<'a> {
     child_ids: &'a [SyntaxId],
     tree: &'a SyntaxTree,
     current_index: usize,
 }
 
-impl<'a> SyntaxReaderMultipleIterator<'a> {
+impl<'a> SyntaxReaderIterator<'a> {
     pub fn len(&self) -> usize {
         self.child_ids.len()
     }
@@ -159,7 +159,7 @@ impl<'a> SyntaxReaderMultipleIterator<'a> {
     }
 }
 
-impl<'a> Iterator for SyntaxReaderMultipleIterator<'a> {
+impl<'a> Iterator for SyntaxReaderIterator<'a> {
     type Item = SyntaxReader<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -171,4 +171,4 @@ impl<'a> Iterator for SyntaxReaderMultipleIterator<'a> {
     }
 }
 
-impl ExactSizeIterator for SyntaxReaderMultipleIterator<'_> {}
+impl ExactSizeIterator for SyntaxReaderIterator<'_> {}

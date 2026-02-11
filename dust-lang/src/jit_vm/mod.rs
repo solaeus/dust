@@ -9,7 +9,10 @@ mod tests;
 pub mod thread_pool;
 
 pub use error::JitError;
-pub use jit_compiler::{JitCompiler, JitEntry, JitLogicNone, JitLogicScalar, JitLogicStruct};
+pub use jit_compiler::{
+    JitCompiler, JitFunction, JitFunctionReturnNone, JitFunctionReturnScalar,
+    JitFunctionReturnStruct,
+};
 pub use object::Object;
 pub use object_pool::ObjectPool;
 pub use register::{Register, RegisterTag};
