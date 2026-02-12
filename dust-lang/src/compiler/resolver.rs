@@ -1,5 +1,6 @@
 use std::{
-    collections::HashMap,
+    cell::{RefCell, RefMut},
+    collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
     ops::Range,
 };
@@ -7,6 +8,7 @@ use std::{
 use indexmap::{IndexMap, IndexSet, set::MutableValues};
 use rustc_hash::{FxBuildHasher, FxHasher};
 use smallvec::SmallVec;
+use tracing::trace;
 
 use crate::{
     compiler::{CompileError, InternalCompileError},
@@ -31,6 +33,7 @@ pub struct Resolver {
 
     scopes: Vec<Scope>,
     scope_members: Vec<ScopeMembers>,
+    scope_search: RefCell<HashSet<ScopeId, FxBuildHasher>>,
     scope_bindings: HashMap<SyntaxId, ScopeId, FxBuildHasher>,
 
     type_nodes: IndexSet<TypeNode, FxBuildHasher>,
@@ -53,6 +56,7 @@ impl Resolver {
             symbol_spans: IndexMap::default(),
             scopes: Vec::new(),
             scope_members: Vec::new(),
+            scope_search: RefCell::new(HashSet::default()),
             scope_bindings: HashMap::default(),
             type_nodes: IndexSet::default(),
             type_members: Vec::new(),
@@ -61,20 +65,22 @@ impl Resolver {
             next_anonymous_symbol_id: AnonymousSymbolId(0),
         };
 
-        let _main_symbol = resolver.create_anonymous_symbol();
-        let _dummy_symbol = resolver.create_anonymous_symbol();
+        let _main_symbol = resolver.create_named_symbol("main");
         let _no_op_symbol = resolver.create_named_symbol(NativeFunction::NO_OP.name());
         let _read_line_symbol = resolver.create_named_symbol(NativeFunction::READ_LINE.name());
         let _write_line_symbol = resolver.create_named_symbol(NativeFunction::WRITE_LINE.name());
         let _spawn_thread_symbol =
             resolver.create_named_symbol(NativeFunction::SPAWN_THREAD.name());
+        let _core_symbol = resolver.create_anonymous_symbol();
+        let _dummy_symbol = resolver.create_anonymous_symbol();
 
         debug_assert_eq!(_main_symbol, Symbol::MAIN);
-        debug_assert_eq!(_dummy_symbol, Symbol::DUMMY);
+        debug_assert_eq!(_core_symbol, Symbol::CORE);
         debug_assert_eq!(_no_op_symbol, Symbol::NO_OP);
         debug_assert_eq!(_read_line_symbol, Symbol::READ_LINE);
         debug_assert_eq!(_write_line_symbol, Symbol::WRITE_LINE);
         debug_assert_eq!(_spawn_thread_symbol, Symbol::SPAWN_THREAD);
+        debug_assert_eq!(_dummy_symbol, Symbol::DUMMY);
 
         let _none_id = resolver.add_type(TypeNode::None);
         let _boolean_id = resolver.add_type(TypeNode::Boolean);
@@ -92,7 +98,6 @@ impl Resolver {
         debug_assert_eq!(_integer_id, TypeId::INTEGER);
         debug_assert_eq!(_string_id, TypeId::STRING);
 
-        let _core_symbol = resolver.create_named_symbol("core");
         let _core_declaration_id = resolver.add_declaration(Declaration {
             symbol: _core_symbol,
             position: None,
@@ -349,18 +354,18 @@ impl Resolver {
         is_type_lookup: bool,
     ) -> Result<(DeclarationId, Declaration), CompileError> {
         fn search(
-            resolver: &Resolver,
             target_key: DeclarationKey,
             is_type_lookup: bool,
+            resolver: &Resolver,
+            searched_scopes: &RefCell<HashSet<ScopeId, FxBuildHasher>>,
         ) -> Result<Option<(DeclarationId, Declaration)>, CompileError> {
+            if searched_scopes.borrow().contains(&target_key.scope_id) {
+                return Ok(None);
+            }
+
             let mut current_scope = resolver.get_scope(target_key.scope_id)?;
 
             loop {
-                println!(
-                    "Searching in scope {:?} for symbol {:?}",
-                    current_scope, target_key.symbol
-                );
-
                 if let Some((index, _, declaration_value)) =
                     resolver.declarations.get_full(&target_key)
                 {
@@ -370,40 +375,46 @@ impl Resolver {
                     )));
                 }
 
+                searched_scopes.borrow_mut().insert(target_key.scope_id);
+
                 let ScopeMembers { modules, imports } =
                     &resolver.scope_members[target_key.scope_id.0 as usize];
 
                 for module_scope_id in modules {
+                    if searched_scopes.borrow().contains(module_scope_id) {
+                        continue;
+                    }
+
                     let module_key = DeclarationKey {
                         symbol: target_key.symbol,
                         parent: target_key.parent,
                         scope_id: *module_scope_id,
                     };
 
-                    if let Some(found) = search(resolver, module_key, is_type_lookup)? {
+                    if let Some(found) =
+                        search(module_key, is_type_lookup, resolver, searched_scopes)?
+                    {
                         return Ok(Some(found));
                     }
                 }
 
                 for import_id in imports {
                     let import = resolver.get_declaration(*import_id)?;
-                    let import_parent = if let DeclarationKind::Type { parent } = import.kind {
-                        parent
-                    } else {
-                        None
+                    let import_key = DeclarationKey {
+                        symbol: import.symbol,
+                        parent: import.parent(),
+                        scope_id: import.scope_id,
                     };
 
-                    if import.symbol == target_key.symbol && import_parent == target_key.parent {
-                        let declaration = Declaration::from_key_and_value(
-                            target_key,
-                            DeclarationValue {
-                                kind: import.kind,
-                                is_public: import.is_public,
-                                position: import.position,
-                            },
-                        );
+                    if import_key == target_key {
+                        let import_value = DeclarationValue {
+                            kind: import.kind,
+                            is_public: import.is_public,
+                            position: import.position,
+                        };
+                        let import = Declaration::from_key_and_value(import_key, import_value);
 
-                        return Ok(Some((*import_id, declaration)));
+                        return Ok(Some((*import_id, import)));
                     }
                 }
 
@@ -431,8 +442,15 @@ impl Resolver {
             scope_id: target_scope_id,
         };
 
-        match search(self, target_key, is_type_lookup)? {
-            Some(found) => Ok(found),
+        match search(target_key, is_type_lookup, self, &self.scope_search)? {
+            Some((found_id, found_declaration)) => {
+                trace!(
+                    "Found declaration for symbol \"{}\".",
+                    self.get_symbol_name(&found_declaration.symbol)?
+                );
+
+                Ok((found_id, found_declaration))
+            }
             None => Err(CompileError::Undeclared {
                 symbol,
                 usage_position: path_segment.position(),
@@ -907,6 +925,14 @@ impl Declaration {
             kind: value.kind,
             scope_id: key.scope_id,
             is_public: value.is_public,
+        }
+    }
+
+    fn parent(&self) -> Option<DeclarationId> {
+        if let DeclarationKind::Type { parent } = self.kind {
+            parent
+        } else {
+            None
         }
     }
 }

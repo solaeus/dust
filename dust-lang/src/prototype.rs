@@ -7,14 +7,17 @@
 //! contains its own lists of constants and nested prototypes.
 use std::{
     borrow::Borrow,
+    collections::HashSet,
     fmt::{self, Debug, Display, Formatter},
     ops::Index,
     vec,
 };
 
+use rustc_hash::FxBuildHasher;
+
 use crate::{
     compiler::Symbol,
-    instruction::{Address, Instruction, OperandType},
+    instruction::{Address, Instruction, MemoryKind, OperandType, Operation},
     r#type::FunctionType,
 };
 
@@ -70,6 +73,10 @@ impl PrototypeList {
         self.prototypes.len()
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &Prototype> {
+        self.prototypes.iter()
+    }
+
     pub fn is_read_only(&self) -> bool {
         self.prototypes[0].symbol != Symbol::DUMMY
     }
@@ -111,12 +118,119 @@ impl PrototypeList {
         Ok(())
     }
 
-    pub fn get_slot(&self, index: usize) -> Option<&Prototype> {
-        self.prototypes.get(index)
-    }
+    // https://en.wikipedia.org/wiki/Tarjan's_strongly_connected_components_algorithm
+    pub fn get_compile_order_and_recursive_calls(
+        &self,
+    ) -> (Vec<PrototypeId>, HashSet<(u16, u16), FxBuildHasher>) {
+        struct Tarjan<'a> {
+            order: Vec<PrototypeId>,
+            edges: &'a [HashSet<PrototypeId, FxBuildHasher>],
+            index_counter: usize,
+            call_stack: Vec<PrototypeId>,
+            on_stack: Vec<bool>,
+            indices: Vec<usize>,
+            lowlinks: Vec<usize>,
+            scc_id: Vec<usize>,
+            scc_count: usize,
+        }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Prototype> {
-        self.prototypes.iter()
+        impl Tarjan<'_> {
+            fn visit(&mut self, current: PrototypeId) {
+                let current_index = current.0 as usize;
+
+                self.indices[current_index] = self.index_counter;
+                self.lowlinks[current_index] = self.index_counter;
+                self.index_counter += 1;
+                self.on_stack[current_index] = true;
+
+                self.call_stack.push(current);
+
+                for neighbor in &self.edges[current_index] {
+                    let neighbor_index = neighbor.0 as usize;
+                    let index_is_empty = self.indices[neighbor_index] == usize::MAX;
+
+                    if index_is_empty {
+                        self.visit(*neighbor);
+
+                        let lower_lowlink =
+                            self.lowlinks[current_index].min(self.lowlinks[neighbor_index]);
+
+                        self.lowlinks[current_index] = lower_lowlink;
+
+                        continue;
+                    }
+
+                    let neighbor_on_stack = self.on_stack[neighbor_index];
+
+                    if neighbor_on_stack {
+                        let lower_index =
+                            self.lowlinks[current_index].min(self.indices[neighbor_index]);
+
+                        self.lowlinks[current_index] = lower_index;
+                    }
+                }
+
+                if self.lowlinks[current_index] == self.indices[current_index] {
+                    while let Some(top) = self.call_stack.pop() {
+                        let top_index = top.0 as usize;
+
+                        self.on_stack[top_index] = false;
+                        self.scc_id[top_index] = self.scc_count;
+                        self.order.push(top);
+                        if top_index == current_index {
+                            break;
+                        }
+                    }
+                    self.scc_count += 1;
+                }
+            }
+        }
+
+        let prototype_count = self.prototypes.len();
+        let mut edges = vec![HashSet::default(); prototype_count];
+
+        for (caller_index, prototype) in self.prototypes.iter().enumerate() {
+            for instruction in &prototype.instructions {
+                if instruction.operation() == Operation::CALL {
+                    let callee_id = PrototypeId(instruction.b_field());
+                    let callee_index = instruction.b_field() as usize;
+
+                    if callee_index < prototype_count {
+                        edges[caller_index].insert(callee_id);
+                    }
+                }
+            }
+        }
+
+        let mut tarjan = Tarjan {
+            edges: &edges,
+            index_counter: 0,
+            call_stack: Vec::new(),
+            on_stack: vec![false; prototype_count],
+            indices: vec![usize::MAX; prototype_count],
+            lowlinks: vec![usize::MAX; prototype_count],
+            scc_id: vec![usize::MAX; prototype_count],
+            scc_count: 0,
+            order: Vec::with_capacity(prototype_count),
+        };
+
+        tarjan.visit(PrototypeId::MAIN);
+
+        let mut recursive_calls = HashSet::default();
+
+        for (caller_index, callees) in edges.iter().enumerate() {
+            for &callee in callees {
+                let callee_index = callee.0 as usize;
+
+                if tarjan.scc_id[caller_index] == tarjan.scc_id[callee_index] {
+                    let caller = PrototypeId(caller_index as u16);
+
+                    recursive_calls.insert((caller.0, callee.0));
+                }
+            }
+        }
+
+        (tarjan.order, recursive_calls)
     }
 }
 
@@ -151,14 +265,32 @@ impl IntoIterator for PrototypeList {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct PrototypeId(pub(crate) u16);
 
 impl PrototypeId {
-    pub const MAIN: Self = Self(0);
+    pub(crate) const MAIN: Self = Self(0);
+
+    pub fn from_address(address: Address) -> Option<Self> {
+        if address.memory == MemoryKind::CONSTANT {
+            Some(PrototypeId(address.index))
+        } else {
+            None
+        }
+    }
 
     pub fn index(self) -> u16 {
         self.0
+    }
+
+    pub fn index_usize(self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Display for PrototypeId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "proto_{}", self.0)
     }
 }
 

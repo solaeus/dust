@@ -1,8 +1,9 @@
 mod instruction_compiler;
 
-use std::{collections::HashSet, mem::transmute};
+use std::mem::transmute;
 
 use super::thread_pool::JitPrototype;
+use crate::prototype::PrototypeId;
 use crate::r#type::Type;
 use crate::{jit_vm::RegisterTag, prototype::Prototype};
 
@@ -16,11 +17,10 @@ use cranelift::{
 };
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Module};
-use rustc_hash::{FxBuildHasher, FxHashSet};
+use rustc_hash::FxHashSet;
 
 use crate::{
     dust_crate::Program,
-    instruction::Operation,
     jit_vm::{
         JitError, ffi_functions::*, jit_compiler::instruction_compiler::InstructionCompiler,
         thread_pool::ThreadContext,
@@ -30,12 +30,11 @@ use crate::{
 pub struct JitCompiler<'a> {
     module: JITModule,
     program: &'a Program,
-    main_prototype_index: u16,
     abi_function_ids: Vec<FuncId>,
 }
 
 impl<'a> JitCompiler<'a> {
-    pub fn new(program: &'a Program, main_prototype_index: u16) -> Result<Self, JitError> {
+    pub fn new(program: &'a Program) -> Result<Self, JitError> {
         let mut settings_builder = settings::builder();
 
         settings_builder
@@ -115,25 +114,25 @@ impl<'a> JitCompiler<'a> {
         Ok(Self {
             module,
             program,
-            main_prototype_index,
             abi_function_ids: vec![FuncId::from_u32(0); program.prototypes.len()],
         })
     }
 
     pub fn compile(&mut self) -> Result<(JitFunction, Vec<JitPrototype>), JitError> {
-        let (compile_order, recursive_calls) = get_compile_order_and_recursive_calls(self.program);
+        let (compile_order, recursive_calls) = self
+            .program
+            .prototypes
+            .get_compile_order_and_recursive_calls();
 
         let mut compiled = FxHashSet::default();
 
-        for index in compile_order {
-            self.abi_function_ids[index] = self.compile_prototype(index, &recursive_calls)?;
-            compiled.insert(index);
-        }
+        for prototype_id in compile_order {
+            let abi_function_id = self.compile_prototype(prototype_id, &recursive_calls)?;
+            let index = prototype_id.index_usize();
 
-        for index in 0..self.program.prototypes.len() {
-            if !compiled.contains(&index) {
-                self.abi_function_ids[index] = self.compile_prototype(index, &recursive_calls)?;
-            }
+            self.abi_function_ids[index] = abi_function_id;
+
+            compiled.insert(prototype_id);
         }
 
         self.module
@@ -166,11 +165,9 @@ impl<'a> JitCompiler<'a> {
             });
         }
 
-        let main_function_id = self.abi_function_ids[self.main_prototype_index as usize];
-        let program_function_pointer = self.module.get_finalized_function(main_function_id);
-        let main_return_type = &self.program.prototypes[self.main_prototype_index as usize]
-            .function_type
-            .return_type;
+        let main_abi_function_id = self.abi_function_ids[0];
+        let program_function_pointer = self.module.get_finalized_function(main_abi_function_id);
+        let main_return_type = &self.program.prototypes[0].function_type.return_type;
 
         let logic = match main_return_type {
             Type::None => {
@@ -201,15 +198,10 @@ impl<'a> JitCompiler<'a> {
 
     fn compile_prototype(
         &mut self,
-        prototype_index: usize,
+        prototype_id: PrototypeId,
         recursive_calls: &FxHashSet<(u16, u16)>,
     ) -> Result<FuncId, JitError> {
-        let prototype = self.program.prototypes.get_slot(prototype_index).ok_or(
-            JitError::MissingPrototype {
-                index: prototype_index,
-                total: self.program.prototypes.len(),
-            },
-        )?;
+        let prototype = &self.program.prototypes[prototype_id];
 
         let mut context = self.module.make_context();
         let abi_signature = self.prototype_signature(prototype);
@@ -220,7 +212,7 @@ impl<'a> JitCompiler<'a> {
         let abi_function_id = self
             .module
             .declare_function(
-                &format!("proto_{}", prototype_index),
+                &prototype_id.to_string(),
                 cranelift_module::Linkage::Local,
                 &context.func.signature,
             )
@@ -228,7 +220,7 @@ impl<'a> JitCompiler<'a> {
                 error: Box::new(error),
                 cranelift_ir: Some(context.func.display().to_string()),
             })?;
-        self.abi_function_ids[prototype_index] = abi_function_id;
+        self.abi_function_ids[prototype_id.index_usize()] = abi_function_id;
 
         let mut builder_context = FunctionBuilderContext::new();
         let mut builder = FunctionBuilder::new(&mut context.func, &mut builder_context);
@@ -387,93 +379,6 @@ pub enum JitFunction {
     None(JitFunctionReturnNone),
     Scalar(JitFunctionReturnScalar),
     Struct(JitFunctionReturnStruct),
-}
-
-// https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
-fn get_compile_order_and_recursive_calls(program: &Program) -> (Vec<usize>, FxHashSet<(u16, u16)>) {
-    let prototype_count = program.prototypes.len();
-    let mut edges = vec![FxHashSet::default(); prototype_count];
-
-    for (caller_index, prototype) in program.prototypes.iter().enumerate() {
-        for instruction in &prototype.instructions {
-            if instruction.operation() == Operation::CALL {
-                let callee_index = instruction.b_field() as usize;
-
-                if callee_index < prototype_count {
-                    edges[caller_index].insert(callee_index);
-                }
-            }
-        }
-    }
-
-    struct Tarjan<'a> {
-        edges: &'a [HashSet<usize, FxBuildHasher>],
-        index_counter: usize,
-        call_stack: Vec<usize>,
-        on_stack: Vec<bool>,
-        indices: Vec<usize>,
-        lowlinks: Vec<usize>,
-        scc_id: Vec<usize>,
-        scc_count: usize,
-        order: Vec<usize>,
-    }
-
-    impl Tarjan<'_> {
-        fn visit(&mut self, node: usize) {
-            self.indices[node] = self.index_counter;
-            self.lowlinks[node] = self.index_counter;
-            self.index_counter += 1;
-            self.call_stack.push(node);
-            self.on_stack[node] = true;
-
-            for &neighbor in &self.edges[node] {
-                if self.indices[neighbor] == usize::MAX {
-                    self.visit(neighbor);
-                    self.lowlinks[node] = self.lowlinks[node].min(self.lowlinks[neighbor]);
-                } else if self.on_stack[neighbor] {
-                    self.lowlinks[node] = self.lowlinks[node].min(self.indices[neighbor]);
-                }
-            }
-
-            if self.lowlinks[node] == self.indices[node] {
-                while let Some(top) = self.call_stack.pop() {
-                    self.on_stack[top] = false;
-                    self.scc_id[top] = self.scc_count;
-                    self.order.push(top);
-                    if top == node {
-                        break;
-                    }
-                }
-                self.scc_count += 1;
-            }
-        }
-    }
-
-    let mut tarjan = Tarjan {
-        edges: &edges,
-        index_counter: 0,
-        call_stack: Vec::new(),
-        on_stack: vec![false; prototype_count],
-        indices: vec![usize::MAX; prototype_count],
-        lowlinks: vec![usize::MAX; prototype_count],
-        scc_id: vec![usize::MAX; prototype_count],
-        scc_count: 0,
-        order: Vec::with_capacity(prototype_count),
-    };
-
-    tarjan.visit(0);
-
-    let mut recursive_calls = HashSet::default();
-
-    for (caller, callees) in edges.iter().enumerate() {
-        for &callee in callees {
-            if tarjan.scc_id[caller] == tarjan.scc_id[callee] {
-                recursive_calls.insert((caller as u16, callee as u16));
-            }
-        }
-    }
-
-    (tarjan.order, recursive_calls)
 }
 
 fn value_tags_for_type(r#type: &Type) -> Vec<RegisterTag> {

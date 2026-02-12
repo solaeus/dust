@@ -24,6 +24,7 @@ use crate::{
     dust_crate::Program,
     dust_error::DustError,
     jit_vm::thread_pool::{ThreadMessage, ThreadPool},
+    prototype::PrototypeId,
     source::{Source, SourceFile},
     value::Value,
 };
@@ -79,23 +80,22 @@ impl JitVm {
         let message_receiver = {
             info!("Spawning main JIT VM thread");
 
-            let mut thread_spawner = self.thread_pool.lock_spawner();
-            let spawner_clone = self.thread_pool.clone_spawner();
+            let mut local_spawner = self.thread_pool.lock_spawner();
+            let remote_spawner = self.thread_pool.clone_spawner();
 
-            thread_spawner
-                .spawn_named_thread("Dust Program".to_string(), 0, spawner_clone)
+            local_spawner
+                .spawn_thread(PrototypeId::MAIN.0, remote_spawner)
                 .map_err(DustError::jit)?;
-
-            thread_spawner.clone_message_receiver()
+            local_spawner.clone_message_receiver()
         };
 
         let mut return_result = None;
 
         loop {
             match message_receiver.recv() {
-                Ok(ThreadMessage::Spawn {
+                Ok(ThreadMessage::SpawnThread {
                     thread_name,
-                    prototype_index,
+                    prototype_id: prototype_index,
                 }) => {
                     info!("Spawning JIT VM thread: {thread_name} with proto_{prototype_index}");
 
@@ -106,23 +106,40 @@ impl JitVm {
                         .spawn_named_thread(thread_name, prototype_index, spawner_clone)
                         .map_err(DustError::jit)?;
                 }
-                Ok(ThreadMessage::Complete {
+                Ok(ThreadMessage::RemoveThread {
                     thread_id,
                     result,
-                    prototype_index,
+                    prototype_id,
                 }) => {
-                    info!("JIT VM thread completed: proto_{prototype_index}");
+                    info!("JIT VM thread completed: proto_{prototype_id}");
 
                     let result = result.map_err(DustError::jit)?;
 
-                    if prototype_index == 0 {
+                    if prototype_id == PrototypeId::MAIN.0 {
                         return_result = result;
                     }
 
-                    self.thread_pool
+                    let removed_handle = self
+                        .thread_pool
                         .lock_spawner()
                         .threads_mut()
                         .remove(&thread_id);
+
+                    if let Some(handle) = removed_handle {
+                        if handle.is_finished() {
+                            info!(
+                                "Thread {} running {prototype_id} was finished and removed from the thread pool.",
+                                thread_id.as_u64()
+                            );
+                        } else {
+                            error!(
+                                "Thread {} running {prototype_id} was not finished when removed from the thread pool.",
+                                thread_id.as_u64()
+                            );
+                        }
+                    } else {
+                        error!("Failed to remove JIT VM thread running {prototype_id}");
+                    }
 
                     break;
                 }

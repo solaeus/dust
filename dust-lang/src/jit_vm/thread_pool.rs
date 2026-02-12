@@ -79,7 +79,7 @@ impl ThreadSpawner {
 
     pub fn spawn_thread(
         &mut self,
-        prototype_index: u16,
+        prototype_id: u16,
         spawner: Arc<Mutex<ThreadSpawner>>,
     ) -> Result<(), JitError> {
         let message_sender = Arc::clone(&self.message_sender);
@@ -90,15 +90,15 @@ impl ThreadSpawner {
             .spawn(move || {
                 let result = run_thread(
                     program,
-                    prototype_index,
+                    prototype_id,
                     minimum_object_heap,
                     minimum_object_sweep,
                     spawner,
                 );
-                let thread_message = ThreadMessage::Complete {
+                let thread_message = ThreadMessage::RemoveThread {
                     thread_id: thread::current().id(),
                     result,
-                    prototype_index,
+                    prototype_id,
                 };
 
                 message_sender
@@ -115,7 +115,7 @@ impl ThreadSpawner {
     pub fn spawn_named_thread(
         &mut self,
         thread_name: String,
-        prototype_index: u16,
+        prototype_id: u16,
         spawner: Arc<Mutex<ThreadSpawner>>,
     ) -> Result<(), JitError> {
         let message_sender = Arc::clone(&self.message_sender);
@@ -127,15 +127,15 @@ impl ThreadSpawner {
             .spawn(move || {
                 let result = run_thread(
                     program,
-                    prototype_index,
+                    prototype_id,
                     minimum_object_heap,
                     minimum_object_sweep,
                     spawner,
                 );
-                let thread_message = ThreadMessage::Complete {
+                let thread_message = ThreadMessage::RemoveThread {
                     thread_id: thread::current().id(),
                     result,
-                    prototype_index,
+                    prototype_id,
                 };
 
                 message_sender
@@ -159,14 +159,14 @@ impl ThreadSpawner {
 }
 
 pub enum ThreadMessage {
-    Spawn {
+    SpawnThread {
         thread_name: String,
-        prototype_index: u16,
+        prototype_id: u16,
     },
-    Complete {
+    RemoveThread {
         thread_id: ThreadId,
         result: Result<Option<Value>, JitError>,
-        prototype_index: u16,
+        prototype_id: u16,
     },
 }
 
@@ -324,7 +324,7 @@ pub struct ThreadContextFields {
 
 fn run_thread(
     program: Arc<Program>,
-    prototype_index: u16,
+    prototype_id: u16,
     minimum_object_heap: usize,
     minimum_object_sweep: usize,
     thread_spawner: Arc<Mutex<ThreadSpawner>>,
@@ -332,9 +332,9 @@ fn run_thread(
     let span = span!(Level::INFO, "run_thread");
     let _enter = span.enter();
 
-    info!("Starting JIT compilation for proto_{prototype_index}");
+    info!("Starting JIT compilation for proto_{prototype_id}");
 
-    let mut jit = JitCompiler::new(&program, prototype_index)?;
+    let mut jit = JitCompiler::new(&program)?;
     let (jit_function, mut jit_prototypes) = jit.compile()?;
 
     info!("JIT compilation complete");
@@ -360,17 +360,11 @@ fn run_thread(
         recursive_return_register: 0,
     };
 
-    let return_type = &program
-        .prototypes
-        .get_slot(prototype_index as usize)
-        .ok_or(JitError::MissingPrototype {
-            index: prototype_index as usize,
-            total: program.prototypes.len(),
-        })?
+    let return_type = &program.prototypes[prototype_id as usize]
         .function_type
         .return_type;
     let return_register_count = jit_prototypes
-        .get(prototype_index as usize)
+        .get(prototype_id as usize)
         .map(|prototype| prototype.return_value_count)
         .unwrap_or(1)
         .max(1);

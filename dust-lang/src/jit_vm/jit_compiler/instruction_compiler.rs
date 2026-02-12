@@ -26,7 +26,7 @@ use crate::{
         thread_pool::{JitPrototype, ThreadContextFields},
     },
     native_function::NativeFunction,
-    prototype::Prototype,
+    prototype::{Prototype, PrototypeId},
     r#type::Type,
 };
 
@@ -412,15 +412,8 @@ impl<'a> InstructionCompiler<'a> {
             indirect_scalar_value,
         ) = match callee.memory {
             MemoryKind::CONSTANT => {
-                let callee_prototype = self
-                    .program
-                    .prototypes
-                    .get_slot(callee.index as usize)
-                    .ok_or(JitError::FunctionIndexOutOfBounds {
-                        ip,
-                        function_index: callee.index,
-                        total_function_count: self.program.prototypes.len(),
-                    })?;
+                let prototype_id = PrototypeId::from_address(callee).unwrap();
+                let callee_prototype = &self.program.prototypes[prototype_id];
                 let callee_returns_struct = matches!(
                     callee_prototype.function_type.return_type,
                     Type::Struct { .. }
