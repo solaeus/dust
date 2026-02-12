@@ -10,14 +10,14 @@ use crate::{
         error::InternalCompileError,
         resolver::{DeclarationId, ScopeId, TypeId, TypeNode},
     },
-    constant_table::ConstantId,
+    constant_table::{ConstantId, ConstantTable},
     instruction::{Address, Drop, Instruction, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
     parser::syntax::{
         Syntax, SyntaxError, SyntaxId, SyntaxKind, SyntaxReader, SyntaxReaderIterator,
         SyntaxVisitor,
     },
-    prototype::Prototype,
+    prototype::{Prototype, PrototypeId, PrototypeList},
     source::{Position, Source, SourceFileId, Span},
     r#type::Type,
 };
@@ -26,13 +26,17 @@ use crate::{
 pub struct Emitter<'a> {
     function_declaration_id: DeclarationId,
 
-    prototype_index: u16,
+    prototype_id: PrototypeId,
 
     source: &'a Source<'a>,
 
     syntax: &'a Syntax,
 
+    constants: &'a mut ConstantTable,
+
     resolver: &'a mut Resolver,
+
+    prototypes: &'a mut PrototypeList,
 
     /// Emitted bytecode instructions, filled during compilation.
     instructions: Vec<Instruction>,
@@ -71,17 +75,25 @@ impl<'a> Emitter<'a> {
         function: SyntaxReader,
         declaration_id: DeclarationId,
         starting_scope_id: ScopeId,
-        prototype_index: u16,
+        prototype_id: PrototypeId,
         parameters: Option<SyntaxReaderIterator<'a>>,
-        (source, syntax, resolver): (&'a Source, &'a Syntax, &'a mut Resolver),
+        (source, syntax, constants, resolver, prototypes): (
+            &'a Source,
+            &'a Syntax,
+            &'a mut ConstantTable,
+            &'a mut Resolver,
+            &'a mut PrototypeList,
+        ),
     ) -> Result<Self, CompileError> {
         let parameter_count = parameters.as_ref().map_or(0, |parameters| parameters.len());
         let mut emitter = Self {
             function_declaration_id: declaration_id,
-            prototype_index,
+            prototype_id,
             source,
             syntax,
+            constants,
             resolver,
+            prototypes,
             instructions: Vec::new(),
             locals: HashMap::with_capacity_and_hasher(parameter_count + 1, FxBuildHasher),
             call_arguments: Vec::new(),
@@ -97,9 +109,12 @@ impl<'a> Emitter<'a> {
             top_emitted_register: 0,
         };
 
-        emitter
-            .locals
-            .insert(declaration_id, Place::Prototype { prototype_index });
+        emitter.locals.insert(
+            declaration_id,
+            Place::Prototype {
+                prototype_index: prototype_id.index(),
+            },
+        );
 
         if let Some(parameters) = parameters {
             let type_id = *emitter.resolver.get_declaration_type(&declaration_id)?;
@@ -296,7 +311,7 @@ impl<'a> Emitter<'a> {
 
         Ok(Prototype {
             symbol: declaration.symbol,
-            index: self.prototype_index,
+            id: self.prototype_id,
             function_type,
             instructions: self.instructions,
             call_arguments: self.call_arguments,
@@ -489,18 +504,13 @@ impl<'a> Emitter<'a> {
         let constant_id = match constant {
             ConstantEmission::Boolean(boolean) => return Address::encoded(boolean as u16),
             ConstantEmission::Byte(byte) => return Address::encoded(byte as u16),
-            ConstantEmission::Character(character) => {
-                self.resolver.constants.add_character(character)
-            }
-            ConstantEmission::Float(float) => self.resolver.constants.add_float(float),
-            ConstantEmission::Integer(integer) => self.resolver.constants.add_integer(integer),
+            ConstantEmission::Character(character) => self.constants.add_character(character),
+            ConstantEmission::Float(float) => self.constants.add_float(float),
+            ConstantEmission::Integer(integer) => self.constants.add_integer(integer),
             ConstantEmission::String {
                 pool_start,
                 pool_end,
-            } => self
-                .resolver
-                .constants
-                .add_pooled_string(pool_start, pool_end),
+            } => self.constants.add_pooled_string(pool_start, pool_end),
         };
 
         Address::constant(constant_id.0)
@@ -669,7 +679,7 @@ impl<'a> Emitter<'a> {
                         string.push(left);
                         string.push(right);
 
-                        let combined = self.resolver.constants.push_str_to_string_pool(&string);
+                        let combined = self.constants.push_str_to_string_pool(&string);
 
                         ConstantEmission::String {
                             pool_start: combined.0,
@@ -704,11 +714,9 @@ impl<'a> Emitter<'a> {
                 },
             ) => {
                 let left = self
-                    .resolver
                     .constants
                     .get_string_pool_range(left_pool_start as usize..left_pool_end as usize);
                 let right = self
-                    .resolver
                     .constants
                     .get_string_pool_range(right_pool_start as usize..right_pool_end as usize);
 
@@ -726,10 +734,8 @@ impl<'a> Emitter<'a> {
                         concetenated.push_str(left);
                         concetenated.push_str(right);
 
-                        let (pool_start, pool_end) = self
-                            .resolver
-                            .constants
-                            .push_str_to_string_pool(&concetenated);
+                        let (pool_start, pool_end) =
+                            self.constants.push_str_to_string_pool(&concetenated);
 
                         ConstantEmission::String {
                             pool_start,
@@ -761,7 +767,6 @@ impl<'a> Emitter<'a> {
                 },
             ) => {
                 let right = self
-                    .resolver
                     .constants
                     .get_string_pool_range(pool_start as usize..pool_end as usize);
                 let mut concatenated = String::with_capacity(left.len_utf8() + right.len());
@@ -770,10 +775,9 @@ impl<'a> Emitter<'a> {
                 concatenated.push_str(right);
 
                 let combined = match operation {
-                    SyntaxKind::AdditionExpression => self
-                        .resolver
-                        .constants
-                        .push_str_to_string_pool(&concatenated),
+                    SyntaxKind::AdditionExpression => {
+                        self.constants.push_str_to_string_pool(&concatenated)
+                    }
                     _ => {
                         return Err(CompileError::Internal(
                             InternalCompileError::InvalidSyntaxNode(operation),
@@ -794,7 +798,6 @@ impl<'a> Emitter<'a> {
                 ConstantEmission::Character(right),
             ) => {
                 let left = self
-                    .resolver
                     .constants
                     .get_string_pool_range(pool_start as usize..pool_end as usize);
                 let mut bytes = String::with_capacity(left.len() + right.len_utf8());
@@ -804,7 +807,7 @@ impl<'a> Emitter<'a> {
 
                 let combined = match operation {
                     SyntaxKind::AdditionExpression => {
-                        self.resolver.constants.push_str_to_string_pool(&bytes)
+                        self.constants.push_str_to_string_pool(&bytes)
                     }
                     _ => {
                         return Err(CompileError::Internal(
@@ -1481,7 +1484,7 @@ impl SyntaxVisitor for Emitter<'_> {
             .source
             .get_file(node.file_id())
             .content_str(node.span().shrink(1));
-        let (pool_start, pool_end) = self.resolver.constants.push_str_to_string_pool(bytes);
+        let (pool_start, pool_end) = self.constants.push_str_to_string_pool(bytes);
 
         self.resolver.set_type_binding(node.id, TypeId::STRING);
 
@@ -2355,25 +2358,30 @@ impl SyntaxVisitor for Emitter<'_> {
             }));
         }
 
-        let prototype_index = self.resolver.prototypes.len();
+        let prototype_id = self.prototypes.reserve_slot();
 
-        self.resolver.prototypes.push(Prototype::default());
         self.resolver
-            .set_declaration_prototype(declaration_id, prototype_index as u16);
+            .set_declaration_prototype(declaration_id, prototype_id as u16);
 
         let function_emitter = Emitter::new(
             node,
             declaration_id,
             function_scope_id,
-            prototype_index as u16,
+            prototype_id,
             Some(parameters),
-            (self.source, self.syntax, self.resolver),
+            (
+                self.source,
+                self.syntax,
+                self.constants,
+                self.resolver,
+                self.prototypes,
+            ),
         )?;
 
-        self.resolver.prototypes[prototype_index] = function_emitter.emit(body)?;
+        self.prototypes[prototype_id] = function_emitter.emit(body)?;
 
         Ok(Emission::Place(Place::Prototype {
-            prototype_index: prototype_index as u16,
+            prototype_index: prototype_id as u16,
         }))
     }
 

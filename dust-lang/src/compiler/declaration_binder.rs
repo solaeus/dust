@@ -65,12 +65,14 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let children = node.multiple_children()?;
 
-        let main_scope_id = self.resolver.add_scope(Scope {
-            kind: ScopeKind::Function,
-            parent: self.current_scope_id,
-            imports: SmallVec::new(),
-            modules: smallvec![DeclarationId::CORE],
-        });
+        let main_scope_id = self.resolver.add_scope_with_modules_and_imports(
+            Scope {
+                kind: ScopeKind::Function,
+                parent: self.current_scope_id,
+            },
+            smallvec![ScopeId::CORE],
+            SmallVec::new(),
+        );
         let main_declaration_id = self.resolver.add_declaration(Declaration {
             symbol: Symbol::MAIN,
             kind: DeclarationKind::Function,
@@ -125,18 +127,15 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             None
         };
 
-        let function_scope_id = self.resolver.add_scope(Scope {
-            kind: ScopeKind::Function,
-            parent: self.current_scope_id,
-            imports: SmallVec::new(),
-            modules: SmallVec::new(),
-        });
-
         let function_name_str = self
             .source
             .get_file(function_name.file_id())
             .content_str(function_name.span());
         let function_symbol = self.resolver.create_named_symbol(function_name_str);
+        let function_scope_id = self.resolver.add_scope(Scope {
+            kind: ScopeKind::Function,
+            parent: self.current_scope_id,
+        });
         let is_public = match node.kind() {
             SyntaxKind::PublicFunctionItem => true,
             SyntaxKind::FunctionItem => false,
@@ -466,8 +465,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let block_scope_id = self.resolver.add_scope(Scope {
             kind: ScopeKind::Block,
             parent: self.current_scope_id,
-            imports: SmallVec::new(),
-            modules: SmallVec::new(),
         });
         let parent_scope_id = self.current_scope_id;
         self.current_scope_id = block_scope_id;
@@ -608,8 +605,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let function_scope_id = self.resolver.add_scope(Scope {
             kind: ScopeKind::Function,
             parent: self.current_scope_id,
-            imports: SmallVec::new(),
-            modules: SmallVec::new(),
         });
 
         let mut parameter_ids = SmallVec::<[DeclarationId; 8]>::new();

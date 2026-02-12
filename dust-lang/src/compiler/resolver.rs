@@ -5,32 +5,32 @@ use std::{
 };
 
 use indexmap::{IndexMap, IndexSet, set::MutableValues};
-use rustc_hash::FxBuildHasher;
+use rustc_hash::{FxBuildHasher, FxHasher};
 use smallvec::SmallVec;
 
 use crate::{
     compiler::{CompileError, InternalCompileError},
-    constant_table::{ConstantId, ConstantTable},
     instruction::OperandType,
     native_function::NativeFunction,
     parser::syntax::{SyntaxId, SyntaxKind, SyntaxReader},
-    prototype::Prototype,
-    source::{Position, Source},
+    prototype::PrototypeId,
+    source::{Position, Source, Span},
     r#type::{FunctionType, Type},
 };
 
 #[derive(Debug)]
 pub struct Resolver {
-    pub constants: ConstantTable,
-    pub prototypes: Vec<Prototype>,
-
-    declarations: IndexMap<DeclarationStorageKey, DeclarationStorageValue, FxBuildHasher>,
+    declarations: IndexMap<DeclarationKey, DeclarationValue, FxBuildHasher>,
     declaration_members: Vec<DeclarationId>,
     declaration_types: HashMap<DeclarationId, TypeId, FxBuildHasher>,
-    declaration_prototypes: HashMap<DeclarationId, u16, FxBuildHasher>,
+    declaration_prototypes: HashMap<DeclarationId, PrototypeId, FxBuildHasher>,
     declaration_bindings: HashMap<SyntaxId, DeclarationId, FxBuildHasher>,
 
+    symbol_pool: String,
+    symbol_spans: IndexMap<u64, Span, FxBuildHasher>,
+
     scopes: Vec<Scope>,
+    scope_members: Vec<ScopeMembers>,
     scope_bindings: HashMap<SyntaxId, ScopeId, FxBuildHasher>,
 
     type_nodes: IndexSet<TypeNode, FxBuildHasher>,
@@ -44,14 +44,15 @@ pub struct Resolver {
 impl Resolver {
     pub fn new() -> Self {
         let mut resolver = Self {
-            constants: ConstantTable::new(),
-            prototypes: Vec::new(),
             declarations: IndexMap::default(),
             declaration_members: Vec::new(),
             declaration_types: HashMap::default(),
             declaration_prototypes: HashMap::default(),
             declaration_bindings: HashMap::default(),
+            symbol_pool: String::new(),
+            symbol_spans: IndexMap::default(),
             scopes: Vec::new(),
+            scope_members: Vec::new(),
             scope_bindings: HashMap::default(),
             type_nodes: IndexSet::default(),
             type_members: Vec::new(),
@@ -59,6 +60,21 @@ impl Resolver {
             next_inferred_type_id: InferredTypeId(0),
             next_anonymous_symbol_id: AnonymousSymbolId(0),
         };
+
+        let _main_symbol = resolver.create_anonymous_symbol();
+        let _dummy_symbol = resolver.create_anonymous_symbol();
+        let _no_op_symbol = resolver.create_named_symbol(NativeFunction::NO_OP.name());
+        let _read_line_symbol = resolver.create_named_symbol(NativeFunction::READ_LINE.name());
+        let _write_line_symbol = resolver.create_named_symbol(NativeFunction::WRITE_LINE.name());
+        let _spawn_thread_symbol =
+            resolver.create_named_symbol(NativeFunction::SPAWN_THREAD.name());
+
+        debug_assert_eq!(_main_symbol, Symbol::MAIN);
+        debug_assert_eq!(_dummy_symbol, Symbol::DUMMY);
+        debug_assert_eq!(_no_op_symbol, Symbol::NO_OP);
+        debug_assert_eq!(_read_line_symbol, Symbol::READ_LINE);
+        debug_assert_eq!(_write_line_symbol, Symbol::WRITE_LINE);
+        debug_assert_eq!(_spawn_thread_symbol, Symbol::SPAWN_THREAD);
 
         let _none_id = resolver.add_type(TypeNode::None);
         let _boolean_id = resolver.add_type(TypeNode::Boolean);
@@ -76,8 +92,9 @@ impl Resolver {
         debug_assert_eq!(_integer_id, TypeId::INTEGER);
         debug_assert_eq!(_string_id, TypeId::STRING);
 
+        let _core_symbol = resolver.create_named_symbol("core");
         let _core_declaration_id = resolver.add_declaration(Declaration {
-            symbol: Symbol::CORE,
+            symbol: _core_symbol,
             position: None,
             kind: DeclarationKind::Module {
                 kind: ModuleKind::Inline,
@@ -89,11 +106,13 @@ impl Resolver {
 
         debug_assert_eq!(_core_declaration_id, DeclarationId::CORE);
 
-        let mut core_imports = SmallVec::<[DeclarationId; 4]>::with_capacity(NativeFunction::COUNT);
+        let mut core_imports =
+            SmallVec::<[DeclarationId; 4]>::with_capacity(NativeFunction::ALL.len());
 
         for native_function in NativeFunction::ALL {
+            let symbol = resolver.create_named_symbol(native_function.name());
             let declaration_id = resolver.add_declaration(Declaration {
-                symbol: native_function.symbol(),
+                symbol,
                 position: None,
                 kind: DeclarationKind::NativeFunction(native_function),
                 scope_id: ScopeId::CORE,
@@ -105,18 +124,22 @@ impl Resolver {
             core_imports.push(declaration_id);
         }
 
-        let _project_scope_id = resolver.add_scope(Scope {
-            kind: ScopeKind::Module,
-            parent: ScopeId::PROJECT,
-            imports: SmallVec::new(),
-            modules: SmallVec::new(),
-        });
-        let _core_scope_id = resolver.add_scope(Scope {
-            kind: ScopeKind::Module,
-            parent: ScopeId::PROJECT,
-            imports: core_imports,
-            modules: SmallVec::new(),
-        });
+        let _project_scope_id = resolver.add_scope_with_modules_and_imports(
+            Scope {
+                kind: ScopeKind::Module,
+                parent: ScopeId::PROJECT,
+            },
+            SmallVec::new(),
+            SmallVec::new(),
+        );
+        let _core_scope_id = resolver.add_scope_with_modules_and_imports(
+            Scope {
+                kind: ScopeKind::Module,
+                parent: ScopeId::PROJECT,
+            },
+            SmallVec::new(),
+            core_imports,
+        );
 
         debug_assert_eq!(_project_scope_id, ScopeId::PROJECT);
         debug_assert_eq!(_core_scope_id, ScopeId::CORE);
@@ -125,9 +148,25 @@ impl Resolver {
     }
 
     pub fn create_named_symbol(&mut self, name: &str) -> Symbol {
-        let constant_id = self.constants.add_string(name);
+        let hash = {
+            let mut hasher = FxHasher::default();
 
-        Symbol::Constant(constant_id)
+            name.hash(&mut hasher);
+
+            hasher.finish()
+        };
+
+        if let Some(existing_index) = self.symbol_spans.get_index_of(&hash) {
+            return Symbol::Named(existing_index as u32);
+        }
+
+        let index = self.symbol_spans.len() as u32;
+        let span = Span::new(self.symbol_pool.len(), self.symbol_pool.len() + name.len());
+
+        self.symbol_pool.push_str(name);
+        self.symbol_spans.insert(hash, span);
+
+        Symbol::Named(index)
     }
 
     pub fn create_anonymous_symbol(&mut self) -> Symbol {
@@ -137,10 +176,30 @@ impl Resolver {
         Symbol::Anonymous(id)
     }
 
+    pub fn get_symbol_name(&self, symbol: &Symbol) -> Result<&str, CompileError> {
+        symbol
+            .as_span_index()
+            .and_then(|index| self.symbol_spans.get_index(index))
+            .and_then(|(_, span)| self.symbol_pool.get(span.as_usize_range()))
+            .ok_or(CompileError::Internal(
+                InternalCompileError::AnonymousSymbolLookup,
+            ))
+    }
+
     pub fn add_scope(&mut self, scope: Scope) -> ScopeId {
+        self.add_scope_with_modules_and_imports(scope, SmallVec::new(), SmallVec::new())
+    }
+
+    pub fn add_scope_with_modules_and_imports(
+        &mut self,
+        scope: Scope,
+        modules: SmallVec<[ScopeId; 4]>,
+        imports: SmallVec<[DeclarationId; 4]>,
+    ) -> ScopeId {
         let id = ScopeId(self.scopes.len() as u32);
 
         self.scopes.push(scope);
+        self.scope_members.push(ScopeMembers { modules, imports });
 
         id
     }
@@ -173,8 +232,9 @@ impl Resolver {
         } else {
             None
         };
-        let key = DeclarationStorageKey {
+        let key = DeclarationKey {
             symbol: declaration.symbol,
+            scope_id: declaration.scope_id,
             parent,
         };
 
@@ -183,9 +243,8 @@ impl Resolver {
         }
 
         let declaration_id = DeclarationId(self.declarations.len() as u32);
-        let value = DeclarationStorageValue {
+        let value = DeclarationValue {
             kind: declaration.kind,
-            scope_id: declaration.scope_id,
             is_public: declaration.is_public,
             position: declaration.position,
         };
@@ -237,13 +296,16 @@ impl Resolver {
     pub fn set_declaration_prototype(
         &mut self,
         declaration_id: DeclarationId,
-        prototype_index: u16,
+        prototype_id: PrototypeId,
     ) {
         self.declaration_prototypes
-            .insert(declaration_id, prototype_index);
+            .insert(declaration_id, prototype_id);
     }
 
-    pub fn get_declaration_prototype(&self, declaration_id: &DeclarationId) -> Option<&u16> {
+    pub fn get_declaration_prototype(
+        &self,
+        declaration_id: &DeclarationId,
+    ) -> Option<&PrototypeId> {
         self.declaration_prototypes.get(declaration_id)
     }
 
@@ -288,14 +350,17 @@ impl Resolver {
     ) -> Result<(DeclarationId, Declaration), CompileError> {
         fn search(
             resolver: &Resolver,
-            target_name: &str,
-            target_key: DeclarationStorageKey,
-            target_scope_id: ScopeId,
+            target_key: DeclarationKey,
             is_type_lookup: bool,
         ) -> Result<Option<(DeclarationId, Declaration)>, CompileError> {
-            let mut current_scope = resolver.get_scope(target_scope_id)?;
+            let mut current_scope = resolver.get_scope(target_key.scope_id)?;
 
             loop {
+                println!(
+                    "Searching in scope {:?} for symbol {:?}",
+                    current_scope, target_key.symbol
+                );
+
                 if let Some((index, _, declaration_value)) =
                     resolver.declarations.get_full(&target_key)
                 {
@@ -305,45 +370,40 @@ impl Resolver {
                     )));
                 }
 
-                for module_id in &current_scope.modules {
-                    let module = resolver.get_declaration(*module_id)?;
+                let ScopeMembers { modules, imports } =
+                    &resolver.scope_members[target_key.scope_id.0 as usize];
 
-                    if let DeclarationKind::Module {
-                        inner_scope_id: module_scope_id,
-                        ..
-                    } = module.kind
-                        && let Some(found) = search(
-                            resolver,
-                            target_name,
-                            target_key,
-                            module_scope_id,
-                            is_type_lookup,
-                        )?
-                    {
+                for module_scope_id in modules {
+                    let module_key = DeclarationKey {
+                        symbol: target_key.symbol,
+                        parent: target_key.parent,
+                        scope_id: *module_scope_id,
+                    };
+
+                    if let Some(found) = search(resolver, module_key, is_type_lookup)? {
                         return Ok(Some(found));
                     }
                 }
 
-                for import_id in &current_scope.imports {
+                for import_id in imports {
                     let import = resolver.get_declaration(*import_id)?;
-                    let import_name = import
-                        .symbol
-                        .get_name(&resolver.constants)
-                        .expect("Modules cannot be anonymous");
+                    let import_parent = if let DeclarationKind::Type { parent } = import.kind {
+                        parent
+                    } else {
+                        None
+                    };
 
-                    if import_name == target_name && target_key.parent.is_none() {
-                        return Ok(Some((
-                            *import_id,
-                            Declaration::from_key_and_value(
-                                target_key,
-                                DeclarationStorageValue {
-                                    kind: import.kind,
-                                    scope_id: import.scope_id,
-                                    is_public: import.is_public,
-                                    position: import.position,
-                                },
-                            ),
-                        )));
+                    if import.symbol == target_key.symbol && import_parent == target_key.parent {
+                        let declaration = Declaration::from_key_and_value(
+                            target_key,
+                            DeclarationValue {
+                                kind: import.kind,
+                                is_public: import.is_public,
+                                position: import.position,
+                            },
+                        );
+
+                        return Ok(Some((*import_id, declaration)));
                     }
                 }
 
@@ -354,7 +414,7 @@ impl Resolver {
                 current_scope = resolver.get_scope(current_scope.parent)?;
 
                 if current_scope.parent == ScopeId::PROJECT
-                    || !is_type_lookup && current_scope.kind != ScopeKind::Block
+                    || (!is_type_lookup && current_scope.kind != ScopeKind::Block)
                 {
                     break;
                 }
@@ -365,18 +425,13 @@ impl Resolver {
 
         debug_assert_eq!(path_segment.kind(), SyntaxKind::PathSegment);
 
-        let target_name = symbol
-            .get_name(&self.constants)
-            .expect("Tried to look up an anonymous declaration by name");
-        let target_key = DeclarationStorageKey { symbol, parent };
+        let target_key = DeclarationKey {
+            symbol,
+            parent,
+            scope_id: target_scope_id,
+        };
 
-        match search(
-            self,
-            target_name,
-            target_key,
-            target_scope_id,
-            is_type_lookup,
-        )? {
+        match search(self, target_key, is_type_lookup)? {
             Some(found) => Ok(found),
             None => Err(CompileError::Undeclared {
                 symbol,
@@ -444,9 +499,9 @@ impl Resolver {
                 );
 
                 for type_parameter_name in &function_type.type_parameters {
-                    let name_id = self.constants.add_string(type_parameter_name);
+                    let symbol = self.create_named_symbol(type_parameter_name);
                     let type_parameter_id = self.add_declaration(Declaration {
-                        symbol: Symbol::Constant(name_id),
+                        symbol,
                         kind: DeclarationKind::Type { parent: None },
                         scope_id: ScopeId::PROJECT,
                         is_public: false,
@@ -472,11 +527,11 @@ impl Resolver {
                 }
             }
             Type::Struct { name, fields } => {
-                let name_id = self.constants.add_string(name);
+                let symbol = self.create_named_symbol(name);
                 let struct_declaration_id = self.add_declaration(Declaration {
+                    symbol,
                     kind: DeclarationKind::Type { parent: None },
                     scope_id: ScopeId::PROJECT,
-                    symbol: Symbol::Constant(name_id),
                     is_public: false,
                     position: None,
                 });
@@ -485,13 +540,13 @@ impl Resolver {
                     SmallVec::<[DeclarationId; 8]>::with_capacity(fields.len());
 
                 for (field_name, field_type) in fields {
-                    let name_id = self.constants.add_string(field_name);
+                    let symbol = self.create_named_symbol(field_name);
                     let declaration_id = self.add_declaration(Declaration {
+                        symbol,
                         kind: DeclarationKind::Type {
                             parent: Some(struct_declaration_id),
                         },
                         scope_id: ScopeId::PROJECT,
-                        symbol: Symbol::Constant(name_id),
                         is_public: false,
                         position: None,
                     });
@@ -565,10 +620,8 @@ impl Resolver {
                 ..
             } => {
                 let struct_declaration = self.get_declaration(*declaration_id)?;
-                let name = struct_declaration
-                    .symbol
-                    .get_name(&self.constants)
-                    .unwrap_or("<invalid anonymous type>")
+                let struct_name = self
+                    .get_symbol_name(&struct_declaration.symbol)?
                     .to_string();
 
                 let fields = self.get_declaration_members(*fields)?;
@@ -576,11 +629,7 @@ impl Resolver {
 
                 for field_id in fields {
                     let field_declaration = self.get_declaration(*field_id)?;
-                    let field_name = field_declaration
-                        .symbol
-                        .get_name(&self.constants)
-                        .unwrap_or("<invalid anonymous type>")
-                        .to_string();
+                    let field_name = self.get_symbol_name(&field_declaration.symbol)?.to_string();
 
                     let field_type_id = self.get_declaration_type(field_id)?;
                     let field_type = self.get_full_type(*field_type_id, source)?;
@@ -589,7 +638,7 @@ impl Resolver {
                 }
 
                 Ok(Type::Struct {
-                    name,
+                    name: struct_name,
                     fields: field_types,
                 })
             }
@@ -606,11 +655,7 @@ impl Resolver {
         members.as_range().map(|member_index| {
             let declaration_id = self.get_declaration_member(member_index)?;
             let declaration = self.get_declaration(*declaration_id)?;
-            let name = declaration
-                .symbol
-                .get_name(&self.constants)
-                .unwrap_or("<invalid anonymous declaration>")
-                .to_string();
+            let name = self.get_symbol_name(&declaration.symbol)?.to_string();
 
             Ok(name)
         })
@@ -797,8 +842,6 @@ impl ScopeId {
 pub struct Scope {
     pub kind: ScopeKind,
     pub parent: ScopeId,
-    pub imports: SmallVec<[DeclarationId; 4]>,
-    pub modules: SmallVec<[DeclarationId; 4]>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -806,6 +849,12 @@ pub enum ScopeKind {
     Block,
     Function,
     Module,
+}
+
+#[derive(Debug)]
+struct ScopeMembers {
+    modules: SmallVec<[ScopeId; 4]>,
+    imports: SmallVec<[DeclarationId; 4]>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -851,66 +900,41 @@ pub struct Declaration {
 }
 
 impl Declaration {
-    fn from_key_and_value(key: DeclarationStorageKey, value: DeclarationStorageValue) -> Self {
+    fn from_key_and_value(key: DeclarationKey, value: DeclarationValue) -> Self {
         Self {
             symbol: key.symbol,
             position: value.position,
             kind: value.kind,
-            scope_id: value.scope_id,
+            scope_id: key.scope_id,
             is_public: value.is_public,
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum Symbol {
     Anonymous(AnonymousSymbolId),
-    BuiltIn(usize),
-    Constant(ConstantId),
+    Named(u32),
 }
 
 impl Symbol {
-    pub const MAIN: Self = Symbol::BuiltIn(0);
-    pub const CORE: Self = Symbol::BuiltIn(1);
-    pub const NO_OP: Self = Symbol::BuiltIn(2);
-    pub const READ_LINE: Self = Symbol::BuiltIn(3);
-    pub const WRITE_LINE: Self = Symbol::BuiltIn(4);
-    pub const SPAWN: Self = Symbol::BuiltIn(5);
+    /// Symbol used for the main function.
+    pub const MAIN: Symbol = Self::Anonymous(AnonymousSymbolId(0));
 
-    pub fn get_name<'a>(&self, constants: &'a ConstantTable) -> Result<&'a str, CompileError> {
-        match self {
-            Symbol::Anonymous(_) => Err(CompileError::Internal(
-                InternalCompileError::AnonymousSymbolLookup,
-            )),
-            Symbol::BuiltIn(index) => Ok(BUILT_IN_NAMES[*index]),
-            Symbol::Constant(constant_id) => {
-                constants
-                    .get_string(*constant_id)
-                    .ok_or(CompileError::Internal(
-                        InternalCompileError::MissingConstantString(*constant_id),
-                    ))
-            }
-        }
-    }
-}
+    /// Symbol used for placeholder prototypes. See
+    /// [`Prototype::dummy`](crate::prototype::Prototype::dummy) for more details.
+    pub const DUMMY: Symbol = Self::Anonymous(AnonymousSymbolId(1));
 
-const BUILT_IN_NAMES: [&str; 6] = ["main", "core", "no_op", "read_line", "write_line", "spawn"];
+    pub const NO_OP: Symbol = Self::Named(0);
+    pub const READ_LINE: Symbol = Self::Named(1);
+    pub const WRITE_LINE: Symbol = Self::Named(2);
+    pub const SPAWN_THREAD: Symbol = Self::Named(3);
 
-impl Hash for Symbol {
-    fn hash<H: Hasher>(&self, hasher: &mut H) {
-        match self {
-            Symbol::Anonymous(id) => {
-                hasher.write_u8(0);
-                id.hash(hasher);
-            }
-            Symbol::BuiltIn(index) => {
-                hasher.write_u8(1);
-                index.hash(hasher);
-            }
-            Symbol::Constant(constant_id) => {
-                hasher.write_u8(2);
-                constant_id.hash(hasher);
-            }
+    fn as_span_index(&self) -> Option<usize> {
+        if let Symbol::Named(index) = self {
+            Some(*index as usize)
+        } else {
+            None
         }
     }
 }
@@ -933,15 +957,15 @@ pub enum DeclarationKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct DeclarationStorageKey {
+struct DeclarationKey {
     symbol: Symbol,
     parent: Option<DeclarationId>,
+    scope_id: ScopeId,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct DeclarationStorageValue {
+struct DeclarationValue {
     kind: DeclarationKind,
-    scope_id: ScopeId,
     is_public: bool,
     position: Option<Position>,
 }

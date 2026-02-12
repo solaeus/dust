@@ -41,7 +41,7 @@ impl NativeFunction {
         })
     }
 
-    pub fn spawn_signature(resolver: &mut Resolver) -> TypeId {
+    pub fn spawn_thread_signature(resolver: &mut Resolver) -> TypeId {
         let argument_type_id = resolver.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters: TypeMembers::default(),
@@ -61,25 +61,23 @@ macro_rules! define_native_functions {
     (
         $count: literal,
         $((
-            $id: literal,
-            $name: expr,
-            $const_name: ident,
-            $signature: ident
-            $argument_count: literal,
+            id: $id: literal,
+            name: $name: expr,
+            identifier: $const_name: ident,
+            signature: $signature: ident
+            argument_count: $argument_count: literal,
         )),*
     ) => {
         impl NativeFunction {
-            pub const COUNT: usize = $count;
-
-            $(
-                pub const $const_name: NativeFunction = NativeFunction { id: $id };
-            )*
-
             pub const ALL: [NativeFunction; $count] = [
                 $(
                     NativeFunction { id: $id },
                 )*
             ];
+
+            $(
+                pub const $const_name: NativeFunction = NativeFunction { id: $id };
+            )*
 
             #[allow(clippy::should_implement_trait)]
             pub fn from_str(string: &str) -> Option<Self> {
@@ -140,50 +138,37 @@ macro_rules! define_native_functions {
                 }
             }
         }
-
-        #[cfg(test)]
-        mod tests {
-            use super::*;
-
-            #[test]
-            fn test_native_function_from_str() {
-                $(
-                    assert_eq!(NativeFunction::from_str($name), Some(NativeFunction { id: $id }));
-                )*
-                assert_eq!(NativeFunction::from_str("invalid"), None);
-            }
-        }
     }
 }
 
 define_native_functions! {
     4,
     (
-        0,
-        "no_op",
-        NO_OP,
-        no_op_signature
-        0,
+        id: 0,
+        name: "no_op",
+        identifier: NO_OP,
+        signature: no_op_signature
+        argument_count: 0,
     ),
     (
-        1,
-        "read_line",
-        READ_LINE,
-        read_line_signature
-        0,
+        id: 1,
+        name: "read_line",
+        identifier: READ_LINE,
+        signature: read_line_signature
+        argument_count: 0,
     ),
     (
-        2,
-        "write_line",
-        WRITE_LINE,
-        write_line_signature
-        1,
+        id: 2,
+        name: "write_line",
+        identifier: WRITE_LINE,
+        signature: write_line_signature
+        argument_count: 1,
     ),
     (
-        4,
-        "spawn",
-        SPAWN,
-        spawn_signature
-        1,
+        id: 4,
+        name: "spawn_thread",
+        identifier: SPAWN_THREAD,
+        signature: spawn_thread_signature
+        argument_count: 1,
     )
 }

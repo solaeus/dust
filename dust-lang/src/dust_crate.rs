@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     constant_table::{ConstantId, ConstantTable},
     parser::syntax::SyntaxTree,
-    prototype::Prototype,
+    prototype::{Prototype, PrototypeList},
 };
 
 pub enum DustCrate {
@@ -14,7 +14,7 @@ pub enum DustCrate {
 pub struct Program {
     name_id: ConstantId,
     pub(crate) constants: ConstantTable,
-    pub(crate) prototypes: Vec<Prototype>,
+    pub(crate) prototypes: PrototypeList,
 }
 
 impl Program {
@@ -23,10 +23,8 @@ impl Program {
     pub fn new(
         name: Option<&str>,
         mut constants: ConstantTable,
-        prototypes: Vec<Prototype>,
+        prototypes: PrototypeList,
     ) -> Self {
-        debug_assert!(!prototypes.is_empty());
-
         let name_id = constants.add_string(name.unwrap_or(Self::DEFAULT_NAME));
 
         Self {
@@ -43,8 +41,6 @@ impl Program {
     }
 
     pub fn main_prototype(&self) -> &Prototype {
-        self.prototypes
-            .first()
-            .expect("Invalid Dust program, no prototypes")
+        self.prototypes.get_main()
     }
 }

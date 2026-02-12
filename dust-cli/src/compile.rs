@@ -15,8 +15,8 @@ pub fn handle_compile_command(
     let compiler = Compiler::new(source);
     let compile_result = compiler.compile_with_extras(None);
     let compile_time = start_time.elapsed();
-    let (program, source, syntax) = match compile_result {
-        Ok((program, resolver, syntax_trees)) => (program, resolver, syntax_trees),
+    let (program, source, syntax, resolver) = match compile_result {
+        Ok(program_and_extras) => program_and_extras,
         Err(dust_error) => {
             if !no_output {
                 eprintln!("{}", dust_error.report())
@@ -27,7 +27,7 @@ pub fn handle_compile_command(
     };
 
     if !no_output {
-        let disassembler = Disassembler::new(&program, &source, &syntax);
+        let disassembler = Disassembler::new(&program, &source, &syntax, &resolver);
 
         disassembler.disassemble().unwrap();
     }

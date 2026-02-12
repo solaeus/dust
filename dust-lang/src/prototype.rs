@@ -5,7 +5,12 @@
 //! instructions refer directly to the program's global constant pool and prototype list. This is a
 //! key diversion from Lua's design (which is a major influence for Dust), in which each prototype
 //! contains its own lists of constants and nested prototypes.
-use std::fmt::Debug;
+use std::{
+    borrow::Borrow,
+    fmt::{self, Debug, Display, Formatter},
+    ops::Index,
+    vec,
+};
 
 use crate::{
     compiler::Symbol,
@@ -14,10 +19,10 @@ use crate::{
 };
 
 /// Compiled representation of a Dust function.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Prototype {
+    pub(crate) id: PrototypeId,
     pub(crate) symbol: Symbol,
-    pub(crate) index: u16,
     pub(crate) function_type: FunctionType,
 
     pub(crate) instructions: Vec<Instruction>,
@@ -28,21 +33,135 @@ pub struct Prototype {
 }
 
 impl Prototype {
-    pub fn dummy() -> Self {
+    pub(crate) fn dummy() -> Self {
         Self {
-            symbol: Symbol::NO_OP,
-            index: 0,
+            id: PrototypeId(0),
+            symbol: Symbol::DUMMY,
             function_type: FunctionType::default(),
-            instructions: vec![],
-            call_arguments: vec![],
-            drops: vec![],
+            instructions: Vec::new(),
+            call_arguments: Vec::new(),
+            drops: Vec::new(),
             register_count: 0,
         }
     }
 }
 
-impl Default for Prototype {
-    fn default() -> Self {
-        Self::dummy()
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub struct PrototypeList {
+    prototypes: Vec<Prototype>,
+}
+
+impl PrototypeList {
+    pub fn new() -> Self {
+        Self {
+            prototypes: vec![Prototype::dummy()],
+        }
+    }
+
+    pub fn as_vec(&self) -> &Vec<Prototype> {
+        &self.prototypes
+    }
+
+    pub fn as_slice(&self) -> &[Prototype] {
+        &self.prototypes
+    }
+
+    pub fn len(&self) -> usize {
+        self.prototypes.len()
+    }
+
+    pub fn is_read_only(&self) -> bool {
+        self.prototypes[0].symbol != Symbol::DUMMY
+    }
+
+    pub(crate) fn set_main(&mut self, prototype: Prototype) {
+        self.prototypes[0] = prototype;
+    }
+
+    pub fn get_main(&self) -> &Prototype {
+        &self.prototypes[0]
+    }
+
+    pub fn reserve_slot(&mut self) -> Result<PrototypeId, ReadOnlyError> {
+        if self.is_read_only() {
+            return Err(ReadOnlyError);
+        }
+
+        let id = PrototypeId(self.prototypes.len() as u16);
+
+        self.prototypes.push(Prototype::dummy());
+
+        Ok(id)
+    }
+
+    pub fn set_slot(&mut self, id: PrototypeId, prototype: Prototype) -> Result<(), ReadOnlyError> {
+        if self.is_read_only() {
+            return Err(ReadOnlyError);
+        }
+
+        let index = id.0 as usize;
+
+        assert!(
+            index < self.prototypes.len(),
+            "Logic error: PrototypeId out of bounds"
+        );
+
+        self.prototypes[index] = prototype;
+
+        Ok(())
+    }
+
+    pub fn get_slot(&self, index: usize) -> Option<&Prototype> {
+        self.prototypes.get(index)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Prototype> {
+        self.prototypes.iter()
+    }
+}
+
+impl Borrow<[Prototype]> for PrototypeList {
+    fn borrow(&self) -> &[Prototype] {
+        &self.prototypes
+    }
+}
+
+impl Index<usize> for PrototypeList {
+    type Output = Prototype;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.prototypes[index]
+    }
+}
+
+impl IntoIterator for PrototypeList {
+    type Item = Prototype;
+    type IntoIter = vec::IntoIter<Prototype>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.prototypes.into_iter()
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub struct PrototypeId(u16);
+
+impl PrototypeId {
+    pub const MAIN: Self = Self(0);
+
+    pub fn index(self) -> u16 {
+        self.0
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct ReadOnlyError;
+
+impl Display for ReadOnlyError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Calling `PrototypeList::push` failed. A prototype list is read-only after main prototype has been set."
+        )
     }
 }

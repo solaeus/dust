@@ -1,7 +1,5 @@
-use crate::compiler::Symbol;
-use crate::constant_table::ConstantId;
 use crate::{
-    compiler::compile,
+    compiler::{Symbol, compile},
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::{create_function_case, loop_cases},
@@ -17,8 +15,8 @@ fn while_loop() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            index: 1,
-            symbol: Symbol::Constant(ConstantId(0)),
+            id: 1,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

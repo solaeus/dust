@@ -70,7 +70,7 @@ impl<'a> InstructionCompiler<'a> {
 
             trace!(
                 "JIT compiling {operation} at IP {ip} for proto_{}",
-                self.prototype.index
+                self.prototype.id.index()
             );
 
             let log_function = self.get_log_operation_and_ip_function(builder)?;
@@ -412,13 +412,15 @@ impl<'a> InstructionCompiler<'a> {
             indirect_scalar_value,
         ) = match callee.memory {
             MemoryKind::CONSTANT => {
-                let callee_prototype = self.program.prototypes.get(callee.index as usize).ok_or(
-                    JitError::FunctionIndexOutOfBounds {
+                let callee_prototype = self
+                    .program
+                    .prototypes
+                    .get_slot(callee.index as usize)
+                    .ok_or(JitError::FunctionIndexOutOfBounds {
                         ip,
                         function_index: callee.index,
                         total_function_count: self.program.prototypes.len(),
-                    },
-                )?;
+                    })?;
                 let callee_returns_struct = matches!(
                     callee_prototype.function_type.return_type,
                     Type::Struct { .. }

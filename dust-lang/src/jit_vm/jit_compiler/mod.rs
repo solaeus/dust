@@ -204,14 +204,12 @@ impl<'a> JitCompiler<'a> {
         prototype_index: usize,
         recursive_calls: &FxHashSet<(u16, u16)>,
     ) -> Result<FuncId, JitError> {
-        let prototype =
-            self.program
-                .prototypes
-                .get(prototype_index)
-                .ok_or(JitError::MissingPrototype {
-                    index: prototype_index,
-                    total: self.program.prototypes.len(),
-                })?;
+        let prototype = self.program.prototypes.get_slot(prototype_index).ok_or(
+            JitError::MissingPrototype {
+                index: prototype_index,
+                total: self.program.prototypes.len(),
+            },
+        )?;
 
         let mut context = self.module.make_context();
         let abi_signature = self.prototype_signature(prototype);

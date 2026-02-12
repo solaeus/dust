@@ -1,6 +1,5 @@
 use crate::{
     compiler::{Symbol, compile},
-    constant_table::ConstantId,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::{block_cases, create_function_case},
@@ -16,8 +15,8 @@ fn empty_block() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            index: 1,
-            symbol: Symbol::Constant(ConstantId(0)),
+            id: 1,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![Instruction::r#return(Address::default(), OperandType::NONE)],
             ..Prototype::dummy()
@@ -34,8 +33,8 @@ fn block_expression() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            index: 1,
-            symbol: Symbol::Constant(ConstantId(0)),
+            id: 1,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
@@ -55,8 +54,8 @@ fn block_statement() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            index: 1,
-            symbol: Symbol::Constant(ConstantId(0)),
+            id: 1,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -80,8 +79,8 @@ fn block_statement_and_expression() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            index: 1,
-            symbol: Symbol::Constant(ConstantId(0)),
+            id: 1,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -108,8 +107,8 @@ fn parent_scope_access() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            index: 1,
-            symbol: Symbol::Constant(ConstantId(0)),
+            id: 1,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -133,8 +132,8 @@ fn nested_parrent_scope_access() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            index: 1,
-            symbol: Symbol::Constant(ConstantId(0)),
+            id: 1,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -162,8 +161,8 @@ fn scope_shadowing() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            index: 1,
-            symbol: Symbol::Constant(ConstantId(0)),
+            id: 1,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -185,8 +184,8 @@ fn scope_deshadowing() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            index: 1,
-            symbol: Symbol::Constant(ConstantId(0)),
+            id: 1,
+            symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

@@ -18,6 +18,7 @@ use tracing::{Level, span};
 
 use crate::{
     compiler::{declaration_binder::DeclarationBinder, type_binder::TypeBinder},
+    constant_table::ConstantTable,
     dust_crate::Program,
     dust_error::DustError,
     lexer::Lexer,
@@ -25,11 +26,11 @@ use crate::{
         ParseResult, Parser,
         syntax::{Syntax, SyntaxId},
     },
-    prototype::Prototype,
+    prototype::{Prototype, PrototypeId, PrototypeList},
     source::{Source, SourceFile, SourceFileId},
 };
 
-pub fn compile<'src>(source_code: &'src str) -> Result<Vec<Prototype>, DustError<'src>> {
+pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, DustError<'src>> {
     let mut source = Source::new();
 
     source.add_file(SourceFile::embedded_validated("eval", source_code));
@@ -52,7 +53,9 @@ pub fn compile_main<'src>(source_code: &'src str) -> Result<Prototype, DustError
 pub struct Compiler<'src> {
     syntax: Syntax,
     source: Source<'src>,
+    constants: ConstantTable,
     resolver: Resolver,
+    prototypes: PrototypeList,
 }
 
 impl<'src> Compiler<'src> {
@@ -60,7 +63,9 @@ impl<'src> Compiler<'src> {
         Self {
             syntax: Syntax::new(source.file_count()),
             source,
+            constants: ConstantTable::new(),
             resolver: Resolver::new(),
+            prototypes: PrototypeList::new(),
         }
     }
 
@@ -69,36 +74,33 @@ impl<'src> Compiler<'src> {
     }
 
     pub fn compile(self, program_name: Option<&'src str>) -> Result<Program, DustError<'src>> {
-        self.compile_with_extras(program_name)
-            .map(|(program, _, _)| program)
+        let Compiler {
+            constants,
+            prototypes,
+            ..
+        } = self.compile_inner()?;
+        let program = Program::new(program_name, constants, prototypes);
+
+        Ok(program)
     }
 
     pub fn compile_with_extras(
         self,
         program_name: Option<&'src str>,
-    ) -> Result<(Program, Source<'src>, Syntax), DustError<'src>> {
-        let (
-            Resolver {
-                constants,
-                prototypes,
-                ..
-            },
-            source,
+    ) -> Result<(Program, Source<'src>, Syntax, Resolver), DustError<'src>> {
+        let Compiler {
             syntax,
-        ) = self.compile_inner()?;
+            source,
+            constants,
+            resolver,
+            prototypes,
+        } = self.compile_inner()?;
         let program = Program::new(program_name, constants, prototypes);
 
-        Ok((program, source, syntax))
+        Ok((program, source, syntax, resolver))
     }
 
-    fn handle_error(
-        self,
-        error: CompileError,
-    ) -> Result<(Resolver, Source<'src>, Syntax), DustError<'src>> {
-        Err(DustError::compile(error, self.source, self.resolver))
-    }
-
-    fn compile_inner(mut self) -> Result<(Resolver, Source<'src>, Syntax), DustError<'src>> {
+    fn compile_inner(mut self) -> Result<Self, DustError<'src>> {
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
 
@@ -164,8 +166,6 @@ impl<'src> Compiler<'src> {
             }
         };
 
-        self.resolver.prototypes.push(Prototype::default()); // Placeholder for main prototype
-
         // Emission phase
         let main_prototype = {
             let span = span!(Level::INFO, "emit");
@@ -195,9 +195,15 @@ impl<'src> Compiler<'src> {
                 main_function,
                 main_function_declaration_id,
                 main_declaration.scope_id,
-                0,
+                PrototypeId(0),
                 None,
-                (&self.source, &self.syntax, &mut self.resolver),
+                (
+                    &self.source,
+                    &self.syntax,
+                    &mut self.constants,
+                    &mut self.resolver,
+                    &mut self.prototypes,
+                ),
             ) {
                 Ok(emitter) => emitter,
                 Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
@@ -209,8 +215,12 @@ impl<'src> Compiler<'src> {
             }
         };
 
-        self.resolver.prototypes[0] = main_prototype;
+        self.prototypes.set_main(main_prototype);
 
-        Ok((self.resolver, self.source, self.syntax))
+        Ok(self)
+    }
+
+    fn handle_error(self, error: CompileError) -> Result<Self, DustError<'src>> {
+        Err(DustError::compile(error, self.source, self.resolver))
     }
 }

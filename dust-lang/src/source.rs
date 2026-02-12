@@ -54,6 +54,10 @@ impl<'src> Source<'src> {
         }
     }
 
+    pub fn get_file_content(&self, position: Position) -> &str {
+        self.get_file(position.file_id).content_str(position.span)
+    }
+
     pub fn set_utf8_validated(&mut self, file_id: SourceFileId) {
         if let Some(SourceFile::File { utf8_validated, .. }) =
             self.files.get_mut(file_id.0 as usize)

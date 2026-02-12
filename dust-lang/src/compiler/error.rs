@@ -7,7 +7,7 @@ use crate::{
         Resolver, Symbol, TypeId, TypeNode,
         resolver::{DeclarationId, DeclarationMembers, ScopeId, TypeMembers},
     },
-    constant_table::ConstantId,
+    constant_table::ConstantKey,
     dust_error::AnnotatedError,
     instruction::Operation,
     parser::syntax::{SyntaxError, SyntaxId, SyntaxKind},
@@ -171,7 +171,10 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     Ok(declaration) => declaration,
                     Err(error) => return error.annotated_error((source, resolver)),
                 };
-                let name = declaration.symbol.get_name(&resolver.constants).unwrap();
+                let name = match resolver.get_symbol_name(&declaration.symbol) {
+                    Ok(name) => name,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
                 let file = source.get_file(usage_position.file_id);
                 let file_str = file.content_as_str();
 
@@ -217,10 +220,9 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         Err(error) => return error.annotated_error((source, resolver)),
                     };
 
-                    declaration
-                        .symbol
-                        .get_name(&resolver.constants)
-                        .expect("Declared types cannot be anonymous")
+                    resolver
+                        .get_symbol_name(&declaration.symbol)
+                        .expect("Types cannot be anonymous")
                         .to_string()
                 } else {
                     match resolver.get_full_type(*type_id, source) {
@@ -343,7 +345,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             } => {
                 let title = "Undeclared symbol".to_string();
                 let file_str = source.get_file(usage_position.file_id).content_as_str();
-                let name_str = match symbol.get_name(&resolver.constants) {
+                let name_str = match resolver.get_symbol_name(symbol) {
                     Ok(name) => name,
                     Err(error) => return error.annotated_error((source, resolver)),
                 };
@@ -541,7 +543,7 @@ pub enum InternalCompileError {
     AnonymousType(DeclarationId),
     MissingDeclarationMember(u32),
     MissingTypeMember(u32),
-    MissingConstantString(ConstantId),
+    MissingConstantString(ConstantKey),
     AnonymousSymbolLookup,
 }
 
@@ -664,11 +666,10 @@ impl Display for InternalCompileError {
             InternalCompileError::MissingTypeMember(index) => {
                 write!(f, "Missing type member at index {}", index)
             }
-            InternalCompileError::MissingConstantString(constant_id) => {
+            InternalCompileError::MissingConstantString(constant_key) => {
                 write!(
                     f,
-                    "Missing constant string for constant ID {}",
-                    constant_id.inner()
+                    "Missing constant string for constant ID {constant_key:?}",
                 )
             }
             InternalCompileError::AnonymousSymbolLookup => {

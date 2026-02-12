@@ -362,7 +362,7 @@ fn run_thread(
 
     let return_type = &program
         .prototypes
-        .get(prototype_index as usize)
+        .get_slot(prototype_index as usize)
         .ok_or(JitError::MissingPrototype {
             index: prototype_index as usize,
             total: program.prototypes.len(),

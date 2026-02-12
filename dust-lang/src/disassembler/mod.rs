@@ -12,6 +12,7 @@ use ratatui::{
 };
 
 use crate::{
+    compiler::Resolver,
     dust_crate::Program,
     parser::syntax::{Syntax, SyntaxTree},
     prototype::Prototype,
@@ -22,6 +23,7 @@ use block_table::BlockTable;
 
 pub struct Disassembler<'a> {
     program: &'a Program,
+    resolver: &'a Resolver,
     source: &'a Source<'a>,
     syntax: &'a Syntax,
 
@@ -34,9 +36,15 @@ pub struct Disassembler<'a> {
 }
 
 impl<'a> Disassembler<'a> {
-    pub fn new(program: &'a Program, source: &'a Source, syntax: &'a Syntax) -> Self {
+    pub fn new(
+        program: &'a Program,
+        source: &'a Source,
+        syntax: &'a Syntax,
+        resolver: &'a Resolver,
+    ) -> Self {
         Self {
             program,
+            resolver,
             source,
             syntax,
 
@@ -80,17 +88,18 @@ impl<'a> Disassembler<'a> {
         let mut tabs = Vec::with_capacity(self.tab_count());
 
         for source_file in self.source.files() {
-            let file_path = source_file.file_name().display().to_string();
+            let file_name = source_file.file_name().display().to_string();
 
-            tabs.push(file_path);
+            tabs.push(file_name);
         }
 
         for (index, prototype) in self.program.prototypes.iter().enumerate() {
-            if let Ok(name) = prototype.symbol.get_name(&self.program.constants) {
-                tabs.push(name.to_string());
-            } else {
-                tabs.push(format!("proto_{index}"));
-            }
+            let prototype_name = match self.resolver.get_symbol_name(&prototype.symbol) {
+                Ok(name) => name.to_string(),
+                Err(_) => format!("proto_{index}"),
+            };
+
+            tabs.push(prototype_name);
         }
 
         tabs
