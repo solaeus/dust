@@ -109,12 +109,9 @@ impl<'a> Emitter<'a> {
             top_emitted_register: 0,
         };
 
-        emitter.locals.insert(
-            declaration_id,
-            Place::Prototype {
-                prototype_index: prototype_id.index(),
-            },
-        );
+        emitter
+            .locals
+            .insert(declaration_id, Place::Prototype { prototype_id });
 
         if let Some(parameters) = parameters {
             let type_id = *emitter.resolver.get_declaration_type(&declaration_id)?;
@@ -1236,13 +1233,20 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let function_emission = self.visit_function_expression(function_expression, None)?;
 
-        if let Emission::Place(Place::Prototype { prototype_index }) = function_emission {
+        if let Emission::Place(Place::Prototype {
+            prototype_id: prototype_index,
+        }) = function_emission
+        {
             let declaration_id = *self
                 .resolver
                 .get_declaration_binding(&function_expression.id)?;
 
-            self.locals
-                .insert(declaration_id, Place::Prototype { prototype_index });
+            self.locals.insert(
+                declaration_id,
+                Place::Prototype {
+                    prototype_id: prototype_index,
+                },
+            );
         }
 
         Ok(())
@@ -2347,21 +2351,28 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting function expression");
 
-        let (signature, body) = node.binary_children()?;
-        let parameters = signature.left_child()?.multiple_children()?;
-        let function_scope_id = *self.resolver.get_scope_binding(&body.id)?;
         let declaration_id = *self.resolver.get_declaration_binding(&node.id)?;
 
         if let Some(prototype_index) = self.resolver.get_declaration_prototype(&declaration_id) {
             return Ok(Emission::Place(Place::Prototype {
-                prototype_index: *prototype_index,
+                prototype_id: *prototype_index,
             }));
         }
 
-        let prototype_id = self.prototypes.reserve_slot();
+        let (signature, body) = node.binary_children()?;
+        let parameters = signature.left_child()?.multiple_children()?;
+        let function_scope_id = *self.resolver.get_scope_binding(&body.id)?;
+        let prototype_id = match self.prototypes.reserve_slot() {
+            Ok(id) => id,
+            Err(error) => {
+                return Err(CompileError::Internal(InternalCompileError::PrototypeList(
+                    error,
+                )));
+            }
+        };
 
         self.resolver
-            .set_declaration_prototype(declaration_id, prototype_id as u16);
+            .set_declaration_prototype(declaration_id, prototype_id);
 
         let function_emitter = Emitter::new(
             node,
@@ -2377,12 +2388,18 @@ impl SyntaxVisitor for Emitter<'_> {
                 self.prototypes,
             ),
         )?;
+        let prototype = function_emitter.emit(body)?;
 
-        self.prototypes[prototype_id] = function_emitter.emit(body)?;
+        match self.prototypes.set_slot(prototype_id, prototype) {
+            Ok(()) => {}
+            Err(error) => {
+                return Err(CompileError::Internal(InternalCompileError::PrototypeList(
+                    error,
+                )));
+            }
+        };
 
-        Ok(Emission::Place(Place::Prototype {
-            prototype_index: prototype_id as u16,
-        }))
+        Ok(Emission::Place(Place::Prototype { prototype_id }))
     }
 
     fn visit_call_expression(
@@ -2558,7 +2575,7 @@ impl InstructionsEmission {
 #[derive(Clone, Copy, Debug)]
 pub enum Place {
     Constant { id: ConstantId },
-    Prototype { prototype_index: u16 },
+    Prototype { prototype_id: PrototypeId },
     Target(TargetRegister),
 }
 
@@ -2575,9 +2592,7 @@ impl Place {
     fn address(&self) -> Address {
         match self {
             Place::Constant { id } => Address::constant(id.0),
-            Place::Prototype {
-                prototype_index: index,
-            } => Address::constant(*index),
+            Place::Prototype { prototype_id } => Address::constant(prototype_id.0),
             Place::Target(target) => target.address(),
         }
     }

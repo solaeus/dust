@@ -1,7 +1,7 @@
 use crate::{
     compiler::{Symbol, compile},
     instruction::{Address, Instruction, OperandType},
-    prototype::Prototype,
+    prototype::{Prototype, PrototypeId},
     tests::{block_cases, create_function_case},
     r#type::{FunctionType, Type},
 };
@@ -15,7 +15,7 @@ fn empty_block() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![Instruction::r#return(Address::default(), OperandType::NONE)],
@@ -33,7 +33,7 @@ fn block_expression() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
@@ -54,7 +54,7 @@ fn block_statement() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::None),
             instructions: vec![
@@ -79,7 +79,7 @@ fn block_statement_and_expression() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -107,7 +107,7 @@ fn parent_scope_access() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -132,7 +132,7 @@ fn nested_parrent_scope_access() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -161,7 +161,7 @@ fn scope_shadowing() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -184,7 +184,7 @@ fn scope_deshadowing() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![

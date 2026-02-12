@@ -134,6 +134,14 @@ impl Index<usize> for PrototypeList {
     }
 }
 
+impl Index<PrototypeId> for PrototypeList {
+    type Output = Prototype;
+
+    fn index(&self, index: PrototypeId) -> &Self::Output {
+        &self.prototypes[index.0 as usize]
+    }
+}
+
 impl IntoIterator for PrototypeList {
     type Item = Prototype;
     type IntoIter = vec::IntoIter<Prototype>;
@@ -144,7 +152,7 @@ impl IntoIterator for PrototypeList {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct PrototypeId(u16);
+pub struct PrototypeId(pub(crate) u16);
 
 impl PrototypeId {
     pub const MAIN: Self = Self(0);
@@ -161,7 +169,7 @@ impl Display for ReadOnlyError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
-            "Calling `PrototypeList::push` failed. A prototype list is read-only after main prototype has been set."
+            "Failed to write to a prototype list because it is read-only. A prototype list is read-only after main prototype has been set."
         )
     }
 }

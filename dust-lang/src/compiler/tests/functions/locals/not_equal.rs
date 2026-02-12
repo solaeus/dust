@@ -3,7 +3,7 @@ use crate::compiler::Symbol;
 use crate::{
     compiler::compile,
     instruction::{Address, Instruction, OperandType},
-    prototype::Prototype,
+    prototype::{Prototype, PrototypeId},
     tests::{create_function_case, local_cases},
     r#type::{FunctionType, Type},
 };
@@ -17,7 +17,7 @@ fn local_boolean_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -54,7 +54,7 @@ fn local_byte_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -91,7 +91,7 @@ fn local_character_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -128,7 +128,7 @@ fn local_float_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -165,7 +165,7 @@ fn local_integer_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -202,7 +202,7 @@ fn local_string_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![

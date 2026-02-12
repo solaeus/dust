@@ -1,7 +1,7 @@
 use crate::{
     compiler::{Symbol, compile},
     instruction::{Address, Instruction, OperandType},
-    prototype::Prototype,
+    prototype::{Prototype, PrototypeId},
     tests::{create_function_case, loop_cases},
     r#type::{FunctionType, Type},
 };
@@ -15,7 +15,7 @@ fn while_loop() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![

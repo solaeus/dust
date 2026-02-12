@@ -1,7 +1,7 @@
 use crate::{
     compiler::{Symbol, compile},
     instruction::{Address, Instruction, OperandType},
-    prototype::Prototype,
+    prototype::{Prototype, PrototypeId},
     tests::{create_function_case, list_cases},
     r#type::{FunctionType, Type},
 };
@@ -15,7 +15,7 @@ fn list_boolean() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::list(Type::Boolean)),
             instructions: vec![
@@ -55,7 +55,7 @@ fn list_byte() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::list(Type::Byte)),
             instructions: vec![
@@ -95,7 +95,7 @@ fn list_character() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::list(Type::Character)),
             instructions: vec![
@@ -135,7 +135,7 @@ fn list_float() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::list(Type::Float)),
             instructions: vec![
@@ -175,7 +175,7 @@ fn list_integer() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::list(Type::Integer)),
             instructions: vec![
@@ -215,7 +215,7 @@ fn list_string() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::list(Type::String)),
             instructions: vec![
@@ -255,7 +255,7 @@ fn list_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -316,7 +316,7 @@ fn list_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -377,7 +377,7 @@ fn list_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -438,7 +438,7 @@ fn list_less_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -499,7 +499,7 @@ fn list_greater_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -560,7 +560,7 @@ fn list_less_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -621,7 +621,7 @@ fn list_index_boolean() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -667,7 +667,7 @@ fn list_index_byte() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
@@ -713,7 +713,7 @@ fn list_index_character() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Character),
             instructions: vec![
@@ -759,7 +759,7 @@ fn list_index_float() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
@@ -805,7 +805,7 @@ fn list_index_integer() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -851,7 +851,7 @@ fn list_index_string() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![
@@ -897,7 +897,7 @@ fn local_list_boolean() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::list(Type::Boolean)),
             instructions: vec![
@@ -937,7 +937,7 @@ fn local_list_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -998,7 +998,7 @@ fn local_list_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -1059,7 +1059,7 @@ fn local_list_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -1120,7 +1120,7 @@ fn local_list_less_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -1184,7 +1184,7 @@ fn local_list_greater_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![
@@ -1248,7 +1248,7 @@ fn local_list_less_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![

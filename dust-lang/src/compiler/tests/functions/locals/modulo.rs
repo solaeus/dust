@@ -3,7 +3,7 @@ use crate::compiler::Symbol;
 use crate::{
     compiler::compile,
     instruction::{Address, Instruction, OperandType},
-    prototype::Prototype,
+    prototype::{Prototype, PrototypeId},
     tests::{create_function_case, local_cases},
     r#type::{FunctionType, Type},
 };
@@ -17,7 +17,7 @@ fn local_byte_modulo() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
@@ -46,7 +46,7 @@ fn local_float_modulo() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
@@ -75,7 +75,7 @@ fn local_integer_modulo() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![
@@ -104,7 +104,7 @@ fn local_mut_byte_modulo() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![
@@ -132,7 +132,7 @@ fn local_mut_float_modulo() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![
@@ -160,7 +160,7 @@ fn local_mut_integer_modulo() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![

@@ -11,6 +11,7 @@ use crate::{
     dust_error::AnnotatedError,
     instruction::Operation,
     parser::syntax::{SyntaxError, SyntaxId, SyntaxKind},
+    prototype::ReadOnlyError,
     source::{Position, Source, SourceFileId},
 };
 
@@ -545,6 +546,7 @@ pub enum InternalCompileError {
     MissingTypeMember(u32),
     MissingConstantString(ConstantKey),
     AnonymousSymbolLookup,
+    PrototypeList(ReadOnlyError),
 }
 
 impl Display for InternalCompileError {
@@ -674,6 +676,9 @@ impl Display for InternalCompileError {
             }
             InternalCompileError::AnonymousSymbolLookup => {
                 write!(f, "Attempted to lookup an anonymous symbol")
+            }
+            InternalCompileError::PrototypeList(error) => {
+                write!(f, "{error}")
             }
         }
     }

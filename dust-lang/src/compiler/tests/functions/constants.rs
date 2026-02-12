@@ -1,7 +1,7 @@
 use crate::{
     compiler::{Symbol, compile},
     instruction::{Address, Instruction, OperandType},
-    prototype::Prototype,
+    prototype::{Prototype, PrototypeId},
     tests::{constant_cases, create_function_case},
     r#type::{FunctionType, Type},
 };
@@ -15,7 +15,7 @@ fn boolean() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -36,7 +36,7 @@ fn byte() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
@@ -57,7 +57,7 @@ fn character() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Character),
             instructions: vec![Instruction::r#return(
@@ -78,7 +78,7 @@ fn float() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
@@ -99,7 +99,7 @@ fn integer() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
@@ -120,7 +120,7 @@ fn string() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
@@ -141,7 +141,7 @@ fn constant_byte_addition() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
@@ -162,7 +162,7 @@ fn constant_float_addition() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
@@ -186,7 +186,7 @@ fn constant_integer_addition() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
@@ -207,7 +207,7 @@ fn constant_byte_subtraction() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
@@ -231,7 +231,7 @@ fn constant_float_subtraction() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
@@ -255,7 +255,7 @@ fn constant_integer_subtraction() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
@@ -279,7 +279,7 @@ fn constant_byte_multiplication() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
@@ -303,7 +303,7 @@ fn constant_float_multiplication() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
@@ -327,7 +327,7 @@ fn constant_integer_multiplication() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
@@ -348,7 +348,7 @@ fn constant_byte_division() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
@@ -369,7 +369,7 @@ fn constant_float_division() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
@@ -393,7 +393,7 @@ fn constant_integer_division() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
@@ -414,7 +414,7 @@ fn constant_byte_modulo() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Byte),
             instructions: vec![Instruction::r#return(
@@ -435,7 +435,7 @@ fn constant_float_modulo() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
@@ -459,7 +459,7 @@ fn constant_integer_modulo() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
@@ -483,7 +483,7 @@ fn constant_integer_negation() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Integer),
             instructions: vec![Instruction::r#return(
@@ -504,7 +504,7 @@ fn constant_float_negation() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Float),
             instructions: vec![Instruction::r#return(
@@ -528,7 +528,7 @@ fn constant_string_concatenation() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
@@ -552,7 +552,7 @@ fn constant_character_concatentation() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
@@ -576,7 +576,7 @@ fn constant_string_character_concatenation() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
@@ -600,7 +600,7 @@ fn constant_character_string_concatenation() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::String),
             instructions: vec![Instruction::r#return(
@@ -621,7 +621,7 @@ fn constant_boolean_and() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -642,7 +642,7 @@ fn constant_boolean_or() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -663,7 +663,7 @@ fn constant_boolean_not() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -687,7 +687,7 @@ fn constant_boolean_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -711,7 +711,7 @@ fn constant_boolean_less_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -735,7 +735,7 @@ fn constant_boolean_greater_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -759,7 +759,7 @@ fn constant_boolean_less_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -780,7 +780,7 @@ fn constant_boolean_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -804,7 +804,7 @@ fn constant_boolean_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -828,7 +828,7 @@ fn constant_byte_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -852,7 +852,7 @@ fn constant_byte_less_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -876,7 +876,7 @@ fn constant_byte_greater_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -900,7 +900,7 @@ fn constant_byte_less_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -921,7 +921,7 @@ fn constant_byte_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -945,7 +945,7 @@ fn constant_byte_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -969,7 +969,7 @@ fn constant_character_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -993,7 +993,7 @@ fn constant_character_less_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1017,7 +1017,7 @@ fn constant_character_greater_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1041,7 +1041,7 @@ fn constant_character_less_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1065,7 +1065,7 @@ fn constant_character_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1089,7 +1089,7 @@ fn constant_character_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1113,7 +1113,7 @@ fn constant_float_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1137,7 +1137,7 @@ fn constant_float_less_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1161,7 +1161,7 @@ fn constant_float_greater_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1185,7 +1185,7 @@ fn constant_float_less_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1206,7 +1206,7 @@ fn constant_float_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1230,7 +1230,7 @@ fn constant_float_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1254,7 +1254,7 @@ fn constant_integer_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1278,7 +1278,7 @@ fn constant_integer_less_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1302,7 +1302,7 @@ fn constant_integer_greater_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1326,7 +1326,7 @@ fn constant_integer_less_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1347,7 +1347,7 @@ fn constant_integer_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1371,7 +1371,7 @@ fn constant_integer_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1395,7 +1395,7 @@ fn constant_string_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1419,7 +1419,7 @@ fn constant_string_less_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1443,7 +1443,7 @@ fn constant_string_greater_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1467,7 +1467,7 @@ fn constant_string_less_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1488,7 +1488,7 @@ fn constant_string_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
@@ -1512,7 +1512,7 @@ fn constant_string_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: 1,
+            id: PrototypeId(1),
             symbol: Symbol::MAIN,
             function_type: FunctionType::new([], [], Type::Boolean),
             instructions: vec![Instruction::r#return(
