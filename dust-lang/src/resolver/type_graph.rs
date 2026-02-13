@@ -218,4 +218,4 @@ impl TypeMembers {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct InferredTypeId(u32);
+pub struct InferredTypeId(u32);

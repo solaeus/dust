@@ -20,7 +20,7 @@ use crate::{
     dust_error::DustError,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    prototype::{Prototype, PrototypeId, PrototypeList},
+    prototype::{Prototype, PrototypeList},
     resolver::Resolver,
     source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, SyntaxId},
@@ -163,6 +163,7 @@ impl<'src> Compiler<'src> {
         };
 
         // Emission phase
+        let main_prototype_id = self.prototypes.reserve_slot();
         let main_prototype = {
             let span = span!(Level::INFO, "emit");
             let _enter = span.enter();
@@ -194,7 +195,7 @@ impl<'src> Compiler<'src> {
                 main_function,
                 main_function_declaration_id,
                 main_declaration.scope_id,
-                PrototypeId(0),
+                main_prototype_id,
                 None,
                 (
                     &self.source,
@@ -214,7 +215,7 @@ impl<'src> Compiler<'src> {
             }
         };
 
-        self.prototypes.set_main(main_prototype);
+        self.prototypes.set_slot(main_prototype_id, main_prototype);
 
         Ok(self)
     }

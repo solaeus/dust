@@ -23,23 +23,18 @@ pub struct DeclarationGraph {
 impl DeclarationGraph {
     pub fn new() -> Self {
         Self {
-            declarations: IndexMap::with_capacity_and_hasher(0, FxBuildHasher::default()),
+            declarations: IndexMap::default(),
             declaration_members: Vec::new(),
-            declaration_types: HashMap::with_capacity_and_hasher(0, FxBuildHasher::default()),
-            declaration_prototypes: HashMap::with_capacity_and_hasher(0, FxBuildHasher::default()),
+            declaration_types: HashMap::default(),
+            declaration_prototypes: HashMap::default(),
         }
     }
 
     pub fn add_declaration(&mut self, declaration: Declaration) -> DeclarationId {
-        let parent = if let DeclarationKind::Type { parent } = declaration.kind {
-            parent
-        } else {
-            None
-        };
         let key = DeclarationKey {
             symbol: declaration.symbol_id,
             scope_id: declaration.scope_id,
-            parent,
+            parent: declaration.parent(),
         };
 
         if let Some((existing_index, _, _)) = self.declarations.get_full(&key) {

@@ -120,7 +120,7 @@ impl<'a> Emitter<'a> {
                 .resolver
                 .declarations
                 .get_declaration_type(&declaration_id)?;
-            let type_node = *emitter.resolver.get_type(type_id)?;
+            let type_node = *emitter.resolver.types.get_type(type_id)?;
             let TypeNode::Function {
                 value_parameters, ..
             } = type_node
@@ -132,6 +132,7 @@ impl<'a> Emitter<'a> {
             };
             let value_parameter_types = emitter
                 .resolver
+                .types
                 .get_type_members(value_parameters)?
                 .iter()
                 .copied()
@@ -141,10 +142,7 @@ impl<'a> Emitter<'a> {
                 .into_iter()
                 .zip(value_parameter_types.into_iter())
             {
-                let parameter_id = *emitter
-                    .resolver
-                    .declarations
-                    .get_declaration_binding(&parameter.id)?;
+                let parameter_id = *emitter.resolver.get_declaration_binding(&parameter.id)?;
                 let register_size = emitter
                     .resolver
                     .get_register_size(expected_type, &parameter)?;
@@ -290,9 +288,11 @@ impl<'a> Emitter<'a> {
 
         let declaration = self
             .resolver
+            .declarations
             .get_declaration(self.function_declaration_id)?;
         let type_id = *self
             .resolver
+            .declarations
             .get_declaration_type(&self.function_declaration_id)?;
         let function_type = {
             let get_type = self
@@ -315,7 +315,7 @@ impl<'a> Emitter<'a> {
         };
 
         Ok(Prototype {
-            symbol: declaration.symbol,
+            symbol_id: declaration.symbol_id,
             prototype_id: self.prototype_id,
             function_type,
             instructions: self.instructions,
@@ -1337,10 +1337,7 @@ impl SyntaxVisitor for Emitter<'_> {
             }
         };
 
-        let declaration_id = *self
-            .resolver
-            .declarations
-            .get_declaration_binding(&path.id)?;
+        let declaration_id = *self.resolver.get_declaration_binding(&path.id)?;
 
         if type_id == TypeId::STRING {
             self.add_drop(target.index());
@@ -1379,10 +1376,7 @@ impl SyntaxVisitor for Emitter<'_> {
         let (path, expression_statement) = node.binary_children()?;
         let expression = expression_statement.left_child()?;
 
-        let declaration_id = self
-            .resolver
-            .declarations
-            .get_declaration_binding(&path.id)?;
+        let declaration_id = self.resolver.get_declaration_binding(&path.id)?;
         let target = self
             .locals
             .get(declaration_id)
@@ -1665,8 +1659,8 @@ impl SyntaxVisitor for Emitter<'_> {
 
         fn flatten_leaf_operand_types(r#type: &DustType, out: &mut Vec<OperandType>) {
             match r#type {
-                DustType::Struct { fields, .. } => {
-                    for (_, field_type) in fields {
+                DustType::Struct(struct_type) => {
+                    for (_, field_type) in &struct_type.fields {
                         flatten_leaf_operand_types(field_type, out);
                     }
                 }
@@ -2365,10 +2359,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting function expression");
 
-        let declaration_id = *self
-            .resolver
-            .declarations
-            .get_declaration_binding(&node.id)?;
+        let declaration_id = *self.resolver.get_declaration_binding(&node.id)?;
 
         if let Some(prototype_index) = self
             .resolver
@@ -2383,16 +2374,10 @@ impl SyntaxVisitor for Emitter<'_> {
         let (signature, body) = node.binary_children()?;
         let parameters = signature.left_child()?.multiple_children()?;
         let function_scope_id = *self.resolver.get_scope_binding(&body.id)?;
-        let prototype_id = match self.prototypes.reserve_slot() {
-            Ok(id) => id,
-            Err(error) => {
-                return Err(CompileError::Internal(InternalCompileError::PrototypeList(
-                    error,
-                )));
-            }
-        };
+        let prototype_id = self.prototypes.reserve_slot();
 
         self.resolver
+            .declarations
             .set_declaration_prototype(declaration_id, prototype_id);
 
         let function_emitter = Emitter::new(
@@ -2411,14 +2396,7 @@ impl SyntaxVisitor for Emitter<'_> {
         )?;
         let prototype = function_emitter.emit(body)?;
 
-        match self.prototypes.set_slot(prototype_id, prototype) {
-            Ok(()) => {}
-            Err(error) => {
-                return Err(CompileError::Internal(InternalCompileError::PrototypeList(
-                    error,
-                )));
-            }
-        };
+        self.prototypes.set_slot(prototype_id, prototype);
 
         Ok(Emission::Place(Place::Prototype { prototype_id }))
     }
@@ -2514,10 +2492,7 @@ impl SyntaxVisitor for Emitter<'_> {
         debug!("Emitting path");
         debug_assert_eq!(path.kind(), SyntaxKind::Path);
 
-        self.resolver
-            .declarations
-            .get_declaration_binding(&path.id)
-            .copied()
+        self.resolver.get_declaration_binding(&path.id).copied()
     }
 }
 
@@ -2616,7 +2591,7 @@ impl Place {
     fn address(&self) -> Address {
         match self {
             Place::Constant { id } => Address::constant(id.0),
-            Place::Prototype { prototype_id } => Address::constant(prototype_id.0),
+            Place::Prototype { prototype_id } => Address::constant(prototype_id.index()),
             Place::Target(target) => target.address(),
         }
     }

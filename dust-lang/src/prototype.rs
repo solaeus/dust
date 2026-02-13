@@ -81,20 +81,22 @@ impl PrototypeList {
         &self.prototypes[0]
     }
 
-    pub fn reserve_slot(&mut self) -> Result<PrototypeId, ReadOnlyError> {
+    pub fn reserve_slot(&mut self) -> PrototypeId {
         let id = PrototypeId(self.prototypes.len() as u16);
 
         self.prototypes.push(Prototype::dummy());
 
-        Ok(id)
+        id
     }
 
-    pub fn set_slot(&mut self, id: PrototypeId, prototype: Prototype) -> Result<(), ReadOnlyError> {
-        debug_assert!((id.0 as usize) < self.prototypes.len());
+    pub fn set_slot(&mut self, id: PrototypeId, prototype: Prototype) {
+        assert!(
+            (id.0 as usize) < self.prototypes.len(),
+            "Logic error: misuse of prototype ID {id}. When used correctly, prototype IDs are always\
+            reserved before being set, so this should never happen.",
+        );
 
         self.prototypes[id.0 as usize] = prototype;
-
-        Ok(())
     }
 
     // https://en.wikipedia.org/wiki/Tarjan's_strongly_connected_components_algorithm
@@ -245,7 +247,7 @@ impl IntoIterator for PrototypeList {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct PrototypeId(pub(crate) u16);
+pub struct PrototypeId(#[cfg(test)] pub(crate) u16, #[cfg(not(test))] u16);
 
 impl PrototypeId {
     pub(crate) const MAIN: Self = Self(0);
@@ -270,17 +272,5 @@ impl PrototypeId {
 impl Display for PrototypeId {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "proto_{}", self.0)
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct ReadOnlyError;
-
-impl Display for ReadOnlyError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Failed to write to a prototype list because it is read-only. A prototype list is read-only after main prototype has been set."
-        )
     }
 }

@@ -20,7 +20,7 @@ use crate::{
         scope_graph::{Scope, ScopeGraph, ScopeId, ScopeKind},
         type_graph::{TypeGraph, TypeId, TypeMembers, TypeNode},
     },
-    source::Source,
+    source::{Position, Source},
     symbol_table::{SymbolId, SymbolTable},
     syntax::{SyntaxId, SyntaxReader},
 };
@@ -138,13 +138,209 @@ impl Resolver {
 
     pub fn find_declaration_in_scope(
         &self,
-        symbol: SymbolId,
-        path_segment: &SyntaxReader,
-        target_scope_id: ScopeId,
-        parent: Option<DeclarationId>,
-        is_type_lookup: bool,
+        _symbol: SymbolId,
+        _path_segment: &SyntaxReader,
+        _target_scope_id: ScopeId,
+        _parent: Option<DeclarationId>,
+        _is_type_lookup: bool,
     ) -> Result<(DeclarationId, Declaration), CompileError> {
         todo!()
+    }
+
+    pub fn infer_type(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
+        if let TypeNode::Inferred {
+            resolved: Some(resolved),
+            ..
+        } = self.types.get_type(type_id)?
+        {
+            self.infer_type(*resolved)
+        } else {
+            Ok(type_id)
+        }
+    }
+
+    pub fn unify_types(
+        &mut self,
+        left: TypeId,
+        left_position: Option<Position>,
+        right: TypeId,
+        right_position: Position,
+    ) -> Result<(), CompileError> {
+        let left_inferred = self.infer_type(left)?;
+        let right_inferred = self.infer_type(right)?;
+
+        self.unify_inferred_types(left_inferred, left_position, right_inferred, right_position)
+    }
+
+    pub fn unify_inferred_types(
+        &mut self,
+        left: TypeId,
+        left_position: Option<Position>,
+        right: TypeId,
+        right_position: Position,
+    ) -> Result<(), CompileError> {
+        if left == right {
+            return Ok(());
+        }
+
+        let left_type_node = *self.types.get_type(left)?;
+        let right_type_node = *self.types.get_type(right)?;
+
+        match (left_type_node, right_type_node) {
+            (
+                TypeNode::Inferred {
+                    inferred_id,
+                    resolved: None,
+                },
+                _,
+            ) => {
+                let left_node = self.types.get_type_mut(left)?;
+
+                *left_node = TypeNode::Inferred {
+                    inferred_id,
+                    resolved: Some(right),
+                };
+
+                Ok(())
+            }
+            (
+                _,
+                TypeNode::Inferred {
+                    inferred_id,
+                    resolved: None,
+                },
+            ) => {
+                let right_node = self.types.get_type_mut(right)?;
+
+                *right_node = TypeNode::Inferred {
+                    inferred_id,
+                    resolved: Some(left),
+                };
+
+                Ok(())
+            }
+            (
+                TypeNode::List {
+                    element_type: left_element_type,
+                },
+                TypeNode::List {
+                    element_type: right_element_type,
+                },
+            ) => self.unify_types(
+                left_element_type,
+                left_position,
+                right_element_type,
+                right_position,
+            ),
+            (
+                TypeNode::Function {
+                    type_parameters: _left_type_parameters,
+                    value_parameters: left_value_parameters,
+                    return_type_id: left_return_type,
+                },
+                TypeNode::Function {
+                    type_parameters: _right_type_parameters,
+                    value_parameters: right_value_parameters,
+                    return_type_id: right_return_type,
+                },
+            ) => {
+                let left_value_types = self
+                    .types
+                    .get_type_members(left_value_parameters)?
+                    .iter()
+                    .copied()
+                    .collect::<SmallVec<[TypeId; 8]>>();
+                let right_value_types = self
+                    .types
+                    .get_type_members(right_value_parameters)?
+                    .iter()
+                    .copied()
+                    .collect::<SmallVec<[TypeId; 8]>>();
+
+                for (left_type_id, right_type_id) in left_value_types
+                    .into_iter()
+                    .zip(right_value_types.into_iter())
+                {
+                    self.unify_types(left_type_id, left_position, right_type_id, right_position)?;
+                }
+
+                self.unify_types(
+                    left_return_type,
+                    left_position,
+                    right_return_type,
+                    right_position,
+                )?;
+
+                Ok(())
+            }
+            (
+                TypeNode::Struct {
+                    declaration_id: left_declaration_id,
+                    generics: _left_generics,
+                    fields: left_fields,
+                },
+                TypeNode::Struct {
+                    declaration_id: right_declaration_id,
+                    generics: _right_generics,
+                    fields: right_fields,
+                },
+            ) => {
+                if left_declaration_id != right_declaration_id {
+                    return Err(CompileError::TypeConflict {
+                        expected_type: left,
+                        expected_position: left_position,
+                        found_type: right,
+                        found_position: right_position,
+                    });
+                }
+
+                let left_field_types = self
+                    .declarations
+                    .get_declaration_members(left_fields)?
+                    .iter()
+                    .map(|declaration_id| {
+                        self.declarations
+                            .get_declaration_type(declaration_id)
+                            .copied()
+                    })
+                    .try_collect::<SmallVec<[TypeId; 8]>>()?;
+                let right_field_types = self
+                    .declarations
+                    .get_declaration_members(right_fields)?
+                    .iter()
+                    .map(|declaration_id| {
+                        self.declarations
+                            .get_declaration_type(declaration_id)
+                            .copied()
+                    })
+                    .try_collect::<SmallVec<[TypeId; 8]>>()?;
+
+                for (left_field_type, right_field_type) in
+                    left_field_types.iter().zip(right_field_types.iter())
+                {
+                    self.unify_types(
+                        *left_field_type,
+                        left_position,
+                        *right_field_type,
+                        right_position,
+                    )?;
+                }
+
+                Ok(())
+            }
+            (left_type_node, right_type_node) => {
+                if left_type_node == right_type_node {
+                    Ok(())
+                } else {
+                    Err(CompileError::TypeConflict {
+                        expected_type: left,
+                        expected_position: left_position,
+                        found_type: right,
+                        found_position: right_position,
+                    })
+                }
+            }
+        }
     }
 
     pub fn add_external_type(&mut self, new_type: &DustType) -> TypeId {

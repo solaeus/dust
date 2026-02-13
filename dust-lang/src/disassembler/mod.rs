@@ -94,7 +94,7 @@ impl<'a> Disassembler<'a> {
         }
 
         for (index, prototype) in self.program.prototypes.iter().enumerate() {
-            let prototype_name = match self.resolver.symbols.get_symbol(&prototype.symbol) {
+            let prototype_name = match self.resolver.symbols.get_symbol(&prototype.symbol_id) {
                 Ok(name) => name.to_string(),
                 Err(_) => format!("proto_{index}"),
             };

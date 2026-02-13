@@ -24,7 +24,6 @@ use crate::{
     dust_crate::Program,
     dust_error::DustError,
     jit_vm::thread_pool::{ThreadMessage, ThreadPool},
-    prototype::PrototypeId,
     source::{Source, SourceFile},
     value::Value,
 };
@@ -84,7 +83,7 @@ impl JitVm {
             let remote_spawner = self.thread_pool.clone_spawner();
 
             local_spawner
-                .spawn_thread(PrototypeId::MAIN.0, remote_spawner)
+                .spawn_thread(0, remote_spawner)
                 .map_err(DustError::jit)?;
             local_spawner.clone_message_receiver()
         };
@@ -115,7 +114,7 @@ impl JitVm {
 
                     let result = result.map_err(DustError::jit)?;
 
-                    if prototype_id == PrototypeId::MAIN.0 {
+                    if prototype_id == 0 {
                         return_result = result;
                     }
 

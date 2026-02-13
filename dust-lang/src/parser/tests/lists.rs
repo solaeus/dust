@@ -1,7 +1,7 @@
 use crate::{
     parser::parse,
-    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload},
     source::Span,
+    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload},
     tests::list_cases,
 };
 

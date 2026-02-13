@@ -6,7 +6,6 @@ use crate::{
     constant_table::ConstantKey,
     dust_error::AnnotatedError,
     instruction::Operation,
-    prototype::ReadOnlyError,
     resolver::{
         Resolver,
         declaration_graph::{DeclarationId, DeclarationMembers},
@@ -550,7 +549,6 @@ pub enum InternalCompileError {
     MissingTypeMember(u32),
     MissingConstantString(ConstantKey),
     AnonymousSymbolLookup,
-    PrototypeList(ReadOnlyError),
 }
 
 impl Display for InternalCompileError {
@@ -680,9 +678,6 @@ impl Display for InternalCompileError {
             }
             InternalCompileError::AnonymousSymbolLookup => {
                 write!(f, "Attempted to lookup an anonymous symbol")
-            }
-            InternalCompileError::PrototypeList(error) => {
-                write!(f, "{error}")
             }
         }
     }

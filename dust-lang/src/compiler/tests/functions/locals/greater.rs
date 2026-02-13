@@ -3,7 +3,6 @@ use crate::{
     dust_type::{DustFunctionType, DustType},
     instruction::{Address, Instruction, OperandType},
     prototype::{Prototype, PrototypeId},
-    symbol_table::SymbolId,
     tests::{create_function_case, local_cases},
 };
 
