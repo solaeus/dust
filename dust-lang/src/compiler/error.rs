@@ -10,10 +10,10 @@ use crate::{
         Resolver,
         declaration_graph::{DeclarationId, DeclarationMembers},
         scope_graph::ScopeId,
+        symbol_table::SymbolId,
         type_graph::{TypeId, TypeMembers, TypeNode},
     },
     source::{Position, Source, SourceFileId},
-    symbol_table::SymbolId,
     syntax::{SyntaxError, SyntaxId, SyntaxKind},
 };
 

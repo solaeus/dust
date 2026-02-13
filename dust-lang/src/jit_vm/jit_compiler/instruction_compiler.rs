@@ -68,10 +68,7 @@ impl<'a> InstructionCompiler<'a> {
         {
             use tracing::trace;
 
-            trace!(
-                "JIT compiling {operation} at IP {ip} for proto_{}",
-                self.prototype.prototype_id.index()
-            );
+            trace!("JIT compiling {operation} at IP {ip}");
 
             let log_function = self.get_log_operation_and_ip_function(builder)?;
             let operation_value = builder.ins().iconst(I8, operation.0 as i64);
@@ -414,13 +411,10 @@ impl<'a> InstructionCompiler<'a> {
             MemoryKind::CONSTANT => {
                 let prototype_id = PrototypeId::from_address(callee).unwrap();
                 let callee_prototype = &self.program.prototypes[prototype_id];
-                let callee_returns_struct = matches!(
-                    callee_prototype.function_type.return_type,
-                    DustType::Struct { .. }
-                );
-                let callee_return_count = super::return_word_count_for_prototype(
-                    &callee_prototype.function_type.return_type,
-                );
+                let callee_returns_struct =
+                    matches!(callee_prototype.return_type, DustType::Struct { .. });
+                let callee_return_count =
+                    super::return_word_count_for_prototype(&callee_prototype.return_type);
 
                 let function_id = self.function_ids.get(callee.index as usize).ok_or(
                     JitError::FunctionIndexOutOfBounds {
@@ -1492,7 +1486,7 @@ impl<'a> InstructionCompiler<'a> {
             return Ok(());
         }
 
-        let return_type = &self.prototype.function_type.return_type;
+        let return_type = &self.prototype.return_type;
         let return_values = match return_type {
             DustType::None => Vec::new(),
             DustType::Struct { .. } => {

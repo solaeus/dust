@@ -93,13 +93,8 @@ impl<'a> Disassembler<'a> {
             tabs.push(file_name);
         }
 
-        for (index, prototype) in self.program.prototypes.iter().enumerate() {
-            let prototype_name = match self.resolver.symbols.get_symbol(&prototype.symbol_id) {
-                Ok(name) => name.to_string(),
-                Err(_) => format!("proto_{index}"),
-            };
-
-            tabs.push(prototype_name);
+        for index in 0..self.program.prototypes.len() {
+            tabs.push(format!("proto_{index}"));
         }
 
         tabs
@@ -296,7 +291,7 @@ impl<'a> Disassembler<'a> {
         .wrap(Wrap { trim: true })
         .render(info_area, buffer);
 
-        Paragraph::new(format!("Function type: {}", prototype.function_type))
+        Paragraph::new(format!("Return type: {}", prototype.return_type))
             .centered()
             .wrap(Wrap { trim: true })
             .render(type_area, buffer);
@@ -457,7 +452,7 @@ impl Widget for &mut Disassembler<'_> {
 
         Paragraph::new(format!(
             "main function type: {} ({} other prototypes)",
-            main_prototype.function_type,
+            main_prototype.return_type,
             self.program.prototypes.len() - 1,
         ))
         .centered()

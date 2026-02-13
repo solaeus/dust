@@ -4,7 +4,7 @@ use std::mem::transmute;
 
 use super::thread_pool::JitPrototype;
 use crate::dust_type::{DustStructType, DustType};
-use crate::prototype::PrototypeId;
+use crate::prototype::{PrototypeCompileInfo, PrototypeId};
 use crate::{jit_vm::RegisterTag, prototype::Prototype};
 
 use cranelift::{
@@ -119,20 +119,20 @@ impl<'a> JitCompiler<'a> {
     }
 
     pub fn compile(&mut self) -> Result<(JitFunction, Vec<JitPrototype>), JitError> {
-        let (compile_order, recursive_calls) = self
-            .program
-            .prototypes
-            .get_compile_order_and_recursive_calls();
+        let PrototypeCompileInfo {
+            compile_order,
+            argument_counts,
+            recursive_calls,
+        } = self.program.prototypes.get_compile_info();
 
-        let mut compiled = FxHashSet::default();
-
-        for prototype_id in compile_order {
-            let abi_function_id = self.compile_prototype(prototype_id, &recursive_calls)?;
+        for (prototype_id, argument_count) in
+            compile_order.into_iter().zip(argument_counts.into_iter())
+        {
+            let abi_function_id =
+                self.compile_prototype(prototype_id, argument_count, &recursive_calls)?;
             let index = prototype_id.index_usize();
 
             self.abi_function_ids[index] = abi_function_id;
-
-            compiled.insert(prototype_id);
         }
 
         self.module
@@ -146,7 +146,7 @@ impl<'a> JitCompiler<'a> {
 
         for (index, func_id) in self.abi_function_ids.iter().enumerate() {
             let function_pointer = self.module.get_finalized_function(*func_id);
-            let return_type = &self.program.prototypes[index].function_type.return_type;
+            let return_type = &self.program.prototypes[index].return_type;
             let return_value_tags_vec = value_tags_for_type(return_type);
 
             let return_kind = match return_type {
@@ -167,7 +167,7 @@ impl<'a> JitCompiler<'a> {
 
         let main_abi_function_id = self.abi_function_ids[0];
         let program_function_pointer = self.module.get_finalized_function(main_abi_function_id);
-        let main_return_type = &self.program.prototypes[0].function_type.return_type;
+        let main_return_type = &self.program.prototypes[0].return_type;
 
         let logic = match main_return_type {
             DustType::None => {
@@ -199,6 +199,7 @@ impl<'a> JitCompiler<'a> {
     fn compile_prototype(
         &mut self,
         prototype_id: PrototypeId,
+        argument_count: u16,
         recursive_calls: &FxHashSet<(u16, u16)>,
     ) -> Result<FuncId, JitError> {
         let prototype = &self.program.prototypes[prototype_id];
@@ -244,7 +245,7 @@ impl<'a> JitCompiler<'a> {
 
         let parameters = builder.block_params(entry_block).to_vec();
         let (struct_return_ptr, thread_context, base_register_index) =
-            if matches!(prototype.function_type.return_type, DustType::Struct { .. }) {
+            if matches!(prototype.return_type, DustType::Struct { .. }) {
                 (Some(parameters[0]), parameters[1], parameters[2])
             } else {
                 (None, parameters[0], parameters[1])
@@ -257,10 +258,9 @@ impl<'a> JitCompiler<'a> {
             ThreadContext::get_fields(thread_context, pointer_type, &mut builder);
 
         let mut ssa_registers = {
-            let function_parameter_count = prototype.function_type.value_parameters.len();
             let mut variables = Vec::with_capacity(prototype.register_count as usize);
 
-            for argument_index in 0..function_parameter_count {
+            for argument_index in 0..argument_count {
                 let variable = builder.declare_var(I64);
                 let argument_value = builder.ins().load(
                     I64,
@@ -273,7 +273,7 @@ impl<'a> JitCompiler<'a> {
                 variables.push(variable);
             }
 
-            for _ in function_parameter_count..prototype.register_count as usize {
+            for _ in argument_count as usize..prototype.register_count as usize {
                 variables.push(builder.declare_var(I64));
             }
 
@@ -324,7 +324,7 @@ impl<'a> JitCompiler<'a> {
         let pointer_type = self.module.isa().pointer_type();
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
-        match prototype.function_type.return_type {
+        match prototype.return_type {
             DustType::Struct { .. } => {
                 signature.params.push(AbiParam::special(
                     pointer_type,
@@ -337,7 +337,7 @@ impl<'a> JitCompiler<'a> {
                 signature.params.push(AbiParam::new(pointer_type)); // ThreadContext
                 signature.params.push(AbiParam::new(I64)); // Base register index
 
-                if !matches!(prototype.function_type.return_type, DustType::None) {
+                if !matches!(prototype.return_type, DustType::None) {
                     signature.returns.push(AbiParam::new(I64));
                 }
             }

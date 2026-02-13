@@ -294,11 +294,12 @@ impl<'a> Emitter<'a> {
             .resolver
             .declarations
             .get_declaration_type(&self.function_declaration_id)?;
-        let function_type = {
+        let return_type = {
             let get_type = self
                 .resolver
                 .get_full_type(type_id, self.source)?
-                .into_function_type();
+                .into_function_type()
+                .map(|function_type| function_type.return_type);
 
             if let Some(function_type) = get_type {
                 function_type
@@ -315,12 +316,10 @@ impl<'a> Emitter<'a> {
         };
 
         Ok(Prototype {
-            symbol_id: declaration.symbol_id,
-            prototype_id: self.prototype_id,
-            function_type,
             instructions: self.instructions,
             call_arguments: self.call_arguments,
             drops: self.drop_lists,
+            return_type,
             register_count: self.top_emitted_register,
         })
     }

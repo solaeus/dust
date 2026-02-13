@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{constant_table::ConstantTable, prototype::PrototypeList, syntax::SyntaxTree};
 
 pub enum DustCrate {
@@ -7,6 +9,7 @@ pub enum DustCrate {
     Library(Vec<SyntaxTree>),
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Program {
     name: String,
     pub prototypes: PrototypeList,

@@ -1,5 +1,6 @@
 pub mod declaration_graph;
 pub mod scope_graph;
+pub mod symbol_table;
 pub mod type_graph;
 
 use std::collections::{HashMap, HashSet};
@@ -18,10 +19,10 @@ use crate::{
             ModuleKind,
         },
         scope_graph::{Scope, ScopeGraph, ScopeId, ScopeKind},
+        symbol_table::{SymbolId, SymbolTable},
         type_graph::{TypeGraph, TypeId, TypeMembers, TypeNode},
     },
     source::{Position, Source},
-    symbol_table::{SymbolId, SymbolTable},
     syntax::{SyntaxId, SyntaxReader},
 };
 

@@ -27,7 +27,6 @@ mod constant_table;
 mod instruction;
 mod native_function;
 mod resolver;
-mod symbol_table;
 
 #[cfg(test)]
 mod tests;

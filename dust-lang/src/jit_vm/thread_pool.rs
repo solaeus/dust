@@ -379,9 +379,7 @@ fn run_thread(
         }
     }
 
-    let return_type = &program.prototypes[prototype_id as usize]
-        .function_type
-        .return_type;
+    let return_type = &program.prototypes[prototype_id as usize].return_type;
 
     if return_type == &DustType::None {
         return Ok(None);

@@ -7,9 +7,8 @@ use crate::{
     compiler::error::{CompileError, InternalCompileError},
     native_function::NativeFunction,
     prototype::PrototypeId,
-    resolver::{TypeId, scope_graph::ScopeId},
+    resolver::{TypeId, scope_graph::ScopeId, symbol_table::SymbolId},
     source::Position,
-    symbol_table::SymbolId,
 };
 
 #[derive(Debug)]

@@ -14,23 +14,21 @@ use std::{
 };
 
 use rustc_hash::FxBuildHasher;
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    dust_type::DustFunctionType,
-    instruction::{Address, Instruction, MemoryKind, OperandType, Operation},
-    symbol_table::SymbolId,
+    dust_type::DustType,
+    instruction::{Address, Call, Instruction, MemoryKind, OperandType, Operation},
 };
 
 /// Compiled representation of a Dust function.
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Prototype {
-    pub(crate) prototype_id: PrototypeId,
-    pub(crate) symbol_id: SymbolId,
-    pub(crate) function_type: DustFunctionType,
-
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) call_arguments: Vec<(Address, OperandType)>,
     pub(crate) drops: Vec<u16>,
+
+    pub(crate) return_type: DustType,
 
     pub(crate) register_count: u16,
 }
@@ -38,18 +36,16 @@ pub struct Prototype {
 impl Prototype {
     pub(crate) fn dummy() -> Self {
         Self {
-            prototype_id: PrototypeId(0),
-            symbol_id: SymbolId::DUMMY,
-            function_type: DustFunctionType::default(),
             instructions: Vec::new(),
             call_arguments: Vec::new(),
             drops: Vec::new(),
+            return_type: DustType::None,
             register_count: 0,
         }
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PrototypeList {
     prototypes: Vec<Prototype>,
 }
@@ -100,11 +96,9 @@ impl PrototypeList {
     }
 
     // https://en.wikipedia.org/wiki/Tarjan's_strongly_connected_components_algorithm
-    pub fn get_compile_order_and_recursive_calls(
-        &self,
-    ) -> (Vec<PrototypeId>, HashSet<(u16, u16), FxBuildHasher>) {
+    pub fn get_compile_info(&self) -> PrototypeCompileInfo {
         struct Tarjan<'a> {
-            order: Vec<PrototypeId>,
+            compile_order: Vec<PrototypeId>,
             edges: &'a [HashSet<PrototypeId, FxBuildHasher>],
             index_counter: usize,
             call_stack: Vec<PrototypeId>,
@@ -157,7 +151,7 @@ impl PrototypeList {
 
                         self.on_stack[top_index] = false;
                         self.scc_id[top_index] = self.scc_count;
-                        self.order.push(top);
+                        self.compile_order.push(top);
                         if top_index == current_index {
                             break;
                         }
@@ -169,16 +163,21 @@ impl PrototypeList {
 
         let prototype_count = self.prototypes.len();
         let mut edges = vec![HashSet::default(); prototype_count];
+        let mut argument_counts = vec![0; prototype_count];
 
         for (caller_index, prototype) in self.prototypes.iter().enumerate() {
             for instruction in &prototype.instructions {
                 if instruction.operation() == Operation::CALL {
-                    let callee_id = PrototypeId(instruction.b_field());
-                    let callee_index = instruction.b_field() as usize;
+                    let Call {
+                        callee,
+                        argument_count,
+                        ..
+                    } = Call::from(instruction);
 
-                    if callee_index < prototype_count {
-                        edges[caller_index].insert(callee_id);
-                    }
+                    let callee_id = PrototypeId(callee.index);
+
+                    edges[caller_index].insert(callee_id);
+                    argument_counts[caller_index] = argument_count;
                 }
             }
         }
@@ -192,7 +191,7 @@ impl PrototypeList {
             lowlinks: vec![usize::MAX; prototype_count],
             scc_id: vec![usize::MAX; prototype_count],
             scc_count: 0,
-            order: Vec::with_capacity(prototype_count),
+            compile_order: Vec::with_capacity(prototype_count),
         };
 
         tarjan.visit(PrototypeId::MAIN);
@@ -211,8 +210,18 @@ impl PrototypeList {
             }
         }
 
-        (tarjan.order, recursive_calls)
+        PrototypeCompileInfo {
+            compile_order: tarjan.compile_order,
+            argument_counts,
+            recursive_calls,
+        }
     }
+}
+
+pub struct PrototypeCompileInfo {
+    pub compile_order: Vec<PrototypeId>,
+    pub argument_counts: Vec<u16>,
+    pub recursive_calls: HashSet<(u16, u16), FxBuildHasher>,
 }
 
 impl Borrow<[Prototype]> for PrototypeList {

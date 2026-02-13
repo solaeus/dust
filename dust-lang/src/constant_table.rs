@@ -5,10 +5,11 @@ use std::{
 
 use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
+use serde::{Deserialize, Serialize};
 
 use crate::instruction::OperandType;
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ConstantTable {
     payloads: IndexMap<ConstantKey, u64, FxBuildHasher>,
     tags: Vec<OperandType>,
@@ -241,7 +242,7 @@ impl ConstantId {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum ConstantKey {
     Payload(u64, OperandType),
     Bytes(u64),
