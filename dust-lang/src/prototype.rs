@@ -16,17 +16,17 @@ use std::{
 use rustc_hash::FxBuildHasher;
 
 use crate::{
-    compiler::Symbol,
+    dust_type::DustFunctionType,
     instruction::{Address, Instruction, MemoryKind, OperandType, Operation},
-    r#type::FunctionType,
+    symbol_table::SymbolId,
 };
 
 /// Compiled representation of a Dust function.
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Prototype {
     pub(crate) id: PrototypeId,
-    pub(crate) symbol: Symbol,
-    pub(crate) function_type: FunctionType,
+    pub(crate) symbol: SymbolId,
+    pub(crate) function_type: DustFunctionType,
 
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) call_arguments: Vec<(Address, OperandType)>,
@@ -39,8 +39,8 @@ impl Prototype {
     pub(crate) fn dummy() -> Self {
         Self {
             id: PrototypeId(0),
-            symbol: Symbol::DUMMY,
-            function_type: FunctionType::default(),
+            symbol: SymbolId::DUMMY,
+            function_type: DustFunctionType::default(),
             instructions: Vec::new(),
             call_arguments: Vec::new(),
             drops: Vec::new(),
@@ -78,7 +78,7 @@ impl PrototypeList {
     }
 
     pub fn is_read_only(&self) -> bool {
-        self.prototypes[0].symbol != Symbol::DUMMY
+        self.prototypes[0].symbol != SymbolId::DUMMY
     }
 
     pub(crate) fn set_main(&mut self, prototype: Prototype) {

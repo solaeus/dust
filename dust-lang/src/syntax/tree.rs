@@ -10,7 +10,7 @@ use crate::{
     source::SourceFileId,
 };
 
-/// Lossless abstract syntax tree representing a Dust source code file.
+/// A parsed Dust source code file.
 #[derive(Clone, Debug)]
 pub struct SyntaxTree {
     pub file_id: SourceFileId,

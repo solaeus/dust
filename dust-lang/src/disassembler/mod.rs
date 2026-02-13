@@ -12,10 +12,10 @@ use ratatui::{
 };
 
 use crate::{
-    compiler::Resolver,
     dust_crate::Program,
     parser::syntax::{Syntax, SyntaxTree},
     prototype::Prototype,
+    resolver::Resolver,
     source::{Source, SourceFile},
 };
 
@@ -94,7 +94,7 @@ impl<'a> Disassembler<'a> {
         }
 
         for (index, prototype) in self.program.prototypes.iter().enumerate() {
-            let prototype_name = match self.resolver.get_symbol_name(&prototype.symbol) {
+            let prototype_name = match self.resolver.symbols.get_symbol(&prototype.symbol) {
                 Ok(name) => name.to_string(),
                 Err(_) => format!("proto_{index}"),
             };

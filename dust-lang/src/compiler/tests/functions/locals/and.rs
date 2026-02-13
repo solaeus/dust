@@ -2,10 +2,10 @@ use crate::compiler::Symbol;
 
 use crate::{
     compiler::compile,
+    dust_type::{DustType, FunctionDustType},
     instruction::{Address, Instruction, OperandType},
     prototype::{Prototype, PrototypeId},
     tests::{create_function_case, local_cases},
-    r#type::{FunctionType, Type},
 };
 
 #[test]
@@ -19,7 +19,7 @@ fn local_boolean_and() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#move(1, Address::encoded(false as u16), OperandType::BOOLEAN),

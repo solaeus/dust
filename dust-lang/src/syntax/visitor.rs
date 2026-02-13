@@ -1,5 +1,5 @@
 use crate::{
-    compiler::CompileError,
+    compiler::error::CompileError,
     parser::syntax::{SyntaxError, SyntaxKind, SyntaxReader},
 };
 

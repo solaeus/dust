@@ -13,8 +13,7 @@ name = "dust"
 path = "src/main.rs"
 
 [features]
-default = ["global-mimalloc"]
-global-mimalloc = ["dust-lang/global-mimalloc"]
+mimalloc = ["dust-lang/mimalloc"]
 
 [dependencies]
 clap = { version = "4.5.47", features = [

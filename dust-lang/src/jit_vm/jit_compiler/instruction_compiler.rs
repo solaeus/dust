@@ -16,6 +16,7 @@ use smallvec::SmallVec;
 use crate::{
     constant_table::{ConstantId, ConstantTable},
     dust_crate::Program,
+    dust_type::DustType,
     instruction::{
         Add, Address, Call, CallNative, Divide, Drop, GetList, Instruction, Jump, MemoryKind,
         Modulo, Move, Multiply, Negate, NewList, OperandType, Operation, Power, Reference, Return,
@@ -27,7 +28,6 @@ use crate::{
     },
     native_function::NativeFunction,
     prototype::{Prototype, PrototypeId},
-    r#type::Type,
 };
 
 pub struct InstructionCompiler<'a> {
@@ -416,7 +416,7 @@ impl<'a> InstructionCompiler<'a> {
                 let callee_prototype = &self.program.prototypes[prototype_id];
                 let callee_returns_struct = matches!(
                     callee_prototype.function_type.return_type,
-                    Type::Struct { .. }
+                    DustType::Struct { .. }
                 );
                 let callee_return_count = super::return_word_count_for_prototype(
                     &callee_prototype.function_type.return_type,
@@ -1494,8 +1494,8 @@ impl<'a> InstructionCompiler<'a> {
 
         let return_type = &self.prototype.function_type.return_type;
         let return_values = match return_type {
-            Type::None => Vec::new(),
-            Type::Struct { .. } => {
+            DustType::None => Vec::new(),
+            DustType::Struct { .. } => {
                 if operand.memory != MemoryKind::REGISTER {
                     return Err(JitError::UnsupportedMemoryKind {
                         memory_kind: operand.memory,
@@ -1535,7 +1535,7 @@ impl<'a> InstructionCompiler<'a> {
             }
         };
 
-        if matches!(return_type, Type::Struct { .. }) {
+        if matches!(return_type, DustType::Struct { .. }) {
             let struct_return_ptr = self.struct_return_ptr.ok_or(JitError::MissingReturnValue)?;
 
             for (index, value) in return_values.iter().enumerate() {

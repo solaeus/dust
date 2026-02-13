@@ -9,7 +9,7 @@ repository.workspace = true
 version.workspace = true
 
 [features]
-global-mimalloc = []
+mimalloc = []
 
 [dependencies]
 annotate-snippets = "0.12.3"

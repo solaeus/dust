@@ -1,9 +1,9 @@
 use crate::{
     compiler::{Symbol, compile},
+    dust_type::{DustType, FunctionDustType},
     instruction::{Address, Instruction, OperandType},
     prototype::{Prototype, PrototypeId},
     tests::{constant_cases, create_function_case},
-    r#type::{FunctionType, Type},
 };
 
 #[test]
@@ -17,7 +17,7 @@ fn boolean() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -38,7 +38,7 @@ fn byte() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Byte),
+            function_type: DustFunctionType::new([], [], DustType::Byte),
             instructions: vec![Instruction::r#return(
                 Address::encoded(42),
                 OperandType::BYTE
@@ -59,7 +59,7 @@ fn character() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Character),
+            function_type: DustFunctionType::new([], [], DustType::Character),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::CHARACTER
@@ -80,7 +80,7 @@ fn float() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Float),
+            function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::FLOAT
@@ -101,7 +101,7 @@ fn integer() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::INTEGER
@@ -122,7 +122,7 @@ fn string() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::String),
+            function_type: DustFunctionType::new([], [], DustType::String),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::STRING
@@ -143,7 +143,7 @@ fn constant_byte_addition() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Byte),
+            function_type: DustFunctionType::new([], [], DustType::Byte),
             instructions: vec![Instruction::r#return(
                 Address::encoded(42),
                 OperandType::BYTE
@@ -164,7 +164,7 @@ fn constant_float_addition() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Float),
+            function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::FLOAT
@@ -188,7 +188,7 @@ fn constant_integer_addition() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::INTEGER
@@ -209,7 +209,7 @@ fn constant_byte_subtraction() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Byte),
+            function_type: DustFunctionType::new([], [], DustType::Byte),
             instructions: vec![Instruction::r#return(
                 Address::encoded(42),
                 OperandType::BYTE
@@ -233,7 +233,7 @@ fn constant_float_subtraction() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Float),
+            function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::FLOAT
@@ -257,7 +257,7 @@ fn constant_integer_subtraction() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::INTEGER
@@ -281,7 +281,7 @@ fn constant_byte_multiplication() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Byte),
+            function_type: DustFunctionType::new([], [], DustType::Byte),
             instructions: vec![Instruction::r#return(
                 Address::encoded(42),
                 OperandType::BYTE
@@ -305,7 +305,7 @@ fn constant_float_multiplication() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Float),
+            function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::FLOAT
@@ -329,7 +329,7 @@ fn constant_integer_multiplication() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::INTEGER
@@ -350,7 +350,7 @@ fn constant_byte_division() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Byte),
+            function_type: DustFunctionType::new([], [], DustType::Byte),
             instructions: vec![Instruction::r#return(
                 Address::encoded(42),
                 OperandType::BYTE
@@ -371,7 +371,7 @@ fn constant_float_division() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Float),
+            function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::FLOAT
@@ -395,7 +395,7 @@ fn constant_integer_division() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::INTEGER
@@ -416,7 +416,7 @@ fn constant_byte_modulo() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Byte),
+            function_type: DustFunctionType::new([], [], DustType::Byte),
             instructions: vec![Instruction::r#return(
                 Address::encoded(4),
                 OperandType::BYTE
@@ -437,7 +437,7 @@ fn constant_float_modulo() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Float),
+            function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::FLOAT
@@ -461,7 +461,7 @@ fn constant_integer_modulo() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::INTEGER
@@ -485,7 +485,7 @@ fn constant_integer_negation() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::INTEGER
@@ -506,7 +506,7 @@ fn constant_float_negation() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Float),
+            function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::FLOAT
@@ -530,7 +530,7 @@ fn constant_string_concatenation() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::String),
+            function_type: DustFunctionType::new([], [], DustType::String),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::STRING
@@ -554,7 +554,7 @@ fn constant_character_concatentation() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::String),
+            function_type: DustFunctionType::new([], [], DustType::String),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::STRING
@@ -578,7 +578,7 @@ fn constant_string_character_concatenation() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::String),
+            function_type: DustFunctionType::new([], [], DustType::String),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::STRING
@@ -602,7 +602,7 @@ fn constant_character_string_concatenation() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::String),
+            function_type: DustFunctionType::new([], [], DustType::String),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::STRING
@@ -623,7 +623,7 @@ fn constant_boolean_and() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(false as u16),
                 OperandType::BOOLEAN
@@ -644,7 +644,7 @@ fn constant_boolean_or() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -665,7 +665,7 @@ fn constant_boolean_not() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(false as u16),
                 OperandType::BOOLEAN
@@ -689,7 +689,7 @@ fn constant_boolean_greater_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -713,7 +713,7 @@ fn constant_boolean_less_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -737,7 +737,7 @@ fn constant_boolean_greater_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -761,7 +761,7 @@ fn constant_boolean_less_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -782,7 +782,7 @@ fn constant_boolean_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -806,7 +806,7 @@ fn constant_boolean_not_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -830,7 +830,7 @@ fn constant_byte_greater_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -854,7 +854,7 @@ fn constant_byte_less_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -878,7 +878,7 @@ fn constant_byte_greater_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -902,7 +902,7 @@ fn constant_byte_less_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -923,7 +923,7 @@ fn constant_byte_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -947,7 +947,7 @@ fn constant_byte_not_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -971,7 +971,7 @@ fn constant_character_greater_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -995,7 +995,7 @@ fn constant_character_less_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1019,7 +1019,7 @@ fn constant_character_greater_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1043,7 +1043,7 @@ fn constant_character_less_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1067,7 +1067,7 @@ fn constant_character_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1091,7 +1091,7 @@ fn constant_character_not_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1115,7 +1115,7 @@ fn constant_float_greater_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1139,7 +1139,7 @@ fn constant_float_less_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1163,7 +1163,7 @@ fn constant_float_greater_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1187,7 +1187,7 @@ fn constant_float_less_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1208,7 +1208,7 @@ fn constant_float_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1232,7 +1232,7 @@ fn constant_float_not_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1256,7 +1256,7 @@ fn constant_integer_greater_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1280,7 +1280,7 @@ fn constant_integer_less_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1304,7 +1304,7 @@ fn constant_integer_greater_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1328,7 +1328,7 @@ fn constant_integer_less_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1349,7 +1349,7 @@ fn constant_integer_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1373,7 +1373,7 @@ fn constant_integer_not_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1397,7 +1397,7 @@ fn constant_string_greater_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(false as u16),
                 OperandType::BOOLEAN
@@ -1421,7 +1421,7 @@ fn constant_string_less_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(false as u16),
                 OperandType::BOOLEAN
@@ -1445,7 +1445,7 @@ fn constant_string_greater_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1469,7 +1469,7 @@ fn constant_string_less_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1490,7 +1490,7 @@ fn constant_string_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN
@@ -1514,7 +1514,7 @@ fn constant_string_not_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![Instruction::r#return(
                 Address::encoded(true as u16),
                 OperandType::BOOLEAN

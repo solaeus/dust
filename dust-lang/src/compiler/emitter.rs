@@ -11,6 +11,7 @@ use crate::{
         resolver::{DeclarationId, ScopeId, TypeId, TypeNode},
     },
     constant_table::{ConstantId, ConstantTable},
+    dust_type::DustType,
     instruction::{Address, Drop, Instruction, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
     parser::syntax::{
@@ -19,7 +20,6 @@ use crate::{
     },
     prototype::{Prototype, PrototypeId, PrototypeList},
     source::{Position, Source, SourceFileId, Span},
-    r#type::Type,
 };
 
 #[derive(Debug)]
@@ -1649,14 +1649,14 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting struct expression");
 
-        fn flatten_leaf_operand_types(r#type: &Type, out: &mut Vec<OperandType>) {
+        fn flatten_leaf_operand_types(r#type: &DustType, out: &mut Vec<OperandType>) {
             match r#type {
-                Type::Struct { fields, .. } => {
+                DustType::Struct { fields, .. } => {
                     for (_, field_type) in fields {
                         flatten_leaf_operand_types(field_type, out);
                     }
                 }
-                Type::None => {}
+                DustType::None => {}
                 other => out.push(other.as_operand_type()),
             }
         }
@@ -1671,7 +1671,7 @@ impl SyntaxVisitor for Emitter<'_> {
             let field_type_id = *self.resolver.get_type_binding(&field_expression.id)?;
             let field_full_type = self.resolver.get_full_type(field_type_id, self.source)?;
 
-            let is_struct_field = matches!(field_full_type, Type::Struct { .. });
+            let is_struct_field = matches!(field_full_type, DustType::Struct { .. });
 
             let mut leaf_types = Vec::new();
 

@@ -3,8 +3,8 @@ use cranelift_module::ModuleError;
 
 use crate::{
     dust_error::AnnotatedError,
+    dust_type::Type,
     instruction::{MemoryKind, OperandType, Operation},
-    r#type::Type,
 };
 
 #[derive(Debug)]
@@ -54,7 +54,7 @@ pub enum JitError {
         expected_type: OperandType,
     },
     InvalidObjectType {
-        expected: Type,
+        expected: DustType,
     },
     InvalidObjectValue {
         expected: OperandType,

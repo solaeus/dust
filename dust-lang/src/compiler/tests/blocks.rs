@@ -1,10 +1,10 @@
 use crate::compiler::Symbol;
 use crate::{
     compiler::compile_main,
+    dust_type::{DustFunctionType, DustType},
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::block_cases,
-    r#type::{FunctionType, Type},
 };
 
 #[test]
@@ -16,7 +16,7 @@ fn empty_block() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: DustFunctionType::new([], [], DustType::None),
             instructions: vec![Instruction::r#return(Address::default(), OperandType::NONE)],
             ..Prototype::dummy()
         }
@@ -32,7 +32,7 @@ fn block_expression() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::INTEGER
@@ -51,7 +51,7 @@ fn block_statement() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: DustFunctionType::new([], [], DustType::None),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(Address::default(), OperandType::NONE),
@@ -71,7 +71,7 @@ fn block_statement_and_expression() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::add(
@@ -97,7 +97,7 @@ fn parent_scope_access() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(Address::register(0), OperandType::INTEGER),
@@ -117,7 +117,7 @@ fn nested_parrent_scope_access() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -144,7 +144,7 @@ fn scope_shadowing() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -165,7 +165,7 @@ fn scope_deshadowing() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),

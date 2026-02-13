@@ -1,10 +1,10 @@
 use crate::compiler::Symbol;
 use crate::{
     compiler::compile_main,
+    dust_type::{DustFunctionType, Type},
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::local_cases,
-    r#type::{FunctionType, Type},
 };
 
 #[test]
@@ -16,7 +16,7 @@ fn local_boolean_equal() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#move(1, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -51,7 +51,7 @@ fn local_byte_equal() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(0x2A), OperandType::BYTE),
                 Instruction::r#move(1, Address::encoded(0x2A), OperandType::BYTE),
@@ -86,7 +86,7 @@ fn local_character_equal() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
                 Instruction::r#move(1, Address::constant(0), OperandType::CHARACTER),
@@ -121,7 +121,7 @@ fn local_float_equal() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
                 Instruction::r#move(1, Address::constant(0), OperandType::FLOAT),
@@ -156,7 +156,7 @@ fn local_integer_equal() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
@@ -191,7 +191,7 @@ fn local_string_equal() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
                 Instruction::r#move(1, Address::constant(0), OperandType::STRING),

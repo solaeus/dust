@@ -3,8 +3,8 @@ mod instruction_compiler;
 use std::mem::transmute;
 
 use super::thread_pool::JitPrototype;
+use crate::dust_type::DustType;
 use crate::prototype::PrototypeId;
-use crate::r#type::Type;
 use crate::{jit_vm::RegisterTag, prototype::Prototype};
 
 use cranelift::{
@@ -150,8 +150,8 @@ impl<'a> JitCompiler<'a> {
             let return_value_tags_vec = value_tags_for_type(return_type);
 
             let return_kind = match return_type {
-                Type::None => 0,
-                Type::Struct { .. } => 2,
+                DustType::None => 0,
+                DustType::Struct { .. } => 2,
                 _ => 1,
             };
 
@@ -170,14 +170,14 @@ impl<'a> JitCompiler<'a> {
         let main_return_type = &self.program.prototypes[0].function_type.return_type;
 
         let logic = match main_return_type {
-            Type::None => {
+            DustType::None => {
                 let logic = unsafe {
                     transmute::<*const u8, JitFunctionReturnNone>(program_function_pointer)
                 };
 
                 JitFunction::None(logic)
             }
-            Type::Struct { .. } => {
+            DustType::Struct { .. } => {
                 let logic = unsafe {
                     transmute::<*const u8, JitFunctionReturnStruct>(program_function_pointer)
                 };
@@ -244,7 +244,7 @@ impl<'a> JitCompiler<'a> {
 
         let parameters = builder.block_params(entry_block).to_vec();
         let (struct_return_ptr, thread_context, base_register_index) =
-            if matches!(prototype.function_type.return_type, Type::Struct { .. }) {
+            if matches!(prototype.function_type.return_type, DustType::Struct { .. }) {
                 (Some(parameters[0]), parameters[1], parameters[2])
             } else {
                 (None, parameters[0], parameters[1])
@@ -325,7 +325,7 @@ impl<'a> JitCompiler<'a> {
         let mut signature = Signature::new(self.module.isa().default_call_conv());
 
         match prototype.function_type.return_type {
-            Type::Struct { .. } => {
+            DustType::Struct { .. } => {
                 signature.params.push(AbiParam::special(
                     pointer_type,
                     ArgumentPurpose::StructReturn,
@@ -337,7 +337,7 @@ impl<'a> JitCompiler<'a> {
                 signature.params.push(AbiParam::new(pointer_type)); // ThreadContext
                 signature.params.push(AbiParam::new(I64)); // Base register index
 
-                if !matches!(prototype.function_type.return_type, Type::None) {
+                if !matches!(prototype.function_type.return_type, DustType::None) {
                     signature.returns.push(AbiParam::new(I64));
                 }
             }
@@ -381,17 +381,17 @@ pub enum JitFunction {
     Struct(JitFunctionReturnStruct),
 }
 
-fn value_tags_for_type(r#type: &Type) -> Vec<RegisterTag> {
+fn value_tags_for_type(r#type: &DustType) -> Vec<RegisterTag> {
     match r#type {
-        Type::None => vec![RegisterTag::EMPTY],
-        Type::Boolean
-        | Type::Byte
-        | Type::Character
-        | Type::Float
-        | Type::Integer
-        | Type::Function(_) => vec![RegisterTag::SCALAR],
-        Type::String | Type::List(_) => vec![RegisterTag::OBJECT],
-        Type::Struct { fields, .. } => {
+        DustType::None => vec![RegisterTag::EMPTY],
+        DustType::Boolean
+        | DustType::Byte
+        | DustType::Character
+        | DustType::Float
+        | DustType::Integer
+        | DustType::Function(_) => vec![RegisterTag::SCALAR],
+        DustType::String | DustType::List(_) => vec![RegisterTag::OBJECT],
+        DustType::Struct { fields, .. } => {
             let mut tags = Vec::new();
 
             for (_, field_type) in fields {
@@ -403,6 +403,6 @@ fn value_tags_for_type(r#type: &Type) -> Vec<RegisterTag> {
     }
 }
 
-fn return_word_count_for_prototype(return_type: &Type) -> usize {
+fn return_word_count_for_prototype(return_type: &DustType) -> usize {
     value_tags_for_type(return_type).len()
 }

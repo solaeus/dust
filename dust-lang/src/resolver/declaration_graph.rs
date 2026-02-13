@@ -1,0 +1,230 @@
+use std::{collections::HashMap, ops::Range};
+
+use indexmap::IndexMap;
+use rustc_hash::FxBuildHasher;
+
+use crate::{
+    compiler::error::{CompileError, InternalCompileError},
+    native_function::NativeFunction,
+    prototype::PrototypeId,
+    resolver::{TypeId, scope_graph::ScopeId},
+    source::Position,
+    symbol_table::SymbolId,
+};
+
+#[derive(Debug)]
+pub struct DeclarationGraph {
+    declarations: IndexMap<DeclarationKey, DeclarationValue, FxBuildHasher>,
+    declaration_members: Vec<DeclarationId>,
+    declaration_types: HashMap<DeclarationId, TypeId, FxBuildHasher>,
+    declaration_prototypes: HashMap<DeclarationId, PrototypeId, FxBuildHasher>,
+}
+
+impl DeclarationGraph {
+    pub fn new() -> Self {
+        Self {
+            declarations: IndexMap::with_capacity_and_hasher(0, FxBuildHasher::default()),
+            declaration_members: Vec::new(),
+            declaration_types: HashMap::with_capacity_and_hasher(0, FxBuildHasher::default()),
+            declaration_prototypes: HashMap::with_capacity_and_hasher(0, FxBuildHasher::default()),
+        }
+    }
+
+    pub fn add_declaration(&mut self, declaration: Declaration) -> DeclarationId {
+        let parent = if let DeclarationKind::Type { parent } = declaration.kind {
+            parent
+        } else {
+            None
+        };
+        let key = DeclarationKey {
+            symbol: declaration.symbol,
+            scope_id: declaration.scope_id,
+            parent,
+        };
+
+        if let Some((existing_index, _, _)) = self.declarations.get_full(&key) {
+            return DeclarationId(existing_index as u32);
+        }
+
+        let declaration_id = DeclarationId(self.declarations.len() as u32);
+        let value = DeclarationValue {
+            kind: declaration.kind,
+            is_public: declaration.is_public,
+            position: declaration.position,
+        };
+
+        self.declarations.insert(key, value);
+
+        declaration_id
+    }
+
+    pub fn get_declaration(&self, id: DeclarationId) -> Result<Declaration, CompileError> {
+        self.declarations
+            .get_index(id.0 as usize)
+            .map(|(key, value)| Declaration::from_key_and_value(*key, *value))
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingDeclaration(id),
+            ))
+    }
+
+    pub fn set_declaration_type(&mut self, declaration_id: DeclarationId, type_id: TypeId) {
+        self.declaration_types.insert(declaration_id, type_id);
+    }
+
+    pub fn get_declaration_type(
+        &self,
+        declaration_id: &DeclarationId,
+    ) -> Result<&TypeId, CompileError> {
+        self.declaration_types
+            .get(declaration_id)
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingDeclarationType(*declaration_id),
+            ))
+    }
+
+    pub fn set_declaration_prototype(
+        &mut self,
+        declaration_id: DeclarationId,
+        prototype_id: PrototypeId,
+    ) {
+        self.declaration_prototypes
+            .insert(declaration_id, prototype_id);
+    }
+
+    pub fn get_declaration_prototype(
+        &self,
+        declaration_id: &DeclarationId,
+    ) -> Option<&PrototypeId> {
+        self.declaration_prototypes.get(declaration_id)
+    }
+
+    pub fn add_declaration_members(
+        &mut self,
+        parameter_ids: &[DeclarationId],
+    ) -> DeclarationMembers {
+        let start = self.declaration_members.len() as u32;
+        let count = parameter_ids.len() as u32;
+
+        self.declaration_members.extend(parameter_ids);
+
+        DeclarationMembers { start, count }
+    }
+
+    pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, CompileError> {
+        self.declaration_members
+            .get(index as usize)
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingDeclarationMember(index),
+            ))
+    }
+
+    pub fn get_declaration_members(
+        &self,
+        members: DeclarationMembers,
+    ) -> Result<&[DeclarationId], CompileError> {
+        self.declaration_members
+            .get(members.as_usize_range())
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingDeclarationMembers(members),
+            ))
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DeclarationId(u32);
+
+impl DeclarationId {
+    pub const CORE: Self = DeclarationId(0);
+
+    pub fn inner(self) -> u32 {
+        self.0
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Declaration {
+    pub symbol: SymbolId,
+    pub kind: DeclarationKind,
+    pub scope_id: ScopeId,
+    pub is_public: bool,
+    pub position: Option<Position>,
+}
+
+impl Declaration {
+    fn from_key_and_value(key: DeclarationKey, value: DeclarationValue) -> Self {
+        Self {
+            symbol: key.symbol,
+            position: value.position,
+            kind: value.kind,
+            scope_id: key.scope_id,
+            is_public: value.is_public,
+        }
+    }
+
+    fn parent(&self) -> Option<DeclarationId> {
+        if let DeclarationKind::Type { parent } = self.kind {
+            parent
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum DeclarationKind {
+    Local {
+        shadowed: Option<DeclarationId>,
+        is_mutable: bool,
+    },
+    Module {
+        kind: ModuleKind,
+        inner_scope_id: ScopeId,
+    },
+    Function,
+    NativeFunction(NativeFunction),
+    Type {
+        parent: Option<DeclarationId>,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DeclarationMembers {
+    pub start: u32,
+    pub count: u32,
+}
+
+impl DeclarationMembers {
+    pub fn as_range(&self) -> Range<u32> {
+        let start = self.start;
+        let end = start.saturating_add(self.count);
+
+        Range { start, end }
+    }
+
+    pub fn as_usize_range(&self) -> Range<usize> {
+        let start = self.start as usize;
+        let end = start.saturating_add(self.count as usize);
+
+        start..end
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ModuleKind {
+    File,
+    Inline,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct DeclarationKey {
+    symbol: SymbolId,
+    parent: Option<DeclarationId>,
+    scope_id: ScopeId,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct DeclarationValue {
+    kind: DeclarationKind,
+    is_public: bool,
+    position: Option<Position>,
+}

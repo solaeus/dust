@@ -1,9 +1,9 @@
 use crate::{
     compiler::{Symbol, compile},
+    dust_type::{DustType, FunctionDustType},
     instruction::{Address, Instruction, OperandType},
     prototype::{Prototype, PrototypeId},
     tests::{create_function_case, if_else_cases},
-    r#type::{FunctionType, Type},
 };
 
 #[test]
@@ -17,7 +17,7 @@ fn if_else_true() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::test(Address::encoded(true as u16), true, 1),
                 Instruction::jump(1, true),
@@ -42,7 +42,7 @@ fn if_else_logical_and() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#move(1, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -69,7 +69,7 @@ fn if_else_logical_or() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(false as u16), OperandType::BOOLEAN),
                 Instruction::r#move(1, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -96,7 +96,7 @@ fn if_else_false() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::test(Address::encoded(false as u16), true, 1),
                 Instruction::jump(1, true),
@@ -121,7 +121,7 @@ fn if_else_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
@@ -153,7 +153,7 @@ fn if_else_not_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -185,7 +185,7 @@ fn if_else_less_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -217,7 +217,7 @@ fn if_else_greater_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -249,7 +249,7 @@ fn if_else_less_than_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
@@ -284,7 +284,7 @@ fn if_else_greater_than_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -316,7 +316,7 @@ fn if_else_if_chain_end() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -356,7 +356,7 @@ fn if_else_if_chain_middle() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
@@ -396,7 +396,7 @@ fn if_else_nested() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -436,7 +436,7 @@ fn if_else_double_nested() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),

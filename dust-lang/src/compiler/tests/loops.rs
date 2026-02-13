@@ -1,10 +1,10 @@
 use crate::compiler::Symbol;
 use crate::{
     compiler::compile_main,
+    dust_type::{DustFunctionType, Type},
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::loop_cases,
-    r#type::{FunctionType, Type},
 };
 
 #[test]
@@ -16,7 +16,7 @@ fn while_loop() {
         prototype,
         Prototype {
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::less(

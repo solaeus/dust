@@ -16,12 +16,12 @@ use tracing::{Level, debug, info, span};
 
 use crate::{
     dust_crate::Program,
+    dust_type::DustType,
     instruction::OperandType,
     jit_vm::{
         JitCompiler, JitError, JitFunction, Object, ObjectPool, Register, RegisterTag,
         object::ObjectValue,
     },
-    r#type::Type,
     value::{List, Value},
 };
 
@@ -383,7 +383,7 @@ fn run_thread(
     }
 
     let return_value = match return_type {
-        Type::None => None,
+        DustType::None => None,
         _ => {
             let (value, _) = decode_value_from_return_words(return_type, &return_registers, 0)?;
 
@@ -399,7 +399,7 @@ fn run_thread(
 
 fn get_list_from_object_index(
     object_pointer: *mut Object,
-    full_type: &Type,
+    full_type: &DustType,
 ) -> Result<List, JitError> {
     let object = unsafe { object_pointer.as_ref().ok_or(JitError::MissingReturnValue) }?;
 
@@ -410,7 +410,7 @@ fn get_list_from_object_index(
         ObjectValue::FloatList(floats) => Ok(List::Float(floats.clone())),
         ObjectValue::IntegerList(integers) => Ok(List::Integer(integers.clone())),
         ObjectValue::ObjectList(objects) => {
-            let item_type = if let Type::List(item_type) = full_type {
+            let item_type = if let DustType::List(item_type) = full_type {
                 item_type.as_ref()
             } else {
                 return Err(JitError::InvalidConstantType {
@@ -418,7 +418,7 @@ fn get_list_from_object_index(
                 });
             };
 
-            if item_type == &Type::String {
+            if item_type == &DustType::String {
                 let mut strings = Vec::with_capacity(objects.len());
 
                 for object_pointer in objects {
@@ -462,7 +462,8 @@ fn get_list_from_object_index(
                         let mut inner_lists = Vec::with_capacity(object_list.len());
 
                         for object_pointer in object_list {
-                            let inner_list_type = if let Type::List(inner_item_type) = item_type {
+                            let inner_list_type = if let DustType::List(inner_item_type) = item_type
+                            {
                                 inner_item_type.as_ref()
                             } else {
                                 return Err(JitError::InvalidObjectType {
@@ -496,21 +497,21 @@ fn get_list_from_object_index(
 }
 
 fn decode_value_from_return_words(
-    r#type: &Type,
+    r#type: &DustType,
     return_words: &[i64],
     start: usize,
 ) -> Result<(Value, usize), JitError> {
     match r#type {
-        Type::None => Err(JitError::MissingReturnValue),
-        Type::Boolean => Ok((Value::Boolean(return_words[start] != 0), 1)),
-        Type::Byte => Ok((Value::Byte(return_words[start] as u8), 1)),
-        Type::Character => Ok((
+        DustType::None => Err(JitError::MissingReturnValue),
+        DustType::Boolean => Ok((Value::Boolean(return_words[start] != 0), 1)),
+        DustType::Byte => Ok((Value::Byte(return_words[start] as u8), 1)),
+        DustType::Character => Ok((
             Value::Character(char::from_u32(return_words[start] as u32).unwrap_or_default()),
             1,
         )),
-        Type::Float => Ok((Value::Float(f64::from_bits(return_words[start] as u64)), 1)),
-        Type::Integer => Ok((Value::Integer(return_words[start]), 1)),
-        Type::String => {
+        DustType::Float => Ok((Value::Float(f64::from_bits(return_words[start] as u64)), 1)),
+        DustType::Integer => Ok((Value::Integer(return_words[start]), 1)),
+        DustType::String => {
             let string = unsafe { (return_words[start] as *const Object).as_ref() }
                 .ok_or(JitError::MissingReturnValue)?
                 .as_string()
@@ -519,13 +520,13 @@ fn decode_value_from_return_words(
 
             Ok((Value::String(string), 1))
         }
-        Type::List(_) => {
+        DustType::List(_) => {
             let object_pointer = return_words[start] as *mut Object;
             let list = get_list_from_object_index(object_pointer, r#type)?;
 
             Ok((Value::List(list), 1))
         }
-        Type::Struct { name, fields } => {
+        DustType::Struct { name, fields } => {
             let mut offset = start;
             let mut field_values = Vec::with_capacity(fields.len());
 
@@ -545,6 +546,6 @@ fn decode_value_from_return_words(
                 offset - start,
             ))
         }
-        Type::Function(_) => todo!("Error"),
+        DustType::Function(_) => todo!("Error"),
     }
 }

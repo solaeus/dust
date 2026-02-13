@@ -1,9 +1,9 @@
 use crate::{
     compiler::{Symbol, compile},
+    dust_type::{DustType, FunctionDustType},
     instruction::{Address, Instruction, OperandType},
     prototype::{Prototype, PrototypeId},
     tests::{block_cases, create_function_case},
-    r#type::{FunctionType, Type},
 };
 
 #[test]
@@ -17,7 +17,7 @@ fn empty_block() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: DustFunctionType::new([], [], DustType::None),
             instructions: vec![Instruction::r#return(Address::default(), OperandType::NONE)],
             ..Prototype::dummy()
         }
@@ -35,7 +35,7 @@ fn block_expression() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
                 OperandType::INTEGER
@@ -56,7 +56,7 @@ fn block_statement() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::None),
+            function_type: DustFunctionType::new([], [], DustType::None),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(Address::default(), OperandType::NONE),
@@ -81,7 +81,7 @@ fn block_statement_and_expression() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::add(
@@ -109,7 +109,7 @@ fn parent_scope_access() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(Address::register(0), OperandType::INTEGER),
@@ -134,7 +134,7 @@ fn nested_parrent_scope_access() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -163,7 +163,7 @@ fn scope_shadowing() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -186,7 +186,7 @@ fn scope_deshadowing() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),

@@ -1,9 +1,9 @@
 use crate::{
     compiler::{Symbol, compile},
+    dust_type::{DustType, FunctionDustType},
     instruction::{Address, Instruction, OperandType},
     prototype::{Prototype, PrototypeId},
     tests::{create_function_case, list_cases},
-    r#type::{FunctionType, Type},
 };
 
 #[test]
@@ -17,7 +17,7 @@ fn list_boolean() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::list(Type::Boolean)),
+            function_type: DustFunctionType::new([], [], DustType::list(DustType::Boolean)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
                 Instruction::set_list(
@@ -57,7 +57,7 @@ fn list_byte() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::list(Type::Byte)),
+            function_type: DustFunctionType::new([], [], DustType::list(DustType::Byte)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BYTE),
                 Instruction::set_list(
@@ -97,7 +97,7 @@ fn list_character() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::list(Type::Character)),
+            function_type: DustFunctionType::new([], [], DustType::list(DustType::Character)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_CHARACTER),
                 Instruction::set_list(
@@ -137,7 +137,7 @@ fn list_float() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::list(Type::Float)),
+            function_type: DustFunctionType::new([], [], DustType::list(DustType::Float)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_FLOAT),
                 Instruction::set_list(
@@ -177,7 +177,7 @@ fn list_integer() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::list(Type::Integer)),
+            function_type: DustFunctionType::new([], [], DustType::list(DustType::Integer)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_INTEGER),
                 Instruction::set_list(
@@ -217,7 +217,7 @@ fn list_string() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::list(Type::String)),
+            function_type: DustFunctionType::new([], [], DustType::list(DustType::String)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_STRING),
                 Instruction::set_list(
@@ -257,7 +257,7 @@ fn list_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
                 Instruction::set_list(
@@ -318,7 +318,7 @@ fn list_not_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BYTE),
                 Instruction::set_list(
@@ -379,7 +379,7 @@ fn list_greater_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_CHARACTER),
                 Instruction::set_list(
@@ -440,7 +440,7 @@ fn list_less_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_FLOAT),
                 Instruction::set_list(
@@ -501,7 +501,7 @@ fn list_greater_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_INTEGER),
                 Instruction::set_list(
@@ -562,7 +562,7 @@ fn list_less_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_STRING),
                 Instruction::set_list(
@@ -623,7 +623,7 @@ fn list_index_boolean() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
                 Instruction::set_list(
@@ -669,7 +669,7 @@ fn list_index_byte() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Byte),
+            function_type: DustFunctionType::new([], [], DustType::Byte),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BYTE),
                 Instruction::set_list(
@@ -715,7 +715,7 @@ fn list_index_character() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Character),
+            function_type: DustFunctionType::new([], [], DustType::Character),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_CHARACTER),
                 Instruction::set_list(
@@ -761,7 +761,7 @@ fn list_index_float() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Float),
+            function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_FLOAT),
                 Instruction::set_list(
@@ -807,7 +807,7 @@ fn list_index_integer() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Integer),
+            function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_INTEGER),
                 Instruction::set_list(
@@ -853,7 +853,7 @@ fn list_index_string() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::String),
+            function_type: DustFunctionType::new([], [], DustType::String),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_STRING),
                 Instruction::set_list(
@@ -899,7 +899,7 @@ fn local_list_boolean() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::list(Type::Boolean)),
+            function_type: DustFunctionType::new([], [], DustType::list(DustType::Boolean)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
                 Instruction::set_list(
@@ -939,7 +939,7 @@ fn local_list_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
                 Instruction::set_list(
@@ -1000,7 +1000,7 @@ fn local_list_not_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BYTE),
                 Instruction::set_list(
@@ -1061,7 +1061,7 @@ fn local_list_greater_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_CHARACTER),
                 Instruction::set_list(
@@ -1122,7 +1122,7 @@ fn local_list_less_than() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_FLOAT),
                 Instruction::set_list(
@@ -1186,7 +1186,7 @@ fn local_list_greater_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_INTEGER),
                 Instruction::set_list(
@@ -1250,7 +1250,7 @@ fn local_list_less_than_or_equal() {
         Prototype {
             id: PrototypeId(1),
             symbol: Symbol::MAIN,
-            function_type: FunctionType::new([], [], Type::Boolean),
+            function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_STRING),
                 Instruction::set_list(

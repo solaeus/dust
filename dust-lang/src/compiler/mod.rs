@@ -1,23 +1,20 @@
 mod declaration_binder;
 mod emitter;
-mod error;
-mod resolver;
+pub mod error;
 mod type_binder;
 
 #[cfg(test)]
 mod tests;
 
-pub use emitter::Emitter;
-pub use error::{CompileError, InternalCompileError};
-pub use resolver::{
-    Declaration, DeclarationKind, DeclarationMembers, ModuleKind, Resolver, Scope, ScopeId,
-    ScopeKind, Symbol, TypeId, TypeMembers, TypeNode,
-};
-
 use tracing::{Level, span};
 
 use crate::{
-    compiler::{declaration_binder::DeclarationBinder, type_binder::TypeBinder},
+    compiler::{
+        declaration_binder::DeclarationBinder,
+        emitter::Emitter,
+        error::{CompileError, InternalCompileError},
+        type_binder::TypeBinder,
+    },
     constant_table::ConstantTable,
     dust_crate::Program,
     dust_error::DustError,

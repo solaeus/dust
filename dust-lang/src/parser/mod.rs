@@ -1,6 +1,5 @@
 mod error;
 mod parse_rule;
-pub mod syntax;
 
 #[cfg(test)]
 mod tests;

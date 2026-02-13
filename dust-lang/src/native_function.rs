@@ -4,7 +4,10 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::compiler::{DeclarationMembers, Resolver, Symbol, TypeId, TypeMembers, TypeNode};
+use crate::resolver::{
+    declaration_graph::DeclarationMembers,
+    type_graph::{TypeGraph, TypeId, TypeMembers, TypeNode},
+};
 
 /// A Dust-native function.
 ///
@@ -15,41 +18,41 @@ pub struct NativeFunction {
 }
 
 impl NativeFunction {
-    pub fn no_op_signature(resolver: &mut Resolver) -> TypeId {
-        resolver.add_type(TypeNode::Function {
+    pub fn no_op_signature(types: &mut TypeGraph) -> TypeId {
+        types.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters: TypeMembers::default(),
             return_type_id: TypeId::NONE,
         })
     }
 
-    pub fn read_line_signature(resolver: &mut Resolver) -> TypeId {
-        resolver.add_type(TypeNode::Function {
+    pub fn read_line_signature(types: &mut TypeGraph) -> TypeId {
+        types.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters: TypeMembers::default(),
             return_type_id: TypeId::STRING,
         })
     }
 
-    pub fn write_line_signature(resolver: &mut Resolver) -> TypeId {
-        let value_parameters = resolver.add_type_members(&[TypeId::STRING]);
+    pub fn write_line_signature(types: &mut TypeGraph) -> TypeId {
+        let value_parameters = types.add_type_members(&[TypeId::STRING]);
 
-        resolver.add_type(TypeNode::Function {
+        types.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters,
             return_type_id: TypeId::NONE,
         })
     }
 
-    pub fn spawn_thread_signature(resolver: &mut Resolver) -> TypeId {
-        let argument_type_id = resolver.add_type(TypeNode::Function {
+    pub fn spawn_thread_signature(types: &mut TypeGraph) -> TypeId {
+        let argument_type_id = types.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters: TypeMembers::default(),
             return_type_id: TypeId::NONE,
         });
-        let value_parameters = resolver.add_type_members(&[argument_type_id]);
+        let value_parameters = types.add_type_members(&[argument_type_id]);
 
-        resolver.add_type(TypeNode::Function {
+        types.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters,
             return_type_id: TypeId::NONE,
@@ -100,19 +103,10 @@ macro_rules! define_native_functions {
                 }
             }
 
-            pub fn symbol(&self) -> Symbol {
+            pub fn signature(&self, types: &mut TypeGraph) -> TypeId {
                 match self.id {
                     $(
-                        $id => Symbol::$const_name,
-                    )*
-                    _ => unreachable!(),
-                }
-            }
-
-            pub fn signature(&self, resolver: &mut Resolver) -> TypeId {
-                match self.id {
-                    $(
-                        $id => Self::$signature(resolver),
+                        $id => Self::$signature(types),
                     )*
                     _ => unreachable!(),
                 }
