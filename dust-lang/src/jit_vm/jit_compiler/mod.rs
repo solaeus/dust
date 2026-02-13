@@ -3,7 +3,7 @@ mod instruction_compiler;
 use std::mem::transmute;
 
 use super::thread_pool::JitPrototype;
-use crate::dust_type::DustType;
+use crate::dust_type::{DustStructType, DustType};
 use crate::prototype::PrototypeId;
 use crate::{jit_vm::RegisterTag, prototype::Prototype};
 
@@ -391,7 +391,9 @@ fn value_tags_for_type(r#type: &DustType) -> Vec<RegisterTag> {
         | DustType::Integer
         | DustType::Function(_) => vec![RegisterTag::SCALAR],
         DustType::String | DustType::List(_) => vec![RegisterTag::OBJECT],
-        DustType::Struct { fields, .. } => {
+        DustType::Struct(struct_type) => {
+            let DustStructType { fields, .. } = struct_type.as_ref();
+
             let mut tags = Vec::new();
 
             for (_, field_type) in fields {

@@ -1,9 +1,9 @@
-use crate::compiler::Symbol;
 use crate::{
     compiler::compile_main,
-    dust_type::{DustFunctionType, Type},
+    dust_type::{DustFunctionType, DustType},
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
+    symbol_table::SymbolId,
     tests::local_cases,
 };
 
@@ -15,7 +15,6 @@ fn local_boolean() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -35,7 +34,6 @@ fn local_byte() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(42), OperandType::BYTE),
@@ -55,7 +53,6 @@ fn local_character() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Character),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
@@ -75,7 +72,6 @@ fn local_float() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -95,7 +91,6 @@ fn local_integer() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -115,7 +110,6 @@ fn local_string() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::String),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
@@ -135,7 +129,6 @@ fn local_function() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(1), OperandType::FUNCTION),

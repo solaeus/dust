@@ -2,8 +2,8 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     dust_error::AnnotatedError,
-    parser::syntax::SyntaxKind,
     source::{Position, Source},
+    syntax::SyntaxKind,
     token::TokenKind,
 };
 

@@ -5,21 +5,23 @@ use smallvec::SmallVec;
 use tracing::{debug, trace};
 
 use crate::{
-    compiler::{
-        CompileError, DeclarationKind, Resolver,
-        error::InternalCompileError,
-        resolver::{DeclarationId, ScopeId, TypeId, TypeNode},
-    },
+    compiler::error::{CompileError, InternalCompileError},
     constant_table::{ConstantId, ConstantTable},
     dust_type::DustType,
     instruction::{Address, Drop, Instruction, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
-    parser::syntax::{
+    prototype::{Prototype, PrototypeId, PrototypeList},
+    resolver::{
+        Resolver,
+        declaration_graph::{DeclarationId, DeclarationKind},
+        scope_graph::ScopeId,
+        type_graph::{TypeId, TypeNode},
+    },
+    source::{Position, Source, SourceFileId, Span},
+    syntax::{
         Syntax, SyntaxError, SyntaxId, SyntaxKind, SyntaxReader, SyntaxReaderIterator,
         SyntaxVisitor,
     },
-    prototype::{Prototype, PrototypeId, PrototypeList},
-    source::{Position, Source, SourceFileId, Span},
 };
 
 #[derive(Debug)]
@@ -114,7 +116,10 @@ impl<'a> Emitter<'a> {
             .insert(declaration_id, Place::Prototype { prototype_id });
 
         if let Some(parameters) = parameters {
-            let type_id = *emitter.resolver.get_declaration_type(&declaration_id)?;
+            let type_id = *emitter
+                .resolver
+                .declarations
+                .get_declaration_type(&declaration_id)?;
             let type_node = *emitter.resolver.get_type(type_id)?;
             let TypeNode::Function {
                 value_parameters, ..
@@ -136,7 +141,10 @@ impl<'a> Emitter<'a> {
                 .into_iter()
                 .zip(value_parameter_types.into_iter())
             {
-                let parameter_id = *emitter.resolver.get_declaration_binding(&parameter.id)?;
+                let parameter_id = *emitter
+                    .resolver
+                    .declarations
+                    .get_declaration_binding(&parameter.id)?;
                 let register_size = emitter
                     .resolver
                     .get_register_size(expected_type, &parameter)?;
@@ -308,7 +316,7 @@ impl<'a> Emitter<'a> {
 
         Ok(Prototype {
             symbol: declaration.symbol,
-            id: self.prototype_id,
+            prototype_id: self.prototype_id,
             function_type,
             instructions: self.instructions,
             call_arguments: self.call_arguments,
@@ -1329,7 +1337,10 @@ impl SyntaxVisitor for Emitter<'_> {
             }
         };
 
-        let declaration_id = *self.resolver.get_declaration_binding(&path.id)?;
+        let declaration_id = *self
+            .resolver
+            .declarations
+            .get_declaration_binding(&path.id)?;
 
         if type_id == TypeId::STRING {
             self.add_drop(target.index());
@@ -1368,11 +1379,14 @@ impl SyntaxVisitor for Emitter<'_> {
         let (path, expression_statement) = node.binary_children()?;
         let expression = expression_statement.left_child()?;
 
-        let declaration_id = self.resolver.get_declaration_binding(&path.id)?;
+        let declaration_id = self
+            .resolver
+            .declarations
+            .get_declaration_binding(&path.id)?;
         let target = self
             .locals
             .get(declaration_id)
-            .ok_or_else(|| CompileError::OutOfScope {
+            .ok_or_else(|| CompileError::OutOfScopeId {
                 declaration_id: *declaration_id,
                 usage_position: path.position(),
             })?
@@ -1490,7 +1504,7 @@ impl SyntaxVisitor for Emitter<'_> {
             .content_str(node.span().shrink(1));
         let (pool_start, pool_end) = self.constants.push_str_to_string_pool(bytes);
 
-        self.resolver.set_type_binding(node.id, TypeId::STRING);
+        self.resolver.add_type_binding(node.id, TypeId::STRING);
 
         Ok(Emission::Constant(ConstantEmission::String {
             pool_start,
@@ -1630,12 +1644,12 @@ impl SyntaxVisitor for Emitter<'_> {
             return Ok(Emission::Place(*local));
         }
 
-        let declaration = self.resolver.get_declaration(declaration_id)?;
+        let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
 
         if let DeclarationKind::NativeFunction(function) = declaration.kind {
             Ok(Emission::NativeFunction(function))
         } else {
-            Err(CompileError::OutOfScope {
+            Err(CompileError::OutOfScopeId {
                 declaration_id,
                 usage_position: path_expression.position(),
             })
@@ -2351,9 +2365,16 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting function expression");
 
-        let declaration_id = *self.resolver.get_declaration_binding(&node.id)?;
+        let declaration_id = *self
+            .resolver
+            .declarations
+            .get_declaration_binding(&node.id)?;
 
-        if let Some(prototype_index) = self.resolver.get_declaration_prototype(&declaration_id) {
+        if let Some(prototype_index) = self
+            .resolver
+            .declarations
+            .get_declaration_prototype(&declaration_id)
+        {
             return Ok(Emission::Place(Place::Prototype {
                 prototype_id: *prototype_index,
             }));
@@ -2493,7 +2514,10 @@ impl SyntaxVisitor for Emitter<'_> {
         debug!("Emitting path");
         debug_assert_eq!(path.kind(), SyntaxKind::Path);
 
-        self.resolver.get_declaration_binding(&path.id).copied()
+        self.resolver
+            .declarations
+            .get_declaration_binding(&path.id)
+            .copied()
     }
 }
 

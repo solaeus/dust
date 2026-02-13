@@ -4,10 +4,8 @@ use termtree::Tree;
 use tracing::error;
 
 use crate::{
-    parser::syntax::{
-        SyntaxId, SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxPayload, SyntaxReader,
-    },
     source::SourceFileId,
+    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxPayload, SyntaxReader},
 };
 
 /// A parsed Dust source code file.

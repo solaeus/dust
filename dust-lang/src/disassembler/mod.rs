@@ -13,10 +13,10 @@ use ratatui::{
 
 use crate::{
     dust_crate::Program,
-    parser::syntax::{Syntax, SyntaxTree},
     prototype::Prototype,
     resolver::Resolver,
     source::{Source, SourceFile},
+    syntax::{Syntax, SyntaxTree},
 };
 
 use block_table::BlockTable;

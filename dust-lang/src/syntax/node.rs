@@ -3,7 +3,7 @@ use std::{
     ops::Range,
 };
 
-use crate::{parser::syntax::SyntaxId, source::Span};
+use crate::{source::Span, syntax::SyntaxId};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SyntaxNode {

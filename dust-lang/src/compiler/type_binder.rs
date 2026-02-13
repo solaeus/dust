@@ -2,13 +2,14 @@ use smallvec::SmallVec;
 use tracing::debug;
 
 use crate::{
-    compiler::{
-        CompileError, Resolver, TypeId, TypeNode,
-        error::InternalCompileError,
-        resolver::{DeclarationId, DeclarationMembers, TypeMembers},
+    compiler::error::{CompileError, InternalCompileError},
+    resolver::{
+        Resolver,
+        declaration_graph::{DeclarationId, DeclarationMembers},
+        type_graph::{TypeId, TypeMembers, TypeNode},
     },
-    parser::syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
     source::{Position, SourceFileId},
+    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
 };
 
 #[derive(Debug)]
@@ -48,7 +49,7 @@ impl<'a> TypeBinder<'a> {
         if let TypeNode::Inferred {
             resolved: Some(resolved),
             ..
-        } = self.resolver.get_type(type_id)?
+        } = self.resolver.types.get_type(type_id)?
         {
             self.infer_type(*resolved)
         } else {
@@ -80,39 +81,39 @@ impl<'a> TypeBinder<'a> {
             return Ok(());
         }
 
-        let left_type_node = *self.resolver.get_type(left)?;
-        let right_type_node = *self.resolver.get_type(right)?;
+        let left_type_node = *self.resolver.types.get_type(left)?;
+        let right_type_node = *self.resolver.types.get_type(right)?;
 
         match (left_type_node, right_type_node) {
             (
                 TypeNode::Inferred {
-                    inferred_id: id,
+                    inferred_id,
                     resolved: None,
                 },
                 _,
             ) => {
-                if let Some(node) = self.resolver.get_type_mut(left) {
-                    *node = TypeNode::Inferred {
-                        inferred_id: id,
-                        resolved: Some(right),
-                    };
-                }
+                let left_node = self.resolver.types.get_type_mut(left)?;
+
+                *left_node = TypeNode::Inferred {
+                    inferred_id,
+                    resolved: Some(right),
+                };
 
                 Ok(())
             }
             (
                 _,
                 TypeNode::Inferred {
-                    inferred_id: id,
+                    inferred_id,
                     resolved: None,
                 },
             ) => {
-                if let Some(node) = self.resolver.get_type_mut(right) {
-                    *node = TypeNode::Inferred {
-                        inferred_id: id,
-                        resolved: Some(left),
-                    };
-                }
+                let right_node = self.resolver.types.get_type_mut(right)?;
+
+                *right_node = TypeNode::Inferred {
+                    inferred_id,
+                    resolved: Some(left),
+                };
 
                 Ok(())
             }
@@ -143,12 +144,14 @@ impl<'a> TypeBinder<'a> {
             ) => {
                 let left_value_types = self
                     .resolver
+                    .types
                     .get_type_members(left_value_parameters)?
                     .iter()
                     .copied()
                     .collect::<SmallVec<[TypeId; 8]>>();
                 let right_value_types = self
                     .resolver
+                    .types
                     .get_type_members(right_value_parameters)?
                     .iter()
                     .copied()
@@ -193,18 +196,26 @@ impl<'a> TypeBinder<'a> {
 
                 let left_field_types = self
                     .resolver
+                    .declarations
                     .get_declaration_members(left_fields)?
                     .iter()
                     .map(|declaration_id| {
-                        self.resolver.get_declaration_type(declaration_id).copied()
+                        self.resolver
+                            .declarations
+                            .get_declaration_type(declaration_id)
+                            .copied()
                     })
                     .try_collect::<SmallVec<[TypeId; 8]>>()?;
                 let right_field_types = self
                     .resolver
+                    .declarations
                     .get_declaration_members(right_fields)?
                     .iter()
                     .map(|declaration_id| {
-                        self.resolver.get_declaration_type(declaration_id).copied()
+                        self.resolver
+                            .declarations
+                            .get_declaration_type(declaration_id)
+                            .copied()
                     })
                     .try_collect::<SmallVec<[TypeId; 8]>>()?;
 
@@ -251,8 +262,8 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         let children = node.multiple_children()?;
 
-        let main_return_type_id = self.resolver.create_inferred_type();
-        let main_function_type_id = self.resolver.add_type(TypeNode::Function {
+        let main_return_type_id = self.resolver.types.create_inferred_type();
+        let main_function_type_id = self.resolver.types.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters: TypeMembers::default(),
             return_type_id: main_return_type_id,
@@ -260,8 +271,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let main_function_declaration_id = *self.resolver.get_declaration_binding(&node.id)?;
 
         self.resolver
-            .set_type_binding(node.id, main_function_type_id);
+            .add_type_binding(node.id, main_function_type_id);
         self.resolver
+            .declarations
             .set_declaration_type(main_function_declaration_id, main_function_type_id);
 
         let mut child_type_id = TypeId::NONE;
@@ -332,20 +344,22 @@ impl SyntaxVisitor for TypeBinder<'_> {
             let field_type_id = self.visit_type(field_type)?;
 
             self.resolver
+                .declarations
                 .set_declaration_type(field_declaration_id, field_type_id);
             fields.push(field_declaration_id);
         }
 
         let declaration_id = *self.resolver.get_declaration_binding(&struct_name.id)?;
-        let fields = self.resolver.add_declaration_members(&fields);
+        let fields = self.resolver.declarations.add_declaration_members(&fields);
         let struct_type = TypeNode::Struct {
             declaration_id,
             fields,
             generics: DeclarationMembers::default(),
         };
-        let struct_type_id = self.resolver.add_type(struct_type);
+        let struct_type_id = self.resolver.types.add_type(struct_type);
 
         self.resolver
+            .declarations
             .set_declaration_type(declaration_id, struct_type_id);
 
         Ok(())
@@ -387,11 +401,14 @@ impl SyntaxVisitor for TypeBinder<'_> {
             )?;
         }
 
-        let declaration_id = *self.resolver.get_declaration_binding(&path.id)?;
+        let declaration_id = *self
+            .resolver
+            .declarations
+            .get_declaration_binding(&path.id)?;
 
         self.resolver
-            .set_type_binding(expression.id, expression_type_id);
-        self.resolver.set_type_binding(node.id, TypeId::NONE);
+            .add_type_binding(expression.id, expression_type_id);
+        self.resolver.add_type_binding(node.id, TypeId::NONE);
 
         self.resolver
             .set_declaration_type(declaration_id, expression_type_id);
@@ -434,9 +451,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
         );
 
         if unified.is_err() && is_character_concatenation {
-            self.resolver.set_type_binding(path.id, TypeId::STRING);
+            self.resolver.add_type_binding(path.id, TypeId::STRING);
             self.resolver
-                .set_type_binding(expression.id, TypeId::CHARACTER);
+                .add_type_binding(expression.id, TypeId::CHARACTER);
 
             return Ok(());
         }
@@ -464,10 +481,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
             expression_type,
             expression.position(),
         )?;
-        self.resolver.set_type_binding(path.id, path_type);
+        self.resolver.add_type_binding(path.id, path_type);
         self.resolver
-            .set_type_binding(expression.id, expression_type);
-        self.resolver.set_type_binding(node.id, TypeId::NONE);
+            .add_type_binding(expression.id, expression_type);
+        self.resolver.add_type_binding(node.id, TypeId::NONE);
 
         Ok(())
     }
@@ -479,7 +496,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for boolean expression");
 
-        self.resolver.set_type_binding(node.id, TypeId::BOOLEAN);
+        self.resolver.add_type_binding(node.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
@@ -491,7 +508,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for byte expression");
 
-        self.resolver.set_type_binding(node.id, TypeId::BYTE);
+        self.resolver.add_type_binding(node.id, TypeId::BYTE);
 
         Ok(TypeId::BYTE)
     }
@@ -503,7 +520,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for character expression");
 
-        self.resolver.set_type_binding(node.id, TypeId::CHARACTER);
+        self.resolver.add_type_binding(node.id, TypeId::CHARACTER);
 
         Ok(TypeId::CHARACTER)
     }
@@ -515,7 +532,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for float expression");
 
-        self.resolver.set_type_binding(node.id, TypeId::FLOAT);
+        self.resolver.add_type_binding(node.id, TypeId::FLOAT);
 
         Ok(TypeId::FLOAT)
     }
@@ -527,7 +544,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for integer expression");
 
-        self.resolver.set_type_binding(node.id, TypeId::INTEGER);
+        self.resolver.add_type_binding(node.id, TypeId::INTEGER);
 
         Ok(TypeId::INTEGER)
     }
@@ -539,7 +556,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for string expression");
 
-        self.resolver.set_type_binding(node.id, TypeId::STRING);
+        self.resolver.add_type_binding(node.id, TypeId::STRING);
 
         Ok(TypeId::STRING)
     }
@@ -577,7 +594,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         };
         let list_type = self.resolver.add_type(TypeNode::List { element_type });
 
-        self.resolver.set_type_binding(node.id, list_type);
+        self.resolver.add_type_binding(node.id, list_type);
 
         Ok(list_type)
     }
@@ -609,10 +626,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
             });
         }
 
-        let list_type = *self.resolver.get_type(list_type_id)?;
+        let list_type = *self.resolver.types.get_type(list_type_id)?;
         let element_type = match list_type {
             TypeNode::List { element_type } => {
-                self.resolver.set_type_binding(node.id, element_type);
+                self.resolver.add_type_binding(node.id, element_type);
 
                 element_type
             }
@@ -624,9 +641,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
             }
         };
 
-        self.resolver.set_type_binding(node.id, element_type);
+        self.resolver.add_type_binding(node.id, element_type);
         self.resolver
-            .set_type_binding(list_expression.id, list_type_id);
+            .add_type_binding(list_expression.id, list_type_id);
 
         Ok(element_type)
     }
@@ -641,7 +658,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         let type_id = self.visit_path(path_expression.left_child()?)?;
 
-        self.resolver.set_type_binding(path_expression.id, type_id);
+        self.resolver.add_type_binding(path_expression.id, type_id);
 
         Ok(type_id)
     }
@@ -655,15 +672,26 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         let fields = node.right_child()?.multiple_children()?;
 
-        let declaration_id = *self.resolver.get_declaration_binding(&node.id)?;
-        let declared_struct_type_id = *self.resolver.get_declaration_type(&declaration_id)?;
+        let declaration_id = *self
+            .resolver
+            .declarations
+            .get_declaration_binding(&node.id)?;
+        let declared_struct_type_id = *self
+            .resolver
+            .declarations
+            .get_declaration_type(&declaration_id)?;
 
         for field in fields {
             let (field_name, field_expression) = field.binary_children()?;
 
-            let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
-            let declared_field_type_id =
-                *self.resolver.get_declaration_type(&field_declaration_id)?;
+            let field_declaration_id = *self
+                .resolver
+                .declarations
+                .get_declaration_binding(&field_name.id)?;
+            let declared_field_type_id = *self
+                .resolver
+                .declarations
+                .get_declaration_type(&field_declaration_id)?;
             let actual_field_type_id = self.visit_expression(field_expression, ())?;
 
             self.unify_types(
@@ -673,11 +701,11 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 field_expression.position(),
             )?;
             self.resolver
-                .set_type_binding(field_expression.id, declared_field_type_id);
+                .add_type_binding(field_expression.id, declared_field_type_id);
         }
 
         self.resolver
-            .set_type_binding(node.id, declared_struct_type_id);
+            .add_type_binding(node.id, declared_struct_type_id);
 
         Ok(declared_struct_type_id)
     }
@@ -707,10 +735,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
             };
             block_type_id = child_type;
 
-            self.resolver.set_type_binding(child.id, child_type);
+            self.resolver.add_type_binding(child.id, child_type);
         }
 
-        self.resolver.set_type_binding(node.id, block_type_id);
+        self.resolver.add_type_binding(node.id, block_type_id);
 
         Ok(block_type_id)
     }
@@ -755,7 +783,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             )?;
         }
 
-        self.resolver.set_type_binding(node.id, then_type);
+        self.resolver.add_type_binding(node.id, then_type);
 
         Ok(then_type)
     }
@@ -812,7 +840,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         };
 
         self.resolver
-            .set_type_binding(node.id, math_expression_type);
+            .add_type_binding(node.id, math_expression_type);
 
         Ok(math_expression_type)
     }
@@ -835,7 +863,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             right_type,
             right_expression.position(),
         )?;
-        self.resolver.set_type_binding(node.id, TypeId::BOOLEAN);
+        self.resolver.add_type_binding(node.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
@@ -876,7 +904,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             });
         }
 
-        self.resolver.set_type_binding(node.id, TypeId::BOOLEAN);
+        self.resolver.add_type_binding(node.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
@@ -897,7 +925,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         match child_type {
             TypeId::BOOLEAN | TypeId::BYTE | TypeId::FLOAT | TypeId::INTEGER => {
-                self.resolver.set_type_binding(node.id, child_type);
+                self.resolver.add_type_binding(node.id, child_type);
 
                 Ok(child_type)
             }
@@ -959,8 +987,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
             let parameter_name = parameter_node.left_child()?;
             let parameter_type = parameter_node.right_child()?;
 
-            let parameter_declaration_id =
-                *self.resolver.get_declaration_binding(&parameter_name.id)?;
+            let parameter_declaration_id = *self
+                .resolver
+                .declarations
+                .get_declaration_binding(&parameter_name.id)?;
             let parameter_type_id = self.visit_type(parameter_type)?;
 
             value_parameter_types.push(parameter_type_id);
@@ -984,10 +1014,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
             return_type_id,
         });
 
-        self.resolver.set_type_binding(node.id, function_type_id);
-        self.resolver.set_type_binding(body.id, return_type_id);
+        self.resolver.add_type_binding(node.id, function_type_id);
+        self.resolver.add_type_binding(body.id, return_type_id);
 
-        let function_id = self.resolver.get_declaration_binding(&node.id);
+        let function_id = self.resolver.declarations.get_declaration_binding(&node.id);
 
         if let Ok(function_declaration_id) = function_id {
             self.resolver
@@ -1019,7 +1049,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             value_parameters,
             return_type_id,
             ..
-        } = *self.resolver.get_type(callee_type)?
+        } = *self.resolver.types.get_type(callee_type)?
         else {
             return Err(CompileError::ExpectedFunctionType {
                 found: callee_type,
@@ -1049,7 +1079,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             self.unify_types(expected_type_id, None, argument_type, argument.position())?;
         }
 
-        self.resolver.set_type_binding(node.id, return_type_id);
+        self.resolver.add_type_binding(node.id, return_type_id);
 
         Ok(return_type_id)
     }
@@ -1109,8 +1139,14 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 Ok(function_type_id)
             }
             SyntaxKind::TypePath => {
-                let declaration_id = self.resolver.get_declaration_binding(&node.id)?;
-                let type_id = self.resolver.get_declaration_type(declaration_id)?;
+                let declaration_id = self
+                    .resolver
+                    .declarations
+                    .get_declaration_binding(&node.id)?;
+                let type_id = self
+                    .resolver
+                    .declarations
+                    .get_declaration_type(declaration_id)?;
 
                 Ok(*type_id)
             }
@@ -1125,7 +1161,11 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         self.resolver
             .get_declaration_binding(&path.id)
-            .and_then(|declaration_id| self.resolver.get_declaration_type(declaration_id))
+            .and_then(|declaration_id| {
+                self.resolver
+                    .declarations
+                    .get_declaration_type(declaration_id)
+            })
             .copied()
     }
 }

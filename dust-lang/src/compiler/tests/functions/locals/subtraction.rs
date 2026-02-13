@@ -1,10 +1,9 @@
-use crate::compiler::Symbol;
-
 use crate::{
     compiler::compile,
-    dust_type::{DustFunctionType, Type},
+    dust_type::{DustFunctionType, DustType},
     instruction::{Address, Instruction, OperandType},
     prototype::{Prototype, PrototypeId},
+    symbol_table::SymbolId,
     tests::{create_function_case, local_cases},
 };
 
@@ -17,8 +16,8 @@ fn local_byte_subtraction() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(44), OperandType::BYTE),
@@ -46,8 +45,8 @@ fn local_float_subtraction() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -75,8 +74,8 @@ fn local_integer_subtraction() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -104,8 +103,8 @@ fn local_mut_byte_subtraction() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(44), OperandType::BYTE),
@@ -132,8 +131,8 @@ fn local_mut_float_subtraction() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -163,8 +162,8 @@ fn local_mut_integer_subtraction() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

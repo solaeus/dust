@@ -8,31 +8,17 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct ScopeGraph {
     scopes: Vec<Scope>,
-    members: Vec<ScopeMembers>,
 }
 
 impl ScopeGraph {
     pub fn new() -> Self {
-        Self {
-            scopes: Vec::new(),
-            members: Vec::new(),
-        }
+        Self { scopes: Vec::new() }
     }
 
     pub fn add_scope(&mut self, scope: Scope) -> ScopeId {
-        self.add_scope_with_modules_and_imports(scope, SmallVec::new(), SmallVec::new())
-    }
-
-    pub fn add_scope_with_modules_and_imports(
-        &mut self,
-        scope: Scope,
-        modules: SmallVec<[ScopeId; 4]>,
-        imports: SmallVec<[DeclarationId; 4]>,
-    ) -> ScopeId {
         let id = ScopeId(self.scopes.len() as u32);
 
         self.scopes.push(scope);
-        self.members.push(ScopeMembers { modules, imports });
 
         id
     }
@@ -60,6 +46,8 @@ impl ScopeId {
 pub struct Scope {
     pub kind: ScopeKind,
     pub parent: ScopeId,
+    pub modules: SmallVec<[ScopeId; 4]>,
+    pub imports: SmallVec<[DeclarationId; 4]>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -68,10 +56,4 @@ pub enum ScopeKind {
     Module,
     Function,
     Block,
-}
-
-#[derive(Debug)]
-struct ScopeMembers {
-    modules: SmallVec<[ScopeId; 4]>,
-    imports: SmallVec<[DeclarationId; 4]>,
 }

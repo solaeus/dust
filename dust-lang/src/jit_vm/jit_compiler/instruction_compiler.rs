@@ -70,7 +70,7 @@ impl<'a> InstructionCompiler<'a> {
 
             trace!(
                 "JIT compiling {operation} at IP {ip} for proto_{}",
-                self.prototype.id.index()
+                self.prototype.prototype_id.index()
             );
 
             let log_function = self.get_log_operation_and_ip_function(builder)?;

@@ -17,11 +17,9 @@ use tracing::{error, info};
 use crate::{
     dust_error::DustError,
     lexer::Lexer,
-    parser::{
-        parse_rule::{Associativity, ParseRule, Precedence},
-        syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree},
-    },
+    parser::parse_rule::{Associativity, ParseRule, Precedence},
     source::{Position, Source, SourceFile, SourceFileId, Span},
+    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree},
     token::{Token, TokenKind},
 };
 

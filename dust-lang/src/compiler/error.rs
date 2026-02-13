@@ -3,16 +3,19 @@ use std::fmt::Display;
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
-    compiler::{
-        Resolver, Symbol, TypeId, TypeNode,
-        resolver::{DeclarationId, DeclarationMembers, ScopeId, TypeMembers},
-    },
     constant_table::ConstantKey,
     dust_error::AnnotatedError,
     instruction::Operation,
-    parser::syntax::{SyntaxError, SyntaxId, SyntaxKind},
     prototype::ReadOnlyError,
+    resolver::{
+        Resolver,
+        declaration_graph::{DeclarationId, DeclarationMembers},
+        scope_graph::ScopeId,
+        type_graph::{TypeId, TypeMembers, TypeNode},
+    },
     source::{Position, Source, SourceFileId},
+    symbol_table::SymbolId,
+    syntax::{SyntaxError, SyntaxId, SyntaxKind},
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -63,12 +66,12 @@ pub enum CompileError {
         found_type: TypeId,
         found_position: Position,
     },
-    OutOfScope {
+    OutOfScopeId {
         declaration_id: DeclarationId,
         usage_position: Position,
     },
     Undeclared {
-        symbol: Symbol,
+        symbol: SymbolId,
         usage_position: Position,
     },
     ExpectedFunctionType {
@@ -162,17 +165,17 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 )
             }
-            CompileError::OutOfScope {
+            CompileError::OutOfScopeId {
                 declaration_id,
                 usage_position,
             } => {
                 let title = "Undeclared variable".to_string();
 
-                let declaration = match resolver.get_declaration(*declaration_id) {
+                let declaration = match resolver.declarations.get_declaration(*declaration_id) {
                     Ok(declaration) => declaration,
                     Err(error) => return error.annotated_error((source, resolver)),
                 };
-                let name = match resolver.get_symbol_name(&declaration.symbol) {
+                let name = match resolver.symbols.get_symbol(&declaration.symbol_id) {
                     Ok(name) => name,
                     Err(error) => return error.annotated_error((source, resolver)),
                 };
@@ -204,7 +207,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 )
             }
             CompileError::CannotInferType { type_id, position } => {
-                let type_node = match resolver.get_type(*type_id) {
+                let type_node = match resolver.types.get_type(*type_id) {
                     Ok(type_node) => type_node,
                     Err(error) => return error.annotated_error((source, resolver)),
                 };
@@ -216,13 +219,14 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     None
                 };
                 let type_string = if let Some(declaration_id) = type_declaration_id {
-                    let declaration = match resolver.get_declaration(declaration_id) {
+                    let declaration = match resolver.declarations.get_declaration(declaration_id) {
                         Ok(declaration) => declaration,
                         Err(error) => return error.annotated_error((source, resolver)),
                     };
 
                     resolver
-                        .get_symbol_name(&declaration.symbol)
+                        .symbols
+                        .get_symbol(&declaration.symbol_id)
                         .expect("Types cannot be anonymous")
                         .to_string()
                 } else {
@@ -346,7 +350,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             } => {
                 let title = "Undeclared symbol".to_string();
                 let file_str = source.get_file(usage_position.file_id).content_as_str();
-                let name_str = match resolver.get_symbol_name(symbol) {
+                let name_str = match resolver.symbols.get_symbol(symbol) {
                     Ok(name) => name,
                     Err(error) => return error.annotated_error((source, resolver)),
                 };

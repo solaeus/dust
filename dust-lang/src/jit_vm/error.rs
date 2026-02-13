@@ -3,7 +3,7 @@ use cranelift_module::ModuleError;
 
 use crate::{
     dust_error::AnnotatedError,
-    dust_type::Type,
+    dust_type::DustType,
     instruction::{MemoryKind, OperandType, Operation},
 };
 

@@ -1,9 +1,9 @@
-use crate::compiler::Symbol;
 use crate::{
     compiler::compile_main,
-    dust_type::{DustFunctionType, Type},
+    dust_type::{DustFunctionType, DustType},
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
+    symbol_table::SymbolId,
     tests::local_cases,
 };
 
@@ -15,7 +15,6 @@ fn local_boolean_less_than_or_equal() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -50,7 +49,6 @@ fn local_byte_less_than_or_equal() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(0x2A), OperandType::BYTE),
@@ -85,7 +83,6 @@ fn local_character_less_than_or_equal() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
@@ -120,7 +117,6 @@ fn local_float_less_than_or_equal() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -155,7 +151,6 @@ fn local_integer_less_than_or_equal() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -190,7 +185,6 @@ fn local_string_less_than_or_equal() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),

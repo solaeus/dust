@@ -16,7 +16,7 @@ use tracing::{Level, debug, info, span};
 
 use crate::{
     dust_crate::Program,
-    dust_type::DustType,
+    dust_type::{DustStructType, DustType},
     instruction::OperandType,
     jit_vm::{
         JitCompiler, JitError, JitFunction, Object, ObjectPool, Register, RegisterTag,
@@ -360,9 +360,6 @@ fn run_thread(
         recursive_return_register: 0,
     };
 
-    let return_type = &program.prototypes[prototype_id as usize]
-        .function_type
-        .return_type;
     let return_register_count = jit_prototypes
         .get(prototype_id as usize)
         .map(|prototype| prototype.return_value_count)
@@ -382,19 +379,20 @@ fn run_thread(
         }
     }
 
-    let return_value = match return_type {
-        DustType::None => None,
-        _ => {
-            let (value, _) = decode_value_from_return_words(return_type, &return_registers, 0)?;
+    let return_type = &program.prototypes[prototype_id as usize]
+        .function_type
+        .return_type;
 
-            Some(value)
-        }
-    };
+    if return_type == &DustType::None {
+        return Ok(None);
+    }
+
+    let (return_value, _) = decode_value_from_return_words(return_type, &return_registers, 0)?;
 
     info!("JIT execution completed, returning {return_value:?} with type {return_type}");
     debug!("{}", object_pool.report());
 
-    Ok(return_value)
+    Ok(Some(return_value))
 }
 
 fn get_list_from_object_index(
@@ -526,7 +524,9 @@ fn decode_value_from_return_words(
 
             Ok((Value::List(list), 1))
         }
-        DustType::Struct { name, fields } => {
+        DustType::Struct(struct_type) => {
+            let DustStructType { name, fields } = struct_type.as_ref();
+
             let mut offset = start;
             let mut field_values = Vec::with_capacity(fields.len());
 

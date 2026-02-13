@@ -19,12 +19,11 @@ use crate::{
     dust_crate::Program,
     dust_error::DustError,
     lexer::Lexer,
-    parser::{
-        ParseResult, Parser,
-        syntax::{Syntax, SyntaxId},
-    },
+    parser::{ParseResult, Parser},
     prototype::{Prototype, PrototypeId, PrototypeList},
+    resolver::Resolver,
     source::{Source, SourceFile, SourceFileId},
+    syntax::{Syntax, SyntaxId},
 };
 
 pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, DustError<'src>> {
@@ -182,7 +181,10 @@ impl<'src> Compiler<'src> {
                     InternalCompileError::MissingSyntaxNode(SyntaxId::ROOT),
                 ));
             };
-            let main_declaration = match self.resolver.get_declaration(main_function_declaration_id)
+            let main_declaration = match self
+                .resolver
+                .declarations
+                .get_declaration(main_function_declaration_id)
             {
                 Ok(declaration) => declaration,
                 Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),

@@ -24,8 +24,8 @@ use crate::{
 /// Compiled representation of a Dust function.
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Prototype {
-    pub(crate) id: PrototypeId,
-    pub(crate) symbol: SymbolId,
+    pub(crate) prototype_id: PrototypeId,
+    pub(crate) symbol_id: SymbolId,
     pub(crate) function_type: DustFunctionType,
 
     pub(crate) instructions: Vec<Instruction>,
@@ -38,8 +38,8 @@ pub struct Prototype {
 impl Prototype {
     pub(crate) fn dummy() -> Self {
         Self {
-            id: PrototypeId(0),
-            symbol: SymbolId::DUMMY,
+            prototype_id: PrototypeId(0),
+            symbol_id: SymbolId::DUMMY,
             function_type: DustFunctionType::default(),
             instructions: Vec::new(),
             call_arguments: Vec::new(),
@@ -57,7 +57,7 @@ pub struct PrototypeList {
 impl PrototypeList {
     pub fn new() -> Self {
         Self {
-            prototypes: vec![Prototype::dummy()],
+            prototypes: Vec::new(),
         }
     }
 
@@ -77,23 +77,11 @@ impl PrototypeList {
         self.prototypes.iter()
     }
 
-    pub fn is_read_only(&self) -> bool {
-        self.prototypes[0].symbol != SymbolId::DUMMY
-    }
-
-    pub(crate) fn set_main(&mut self, prototype: Prototype) {
-        self.prototypes[0] = prototype;
-    }
-
     pub fn get_main(&self) -> &Prototype {
         &self.prototypes[0]
     }
 
     pub fn reserve_slot(&mut self) -> Result<PrototypeId, ReadOnlyError> {
-        if self.is_read_only() {
-            return Err(ReadOnlyError);
-        }
-
         let id = PrototypeId(self.prototypes.len() as u16);
 
         self.prototypes.push(Prototype::dummy());
@@ -102,18 +90,9 @@ impl PrototypeList {
     }
 
     pub fn set_slot(&mut self, id: PrototypeId, prototype: Prototype) -> Result<(), ReadOnlyError> {
-        if self.is_read_only() {
-            return Err(ReadOnlyError);
-        }
+        debug_assert!((id.0 as usize) < self.prototypes.len());
 
-        let index = id.0 as usize;
-
-        assert!(
-            index < self.prototypes.len(),
-            "Logic error: PrototypeId out of bounds"
-        );
-
-        self.prototypes[index] = prototype;
+        self.prototypes[id.0 as usize] = prototype;
 
         Ok(())
     }

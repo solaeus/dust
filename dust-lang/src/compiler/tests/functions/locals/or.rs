@@ -1,10 +1,9 @@
-use crate::compiler::Symbol;
-
 use crate::{
     compiler::compile,
-    dust_type::{DustFunctionType, Type},
+    dust_type::{DustFunctionType, DustType},
     instruction::{Address, Instruction, OperandType},
     prototype::{Prototype, PrototypeId},
+    symbol_table::SymbolId,
     tests::{create_function_case, local_cases},
 };
 
@@ -17,8 +16,8 @@ fn local_boolean_or() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),

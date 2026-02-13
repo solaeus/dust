@@ -5,9 +5,10 @@ use std::fmt::{self, Display, Formatter};
 use annotate_snippets::{Group, Renderer};
 
 use crate::{
-    compiler::{CompileError, Resolver},
+    compiler::error::CompileError,
     jit_vm::JitError,
     parser::ParseError,
+    resolver::Resolver,
     source::Source,
 };
 

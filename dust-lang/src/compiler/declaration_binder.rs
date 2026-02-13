@@ -2,16 +2,14 @@ use smallvec::{SmallVec, smallvec};
 use tracing::debug;
 
 use crate::{
-    compiler::{
-        CompileError,
-        error::InternalCompileError,
-        resolver::{
-            Declaration, DeclarationId, DeclarationKind, Resolver, Scope, ScopeId, ScopeKind,
-            Symbol,
-        },
+    compiler::error::{CompileError, InternalCompileError},
+    resolver::{
+        Resolver,
+        declaration_graph::{Declaration, DeclarationId, DeclarationKind},
+        scope_graph::{Scope, ScopeId, ScopeKind},
     },
-    parser::syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
     source::{Source, SourceFileId},
+    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
 };
 
 pub struct DeclarationBinder<'a> {
@@ -30,7 +28,7 @@ impl<'a> DeclarationBinder<'a> {
             source,
             syntax,
             resolver,
-            current_scope_id: ScopeId::PROJECT,
+            current_scope_id: ScopeId::NONE,
         }
     }
 
@@ -65,16 +63,15 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let children = node.multiple_children()?;
 
-        let main_scope_id = self.resolver.add_scope_with_modules_and_imports(
-            Scope {
-                kind: ScopeKind::Function,
-                parent: self.current_scope_id,
-            },
-            smallvec![ScopeId::CORE],
-            SmallVec::new(),
-        );
-        let main_declaration_id = self.resolver.add_declaration(Declaration {
-            symbol: Symbol::MAIN,
+        let main_symbol_id = self.resolver.symbols.add_anonymous_symbol();
+        let main_scope_id = self.resolver.scopes.add_scope(Scope {
+            kind: ScopeKind::Function,
+            parent: self.current_scope_id,
+            modules: smallvec![ScopeId::CORE],
+            imports: SmallVec::new(),
+        });
+        let main_declaration_id = self.resolver.declarations.add_declaration(Declaration {
+            symbol_id: main_symbol_id,
             kind: DeclarationKind::Function,
             scope_id: main_scope_id,
             is_public: true,
@@ -131,10 +128,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .source
             .get_file(function_name.file_id())
             .content_str(function_name.span());
-        let function_symbol = self.resolver.create_named_symbol(function_name_str);
-        let function_scope_id = self.resolver.add_scope(Scope {
+        let function_symbol = self.resolver.symbols.add_named_symbol(function_name_str);
+        let function_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Function,
             parent: self.current_scope_id,
+            modules: smallvec![ScopeId::CORE],
+            imports: SmallVec::new(),
         });
         let is_public = match node.kind() {
             SyntaxKind::PublicFunctionItem => true,
@@ -142,13 +141,16 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             _ => unreachable!(),
         };
         let function_declaration = Declaration {
-            symbol: function_symbol,
+            symbol_id: function_symbol,
             kind: DeclarationKind::Function,
             scope_id: self.current_scope_id,
             is_public,
             position: Some(signature.position()),
         };
-        let function_declaration_id = self.resolver.add_declaration(function_declaration);
+        let function_declaration_id = self
+            .resolver
+            .declarations
+            .add_declaration(function_declaration);
 
         for value_parameter in value_parameters {
             let parameter_name = value_parameter.left_child().map_err(CompileError::Syntax)?;
@@ -157,7 +159,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 .get_file(parameter_name.file_id())
                 .content_str(parameter_name.span());
             let parameter_declaration = Declaration {
-                symbol: self.resolver.create_named_symbol(parameter_name_str),
+                symbol_id: self.resolver.symbols.add_named_symbol(parameter_name_str),
                 kind: DeclarationKind::Local {
                     shadowed: None,
                     is_mutable: false,
@@ -166,7 +168,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 is_public: false,
                 position: Some(value_parameter.position()),
             };
-            let parameter_declaration_id = self.resolver.add_declaration(parameter_declaration);
+            let parameter_declaration_id = self
+                .resolver
+                .declarations
+                .add_declaration(parameter_declaration);
 
             self.resolver
                 .add_declaration_binding(parameter_name.id, parameter_declaration_id);
@@ -204,15 +209,18 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .source
             .get_file(struct_name.file_id())
             .content_str(struct_name.span());
-        let struct_symbol = self.resolver.create_named_symbol(struct_name_str);
+        let struct_symbol = self.resolver.symbols.add_named_symbol(struct_name_str);
         let struct_declaration = Declaration {
-            symbol: struct_symbol,
+            symbol_id: struct_symbol,
             kind: DeclarationKind::Type { parent: None },
             scope_id: self.current_scope_id,
             is_public: false,
             position: Some(node.position()),
         };
-        let struct_declaration_id = self.resolver.add_declaration(struct_declaration);
+        let struct_declaration_id = self
+            .resolver
+            .declarations
+            .add_declaration(struct_declaration);
 
         let mut field_ids = SmallVec::<[DeclarationId; 8]>::new();
 
@@ -223,9 +231,9 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 .source
                 .get_file(field_name.file_id())
                 .content_str(field_name.span());
-            let field_symbol = self.resolver.create_named_symbol(field_name_str);
+            let field_symbol = self.resolver.symbols.add_named_symbol(field_name_str);
             let field_declaration = Declaration {
-                symbol: field_symbol,
+                symbol_id: field_symbol,
                 kind: DeclarationKind::Type {
                     parent: Some(struct_declaration_id),
                 },
@@ -233,7 +241,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 is_public: false,
                 position: Some(field.position()),
             };
-            let field_declaration_id = self.resolver.add_declaration(field_declaration);
+            let field_declaration_id = self
+                .resolver
+                .declarations
+                .add_declaration(field_declaration);
 
             self.visit_type(field_type)?;
             self.resolver
@@ -288,7 +299,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .source
             .get_file(path_segment.file_id())
             .content_str(path_segment.span());
-        let symbol = self.resolver.create_named_symbol(path_segment_str);
+        let symbol = self.resolver.symbols.add_named_symbol(path_segment_str);
         let shadowed = self
             .resolver
             .find_declaration_in_scope(symbol, &path_segment, self.current_scope_id, None, false)
@@ -296,7 +307,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .ok();
         let is_mutable = node.kind() == SyntaxKind::LetMutStatement;
         let declaration = Declaration {
-            symbol,
+            symbol_id: symbol,
             kind: DeclarationKind::Local {
                 shadowed,
                 is_mutable,
@@ -305,7 +316,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             is_public: false,
             position: Some(node.position()),
         };
-        let declaration_id = self.resolver.add_declaration(declaration);
+        let declaration_id = self.resolver.declarations.add_declaration(declaration);
 
         self.resolver
             .add_declaration_binding(path.id, declaration_id);
@@ -462,9 +473,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let children = node.multiple_children()?;
 
-        let block_scope_id = self.resolver.add_scope(Scope {
+        let block_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Block,
             parent: self.current_scope_id,
+            modules: smallvec![ScopeId::CORE],
+            imports: SmallVec::new(),
         });
         let parent_scope_id = self.current_scope_id;
         self.current_scope_id = block_scope_id;
@@ -602,9 +615,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let (signature, body) = node.binary_children()?;
         let value_parameters = signature.left_child()?.multiple_children()?;
 
-        let function_scope_id = self.resolver.add_scope(Scope {
+        let function_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Function,
             parent: self.current_scope_id,
+            modules: smallvec![ScopeId::CORE],
+            imports: SmallVec::new(),
         });
 
         let mut parameter_ids = SmallVec::<[DeclarationId; 8]>::new();
@@ -617,15 +632,18 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             parameter_ids.push(parameter_id);
         }
 
-        let function_symbol = self.resolver.create_anonymous_symbol();
+        let function_symbol = self.resolver.symbols.add_anonymous_symbol();
         let function_declaration = Declaration {
-            symbol: function_symbol,
+            symbol_id: function_symbol,
             kind: DeclarationKind::Function,
             scope_id: self.current_scope_id,
             is_public: false,
             position: Some(signature.position()),
         };
-        let function_declaration_id = self.resolver.add_declaration(function_declaration);
+        let function_declaration_id = self
+            .resolver
+            .declarations
+            .add_declaration(function_declaration);
 
         self.resolver.add_scope_binding(body.id, function_scope_id);
         self.resolver
@@ -690,7 +708,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         for segment in path_segments.rev() {
             let segment_str = file.content_str(segment.span());
-            let symbol = self.resolver.create_named_symbol(segment_str);
+            let symbol = self.resolver.symbols.add_named_symbol(segment_str);
             let (next_declaration_id, next_declaration) = self.resolver.find_declaration_in_scope(
                 symbol,
                 &segment,

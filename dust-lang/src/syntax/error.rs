@@ -4,8 +4,8 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     dust_error::AnnotatedError,
-    parser::syntax::{SyntaxId, SyntaxKind, SyntaxPayload},
     source::{Position, Source},
+    syntax::{SyntaxId, SyntaxKind, SyntaxPayload},
 };
 
 #[derive(Clone, Copy, Debug)]

@@ -80,8 +80,7 @@ pub enum SymbolId {
 
 impl SymbolId {
     pub const DUMMY: SymbolId = Self::Anonymous(AnonymousSymbolId(0));
-    pub const MAIN: SymbolId = Self::Anonymous(AnonymousSymbolId(1));
-    pub const CORE: SymbolId = Self::Anonymous(AnonymousSymbolId(2));
+    pub const CORE: SymbolId = Self::Anonymous(AnonymousSymbolId(1));
 
     fn as_span_index(&self) -> Option<usize> {
         if let SymbolId::Named(id) = self {

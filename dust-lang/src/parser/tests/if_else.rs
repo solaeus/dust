@@ -1,6 +1,6 @@
 use crate::{
     parser::parse,
-    parser::syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload},
+    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload},
     source::Span,
     tests::if_else_cases,
 };

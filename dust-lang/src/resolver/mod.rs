@@ -1,5 +1,5 @@
 pub mod declaration_graph;
-mod scope_graph;
+pub mod scope_graph;
 pub mod type_graph;
 
 use std::collections::{HashMap, HashSet};
@@ -12,7 +12,6 @@ use crate::{
     dust_type::{DustFunctionType, DustStructType, DustType},
     instruction::OperandType,
     native_function::NativeFunction,
-    parser::syntax::{SyntaxId, SyntaxReader},
     resolver::{
         declaration_graph::{
             Declaration, DeclarationGraph, DeclarationId, DeclarationKind, DeclarationMembers,
@@ -23,15 +22,15 @@ use crate::{
     },
     source::Source,
     symbol_table::{SymbolId, SymbolTable},
+    syntax::{SyntaxId, SyntaxReader},
 };
 
 #[derive(Debug)]
 pub struct Resolver {
     pub symbols: SymbolTable,
-
-    declarations: DeclarationGraph,
-    scopes: ScopeGraph,
-    types: TypeGraph,
+    pub declarations: DeclarationGraph,
+    pub scopes: ScopeGraph,
+    pub types: TypeGraph,
 
     scope_search: HashSet<ScopeId, FxBuildHasher>,
 
@@ -53,7 +52,7 @@ impl Resolver {
         for native_function in NativeFunction::ALL {
             let function_symbol = symbols.add_named_symbol(native_function.name());
             let declaration_id = declarations.add_declaration(Declaration {
-                symbol: function_symbol,
+                symbol_id: function_symbol,
                 position: None,
                 kind: DeclarationKind::NativeFunction(native_function),
                 scope_id: ScopeId::CORE,
@@ -67,7 +66,7 @@ impl Resolver {
 
         let core_symbol = symbols.add_anonymous_symbol();
         let _core_declaration_id = declarations.add_declaration(Declaration {
-            symbol: core_symbol,
+            symbol_id: core_symbol,
             position: None,
             kind: DeclarationKind::Module {
                 kind: ModuleKind::Inline,
@@ -77,14 +76,12 @@ impl Resolver {
             is_public: true,
         });
 
-        let _core_scope_id = scopes.add_scope_with_modules_and_imports(
-            Scope {
-                kind: ScopeKind::Module,
-                parent: ScopeId::NONE,
-            },
-            SmallVec::new(),
-            core_imports,
-        );
+        let _core_scope_id = scopes.add_scope(Scope {
+            kind: ScopeKind::Module,
+            parent: ScopeId::NONE,
+            modules: SmallVec::new(),
+            imports: core_imports,
+        });
 
         debug_assert_eq!(_core_scope_id, ScopeId::CORE);
 
@@ -98,14 +95,6 @@ impl Resolver {
             scope_bindings: HashMap::default(),
             type_bindings: HashMap::default(),
         }
-    }
-
-    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Result<&ScopeId, CompileError> {
-        self.scope_bindings
-            .get(syntax_id)
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingScopeBinding(*syntax_id),
-            ))
     }
 
     pub fn add_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
@@ -123,18 +112,19 @@ impl Resolver {
             ))
     }
 
-    pub fn find_declaration_in_scope(
-        &self,
-        symbol: SymbolId,
-        path_segment: &SyntaxReader,
-        target_scope_id: ScopeId,
-        parent: Option<DeclarationId>,
-        is_type_lookup: bool,
-    ) -> Result<(DeclarationId, Declaration), CompileError> {
-        todo!()
+    pub fn add_scope_binding(&mut self, syntax_id: SyntaxId, scope_id: ScopeId) {
+        self.scope_bindings.insert(syntax_id, scope_id);
     }
 
-    pub fn set_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {
+    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Result<&ScopeId, CompileError> {
+        self.scope_bindings
+            .get(syntax_id)
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingScopeBinding(*syntax_id),
+            ))
+    }
+
+    pub fn add_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {
         self.type_bindings.insert(syntax_id, type_id);
     }
 
@@ -144,6 +134,17 @@ impl Resolver {
             .ok_or(CompileError::Internal(
                 InternalCompileError::MissingTypeBinding(*syntax_id),
             ))
+    }
+
+    pub fn find_declaration_in_scope(
+        &self,
+        symbol: SymbolId,
+        path_segment: &SyntaxReader,
+        target_scope_id: ScopeId,
+        parent: Option<DeclarationId>,
+        is_type_lookup: bool,
+    ) -> Result<(DeclarationId, Declaration), CompileError> {
+        todo!()
     }
 
     pub fn add_external_type(&mut self, new_type: &DustType) -> TypeId {
@@ -168,7 +169,7 @@ impl Resolver {
                 for type_parameter_name in &function_type.type_parameters {
                     let symbol = self.symbols.add_named_symbol(type_parameter_name);
                     let type_parameter_id = self.declarations.add_declaration(Declaration {
-                        symbol,
+                        symbol_id: symbol,
                         kind: DeclarationKind::Type { parent: None },
                         scope_id: ScopeId::NONE,
                         is_public: false,
@@ -199,7 +200,7 @@ impl Resolver {
 
                 let symbol = self.symbols.add_named_symbol(name);
                 let struct_declaration_id = self.declarations.add_declaration(Declaration {
-                    symbol,
+                    symbol_id: symbol,
                     kind: DeclarationKind::Type { parent: None },
                     scope_id: ScopeId::NONE,
                     is_public: false,
@@ -212,7 +213,7 @@ impl Resolver {
                 for (field_name, field_type) in fields {
                     let symbol = self.symbols.add_named_symbol(field_name);
                     let declaration_id = self.declarations.add_declaration(Declaration {
-                        symbol,
+                        symbol_id: symbol,
                         kind: DeclarationKind::Type {
                             parent: Some(struct_declaration_id),
                         },
@@ -295,7 +296,7 @@ impl Resolver {
                 let struct_declaration = self.declarations.get_declaration(*declaration_id)?;
                 let struct_name = self
                     .symbols
-                    .get_symbol(&struct_declaration.symbol)?
+                    .get_symbol(&struct_declaration.symbol_id)?
                     .to_string();
 
                 let fields = self.declarations.get_declaration_members(*fields)?;
@@ -305,7 +306,7 @@ impl Resolver {
                     let field_declaration = self.declarations.get_declaration(*field_id)?;
                     let field_name = self
                         .symbols
-                        .get_symbol(&field_declaration.symbol)?
+                        .get_symbol(&field_declaration.symbol_id)?
                         .to_string();
 
                     let field_type_id = self.declarations.get_declaration_type(field_id)?;
@@ -332,7 +333,7 @@ impl Resolver {
         members.as_range().map(|member_index| {
             let declaration_id = self.declarations.get_declaration_member(member_index)?;
             let declaration = self.declarations.get_declaration(*declaration_id)?;
-            let name = self.symbols.get_symbol(&declaration.symbol)?.to_string();
+            let name = self.symbols.get_symbol(&declaration.symbol_id)?.to_string();
 
             Ok(name)
         })
@@ -458,11 +459,5 @@ impl Resolver {
             },
             _ => Ok(1),
         }
-    }
-}
-
-impl Default for Resolver {
-    fn default() -> Self {
-        Self::new()
     }
 }

@@ -1,8 +1,9 @@
 use crate::{
-    compiler::{Symbol, compile},
-    dust_type::{DustType, FunctionDustType},
+    compiler::compile,
+    dust_type::{DustFunctionType, DustType},
     instruction::{Address, Instruction, OperandType},
     prototype::{Prototype, PrototypeId},
+    symbol_table::SymbolId,
     tests::{block_cases, create_function_case},
 };
 
@@ -15,8 +16,8 @@ fn empty_block() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::None),
             instructions: vec![Instruction::r#return(Address::default(), OperandType::NONE)],
             ..Prototype::dummy()
@@ -33,8 +34,8 @@ fn block_expression() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
@@ -54,8 +55,8 @@ fn block_statement() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::None),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -79,8 +80,8 @@ fn block_statement_and_expression() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -107,8 +108,8 @@ fn parent_scope_access() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -132,8 +133,8 @@ fn nested_parrent_scope_access() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -161,8 +162,8 @@ fn scope_shadowing() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -184,8 +185,8 @@ fn scope_deshadowing() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

@@ -1,8 +1,9 @@
 use crate::{
-    compiler::{Symbol, compile},
-    dust_type::{DustType, FunctionDustType},
+    compiler::compile,
+    dust_type::{DustFunctionType, DustType},
     instruction::{Address, Instruction, OperandType},
     prototype::{Prototype, PrototypeId},
+    symbol_table::SymbolId,
     tests::{create_function_case, loop_cases},
 };
 
@@ -15,8 +16,8 @@ fn while_loop() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

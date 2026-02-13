@@ -37,7 +37,7 @@ impl DeclarationGraph {
             None
         };
         let key = DeclarationKey {
-            symbol: declaration.symbol,
+            symbol: declaration.symbol_id,
             scope_id: declaration.scope_id,
             parent,
         };
@@ -64,6 +64,37 @@ impl DeclarationGraph {
             .map(|(key, value)| Declaration::from_key_and_value(*key, *value))
             .ok_or(CompileError::Internal(
                 InternalCompileError::MissingDeclaration(id),
+            ))
+    }
+
+    pub fn add_declaration_members(
+        &mut self,
+        parameter_ids: &[DeclarationId],
+    ) -> DeclarationMembers {
+        let start = self.declaration_members.len() as u32;
+        let count = parameter_ids.len() as u32;
+
+        self.declaration_members.extend(parameter_ids);
+
+        DeclarationMembers { start, count }
+    }
+
+    pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, CompileError> {
+        self.declaration_members
+            .get(index as usize)
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingDeclarationMember(index),
+            ))
+    }
+
+    pub fn get_declaration_members(
+        &self,
+        members: DeclarationMembers,
+    ) -> Result<&[DeclarationId], CompileError> {
+        self.declaration_members
+            .get(members.as_usize_range())
+            .ok_or(CompileError::Internal(
+                InternalCompileError::MissingDeclarationMembers(members),
             ))
     }
 
@@ -97,37 +128,6 @@ impl DeclarationGraph {
     ) -> Option<&PrototypeId> {
         self.declaration_prototypes.get(declaration_id)
     }
-
-    pub fn add_declaration_members(
-        &mut self,
-        parameter_ids: &[DeclarationId],
-    ) -> DeclarationMembers {
-        let start = self.declaration_members.len() as u32;
-        let count = parameter_ids.len() as u32;
-
-        self.declaration_members.extend(parameter_ids);
-
-        DeclarationMembers { start, count }
-    }
-
-    pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, CompileError> {
-        self.declaration_members
-            .get(index as usize)
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingDeclarationMember(index),
-            ))
-    }
-
-    pub fn get_declaration_members(
-        &self,
-        members: DeclarationMembers,
-    ) -> Result<&[DeclarationId], CompileError> {
-        self.declaration_members
-            .get(members.as_usize_range())
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingDeclarationMembers(members),
-            ))
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -143,7 +143,7 @@ impl DeclarationId {
 
 #[derive(Clone, Copy, Debug)]
 pub struct Declaration {
-    pub symbol: SymbolId,
+    pub symbol_id: SymbolId,
     pub kind: DeclarationKind,
     pub scope_id: ScopeId,
     pub is_public: bool,
@@ -153,7 +153,7 @@ pub struct Declaration {
 impl Declaration {
     fn from_key_and_value(key: DeclarationKey, value: DeclarationValue) -> Self {
         Self {
-            symbol: key.symbol,
+            symbol_id: key.symbol,
             position: value.position,
             kind: value.kind,
             scope_id: key.scope_id,

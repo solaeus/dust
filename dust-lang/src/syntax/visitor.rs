@@ -1,6 +1,6 @@
 use crate::{
     compiler::error::CompileError,
-    parser::syntax::{SyntaxError, SyntaxKind, SyntaxReader},
+    syntax::{SyntaxError, SyntaxKind, SyntaxReader},
 };
 
 pub trait SyntaxVisitor {

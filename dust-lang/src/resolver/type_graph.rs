@@ -1,6 +1,9 @@
-use std::ops::Range;
+use std::{
+    hash::{Hash, Hasher},
+    ops::Range,
+};
 
-use indexmap::IndexSet;
+use indexmap::{IndexSet, set::MutableValues};
 
 use crate::{
     compiler::error::{CompileError, InternalCompileError},
@@ -43,15 +46,12 @@ impl TypeGraph {
             )))
     }
 
-    pub fn create_inferred_type(&mut self) -> TypeId {
-        let inferred_type_node = TypeNode::Inferred {
-            inferred_id: self.next_inferred_type_id,
-            resolved: None,
-        };
-
-        self.next_inferred_type_id.0 += 1;
-
-        self.add_type(inferred_type_node)
+    pub fn get_type_mut(&mut self, id: TypeId) -> Result<&mut TypeNode, CompileError> {
+        self.types
+            .get_index_mut2(id.0 as usize)
+            .ok_or(CompileError::Internal(InternalCompileError::MissingType(
+                id,
+            )))
     }
 
     pub fn add_type_members(&mut self, types: &[TypeId]) -> TypeMembers {
@@ -80,6 +80,17 @@ impl TypeGraph {
                 InternalCompileError::MissingTypeMember(index),
             ))
     }
+
+    pub fn create_inferred_type(&mut self) -> TypeId {
+        let inferred_type_node = TypeNode::Inferred {
+            inferred_id: self.next_inferred_type_id,
+            resolved: None,
+        };
+
+        self.next_inferred_type_id.0 += 1;
+
+        self.add_type(inferred_type_node)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -99,7 +110,7 @@ impl TypeId {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TypeNode {
     None,
     Boolean,
@@ -130,6 +141,58 @@ pub enum TypeNode {
         inferred_id: InferredTypeId,
         resolved: Option<TypeId>,
     },
+}
+
+impl Hash for TypeNode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            TypeNode::None => state.write_u8(0),
+            TypeNode::Boolean => state.write_u8(1),
+            TypeNode::Byte => state.write_u8(2),
+            TypeNode::Character => state.write_u8(3),
+            TypeNode::Float => state.write_u8(4),
+            TypeNode::Integer => state.write_u8(5),
+            TypeNode::String => state.write_u8(6),
+            TypeNode::List { element_type } => {
+                state.write_u8(7);
+                element_type.hash(state);
+            }
+            TypeNode::Function {
+                type_parameters,
+                value_parameters,
+                return_type_id,
+            } => {
+                state.write_u8(8);
+                type_parameters.hash(state);
+                value_parameters.hash(state);
+                return_type_id.hash(state);
+            }
+            TypeNode::Struct {
+                declaration_id,
+                generics,
+                fields,
+            } => {
+                state.write_u8(9);
+                declaration_id.hash(state);
+                generics.hash(state);
+                fields.hash(state);
+            }
+            TypeNode::Enum {
+                declaration_id,
+                generics,
+                variants,
+            } => {
+                state.write_u8(10);
+                declaration_id.hash(state);
+                generics.hash(state);
+                variants.hash(state);
+            }
+            TypeNode::Inferred { inferred_id, .. } => {
+                state.write_u8(11);
+                inferred_id.hash(state);
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]

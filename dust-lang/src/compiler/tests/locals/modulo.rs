@@ -1,9 +1,9 @@
-use crate::compiler::Symbol;
 use crate::{
     compiler::compile_main,
-    dust_type::{DustFunctionType, Type},
+    dust_type::{DustFunctionType, DustType},
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
+    symbol_table::SymbolId,
     tests::local_cases,
 };
 
@@ -15,7 +15,6 @@ fn local_byte_modulo() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(84), OperandType::BYTE),
@@ -42,7 +41,6 @@ fn local_float_modulo() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -69,7 +67,6 @@ fn local_integer_modulo() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
@@ -96,7 +93,6 @@ fn local_mut_byte_modulo() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Byte),
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(84), OperandType::BYTE),
@@ -122,7 +118,6 @@ fn local_mut_float_modulo() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
@@ -148,7 +143,6 @@ fn local_mut_integer_modulo() {
     assert_eq!(
         prototype,
         Prototype {
-            symbol: Symbol::MAIN,
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),

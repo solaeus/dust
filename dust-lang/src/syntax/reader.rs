@@ -1,9 +1,9 @@
 use crate::{
-    parser::syntax::{
+    source::{Position, SourceFileId, Span},
+    syntax::{
         SyntaxError, SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree,
         error::InternalSyntaxError,
     },
-    source::{Position, SourceFileId, Span},
 };
 
 #[derive(Debug, Clone, Copy)]

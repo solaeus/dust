@@ -1,8 +1,9 @@
 use crate::{
-    compiler::{Symbol, compile},
-    dust_type::{DustType, FunctionDustType},
+    compiler::compile,
+    dust_type::{DustFunctionType, DustType},
     instruction::{Address, Instruction, OperandType},
     prototype::{Prototype, PrototypeId},
+    symbol_table::SymbolId,
     tests::{create_function_case, list_cases},
 };
 
@@ -15,8 +16,8 @@ fn list_boolean() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::list(DustType::Boolean)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
@@ -55,8 +56,8 @@ fn list_byte() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::list(DustType::Byte)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BYTE),
@@ -95,8 +96,8 @@ fn list_character() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::list(DustType::Character)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_CHARACTER),
@@ -135,8 +136,8 @@ fn list_float() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::list(DustType::Float)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_FLOAT),
@@ -175,8 +176,8 @@ fn list_integer() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::list(DustType::Integer)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_INTEGER),
@@ -215,8 +216,8 @@ fn list_string() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::list(DustType::String)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_STRING),
@@ -255,8 +256,8 @@ fn list_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
@@ -316,8 +317,8 @@ fn list_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BYTE),
@@ -377,8 +378,8 @@ fn list_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_CHARACTER),
@@ -438,8 +439,8 @@ fn list_less_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_FLOAT),
@@ -499,8 +500,8 @@ fn list_greater_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_INTEGER),
@@ -560,8 +561,8 @@ fn list_less_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_STRING),
@@ -621,8 +622,8 @@ fn list_index_boolean() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
@@ -667,8 +668,8 @@ fn list_index_byte() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Byte),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BYTE),
@@ -713,8 +714,8 @@ fn list_index_character() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Character),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_CHARACTER),
@@ -759,8 +760,8 @@ fn list_index_float() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Float),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_FLOAT),
@@ -805,8 +806,8 @@ fn list_index_integer() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Integer),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_INTEGER),
@@ -851,8 +852,8 @@ fn list_index_string() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::String),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_STRING),
@@ -897,8 +898,8 @@ fn local_list_boolean() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::list(DustType::Boolean)),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
@@ -937,8 +938,8 @@ fn local_list_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BOOLEAN),
@@ -998,8 +999,8 @@ fn local_list_not_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_BYTE),
@@ -1059,8 +1060,8 @@ fn local_list_greater_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_CHARACTER),
@@ -1120,8 +1121,8 @@ fn local_list_less_than() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_FLOAT),
@@ -1184,8 +1185,8 @@ fn local_list_greater_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_INTEGER),
@@ -1248,8 +1249,8 @@ fn local_list_less_than_or_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            id: PrototypeId(1),
-            symbol: Symbol::MAIN,
+            prototype_id: PrototypeId(1),
+
             function_type: DustFunctionType::new([], [], DustType::Boolean),
             instructions: vec![
                 Instruction::new_list(0, Address::constant(0), OperandType::LIST_STRING),
