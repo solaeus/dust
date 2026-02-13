@@ -69,7 +69,7 @@ impl<'src> Compiler<'src> {
         &self.resolver
     }
 
-    pub fn compile(self, program_name: Option<&'src str>) -> Result<Program, DustError<'src>> {
+    pub fn compile(self, program_name: Option<String>) -> Result<Program, DustError<'src>> {
         let Compiler {
             constants,
             prototypes,
@@ -82,7 +82,7 @@ impl<'src> Compiler<'src> {
 
     pub fn compile_with_extras(
         self,
-        program_name: Option<&'src str>,
+        program_name: Option<String>,
     ) -> Result<(Program, Source<'src>, Syntax, Resolver), DustError<'src>> {
         let Compiler {
             syntax,

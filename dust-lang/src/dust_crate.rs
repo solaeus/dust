@@ -1,10 +1,6 @@
 use std::sync::Arc;
 
-use crate::{
-    constant_table::{ConstantId, ConstantTable},
-    prototype::{Prototype, PrototypeList},
-    syntax::SyntaxTree,
-};
+use crate::{constant_table::ConstantTable, prototype::PrototypeList, syntax::SyntaxTree};
 
 pub enum DustCrate {
     Program(Arc<Program>),
@@ -12,35 +8,25 @@ pub enum DustCrate {
 }
 
 pub struct Program {
-    name_id: ConstantId,
+    name: String,
+    pub prototypes: PrototypeList,
     pub(crate) constants: ConstantTable,
-    pub(crate) prototypes: PrototypeList,
 }
 
 impl Program {
     const DEFAULT_NAME: &str = "dust_program";
 
-    pub fn new(
-        name: Option<&str>,
-        mut constants: ConstantTable,
-        prototypes: PrototypeList,
-    ) -> Self {
-        let name_id = constants.add_string(name.unwrap_or(Self::DEFAULT_NAME));
+    pub fn new(name: Option<String>, constants: ConstantTable, prototypes: PrototypeList) -> Self {
+        let name = name.unwrap_or_else(|| Self::DEFAULT_NAME.to_string());
 
         Self {
-            name_id,
-            constants,
+            name,
             prototypes,
+            constants,
         }
     }
 
-    pub fn name(&self) -> &str {
-        self.constants
-            .get_string(self.name_id)
-            .expect("Invalid Dust program, program name not found in constant tabel")
-    }
-
-    pub fn main_prototype(&self) -> &Prototype {
-        self.prototypes.get_main()
+    pub fn name(&self) -> &String {
+        &self.name
     }
 }

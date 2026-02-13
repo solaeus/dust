@@ -92,7 +92,7 @@ impl SymbolId {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct AnonymousSymbolId(u32);
+pub struct AnonymousSymbolId(u32);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct NamedSymbolId(u32);
+pub struct NamedSymbolId(u32);

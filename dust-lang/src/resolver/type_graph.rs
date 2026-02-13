@@ -19,11 +19,29 @@ pub struct TypeGraph {
 
 impl TypeGraph {
     pub fn new() -> Self {
-        Self {
+        let mut type_graph = Self {
             types: IndexSet::new(),
             members: Vec::new(),
             next_inferred_type_id: InferredTypeId(0),
-        }
+        };
+
+        let _none_type_id = type_graph.add_type(TypeNode::None);
+        let _boolean_type_id = type_graph.add_type(TypeNode::Boolean);
+        let _byte_type_id = type_graph.add_type(TypeNode::Byte);
+        let _character_type_id = type_graph.add_type(TypeNode::Character);
+        let _float_type_id = type_graph.add_type(TypeNode::Float);
+        let _integer_type_id = type_graph.add_type(TypeNode::Integer);
+        let _string_type_id = type_graph.add_type(TypeNode::String);
+
+        debug_assert_eq!(_none_type_id, TypeId::NONE);
+        debug_assert_eq!(_boolean_type_id, TypeId::BOOLEAN);
+        debug_assert_eq!(_byte_type_id, TypeId::BYTE);
+        debug_assert_eq!(_character_type_id, TypeId::CHARACTER);
+        debug_assert_eq!(_float_type_id, TypeId::FLOAT);
+        debug_assert_eq!(_integer_type_id, TypeId::INTEGER);
+        debug_assert_eq!(_string_type_id, TypeId::STRING);
+
+        type_graph
     }
 
     pub fn add_type(&mut self, type_node: TypeNode) -> TypeId {

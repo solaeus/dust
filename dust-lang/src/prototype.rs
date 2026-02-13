@@ -55,10 +55,18 @@ pub struct PrototypeList {
 }
 
 impl PrototypeList {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             prototypes: Vec::new(),
         }
+    }
+
+    pub fn len(&self) -> usize {
+        self.prototypes.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.prototypes.is_empty()
     }
 
     pub fn as_vec(&self) -> &Vec<Prototype> {
@@ -69,16 +77,8 @@ impl PrototypeList {
         &self.prototypes
     }
 
-    pub fn len(&self) -> usize {
-        self.prototypes.len()
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = &Prototype> {
         self.prototypes.iter()
-    }
-
-    pub fn get_main(&self) -> &Prototype {
-        &self.prototypes[0]
     }
 
     pub fn reserve_slot(&mut self) -> PrototypeId {

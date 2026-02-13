@@ -447,7 +447,7 @@ impl Widget for &mut Disassembler<'_> {
             .wrap(Wrap { trim: true })
             .render(title_area, buffer);
 
-        let main_prototype = &self.program.main_prototype();
+        let main_prototype = &self.program.prototypes[0];
         let program_name = self.program.name();
 
         Paragraph::new(format!("program: {program_name}",))
