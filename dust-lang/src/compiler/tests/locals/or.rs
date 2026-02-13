@@ -1,6 +1,6 @@
 use crate::{
     compiler::compile_main,
-    dust_type::{DustFunctionType, DustType},
+    dust_type::DustType,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::local_cases,
@@ -14,7 +14,7 @@ fn local_boolean_or() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Boolean),
+            return_type: DustType::Boolean,
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#move(1, Address::encoded(false as u16), OperandType::BOOLEAN),

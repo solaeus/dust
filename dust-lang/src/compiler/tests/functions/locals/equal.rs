@@ -1,8 +1,8 @@
 use crate::{
     compiler::compile,
-    dust_type::{DustFunctionType, DustType},
+    dust_type::DustType,
     instruction::{Address, Instruction, OperandType},
-    prototype::{Prototype, PrototypeId},
+    prototype::Prototype,
     tests::{create_function_case, local_cases},
 };
 
@@ -15,9 +15,7 @@ fn local_boolean_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            prototype_id: PrototypeId(1),
-
-            function_type: DustFunctionType::new([], [], DustType::Boolean),
+            return_type: DustType::Boolean,
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#move(1, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -52,9 +50,7 @@ fn local_byte_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            prototype_id: PrototypeId(1),
-
-            function_type: DustFunctionType::new([], [], DustType::Boolean),
+            return_type: DustType::Boolean,
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(0x2A), OperandType::BYTE),
                 Instruction::r#move(1, Address::encoded(0x2A), OperandType::BYTE),
@@ -89,9 +85,7 @@ fn local_character_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            prototype_id: PrototypeId(1),
-
-            function_type: DustFunctionType::new([], [], DustType::Boolean),
+            return_type: DustType::Boolean,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
                 Instruction::r#move(1, Address::constant(0), OperandType::CHARACTER),
@@ -126,9 +120,7 @@ fn local_float_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            prototype_id: PrototypeId(1),
-
-            function_type: DustFunctionType::new([], [], DustType::Boolean),
+            return_type: DustType::Boolean,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
                 Instruction::r#move(1, Address::constant(0), OperandType::FLOAT),
@@ -163,9 +155,7 @@ fn local_integer_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            prototype_id: PrototypeId(1),
-
-            function_type: DustFunctionType::new([], [], DustType::Boolean),
+            return_type: DustType::Boolean,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
@@ -200,9 +190,7 @@ fn local_string_equal() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            prototype_id: PrototypeId(1),
-
-            function_type: DustFunctionType::new([], [], DustType::Boolean),
+            return_type: DustType::Boolean,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
                 Instruction::r#move(1, Address::constant(0), OperandType::STRING),

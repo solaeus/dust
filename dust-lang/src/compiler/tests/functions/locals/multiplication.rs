@@ -1,8 +1,8 @@
 use crate::{
     compiler::compile,
-    dust_type::{DustFunctionType, DustType},
+    dust_type::DustType,
     instruction::{Address, Instruction, OperandType},
-    prototype::{Prototype, PrototypeId},
+    prototype::Prototype,
     tests::{create_function_case, local_cases},
 };
 
@@ -18,9 +18,7 @@ fn local_mut_byte_multiplication() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            prototype_id: PrototypeId(1),
-
-            function_type: DustFunctionType::new([], [], DustType::Byte),
+            return_type: DustType::Byte,
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(14), OperandType::BYTE),
                 Instruction::multiply(
@@ -49,9 +47,7 @@ fn local_mut_float_multiplication() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            prototype_id: PrototypeId(1),
-
-            function_type: DustFunctionType::new([], [], DustType::Float),
+            return_type: DustType::Float,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
                 Instruction::multiply(
@@ -80,9 +76,7 @@ fn local_mut_integer_multiplication() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            prototype_id: PrototypeId(1),
-
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::multiply(
@@ -108,9 +102,7 @@ fn local_byte_multiplication() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            prototype_id: PrototypeId(1),
-
-            function_type: DustFunctionType::new([], [], DustType::Byte),
+            return_type: DustType::Byte,
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(14), OperandType::BYTE),
                 Instruction::r#move(1, Address::encoded(3), OperandType::BYTE),
@@ -137,9 +129,7 @@ fn local_float_multiplication() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            prototype_id: PrototypeId(1),
-
-            function_type: DustFunctionType::new([], [], DustType::Float),
+            return_type: DustType::Float,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
                 Instruction::r#move(1, Address::constant(1), OperandType::FLOAT),
@@ -169,9 +159,7 @@ fn local_integer_multiplication() {
     assert_eq!(
         prototypes[1],
         Prototype {
-            prototype_id: PrototypeId(1),
-
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),

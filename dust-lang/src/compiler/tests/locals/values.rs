@@ -1,6 +1,6 @@
 use crate::{
     compiler::compile_main,
-    dust_type::{DustFunctionType, DustType},
+    dust_type::DustType,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::local_cases,
@@ -14,7 +14,7 @@ fn local_boolean() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Boolean),
+            return_type: DustType::Boolean,
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#return(Address::register(0), OperandType::BOOLEAN),
@@ -33,7 +33,7 @@ fn local_byte() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Byte),
+            return_type: DustType::Byte,
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(42), OperandType::BYTE),
                 Instruction::r#return(Address::register(0), OperandType::BYTE),
@@ -52,7 +52,7 @@ fn local_character() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Character),
+            return_type: DustType::Character,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
                 Instruction::r#return(Address::register(0), OperandType::CHARACTER),
@@ -71,7 +71,7 @@ fn local_float() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Float),
+            return_type: DustType::Float,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
                 Instruction::r#return(Address::register(0), OperandType::FLOAT),
@@ -90,7 +90,7 @@ fn local_integer() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#return(Address::register(0), OperandType::INTEGER),
@@ -109,7 +109,7 @@ fn local_string() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::String),
+            return_type: DustType::String,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::STRING),
                 Instruction::r#return(Address::register(0), OperandType::STRING),
@@ -128,7 +128,7 @@ fn local_function() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(1), OperandType::FUNCTION),
                 Instruction::call(Some(1), Address::register(0), 0, 1),

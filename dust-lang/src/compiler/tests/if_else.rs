@@ -1,6 +1,6 @@
 use crate::{
     compiler::compile_main,
-    dust_type::{DustFunctionType, DustType},
+    dust_type::DustType,
     instruction::{Address, Instruction, OperandType},
     prototype::Prototype,
     tests::if_else_cases,
@@ -14,7 +14,7 @@ fn if_else_true() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::test(Address::encoded(true as u16), true, 1),
                 Instruction::jump(1, true),
@@ -36,7 +36,7 @@ fn if_else_logical_and() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
                 Instruction::r#move(1, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -60,7 +60,7 @@ fn if_else_logical_or() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::encoded(false as u16), OperandType::BOOLEAN),
                 Instruction::r#move(1, Address::encoded(true as u16), OperandType::BOOLEAN),
@@ -84,7 +84,7 @@ fn if_else_false() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::test(Address::encoded(false as u16), true, 1),
                 Instruction::jump(1, true),
@@ -106,7 +106,7 @@ fn if_else_equal() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
@@ -135,7 +135,7 @@ fn if_else_not_equal() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -164,7 +164,7 @@ fn if_else_less_than() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -193,7 +193,7 @@ fn if_else_greater_than() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -222,7 +222,7 @@ fn if_else_less_than_equal() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
@@ -251,7 +251,7 @@ fn if_else_greater_than_equal() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -280,7 +280,7 @@ fn if_else_if_chain_end() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -317,7 +317,7 @@ fn if_else_if_chain_middle() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
@@ -354,7 +354,7 @@ fn if_else_nested() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
@@ -391,7 +391,7 @@ fn if_else_double_nested() {
     assert_eq!(
         prototype,
         Prototype {
-            function_type: DustFunctionType::new([], [], DustType::Integer),
+            return_type: DustType::Integer,
             instructions: vec![
                 Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
                 Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
