@@ -1,18 +1,18 @@
 //! The Dust instruction set.
 //!
-//! Each instruction is 64 bits and uses up to eight distinct fields.
+//! Each instruction is 64 bits and uses up to seven distinct fields.
 //!
 //! # Layout
 //!
-//! Bits  | Description
-//! ----- | -----------
-//! 0-6   | Operation
-//! 7-8   | Memory kind (for the B field)
-//! 9-10  | Memory kind (for the C field) ─┬─ D field (for CALL and CALL_NATIVE instructions)
-//! 11-15 | Operand type info             ─┘
-//! 16-31 | A field (unsigned 16-bit integer), usually the destination index
-//! 32-47 | B field (unsigned 16-bit integer), usually an operand index
-//! 48-63 | C field (unsigned 16-bit integer), usually an operand index
+//! Bits    | Description
+//! ------- | -----------
+//! 0..=5   | Operation
+//! 6..=7   | B memory kind ━━━┓
+//! 8..=9   | C memory kind  ┐ ┃
+//! 10..=15 | D field        │ ┃
+//! 16..=31 | A field        │ ┃
+//! 48..=63 | C field ━━━━━━━━━┻━ B address
+//! 32..=47 | B field ───────┴─── C address
 mod add;
 mod address;
 mod call;
@@ -24,7 +24,6 @@ mod get_list;
 mod jump;
 mod less;
 mod less_equal;
-mod memory_kind;
 mod modulo;
 mod r#move;
 mod multiply;
@@ -51,13 +50,12 @@ pub use get_list::GetList;
 pub use jump::Jump;
 pub use less::Less;
 pub use less_equal::LessEqual;
-pub use memory_kind::MemoryKind;
 pub use modulo::Modulo;
 pub use r#move::Move;
 pub use multiply::Multiply;
 pub use negate::Negate;
 pub use new_list::NewList;
-pub use operand_type::OperandType;
+pub use operand_type::ByteType;
 pub use operation::Operation;
 pub use power::Power;
 pub use reference::Reference;
@@ -136,10 +134,10 @@ impl Instruction {
         bits_11_to_15 as u16
     }
 
-    pub fn operand_type(&self) -> OperandType {
+    pub fn operand_type(&self) -> ByteType {
         let bits_11_to_15 = (self.0 >> 11) & 0x1F;
 
-        OperandType(bits_11_to_15 as u8)
+        ByteType(bits_11_to_15 as u8)
     }
 
     pub fn set_b_field(&mut self, bits: u16) {
@@ -158,7 +156,7 @@ impl Instruction {
         Instruction(0)
     }
 
-    pub fn r#move(destination: u16, operand: Address, r#type: OperandType) -> Instruction {
+    pub fn r#move(destination: u16, operand: Address, r#type: ByteType) -> Instruction {
         Instruction::from(Move {
             destination,
             operand,
@@ -171,7 +169,7 @@ impl Instruction {
     pub fn move_with_jump(
         destination: u16,
         operand: Address,
-        r#type: OperandType,
+        r#type: ByteType,
         jump_distance: u16,
         jump_is_positive: bool,
     ) -> Instruction {
@@ -199,11 +197,7 @@ impl Instruction {
         })
     }
 
-    pub fn new_list(
-        destination: u16,
-        initial_length: Address,
-        list_type: OperandType,
-    ) -> Instruction {
+    pub fn new_list(destination: u16, initial_length: Address, list_type: ByteType) -> Instruction {
         Instruction::from(NewList {
             destination,
             initial_length,
@@ -215,7 +209,7 @@ impl Instruction {
         destination_list: u16,
         item_source: Address,
         index: Address,
-        item_type: OperandType,
+        item_type: ByteType,
     ) -> Instruction {
         Instruction::from(SetList {
             destination_list,
@@ -229,7 +223,7 @@ impl Instruction {
         destination: u16,
         list: Address,
         list_index: Address,
-        item_type: OperandType,
+        item_type: ByteType,
     ) -> Instruction {
         Instruction::from(GetList {
             destination,
@@ -239,12 +233,7 @@ impl Instruction {
         })
     }
 
-    pub fn add(
-        destination: u16,
-        left: Address,
-        right: Address,
-        r#type: OperandType,
-    ) -> Instruction {
+    pub fn add(destination: u16, left: Address, right: Address, r#type: ByteType) -> Instruction {
         Instruction::from(Add {
             destination,
             left,
@@ -257,7 +246,7 @@ impl Instruction {
         destination: u16,
         left: Address,
         right: Address,
-        r#type: OperandType,
+        r#type: ByteType,
     ) -> Instruction {
         Instruction::from(Subtract {
             destination,
@@ -271,7 +260,7 @@ impl Instruction {
         destination: u16,
         left: Address,
         right: Address,
-        r#type: OperandType,
+        r#type: ByteType,
     ) -> Instruction {
         Instruction::from(Multiply {
             destination,
@@ -285,7 +274,7 @@ impl Instruction {
         destination: u16,
         left: Address,
         right: Address,
-        r#type: OperandType,
+        r#type: ByteType,
     ) -> Instruction {
         Instruction::from(Divide {
             destination,
@@ -299,7 +288,7 @@ impl Instruction {
         destination: u16,
         left: Address,
         right: Address,
-        r#type: OperandType,
+        r#type: ByteType,
     ) -> Instruction {
         Instruction::from(Modulo {
             destination,
@@ -313,7 +302,7 @@ impl Instruction {
         destination: u16,
         base: Address,
         exponent: Address,
-        r#type: OperandType,
+        r#type: ByteType,
     ) -> Instruction {
         Instruction::from(Power {
             destination,
@@ -323,12 +312,7 @@ impl Instruction {
         })
     }
 
-    pub fn equal(
-        comparator: bool,
-        left: Address,
-        right: Address,
-        r#type: OperandType,
-    ) -> Instruction {
+    pub fn equal(comparator: bool, left: Address, right: Address, r#type: ByteType) -> Instruction {
         Instruction::from(Equal {
             comparator,
             left,
@@ -337,12 +321,7 @@ impl Instruction {
         })
     }
 
-    pub fn less(
-        comparator: bool,
-        left: Address,
-        right: Address,
-        r#type: OperandType,
-    ) -> Instruction {
+    pub fn less(comparator: bool, left: Address, right: Address, r#type: ByteType) -> Instruction {
         Instruction::from(Less {
             comparator,
             left,
@@ -355,7 +334,7 @@ impl Instruction {
         comparator: bool,
         left: Address,
         right: Address,
-        r#type: OperandType,
+        r#type: ByteType,
     ) -> Instruction {
         Instruction::from(LessEqual {
             comparator,
@@ -373,7 +352,7 @@ impl Instruction {
         })
     }
 
-    pub fn negate(destination: u16, operand: Address, r#type: OperandType) -> Instruction {
+    pub fn negate(destination: u16, operand: Address, r#type: ByteType) -> Instruction {
         Instruction::from(Negate {
             destination,
             operand,
@@ -422,7 +401,7 @@ impl Instruction {
         destination: u16,
         function: NativeFunction,
         arguments_start: u16,
-        return_type: OperandType,
+        return_type: ByteType,
     ) -> Instruction {
         Instruction::from(CallNative {
             destination,
@@ -432,11 +411,11 @@ impl Instruction {
         })
     }
 
-    pub fn r#return(operand: Address, r#type: OperandType) -> Instruction {
+    pub fn r#return(operand: Address, r#type: ByteType) -> Instruction {
         Instruction::from(Return { operand, r#type })
     }
 
-    pub fn to_string(destination: u16, operand: Address, r#type: OperandType) -> Instruction {
+    pub fn to_string(destination: u16, operand: Address, r#type: ByteType) -> Instruction {
         Instruction::from(ToString {
             destination,
             operand,
@@ -520,30 +499,23 @@ pub struct InstructionFields {
     pub operation: Operation,
     pub b_memory_kind: MemoryKind,
     pub c_memory_kind: MemoryKind,
-    pub operand_type: OperandType,
+    pub d_field: u16,
     pub a_field: u16,
     pub b_field: u16,
     pub c_field: u16,
-    pub d_field: Option<u16>,
 }
 
 impl InstructionFields {
     pub fn build(self) -> Instruction {
         let mut bits = 0_u64;
 
-        bits |= self.operation.0 as u64;
-        bits |= (self.b_memory_kind.0 as u64) << 7;
-
-        if let Some(d_field) = self.d_field {
-            bits |= (d_field as u64) << 11;
-        } else {
-            bits |= (self.c_memory_kind.0 as u64) << 9;
-            bits |= (self.operand_type.0 as u64) << 11;
-        }
-
-        bits |= (self.a_field as u64) << 16;
-        bits |= (self.b_field as u64) << 32;
-        bits |= (self.c_field as u64) << 48;
+        bits |= (self.operation.0 as u64) & 0x1F;
+        bits |= ((self.b_memory_kind.0 as u64) & 0x3) << 7;
+        bits |= ((self.c_memory_kind.0 as u64) & 0x3) << 9;
+        bits |= ((self.d_field as u64) & 0x1F) << 11;
+        bits |= ((self.a_field as u64) & 0xFFFF) << 16;
+        bits |= ((self.b_field as u64) & 0xFFFF) << 32;
+        bits |= ((self.c_field as u64) & 0xFFFF) << 48;
 
         Instruction(bits)
     }
@@ -555,15 +527,34 @@ impl From<&Instruction> for InstructionFields {
             operation: instruction.operation(),
             b_memory_kind: instruction.b_memory_kind(),
             c_memory_kind: instruction.c_memory_kind(),
-            operand_type: instruction.operand_type(),
+            d_field: instruction.d_field(),
             a_field: instruction.a_field(),
             b_field: instruction.b_field(),
             c_field: instruction.c_field(),
-            d_field: if instruction.operation() == Operation::CALL {
-                Some(instruction.d_field())
-            } else {
-                None
-            },
+        }
+    }
+}
+
+#[derive(
+    Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
+pub struct MemoryKind(pub u8);
+
+impl MemoryKind {
+    pub const REGISTER: MemoryKind = MemoryKind(0);
+    pub const CONSTANT: MemoryKind = MemoryKind(1);
+    pub const ENCODED: MemoryKind = MemoryKind(2);
+    pub const PROTOTYPE: MemoryKind = MemoryKind(3);
+}
+
+impl Display for MemoryKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match *self {
+            Self::REGISTER => write!(f, "reg"),
+            Self::CONSTANT => write!(f, "const"),
+            Self::ENCODED => write!(f, "enc"),
+            Self::PROTOTYPE => write!(f, "proto"),
+            _ => write!(f, "invalid"),
         }
     }
 }
@@ -577,7 +568,7 @@ mod tests {
             42,
             Address::register(1),
             Address::constant(2),
-            OperandType::INTEGER,
+            ByteType::INTEGER,
         )
     }
 
@@ -606,7 +597,7 @@ mod tests {
     fn decode_operand_type() {
         let instruction = create_instruction();
 
-        assert_eq!(instruction.operand_type(), OperandType::INTEGER);
+        assert_eq!(instruction.operand_type(), ByteType::INTEGER);
     }
 
     #[test]

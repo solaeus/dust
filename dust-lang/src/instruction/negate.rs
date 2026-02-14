@@ -1,11 +1,11 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, OperandType, Operation};
+use super::{Address, Instruction, InstructionFields, ByteType, Operation};
 
 pub struct Negate {
     pub destination: u16,
     pub operand: Address,
-    pub r#type: OperandType,
+    pub r#type: ByteType,
 }
 
 impl From<&Instruction> for Negate {
@@ -52,7 +52,7 @@ impl Display for Negate {
             r#type,
         } = self;
 
-        let operator = if *r#type == OperandType::BOOLEAN {
+        let operator = if *r#type == ByteType::BOOLEAN {
             "!"
         } else {
             "-"

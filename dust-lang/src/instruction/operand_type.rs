@@ -1,94 +1,50 @@
-/// One-byte representation of a value type.
+/// One-byte representation of a type.
 use std::fmt::{Debug, Display};
 
 use serde::{Deserialize, Serialize};
 
-/// One-byte representation of a value type.
+/// One-byte representation of a type. This is an independent and self-contained representation, it is
+/// not part of the [`TypeGraph`] and does not have any references to other types.
 ///
-/// This type is primarily used for encoding the types of operands in instructions, but it is also
-/// useful whenever a compact representation of a type is needed. However, it is too small to
-/// represent .
+/// For many applications, it is not necessary to have a full representation of a value's type using
+/// [`DustType`], which may have heap data and is a rather wasteful way to represent a type if used
+/// for every value. It is usually enough just to know how to interpret the value's bits.
 ///
-/// Instead, the user-facing API uses [Type][] and the compiler uses [TypeId][].
-///
-/// [Type]: crate::r#type::Type
-/// [TypeResolver]: crate::resolver::TypeId
+/// It's also nice to have a performant way to differentiate heap-allocated types from scalar types.
+/// The high bit is used to mark heap-allocated types, which allows for a simple check using bitwise
+/// operations. This simply means that scalar types are represented by a byte in the 0..=127 range,
+/// while heap-allocated types must be in the 128..=255 range.
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct OperandType(pub u8);
+pub struct ByteType(pub u8);
 
-impl OperandType {
-    // Operand fields are meaningless
-    pub const NONE: OperandType = OperandType(0);
+impl ByteType {
+    // Scalar types
+    pub const NONE: ByteType = ByteType(0b0000_0000);
+    pub const BOOLEAN: ByteType = ByteType(0b0000_0001);
+    pub const BYTE: ByteType = ByteType(0b0000_0010);
+    pub const CHARACTER: ByteType = ByteType(0b0000_0011);
+    pub const FLOAT: ByteType = ByteType(0b0000_0100);
+    pub const INTEGER: ByteType = ByteType(0b0000_0101);
+    pub const FUNCTION: ByteType = ByteType(0b0000_0110);
+    pub const STRUCT: ByteType = ByteType(0b0000_0111);
 
-    // One or two operands of the same type
-    pub const BOOLEAN: OperandType = OperandType(1);
-    pub const BYTE: OperandType = OperandType(2);
-    pub const CHARACTER: OperandType = OperandType(3);
-    pub const FLOAT: OperandType = OperandType(4);
-    pub const INTEGER: OperandType = OperandType(5);
-    pub const STRING: OperandType = OperandType(6);
-    pub const MAP: OperandType = OperandType(8);
-    pub const FUNCTION: OperandType = OperandType(9);
-
-    // Operand representing a compound value
-    pub const COMPOUND: OperandType = OperandType(10);
-
-    // Two operands of different types
-    pub const CHARACTER_STRING: OperandType = OperandType(11);
-    pub const STRING_CHARACTER: OperandType = OperandType(12);
-
-    // Array operands
-    pub const ARRAY_BOOLEAN: OperandType = OperandType(13);
-    pub const ARRAY_BYTE: OperandType = OperandType(14);
-    pub const ARRAY_CHARACTER: OperandType = OperandType(15);
-    pub const ARRAY_FLOAT: OperandType = OperandType(16);
-    pub const ARRAY_INTEGER: OperandType = OperandType(17);
-    pub const ARRAY_STRING: OperandType = OperandType(18);
-    pub const ARRAY_FUNCTION: OperandType = OperandType(19);
-    pub const ARRAY_ARRAY: OperandType = OperandType(20);
-    pub const ARRAY_LIST: OperandType = OperandType(21);
-    pub const ARRAY_MAP: OperandType = OperandType(22);
-
-    // List operands
-    pub const LIST_BOOLEAN: OperandType = OperandType(23);
-    pub const LIST_BYTE: OperandType = OperandType(24);
-    pub const LIST_CHARACTER: OperandType = OperandType(25);
-    pub const LIST_FLOAT: OperandType = OperandType(26);
-    pub const LIST_INTEGER: OperandType = OperandType(27);
-    pub const LIST_STRING: OperandType = OperandType(28);
-    pub const LIST_FUNCTION: OperandType = OperandType(31);
-    pub const LIST_ARRAY: OperandType = OperandType(32);
-    pub const LIST_MAP: OperandType = OperandType(30);
-    pub const LIST_LIST: OperandType = OperandType(29);
-    pub const LIST_COMPOUND: OperandType = OperandType(30);
+    // Heap-allocated types
+    // Use the high bit to distinguish from scalar types
+    pub const STRING: ByteType = ByteType(0b1000_0000);
+    pub const LIST_BOOLEAN: ByteType = ByteType(0b1000_0001);
+    pub const LIST_BYTE: ByteType = ByteType(0b1000_0010);
+    pub const LIST_CHARACTER: ByteType = ByteType(0b1000_0011);
+    pub const LIST_FLOAT: ByteType = ByteType(0b1000_0100);
+    pub const LIST_INTEGER: ByteType = ByteType(0b1000_0101);
+    pub const LIST_STRING: ByteType = ByteType(0b1000_0110);
+    pub const LIST_FUNCTION: ByteType = ByteType(0b1000_0111);
+    pub const LIST_STRUCT: ByteType = ByteType(0b1000_1000);
+    pub const LIST_LIST: ByteType = ByteType(0b1000_1001);
 }
 
-impl OperandType {
+impl ByteType {
     pub fn is_scalar(&self) -> bool {
-        matches!(
-            *self,
-            Self::BOOLEAN
-                | Self::BYTE
-                | Self::CHARACTER
-                | Self::FLOAT
-                | Self::INTEGER
-                | Self::FUNCTION
-        )
-    }
-
-    pub fn is_list(&self) -> bool {
-        matches!(
-            *self,
-            Self::LIST_BOOLEAN
-                | Self::LIST_BYTE
-                | Self::LIST_CHARACTER
-                | Self::LIST_FLOAT
-                | Self::LIST_INTEGER
-                | Self::LIST_STRING
-                | Self::LIST_LIST
-                | Self::LIST_MAP
-                | Self::LIST_FUNCTION
-        )
+        self.0 & 0b1000_0000 == 0
     }
 
     pub fn list_type(&self) -> Self {
@@ -99,36 +55,20 @@ impl OperandType {
             Self::FLOAT => Self::LIST_FLOAT,
             Self::INTEGER => Self::LIST_INTEGER,
             Self::STRING => Self::LIST_STRING,
-            Self::MAP => Self::LIST_MAP,
             Self::FUNCTION => Self::LIST_FUNCTION,
-            Self::LIST_BOOLEAN
-            | Self::LIST_BYTE
-            | Self::LIST_CHARACTER
-            | Self::LIST_FLOAT
-            | Self::LIST_INTEGER
-            | Self::LIST_STRING
-            | Self::LIST_LIST
-            | Self::LIST_MAP
-            | Self::LIST_FUNCTION => Self::LIST_LIST,
-            _ => *self,
-        }
-    }
-
-    pub fn destination_type(&self) -> Self {
-        match *self {
-            Self::CHARACTER_STRING | Self::STRING_CHARACTER => OperandType::STRING,
-            _ => *self,
+            Self::STRUCT => Self::LIST_STRUCT,
+            _ => Self::LIST_LIST,
         }
     }
 }
 
-impl Debug for OperandType {
+impl Debug for ByteType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{self}")
     }
 }
 
-impl Display for OperandType {
+impl Display for ByteType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
             Self::NONE => write!(f, "none"),
@@ -138,17 +78,7 @@ impl Display for OperandType {
             Self::FLOAT => write!(f, "float"),
             Self::INTEGER => write!(f, "int"),
             Self::STRING => write!(f, "str"),
-            Self::MAP => write!(f, "map"),
             Self::FUNCTION => write!(f, "fn"),
-            Self::CHARACTER_STRING => write!(f, "char_str"),
-            Self::STRING_CHARACTER => write!(f, "str_char"),
-            Self::ARRAY_BOOLEAN => write!(f, "[bool]"),
-            Self::ARRAY_BYTE => write!(f, "[byte]"),
-            Self::ARRAY_CHARACTER => write!(f, "[char]"),
-            Self::ARRAY_FLOAT => write!(f, "[float]"),
-            Self::ARRAY_INTEGER => write!(f, "[int]"),
-            Self::ARRAY_STRING => write!(f, "[str]"),
-            Self::ARRAY_FUNCTION => write!(f, "[fn]"),
             Self::LIST_BOOLEAN => write!(f, "[bool]"),
             Self::LIST_BYTE => write!(f, "[byte]"),
             Self::LIST_CHARACTER => write!(f, "[char]"),
@@ -158,5 +88,32 @@ impl Display for OperandType {
             Self::LIST_FUNCTION => write!(f, "[fn]"),
             invalid => write!(f, "INVALID_OPERAND_TYPE({})", invalid.0),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_scalar() {
+        assert!(ByteType::BOOLEAN.is_scalar());
+        assert!(ByteType::BYTE.is_scalar());
+        assert!(ByteType::CHARACTER.is_scalar());
+        assert!(ByteType::FLOAT.is_scalar());
+        assert!(ByteType::INTEGER.is_scalar());
+        assert!(ByteType::FUNCTION.is_scalar());
+        assert!(ByteType::STRUCT.is_scalar());
+
+        assert!(!ByteType::STRING.is_scalar());
+        assert!(!ByteType::LIST_BOOLEAN.is_scalar());
+        assert!(!ByteType::LIST_BYTE.is_scalar());
+        assert!(!ByteType::LIST_CHARACTER.is_scalar());
+        assert!(!ByteType::LIST_FLOAT.is_scalar());
+        assert!(!ByteType::LIST_INTEGER.is_scalar());
+        assert!(!ByteType::LIST_STRING.is_scalar());
+        assert!(!ByteType::LIST_FUNCTION.is_scalar());
+        assert!(!ByteType::LIST_STRUCT.is_scalar());
+        assert!(!ByteType::LIST_LIST.is_scalar());
     }
 }

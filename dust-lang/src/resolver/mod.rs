@@ -11,7 +11,7 @@ use smallvec::SmallVec;
 use crate::{
     compiler::error::{CompileError, InternalCompileError},
     dust_type::{DustFunctionType, DustStructType, DustType},
-    instruction::OperandType,
+    instruction::ByteType,
     native_function::NativeFunction,
     resolver::{
         declaration_graph::{
@@ -552,34 +552,34 @@ impl Resolver {
         &self,
         type_id: TypeId,
         node: &SyntaxReader,
-    ) -> Result<OperandType, CompileError> {
+    ) -> Result<ByteType, CompileError> {
         let operand_type = match self.types.get_type(type_id)? {
-            TypeNode::None => OperandType::NONE,
-            TypeNode::Boolean => OperandType::BOOLEAN,
-            TypeNode::Byte => OperandType::BYTE,
-            TypeNode::Character => OperandType::CHARACTER,
-            TypeNode::Float => OperandType::FLOAT,
-            TypeNode::Integer => OperandType::INTEGER,
-            TypeNode::String => OperandType::STRING,
+            TypeNode::None => ByteType::NONE,
+            TypeNode::Boolean => ByteType::BOOLEAN,
+            TypeNode::Byte => ByteType::BYTE,
+            TypeNode::Character => ByteType::CHARACTER,
+            TypeNode::Float => ByteType::FLOAT,
+            TypeNode::Integer => ByteType::INTEGER,
+            TypeNode::String => ByteType::STRING,
             TypeNode::List { element_type } => match *element_type {
-                TypeId::BOOLEAN => OperandType::LIST_BOOLEAN,
-                TypeId::BYTE => OperandType::LIST_BYTE,
-                TypeId::CHARACTER => OperandType::LIST_CHARACTER,
-                TypeId::FLOAT => OperandType::LIST_FLOAT,
-                TypeId::INTEGER => OperandType::LIST_INTEGER,
-                TypeId::STRING => OperandType::LIST_STRING,
+                TypeId::BOOLEAN => ByteType::LIST_BOOLEAN,
+                TypeId::BYTE => ByteType::LIST_BYTE,
+                TypeId::CHARACTER => ByteType::LIST_CHARACTER,
+                TypeId::FLOAT => ByteType::LIST_FLOAT,
+                TypeId::INTEGER => ByteType::LIST_INTEGER,
+                TypeId::STRING => ByteType::LIST_STRING,
                 _ => {
                     let element_operand_type = self.get_operand_type(*element_type, node)?;
 
                     match element_operand_type {
-                        OperandType::LIST_BOOLEAN
-                        | OperandType::LIST_BYTE
-                        | OperandType::LIST_CHARACTER
-                        | OperandType::LIST_FLOAT
-                        | OperandType::LIST_INTEGER
-                        | OperandType::LIST_STRING
-                        | OperandType::LIST_LIST
-                        | OperandType::LIST_FUNCTION => OperandType::LIST_LIST,
+                        ByteType::LIST_BOOLEAN
+                        | ByteType::LIST_BYTE
+                        | ByteType::LIST_CHARACTER
+                        | ByteType::LIST_FLOAT
+                        | ByteType::LIST_INTEGER
+                        | ByteType::LIST_STRING
+                        | ByteType::LIST_LIST
+                        | ByteType::LIST_FUNCTION => ByteType::LIST_LIST,
                         _ => {
                             return Err(CompileError::CannotInferType {
                                 type_id,
@@ -589,8 +589,8 @@ impl Resolver {
                     }
                 }
             },
-            TypeNode::Function { .. } => OperandType::FUNCTION,
-            TypeNode::Struct { .. } => OperandType::COMPOUND,
+            TypeNode::Function { .. } => ByteType::FUNCTION,
+            TypeNode::Struct { .. } => ByteType::STRUCT,
             TypeNode::Inferred {
                 resolved: Some(inferred),
                 ..

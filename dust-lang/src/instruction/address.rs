@@ -1,8 +1,8 @@
-use std::fmt::{self, Formatter, FormattingOptions};
+use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use super::{MemoryKind, OperandType};
+use super::MemoryKind;
 
 #[derive(
     Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
@@ -34,28 +34,18 @@ impl Address {
         }
     }
 
-    pub fn display(&self, f: &mut Formatter<'_>, r#type: OperandType) -> fmt::Result {
-        match r#type {
-            OperandType::BOOLEAN if self.memory == MemoryKind::ENCODED => {
-                write!(f, "{}", self.index != 0)
-            }
-            OperandType::FUNCTION if self.memory == MemoryKind::CONSTANT => {
-                if self.index == u16::MAX {
-                    write!(f, "self")
-                } else {
-                    write!(f, "proto_{}", self.index)
-                }
-            }
-            _ => write!(f, "{}_{}", self.memory, self.index),
+    pub fn prototype(index: u16) -> Self {
+        Address {
+            index,
+            memory: MemoryKind::PROTOTYPE,
         }
     }
+}
 
-    pub fn as_string(&self, r#type: OperandType) -> String {
-        let mut string = String::new();
-        let mut formatter = Formatter::new(&mut string, FormattingOptions::default());
+impl Display for Address {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Address { index, memory } = self;
 
-        self.display(&mut formatter, r#type).unwrap();
-
-        string
+        write!(f, "{memory}_{index}")
     }
 }

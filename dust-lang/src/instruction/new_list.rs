@@ -2,12 +2,12 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::instruction::Address;
 
-use super::{Instruction, InstructionFields, OperandType, Operation};
+use super::{ByteType, Instruction, InstructionFields, Operation};
 
 pub struct NewList {
     pub destination: u16,
     pub initial_length: Address,
-    pub list_type: OperandType,
+    pub list_type: ByteType,
 }
 
 impl From<&Instruction> for NewList {
@@ -52,14 +52,14 @@ impl Display for NewList {
             list_type,
         } = self;
         let item_type = match *list_type {
-            OperandType::LIST_BOOLEAN => &OperandType::BOOLEAN.to_string(),
-            OperandType::LIST_BYTE => &OperandType::BYTE.to_string(),
-            OperandType::LIST_CHARACTER => &OperandType::CHARACTER.to_string(),
-            OperandType::LIST_FLOAT => &OperandType::FLOAT.to_string(),
-            OperandType::LIST_INTEGER => &OperandType::INTEGER.to_string(),
-            OperandType::LIST_STRING => &OperandType::STRING.to_string(),
-            OperandType::LIST_LIST => "[[]]",
-            OperandType::LIST_FUNCTION => &OperandType::FUNCTION.to_string(),
+            ByteType::LIST_BOOLEAN => &ByteType::BOOLEAN.to_string(),
+            ByteType::LIST_BYTE => &ByteType::BYTE.to_string(),
+            ByteType::LIST_CHARACTER => &ByteType::CHARACTER.to_string(),
+            ByteType::LIST_FLOAT => &ByteType::FLOAT.to_string(),
+            ByteType::LIST_INTEGER => &ByteType::INTEGER.to_string(),
+            ByteType::LIST_STRING => &ByteType::STRING.to_string(),
+            ByteType::LIST_LIST => "[[]]",
+            ByteType::LIST_FUNCTION => &ByteType::FUNCTION.to_string(),
             _ => "error",
         };
 

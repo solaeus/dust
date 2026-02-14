@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{instruction::OperandType, native_function::NativeFunction};
+use crate::native_function::NativeFunction;
 
 use super::{Instruction, InstructionFields, Operation};
 
@@ -8,7 +8,6 @@ pub struct CallNative {
     pub destination: u16,
     pub function_id: u16,
     pub arguments_start: u16,
-    pub return_type: OperandType,
 }
 
 impl From<&Instruction> for CallNative {
@@ -16,13 +15,11 @@ impl From<&Instruction> for CallNative {
         let destination = instruction.a_field();
         let function_id = instruction.b_field();
         let arguments_start = instruction.c_field();
-        let return_type = instruction.operand_type();
 
         CallNative {
             destination,
             function_id,
             arguments_start,
-            return_type,
         }
     }
 }
@@ -33,14 +30,12 @@ impl From<CallNative> for Instruction {
         let a_field = call_native.destination;
         let b_field = call_native.function_id;
         let c_field = call_native.arguments_start;
-        let operand_type = call_native.return_type;
 
         InstructionFields {
             operation,
             a_field,
             b_field,
             c_field,
-            operand_type,
             ..Default::default()
         }
         .build()
@@ -53,12 +48,11 @@ impl Display for CallNative {
             destination,
             function_id,
             arguments_start,
-            return_type,
         } = self;
         let function = NativeFunction { id: *function_id };
         let argument_count = function.argument_count();
 
-        if *return_type != OperandType::NONE {
+        if *destination != 0 {
             write!(f, "reg_{destination} = ")?;
         }
 

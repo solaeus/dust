@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::OperandType;
+use crate::instruction::ByteType;
 
 use super::{Address, Instruction, InstructionFields, Operation};
 
@@ -55,7 +55,7 @@ impl Display for Test {
         let bang = if *comparator { "" } else { "!" };
 
         write!(f, "if {bang}")?;
-        operand.display(f, OperandType::BOOLEAN)?;
+        operand.display(f, ByteType::BOOLEAN)?;
         write!(f, " {{ jump +{jump_distance} }}")
     }
 }

@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use crate::{
-    instruction::OperandType,
+    instruction::ByteType,
     jit_vm::{Object, ThreadStatus, object::ObjectValue, thread_pool::ThreadContext},
 };
 
@@ -18,19 +18,19 @@ pub unsafe extern "C" fn allocate_list(
     let register_tags = unsafe { &mut *thread_context.register_tag_vec_pointer };
     let register_window = &register_stack[0..thread_context.registers_used];
     let register_tags_window = &register_tags[0..thread_context.registers_used];
-    let object = match OperandType(list_type as u8) {
-        OperandType::LIST_BOOLEAN => Object::boolean_list(vec![false; list_length]),
-        OperandType::LIST_BYTE => Object::byte_list(vec![0; list_length]),
-        OperandType::LIST_CHARACTER => Object::character_list(vec![char::default(); list_length]),
-        OperandType::LIST_FLOAT => Object::float_list(vec![0.0; list_length]),
-        OperandType::LIST_INTEGER => Object::integer_list(vec![0; list_length]),
-        OperandType::LIST_FUNCTION => Object::function_list(vec![0; list_length]),
-        OperandType::LIST_STRING | OperandType::LIST_LIST => {
+    let object = match ByteType(list_type as u8) {
+        ByteType::LIST_BOOLEAN => Object::boolean_list(vec![false; list_length]),
+        ByteType::LIST_BYTE => Object::byte_list(vec![0; list_length]),
+        ByteType::LIST_CHARACTER => Object::character_list(vec![char::default(); list_length]),
+        ByteType::LIST_FLOAT => Object::float_list(vec![0.0; list_length]),
+        ByteType::LIST_INTEGER => Object::integer_list(vec![0; list_length]),
+        ByteType::LIST_FUNCTION => Object::function_list(vec![0; list_length]),
+        ByteType::LIST_STRING | ByteType::LIST_LIST => {
             Object::object_list_with_capacity(list_length)
         }
         _ => panic!(
             "Unsupported type for list allocation: {}",
-            OperandType(list_type as u8)
+            ByteType(list_type as u8)
         ),
     };
 

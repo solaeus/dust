@@ -1,14 +1,14 @@
 use crate::{
     compiler::compile,
     dust_type::DustType,
-    instruction::{Address, Instruction, OperandType},
+    instruction::{Address, Instruction, ByteType},
     prototype::Prototype,
     tests::{create_function_case, local_cases},
 };
 
 #[test]
 fn local_byte_division() {
-    let source = create_function_case(local_cases::LOCAL_BYTE_DIVISION, OperandType::BYTE);
+    let source = create_function_case(local_cases::LOCAL_BYTE_DIVISION, ByteType::BYTE);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -17,15 +17,15 @@ fn local_byte_division() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(84), OperandType::BYTE),
-                Instruction::r#move(1, Address::encoded(2), OperandType::BYTE),
+                Instruction::r#move(0, Address::encoded(84), ByteType::BYTE),
+                Instruction::r#move(1, Address::encoded(2), ByteType::BYTE),
                 Instruction::divide(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::BYTE
+                    ByteType::BYTE
                 ),
-                Instruction::r#return(Address::register(2), OperandType::BYTE)
+                Instruction::r#return(Address::register(2), ByteType::BYTE)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -35,7 +35,7 @@ fn local_byte_division() {
 
 #[test]
 fn local_float_division() {
-    let source = create_function_case(local_cases::LOCAL_FLOAT_DIVISION, OperandType::FLOAT);
+    let source = create_function_case(local_cases::LOCAL_FLOAT_DIVISION, ByteType::FLOAT);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -44,15 +44,15 @@ fn local_float_division() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
-                Instruction::r#move(1, Address::constant(1), OperandType::FLOAT),
+                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
+                Instruction::r#move(1, Address::constant(1), ByteType::FLOAT),
                 Instruction::divide(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::FLOAT
+                    ByteType::FLOAT
                 ),
-                Instruction::r#return(Address::register(2), OperandType::FLOAT)
+                Instruction::r#return(Address::register(2), ByteType::FLOAT)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -62,7 +62,7 @@ fn local_float_division() {
 
 #[test]
 fn local_integer_division() {
-    let source = create_function_case(local_cases::LOCAL_INTEGER_DIVISION, OperandType::INTEGER);
+    let source = create_function_case(local_cases::LOCAL_INTEGER_DIVISION, ByteType::INTEGER);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -71,15 +71,15 @@ fn local_integer_division() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), ByteType::INTEGER),
                 Instruction::divide(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::INTEGER
+                    ByteType::INTEGER
                 ),
-                Instruction::r#return(Address::register(2), OperandType::INTEGER)
+                Instruction::r#return(Address::register(2), ByteType::INTEGER)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -89,7 +89,7 @@ fn local_integer_division() {
 
 #[test]
 fn local_mut_byte_division() {
-    let source = create_function_case(local_cases::LOCAL_MUT_BYTE_DIVISION, OperandType::BYTE);
+    let source = create_function_case(local_cases::LOCAL_MUT_BYTE_DIVISION, ByteType::BYTE);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -98,14 +98,14 @@ fn local_mut_byte_division() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(84), OperandType::BYTE),
+                Instruction::r#move(0, Address::encoded(84), ByteType::BYTE),
                 Instruction::divide(
                     0,
                     Address::register(0),
                     Address::encoded(2),
-                    OperandType::BYTE
+                    ByteType::BYTE
                 ),
-                Instruction::r#return(Address::register(0), OperandType::BYTE)
+                Instruction::r#return(Address::register(0), ByteType::BYTE)
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -115,7 +115,7 @@ fn local_mut_byte_division() {
 
 #[test]
 fn local_mut_float_division() {
-    let source = create_function_case(local_cases::LOCAL_MUT_FLOAT_DIVISION, OperandType::FLOAT);
+    let source = create_function_case(local_cases::LOCAL_MUT_FLOAT_DIVISION, ByteType::FLOAT);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -124,14 +124,14 @@ fn local_mut_float_division() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
+                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
                 Instruction::divide(
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::FLOAT
+                    ByteType::FLOAT
                 ),
-                Instruction::r#return(Address::register(0), OperandType::FLOAT)
+                Instruction::r#return(Address::register(0), ByteType::FLOAT)
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -143,7 +143,7 @@ fn local_mut_float_division() {
 fn local_mut_integer_division() {
     let source = create_function_case(
         local_cases::LOCAL_MUT_INTEGER_DIVISION,
-        OperandType::INTEGER,
+        ByteType::INTEGER,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -153,14 +153,14 @@ fn local_mut_integer_division() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
                 Instruction::divide(
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::INTEGER
+                    ByteType::INTEGER
                 ),
-                Instruction::r#return(Address::register(0), OperandType::INTEGER)
+                Instruction::r#return(Address::register(0), ByteType::INTEGER)
             ],
             register_count: 1,
             ..Prototype::dummy()

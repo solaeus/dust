@@ -1,14 +1,14 @@
 use crate::{
     compiler::compile,
     dust_type::DustType,
-    instruction::{Address, Instruction, OperandType},
+    instruction::{Address, Instruction, ByteType},
     prototype::Prototype,
     tests::{create_function_case, local_cases},
 };
 
 #[test]
 fn local_byte_modulo() {
-    let source = create_function_case(local_cases::LOCAL_BYTE_MODULO, OperandType::BYTE);
+    let source = create_function_case(local_cases::LOCAL_BYTE_MODULO, ByteType::BYTE);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -17,15 +17,15 @@ fn local_byte_modulo() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(84), OperandType::BYTE),
-                Instruction::r#move(1, Address::encoded(5), OperandType::BYTE),
+                Instruction::r#move(0, Address::encoded(84), ByteType::BYTE),
+                Instruction::r#move(1, Address::encoded(5), ByteType::BYTE),
                 Instruction::modulo(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::BYTE
+                    ByteType::BYTE
                 ),
-                Instruction::r#return(Address::register(2), OperandType::BYTE)
+                Instruction::r#return(Address::register(2), ByteType::BYTE)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -35,7 +35,7 @@ fn local_byte_modulo() {
 
 #[test]
 fn local_float_modulo() {
-    let source = create_function_case(local_cases::LOCAL_FLOAT_MODULO, OperandType::FLOAT);
+    let source = create_function_case(local_cases::LOCAL_FLOAT_MODULO, ByteType::FLOAT);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -44,15 +44,15 @@ fn local_float_modulo() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
-                Instruction::r#move(1, Address::constant(1), OperandType::FLOAT),
+                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
+                Instruction::r#move(1, Address::constant(1), ByteType::FLOAT),
                 Instruction::modulo(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::FLOAT
+                    ByteType::FLOAT
                 ),
-                Instruction::r#return(Address::register(2), OperandType::FLOAT)
+                Instruction::r#return(Address::register(2), ByteType::FLOAT)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -62,7 +62,7 @@ fn local_float_modulo() {
 
 #[test]
 fn local_integer_modulo() {
-    let source = create_function_case(local_cases::LOCAL_INTEGER_MODULO, OperandType::INTEGER);
+    let source = create_function_case(local_cases::LOCAL_INTEGER_MODULO, ByteType::INTEGER);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -71,15 +71,15 @@ fn local_integer_modulo() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), ByteType::INTEGER),
                 Instruction::modulo(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::INTEGER
+                    ByteType::INTEGER
                 ),
-                Instruction::r#return(Address::register(2), OperandType::INTEGER)
+                Instruction::r#return(Address::register(2), ByteType::INTEGER)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -89,7 +89,7 @@ fn local_integer_modulo() {
 
 #[test]
 fn local_mut_byte_modulo() {
-    let source = create_function_case(local_cases::LOCAL_MUT_BYTE_MODULO, OperandType::BYTE);
+    let source = create_function_case(local_cases::LOCAL_MUT_BYTE_MODULO, ByteType::BYTE);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -98,14 +98,14 @@ fn local_mut_byte_modulo() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(84), OperandType::BYTE),
+                Instruction::r#move(0, Address::encoded(84), ByteType::BYTE),
                 Instruction::modulo(
                     0,
                     Address::register(0),
                     Address::encoded(5),
-                    OperandType::BYTE
+                    ByteType::BYTE
                 ),
-                Instruction::r#return(Address::register(0), OperandType::BYTE)
+                Instruction::r#return(Address::register(0), ByteType::BYTE)
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -115,7 +115,7 @@ fn local_mut_byte_modulo() {
 
 #[test]
 fn local_mut_float_modulo() {
-    let source = create_function_case(local_cases::LOCAL_MUT_FLOAT_MODULO, OperandType::FLOAT);
+    let source = create_function_case(local_cases::LOCAL_MUT_FLOAT_MODULO, ByteType::FLOAT);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -124,14 +124,14 @@ fn local_mut_float_modulo() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
+                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
                 Instruction::modulo(
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::FLOAT
+                    ByteType::FLOAT
                 ),
-                Instruction::r#return(Address::register(0), OperandType::FLOAT)
+                Instruction::r#return(Address::register(0), ByteType::FLOAT)
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -141,7 +141,7 @@ fn local_mut_float_modulo() {
 
 #[test]
 fn local_mut_integer_modulo() {
-    let source = create_function_case(local_cases::LOCAL_MUT_INTEGER_MODULO, OperandType::INTEGER);
+    let source = create_function_case(local_cases::LOCAL_MUT_INTEGER_MODULO, ByteType::INTEGER);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -150,14 +150,14 @@ fn local_mut_integer_modulo() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
                 Instruction::modulo(
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::INTEGER
+                    ByteType::INTEGER
                 ),
-                Instruction::r#return(Address::register(0), OperandType::INTEGER)
+                Instruction::r#return(Address::register(0), ByteType::INTEGER)
             ],
             register_count: 1,
             ..Prototype::dummy()

@@ -1,7 +1,7 @@
 use crate::{
     compiler::compile_main,
     dust_type::DustType,
-    instruction::{Address, Instruction, OperandType},
+    instruction::{Address, Instruction, ByteType},
     prototype::Prototype,
     tests::block_cases,
 };
@@ -15,7 +15,7 @@ fn empty_block() {
         prototype,
         Prototype {
             return_type: DustType::None,
-            instructions: vec![Instruction::r#return(Address::default(), OperandType::NONE)],
+            instructions: vec![Instruction::r#return(Address::default(), ByteType::NONE)],
             ..Prototype::dummy()
         }
     );
@@ -32,7 +32,7 @@ fn block_expression() {
             return_type: DustType::Integer,
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
-                OperandType::INTEGER
+                ByteType::INTEGER
             )],
             ..Prototype::dummy()
         }
@@ -49,8 +49,8 @@ fn block_statement() {
         Prototype {
             return_type: DustType::None,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(Address::default(), OperandType::NONE),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#return(Address::default(), ByteType::NONE),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -68,14 +68,14 @@ fn block_statement_and_expression() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
                 Instruction::add(
                     1,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::INTEGER
+                    ByteType::INTEGER
                 ),
-                Instruction::r#return(Address::register(1), OperandType::INTEGER),
+                Instruction::r#return(Address::register(1), ByteType::INTEGER),
             ],
             register_count: 2,
             ..Prototype::dummy()
@@ -93,8 +93,8 @@ fn parent_scope_access() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(Address::register(0), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#return(Address::register(0), ByteType::INTEGER),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -112,15 +112,15 @@ fn nested_parrent_scope_access() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), ByteType::INTEGER),
                 Instruction::add(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::INTEGER
+                    ByteType::INTEGER
                 ),
-                Instruction::r#return(Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), ByteType::INTEGER),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -138,9 +138,9 @@ fn scope_shadowing() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
-                Instruction::r#return(Address::register(1), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), ByteType::INTEGER),
+                Instruction::r#return(Address::register(1), ByteType::INTEGER),
             ],
             register_count: 2,
             ..Prototype::dummy()
@@ -158,9 +158,9 @@ fn scope_deshadowing() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
-                Instruction::r#return(Address::register(0), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), ByteType::INTEGER),
+                Instruction::r#return(Address::register(0), ByteType::INTEGER),
             ],
             register_count: 2,
             ..Prototype::dummy()

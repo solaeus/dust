@@ -1,14 +1,14 @@
 use crate::{
     compiler::compile,
     dust_type::DustType,
-    instruction::{Address, Instruction, OperandType},
+    instruction::{Address, Instruction, ByteType},
     prototype::Prototype,
     tests::{block_cases, create_function_case},
 };
 
 #[test]
 fn empty_block() {
-    let source = create_function_case(block_cases::EMPTY_BLOCK, OperandType::NONE);
+    let source = create_function_case(block_cases::EMPTY_BLOCK, ByteType::NONE);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -16,7 +16,7 @@ fn empty_block() {
         prototypes[1],
         Prototype {
             return_type: DustType::None,
-            instructions: vec![Instruction::r#return(Address::default(), OperandType::NONE)],
+            instructions: vec![Instruction::r#return(Address::default(), ByteType::NONE)],
             ..Prototype::dummy()
         }
     );
@@ -24,7 +24,7 @@ fn empty_block() {
 
 #[test]
 fn block_expression() {
-    let source = create_function_case(block_cases::BLOCK_EXPRESSION, OperandType::INTEGER);
+    let source = create_function_case(block_cases::BLOCK_EXPRESSION, ByteType::INTEGER);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -34,7 +34,7 @@ fn block_expression() {
             return_type: DustType::Integer,
             instructions: vec![Instruction::r#return(
                 Address::constant(0),
-                OperandType::INTEGER
+                ByteType::INTEGER
             )],
             ..Prototype::dummy()
         }
@@ -43,7 +43,7 @@ fn block_expression() {
 
 #[test]
 fn block_statement() {
-    let source = create_function_case(block_cases::BLOCK_STATEMENT, OperandType::NONE);
+    let source = create_function_case(block_cases::BLOCK_STATEMENT, ByteType::NONE);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -52,8 +52,8 @@ fn block_statement() {
         Prototype {
             return_type: DustType::None,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(Address::default(), OperandType::NONE),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#return(Address::default(), ByteType::NONE),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -65,7 +65,7 @@ fn block_statement() {
 fn block_statement_and_expression() {
     let source = create_function_case(
         block_cases::BLOCK_STATEMENT_AND_EXPRESSION,
-        OperandType::INTEGER,
+        ByteType::INTEGER,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -75,14 +75,14 @@ fn block_statement_and_expression() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
                 Instruction::add(
                     1,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::INTEGER
+                    ByteType::INTEGER
                 ),
-                Instruction::r#return(Address::register(1), OperandType::INTEGER),
+                Instruction::r#return(Address::register(1), ByteType::INTEGER),
             ],
             register_count: 2,
             ..Prototype::dummy()
@@ -92,7 +92,7 @@ fn block_statement_and_expression() {
 
 #[test]
 fn parent_scope_access() {
-    let source = create_function_case(block_cases::PARENT_SCOPE_ACCESS, OperandType::INTEGER);
+    let source = create_function_case(block_cases::PARENT_SCOPE_ACCESS, ByteType::INTEGER);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -101,8 +101,8 @@ fn parent_scope_access() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(Address::register(0), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#return(Address::register(0), ByteType::INTEGER),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -114,7 +114,7 @@ fn parent_scope_access() {
 fn nested_parrent_scope_access() {
     let source = create_function_case(
         block_cases::NESTED_PARRENT_SCOPE_ACCESS,
-        OperandType::INTEGER,
+        ByteType::INTEGER,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -124,15 +124,15 @@ fn nested_parrent_scope_access() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), ByteType::INTEGER),
                 Instruction::add(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::INTEGER
+                    ByteType::INTEGER
                 ),
-                Instruction::r#return(Address::register(2), OperandType::INTEGER),
+                Instruction::r#return(Address::register(2), ByteType::INTEGER),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -142,7 +142,7 @@ fn nested_parrent_scope_access() {
 
 #[test]
 fn scope_shadowing() {
-    let source = create_function_case(block_cases::SCOPE_SHADOWING, OperandType::INTEGER);
+    let source = create_function_case(block_cases::SCOPE_SHADOWING, ByteType::INTEGER);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -151,9 +151,9 @@ fn scope_shadowing() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
-                Instruction::r#return(Address::register(1), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), ByteType::INTEGER),
+                Instruction::r#return(Address::register(1), ByteType::INTEGER),
             ],
             register_count: 2,
             ..Prototype::dummy()
@@ -163,7 +163,7 @@ fn scope_shadowing() {
 
 #[test]
 fn scope_deshadowing() {
-    let source = create_function_case(block_cases::SCOPE_DESHADOWING, OperandType::INTEGER);
+    let source = create_function_case(block_cases::SCOPE_DESHADOWING, ByteType::INTEGER);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -172,9 +172,9 @@ fn scope_deshadowing() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
-                Instruction::r#return(Address::register(0), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), ByteType::INTEGER),
+                Instruction::r#return(Address::register(0), ByteType::INTEGER),
             ],
             register_count: 2,
             ..Prototype::dummy()

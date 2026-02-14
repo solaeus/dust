@@ -1,14 +1,14 @@
 use crate::{
     compiler::compile,
     dust_type::DustType,
-    instruction::{Address, Instruction, OperandType},
+    instruction::{Address, Instruction, ByteType},
     prototype::Prototype,
     tests::{create_function_case, local_cases},
 };
 
 #[test]
 fn local_byte_addition() {
-    let source = create_function_case(local_cases::LOCAL_BYTE_ADDITION, OperandType::BYTE);
+    let source = create_function_case(local_cases::LOCAL_BYTE_ADDITION, ByteType::BYTE);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -17,15 +17,15 @@ fn local_byte_addition() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(40), OperandType::BYTE),
-                Instruction::r#move(1, Address::encoded(2), OperandType::BYTE),
+                Instruction::r#move(0, Address::encoded(40), ByteType::BYTE),
+                Instruction::r#move(1, Address::encoded(2), ByteType::BYTE),
                 Instruction::add(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::BYTE
+                    ByteType::BYTE
                 ),
-                Instruction::r#return(Address::register(2), OperandType::BYTE)
+                Instruction::r#return(Address::register(2), ByteType::BYTE)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -35,7 +35,7 @@ fn local_byte_addition() {
 
 #[test]
 fn local_float_addition() {
-    let source = create_function_case(local_cases::LOCAL_FLOAT_ADDITION, OperandType::FLOAT);
+    let source = create_function_case(local_cases::LOCAL_FLOAT_ADDITION, ByteType::FLOAT);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -44,15 +44,15 @@ fn local_float_addition() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
-                Instruction::r#move(1, Address::constant(1), OperandType::FLOAT),
+                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
+                Instruction::r#move(1, Address::constant(1), ByteType::FLOAT),
                 Instruction::add(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::FLOAT
+                    ByteType::FLOAT
                 ),
-                Instruction::r#return(Address::register(2), OperandType::FLOAT)
+                Instruction::r#return(Address::register(2), ByteType::FLOAT)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -62,7 +62,7 @@ fn local_float_addition() {
 
 #[test]
 fn local_integer_addition() {
-    let source = create_function_case(local_cases::LOCAL_INTEGER_ADDITION, OperandType::INTEGER);
+    let source = create_function_case(local_cases::LOCAL_INTEGER_ADDITION, ByteType::INTEGER);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -71,15 +71,15 @@ fn local_integer_addition() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), ByteType::INTEGER),
                 Instruction::add(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::INTEGER
+                    ByteType::INTEGER
                 ),
-                Instruction::r#return(Address::register(2), OperandType::INTEGER)
+                Instruction::r#return(Address::register(2), ByteType::INTEGER)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -89,7 +89,7 @@ fn local_integer_addition() {
 
 #[test]
 fn local_string_concatenation() {
-    let source = create_function_case(local_cases::LOCAL_STRING_CONCATENATION, OperandType::STRING);
+    let source = create_function_case(local_cases::LOCAL_STRING_CONCATENATION, ByteType::STRING);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -98,15 +98,15 @@ fn local_string_concatenation() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::STRING),
-                Instruction::r#move(1, Address::constant(1), OperandType::STRING),
+                Instruction::r#move(0, Address::constant(0), ByteType::STRING),
+                Instruction::r#move(1, Address::constant(1), ByteType::STRING),
                 Instruction::add(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::STRING
+                    ByteType::STRING
                 ),
-                Instruction::r#return(Address::register(2), OperandType::STRING)
+                Instruction::r#return(Address::register(2), ByteType::STRING)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -118,7 +118,7 @@ fn local_string_concatenation() {
 fn local_character_concatenation() {
     let source = create_function_case(
         local_cases::LOCAL_CHARACTER_CONCATENATION,
-        OperandType::STRING,
+        ByteType::STRING,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -128,15 +128,15 @@ fn local_character_concatenation() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
-                Instruction::r#move(1, Address::constant(0), OperandType::CHARACTER),
+                Instruction::r#move(0, Address::constant(0), ByteType::CHARACTER),
+                Instruction::r#move(1, Address::constant(0), ByteType::CHARACTER),
                 Instruction::add(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::CHARACTER
+                    ByteType::CHARACTER
                 ),
-                Instruction::r#return(Address::register(2), OperandType::STRING)
+                Instruction::r#return(Address::register(2), ByteType::STRING)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -148,7 +148,7 @@ fn local_character_concatenation() {
 fn local_string_character_concatenation() {
     let source = create_function_case(
         local_cases::LOCAL_STRING_CHARACTER_CONCATENATION,
-        OperandType::STRING,
+        ByteType::STRING,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -158,15 +158,15 @@ fn local_string_character_concatenation() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::STRING),
-                Instruction::r#move(1, Address::constant(1), OperandType::CHARACTER),
+                Instruction::r#move(0, Address::constant(0), ByteType::STRING),
+                Instruction::r#move(1, Address::constant(1), ByteType::CHARACTER),
                 Instruction::add(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::STRING_CHARACTER
+                    ByteType::STRING_CHARACTER
                 ),
-                Instruction::r#return(Address::register(2), OperandType::STRING)
+                Instruction::r#return(Address::register(2), ByteType::STRING)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -178,7 +178,7 @@ fn local_string_character_concatenation() {
 fn local_character_string_concatenation() {
     let source = create_function_case(
         local_cases::LOCAL_CHARACTER_STRING_CONCATENATION,
-        OperandType::STRING,
+        ByteType::STRING,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -188,15 +188,15 @@ fn local_character_string_concatenation() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
-                Instruction::r#move(1, Address::constant(1), OperandType::STRING),
+                Instruction::r#move(0, Address::constant(0), ByteType::CHARACTER),
+                Instruction::r#move(1, Address::constant(1), ByteType::STRING),
                 Instruction::add(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::CHARACTER_STRING
+                    ByteType::CHARACTER_STRING
                 ),
-                Instruction::r#return(Address::register(2), OperandType::STRING)
+                Instruction::r#return(Address::register(2), ByteType::STRING)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -206,7 +206,7 @@ fn local_character_string_concatenation() {
 
 #[test]
 fn local_mut_byte_addition() {
-    let source = create_function_case(local_cases::LOCAL_MUT_BYTE_ADDITION, OperandType::BYTE);
+    let source = create_function_case(local_cases::LOCAL_MUT_BYTE_ADDITION, ByteType::BYTE);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -215,14 +215,14 @@ fn local_mut_byte_addition() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(40), OperandType::BYTE),
+                Instruction::r#move(0, Address::encoded(40), ByteType::BYTE),
                 Instruction::add(
                     0,
                     Address::register(0),
                     Address::encoded(2),
-                    OperandType::BYTE
+                    ByteType::BYTE
                 ),
-                Instruction::r#return(Address::register(0), OperandType::BYTE)
+                Instruction::r#return(Address::register(0), ByteType::BYTE)
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -232,7 +232,7 @@ fn local_mut_byte_addition() {
 
 #[test]
 fn local_mut_float_addition() {
-    let source = create_function_case(local_cases::LOCAL_MUT_FLOAT_ADDITION, OperandType::FLOAT);
+    let source = create_function_case(local_cases::LOCAL_MUT_FLOAT_ADDITION, ByteType::FLOAT);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -241,14 +241,14 @@ fn local_mut_float_addition() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
+                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
                 Instruction::add(
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::FLOAT
+                    ByteType::FLOAT
                 ),
-                Instruction::r#return(Address::register(0), OperandType::FLOAT)
+                Instruction::r#return(Address::register(0), ByteType::FLOAT)
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -260,7 +260,7 @@ fn local_mut_float_addition() {
 fn local_mut_integer_addition() {
     let source = create_function_case(
         local_cases::LOCAL_MUT_INTEGER_ADDITION,
-        OperandType::INTEGER,
+        ByteType::INTEGER,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -270,14 +270,14 @@ fn local_mut_integer_addition() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
                 Instruction::add(
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::INTEGER
+                    ByteType::INTEGER
                 ),
-                Instruction::r#return(Address::register(0), OperandType::INTEGER)
+                Instruction::r#return(Address::register(0), ByteType::INTEGER)
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -289,7 +289,7 @@ fn local_mut_integer_addition() {
 fn local_mut_string_concatenation() {
     let source = create_function_case(
         local_cases::LOCAL_MUT_STRING_CONCATENATION,
-        OperandType::STRING,
+        ByteType::STRING,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -299,14 +299,14 @@ fn local_mut_string_concatenation() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::STRING),
+                Instruction::r#move(0, Address::constant(0), ByteType::STRING),
                 Instruction::add(
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::STRING
+                    ByteType::STRING
                 ),
-                Instruction::r#return(Address::register(0), OperandType::STRING)
+                Instruction::r#return(Address::register(0), ByteType::STRING)
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -318,7 +318,7 @@ fn local_mut_string_concatenation() {
 fn local_mut_string_character_concatenation() {
     let source = create_function_case(
         local_cases::LOCAL_MUT_STRING_CHARACTER_CONCATENATION,
-        OperandType::STRING,
+        ByteType::STRING,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -328,14 +328,14 @@ fn local_mut_string_character_concatenation() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::STRING),
+                Instruction::r#move(0, Address::constant(0), ByteType::STRING),
                 Instruction::add(
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::STRING_CHARACTER
+                    ByteType::STRING_CHARACTER
                 ),
-                Instruction::r#return(Address::register(0), OperandType::STRING)
+                Instruction::r#return(Address::register(0), ByteType::STRING)
             ],
             register_count: 1,
             ..Prototype::dummy()

@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, OperandType, Operation};
+use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct Call {
     pub destination: u16,
@@ -34,7 +34,7 @@ impl From<Call> for Instruction {
             memory: b_memory_kind,
         } = call.callee;
         let c_field = call.arguments_start;
-        let d_field = Some(call.argument_count);
+        let d_field = call.argument_count;
 
         InstructionFields {
             operation,
@@ -62,14 +62,12 @@ impl Display for Call {
             write!(f, "reg_{destination} = ")?;
         }
 
-        callee.display(f, OperandType::FUNCTION)?;
-
         if *argument_count == 0 {
-            write!(f, "()")
+            write!(f, "{callee}()")
         } else {
             let arguments_end = arguments_start + argument_count;
 
-            write!(f, "(args_{arguments_start}..args_{arguments_end})")
+            write!(f, "{callee}(args_{arguments_start}..args_{arguments_end})")
         }
     }
 }

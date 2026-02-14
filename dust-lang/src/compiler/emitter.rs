@@ -8,7 +8,7 @@ use crate::{
     compiler::error::{CompileError, InternalCompileError},
     constant_table::{ConstantId, ConstantTable},
     dust_type::DustType,
-    instruction::{Address, Drop, Instruction, MemoryKind, Move, OperandType, Operation, Test},
+    instruction::{Address, ByteType, Drop, Instruction, MemoryKind, Move, Operation, Test},
     native_function::NativeFunction,
     prototype::{Prototype, PrototypeId, PrototypeList},
     resolver::{
@@ -47,7 +47,7 @@ pub struct Emitter<'a> {
     locals: HashMap<DeclarationId, Place, FxBuildHasher>,
 
     /// Concatenated list of arguments referenced by CALL instructions.
-    call_arguments: Vec<(Address, OperandType)>,
+    call_arguments: Vec<(Address, ByteType)>,
 
     /// Concatenated list of register indices that are referenced by DROP and JUMP instructions.
     drop_lists: Vec<u16>,
@@ -1176,7 +1176,7 @@ impl<'a> Emitter<'a> {
                 return_emission.merge(instructions);
             }
 
-            let return_instruction = Instruction::r#return(Address::default(), OperandType::NONE);
+            let return_instruction = Instruction::r#return(Address::default(), ByteType::NONE);
 
             return_emission.push(return_instruction);
         }
@@ -1656,7 +1656,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting struct expression");
 
-        fn flatten_leaf_operand_types(r#type: &DustType, out: &mut Vec<OperandType>) {
+        fn flatten_leaf_operand_types(r#type: &DustType, out: &mut Vec<ByteType>) {
             match r#type {
                 DustType::Struct(struct_type) => {
                     for (_, field_type) in &struct_type.fields {
@@ -1991,9 +1991,9 @@ impl SyntaxVisitor for Emitter<'_> {
         let right_type = *self.resolver.get_type_binding(&right_expression.id)?;
         let math_expression_type = *self.resolver.get_type_binding(&node.id)?;
         let operand_type = match (left_type, right_type) {
-            (TypeId::STRING, TypeId::CHARACTER) => OperandType::STRING_CHARACTER,
-            (TypeId::CHARACTER, TypeId::STRING) => OperandType::CHARACTER_STRING,
-            (TypeId::CHARACTER, TypeId::CHARACTER) => OperandType::CHARACTER,
+            (TypeId::STRING, TypeId::CHARACTER) => ByteType::STRING_CHARACTER,
+            (TypeId::CHARACTER, TypeId::STRING) => ByteType::CHARACTER_STRING,
+            (TypeId::CHARACTER, TypeId::CHARACTER) => ByteType::CHARACTER,
             _ if math_expression_type == TypeId::NONE => self
                 .resolver
                 .get_operand_type(left_type, &left_expression)?,
@@ -2010,10 +2010,8 @@ impl SyntaxVisitor for Emitter<'_> {
 
                 if (matches!(
                     operand_type,
-                    OperandType::STRING
-                        | OperandType::CHARACTER_STRING
-                        | OperandType::STRING_CHARACTER
-                ) || (operand_type == OperandType::CHARACTER
+                    ByteType::STRING | ByteType::CHARACTER_STRING | ByteType::STRING_CHARACTER
+                ) || (operand_type == ByteType::CHARACTER
                     && math_expression_type == TypeId::STRING))
                     && target.is_temporary()
                 {
@@ -2193,14 +2191,14 @@ impl SyntaxVisitor for Emitter<'_> {
         let load_false_instruction = Instruction::move_with_jump(
             target.index(),
             Address::encoded(false as u16),
-            OperandType::BOOLEAN,
+            ByteType::BOOLEAN,
             1,
             true,
         );
         let load_true_instruction = Instruction::r#move(
             target.index(),
             Address::encoded(true as u16),
-            OperandType::BOOLEAN,
+            ByteType::BOOLEAN,
         );
 
         comparison_emission.push(comparison_instruction);
@@ -2251,15 +2249,10 @@ impl SyntaxVisitor for Emitter<'_> {
             SyntaxKind::OrExpression => Instruction::test(left_address, true, 1),
             _ => unreachable!("Expected logical expression, found {}", node.kind()),
         };
-        let right_move_instruction = Instruction::move_with_jump(
-            target.index(),
-            right_address,
-            OperandType::BOOLEAN,
-            1,
-            true,
-        );
+        let right_move_instruction =
+            Instruction::move_with_jump(target.index(), right_address, ByteType::BOOLEAN, 1, true);
         let left_move_instruction =
-            Instruction::r#move(target.index(), left_address, OperandType::BOOLEAN);
+            Instruction::r#move(target.index(), left_address, ByteType::BOOLEAN);
 
         logical_emission.push(test_instruction);
         logical_emission.push(right_move_instruction);
@@ -2306,7 +2299,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
                 self.resolver.get_operand_type(type_id, &node)?
             }
-            SyntaxKind::NotExpression => OperandType::BOOLEAN,
+            SyntaxKind::NotExpression => ByteType::BOOLEAN,
             _ => unreachable!("Expected unary negation expression, found {}", node.kind()),
         };
 
@@ -2438,7 +2431,7 @@ impl SyntaxVisitor for Emitter<'_> {
                     destination_register,
                     native_function,
                     0,
-                    OperandType::NONE,
+                    ByteType::NONE,
                 );
 
                 call_emission.push(call_native_instruction);
@@ -2461,7 +2454,7 @@ impl SyntaxVisitor for Emitter<'_> {
             && target.destination_count() == register_count
         {
             Some(target)
-        } else if return_operand_type != OperandType::NONE {
+        } else if return_operand_type != ByteType::NONE {
             Some(self.allocate_temporary_registers(register_count))
         } else {
             None
@@ -2476,7 +2469,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
         call_emission.push(call_instruction);
 
-        if return_operand_type != OperandType::NONE {
+        if return_operand_type != ByteType::NONE {
             call_emission.set_target(target);
         }
 
@@ -2656,14 +2649,14 @@ pub enum ConstantEmission {
 }
 
 impl ConstantEmission {
-    fn operand_type(&self) -> OperandType {
+    fn operand_type(&self) -> ByteType {
         match self {
-            ConstantEmission::Boolean(_) => OperandType::BOOLEAN,
-            ConstantEmission::Byte(_) => OperandType::BYTE,
-            ConstantEmission::Character(_) => OperandType::CHARACTER,
-            ConstantEmission::Float(_) => OperandType::FLOAT,
-            ConstantEmission::Integer(_) => OperandType::INTEGER,
-            ConstantEmission::String { .. } => OperandType::STRING,
+            ConstantEmission::Boolean(_) => ByteType::BOOLEAN,
+            ConstantEmission::Byte(_) => ByteType::BYTE,
+            ConstantEmission::Character(_) => ByteType::CHARACTER,
+            ConstantEmission::Float(_) => ByteType::FLOAT,
+            ConstantEmission::Integer(_) => ByteType::INTEGER,
+            ConstantEmission::String { .. } => ByteType::STRING,
         }
     }
 }

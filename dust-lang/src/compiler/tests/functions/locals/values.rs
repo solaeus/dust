@@ -1,14 +1,14 @@
 use crate::{
     compiler::compile,
     dust_type::DustType,
-    instruction::{Address, Instruction, OperandType},
+    instruction::{Address, Instruction, ByteType},
     prototype::Prototype,
     tests::{create_function_case, local_cases},
 };
 
 #[test]
 fn local_boolean() {
-    let source = create_function_case(local_cases::LOCAL_BOOLEAN, OperandType::BOOLEAN);
+    let source = create_function_case(local_cases::LOCAL_BOOLEAN, ByteType::BOOLEAN);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -17,8 +17,8 @@ fn local_boolean() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(Address::register(0), OperandType::BOOLEAN),
+                Instruction::r#move(0, Address::encoded(true as u16), ByteType::BOOLEAN),
+                Instruction::r#return(Address::register(0), ByteType::BOOLEAN),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -28,7 +28,7 @@ fn local_boolean() {
 
 #[test]
 fn local_byte() {
-    let source = create_function_case(local_cases::LOCAL_BYTE, OperandType::BYTE);
+    let source = create_function_case(local_cases::LOCAL_BYTE, ByteType::BYTE);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -37,8 +37,8 @@ fn local_byte() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(42), OperandType::BYTE),
-                Instruction::r#return(Address::register(0), OperandType::BYTE),
+                Instruction::r#move(0, Address::encoded(42), ByteType::BYTE),
+                Instruction::r#return(Address::register(0), ByteType::BYTE),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -48,7 +48,7 @@ fn local_byte() {
 
 #[test]
 fn local_character() {
-    let source = create_function_case(local_cases::LOCAL_CHARACTER, OperandType::CHARACTER);
+    let source = create_function_case(local_cases::LOCAL_CHARACTER, ByteType::CHARACTER);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -57,8 +57,8 @@ fn local_character() {
         Prototype {
             return_type: DustType::Character,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
-                Instruction::r#return(Address::register(0), OperandType::CHARACTER),
+                Instruction::r#move(0, Address::constant(0), ByteType::CHARACTER),
+                Instruction::r#return(Address::register(0), ByteType::CHARACTER),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -68,7 +68,7 @@ fn local_character() {
 
 #[test]
 fn local_float() {
-    let source = create_function_case(local_cases::LOCAL_FLOAT, OperandType::FLOAT);
+    let source = create_function_case(local_cases::LOCAL_FLOAT, ByteType::FLOAT);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -77,8 +77,8 @@ fn local_float() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
-                Instruction::r#return(Address::register(0), OperandType::FLOAT),
+                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
+                Instruction::r#return(Address::register(0), ByteType::FLOAT),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -88,7 +88,7 @@ fn local_float() {
 
 #[test]
 fn local_integer() {
-    let source = create_function_case(local_cases::LOCAL_INTEGER, OperandType::INTEGER);
+    let source = create_function_case(local_cases::LOCAL_INTEGER, ByteType::INTEGER);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -97,8 +97,8 @@ fn local_integer() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(Address::register(0), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#return(Address::register(0), ByteType::INTEGER),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -108,7 +108,7 @@ fn local_integer() {
 
 #[test]
 fn local_string() {
-    let source = create_function_case(local_cases::LOCAL_STRING, OperandType::STRING);
+    let source = create_function_case(local_cases::LOCAL_STRING, ByteType::STRING);
     let prototypes = compile(&source).unwrap();
 
     assert_eq!(prototypes.len(), 2);
@@ -117,8 +117,8 @@ fn local_string() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::STRING),
-                Instruction::r#return(Address::register(0), OperandType::STRING),
+                Instruction::r#move(0, Address::constant(0), ByteType::STRING),
+                Instruction::r#return(Address::register(0), ByteType::STRING),
             ],
             register_count: 1,
             ..Prototype::dummy()

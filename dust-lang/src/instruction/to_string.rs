@@ -1,11 +1,11 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::{Address, Instruction, InstructionFields, OperandType, Operation};
+use crate::instruction::{Address, Instruction, InstructionFields, ByteType, Operation};
 
 pub struct ToString {
     pub destination: u16,
     pub operand: Address,
-    pub r#type: OperandType,
+    pub r#type: ByteType,
 }
 
 impl From<&Instruction> for ToString {

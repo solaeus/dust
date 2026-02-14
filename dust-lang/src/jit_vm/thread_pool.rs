@@ -17,7 +17,7 @@ use tracing::{Level, debug, info, span};
 use crate::{
     dust_crate::Program,
     dust_type::{DustStructType, DustType},
-    instruction::OperandType,
+    instruction::ByteType,
     jit_vm::{
         JitCompiler, JitError, JitFunction, Object, ObjectPool, Register, RegisterTag,
         object::ObjectValue,
@@ -427,7 +427,7 @@ fn get_list_from_object_index(
                         ObjectValue::String(string) => string.clone(),
                         _ => {
                             return Err(JitError::InvalidObjectValue {
-                                expected: OperandType::STRING,
+                                expected: ByteType::STRING,
                             });
                         }
                     };
@@ -487,7 +487,7 @@ fn get_list_from_object_index(
             Ok(List::Nested(items))
         }
         _ => Err(JitError::InvalidConstantType {
-            expected_type: OperandType::LIST_BOOLEAN,
+            expected_type: ByteType::LIST_BOOLEAN,
         }),
     }
 }

@@ -1,7 +1,7 @@
 use crate::{
     compiler::compile,
     dust_type::DustType,
-    instruction::{Address, Instruction, OperandType},
+    instruction::{Address, Instruction, ByteType},
     prototype::Prototype,
     tests::{create_function_case, local_cases},
 };
@@ -10,7 +10,7 @@ use crate::{
 fn local_boolean_greater_than_or_equal() {
     let source = create_function_case(
         local_cases::LOCAL_BOOLEAN_GREATER_THAN_OR_EQUAL,
-        OperandType::BOOLEAN,
+        ByteType::BOOLEAN,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -20,23 +20,23 @@ fn local_boolean_greater_than_or_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#move(1, Address::encoded(true as u16), OperandType::BOOLEAN),
+                Instruction::r#move(0, Address::encoded(true as u16), ByteType::BOOLEAN),
+                Instruction::r#move(1, Address::encoded(true as u16), ByteType::BOOLEAN),
                 Instruction::less(
                     false,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::BOOLEAN
+                    ByteType::BOOLEAN
                 ),
                 Instruction::move_with_jump(
                     2,
                     Address::encoded(false as u16),
-                    OperandType::BOOLEAN,
+                    ByteType::BOOLEAN,
                     1,
                     true
                 ),
-                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
+                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
+                Instruction::r#return(Address::register(2), ByteType::BOOLEAN)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -48,7 +48,7 @@ fn local_boolean_greater_than_or_equal() {
 fn local_byte_greater_than_or_equal() {
     let source = create_function_case(
         local_cases::LOCAL_BYTE_GREATER_THAN_OR_EQUAL,
-        OperandType::BOOLEAN,
+        ByteType::BOOLEAN,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -58,23 +58,23 @@ fn local_byte_greater_than_or_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(0x2A), OperandType::BYTE),
-                Instruction::r#move(1, Address::encoded(0x2A), OperandType::BYTE),
+                Instruction::r#move(0, Address::encoded(0x2A), ByteType::BYTE),
+                Instruction::r#move(1, Address::encoded(0x2A), ByteType::BYTE),
                 Instruction::less(
                     false,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::BYTE
+                    ByteType::BYTE
                 ),
                 Instruction::move_with_jump(
                     2,
                     Address::encoded(false as u16),
-                    OperandType::BOOLEAN,
+                    ByteType::BOOLEAN,
                     1,
                     true
                 ),
-                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
+                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
+                Instruction::r#return(Address::register(2), ByteType::BOOLEAN)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -86,7 +86,7 @@ fn local_byte_greater_than_or_equal() {
 fn local_character_greater_than_or_equal() {
     let source = create_function_case(
         local_cases::LOCAL_CHARACTER_GREATER_THAN_OR_EQUAL,
-        OperandType::BOOLEAN,
+        ByteType::BOOLEAN,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -96,23 +96,23 @@ fn local_character_greater_than_or_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
-                Instruction::r#move(1, Address::constant(0), OperandType::CHARACTER),
+                Instruction::r#move(0, Address::constant(0), ByteType::CHARACTER),
+                Instruction::r#move(1, Address::constant(0), ByteType::CHARACTER),
                 Instruction::less(
                     false,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::CHARACTER
+                    ByteType::CHARACTER
                 ),
                 Instruction::move_with_jump(
                     2,
                     Address::encoded(false as u16),
-                    OperandType::BOOLEAN,
+                    ByteType::BOOLEAN,
                     1,
                     true
                 ),
-                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
+                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
+                Instruction::r#return(Address::register(2), ByteType::BOOLEAN)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -124,7 +124,7 @@ fn local_character_greater_than_or_equal() {
 fn local_float_greater_than_or_equal() {
     let source = create_function_case(
         local_cases::LOCAL_FLOAT_GREATER_THAN_OR_EQUAL,
-        OperandType::BOOLEAN,
+        ByteType::BOOLEAN,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -134,23 +134,23 @@ fn local_float_greater_than_or_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
-                Instruction::r#move(1, Address::constant(0), OperandType::FLOAT),
+                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
+                Instruction::r#move(1, Address::constant(0), ByteType::FLOAT),
                 Instruction::less(
                     false,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::FLOAT
+                    ByteType::FLOAT
                 ),
                 Instruction::move_with_jump(
                     2,
                     Address::encoded(false as u16),
-                    OperandType::BOOLEAN,
+                    ByteType::BOOLEAN,
                     1,
                     true
                 ),
-                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
+                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
+                Instruction::r#return(Address::register(2), ByteType::BOOLEAN)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -162,7 +162,7 @@ fn local_float_greater_than_or_equal() {
 fn local_integer_greater_than_or_equal() {
     let source = create_function_case(
         local_cases::LOCAL_INTEGER_GREATER_THAN_OR_EQUAL,
-        OperandType::BOOLEAN,
+        ByteType::BOOLEAN,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -172,23 +172,23 @@ fn local_integer_greater_than_or_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#move(1, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#move(1, Address::constant(0), ByteType::INTEGER),
                 Instruction::less(
                     false,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::INTEGER
+                    ByteType::INTEGER
                 ),
                 Instruction::move_with_jump(
                     2,
                     Address::encoded(false as u16),
-                    OperandType::BOOLEAN,
+                    ByteType::BOOLEAN,
                     1,
                     true
                 ),
-                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
+                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
+                Instruction::r#return(Address::register(2), ByteType::BOOLEAN)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -200,7 +200,7 @@ fn local_integer_greater_than_or_equal() {
 fn local_string_greater_than_or_equal() {
     let source = create_function_case(
         local_cases::LOCAL_STRING_GREATER_THAN_OR_EQUAL,
-        OperandType::BOOLEAN,
+        ByteType::BOOLEAN,
     );
     let prototypes = compile(&source).unwrap();
 
@@ -210,23 +210,23 @@ fn local_string_greater_than_or_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::STRING),
-                Instruction::r#move(1, Address::constant(0), OperandType::STRING),
+                Instruction::r#move(0, Address::constant(0), ByteType::STRING),
+                Instruction::r#move(1, Address::constant(0), ByteType::STRING),
                 Instruction::less(
                     false,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::STRING
+                    ByteType::STRING
                 ),
                 Instruction::move_with_jump(
                     2,
                     Address::encoded(false as u16),
-                    OperandType::BOOLEAN,
+                    ByteType::BOOLEAN,
                     1,
                     true
                 ),
-                Instruction::r#move(2, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(Address::register(2), OperandType::BOOLEAN)
+                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
+                Instruction::r#return(Address::register(2), ByteType::BOOLEAN)
             ],
             register_count: 3,
             ..Prototype::dummy()

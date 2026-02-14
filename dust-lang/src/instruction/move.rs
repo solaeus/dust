@@ -2,12 +2,12 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::instruction::MemoryKind;
 
-use super::{Address, Instruction, InstructionFields, OperandType, Operation};
+use super::{Address, Instruction, InstructionFields, ByteType, Operation};
 
 pub struct Move {
     pub destination: u16,
     pub operand: Address,
-    pub r#type: OperandType,
+    pub r#type: ByteType,
     pub jump_distance: u16,
     pub jump_is_positive: bool,
 }

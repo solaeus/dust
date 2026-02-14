@@ -1,7 +1,7 @@
 use crate::{
     compiler::compile_main,
     dust_type::DustType,
-    instruction::{Address, Instruction, OperandType},
+    instruction::{Address, Instruction, ByteType},
     prototype::Prototype,
     tests::local_cases,
 };
@@ -16,8 +16,8 @@ fn local_boolean() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::r#return(Address::register(0), OperandType::BOOLEAN),
+                Instruction::r#move(0, Address::encoded(true as u16), ByteType::BOOLEAN),
+                Instruction::r#return(Address::register(0), ByteType::BOOLEAN),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -35,8 +35,8 @@ fn local_byte() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(42), OperandType::BYTE),
-                Instruction::r#return(Address::register(0), OperandType::BYTE),
+                Instruction::r#move(0, Address::encoded(42), ByteType::BYTE),
+                Instruction::r#return(Address::register(0), ByteType::BYTE),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -54,8 +54,8 @@ fn local_character() {
         Prototype {
             return_type: DustType::Character,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::CHARACTER),
-                Instruction::r#return(Address::register(0), OperandType::CHARACTER),
+                Instruction::r#move(0, Address::constant(0), ByteType::CHARACTER),
+                Instruction::r#return(Address::register(0), ByteType::CHARACTER),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -73,8 +73,8 @@ fn local_float() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
-                Instruction::r#return(Address::register(0), OperandType::FLOAT),
+                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
+                Instruction::r#return(Address::register(0), ByteType::FLOAT),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -92,8 +92,8 @@ fn local_integer() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#return(Address::register(0), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#return(Address::register(0), ByteType::INTEGER),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -111,8 +111,8 @@ fn local_string() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::STRING),
-                Instruction::r#return(Address::register(0), OperandType::STRING),
+                Instruction::r#move(0, Address::constant(0), ByteType::STRING),
+                Instruction::r#return(Address::register(0), ByteType::STRING),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -130,11 +130,11 @@ fn local_function() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(1), OperandType::FUNCTION),
+                Instruction::r#move(0, Address::constant(1), ByteType::FUNCTION),
                 Instruction::call(Some(1), Address::register(0), 0, 1),
-                Instruction::r#return(Address::register(1), OperandType::INTEGER),
+                Instruction::r#return(Address::register(1), ByteType::INTEGER),
             ],
-            call_arguments: vec![(Address::constant(1), OperandType::INTEGER)],
+            call_arguments: vec![(Address::constant(1), ByteType::INTEGER)],
             register_count: 2,
             ..Prototype::dummy()
         }

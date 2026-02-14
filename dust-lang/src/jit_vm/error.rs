@@ -4,7 +4,7 @@ use cranelift_module::ModuleError;
 use crate::{
     dust_error::AnnotatedError,
     dust_type::DustType,
-    instruction::{MemoryKind, OperandType, Operation},
+    instruction::{MemoryKind, ByteType, Operation},
 };
 
 #[derive(Debug)]
@@ -21,7 +21,7 @@ pub enum JitError {
 
     // Missing and out-of-bounds errors
     UnsupportedOperandType {
-        operand_type: OperandType,
+        operand_type: ByteType,
     },
     DropListIndexOutOfBounds {
         drop_list_index: u16,
@@ -51,13 +51,13 @@ pub enum JitError {
         total_constant_count: usize,
     },
     InvalidConstantType {
-        expected_type: OperandType,
+        expected_type: ByteType,
     },
     InvalidObjectType {
         expected: DustType,
     },
     InvalidObjectValue {
-        expected: OperandType,
+        expected: ByteType,
     },
     RegisterIndexOutOfBounds {
         register_index: u16,

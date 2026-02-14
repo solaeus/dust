@@ -1,7 +1,7 @@
 use crate::{
     compiler::compile_main,
     dust_type::DustType,
-    instruction::{Address, Instruction, OperandType},
+    instruction::{Address, Instruction, ByteType},
     prototype::Prototype,
     tests::local_cases,
 };
@@ -16,9 +16,9 @@ fn local_boolean_not() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(true as u16), OperandType::BOOLEAN),
-                Instruction::negate(1, Address::register(0), OperandType::BOOLEAN),
-                Instruction::r#return(Address::register(1), OperandType::BOOLEAN)
+                Instruction::r#move(0, Address::encoded(true as u16), ByteType::BOOLEAN),
+                Instruction::negate(1, Address::register(0), ByteType::BOOLEAN),
+                Instruction::r#return(Address::register(1), ByteType::BOOLEAN)
             ],
             register_count: 2,
             ..Prototype::dummy()

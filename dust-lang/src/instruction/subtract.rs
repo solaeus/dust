@@ -1,12 +1,12 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, OperandType, Operation};
+use super::{Address, Instruction, InstructionFields, ByteType, Operation};
 
 pub struct Subtract {
     pub destination: u16,
     pub left: Address,
     pub right: Address,
-    pub r#type: OperandType,
+    pub r#type: ByteType,
 }
 
 impl From<&Instruction> for Subtract {

@@ -1,7 +1,7 @@
-use crate::instruction::OperandType;
+use crate::instruction::ByteType;
 
-pub fn create_function_case(source: &str, return_type: OperandType) -> String {
-    if return_type == OperandType::NONE {
+pub fn create_function_case(source: &str, return_type: ByteType) -> String {
+    if return_type == ByteType::NONE {
         format!(
             r#"
             fn foobar() {{
@@ -20,7 +20,7 @@ pub fn create_function_case(source: &str, return_type: OperandType) -> String {
     }
 }
 
-pub fn create_function_with_call_case(source: &str, return_type: OperandType) -> String {
+pub fn create_function_with_call_case(source: &str, return_type: ByteType) -> String {
     format!(
         r#"
         {}

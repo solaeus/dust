@@ -1,6 +1,6 @@
 use cranelift::prelude::{Type as CraneliftType, types::I8};
 
-use crate::{instruction::OperandType, jit_vm::Object};
+use crate::{instruction::ByteType, jit_vm::Object};
 
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -34,15 +34,15 @@ impl RegisterTag {
     pub const CRANELIFT_TYPE: CraneliftType = I8;
 }
 
-impl From<OperandType> for RegisterTag {
-    fn from(operand_type: OperandType) -> Self {
+impl From<ByteType> for RegisterTag {
+    fn from(operand_type: ByteType) -> Self {
         match operand_type {
-            OperandType::NONE => RegisterTag::EMPTY,
-            OperandType::BOOLEAN
-            | OperandType::BYTE
-            | OperandType::CHARACTER
-            | OperandType::FLOAT
-            | OperandType::INTEGER => RegisterTag::SCALAR,
+            ByteType::NONE => RegisterTag::EMPTY,
+            ByteType::BOOLEAN
+            | ByteType::BYTE
+            | ByteType::CHARACTER
+            | ByteType::FLOAT
+            | ByteType::INTEGER => RegisterTag::SCALAR,
             _ => RegisterTag::OBJECT,
         }
     }

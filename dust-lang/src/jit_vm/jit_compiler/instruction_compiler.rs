@@ -19,7 +19,7 @@ use crate::{
     dust_type::DustType,
     instruction::{
         Add, Address, Call, CallNative, Divide, Drop, GetList, Instruction, Jump, MemoryKind,
-        Modulo, Move, Multiply, Negate, NewList, OperandType, Operation, Power, Reference, Return,
+        Modulo, Move, Multiply, Negate, NewList, ByteType, Operation, Power, Reference, Return,
         SetList, Subtract, Test, ToString,
     },
     jit_vm::{
@@ -162,7 +162,7 @@ impl<'a> InstructionCompiler<'a> {
         let shifted_end = builder.ins().ishl_imm(end_value, 32);
         let encoded = builder.ins().bor(shifted_end, start_value);
 
-        self.set_register_and_tag(destination, encoded, OperandType::COMPOUND, builder)?;
+        self.set_register_and_tag(destination, encoded, ByteType::STRUCT, builder)?;
         builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
 
         Ok(())
@@ -216,7 +216,7 @@ impl<'a> InstructionCompiler<'a> {
         let left_value = self.get_value(left, r#type, builder)?;
         let right_value = self.get_value(right, r#type, builder)?;
         let comparison_result = match r#type {
-            OperandType::STRING => {
+            ByteType::STRING => {
                 let compare_strings_function = match operation {
                     Operation::EQUAL => self.get_compare_strings_equal_function(builder)?,
                     Operation::LESS => self.get_compare_strings_less_than_function(builder)?,
@@ -238,14 +238,14 @@ impl<'a> InstructionCompiler<'a> {
                     builder.ins().bxor_imm(compare_result, 1)
                 }
             }
-            OperandType::LIST_BOOLEAN
-            | OperandType::LIST_BYTE
-            | OperandType::LIST_CHARACTER
-            | OperandType::LIST_FLOAT
-            | OperandType::LIST_INTEGER
-            | OperandType::LIST_STRING
-            | OperandType::LIST_FUNCTION
-            | OperandType::LIST_LIST => {
+            ByteType::LIST_BOOLEAN
+            | ByteType::LIST_BYTE
+            | ByteType::LIST_CHARACTER
+            | ByteType::LIST_FLOAT
+            | ByteType::LIST_INTEGER
+            | ByteType::LIST_STRING
+            | ByteType::LIST_FUNCTION
+            | ByteType::LIST_LIST => {
                 let compare_lists_function = match operation {
                     Operation::EQUAL => self.get_compare_lists_equal_function(builder)?,
                     Operation::LESS => self.get_compare_lists_less_than_function(builder)?,
@@ -267,7 +267,7 @@ impl<'a> InstructionCompiler<'a> {
                     builder.ins().bxor_imm(compare_result, 1)
                 }
             }
-            OperandType::FLOAT => {
+            ByteType::FLOAT => {
                 let condition = match (operation, comparator) {
                     (Operation::EQUAL, true) => FloatCC::Equal,
                     (Operation::EQUAL, false) => FloatCC::NotEqual,
@@ -665,12 +665,7 @@ impl<'a> InstructionCompiler<'a> {
                     let shifted_end = builder.ins().ishl_imm(end_value, 32);
                     let encoded = builder.ins().bor(shifted_end, start_value);
 
-                    self.set_register_and_tag(
-                        destination,
-                        encoded,
-                        OperandType::COMPOUND,
-                        builder,
-                    )?;
+                    self.set_register_and_tag(destination, encoded, ByteType::STRUCT, builder)?;
                 }
                 MemoryKind::REGISTER => {
                     let return_kind = indirect_return_kind.ok_or(JitError::MissingReturnValue)?;
@@ -777,7 +772,7 @@ impl<'a> InstructionCompiler<'a> {
                         self.set_register_and_tag(
                             destination,
                             encoded,
-                            OperandType::COMPOUND,
+                            ByteType::STRUCT,
                             builder,
                         )?;
 
@@ -851,7 +846,7 @@ impl<'a> InstructionCompiler<'a> {
         };
         let call_callee = builder.ins().call(callee_reference, &argument_values);
 
-        if return_type != OperandType::NONE {
+        if return_type != ByteType::NONE {
             let return_value = *builder
                 .inst_results(call_callee)
                 .first()
@@ -878,19 +873,19 @@ impl<'a> InstructionCompiler<'a> {
         } = Negate::from(instruction);
 
         let negated_value = match r#type {
-            OperandType::BOOLEAN => {
+            ByteType::BOOLEAN => {
                 let boolean_value = self.get_boolean(operand, builder)?;
                 let one = builder.ins().iconst(I8, 1);
                 let negated_boolean = builder.ins().bxor(boolean_value, one);
 
                 builder.ins().uextend(I64, negated_boolean)
             }
-            OperandType::INTEGER => {
+            ByteType::INTEGER => {
                 let integer_value = self.get_integer(operand, builder)?;
 
                 builder.ins().ineg(integer_value)
             }
-            OperandType::FLOAT => {
+            ByteType::FLOAT => {
                 let float_value = self.get_float(operand, builder)?;
                 let negated_float = builder.ins().fneg(float_value);
 
@@ -923,27 +918,27 @@ impl<'a> InstructionCompiler<'a> {
         } = Add::from(instruction);
 
         let sum_value = match r#type {
-            OperandType::BYTE => {
+            ByteType::BYTE => {
                 let left_byte = self.get_byte(left, builder)?;
                 let right_byte = self.get_byte(right, builder)?;
                 let sum_byte = builder.ins().iadd(left_byte, right_byte);
 
                 builder.ins().uextend(I64, sum_byte)
             }
-            OperandType::INTEGER => {
+            ByteType::INTEGER => {
                 let left_integer = self.get_integer(left, builder)?;
                 let right_integer = self.get_integer(right, builder)?;
 
                 builder.ins().iadd(left_integer, right_integer)
             }
-            OperandType::FLOAT => {
+            ByteType::FLOAT => {
                 let left_float = self.get_float(left, builder)?;
                 let right_float = self.get_float(right, builder)?;
                 let sum_float = builder.ins().fadd(left_float, right_float);
 
                 builder.ins().bitcast(I64, MemFlags::new(), sum_float)
             }
-            OperandType::STRING => {
+            ByteType::STRING => {
                 let left_string = self.get_string(left, builder)?;
                 let right_string = self.get_string(right, builder)?;
                 let concatenate_strings_function =
@@ -955,7 +950,7 @@ impl<'a> InstructionCompiler<'a> {
 
                 builder.inst_results(call_concatenate_strings)[0]
             }
-            OperandType::CHARACTER => {
+            ByteType::CHARACTER => {
                 let left_character = self.get_character(left, builder)?;
                 let right_character = self.get_character(right, builder)?;
                 let concatenate_characters_function =
@@ -967,7 +962,7 @@ impl<'a> InstructionCompiler<'a> {
 
                 builder.inst_results(call_concatenate_characters)[0]
             }
-            OperandType::STRING_CHARACTER => {
+            ByteType::STRING_CHARACTER => {
                 let left_string = self.get_string(left, builder)?;
                 let right_character = self.get_character(right, builder)?;
                 let concatenate_string_character_function =
@@ -979,7 +974,7 @@ impl<'a> InstructionCompiler<'a> {
 
                 builder.inst_results(call_concatenate_string_character)[0]
             }
-            OperandType::CHARACTER_STRING => {
+            ByteType::CHARACTER_STRING => {
                 let left_character = self.get_character(left, builder)?;
                 let right_string = self.get_string(right, builder)?;
                 let concatenate_character_string_function =
@@ -997,8 +992,8 @@ impl<'a> InstructionCompiler<'a> {
                 });
             }
         };
-        let result_type = if r#type == OperandType::CHARACTER {
-            OperandType::STRING
+        let result_type = if r#type == ByteType::CHARACTER {
+            ByteType::STRING
         } else {
             r#type.destination_type()
         };
@@ -1023,20 +1018,20 @@ impl<'a> InstructionCompiler<'a> {
         } = Subtract::from(instruction);
 
         let difference_value = match r#type {
-            OperandType::BYTE => {
+            ByteType::BYTE => {
                 let left_byte = self.get_byte(left, builder)?;
                 let right_byte = self.get_byte(right, builder)?;
                 let difference_byte = builder.ins().isub(left_byte, right_byte);
 
                 builder.ins().uextend(I64, difference_byte)
             }
-            OperandType::INTEGER => {
+            ByteType::INTEGER => {
                 let left_integer = self.get_integer(left, builder)?;
                 let right_integer = self.get_integer(right, builder)?;
 
                 builder.ins().isub(left_integer, right_integer)
             }
-            OperandType::FLOAT => {
+            ByteType::FLOAT => {
                 let left_float = self.get_float(left, builder)?;
                 let right_float = self.get_float(right, builder)?;
                 let difference_float = builder.ins().fsub(left_float, right_float);
@@ -1072,20 +1067,20 @@ impl<'a> InstructionCompiler<'a> {
         } = Multiply::from(instruction);
 
         let product_value = match r#type {
-            OperandType::BYTE => {
+            ByteType::BYTE => {
                 let left_byte = self.get_byte(left, builder)?;
                 let right_byte = self.get_byte(right, builder)?;
                 let product_byte = builder.ins().imul(left_byte, right_byte);
 
                 builder.ins().uextend(I64, product_byte)
             }
-            OperandType::INTEGER => {
+            ByteType::INTEGER => {
                 let left_integer = self.get_integer(left, builder)?;
                 let right_integer = self.get_integer(right, builder)?;
 
                 builder.ins().imul(left_integer, right_integer)
             }
-            OperandType::FLOAT => {
+            ByteType::FLOAT => {
                 let left_float = self.get_float(left, builder)?;
                 let right_float = self.get_float(right, builder)?;
                 let product_float = builder.ins().fmul(left_float, right_float);
@@ -1119,20 +1114,20 @@ impl<'a> InstructionCompiler<'a> {
         } = Divide::from(instruction);
 
         let quotient_value = match r#type {
-            OperandType::BYTE => {
+            ByteType::BYTE => {
                 let left_byte = self.get_byte(left, builder)?;
                 let right_byte = self.get_byte(right, builder)?;
                 let quotient_byte = builder.ins().udiv(left_byte, right_byte);
 
                 builder.ins().uextend(I64, quotient_byte)
             }
-            OperandType::INTEGER => {
+            ByteType::INTEGER => {
                 let left_integer = self.get_integer(left, builder)?;
                 let right_integer = self.get_integer(right, builder)?;
 
                 builder.ins().sdiv(left_integer, right_integer)
             }
-            OperandType::FLOAT => {
+            ByteType::FLOAT => {
                 let left_float = self.get_float(left, builder)?;
                 let right_float = self.get_float(right, builder)?;
                 let quotient_float = builder.ins().fdiv(left_float, right_float);
@@ -1166,14 +1161,14 @@ impl<'a> InstructionCompiler<'a> {
         } = Modulo::from(instruction);
 
         let remainder_value = match r#type {
-            OperandType::BYTE => {
+            ByteType::BYTE => {
                 let left_byte = self.get_byte(left, builder)?;
                 let right_byte = self.get_byte(right, builder)?;
                 let remainder_byte = builder.ins().urem(left_byte, right_byte);
 
                 builder.ins().uextend(I64, remainder_byte)
             }
-            OperandType::FLOAT => {
+            ByteType::FLOAT => {
                 let left_float = self.get_float(left, builder)?;
                 let right_float = self.get_float(right, builder)?;
                 let quotient_float = builder.ins().fdiv(left_float, right_float);
@@ -1183,7 +1178,7 @@ impl<'a> InstructionCompiler<'a> {
 
                 builder.ins().bitcast(I64, MemFlags::new(), remainder_float)
             }
-            OperandType::INTEGER => {
+            ByteType::INTEGER => {
                 let left_integer = self.get_integer(left, builder)?;
                 let right_integer = self.get_integer(right, builder)?;
 
@@ -1216,7 +1211,7 @@ impl<'a> InstructionCompiler<'a> {
         } = Power::from(instruction);
 
         let power_value = match r#type {
-            OperandType::BYTE => {
+            ByteType::BYTE => {
                 let base_byte = self.get_byte(base, builder)?;
                 let exponent_byte = self.get_byte(exponent, builder)?;
                 let byte_power_function = self.get_byte_power_function(builder)?;
@@ -1226,7 +1221,7 @@ impl<'a> InstructionCompiler<'a> {
 
                 builder.inst_results(call_byte_power)[0]
             }
-            OperandType::FLOAT => {
+            ByteType::FLOAT => {
                 let base_float = self.get_float(base, builder)?;
                 let exponent_float = self.get_float(exponent, builder)?;
                 let float_power_function = self.get_float_power_function(builder)?;
@@ -1236,7 +1231,7 @@ impl<'a> InstructionCompiler<'a> {
 
                 builder.inst_results(call_float_power)[0]
             }
-            OperandType::INTEGER => {
+            ByteType::INTEGER => {
                 let base_integer = self.get_integer(base, builder)?;
                 let exponent_integer = self.get_integer(exponent, builder)?;
                 let integer_power_function = self.get_integer_power_function(builder)?;
@@ -1345,14 +1340,14 @@ impl<'a> InstructionCompiler<'a> {
         let index_value = self.get_integer(index, builder)?;
         let item_value = self.get_value(item_source, item_type, builder)?;
         let item_value = match item_type {
-            OperandType::BOOLEAN | OperandType::BYTE => {
+            ByteType::BOOLEAN | ByteType::BYTE => {
                 if builder.func.dfg.value_type(item_value) == I8 {
                     builder.ins().uextend(I64, item_value)
                 } else {
                     item_value
                 }
             }
-            OperandType::FLOAT => {
+            ByteType::FLOAT => {
                 if builder.func.dfg.value_type(item_value) == F64 {
                     builder.ins().bitcast(I64, MemFlags::new(), item_value)
                 } else {
@@ -1391,7 +1386,7 @@ impl<'a> InstructionCompiler<'a> {
 
         let operand_value = self.get_value(operand, r#type, builder)?;
         let to_string_function = match r#type {
-            OperandType::INTEGER => self.get_integer_to_string_function(builder)?,
+            ByteType::INTEGER => self.get_integer_to_string_function(builder)?,
             _ => {
                 return Err(JitError::UnsupportedOperandType {
                     operand_type: r#type,
@@ -1403,7 +1398,7 @@ impl<'a> InstructionCompiler<'a> {
             .call(to_string_function, &[operand_value, self.thread_context]);
         let string_value = builder.inst_results(call_to_string)[0];
 
-        self.set_register_and_tag(destination, string_value, OperandType::STRING, builder)?;
+        self.set_register_and_tag(destination, string_value, ByteType::STRING, builder)?;
         builder.ins().jump(self.instruction_blocks[ip + 1], &[]);
 
         Ok(())
@@ -1481,7 +1476,7 @@ impl<'a> InstructionCompiler<'a> {
     ) -> Result<(), JitError> {
         let Return { operand, r#type } = Return::from(instruction);
 
-        if let OperandType::NONE = r#type {
+        if let ByteType::NONE = r#type {
             builder.ins().return_(&[]);
             return Ok(());
         }
@@ -1552,25 +1547,25 @@ impl<'a> InstructionCompiler<'a> {
     fn get_value(
         &mut self,
         address: Address,
-        r#type: OperandType,
+        r#type: ByteType,
         builder: &mut FunctionBuilder,
     ) -> Result<CraneliftValue, JitError> {
         match r#type {
-            OperandType::BOOLEAN => self.get_boolean(address, builder),
-            OperandType::BYTE => self.get_byte(address, builder),
-            OperandType::CHARACTER => self.get_character(address, builder),
-            OperandType::FLOAT => self.get_float(address, builder),
-            OperandType::INTEGER => self.get_integer(address, builder),
-            OperandType::STRING => self.get_string(address, builder),
-            OperandType::FUNCTION => self.get_prototype_index(address, builder),
-            OperandType::LIST_BOOLEAN
-            | OperandType::LIST_BYTE
-            | OperandType::LIST_CHARACTER
-            | OperandType::LIST_FLOAT
-            | OperandType::LIST_INTEGER
-            | OperandType::LIST_STRING
-            | OperandType::LIST_FUNCTION
-            | OperandType::LIST_LIST => self
+            ByteType::BOOLEAN => self.get_boolean(address, builder),
+            ByteType::BYTE => self.get_byte(address, builder),
+            ByteType::CHARACTER => self.get_character(address, builder),
+            ByteType::FLOAT => self.get_float(address, builder),
+            ByteType::INTEGER => self.get_integer(address, builder),
+            ByteType::STRING => self.get_string(address, builder),
+            ByteType::FUNCTION => self.get_prototype_index(address, builder),
+            ByteType::LIST_BOOLEAN
+            | ByteType::LIST_BYTE
+            | ByteType::LIST_CHARACTER
+            | ByteType::LIST_FLOAT
+            | ByteType::LIST_INTEGER
+            | ByteType::LIST_STRING
+            | ByteType::LIST_FUNCTION
+            | ByteType::LIST_LIST => self
                 .ssa_registers
                 .get(address.index as usize)
                 .map(|ssa_variable| builder.use_var(*ssa_variable))
@@ -1578,7 +1573,7 @@ impl<'a> InstructionCompiler<'a> {
                     register_index: address.index,
                     total_register_count: self.ssa_registers.len(),
                 }),
-            OperandType::COMPOUND => {
+            ByteType::STRUCT => {
                 if address.memory == MemoryKind::REGISTER {
                     self.ssa_registers
                         .get(address.index as usize)
@@ -1823,7 +1818,7 @@ impl<'a> InstructionCompiler<'a> {
         &mut self,
         index: u16,
         value: CraneliftValue,
-        r#type: OperandType,
+        r#type: ByteType,
         builder: &mut FunctionBuilder,
     ) -> Result<(), JitError> {
         let destination_register =
@@ -1835,23 +1830,23 @@ impl<'a> InstructionCompiler<'a> {
                 })?;
         let destination_type = r#type.destination_type();
         let tag = match destination_type {
-            OperandType::NONE => RegisterTag::EMPTY,
-            OperandType::BOOLEAN
-            | OperandType::BYTE
-            | OperandType::CHARACTER
-            | OperandType::FLOAT
-            | OperandType::INTEGER
-            | OperandType::FUNCTION
-            | OperandType::COMPOUND => RegisterTag::SCALAR,
-            OperandType::STRING
-            | OperandType::LIST_BOOLEAN
-            | OperandType::LIST_BYTE
-            | OperandType::LIST_CHARACTER
-            | OperandType::LIST_FLOAT
-            | OperandType::LIST_INTEGER
-            | OperandType::LIST_FUNCTION
-            | OperandType::LIST_STRING
-            | OperandType::LIST_LIST => RegisterTag::OBJECT,
+            ByteType::NONE => RegisterTag::EMPTY,
+            ByteType::BOOLEAN
+            | ByteType::BYTE
+            | ByteType::CHARACTER
+            | ByteType::FLOAT
+            | ByteType::INTEGER
+            | ByteType::FUNCTION
+            | ByteType::STRUCT => RegisterTag::SCALAR,
+            ByteType::STRING
+            | ByteType::LIST_BOOLEAN
+            | ByteType::LIST_BYTE
+            | ByteType::LIST_CHARACTER
+            | ByteType::LIST_FLOAT
+            | ByteType::LIST_INTEGER
+            | ByteType::LIST_FUNCTION
+            | ByteType::LIST_STRING
+            | ByteType::LIST_LIST => RegisterTag::OBJECT,
             _ => {
                 return Err(JitError::UnsupportedOperandType {
                     operand_type: destination_type,
@@ -1863,14 +1858,14 @@ impl<'a> InstructionCompiler<'a> {
             .iconst(RegisterTag::CRANELIFT_TYPE, tag.0 as i64);
 
         let value = match destination_type {
-            OperandType::BOOLEAN | OperandType::BYTE => {
+            ByteType::BOOLEAN | ByteType::BYTE => {
                 if builder.func.dfg.value_type(value) == I8 {
                     builder.ins().uextend(I64, value)
                 } else {
                     value
                 }
             }
-            OperandType::FLOAT => {
+            ByteType::FLOAT => {
                 if builder.func.dfg.value_type(value) == F64 {
                     builder.ins().bitcast(I64, MemFlags::new(), value)
                 } else {

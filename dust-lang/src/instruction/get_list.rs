@@ -1,12 +1,12 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, OperandType, Operation};
+use super::{Address, Instruction, InstructionFields, ByteType, Operation};
 
 pub struct GetList {
     pub destination: u16,
     pub list: Address,
     pub list_index: Address,
-    pub item_type: OperandType,
+    pub item_type: ByteType,
 }
 
 impl From<&Instruction> for GetList {

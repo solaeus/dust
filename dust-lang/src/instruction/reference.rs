@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::{Instruction, InstructionFields, OperandType, Operation};
+use crate::instruction::{Instruction, InstructionFields, ByteType, Operation};
 
 pub struct Reference {
     pub destination: u16,
@@ -27,7 +27,7 @@ impl From<Reference> for Instruction {
         let a_field = reference.destination;
         let b_field = reference.start;
         let c_field = reference.length;
-        let operand_type = OperandType::COMPOUND;
+        let operand_type = ByteType::STRUCT;
 
         InstructionFields {
             operation: Operation::REFERENCE,

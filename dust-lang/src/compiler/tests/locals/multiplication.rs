@@ -1,7 +1,7 @@
 use crate::{
     compiler::compile_main,
     dust_type::DustType,
-    instruction::{Address, Instruction, OperandType},
+    instruction::{Address, Instruction, ByteType},
     prototype::Prototype,
     tests::local_cases,
 };
@@ -16,14 +16,14 @@ fn local_mut_byte_multiplication() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(14), OperandType::BYTE),
+                Instruction::r#move(0, Address::encoded(14), ByteType::BYTE),
                 Instruction::multiply(
                     0,
                     Address::register(0),
                     Address::encoded(3),
-                    OperandType::BYTE
+                    ByteType::BYTE
                 ),
-                Instruction::r#return(Address::register(0), OperandType::BYTE)
+                Instruction::r#return(Address::register(0), ByteType::BYTE)
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -41,14 +41,14 @@ fn local_mut_float_multiplication() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
+                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
                 Instruction::multiply(
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::FLOAT
+                    ByteType::FLOAT
                 ),
-                Instruction::r#return(Address::register(0), OperandType::FLOAT)
+                Instruction::r#return(Address::register(0), ByteType::FLOAT)
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -66,14 +66,14 @@ fn local_mut_integer_multiplication() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
                 Instruction::multiply(
                     0,
                     Address::register(0),
                     Address::constant(1),
-                    OperandType::INTEGER
+                    ByteType::INTEGER
                 ),
-                Instruction::r#return(Address::register(0), OperandType::INTEGER)
+                Instruction::r#return(Address::register(0), ByteType::INTEGER)
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -91,15 +91,15 @@ fn local_byte_multiplication() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(14), OperandType::BYTE),
-                Instruction::r#move(1, Address::encoded(3), OperandType::BYTE),
+                Instruction::r#move(0, Address::encoded(14), ByteType::BYTE),
+                Instruction::r#move(1, Address::encoded(3), ByteType::BYTE),
                 Instruction::multiply(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::BYTE
+                    ByteType::BYTE
                 ),
-                Instruction::r#return(Address::register(2), OperandType::BYTE)
+                Instruction::r#return(Address::register(2), ByteType::BYTE)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -117,15 +117,15 @@ fn local_float_multiplication() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::FLOAT),
-                Instruction::r#move(1, Address::constant(1), OperandType::FLOAT),
+                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
+                Instruction::r#move(1, Address::constant(1), ByteType::FLOAT),
                 Instruction::multiply(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::FLOAT
+                    ByteType::FLOAT
                 ),
-                Instruction::r#return(Address::register(2), OperandType::FLOAT)
+                Instruction::r#return(Address::register(2), ByteType::FLOAT)
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -143,15 +143,15 @@ fn local_integer_multiplication() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), OperandType::INTEGER),
-                Instruction::r#move(1, Address::constant(1), OperandType::INTEGER),
+                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
+                Instruction::r#move(1, Address::constant(1), ByteType::INTEGER),
                 Instruction::multiply(
                     2,
                     Address::register(0),
                     Address::register(1),
-                    OperandType::INTEGER
+                    ByteType::INTEGER
                 ),
-                Instruction::r#return(Address::register(2), OperandType::INTEGER)
+                Instruction::r#return(Address::register(2), ByteType::INTEGER)
             ],
             register_count: 3,
             ..Prototype::dummy()

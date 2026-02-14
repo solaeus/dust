@@ -7,12 +7,12 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::instruction::OperandType;
+use crate::instruction::ByteType;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ConstantTable {
     payloads: IndexMap<ConstantKey, u64, FxBuildHasher>,
-    tags: Vec<OperandType>,
+    tags: Vec<ByteType>,
     string_pool: String,
 }
 
@@ -39,11 +39,11 @@ impl ConstantTable {
 
     pub fn add_character(&mut self, character: char) -> ConstantId {
         let payload = character as u64;
-        let key = ConstantKey::from_payload_and_tag(payload, OperandType::CHARACTER);
+        let key = ConstantKey::from_payload_and_tag(payload, ByteType::CHARACTER);
         let (index, found) = self.payloads.insert_full(key, payload);
 
         if found.is_none() {
-            self.tags.push(OperandType::CHARACTER);
+            self.tags.push(ByteType::CHARACTER);
         }
 
         ConstantId(index as u16)
@@ -62,11 +62,11 @@ impl ConstantTable {
 
     pub fn add_float(&mut self, float: f64) -> ConstantId {
         let payload = float.to_bits();
-        let key = ConstantKey::from_payload_and_tag(payload, OperandType::FLOAT);
+        let key = ConstantKey::from_payload_and_tag(payload, ByteType::FLOAT);
         let (index, found) = self.payloads.insert_full(key, payload);
 
         if found.is_none() {
-            self.tags.push(OperandType::FLOAT);
+            self.tags.push(ByteType::FLOAT);
         }
 
         ConstantId(index as u16)
@@ -85,11 +85,11 @@ impl ConstantTable {
 
     pub fn add_integer(&mut self, integer: i64) -> ConstantId {
         let payload = u64::from_le_bytes(integer.to_le_bytes());
-        let key = ConstantKey::from_payload_and_tag(payload, OperandType::INTEGER);
+        let key = ConstantKey::from_payload_and_tag(payload, ByteType::INTEGER);
         let (index, found) = self.payloads.insert_full(key, payload);
 
         if found.is_none() {
-            self.tags.push(OperandType::INTEGER);
+            self.tags.push(ByteType::INTEGER);
         }
 
         ConstantId(index as u16)
@@ -120,7 +120,7 @@ impl ConstantTable {
 
             let (index, _) = self.payloads.insert_full(key, payload);
 
-            self.tags.push(OperandType::STRING);
+            self.tags.push(ByteType::STRING);
 
             ConstantId(index as u16)
         }
@@ -156,7 +156,7 @@ impl ConstantTable {
         let start = self.string_pool.len();
         let end = self.string_pool.len() + str.len();
         let payload = (start as u64) << 32 | (end as u64);
-        let key = ConstantKey::from_payload_and_tag(payload, OperandType::STRING);
+        let key = ConstantKey::from_payload_and_tag(payload, ByteType::STRING);
 
         if let Some(existing_index) = self.payloads.get_index_of(&key) {
             let payload = self.payloads[existing_index];
@@ -185,7 +185,7 @@ impl ConstantTable {
             let payload = (start as u64) << 32 | (end as u64);
 
             let (index, _) = self.payloads.insert_full(key, payload);
-            self.tags.push(OperandType::STRING);
+            self.tags.push(ByteType::STRING);
 
             ConstantId(index as u16)
         }
@@ -212,7 +212,7 @@ impl ConstantId {
 struct ConstantKey(u64);
 
 impl ConstantKey {
-    pub fn from_payload_and_tag(payload: u64, tag: OperandType) -> Self {
+    pub fn from_payload_and_tag(payload: u64, tag: ByteType) -> Self {
         let mut hasher = FxHasher::default();
 
         payload.hash(&mut hasher);
@@ -225,7 +225,7 @@ impl ConstantKey {
         let mut hasher = FxHasher::default();
 
         str.hash(&mut hasher);
-        OperandType::STRING.hash(&mut hasher);
+        ByteType::STRING.hash(&mut hasher);
 
         Self(hasher.finish())
     }
@@ -247,10 +247,10 @@ impl Iterator for ConstantTableDisplayIterator<'_> {
         let tag = self.table.tags[self.index];
         let payload = self.table.payloads[self.index];
         let value_string = match tag {
-            OperandType::CHARACTER => char::from_u32(payload as u32)?.to_string(),
-            OperandType::FLOAT => f64::from_bits(payload).to_string(),
-            OperandType::INTEGER => (payload as i64).to_string(),
-            OperandType::STRING => {
+            ByteType::CHARACTER => char::from_u32(payload as u32)?.to_string(),
+            ByteType::FLOAT => f64::from_bits(payload).to_string(),
+            ByteType::INTEGER => (payload as i64).to_string(),
+            ByteType::STRING => {
                 let payload = *self.table.payloads.get_index(self.index)?.1;
                 let start = (payload >> 32) as usize;
                 let end = (payload & 0xFFFFFFFF) as usize;

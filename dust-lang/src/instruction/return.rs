@@ -1,10 +1,10 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, OperandType, Operation};
+use super::{Address, Instruction, InstructionFields, ByteType, Operation};
 
 pub struct Return {
     pub operand: Address,
-    pub r#type: OperandType,
+    pub r#type: ByteType,
 }
 
 impl From<&Instruction> for Return {
@@ -40,7 +40,7 @@ impl Display for Return {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Return { operand, r#type } = self;
 
-        if *r#type == OperandType::NONE {
+        if *r#type == ByteType::NONE {
             write!(f, "return")
         } else {
             write!(f, "return ")?;

@@ -1,12 +1,12 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, OperandType, Operation};
+use super::{Address, ByteType, Instruction, InstructionFields, Operation};
 
 pub struct Equal {
     pub comparator: bool,
     pub left: Address,
     pub right: Address,
-    pub r#type: OperandType,
+    pub r#type: ByteType,
 }
 
 impl From<&Instruction> for Equal {

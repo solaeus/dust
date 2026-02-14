@@ -1,12 +1,12 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, OperandType, Operation};
+use super::{Address, Instruction, InstructionFields, ByteType, Operation};
 
 pub struct SetList {
     pub destination_list: u16,
     pub item_source: Address,
     pub index: Address,
-    pub item_type: OperandType,
+    pub item_type: ByteType,
 }
 
 impl From<&Instruction> for SetList {
@@ -63,7 +63,7 @@ impl Display for SetList {
         } = self;
 
         write!(f, "reg_{destination_list}[")?;
-        index.display(f, OperandType::INTEGER)?;
+        index.display(f, ByteType::INTEGER)?;
         write!(f, "] = ")?;
         item_source.display(f, *item_type)
     }

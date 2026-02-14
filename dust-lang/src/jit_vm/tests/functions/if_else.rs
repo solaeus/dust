@@ -1,5 +1,5 @@
 use crate::{
-    instruction::OperandType,
+    instruction::ByteType,
     jit_vm::run_main,
     tests::{create_function_with_call_case, if_else_cases},
     value::Value,
@@ -7,7 +7,7 @@ use crate::{
 
 #[test]
 fn if_else_true() {
-    let source = create_function_with_call_case(if_else_cases::IF_ELSE_TRUE, OperandType::INTEGER);
+    let source = create_function_with_call_case(if_else_cases::IF_ELSE_TRUE, ByteType::INTEGER);
     let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -15,7 +15,7 @@ fn if_else_true() {
 
 #[test]
 fn if_else_false() {
-    let source = create_function_with_call_case(if_else_cases::IF_ELSE_FALSE, OperandType::INTEGER);
+    let source = create_function_with_call_case(if_else_cases::IF_ELSE_FALSE, ByteType::INTEGER);
     let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -23,7 +23,7 @@ fn if_else_false() {
 
 #[test]
 fn if_else_equal() {
-    let source = create_function_with_call_case(if_else_cases::IF_ELSE_EQUAL, OperandType::INTEGER);
+    let source = create_function_with_call_case(if_else_cases::IF_ELSE_EQUAL, ByteType::INTEGER);
     let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -32,7 +32,7 @@ fn if_else_equal() {
 #[test]
 fn if_else_not_equal() {
     let source =
-        create_function_with_call_case(if_else_cases::IF_ELSE_NOT_EQUAL, OperandType::INTEGER);
+        create_function_with_call_case(if_else_cases::IF_ELSE_NOT_EQUAL, ByteType::INTEGER);
     let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -41,7 +41,7 @@ fn if_else_not_equal() {
 #[test]
 fn if_else_less_than() {
     let source =
-        create_function_with_call_case(if_else_cases::IF_ELSE_LESS_THAN, OperandType::INTEGER);
+        create_function_with_call_case(if_else_cases::IF_ELSE_LESS_THAN, ByteType::INTEGER);
     let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -50,7 +50,7 @@ fn if_else_less_than() {
 #[test]
 fn if_else_greater_than() {
     let source =
-        create_function_with_call_case(if_else_cases::IF_ELSE_GREATER_THAN, OperandType::INTEGER);
+        create_function_with_call_case(if_else_cases::IF_ELSE_GREATER_THAN, ByteType::INTEGER);
     let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -60,7 +60,7 @@ fn if_else_greater_than() {
 fn if_else_less_than_equal() {
     let source = create_function_with_call_case(
         if_else_cases::IF_ELSE_LESS_THAN_EQUAL,
-        OperandType::INTEGER,
+        ByteType::INTEGER,
     );
     let result = run_main(&source).unwrap();
 
@@ -71,7 +71,7 @@ fn if_else_less_than_equal() {
 fn if_else_greater_than_equal() {
     let source = create_function_with_call_case(
         if_else_cases::IF_ELSE_GREATER_THAN_EQUAL,
-        OperandType::INTEGER,
+        ByteType::INTEGER,
     );
     let result = run_main(&source).unwrap();
 
@@ -81,7 +81,7 @@ fn if_else_greater_than_equal() {
 #[test]
 fn if_else_if_chain_end() {
     let source =
-        create_function_with_call_case(if_else_cases::IF_ELSE_IF_CHAIN_END, OperandType::INTEGER);
+        create_function_with_call_case(if_else_cases::IF_ELSE_IF_CHAIN_END, ByteType::INTEGER);
     let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -91,7 +91,7 @@ fn if_else_if_chain_end() {
 fn if_else_if_chain_middle() {
     let source = create_function_with_call_case(
         if_else_cases::IF_ELSE_IF_CHAIN_MIDDLE,
-        OperandType::INTEGER,
+        ByteType::INTEGER,
     );
     let result = run_main(&source).unwrap();
 
@@ -101,7 +101,7 @@ fn if_else_if_chain_middle() {
 #[test]
 fn if_else_nested() {
     let source =
-        create_function_with_call_case(if_else_cases::IF_ELSE_NESTED, OperandType::INTEGER);
+        create_function_with_call_case(if_else_cases::IF_ELSE_NESTED, ByteType::INTEGER);
     let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -110,7 +110,7 @@ fn if_else_nested() {
 #[test]
 fn if_else_double_nested() {
     let source =
-        create_function_with_call_case(if_else_cases::IF_ELSE_DOUBLE_NESTED, OperandType::INTEGER);
+        create_function_with_call_case(if_else_cases::IF_ELSE_DOUBLE_NESTED, ByteType::INTEGER);
     let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -119,7 +119,7 @@ fn if_else_double_nested() {
 #[test]
 fn if_else_logical_and() {
     let source =
-        create_function_with_call_case(if_else_cases::IF_ELSE_LOGICAL_AND, OperandType::INTEGER);
+        create_function_with_call_case(if_else_cases::IF_ELSE_LOGICAL_AND, ByteType::INTEGER);
     let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
@@ -128,7 +128,7 @@ fn if_else_logical_and() {
 #[test]
 fn if_else_logical_or() {
     let source =
-        create_function_with_call_case(if_else_cases::IF_ELSE_LOGICAL_OR, OperandType::INTEGER);
+        create_function_with_call_case(if_else_cases::IF_ELSE_LOGICAL_OR, ByteType::INTEGER);
     let result = run_main(&source).unwrap();
 
     assert_eq!(result, Some(Value::integer(42)));
