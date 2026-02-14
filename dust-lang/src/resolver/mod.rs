@@ -138,14 +138,47 @@ impl Resolver {
     }
 
     pub fn find_declaration_in_scope(
-        &self,
-        _symbol: SymbolId,
-        _path_segment: &SyntaxReader,
-        _target_scope_id: ScopeId,
-        _parent: Option<DeclarationId>,
-        _is_type_lookup: bool,
+        &mut self,
+        symbol: SymbolId,
+        target_scope_id: ScopeId,
+        parent: Option<DeclarationId>,
+        is_type_lookup: bool,
+        path_segment: &SyntaxReader,
     ) -> Result<(DeclarationId, Declaration), CompileError> {
-        todo!()
+        let mut current_scope_id = target_scope_id;
+
+        loop {
+            if current_scope_id == ScopeId::NONE || !self.scope_search.insert(current_scope_id) {
+                break;
+            }
+
+            if let Some((declaration_id, declaration)) =
+                self.declarations
+                    .find_declaration(symbol, parent, current_scope_id)
+            {
+                self.scope_search.clear();
+
+                return Ok((declaration_id, declaration));
+            }
+
+            let next_scope = self.scopes.get_scope(current_scope_id)?;
+
+            if (is_type_lookup
+                && !matches!(next_scope.kind, ScopeKind::Module | ScopeKind::Function))
+                || (!is_type_lookup && !matches!(next_scope.kind, ScopeKind::Block))
+            {
+                break;
+            }
+
+            current_scope_id = next_scope.parent;
+        }
+
+        self.scope_search.clear();
+
+        Err(CompileError::Undeclared {
+            symbol,
+            usage_position: path_segment.position(),
+        })
     }
 
     pub fn infer_type(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {

@@ -1,7 +1,7 @@
 use crate::{
     compiler::compile_main,
     dust_type::DustType,
-    instruction::{Address, ByteType, Instruction},
+    instruction::{Address, Instruction},
     prototype::Prototype,
     tests::local_cases,
 };
@@ -16,7 +16,7 @@ fn local_boolean() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(true as u16)),
+                Instruction::r#move(0, Address::encoded_boolean(true)),
                 Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
@@ -35,7 +35,7 @@ fn local_byte() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(42)),
+                Instruction::r#move(0, Address::encoded_byte(42)),
                 Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
@@ -134,7 +134,7 @@ fn local_function() {
                 Instruction::call(Some(1), Address::register(0), 0, 1),
                 Instruction::r#return(Address::register(1)),
             ],
-            call_arguments: vec![(Address::constant(1), ByteType::INTEGER)],
+            call_arguments: vec![Address::constant(1)],
             register_count: 2,
             ..Prototype::dummy()
         }

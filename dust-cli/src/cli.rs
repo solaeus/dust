@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{
-    Args, ColorChoice, Parser, Subcommand, ValueHint,
+    Args, ColorChoice, Parser, Subcommand,
     builder::{Styles, styling::AnsiColor},
     crate_authors, crate_description, crate_version,
 };
@@ -54,11 +54,11 @@ pub struct Cli {
     pub min_sweep: Option<usize>,
 }
 
-#[derive(Subcommand, Eq, PartialEq)]
+#[derive(Subcommand)]
 pub enum Command {
     /// Parse the source code and print the syntax tree
     #[command(alias = "p")]
-    Parse(InputOptions),
+    Parse(ParseCommand),
 
     /// Run a program (default)
     #[command(alias = "r")]
@@ -77,36 +77,95 @@ pub enum Command {
     Init(InputOptions),
 }
 
-#[derive(Args, Clone, Eq, PartialEq)]
-#[group(multiple = false)]
+#[derive(Args)]
+#[group()]
 pub struct InputOptions {
     /// Source code to run instead of a file
     #[arg(short, long, value_name = "INPUT")]
     pub eval: Option<String>,
 
     /// Read source code from stdin
-    #[arg(long)]
+    #[arg(short, long)]
     pub stdin: bool,
 
     /// Path to a source code file
-    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath)]
     pub path: Option<PathBuf>,
 }
 
-#[derive(Args, Clone, Eq, PartialEq)]
+#[derive(Args)]
+#[group(multiple = true)]
+pub struct OutputOptions {
+    /// Disable all output
+    #[arg(short, long)]
+    pub no_output: bool,
+
+    /// Display the time taken for each operation
+    #[arg(short, long)]
+    pub time: bool,
+}
+
+#[derive(Args)]
+#[group(multiple = false)]
+pub struct FormatOptions {
+    /// Rust's debug format
+    #[arg(long, group = "format")]
+    pub debug: bool,
+
+    /// Rust's pretty debug format
+    #[arg(long, group = "format")]
+    pub pretty_debug: bool,
+
+    /// Rusty Object Notation
+    #[arg(long, group = "format")]
+    pub ron: bool,
+
+    /// Pretty Rusty Object Notation
+    #[arg(long, group = "format")]
+    pub pretty_ron: bool,
+
+    /// JavaScript Object Notation
+    #[arg(long, group = "format")]
+    pub json: bool,
+
+    /// Pretty JavaScript Object Notation
+    #[arg(long, group = "format")]
+    pub pretty_json: bool,
+
+    /// An efficient binary format, output in raw bytes
+    #[arg(long, group = "format")]
+    pub postcard: bool,
+}
+
+#[derive(Args)]
+pub struct ParseCommand {
+    #[command(flatten)]
+    pub input: InputOptions,
+
+    #[command(flatten)]
+    pub output: OutputOptions,
+
+    #[arg(long, default_value = "true", group = "format")]
+    /// Print syntax trees as human-readable structured text trees (default: true)
+    pub trees: bool,
+
+    #[command(flatten)]
+    pub format: FormatOptions,
+}
+
+#[derive(Args)]
 pub struct CompileCommand {
     #[command(flatten)]
     pub input: InputOptions,
 
     /// Disable all output
-    #[arg(long)]
+    #[arg(short, long)]
     pub no_output: bool,
 
     /// Display the time taken for each operation
     #[arg(short, long)]
     pub time: bool,
 
-    /// Dispaly disassembly with a TUI (default: true)
-    #[arg(long, default_value = "true")]
+    /// Disable the TUI and print the compiled program to stdout instead
+    #[arg(long)]
     pub no_tui: bool,
 }

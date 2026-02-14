@@ -14,11 +14,11 @@ fn single_identifier() {
         vec![
             Token {
                 kind: TokenKind::Identifier,
-                span: Span(0, 3)
+                span: Span::new(0, 3)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(3, 3)
+                span: Span::new(3, 3)
             }
         ]
     );
@@ -34,11 +34,11 @@ fn identifier_with_digits_and_underscores() {
         vec![
             Token {
                 kind: TokenKind::Identifier,
-                span: Span(0, 5)
+                span: Span::new(0, 5)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(5, 5)
+                span: Span::new(5, 5)
             }
         ]
     );
@@ -54,19 +54,19 @@ fn multiple_identifiers() {
         vec![
             Token {
                 kind: TokenKind::Identifier,
-                span: Span(0, 3)
+                span: Span::new(0, 3)
             },
             Token {
                 kind: TokenKind::Identifier,
-                span: Span(4, 11)
+                span: Span::new(4, 11)
             },
             Token {
                 kind: TokenKind::Identifier,
-                span: Span(12, 18)
+                span: Span::new(12, 18)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(18, 18)
+                span: Span::new(18, 18)
             }
         ]
     );
@@ -82,15 +82,15 @@ fn booleans() {
         vec![
             Token {
                 kind: TokenKind::TrueValue,
-                span: Span(0, 4)
+                span: Span::new(0, 4)
             },
             Token {
                 kind: TokenKind::FalseValue,
-                span: Span(5, 10)
+                span: Span::new(5, 10)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(10, 10)
+                span: Span::new(10, 10)
             }
         ]
     );
@@ -106,15 +106,15 @@ fn bytes() {
         vec![
             Token {
                 kind: TokenKind::ByteValue,
-                span: Span(0, 4)
+                span: Span::new(0, 4)
             },
             Token {
                 kind: TokenKind::ByteValue,
-                span: Span(5, 9)
+                span: Span::new(5, 9)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(9, 9)
+                span: Span::new(9, 9)
             }
         ]
     );
@@ -158,11 +158,11 @@ fn characters() {
         vec![
             Token {
                 kind: TokenKind::CharacterValue,
-                span: Span(0, 4)
+                span: Span::new(0, 4)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(4, 4)
+                span: Span::new(4, 4)
             }
         ]
     );
@@ -178,19 +178,19 @@ fn floats() {
         vec![
             Token {
                 kind: TokenKind::FloatValue,
-                span: Span(0, 4)
+                span: Span::new(0, 4)
             },
             Token {
                 kind: TokenKind::FloatValue,
-                span: Span(5, 10)
+                span: Span::new(5, 10)
             },
             Token {
                 kind: TokenKind::FloatValue,
-                span: Span(11, 15)
+                span: Span::new(11, 15)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(15, 15)
+                span: Span::new(15, 15)
             }
         ]
     );
@@ -206,19 +206,19 @@ fn integers() {
         vec![
             Token {
                 kind: TokenKind::IntegerValue,
-                span: Span(0, 1)
+                span: Span::new(0, 1)
             },
             Token {
                 kind: TokenKind::IntegerValue,
-                span: Span(2, 5)
+                span: Span::new(2, 5)
             },
             Token {
                 kind: TokenKind::IntegerValue,
-                span: Span(6, 12)
+                span: Span::new(6, 12)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(12, 12)
+                span: Span::new(12, 12)
             }
         ]
     );
@@ -234,15 +234,15 @@ fn strings() {
         vec![
             Token {
                 kind: TokenKind::StringValue,
-                span: Span(0, 7)
+                span: Span::new(0, 7)
             },
             Token {
                 kind: TokenKind::StringValue,
-                span: Span(8, 15)
+                span: Span::new(8, 15)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(15, 15)
+                span: Span::new(15, 15)
             }
         ]
     );
@@ -353,35 +353,35 @@ fn adjacent_tokens() {
         vec![
             Token {
                 kind: TokenKind::Let,
-                span: Span(0, 3)
+                span: Span::new(0, 3)
             },
             Token {
                 kind: TokenKind::Identifier,
-                span: Span(4, 5)
+                span: Span::new(4, 5)
             },
             Token {
                 kind: TokenKind::Colon,
-                span: Span(5, 6)
+                span: Span::new(5, 6)
             },
             Token {
                 kind: TokenKind::Int,
-                span: Span(6, 9)
+                span: Span::new(6, 9)
             },
             Token {
                 kind: TokenKind::Equal,
-                span: Span(9, 10)
+                span: Span::new(9, 10)
             },
             Token {
                 kind: TokenKind::IntegerValue,
-                span: Span(10, 12)
+                span: Span::new(10, 12)
             },
             Token {
                 kind: TokenKind::Semicolon,
-                span: Span(12, 13)
+                span: Span::new(12, 13)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(13, 13)
+                span: Span::new(13, 13)
             }
         ]
     );
@@ -487,11 +487,11 @@ fn unicode_identifier() {
         vec![
             Token {
                 kind: TokenKind::Identifier,
-                span: Span(0, 2)
+                span: Span::new(0, 2)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(2, 2)
+                span: Span::new(2, 2)
             }
         ]
     );
@@ -507,11 +507,11 @@ fn multiple_unicode_identifier() {
         vec![
             Token {
                 kind: TokenKind::Identifier,
-                span: Span(0, 6)
+                span: Span::new(0, 6)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(6, 6)
+                span: Span::new(6, 6)
             }
         ]
     );
@@ -527,11 +527,11 @@ fn ascii_followed_by_unicode_identifier() {
         vec![
             Token {
                 kind: TokenKind::Identifier,
-                span: Span(0, 5)
+                span: Span::new(0, 5)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(5, 5)
+                span: Span::new(5, 5)
             }
         ]
     );
@@ -547,11 +547,11 @@ fn unicode_followed_by_ascii_identifier() {
         vec![
             Token {
                 kind: TokenKind::Identifier,
-                span: Span(0, 5)
+                span: Span::new(0, 5)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(5, 5)
+                span: Span::new(5, 5)
             }
         ]
     );
@@ -567,11 +567,11 @@ fn underscore_followed_by_unicode_identifier() {
         vec![
             Token {
                 kind: TokenKind::Identifier,
-                span: Span(0, 3)
+                span: Span::new(0, 3)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(3, 3)
+                span: Span::new(3, 3)
             }
         ]
     );
@@ -587,11 +587,11 @@ fn chinese_identifier() {
         vec![
             Token {
                 kind: TokenKind::Identifier,
-                span: Span(0, 6)
+                span: Span::new(0, 6)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(6, 6)
+                span: Span::new(6, 6)
             }
         ]
     );
@@ -607,11 +607,11 @@ fn emoji_is_not_identifier() {
         vec![
             Token {
                 kind: TokenKind::Unknown,
-                span: Span(0, 4)
+                span: Span::new(0, 4)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(4, 4)
+                span: Span::new(4, 4)
             }
         ]
     );
@@ -627,11 +627,11 @@ fn emoji_character() {
         vec![
             Token {
                 kind: TokenKind::CharacterValue,
-                span: Span(0, 6)
+                span: Span::new(0, 6)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(6, 6)
+                span: Span::new(6, 6)
             }
         ]
     );
@@ -647,11 +647,11 @@ fn emoji_string() {
         vec![
             Token {
                 kind: TokenKind::StringValue,
-                span: Span(0, 6)
+                span: Span::new(0, 6)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span(6, 6)
+                span: Span::new(6, 6)
             }
         ]
     );

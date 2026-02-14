@@ -8,11 +8,11 @@
 mod cli;
 mod compile;
 mod parse;
-mod run;
+// mod run;
 mod tokenize;
 
 use std::{
-    fmt::{self},
+    fmt::{self, format},
     fs::{File, create_dir, create_dir_all},
     io::{self, Read, Write},
     path::PathBuf,
@@ -32,10 +32,10 @@ use tracing_subscriber::{
 };
 
 use crate::{
-    cli::{Cli, Command, CompileCommand, InputOptions},
+    cli::{Cli, Command, CompileCommand, InputOptions, OutputOptions, ParseCommand},
     compile::handle_compile_command,
     parse::handle_parse_command,
-    run::handle_run_command,
+    // run::handle_run_command,
     tokenize::handle_tokenize_command,
 };
 
@@ -57,31 +57,48 @@ fn main() {
         start_logging(log_level, start_time);
     }
 
-    if let Command::Run(InputOptions { eval, stdin, path }) = command {
-        handle_run_command(eval, path, no_output, time, start_time);
+    if let Command::Run(InputOptions {
+        mut eval,
+        stdin,
+        path,
+    }) = command
+    {
+        handle_eval(&mut eval);
+        // handle_run_command(eval, path, no_output, time, start_time);
 
         return;
     }
 
-    if let Command::Parse(InputOptions { eval, stdin, path }) = command {
-        handle_parse_command(eval, path, stdin, no_output, time, start_time);
+    if let Command::Parse(command) = command {
+        handle_parse_command(command, start_time);
 
         return;
     }
 
     if let Command::Compile(CompileCommand {
-        input: InputOptions { eval, stdin, path },
+        input: InputOptions {
+            mut eval,
+            stdin,
+            path,
+        },
         no_output,
         time,
         no_tui,
     }) = command
     {
+        handle_eval(&mut eval);
         handle_compile_command(eval, path, no_tui, no_output, time, start_time);
 
         return;
     }
 
-    if let Command::Tokenize(InputOptions { eval, stdin, path }) = command {
+    if let Command::Tokenize(InputOptions {
+        mut eval,
+        stdin,
+        path,
+    }) = command
+    {
+        handle_eval(&mut eval);
         handle_tokenize_command(eval, path, stdin, no_output, time, start_time);
 
         return;
@@ -194,6 +211,12 @@ fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
         let total_time_display = format!("{}ms", total_time.as_millis_f64());
 
         println!("{source_name}: {compile_time_display}, {total_time_display} total");
+    }
+}
+
+fn handle_eval(input: &mut Option<String>) {
+    if let Some(eval) = input {
+        *eval = format!("fn main() {{\n    {eval}\n}}");
     }
 }
 

@@ -16,8 +16,8 @@ fn local_byte_exponent() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(2)),
-                Instruction::r#move(1, Address::encoded(3)),
+                Instruction::r#move(0, Address::encoded_byte(2)),
+                Instruction::r#move(1, Address::encoded_byte(3)),
                 Instruction::power(2, Address::register(0), Address::register(1)),
                 Instruction::r#return(Address::register(2))
             ],
@@ -79,8 +79,8 @@ fn local_mut_byte_exponent() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(2)),
-                Instruction::power(0, Address::register(0), Address::encoded(3)),
+                Instruction::r#move(0, Address::encoded_byte(2)),
+                Instruction::power(0, Address::register(0), Address::encoded_byte(3)),
                 Instruction::r#return(Address::register(0))
             ],
             register_count: 1,

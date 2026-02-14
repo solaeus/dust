@@ -77,7 +77,7 @@ impl Default for Source<'_> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct SourceFileId(u32);
 
 impl SourceFileId {
@@ -318,7 +318,7 @@ impl Position {
 #[derive(
     Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
-pub struct Span(pub(crate) u32, pub(crate) u32);
+pub struct Span(u32, u32);
 
 impl Span {
     pub fn new<T: TryInto<u32>>(start: T, end: T) -> Self {
@@ -335,15 +335,23 @@ impl Span {
         Span(new_start, new_end)
     }
 
-    pub fn length(&self) -> u32 {
-        self.1.saturating_sub(self.0)
-    }
-
     pub fn as_usize_range(&self) -> Range<usize> {
         Range {
             start: self.0 as usize,
             end: self.1 as usize,
         }
+    }
+
+    pub fn start(&self) -> u32 {
+        self.0
+    }
+
+    pub fn end(&self) -> u32 {
+        self.1
+    }
+
+    pub fn length(&self) -> u32 {
+        self.1.saturating_sub(self.0)
     }
 
     pub fn shrink(&self, offset: u32) -> Span {

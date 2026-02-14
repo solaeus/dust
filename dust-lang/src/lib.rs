@@ -13,7 +13,7 @@ pub mod disassembler;
 pub mod dust_crate;
 pub mod dust_error;
 pub mod dust_type;
-pub mod jit_vm;
+// pub mod jit_vm;
 pub mod lexer;
 pub mod parser;
 pub mod project;

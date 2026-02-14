@@ -16,11 +16,11 @@ fn local_boolean_greater_than() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(true as u16)),
-                Instruction::r#move(1, Address::encoded(false as u16)),
+                Instruction::r#move(0, Address::encoded_boolean(true)),
+                Instruction::r#move(1, Address::encoded_boolean(false)),
                 Instruction::less_equal(false, Address::register(0), Address::register(1)),
-                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
-                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::move_with_jump(2, Address::encoded_boolean(false), 1, true),
+                Instruction::r#move(2, Address::encoded_boolean(true)),
                 Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
@@ -39,11 +39,11 @@ fn local_byte_greater_than() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(0x2B)),
-                Instruction::r#move(1, Address::encoded(0x2A)),
+                Instruction::r#move(0, Address::encoded_byte(0x2B)),
+                Instruction::r#move(1, Address::encoded_byte(0x2A)),
                 Instruction::less_equal(false, Address::register(0), Address::register(1)),
-                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
-                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::move_with_jump(2, Address::encoded_boolean(false), 1, true),
+                Instruction::r#move(2, Address::encoded_boolean(true)),
                 Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
@@ -65,8 +65,8 @@ fn local_character_greater_than() {
                 Instruction::r#move(0, Address::constant(0)),
                 Instruction::r#move(1, Address::constant(1)),
                 Instruction::less_equal(false, Address::register(0), Address::register(1)),
-                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
-                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::move_with_jump(2, Address::encoded_boolean(false), 1, true),
+                Instruction::r#move(2, Address::encoded_boolean(true)),
                 Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
@@ -88,8 +88,8 @@ fn local_float_greater_than() {
                 Instruction::r#move(0, Address::constant(0)),
                 Instruction::r#move(1, Address::constant(1)),
                 Instruction::less_equal(false, Address::register(0), Address::register(1)),
-                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
-                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::move_with_jump(2, Address::encoded_boolean(false), 1, true),
+                Instruction::r#move(2, Address::encoded_boolean(true)),
                 Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
@@ -111,8 +111,8 @@ fn local_integer_greater_than() {
                 Instruction::r#move(0, Address::constant(0)),
                 Instruction::r#move(1, Address::constant(1)),
                 Instruction::less_equal(false, Address::register(0), Address::register(1)),
-                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
-                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::move_with_jump(2, Address::encoded_boolean(false), 1, true),
+                Instruction::r#move(2, Address::encoded_boolean(true)),
                 Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
@@ -134,8 +134,8 @@ fn local_string_greater_than() {
                 Instruction::r#move(0, Address::constant(0)),
                 Instruction::r#move(1, Address::constant(1)),
                 Instruction::less_equal(false, Address::register(0), Address::register(1)),
-                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
-                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::move_with_jump(2, Address::encoded_boolean(false), 1, true),
+                Instruction::r#move(2, Address::encoded_boolean(true)),
                 Instruction::r#return(Address::register(2))
             ],
             register_count: 3,

@@ -42,7 +42,7 @@ impl<'a> TypeBinder<'a> {
                 InternalCompileError::MissingSyntaxNode(SyntaxId::ROOT),
             ))?;
 
-        self.visit_main(main_root)
+        self.visit_root(main_root)
     }
 }
 
@@ -55,7 +55,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     type TypeOutput = TypeId;
     type PathOutput = TypeId;
 
-    fn visit_main(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
+    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
         debug!("Binding types for main function");
 
         let children = node.multiple_children()?;

@@ -16,8 +16,8 @@ fn local_boolean_and() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(true as u16)),
-                Instruction::r#move(1, Address::encoded(false as u16)),
+                Instruction::r#move(0, Address::encoded_boolean(true)),
+                Instruction::r#move(1, Address::encoded_boolean(false)),
                 Instruction::test(Address::register(0), false, 1),
                 Instruction::move_with_jump(2, Address::register(1), 1, true),
                 Instruction::r#move(2, Address::register(0)),

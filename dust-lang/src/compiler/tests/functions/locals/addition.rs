@@ -17,8 +17,8 @@ fn local_byte_addition() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(40)),
-                Instruction::r#move(1, Address::encoded(2)),
+                Instruction::r#move(0, Address::encoded_byte(40)),
+                Instruction::r#move(1, Address::encoded_byte(2)),
                 Instruction::add(2, Address::register(0), Address::register(1)),
                 Instruction::r#return(Address::register(2))
             ],
@@ -180,8 +180,8 @@ fn local_mut_byte_addition() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(40)),
-                Instruction::add(0, Address::register(0), Address::encoded(2)),
+                Instruction::r#move(0, Address::encoded_byte(40)),
+                Instruction::add(0, Address::register(0), Address::encoded_byte(2)),
                 Instruction::r#return(Address::register(0))
             ],
             register_count: 1,

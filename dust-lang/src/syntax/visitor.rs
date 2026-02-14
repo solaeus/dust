@@ -104,7 +104,7 @@ pub trait SyntaxVisitor {
         }
     }
 
-    fn visit_main(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError>;
+    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError>;
 
     fn visit_module_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, CompileError>;
 

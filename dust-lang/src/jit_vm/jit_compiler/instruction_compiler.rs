@@ -18,8 +18,8 @@ use crate::{
     dust_crate::Program,
     dust_type::DustType,
     instruction::{
-        Add, Address, Call, CallNative, Divide, Drop, GetList, Instruction, Jump, MemoryKind,
-        Modulo, Move, Multiply, Negate, NewList, ByteType, Operation, Power, Reference, Return,
+        Add, Address, ByteType, Call, CallNative, Divide, Drop, GetList, Instruction, Jump,
+        MemoryKind, Modulo, Move, Multiply, Negate, NewList, Operation, Power, Reference, Return,
         SetList, Subtract, Test, ToString,
     },
     jit_vm::{
@@ -115,7 +115,6 @@ impl<'a> InstructionCompiler<'a> {
         let Move {
             destination,
             operand,
-            r#type,
             jump_distance,
             jump_is_positive,
         } = Move::from(instruction);
@@ -769,12 +768,7 @@ impl<'a> InstructionCompiler<'a> {
                         let shifted_end = builder.ins().ishl_imm(end_value, 32);
                         let encoded = builder.ins().bor(shifted_end, start_value);
 
-                        self.set_register_and_tag(
-                            destination,
-                            encoded,
-                            ByteType::STRUCT,
-                            builder,
-                        )?;
+                        self.set_register_and_tag(destination, encoded, ByteType::STRUCT, builder)?;
 
                         builder.ins().jump(next_block, &[]);
                     }

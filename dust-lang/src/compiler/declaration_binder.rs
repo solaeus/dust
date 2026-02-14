@@ -44,7 +44,7 @@ impl<'a> DeclarationBinder<'a> {
                 InternalCompileError::MissingSyntaxNode(SyntaxId::ROOT),
             ))?;
 
-        self.visit_main(main_root)
+        self.visit_root(main_root)
     }
 }
 
@@ -57,9 +57,9 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     type TypeOutput = ();
     type PathOutput = DeclarationId;
 
-    fn visit_main(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
+    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
         debug!("Declaring main function");
-        debug_assert_eq!(node.kind(), SyntaxKind::MainFunctionItem);
+        debug_assert_eq!(node.kind(), SyntaxKind::Root);
 
         let children = node.multiple_children()?;
 
@@ -302,7 +302,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let symbol = self.resolver.symbols.add_named_symbol(path_segment_str);
         let shadowed = self
             .resolver
-            .find_declaration_in_scope(symbol, &path_segment, self.current_scope_id, None, false)
+            .find_declaration_in_scope(symbol, self.current_scope_id, None, false, &path_segment)
             .map(|(id, _)| id)
             .ok();
         let is_mutable = node.kind() == SyntaxKind::LetMutStatement;
@@ -711,10 +711,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             let symbol = self.resolver.symbols.add_named_symbol(segment_str);
             let (next_declaration_id, next_declaration) = self.resolver.find_declaration_in_scope(
                 symbol,
-                &segment,
                 current_scope_id,
                 None,
                 false,
+                &segment,
             )?;
 
             current_declaration_id = next_declaration_id;

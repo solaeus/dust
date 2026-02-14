@@ -109,7 +109,7 @@ impl Display for SyntaxError {
 
 #[derive(Clone, Copy, Debug)]
 pub enum InternalSyntaxError {
-    ExpectedChild,
+    ExpectedChild { child_count: usize },
     MissingSyntaxNode(SyntaxId),
     MissingSyntaxChildren(SyntaxPayload),
     EmptySyntaxTree,
@@ -118,9 +118,14 @@ pub enum InternalSyntaxError {
 impl Display for InternalSyntaxError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            InternalSyntaxError::ExpectedChild => write!(f, "Expected child node"),
+            InternalSyntaxError::ExpectedChild { child_count } => {
+                write!(
+                    f,
+                    "Expected node with {child_count} children to have at least one more child node"
+                )
+            }
             InternalSyntaxError::MissingSyntaxNode(id) => {
-                write!(f, "Missing syntax node with id {id:?}")
+                write!(f, "Missing syntax node with ID {id:?}")
             }
             InternalSyntaxError::MissingSyntaxChildren(payload) => {
                 write!(f, "Missing syntax children for payload {payload:?}")

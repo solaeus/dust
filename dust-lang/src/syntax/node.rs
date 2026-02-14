@@ -3,29 +3,80 @@ use std::{
     ops::Range,
 };
 
+use serde::{Deserialize, Serialize};
+
 use crate::{source::Span, syntax::SyntaxId};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyntaxNode {
     pub kind: SyntaxKind,
     pub payload: SyntaxPayload,
+    pub payload_kind: SyntaxPayloadKind,
     pub span: Span,
 }
 
 impl SyntaxNode {
+    pub fn empty(kind: SyntaxKind, span: Span) -> Self {
+        Self {
+            kind,
+            payload: SyntaxPayload::empty(),
+            payload_kind: SyntaxPayloadKind::Empty,
+            span,
+        }
+    }
+
+    pub fn with_child(kind: SyntaxKind, span: Span, child_id: SyntaxId) -> Self {
+        Self {
+            kind,
+            payload: SyntaxPayload::child(child_id),
+            payload_kind: SyntaxPayloadKind::SingleChild,
+            span,
+        }
+    }
+
+    pub fn with_binary_children(
+        kind: SyntaxKind,
+        span: Span,
+        left_child_id: SyntaxId,
+        right_child_id: SyntaxId,
+    ) -> Self {
+        Self {
+            kind,
+            payload: SyntaxPayload::children(left_child_id, right_child_id),
+            payload_kind: SyntaxPayloadKind::BinaryChildren,
+            span,
+        }
+    }
+
+    pub fn with_multiple_children(
+        kind: SyntaxKind,
+        span: Span,
+        start_index: u32,
+        child_count: u32,
+    ) -> Self {
+        Self {
+            kind,
+            payload: SyntaxPayload {
+                left: start_index,
+                right: child_count,
+            },
+            payload_kind: SyntaxPayloadKind::MultipleChildren,
+            span,
+        }
+    }
+
     pub fn children(&self) -> SyntaxNodeChildren {
         match self.kind {
-            SyntaxKind::MainFunctionItem
+            SyntaxKind::Root
             | SyntaxKind::ModuleItem
+            | SyntaxKind::PublicModuleItem
             | SyntaxKind::LetStatement
             | SyntaxKind::LetMutStatement
             | SyntaxKind::BlockExpression
             | SyntaxKind::ListExpression
             | SyntaxKind::Path
-            | SyntaxKind::ValueParametersDefinition
+            | SyntaxKind::ValueParameters
             | SyntaxKind::IfExpression
-            | SyntaxKind::StructFieldsDefinition
-            | SyntaxKind::StructFields
             | SyntaxKind::CallValueArguments => SyntaxNodeChildren::Multiple(self.payload),
             SyntaxKind::ExpressionStatement
             | SyntaxKind::PathExpression
@@ -37,7 +88,6 @@ impl SyntaxNode {
             | SyntaxKind::PublicFunctionItem
             | SyntaxKind::ReassignmentStatement
             | SyntaxKind::FunctionExpression
-            | SyntaxKind::ValueParameterDefinition
             | SyntaxKind::FunctionSignature
             | SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
@@ -65,9 +115,7 @@ impl SyntaxNode {
             | SyntaxKind::FunctionType
             | SyntaxKind::StructItem
             | SyntaxKind::PublicStructItem
-            | SyntaxKind::StructFieldDefinition
-            | SyntaxKind::StructExpression
-            | SyntaxKind::StructField => SyntaxNodeChildren::Binary(
+            | SyntaxKind::StructExpression => SyntaxNodeChildren::Binary(
                 SyntaxId(self.payload.left),
                 SyntaxId(self.payload.right),
             ),
@@ -118,10 +166,10 @@ impl Display for SyntaxNode {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SyntaxKind {
     // Items
-    MainFunctionItem,
+    Root,
     ModuleItem,
     PublicModuleItem,
     UseItem,
@@ -207,15 +255,7 @@ pub enum SyntaxKind {
     // Sub-Syntax
     CallValueArguments,
     FunctionSignature,
-    ValueParametersDefinition,
-    ValueParameterDefinition,
-    ValueParameterName,
-    ValueParameterType,
-    ValueParameterTypes,
-    StructFieldsDefinition,
-    StructFieldDefinition,
-    StructFields,
-    StructField,
+    ValueParameters,
 
     // Types (Sub-Syntax)
     BooleanType,
@@ -227,6 +267,7 @@ pub enum SyntaxKind {
     TypePath,
     ListType,
     FunctionType,
+    ValueParameterTypes,
 
     // Ignored
     Trivia,
@@ -236,7 +277,7 @@ impl SyntaxKind {
     pub fn is_item(&self) -> bool {
         matches!(
             self,
-            SyntaxKind::MainFunctionItem
+            SyntaxKind::Root
                 | SyntaxKind::ModuleItem
                 | SyntaxKind::PublicModuleItem
                 | SyntaxKind::UseItem
@@ -320,9 +361,11 @@ impl SyntaxKind {
 impl Display for SyntaxKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SyntaxKind::MainFunctionItem => write!(f, "main function item"),
+            SyntaxKind::Root => write!(f, "root"),
             SyntaxKind::ModuleItem => write!(f, "module item"),
             SyntaxKind::PublicModuleItem => write!(f, "public module item"),
+            SyntaxKind::UseItem => write!(f, "use item"),
+            SyntaxKind::PublicUseItem => write!(f, "public use item"),
             SyntaxKind::FunctionItem => write!(f, "function item"),
             SyntaxKind::PublicFunctionItem => write!(f, "public function item"),
             SyntaxKind::StructItem => write!(f, "struct item"),
@@ -390,20 +433,13 @@ impl Display for SyntaxKind {
             SyntaxKind::BreakExpression => write!(f, "break expression"),
             SyntaxKind::AsExpression => write!(f, "as expression"),
             SyntaxKind::FunctionSignature => write!(f, "function signature"),
-            SyntaxKind::ValueParametersDefinition => {
-                write!(f, "value parameters definition")
+            SyntaxKind::ValueParameters => {
+                write!(f, "value parameters")
             }
-            SyntaxKind::ValueParameterDefinition => {
-                write!(f, "value parameter definition")
-            }
-            SyntaxKind::ValueParameterName => write!(f, "value parameter name"),
-            SyntaxKind::ValueParameterType => write!(f, "value parameter type"),
-            SyntaxKind::ValueParameterTypes => write!(f, "value parameter types"),
-            SyntaxKind::StructFieldsDefinition => write!(f, "struct fields definition"),
-            SyntaxKind::StructFieldDefinition => write!(f, "struct field definition"),
-            SyntaxKind::StructFields => write!(f, "struct fields"),
-            SyntaxKind::StructField => write!(f, "struct field"),
             SyntaxKind::FunctionType => write!(f, "function type"),
+            SyntaxKind::ValueParameterTypes => {
+                write!(f, "value parameter types")
+            }
             SyntaxKind::CallValueArguments => write!(f, "call value arguments"),
             SyntaxKind::Path => write!(f, "path"),
             SyntaxKind::PathSegment => write!(f, "path segment"),
@@ -415,14 +451,12 @@ impl Display for SyntaxKind {
             SyntaxKind::StringType => write!(f, "string type"),
             SyntaxKind::TypePath => write!(f, "type path"),
             SyntaxKind::ListType => write!(f, "list type"),
-            SyntaxKind::UseItem => write!(f, "use item"),
-            SyntaxKind::PublicUseItem => write!(f, "public use item"),
             SyntaxKind::Trivia => write!(f, "whitespace or comment"),
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyntaxPayload {
     left: u32,
     right: u32,
@@ -450,10 +484,10 @@ impl SyntaxPayload {
         }
     }
 
-    pub fn child_indices(start_index: usize, count: usize) -> Self {
+    pub fn child_indices(start_index: u32, count: u32) -> Self {
         Self {
-            left: start_index as u32,
-            right: count as u32,
+            left: start_index,
+            right: count,
         }
     }
 
@@ -629,6 +663,15 @@ impl SyntaxPayload {
 
         start..end
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SyntaxPayloadKind {
+    Empty,
+    SingleChild,
+    BinaryChildren,
+    MultipleChildren,
+    Value,
 }
 
 pub enum SyntaxNodeChildren {

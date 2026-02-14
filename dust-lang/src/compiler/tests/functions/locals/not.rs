@@ -17,7 +17,7 @@ fn local_boolean_not() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(true as u16)),
+                Instruction::r#move(0, Address::encoded_boolean(true)),
                 Instruction::negate(1, Address::register(0)),
                 Instruction::r#return(Address::register(1))
             ],

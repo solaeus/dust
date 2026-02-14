@@ -363,13 +363,7 @@ impl<'a> Disassembler<'a> {
                 .call_arguments
                 .iter()
                 .enumerate()
-                .map(|(index, (address, operand_type))| {
-                    [
-                        index.to_string(),
-                        address.as_string(*operand_type),
-                        operand_type.to_string(),
-                    ]
-                })
+                .map(|(index, address)| [index.to_string(), address.to_string()])
                 .collect::<Vec<_>>();
             let selected_row =
                 if self.selection_state.section == Some(PrototypeSection::CallArguments) {
@@ -379,7 +373,7 @@ impl<'a> Disassembler<'a> {
                 };
             let arguments_section = BlockTable::new(
                 "Call Arguments",
-                ["i", "Address", "Type"],
+                ["i", "Address"],
                 argument_rows,
                 selected_row,
             );

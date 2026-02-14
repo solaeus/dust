@@ -2,10 +2,11 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{
     parser::{ParseError, Parser},
+    syntax::SyntaxNode,
     token::TokenKind,
 };
 
-pub type ParseLogic<'a> = fn(&mut Parser<'a>) -> Result<(), ParseError>;
+pub type ParseLogic<'a> = fn(&mut Parser<'a>) -> Result<SyntaxNode, ParseError>;
 
 /// Pratt parsing rule for a token in the Dust language.
 ///

@@ -398,11 +398,9 @@ impl Iterator for Lexer<'_> {
 
                     self.eof = true;
 
-                    let length = self.source.len() as u32;
-
                     return Some(Token {
                         kind: TokenKind::Eof,
-                        span: Span(length, length),
+                        span: Span::new(self.source.len(), self.source.len()),
                     });
                 }
             }
@@ -485,7 +483,7 @@ impl Iterator for Lexer<'_> {
                         let slice = &self.source[self.index..self.index + 9];
 
                         if slice == b"-Infinity" {
-                            let span = Span(self.index as u32, (self.index + 9) as u32);
+                            let span = Span::new(self.index, self.index + 9);
                             let kind = TokenKind::FloatValue;
                             self.index += 9;
 

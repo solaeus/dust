@@ -5,10 +5,12 @@ mod tree;
 mod visitor;
 
 pub use error::SyntaxError;
-pub use node::{SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxPayload};
+pub use node::{SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxPayload, SyntaxPayloadKind};
 pub use reader::{SyntaxReader, SyntaxReaderIterator};
 pub use tree::SyntaxTree;
 pub use visitor::SyntaxVisitor;
+
+use serde::{Deserialize, Serialize};
 
 use crate::source::SourceFileId;
 
@@ -60,7 +62,7 @@ impl Syntax {
 }
 
 /// A unique identifier for a syntax node within a syntax tree.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct SyntaxId(pub(super) u32);
 
 impl SyntaxId {

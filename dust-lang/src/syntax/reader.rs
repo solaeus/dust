@@ -1,8 +1,10 @@
+use tracing::warn;
+
 use crate::{
     source::{Position, SourceFileId, Span},
     syntax::{
         SyntaxError, SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree,
-        error::InternalSyntaxError,
+        error::InternalSyntaxError, node::SyntaxPayloadKind,
     },
 };
 
@@ -121,41 +123,99 @@ impl<'a> SyntaxReader<'a> {
             ));
         }
 
-        Ok(SyntaxReaderIterator {
+        #[cfg(debug_assertions)]
+        if child_ids.len() < 3 {
+            warn!(
+                "Using multiple_children for a node with fewer than 3 children:\nID: {:?}\nNode:{:#?}",
+                self.id, self.node
+            );
+        }
+
+        Ok(SyntaxReaderIterator::Multiple {
             child_ids,
             tree: self.tree,
             current_index: 0,
         })
     }
+
+    pub fn children(&'a self) -> Result<SyntaxReaderIterator<'a>, SyntaxError> {
+        match self.node.payload_kind {
+            SyntaxPayloadKind::SingleChild => Ok(SyntaxReaderIterator::Single {
+                child_id: self.node.payload.left_id(),
+                tree: self.tree,
+                yielded: false,
+            }),
+            SyntaxPayloadKind::BinaryChildren => Ok(SyntaxReaderIterator::Binary {
+                left_child_id: self.node.payload.left_id(),
+                right_child_id: self.node.payload.right_id(),
+                tree: self.tree,
+                current_index: 0,
+            }),
+            SyntaxPayloadKind::MultipleChildren => Ok(SyntaxReaderIterator::Multiple {
+                child_ids: self.tree.get_children(self.node.payload),
+                tree: self.tree,
+                current_index: 0,
+            }),
+            _ => {
+                return Err(SyntaxError::Internal(
+                    InternalSyntaxError::MissingSyntaxChildren(self.node.payload),
+                ));
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct SyntaxReaderIterator<'a> {
-    child_ids: &'a [SyntaxId],
-    tree: &'a SyntaxTree,
-    current_index: usize,
+pub enum SyntaxReaderIterator<'a> {
+    Single {
+        child_id: SyntaxId,
+        tree: &'a SyntaxTree,
+        yielded: bool,
+    },
+    Binary {
+        left_child_id: SyntaxId,
+        right_child_id: SyntaxId,
+        tree: &'a SyntaxTree,
+        current_index: u8,
+    },
+    Multiple {
+        child_ids: &'a [SyntaxId],
+        tree: &'a SyntaxTree,
+        current_index: usize,
+    },
 }
 
 impl<'a> SyntaxReaderIterator<'a> {
     pub fn len(&self) -> usize {
-        self.child_ids.len()
+        match self {
+            SyntaxReaderIterator::Single { yielded, .. } => {
+                if *yielded {
+                    0
+                } else {
+                    1
+                }
+            }
+            SyntaxReaderIterator::Binary { current_index, .. } => {
+                2_u8.saturating_sub(*current_index) as usize
+            }
+            SyntaxReaderIterator::Multiple { child_ids, .. } => child_ids.len(),
+        }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.child_ids.is_empty()
+        match self {
+            SyntaxReaderIterator::Single { yielded, .. } => *yielded,
+            SyntaxReaderIterator::Binary { current_index, .. } => *current_index > 1,
+            SyntaxReaderIterator::Multiple { child_ids, .. } => child_ids.is_empty(),
+        }
     }
 
     pub fn expect_next(&mut self) -> Result<SyntaxReader<'a>, SyntaxError> {
-        let child_id = *self
-            .child_ids
-            .get(self.current_index)
-            .ok_or(SyntaxError::Internal(InternalSyntaxError::ExpectedChild))?;
-        let child_node = self.tree.get_node(child_id).ok_or(SyntaxError::Internal(
-            InternalSyntaxError::MissingSyntaxNode(child_id),
-        ))?;
-        self.current_index += 1;
+        self.next().ok_or_else(|| {
+            let child_count = self.len();
 
-        Ok(SyntaxReader::new(child_id, child_node, self.tree))
+            SyntaxError::Internal(InternalSyntaxError::ExpectedChild { child_count })
+        })
     }
 }
 
@@ -163,27 +223,97 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
     type Item = SyntaxReader<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let child_id = *self.child_ids.get(self.current_index)?;
-        let child_node = self.tree.get_node(child_id)?;
-        self.current_index += 1;
+        match self {
+            SyntaxReaderIterator::Single {
+                child_id,
+                tree,
+                yielded,
+            } if !*yielded => {
+                let child_node = tree.get_node(*child_id)?;
+                *yielded = true;
 
-        Some(SyntaxReader::new(child_id, child_node, self.tree))
+                Some(SyntaxReader::new(*child_id, child_node, tree))
+            }
+            SyntaxReaderIterator::Binary {
+                left_child_id,
+                right_child_id,
+                tree,
+                current_index,
+            } if *current_index < 2 => {
+                let child_id = if *current_index == 0 {
+                    *left_child_id
+                } else {
+                    *right_child_id
+                };
+                let child_node = tree.get_node(child_id)?;
+                *current_index += 1;
+
+                Some(SyntaxReader::new(child_id, child_node, tree))
+            }
+            SyntaxReaderIterator::Multiple {
+                child_ids,
+                tree,
+                current_index,
+            } if *current_index < child_ids.len() => {
+                let child_id = child_ids[*current_index];
+                let child_node = tree.get_node(child_id)?;
+                *current_index += 1;
+
+                Some(SyntaxReader::new(child_id, child_node, tree))
+            }
+            _ => None,
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.len();
+
+        (len, Some(len))
     }
 }
 
 impl<'a> DoubleEndedIterator for SyntaxReaderIterator<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        if self.current_index >= self.child_ids.len() {
-            return None;
+        match self {
+            SyntaxReaderIterator::Single {
+                child_id,
+                tree,
+                yielded,
+            } if !*yielded => {
+                let child_node = tree.get_node(*child_id)?;
+                *yielded = true;
+
+                Some(SyntaxReader::new(*child_id, child_node, tree))
+            }
+            SyntaxReaderIterator::Binary {
+                left_child_id,
+                right_child_id,
+                tree,
+                current_index,
+            } if *current_index < 2 => {
+                let child_id = if *current_index == 0 {
+                    *right_child_id
+                } else {
+                    *left_child_id
+                };
+                let child_node = tree.get_node(child_id)?;
+                *current_index += 1;
+
+                Some(SyntaxReader::new(child_id, child_node, tree))
+            }
+            SyntaxReaderIterator::Multiple {
+                child_ids,
+                tree,
+                current_index,
+            } if *current_index < child_ids.len() => {
+                let child_id = child_ids[child_ids.len() - 1 - *current_index];
+                let child_node = tree.get_node(child_id)?;
+                *current_index += 1;
+
+                Some(SyntaxReader::new(child_id, child_node, tree))
+            }
+            _ => None,
         }
-
-        let child_id = *self
-            .child_ids
-            .get(self.child_ids.len() - 1 - self.current_index)?;
-        let child_node = self.tree.get_node(child_id)?;
-        self.current_index += 1;
-
-        Some(SyntaxReader::new(child_id, child_node, self.tree))
     }
 }
 

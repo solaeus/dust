@@ -1,21 +1,42 @@
-use std::{path::PathBuf, time::Instant};
+use std::{
+    io::{Write, stdout},
+    time::Instant,
+};
 
 use dust_lang::{
     dust_error::DustError,
     lexer::Lexer,
     parser::{ParseResult, Parser},
 };
+use ron::ser::PrettyConfig;
 
-use crate::{handle_source, print_times};
+use crate::{
+    cli::{FormatOptions, InputOptions, OutputOptions, ParseCommand},
+    handle_eval, handle_source, print_times,
+};
 
-pub fn handle_parse_command(
-    eval: Option<String>,
-    path: Option<PathBuf>,
-    stdin: bool,
-    no_output: bool,
-    time: bool,
-    start_time: Instant,
-) {
+pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
+    let ParseCommand {
+        input: InputOptions {
+            mut eval,
+            stdin,
+            path,
+        },
+        output: OutputOptions { no_output, time },
+        trees,
+        format:
+            FormatOptions {
+                debug,
+                pretty_debug,
+                ron,
+                pretty_ron,
+                json,
+                pretty_json,
+                postcard,
+            },
+    } = command;
+    handle_eval(&mut eval);
+
     let source = handle_source(&eval, path, stdin);
     let mut errors = Vec::new();
 
@@ -29,16 +50,41 @@ pub fn handle_parse_command(
         let ParseResult {
             syntax_tree,
             errors: parse_errors,
-        } = parser.parse_main();
+        } = parser.parse();
 
-        if !errors.is_empty() {
+        if !parse_errors.is_empty() {
             errors.extend(parse_errors.into_iter());
 
             continue;
         }
 
         if !no_output {
-            println!("{syntax_tree}");
+            if debug {
+                println!("{syntax_tree:?}");
+            } else if pretty_debug {
+                println!("{:#?}", syntax_tree);
+            } else if ron {
+                println!("{}", ron::to_string(&syntax_tree).unwrap());
+            } else if pretty_ron {
+                println!(
+                    "{}",
+                    ron::ser::to_string_pretty(
+                        &syntax_tree,
+                        PrettyConfig::new().struct_names(true)
+                    )
+                    .unwrap()
+                );
+            } else if json {
+                println!("{}", serde_json::to_string(&syntax_tree).unwrap());
+            } else if pretty_json {
+                println!("{}", serde_json::to_string_pretty(&syntax_tree).unwrap());
+            } else if postcard {
+                let postcard = postcard::to_extend(&syntax_tree, Vec::new()).unwrap();
+
+                stdout().write_all(&postcard).unwrap();
+            } else if trees {
+                println!("{syntax_tree}");
+            }
         }
     }
 

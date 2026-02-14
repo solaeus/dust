@@ -16,7 +16,7 @@ fn if_else_true() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::test(Address::encoded(true as u16), true, 1),
+                Instruction::test(Address::encoded_boolean(true), true, 1),
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(0, Address::constant(0), 1, true),
                 Instruction::r#move(0, Address::constant(1)),
@@ -38,8 +38,8 @@ fn if_else_logical_and() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(true as u16)),
-                Instruction::r#move(1, Address::encoded(true as u16)),
+                Instruction::r#move(0, Address::encoded_boolean(true)),
+                Instruction::r#move(1, Address::encoded_boolean(true)),
                 Instruction::test(Address::register(0), false, 1),
                 Instruction::test(Address::register(1), false, 1),
                 Instruction::move_with_jump(2, Address::constant(0), 1, true),
@@ -62,8 +62,8 @@ fn if_else_logical_or() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(false as u16)),
-                Instruction::r#move(1, Address::encoded(true as u16)),
+                Instruction::r#move(0, Address::encoded_boolean(false)),
+                Instruction::r#move(1, Address::encoded_boolean(true)),
                 Instruction::test(Address::register(0), true, 1),
                 Instruction::test(Address::register(1), false, 1),
                 Instruction::move_with_jump(2, Address::constant(0), 1, true),
@@ -86,7 +86,7 @@ fn if_else_false() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::test(Address::encoded(false as u16), true, 1),
+                Instruction::test(Address::encoded_boolean(false), true, 1),
                 Instruction::jump(1, true),
                 Instruction::move_with_jump(0, Address::constant(0), 1, true),
                 Instruction::r#move(0, Address::constant(1)),

@@ -17,7 +17,7 @@ fn local_boolean() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(true as u16)),
+                Instruction::r#move(0, Address::encoded_boolean(true)),
                 Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
@@ -37,7 +37,7 @@ fn local_byte() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(42)),
+                Instruction::r#move(0, Address::encoded_byte(42)),
                 Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,

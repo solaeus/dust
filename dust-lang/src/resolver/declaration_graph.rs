@@ -61,6 +61,26 @@ impl DeclarationGraph {
             ))
     }
 
+    pub fn find_declaration(
+        &self,
+        symbol_id: SymbolId,
+        parent: Option<DeclarationId>,
+        scope_id: ScopeId,
+    ) -> Option<(DeclarationId, Declaration)> {
+        let key = DeclarationKey {
+            symbol: symbol_id,
+            parent,
+            scope_id,
+        };
+
+        self.declarations.get_full(&key).map(|(index, key, value)| {
+            (
+                DeclarationId(index as u32),
+                Declaration::from_key_and_value(*key, *value),
+            )
+        })
+    }
+
     pub fn add_declaration_members(
         &mut self,
         parameter_ids: &[DeclarationId],

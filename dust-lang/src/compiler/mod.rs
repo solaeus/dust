@@ -117,11 +117,7 @@ impl<'src> Compiler<'src> {
                 let ParseResult {
                     syntax_tree,
                     errors,
-                } = if file_id == SourceFileId::MAIN {
-                    parser.parse_main()
-                } else {
-                    parser.parse_module()
-                };
+                } = parser.parse();
 
                 self.syntax.add_tree(syntax_tree).map_err(|max| {
                     panic!("The compiler expected {max} syntax trees in total.");
