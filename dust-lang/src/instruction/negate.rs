@@ -1,23 +1,20 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, ByteType, Operation};
+use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct Negate {
     pub destination: u16,
     pub operand: Address,
-    pub r#type: ByteType,
 }
 
 impl From<&Instruction> for Negate {
     fn from(instruction: &Instruction) -> Self {
         let destination = instruction.a_field();
         let operand = instruction.b_address();
-        let r#type = instruction.operand_type();
 
         Negate {
             destination,
             operand,
-            r#type,
         }
     }
 }
@@ -30,14 +27,12 @@ impl From<Negate> for Instruction {
             index: b_field,
             memory: b_memory_kind,
         } = negate.operand;
-        let operand_type = negate.r#type;
 
         InstructionFields {
             operation,
             a_field,
             b_field,
             b_memory_kind,
-            operand_type,
             ..Default::default()
         }
         .build()
@@ -49,16 +44,8 @@ impl Display for Negate {
         let Negate {
             destination,
             operand,
-            r#type,
         } = self;
 
-        let operator = if *r#type == ByteType::BOOLEAN {
-            "!"
-        } else {
-            "-"
-        };
-
-        write!(f, "reg_{destination} = {operator}")?;
-        operand.display(f, *r#type)
+        write!(f, "reg_{destination} = -{operand}")
     }
 }

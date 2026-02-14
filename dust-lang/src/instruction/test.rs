@@ -1,7 +1,5 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::ByteType;
-
 use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct Test {
@@ -54,8 +52,6 @@ impl Display for Test {
         } = self;
         let bang = if *comparator { "" } else { "!" };
 
-        write!(f, "if {bang}")?;
-        operand.display(f, ByteType::BOOLEAN)?;
-        write!(f, " {{ jump +{jump_distance} }}")
+        write!(f, "if {bang}{operand} {{ jump +{jump_distance} }}")
     }
 }

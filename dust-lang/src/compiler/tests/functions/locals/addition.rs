@@ -17,15 +17,10 @@ fn local_byte_addition() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(40), ByteType::BYTE),
-                Instruction::r#move(1, Address::encoded(2), ByteType::BYTE),
-                Instruction::add(
-                    2,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::BYTE
-                ),
-                Instruction::r#return(Address::register(2), ByteType::BYTE)
+                Instruction::r#move(0, Address::encoded(40)),
+                Instruction::r#move(1, Address::encoded(2)),
+                Instruction::add(2, Address::register(0), Address::register(1)),
+                Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -44,15 +39,10 @@ fn local_float_addition() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
-                Instruction::r#move(1, Address::constant(1), ByteType::FLOAT),
-                Instruction::add(
-                    2,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::FLOAT
-                ),
-                Instruction::r#return(Address::register(2), ByteType::FLOAT)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#move(1, Address::constant(1)),
+                Instruction::add(2, Address::register(0), Address::register(1)),
+                Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -71,15 +61,10 @@ fn local_integer_addition() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
-                Instruction::r#move(1, Address::constant(1), ByteType::INTEGER),
-                Instruction::add(
-                    2,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::INTEGER
-                ),
-                Instruction::r#return(Address::register(2), ByteType::INTEGER)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#move(1, Address::constant(1)),
+                Instruction::add(2, Address::register(0), Address::register(1)),
+                Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -98,15 +83,10 @@ fn local_string_concatenation() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::STRING),
-                Instruction::r#move(1, Address::constant(1), ByteType::STRING),
-                Instruction::add(
-                    2,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::STRING
-                ),
-                Instruction::r#return(Address::register(2), ByteType::STRING)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#move(1, Address::constant(1)),
+                Instruction::add(2, Address::register(0), Address::register(1)),
+                Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -128,15 +108,10 @@ fn local_character_concatenation() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::CHARACTER),
-                Instruction::r#move(1, Address::constant(0), ByteType::CHARACTER),
-                Instruction::add(
-                    2,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::CHARACTER
-                ),
-                Instruction::r#return(Address::register(2), ByteType::STRING)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#move(1, Address::constant(0)),
+                Instruction::add(2, Address::register(0), Address::register(1)),
+                Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -158,15 +133,10 @@ fn local_string_character_concatenation() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::STRING),
-                Instruction::r#move(1, Address::constant(1), ByteType::CHARACTER),
-                Instruction::add(
-                    2,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::STRING_CHARACTER
-                ),
-                Instruction::r#return(Address::register(2), ByteType::STRING)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#move(1, Address::constant(1)),
+                Instruction::add(2, Address::register(0), Address::register(1)),
+                Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -188,15 +158,10 @@ fn local_character_string_concatenation() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::CHARACTER),
-                Instruction::r#move(1, Address::constant(1), ByteType::STRING),
-                Instruction::add(
-                    2,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::CHARACTER_STRING
-                ),
-                Instruction::r#return(Address::register(2), ByteType::STRING)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#move(1, Address::constant(1)),
+                Instruction::add(2, Address::register(0), Address::register(1)),
+                Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -215,14 +180,9 @@ fn local_mut_byte_addition() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(40), ByteType::BYTE),
-                Instruction::add(
-                    0,
-                    Address::register(0),
-                    Address::encoded(2),
-                    ByteType::BYTE
-                ),
-                Instruction::r#return(Address::register(0), ByteType::BYTE)
+                Instruction::r#move(0, Address::encoded(40)),
+                Instruction::add(0, Address::register(0), Address::encoded(2)),
+                Instruction::r#return(Address::register(0))
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -241,14 +201,9 @@ fn local_mut_float_addition() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
-                Instruction::add(
-                    0,
-                    Address::register(0),
-                    Address::constant(1),
-                    ByteType::FLOAT
-                ),
-                Instruction::r#return(Address::register(0), ByteType::FLOAT)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::add(0, Address::register(0), Address::constant(1)),
+                Instruction::r#return(Address::register(0))
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -270,14 +225,9 @@ fn local_mut_integer_addition() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
-                Instruction::add(
-                    0,
-                    Address::register(0),
-                    Address::constant(1),
-                    ByteType::INTEGER
-                ),
-                Instruction::r#return(Address::register(0), ByteType::INTEGER)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::add(0, Address::register(0), Address::constant(1)),
+                Instruction::r#return(Address::register(0))
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -299,14 +249,9 @@ fn local_mut_string_concatenation() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::STRING),
-                Instruction::add(
-                    0,
-                    Address::register(0),
-                    Address::constant(1),
-                    ByteType::STRING
-                ),
-                Instruction::r#return(Address::register(0), ByteType::STRING)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::add(0, Address::register(0), Address::constant(1)),
+                Instruction::r#return(Address::register(0))
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -328,14 +273,9 @@ fn local_mut_string_character_concatenation() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::STRING),
-                Instruction::add(
-                    0,
-                    Address::register(0),
-                    Address::constant(1),
-                    ByteType::STRING_CHARACTER
-                ),
-                Instruction::r#return(Address::register(0), ByteType::STRING)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::add(0, Address::register(0), Address::constant(1)),
+                Instruction::r#return(Address::register(0))
             ],
             register_count: 1,
             ..Prototype::dummy()

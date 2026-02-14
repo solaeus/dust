@@ -1,7 +1,7 @@
 use crate::{
     compiler::compile_main,
     dust_type::DustType,
-    instruction::{Address, Instruction, ByteType},
+    instruction::{Address, Instruction},
     prototype::Prototype,
     tests::local_cases,
 };
@@ -16,23 +16,12 @@ fn local_boolean_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#move(1, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::equal(
-                    true,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::r#move(0, Address::encoded(true as u16)),
+                Instruction::r#move(1, Address::encoded(true as u16)),
+                Instruction::equal(true, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -50,23 +39,12 @@ fn local_byte_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(0x2A), ByteType::BYTE),
-                Instruction::r#move(1, Address::encoded(0x2A), ByteType::BYTE),
-                Instruction::equal(
-                    true,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::BYTE
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::r#move(0, Address::encoded(0x2A)),
+                Instruction::r#move(1, Address::encoded(0x2A)),
+                Instruction::equal(true, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -84,23 +62,12 @@ fn local_character_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::CHARACTER),
-                Instruction::r#move(1, Address::constant(0), ByteType::CHARACTER),
-                Instruction::equal(
-                    true,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::CHARACTER
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#move(1, Address::constant(0)),
+                Instruction::equal(true, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -118,23 +85,12 @@ fn local_float_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
-                Instruction::r#move(1, Address::constant(0), ByteType::FLOAT),
-                Instruction::equal(
-                    true,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::FLOAT
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#move(1, Address::constant(0)),
+                Instruction::equal(true, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -152,23 +108,12 @@ fn local_integer_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
-                Instruction::r#move(1, Address::constant(0), ByteType::INTEGER),
-                Instruction::equal(
-                    true,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::INTEGER
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#move(1, Address::constant(0)),
+                Instruction::equal(true, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -186,23 +131,12 @@ fn local_string_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::STRING),
-                Instruction::r#move(1, Address::constant(0), ByteType::STRING),
-                Instruction::equal(
-                    true,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::STRING
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#move(1, Address::constant(0)),
+                Instruction::equal(true, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()

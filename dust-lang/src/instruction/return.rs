@@ -1,18 +1,16 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, ByteType, Operation};
+use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct Return {
     pub operand: Address,
-    pub r#type: ByteType,
 }
 
 impl From<&Instruction> for Return {
     fn from(instruction: &Instruction) -> Self {
         let operand = instruction.b_address();
-        let r#type = instruction.operand_type();
 
-        Return { operand, r#type }
+        Return { operand }
     }
 }
 
@@ -23,13 +21,11 @@ impl From<Return> for Instruction {
             index: b_field,
             memory: b_memory_kind,
         } = r#return.operand;
-        let operand_type = r#return.r#type;
 
         InstructionFields {
             operation,
             b_field,
             b_memory_kind,
-            operand_type,
             ..Default::default()
         }
         .build()
@@ -38,13 +34,8 @@ impl From<Return> for Instruction {
 
 impl Display for Return {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let Return { operand, r#type } = self;
+        let Return { operand } = self;
 
-        if *r#type == ByteType::NONE {
-            write!(f, "return")
-        } else {
-            write!(f, "return ")?;
-            operand.display(f, *r#type)
-        }
+        write!(f, "return {operand}")
     }
 }

@@ -156,11 +156,10 @@ impl Instruction {
         Instruction(0)
     }
 
-    pub fn r#move(destination: u16, operand: Address, r#type: ByteType) -> Instruction {
+    pub fn r#move(destination: u16, operand: Address) -> Instruction {
         Instruction::from(Move {
             destination,
             operand,
-            r#type,
             jump_distance: 0,
             jump_is_positive: false,
         })
@@ -169,14 +168,12 @@ impl Instruction {
     pub fn move_with_jump(
         destination: u16,
         operand: Address,
-        r#type: ByteType,
         jump_distance: u16,
         jump_is_positive: bool,
     ) -> Instruction {
         Instruction::from(Move {
             destination,
             operand,
-            r#type,
             jump_distance,
             jump_is_positive,
         })
@@ -197,150 +194,98 @@ impl Instruction {
         })
     }
 
-    pub fn new_list(destination: u16, initial_length: Address, list_type: ByteType) -> Instruction {
+    pub fn new_list(destination: u16, initial_length: Address) -> Instruction {
         Instruction::from(NewList {
             destination,
             initial_length,
-            list_type,
         })
     }
 
-    pub fn set_list(
-        destination_list: u16,
-        item_source: Address,
-        index: Address,
-        item_type: ByteType,
-    ) -> Instruction {
+    pub fn set_list(destination_list: u16, item_source: Address, index: Address) -> Instruction {
         Instruction::from(SetList {
             destination_list,
             item_source,
             index,
-            item_type,
         })
     }
 
-    pub fn get_list(
-        destination: u16,
-        list: Address,
-        list_index: Address,
-        item_type: ByteType,
-    ) -> Instruction {
+    pub fn get_list(destination: u16, list: Address, list_index: Address) -> Instruction {
         Instruction::from(GetList {
             destination,
             list,
             list_index,
-            item_type,
         })
     }
 
-    pub fn add(destination: u16, left: Address, right: Address, r#type: ByteType) -> Instruction {
+    pub fn add(destination: u16, left: Address, right: Address) -> Instruction {
         Instruction::from(Add {
             destination,
             left,
             right,
-            r#type,
         })
     }
 
-    pub fn subtract(
-        destination: u16,
-        left: Address,
-        right: Address,
-        r#type: ByteType,
-    ) -> Instruction {
+    pub fn subtract(destination: u16, left: Address, right: Address) -> Instruction {
         Instruction::from(Subtract {
             destination,
             left,
             right,
-            r#type,
         })
     }
 
-    pub fn multiply(
-        destination: u16,
-        left: Address,
-        right: Address,
-        r#type: ByteType,
-    ) -> Instruction {
+    pub fn multiply(destination: u16, left: Address, right: Address) -> Instruction {
         Instruction::from(Multiply {
             destination,
             left,
             right,
-            r#type,
         })
     }
 
-    pub fn divide(
-        destination: u16,
-        left: Address,
-        right: Address,
-        r#type: ByteType,
-    ) -> Instruction {
+    pub fn divide(destination: u16, left: Address, right: Address) -> Instruction {
         Instruction::from(Divide {
             destination,
             left,
             right,
-            r#type,
         })
     }
 
-    pub fn modulo(
-        destination: u16,
-        left: Address,
-        right: Address,
-        r#type: ByteType,
-    ) -> Instruction {
+    pub fn modulo(destination: u16, left: Address, right: Address) -> Instruction {
         Instruction::from(Modulo {
             destination,
             left,
             right,
-            r#type,
         })
     }
 
-    pub fn power(
-        destination: u16,
-        base: Address,
-        exponent: Address,
-        r#type: ByteType,
-    ) -> Instruction {
+    pub fn power(destination: u16, base: Address, exponent: Address) -> Instruction {
         Instruction::from(Power {
             destination,
             base,
             exponent,
-            r#type,
         })
     }
 
-    pub fn equal(comparator: bool, left: Address, right: Address, r#type: ByteType) -> Instruction {
+    pub fn equal(comparator: bool, left: Address, right: Address) -> Instruction {
         Instruction::from(Equal {
             comparator,
             left,
             right,
-            r#type,
         })
     }
 
-    pub fn less(comparator: bool, left: Address, right: Address, r#type: ByteType) -> Instruction {
+    pub fn less(comparator: bool, left: Address, right: Address) -> Instruction {
         Instruction::from(Less {
             comparator,
             left,
             right,
-            r#type,
         })
     }
 
-    pub fn less_equal(
-        comparator: bool,
-        left: Address,
-        right: Address,
-        r#type: ByteType,
-    ) -> Instruction {
+    pub fn less_equal(comparator: bool, left: Address, right: Address) -> Instruction {
         Instruction::from(LessEqual {
             comparator,
             left,
             right,
-            r#type,
         })
     }
 
@@ -352,11 +297,10 @@ impl Instruction {
         })
     }
 
-    pub fn negate(destination: u16, operand: Address, r#type: ByteType) -> Instruction {
+    pub fn negate(destination: u16, operand: Address) -> Instruction {
         Instruction::from(Negate {
             destination,
             operand,
-            r#type,
         })
     }
 
@@ -401,25 +345,22 @@ impl Instruction {
         destination: u16,
         function: NativeFunction,
         arguments_start: u16,
-        return_type: ByteType,
     ) -> Instruction {
         Instruction::from(CallNative {
             destination,
             function_id: function.id,
             arguments_start,
-            return_type,
         })
     }
 
-    pub fn r#return(operand: Address, r#type: ByteType) -> Instruction {
-        Instruction::from(Return { operand, r#type })
+    pub fn r#return(operand: Address) -> Instruction {
+        Instruction::from(Return { operand })
     }
 
-    pub fn to_string(destination: u16, operand: Address, r#type: ByteType) -> Instruction {
+    pub fn to_string(destination: u16, operand: Address) -> Instruction {
         Instruction::from(ToString {
             destination,
             operand,
-            r#type,
         })
     }
 
@@ -564,12 +505,7 @@ mod tests {
     use super::*;
 
     fn create_instruction() -> Instruction {
-        Instruction::add(
-            42,
-            Address::register(1),
-            Address::constant(2),
-            ByteType::INTEGER,
-        )
+        Instruction::add(42, Address::register(1), Address::constant(2))
     }
 
     #[test]
@@ -590,14 +526,7 @@ mod tests {
     fn decode_c_memory() {
         let instruction = create_instruction();
 
-        assert_eq!(instruction.c_memory_kind(), MemoryKind::CELL);
-    }
-
-    #[test]
-    fn decode_operand_type() {
-        let instruction = create_instruction();
-
-        assert_eq!(instruction.operand_type(), ByteType::INTEGER);
+        assert_eq!(instruction.c_memory_kind(), MemoryKind::CONSTANT);
     }
 
     #[test]

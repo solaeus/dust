@@ -1,11 +1,10 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::{Address, Instruction, InstructionFields, ByteType, Operation};
+use crate::instruction::{Address, Instruction, InstructionFields, Operation};
 
 pub struct ToString {
     pub destination: u16,
     pub operand: Address,
-    pub r#type: ByteType,
 }
 
 impl From<&Instruction> for ToString {
@@ -15,32 +14,28 @@ impl From<&Instruction> for ToString {
             index: instruction.b_field(),
             memory: instruction.b_memory_kind(),
         };
-        let r#type = instruction.operand_type();
 
         ToString {
             destination,
             operand,
-            r#type,
         }
     }
 }
 
 impl From<ToString> for Instruction {
-    fn from(modulo: ToString) -> Self {
+    fn from(to_string: ToString) -> Self {
         let operation = Operation::TO_STRING;
-        let a_field = modulo.destination;
+        let a_field = to_string.destination;
         let Address {
             index: b_field,
             memory: b_memory_kind,
-        } = modulo.operand;
-        let operand_type = modulo.r#type;
+        } = to_string.operand;
 
         InstructionFields {
             operation,
             a_field,
             b_field,
             b_memory_kind,
-            operand_type,
             ..Default::default()
         }
         .build()
@@ -52,11 +47,8 @@ impl Display for ToString {
         let ToString {
             destination,
             operand,
-            r#type,
         } = self;
 
-        write!(f, "reg_{destination} = ")?;
-        operand.display(f, *r#type)?;
-        write!(f, " as str")
+        write!(f, "reg_{destination} = {operand} as str")
     }
 }

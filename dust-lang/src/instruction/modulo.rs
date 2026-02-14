@@ -1,12 +1,11 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, ByteType, Operation};
+use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct Modulo {
     pub destination: u16,
     pub left: Address,
     pub right: Address,
-    pub r#type: ByteType,
 }
 
 impl From<&Instruction> for Modulo {
@@ -14,13 +13,11 @@ impl From<&Instruction> for Modulo {
         let destination = instruction.a_field();
         let left = instruction.b_address();
         let right = instruction.c_address();
-        let r#type = instruction.operand_type();
 
         Modulo {
             destination,
             left,
             right,
-            r#type,
         }
     }
 }
@@ -37,7 +34,6 @@ impl From<Modulo> for Instruction {
             index: c_field,
             memory: c_memory_kind,
         } = modulo.right;
-        let operand_type = modulo.r#type;
 
         InstructionFields {
             operation,
@@ -46,7 +42,6 @@ impl From<Modulo> for Instruction {
             b_memory_kind,
             c_field,
             c_memory_kind,
-            operand_type,
             ..Default::default()
         }
         .build()
@@ -59,12 +54,8 @@ impl Display for Modulo {
             destination,
             left,
             right,
-            r#type,
         } = self;
 
-        write!(f, "reg_{destination} = ")?;
-        left.display(f, *r#type)?;
-        write!(f, " % ")?;
-        right.display(f, *r#type)
+        write!(f, "reg_{destination} = {left} % {right}")
     }
 }

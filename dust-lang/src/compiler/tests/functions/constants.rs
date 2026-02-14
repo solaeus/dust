@@ -16,10 +16,7 @@ fn boolean() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -35,10 +32,7 @@ fn byte() {
         prototypes[1],
         Prototype {
             return_type: DustType::Byte,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(42),
-                ByteType::BYTE
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(42))],
             ..Prototype::dummy()
         }
     );
@@ -54,10 +48,7 @@ fn character() {
         prototypes[1],
         Prototype {
             return_type: DustType::Character,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::CHARACTER
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -73,10 +64,7 @@ fn float() {
         prototypes[1],
         Prototype {
             return_type: DustType::Float,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::FLOAT
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -92,10 +80,7 @@ fn integer() {
         prototypes[1],
         Prototype {
             return_type: DustType::Integer,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::INTEGER
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -111,10 +96,7 @@ fn string() {
         prototypes[1],
         Prototype {
             return_type: DustType::String,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::STRING
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -130,10 +112,7 @@ fn constant_byte_addition() {
         prototypes[1],
         Prototype {
             return_type: DustType::Byte,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(42),
-                ByteType::BYTE
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(42))],
             ..Prototype::dummy()
         }
     );
@@ -149,10 +128,7 @@ fn constant_float_addition() {
         prototypes[1],
         Prototype {
             return_type: DustType::Float,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::FLOAT
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -171,10 +147,7 @@ fn constant_integer_addition() {
         prototypes[1],
         Prototype {
             return_type: DustType::Integer,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::INTEGER
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -190,10 +163,7 @@ fn constant_byte_subtraction() {
         prototypes[1],
         Prototype {
             return_type: DustType::Byte,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(42),
-                ByteType::BYTE
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(42))],
             ..Prototype::dummy()
         }
     );
@@ -212,10 +182,7 @@ fn constant_float_subtraction() {
         prototypes[1],
         Prototype {
             return_type: DustType::Float,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::FLOAT
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -234,10 +201,7 @@ fn constant_integer_subtraction() {
         prototypes[1],
         Prototype {
             return_type: DustType::Integer,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::INTEGER
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -256,10 +220,7 @@ fn constant_byte_multiplication() {
         prototypes[1],
         Prototype {
             return_type: DustType::Byte,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(42),
-                ByteType::BYTE
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(42))],
             ..Prototype::dummy()
         }
     );
@@ -278,10 +239,7 @@ fn constant_float_multiplication() {
         prototypes[1],
         Prototype {
             return_type: DustType::Float,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::FLOAT
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -300,10 +258,7 @@ fn constant_integer_multiplication() {
         prototypes[1],
         Prototype {
             return_type: DustType::Integer,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::INTEGER
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -319,10 +274,7 @@ fn constant_byte_division() {
         prototypes[1],
         Prototype {
             return_type: DustType::Byte,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(42),
-                ByteType::BYTE
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(42))],
             ..Prototype::dummy()
         }
     );
@@ -338,10 +290,7 @@ fn constant_float_division() {
         prototypes[1],
         Prototype {
             return_type: DustType::Float,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::FLOAT
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -360,10 +309,7 @@ fn constant_integer_division() {
         prototypes[1],
         Prototype {
             return_type: DustType::Integer,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::INTEGER
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -379,10 +325,7 @@ fn constant_byte_modulo() {
         prototypes[1],
         Prototype {
             return_type: DustType::Byte,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(4),
-                ByteType::BYTE
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(4))],
             ..Prototype::dummy()
         }
     );
@@ -398,10 +341,7 @@ fn constant_float_modulo() {
         prototypes[1],
         Prototype {
             return_type: DustType::Float,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::FLOAT
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -420,10 +360,7 @@ fn constant_integer_modulo() {
         prototypes[1],
         Prototype {
             return_type: DustType::Integer,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::INTEGER
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -442,10 +379,7 @@ fn constant_integer_negation() {
         prototypes[1],
         Prototype {
             return_type: DustType::Integer,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::INTEGER
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -461,10 +395,7 @@ fn constant_float_negation() {
         prototypes[1],
         Prototype {
             return_type: DustType::Float,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::FLOAT
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -483,10 +414,7 @@ fn constant_string_concatenation() {
         prototypes[1],
         Prototype {
             return_type: DustType::String,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::STRING
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -505,10 +433,7 @@ fn constant_character_concatentation() {
         prototypes[1],
         Prototype {
             return_type: DustType::String,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::STRING
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -527,10 +452,7 @@ fn constant_string_character_concatenation() {
         prototypes[1],
         Prototype {
             return_type: DustType::String,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::STRING
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -549,10 +471,7 @@ fn constant_character_string_concatenation() {
         prototypes[1],
         Prototype {
             return_type: DustType::String,
-            instructions: vec![Instruction::r#return(
-                Address::constant(0),
-                ByteType::STRING
-            )],
+            instructions: vec![Instruction::r#return(Address::constant(0))],
             ..Prototype::dummy()
         }
     );
@@ -568,10 +487,7 @@ fn constant_boolean_and() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(false as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(false as u16))],
             ..Prototype::dummy()
         }
     );
@@ -587,10 +503,7 @@ fn constant_boolean_or() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -606,10 +519,7 @@ fn constant_boolean_not() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(false as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(false as u16))],
             ..Prototype::dummy()
         }
     );
@@ -628,10 +538,7 @@ fn constant_boolean_greater_than() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -650,10 +557,7 @@ fn constant_boolean_less_than() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -672,10 +576,7 @@ fn constant_boolean_greater_than_or_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -694,10 +595,7 @@ fn constant_boolean_less_than_or_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -713,10 +611,7 @@ fn constant_boolean_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -735,10 +630,7 @@ fn constant_boolean_not_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -757,10 +649,7 @@ fn constant_byte_greater_than() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -779,10 +668,7 @@ fn constant_byte_less_than() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -801,10 +687,7 @@ fn constant_byte_greater_than_or_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -823,10 +706,7 @@ fn constant_byte_less_than_or_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -842,10 +722,7 @@ fn constant_byte_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -864,10 +741,7 @@ fn constant_byte_not_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -886,10 +760,7 @@ fn constant_character_greater_than() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -908,10 +779,7 @@ fn constant_character_less_than() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -930,10 +798,7 @@ fn constant_character_greater_than_or_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -952,10 +817,7 @@ fn constant_character_less_than_or_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -974,10 +836,7 @@ fn constant_character_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -996,10 +855,7 @@ fn constant_character_not_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1018,10 +874,7 @@ fn constant_float_greater_than() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1040,10 +893,7 @@ fn constant_float_less_than() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1062,10 +912,7 @@ fn constant_float_greater_than_or_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1084,10 +931,7 @@ fn constant_float_less_than_or_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1103,10 +947,7 @@ fn constant_float_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1125,10 +966,7 @@ fn constant_float_not_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1147,10 +985,7 @@ fn constant_integer_greater_than() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1169,10 +1004,7 @@ fn constant_integer_less_than() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1191,10 +1023,7 @@ fn constant_integer_greater_than_or_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1213,10 +1042,7 @@ fn constant_integer_less_than_or_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1232,10 +1058,7 @@ fn constant_integer_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1254,10 +1077,7 @@ fn constant_integer_not_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1276,10 +1096,7 @@ fn constant_string_greater_than() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(false as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(false as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1298,10 +1115,7 @@ fn constant_string_less_than() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(false as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(false as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1320,10 +1134,7 @@ fn constant_string_greater_than_or_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1342,10 +1153,7 @@ fn constant_string_less_than_or_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1361,10 +1169,7 @@ fn constant_string_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );
@@ -1383,10 +1188,7 @@ fn constant_string_not_equal() {
         prototypes[1],
         Prototype {
             return_type: DustType::Boolean,
-            instructions: vec![Instruction::r#return(
-                Address::encoded(true as u16),
-                ByteType::BOOLEAN
-            )],
+            instructions: vec![Instruction::r#return(Address::encoded(true as u16))],
             ..Prototype::dummy()
         }
     );

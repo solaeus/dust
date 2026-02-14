@@ -17,15 +17,10 @@ fn local_byte_modulo() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(84), ByteType::BYTE),
-                Instruction::r#move(1, Address::encoded(5), ByteType::BYTE),
-                Instruction::modulo(
-                    2,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::BYTE
-                ),
-                Instruction::r#return(Address::register(2), ByteType::BYTE)
+                Instruction::r#move(0, Address::encoded(84)),
+                Instruction::r#move(1, Address::encoded(5)),
+                Instruction::modulo(2, Address::register(0), Address::register(1)),
+                Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -44,15 +39,10 @@ fn local_float_modulo() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
-                Instruction::r#move(1, Address::constant(1), ByteType::FLOAT),
-                Instruction::modulo(
-                    2,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::FLOAT
-                ),
-                Instruction::r#return(Address::register(2), ByteType::FLOAT)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#move(1, Address::constant(1)),
+                Instruction::modulo(2, Address::register(0), Address::register(1)),
+                Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -71,15 +61,10 @@ fn local_integer_modulo() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
-                Instruction::r#move(1, Address::constant(1), ByteType::INTEGER),
-                Instruction::modulo(
-                    2,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::INTEGER
-                ),
-                Instruction::r#return(Address::register(2), ByteType::INTEGER)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#move(1, Address::constant(1)),
+                Instruction::modulo(2, Address::register(0), Address::register(1)),
+                Instruction::r#return(Address::register(2))
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -98,14 +83,9 @@ fn local_mut_byte_modulo() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(84), ByteType::BYTE),
-                Instruction::modulo(
-                    0,
-                    Address::register(0),
-                    Address::encoded(5),
-                    ByteType::BYTE
-                ),
-                Instruction::r#return(Address::register(0), ByteType::BYTE)
+                Instruction::r#move(0, Address::encoded(84)),
+                Instruction::modulo(0, Address::register(0), Address::encoded(5)),
+                Instruction::r#return(Address::register(0))
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -124,14 +104,9 @@ fn local_mut_float_modulo() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
-                Instruction::modulo(
-                    0,
-                    Address::register(0),
-                    Address::constant(1),
-                    ByteType::FLOAT
-                ),
-                Instruction::r#return(Address::register(0), ByteType::FLOAT)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::modulo(0, Address::register(0), Address::constant(1)),
+                Instruction::r#return(Address::register(0))
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -150,14 +125,9 @@ fn local_mut_integer_modulo() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
-                Instruction::modulo(
-                    0,
-                    Address::register(0),
-                    Address::constant(1),
-                    ByteType::INTEGER
-                ),
-                Instruction::r#return(Address::register(0), ByteType::INTEGER)
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::modulo(0, Address::register(0), Address::constant(1)),
+                Instruction::r#return(Address::register(0))
             ],
             register_count: 1,
             ..Prototype::dummy()

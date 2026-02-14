@@ -2,12 +2,11 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::instruction::MemoryKind;
 
-use super::{Address, Instruction, InstructionFields, ByteType, Operation};
+use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct Move {
     pub destination: u16,
     pub operand: Address,
-    pub r#type: ByteType,
     pub jump_distance: u16,
     pub jump_is_positive: bool,
 }
@@ -16,14 +15,12 @@ impl From<&Instruction> for Move {
     fn from(instruction: &Instruction) -> Self {
         let destination = instruction.a_field();
         let operand = instruction.b_address();
-        let r#type = instruction.operand_type();
         let jump_distance = instruction.c_field();
         let jump_is_positive = instruction.c_memory_kind().0 != 0;
 
         Move {
             destination,
             operand,
-            r#type,
             jump_distance,
             jump_is_positive,
         }
@@ -39,7 +36,6 @@ impl From<Move> for Instruction {
         } = r#move.operand;
         let c_field = r#move.jump_distance;
         let c_memory_kind = MemoryKind(r#move.jump_is_positive as u8);
-        let operand_type = r#move.r#type;
 
         InstructionFields {
             operation: Operation::MOVE,
@@ -48,7 +44,6 @@ impl From<Move> for Instruction {
             b_memory_kind,
             c_field,
             c_memory_kind,
-            operand_type,
             ..Default::default()
         }
         .build()
@@ -60,13 +55,11 @@ impl Display for Move {
         let Move {
             destination,
             operand,
-            r#type,
             jump_distance,
             jump_is_positive,
         } = self;
 
-        write!(f, "reg_{destination} = ")?;
-        operand.display(f, *r#type)?;
+        write!(f, "reg_{destination} = {operand}")?;
 
         if *jump_distance > 0 {
             if *jump_is_positive {

@@ -1,12 +1,11 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::{Address, Instruction, InstructionFields, ByteType, Operation};
+use crate::instruction::{Address, Instruction, InstructionFields, Operation};
 
 pub struct Power {
     pub destination: u16,
     pub base: Address,
     pub exponent: Address,
-    pub r#type: ByteType,
 }
 
 impl From<&Instruction> for Power {
@@ -14,30 +13,27 @@ impl From<&Instruction> for Power {
         let destination = instruction.a_field();
         let base = instruction.b_address();
         let exponent = instruction.c_address();
-        let r#type = instruction.operand_type();
 
         Power {
             destination,
             base,
             exponent,
-            r#type,
         }
     }
 }
 
 impl From<Power> for Instruction {
-    fn from(modulo: Power) -> Self {
+    fn from(power: Power) -> Self {
         let operation = Operation::POWER;
-        let a_field = modulo.destination;
+        let a_field = power.destination;
         let Address {
             index: b_field,
             memory: b_memory_kind,
-        } = modulo.base;
+        } = power.base;
         let Address {
             index: c_field,
             memory: c_memory_kind,
-        } = modulo.exponent;
-        let operand_type = modulo.r#type;
+        } = power.exponent;
 
         InstructionFields {
             operation,
@@ -46,7 +42,6 @@ impl From<Power> for Instruction {
             b_memory_kind,
             c_field,
             c_memory_kind,
-            operand_type,
             ..Default::default()
         }
         .build()
@@ -59,12 +54,8 @@ impl Display for Power {
             destination,
             base,
             exponent,
-            r#type,
         } = self;
 
-        write!(f, "reg_{destination} = ")?;
-        base.display(f, *r#type)?;
-        write!(f, "^")?;
-        exponent.display(f, *r#type)
+        write!(f, "reg_{destination} = {base}^{exponent}")
     }
 }

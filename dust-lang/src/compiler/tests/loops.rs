@@ -1,7 +1,7 @@
 use crate::{
     compiler::compile_main,
     dust_type::DustType,
-    instruction::{Address, Instruction, ByteType},
+    instruction::{Address, Instruction},
     prototype::Prototype,
     tests::loop_cases,
 };
@@ -16,22 +16,12 @@ fn while_loop() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
-                Instruction::less(
-                    true,
-                    Address::register(0),
-                    Address::constant(1),
-                    ByteType::INTEGER
-                ),
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::less(true, Address::register(0), Address::constant(1)),
                 Instruction::jump(2, true),
-                Instruction::add(
-                    0,
-                    Address::register(0),
-                    Address::constant(2),
-                    ByteType::INTEGER
-                ),
+                Instruction::add(0, Address::register(0), Address::constant(2)),
                 Instruction::jump(2, false),
-                Instruction::r#return(Address::register(0), ByteType::INTEGER),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()

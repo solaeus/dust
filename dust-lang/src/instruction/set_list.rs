@@ -1,12 +1,11 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, ByteType, Operation};
+use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct SetList {
     pub destination_list: u16,
     pub item_source: Address,
     pub index: Address,
-    pub item_type: ByteType,
 }
 
 impl From<&Instruction> for SetList {
@@ -14,13 +13,11 @@ impl From<&Instruction> for SetList {
         let destination_list = instruction.a_field();
         let item_source = instruction.b_address();
         let index = instruction.c_address();
-        let item_type = instruction.operand_type();
 
         SetList {
             destination_list,
             item_source,
             index,
-            item_type,
         }
     }
 }
@@ -37,7 +34,6 @@ impl From<SetList> for Instruction {
             index: c_field,
             memory: c_memory_kind,
         } = set_list.index;
-        let operand_type = set_list.item_type;
 
         InstructionFields {
             operation,
@@ -46,7 +42,6 @@ impl From<SetList> for Instruction {
             b_memory_kind,
             c_field,
             c_memory_kind,
-            operand_type,
             ..Default::default()
         }
         .build()
@@ -59,12 +54,8 @@ impl Display for SetList {
             destination_list,
             item_source,
             index,
-            item_type,
         } = self;
 
-        write!(f, "reg_{destination_list}[")?;
-        index.display(f, ByteType::INTEGER)?;
-        write!(f, "] = ")?;
-        item_source.display(f, *item_type)
+        write!(f, "reg_{destination_list}[{index}] = {item_source}")
     }
 }

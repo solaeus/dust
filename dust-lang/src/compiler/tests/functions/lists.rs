@@ -17,26 +17,11 @@ fn list_boolean() {
         Prototype {
             return_type: DustType::list(DustType::Boolean),
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_BOOLEAN),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(true as u16),
-                    Address::constant(1),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(false as u16),
-                    Address::constant(2),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(true as u16),
-                    Address::constant(3),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::r#return(Address::register(0), ByteType::LIST_BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::encoded(true as u16), Address::constant(1)),
+                Instruction::set_list(0, Address::encoded(false as u16), Address::constant(2)),
+                Instruction::set_list(0, Address::encoded(true as u16), Address::constant(3)),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -55,26 +40,11 @@ fn list_byte() {
         Prototype {
             return_type: DustType::list(DustType::Byte),
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_BYTE),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(42),
-                    Address::constant(1),
-                    ByteType::BYTE
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(43),
-                    Address::constant(2),
-                    ByteType::BYTE
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(44),
-                    Address::constant(3),
-                    ByteType::BYTE
-                ),
-                Instruction::r#return(Address::register(0), ByteType::LIST_BYTE),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::encoded(42), Address::constant(1)),
+                Instruction::set_list(0, Address::encoded(43), Address::constant(2)),
+                Instruction::set_list(0, Address::encoded(44), Address::constant(3)),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -93,26 +63,11 @@ fn list_character() {
         Prototype {
             return_type: DustType::list(DustType::Character),
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_CHARACTER),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::CHARACTER
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::CHARACTER
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(5),
-                    Address::constant(6),
-                    ByteType::CHARACTER
-                ),
-                Instruction::r#return(Address::register(0), ByteType::LIST_CHARACTER),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(4)),
+                Instruction::set_list(0, Address::constant(5), Address::constant(6)),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -131,26 +86,11 @@ fn list_float() {
         Prototype {
             return_type: DustType::list(DustType::Float),
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_FLOAT),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::FLOAT
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::FLOAT
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(5),
-                    Address::constant(6),
-                    ByteType::FLOAT
-                ),
-                Instruction::r#return(Address::register(0), ByteType::LIST_FLOAT),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(4)),
+                Instruction::set_list(0, Address::constant(5), Address::constant(6)),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -169,26 +109,11 @@ fn list_integer() {
         Prototype {
             return_type: DustType::list(DustType::Integer),
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_INTEGER),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::INTEGER
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(1),
-                    ByteType::INTEGER
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(0),
-                    Address::constant(3),
-                    ByteType::INTEGER
-                ),
-                Instruction::r#return(Address::register(0), ByteType::LIST_INTEGER),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(1)),
+                Instruction::set_list(0, Address::constant(0), Address::constant(3)),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -207,26 +132,11 @@ fn list_string() {
         Prototype {
             return_type: DustType::list(DustType::String),
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_STRING),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::STRING
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::STRING
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(5),
-                    Address::constant(6),
-                    ByteType::STRING
-                ),
-                Instruction::r#return(Address::register(0), ByteType::LIST_STRING),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(4)),
+                Instruction::set_list(0, Address::constant(5), Address::constant(6)),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -245,47 +155,16 @@ fn list_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_BOOLEAN),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(true as u16),
-                    Address::constant(1),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(false as u16),
-                    Address::constant(2),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::new_list(1, Address::constant(0), ByteType::LIST_BOOLEAN),
-                Instruction::set_list(
-                    1,
-                    Address::encoded(true as u16),
-                    Address::constant(1),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::set_list(
-                    1,
-                    Address::encoded(false as u16),
-                    Address::constant(2),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::equal(
-                    true,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::LIST_BOOLEAN
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::encoded(true as u16), Address::constant(1)),
+                Instruction::set_list(0, Address::encoded(false as u16), Address::constant(2)),
+                Instruction::new_list(1, Address::constant(0)),
+                Instruction::set_list(1, Address::encoded(true as u16), Address::constant(1)),
+                Instruction::set_list(1, Address::encoded(false as u16), Address::constant(2)),
+                Instruction::equal(true, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -304,47 +183,16 @@ fn list_not_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_BYTE),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(0x2A),
-                    Address::constant(1),
-                    ByteType::BYTE
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(0x2B),
-                    Address::constant(2),
-                    ByteType::BYTE
-                ),
-                Instruction::new_list(1, Address::constant(0), ByteType::LIST_BYTE),
-                Instruction::set_list(
-                    1,
-                    Address::encoded(0x2B),
-                    Address::constant(1),
-                    ByteType::BYTE
-                ),
-                Instruction::set_list(
-                    1,
-                    Address::encoded(0x2A),
-                    Address::constant(2),
-                    ByteType::BYTE
-                ),
-                Instruction::equal(
-                    false,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::LIST_BYTE
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::encoded(0x2A), Address::constant(1)),
+                Instruction::set_list(0, Address::encoded(0x2B), Address::constant(2)),
+                Instruction::new_list(1, Address::constant(0)),
+                Instruction::set_list(1, Address::encoded(0x2B), Address::constant(1)),
+                Instruction::set_list(1, Address::encoded(0x2A), Address::constant(2)),
+                Instruction::equal(false, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -363,47 +211,16 @@ fn list_greater_than() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_CHARACTER),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::CHARACTER
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::CHARACTER
-                ),
-                Instruction::new_list(1, Address::constant(0), ByteType::LIST_CHARACTER),
-                Instruction::set_list(
-                    1,
-                    Address::constant(3),
-                    Address::constant(2),
-                    ByteType::CHARACTER
-                ),
-                Instruction::set_list(
-                    1,
-                    Address::constant(1),
-                    Address::constant(4),
-                    ByteType::CHARACTER
-                ),
-                Instruction::less_equal(
-                    false,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::LIST_CHARACTER
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(4)),
+                Instruction::new_list(1, Address::constant(0)),
+                Instruction::set_list(1, Address::constant(3), Address::constant(2)),
+                Instruction::set_list(1, Address::constant(1), Address::constant(4)),
+                Instruction::less_equal(false, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -422,47 +239,16 @@ fn list_less_than() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_FLOAT),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::FLOAT
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::FLOAT
-                ),
-                Instruction::new_list(1, Address::constant(0), ByteType::LIST_FLOAT),
-                Instruction::set_list(
-                    1,
-                    Address::constant(3),
-                    Address::constant(2),
-                    ByteType::FLOAT
-                ),
-                Instruction::set_list(
-                    1,
-                    Address::constant(1),
-                    Address::constant(4),
-                    ByteType::FLOAT
-                ),
-                Instruction::less(
-                    true,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::LIST_FLOAT
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(4)),
+                Instruction::new_list(1, Address::constant(0)),
+                Instruction::set_list(1, Address::constant(3), Address::constant(2)),
+                Instruction::set_list(1, Address::constant(1), Address::constant(4)),
+                Instruction::less(true, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -481,47 +267,16 @@ fn list_greater_than_or_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_INTEGER),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::INTEGER
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(0),
-                    Address::constant(1),
-                    ByteType::INTEGER
-                ),
-                Instruction::new_list(1, Address::constant(0), ByteType::LIST_INTEGER),
-                Instruction::set_list(
-                    1,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::INTEGER
-                ),
-                Instruction::set_list(
-                    1,
-                    Address::constant(0),
-                    Address::constant(1),
-                    ByteType::INTEGER
-                ),
-                Instruction::less(
-                    false,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::LIST_INTEGER
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(0), Address::constant(1)),
+                Instruction::new_list(1, Address::constant(0)),
+                Instruction::set_list(1, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(1, Address::constant(0), Address::constant(1)),
+                Instruction::less(false, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -540,47 +295,16 @@ fn list_less_than_or_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_STRING),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::STRING
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::STRING
-                ),
-                Instruction::new_list(1, Address::constant(0), ByteType::LIST_STRING),
-                Instruction::set_list(
-                    1,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::STRING
-                ),
-                Instruction::set_list(
-                    1,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::STRING
-                ),
-                Instruction::less_equal(
-                    true,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::LIST_STRING
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(4)),
+                Instruction::new_list(1, Address::constant(0)),
+                Instruction::set_list(1, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(1, Address::constant(3), Address::constant(4)),
+                Instruction::less_equal(true, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -599,32 +323,12 @@ fn list_index_boolean() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_BOOLEAN),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(true as u16),
-                    Address::constant(1),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(false as u16),
-                    Address::constant(2),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(true as u16),
-                    Address::constant(3),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::get_list(
-                    1,
-                    Address::register(0),
-                    Address::constant(1),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::r#return(Address::register(1), ByteType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::encoded(true as u16), Address::constant(1)),
+                Instruction::set_list(0, Address::encoded(false as u16), Address::constant(2)),
+                Instruction::set_list(0, Address::encoded(true as u16), Address::constant(3)),
+                Instruction::get_list(1, Address::register(0), Address::constant(1)),
+                Instruction::r#return(Address::register(1)),
             ],
             register_count: 2,
             ..Prototype::dummy()
@@ -643,32 +347,12 @@ fn list_index_byte() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_BYTE),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(0x2A),
-                    Address::constant(1),
-                    ByteType::BYTE
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(0x2B),
-                    Address::constant(2),
-                    ByteType::BYTE
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(0x2C),
-                    Address::constant(3),
-                    ByteType::BYTE
-                ),
-                Instruction::get_list(
-                    1,
-                    Address::register(0),
-                    Address::constant(2),
-                    ByteType::BYTE
-                ),
-                Instruction::r#return(Address::register(1), ByteType::BYTE),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::encoded(0x2A), Address::constant(1)),
+                Instruction::set_list(0, Address::encoded(0x2B), Address::constant(2)),
+                Instruction::set_list(0, Address::encoded(0x2C), Address::constant(3)),
+                Instruction::get_list(1, Address::register(0), Address::constant(2)),
+                Instruction::r#return(Address::register(1)),
             ],
             register_count: 2,
             ..Prototype::dummy()
@@ -687,32 +371,12 @@ fn list_index_character() {
         Prototype {
             return_type: DustType::Character,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_CHARACTER),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::CHARACTER
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::CHARACTER
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(5),
-                    Address::constant(6),
-                    ByteType::CHARACTER
-                ),
-                Instruction::get_list(
-                    1,
-                    Address::register(0),
-                    Address::constant(6),
-                    ByteType::CHARACTER
-                ),
-                Instruction::r#return(Address::register(1), ByteType::CHARACTER),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(4)),
+                Instruction::set_list(0, Address::constant(5), Address::constant(6)),
+                Instruction::get_list(1, Address::register(0), Address::constant(6)),
+                Instruction::r#return(Address::register(1)),
             ],
             register_count: 2,
             ..Prototype::dummy()
@@ -731,32 +395,12 @@ fn list_index_float() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_FLOAT),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::FLOAT
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::FLOAT
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(5),
-                    Address::constant(6),
-                    ByteType::FLOAT
-                ),
-                Instruction::get_list(
-                    1,
-                    Address::register(0),
-                    Address::constant(4),
-                    ByteType::FLOAT
-                ),
-                Instruction::r#return(Address::register(1), ByteType::FLOAT),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(4)),
+                Instruction::set_list(0, Address::constant(5), Address::constant(6)),
+                Instruction::get_list(1, Address::register(0), Address::constant(4)),
+                Instruction::r#return(Address::register(1)),
             ],
             register_count: 2,
             ..Prototype::dummy()
@@ -775,32 +419,12 @@ fn list_index_integer() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_INTEGER),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::INTEGER
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(1),
-                    ByteType::INTEGER
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(0),
-                    Address::constant(3),
-                    ByteType::INTEGER
-                ),
-                Instruction::get_list(
-                    1,
-                    Address::register(0),
-                    Address::constant(2),
-                    ByteType::INTEGER
-                ),
-                Instruction::r#return(Address::register(1), ByteType::INTEGER),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(1)),
+                Instruction::set_list(0, Address::constant(0), Address::constant(3)),
+                Instruction::get_list(1, Address::register(0), Address::constant(2)),
+                Instruction::r#return(Address::register(1)),
             ],
             register_count: 2,
             ..Prototype::dummy()
@@ -819,32 +443,12 @@ fn list_index_string() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_STRING),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::STRING
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::STRING
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(5),
-                    Address::constant(6),
-                    ByteType::STRING
-                ),
-                Instruction::get_list(
-                    1,
-                    Address::register(0),
-                    Address::constant(6),
-                    ByteType::STRING
-                ),
-                Instruction::r#return(Address::register(1), ByteType::STRING),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(4)),
+                Instruction::set_list(0, Address::constant(5), Address::constant(6)),
+                Instruction::get_list(1, Address::register(0), Address::constant(6)),
+                Instruction::r#return(Address::register(1)),
             ],
             register_count: 2,
             ..Prototype::dummy()
@@ -863,26 +467,11 @@ fn local_list_boolean() {
         Prototype {
             return_type: DustType::list(DustType::Boolean),
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_BOOLEAN),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(true as u16),
-                    Address::constant(1),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(false as u16),
-                    Address::constant(2),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(true as u16),
-                    Address::constant(3),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::r#return(Address::register(0), ByteType::LIST_BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::encoded(true as u16), Address::constant(1)),
+                Instruction::set_list(0, Address::encoded(false as u16), Address::constant(2)),
+                Instruction::set_list(0, Address::encoded(true as u16), Address::constant(3)),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -901,47 +490,16 @@ fn local_list_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_BOOLEAN),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(true as u16),
-                    Address::constant(1),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(false as u16),
-                    Address::constant(2),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::new_list(1, Address::constant(0), ByteType::LIST_BOOLEAN),
-                Instruction::set_list(
-                    1,
-                    Address::encoded(true as u16),
-                    Address::constant(1),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::set_list(
-                    1,
-                    Address::encoded(false as u16),
-                    Address::constant(2),
-                    ByteType::BOOLEAN
-                ),
-                Instruction::equal(
-                    true,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::LIST_BOOLEAN
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::encoded(true as u16), Address::constant(1)),
+                Instruction::set_list(0, Address::encoded(false as u16), Address::constant(2)),
+                Instruction::new_list(1, Address::constant(0)),
+                Instruction::set_list(1, Address::encoded(true as u16), Address::constant(1)),
+                Instruction::set_list(1, Address::encoded(false as u16), Address::constant(2)),
+                Instruction::equal(true, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -960,47 +518,16 @@ fn local_list_not_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_BYTE),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(0x2A),
-                    Address::constant(1),
-                    ByteType::BYTE
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::encoded(0x2B),
-                    Address::constant(2),
-                    ByteType::BYTE
-                ),
-                Instruction::new_list(1, Address::constant(0), ByteType::LIST_BYTE),
-                Instruction::set_list(
-                    1,
-                    Address::encoded(0x2B),
-                    Address::constant(1),
-                    ByteType::BYTE
-                ),
-                Instruction::set_list(
-                    1,
-                    Address::encoded(0x2A),
-                    Address::constant(2),
-                    ByteType::BYTE
-                ),
-                Instruction::equal(
-                    false,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::LIST_BYTE
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::encoded(0x2A), Address::constant(1)),
+                Instruction::set_list(0, Address::encoded(0x2B), Address::constant(2)),
+                Instruction::new_list(1, Address::constant(0)),
+                Instruction::set_list(1, Address::encoded(0x2B), Address::constant(1)),
+                Instruction::set_list(1, Address::encoded(0x2A), Address::constant(2)),
+                Instruction::equal(false, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -1019,47 +546,16 @@ fn local_list_greater_than() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_CHARACTER),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::CHARACTER
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::CHARACTER
-                ),
-                Instruction::new_list(1, Address::constant(0), ByteType::LIST_CHARACTER),
-                Instruction::set_list(
-                    1,
-                    Address::constant(3),
-                    Address::constant(2),
-                    ByteType::CHARACTER
-                ),
-                Instruction::set_list(
-                    1,
-                    Address::constant(1),
-                    Address::constant(4),
-                    ByteType::CHARACTER
-                ),
-                Instruction::less_equal(
-                    false,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::LIST_CHARACTER
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(4)),
+                Instruction::new_list(1, Address::constant(0)),
+                Instruction::set_list(1, Address::constant(3), Address::constant(2)),
+                Instruction::set_list(1, Address::constant(1), Address::constant(4)),
+                Instruction::less_equal(false, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -1078,47 +574,16 @@ fn local_list_less_than() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_FLOAT),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::FLOAT
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::FLOAT
-                ),
-                Instruction::new_list(1, Address::constant(0), ByteType::LIST_FLOAT),
-                Instruction::set_list(
-                    1,
-                    Address::constant(3),
-                    Address::constant(2),
-                    ByteType::FLOAT
-                ),
-                Instruction::set_list(
-                    1,
-                    Address::constant(1),
-                    Address::constant(4),
-                    ByteType::FLOAT
-                ),
-                Instruction::less(
-                    true,
-                    Address::register(1),
-                    Address::register(0),
-                    ByteType::LIST_FLOAT
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(4)),
+                Instruction::new_list(1, Address::constant(0)),
+                Instruction::set_list(1, Address::constant(3), Address::constant(2)),
+                Instruction::set_list(1, Address::constant(1), Address::constant(4)),
+                Instruction::less(true, Address::register(1), Address::register(0)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -1140,47 +605,16 @@ fn local_list_greater_than_or_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_INTEGER),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::INTEGER
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(0),
-                    Address::constant(1),
-                    ByteType::INTEGER
-                ),
-                Instruction::new_list(1, Address::constant(0), ByteType::LIST_INTEGER),
-                Instruction::set_list(
-                    1,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::INTEGER
-                ),
-                Instruction::set_list(
-                    1,
-                    Address::constant(0),
-                    Address::constant(1),
-                    ByteType::INTEGER
-                ),
-                Instruction::less(
-                    false,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::LIST_INTEGER
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(0), Address::constant(1)),
+                Instruction::new_list(1, Address::constant(0)),
+                Instruction::set_list(1, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(1, Address::constant(0), Address::constant(1)),
+                Instruction::less(false, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()
@@ -1202,47 +636,16 @@ fn local_list_less_than_or_equal() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::new_list(0, Address::constant(0), ByteType::LIST_STRING),
-                Instruction::set_list(
-                    0,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::STRING
-                ),
-                Instruction::set_list(
-                    0,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::STRING
-                ),
-                Instruction::new_list(1, Address::constant(0), ByteType::LIST_STRING),
-                Instruction::set_list(
-                    1,
-                    Address::constant(1),
-                    Address::constant(2),
-                    ByteType::STRING
-                ),
-                Instruction::set_list(
-                    1,
-                    Address::constant(3),
-                    Address::constant(4),
-                    ByteType::STRING
-                ),
-                Instruction::less_equal(
-                    true,
-                    Address::register(0),
-                    Address::register(1),
-                    ByteType::LIST_STRING
-                ),
-                Instruction::move_with_jump(
-                    2,
-                    Address::encoded(false as u16),
-                    ByteType::BOOLEAN,
-                    1,
-                    true
-                ),
-                Instruction::r#move(2, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(2), ByteType::BOOLEAN),
+                Instruction::new_list(0, Address::constant(0)),
+                Instruction::set_list(0, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(0, Address::constant(3), Address::constant(4)),
+                Instruction::new_list(1, Address::constant(0)),
+                Instruction::set_list(1, Address::constant(1), Address::constant(2)),
+                Instruction::set_list(1, Address::constant(3), Address::constant(4)),
+                Instruction::less_equal(true, Address::register(0), Address::register(1)),
+                Instruction::move_with_jump(2, Address::encoded(false as u16), 1, true),
+                Instruction::r#move(2, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(2)),
             ],
             register_count: 3,
             ..Prototype::dummy()

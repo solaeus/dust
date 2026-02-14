@@ -17,8 +17,8 @@ fn local_boolean() {
         Prototype {
             return_type: DustType::Boolean,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(true as u16), ByteType::BOOLEAN),
-                Instruction::r#return(Address::register(0), ByteType::BOOLEAN),
+                Instruction::r#move(0, Address::encoded(true as u16)),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -37,8 +37,8 @@ fn local_byte() {
         Prototype {
             return_type: DustType::Byte,
             instructions: vec![
-                Instruction::r#move(0, Address::encoded(42), ByteType::BYTE),
-                Instruction::r#return(Address::register(0), ByteType::BYTE),
+                Instruction::r#move(0, Address::encoded(42)),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -57,8 +57,8 @@ fn local_character() {
         Prototype {
             return_type: DustType::Character,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::CHARACTER),
-                Instruction::r#return(Address::register(0), ByteType::CHARACTER),
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -77,8 +77,8 @@ fn local_float() {
         Prototype {
             return_type: DustType::Float,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::FLOAT),
-                Instruction::r#return(Address::register(0), ByteType::FLOAT),
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -97,8 +97,8 @@ fn local_integer() {
         Prototype {
             return_type: DustType::Integer,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::INTEGER),
-                Instruction::r#return(Address::register(0), ByteType::INTEGER),
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()
@@ -117,8 +117,8 @@ fn local_string() {
         Prototype {
             return_type: DustType::String,
             instructions: vec![
-                Instruction::r#move(0, Address::constant(0), ByteType::STRING),
-                Instruction::r#return(Address::register(0), ByteType::STRING),
+                Instruction::r#move(0, Address::constant(0)),
+                Instruction::r#return(Address::register(0)),
             ],
             register_count: 1,
             ..Prototype::dummy()

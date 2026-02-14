@@ -1,12 +1,11 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, ByteType, Operation};
+use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct LessEqual {
     pub comparator: bool,
     pub left: Address,
     pub right: Address,
-    pub r#type: ByteType,
 }
 
 impl From<&Instruction> for LessEqual {
@@ -14,13 +13,11 @@ impl From<&Instruction> for LessEqual {
         let comparator = instruction.a_field() != 0;
         let left = instruction.b_address();
         let right = instruction.c_address();
-        let r#type = instruction.operand_type();
 
         LessEqual {
             comparator,
             left,
             right,
-            r#type,
         }
     }
 }
@@ -37,7 +34,6 @@ impl From<LessEqual> for Instruction {
             index: c_field,
             memory: c_memory_kind,
         } = less_equal.right;
-        let operand_type = less_equal.r#type;
 
         InstructionFields {
             operation,
@@ -46,7 +42,6 @@ impl From<LessEqual> for Instruction {
             b_memory_kind,
             c_field,
             c_memory_kind,
-            operand_type,
             ..Default::default()
         }
         .build()
@@ -59,14 +54,9 @@ impl Display for LessEqual {
             comparator,
             left,
             right,
-            r#type,
         } = self;
         let operator = if *comparator { "≤" } else { ">" };
 
-        write!(f, "if ")?;
-        left.display(f, *r#type)?;
-        write!(f, " {operator} ")?;
-        right.display(f, *r#type)?;
-        write!(f, " {{ jump +1 }}")
+        write!(f, "if {left} {operator} {right} {{ jump +1 }}")
     }
 }
