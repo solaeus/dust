@@ -3,7 +3,6 @@ use std::fmt::Display;
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
-    constant_table::ConstantKey,
     dust_error::AnnotatedError,
     instruction::Operation,
     resolver::{
@@ -547,7 +546,6 @@ pub enum InternalCompileError {
     AnonymousType(DeclarationId),
     MissingDeclarationMember(u32),
     MissingTypeMember(u32),
-    MissingConstantString(ConstantKey),
     AnonymousSymbolLookup,
 }
 
@@ -669,12 +667,6 @@ impl Display for InternalCompileError {
             }
             InternalCompileError::MissingTypeMember(index) => {
                 write!(f, "Missing type member at index {}", index)
-            }
-            InternalCompileError::MissingConstantString(constant_key) => {
-                write!(
-                    f,
-                    "Missing constant string for constant ID {constant_key:?}",
-                )
             }
             InternalCompileError::AnonymousSymbolLookup => {
                 write!(f, "Attempted to lookup an anonymous symbol")

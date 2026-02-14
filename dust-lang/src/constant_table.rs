@@ -37,28 +37,6 @@ impl ConstantTable {
         self.string_pool.get(range).unwrap_or_default()
     }
 
-    pub fn finalize_string_pool(&mut self) {
-        let mut new_string_pool = String::with_capacity(self.string_pool.len());
-
-        for (payload, tag) in self.payloads.values_mut().zip(self.tags.iter()) {
-            if *tag == OperandType::STRING {
-                let start = (*payload >> 32) as usize;
-                let end = (*payload & 0xFFFFFFFF) as usize;
-                let new_start = new_string_pool.len();
-
-                new_string_pool.push_str(&self.string_pool[start..end]);
-
-                let new_end = new_string_pool.len();
-
-                *payload = (new_start as u64) << 32 | (new_end as u64);
-            }
-        }
-
-        new_string_pool.shrink_to_fit();
-
-        self.string_pool = new_string_pool;
-    }
-
     pub fn add_character(&mut self, character: char) -> ConstantId {
         let payload = character as u64;
         let key = ConstantKey::from_payload_and_tag(payload, OperandType::CHARACTER);
@@ -148,18 +126,6 @@ impl ConstantTable {
         }
     }
 
-    pub fn get_string_from_key(&self, key: &ConstantKey) -> Option<&str> {
-        if let Some(index) = self.payloads.get_index_of(key) {
-            let constant_id = ConstantId(index as u16);
-
-            if let Some(found) = self.get_string(constant_id) {
-                return Some(found);
-            }
-        }
-
-        None
-    }
-
     pub fn get_string(&self, id: ConstantId) -> Option<&str> {
         let index = id.0 as usize;
         let payload = *self.payloads.get_index(index)?.1;
@@ -225,7 +191,7 @@ impl ConstantTable {
         }
     }
 
-    pub fn display_iterator<'a>(&'a self) -> ConstantTableDisplayIterator<'a> {
+    pub fn display_iter<'a>(&'a self) -> ConstantTableDisplayIterator<'a> {
         ConstantTableDisplayIterator {
             table: self,
             index: 0,
@@ -243,22 +209,25 @@ impl ConstantId {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub enum ConstantKey {
-    Payload(u64, OperandType),
-    Bytes(u64),
-}
+struct ConstantKey(u64);
 
 impl ConstantKey {
     pub fn from_payload_and_tag(payload: u64, tag: OperandType) -> Self {
-        Self::Payload(payload, tag)
+        let mut hasher = FxHasher::default();
+
+        payload.hash(&mut hasher);
+        tag.hash(&mut hasher);
+
+        Self(hasher.finish())
     }
 
     pub fn from_str(str: &str) -> Self {
         let mut hasher = FxHasher::default();
 
         str.hash(&mut hasher);
+        OperandType::STRING.hash(&mut hasher);
 
-        Self::Bytes(hasher.finish())
+        Self(hasher.finish())
     }
 }
 
@@ -305,8 +274,8 @@ mod tests {
     #[test]
     fn character() {
         let mut table = ConstantTable::new();
-        let charcter_index = table.add_character('a');
-        let retrieved_character = table.get_character(charcter_index).unwrap();
+        let charcter_id = table.add_character('a');
+        let retrieved_character = table.get_character(charcter_id).unwrap();
 
         assert_eq!(retrieved_character, 'a');
     }
@@ -314,8 +283,8 @@ mod tests {
     #[test]
     fn float() {
         let mut table = ConstantTable::new();
-        let float_index = table.add_float(42.0);
-        let retrieved_float = table.get_float(float_index).unwrap();
+        let float_id = table.add_float(42.0);
+        let retrieved_float = table.get_float(float_id).unwrap();
 
         assert_eq!(retrieved_float, 42.0);
     }
@@ -323,8 +292,8 @@ mod tests {
     #[test]
     fn integer() {
         let mut table = ConstantTable::new();
-        let integer_index = table.add_integer(42);
-        let retrieved_integer = table.get_integer(integer_index).unwrap();
+        let integer_id = table.add_integer(42);
+        let retrieved_integer = table.get_integer(integer_id).unwrap();
 
         assert_eq!(retrieved_integer, 42);
     }
@@ -332,8 +301,8 @@ mod tests {
     #[test]
     fn string() {
         let mut table = ConstantTable::new();
-        let string_index = table.add_string("foobar");
-        let retrieved_string = table.get_string(string_index).unwrap();
+        let string_id = table.add_string("foobar");
+        let retrieved_string = table.get_string(string_id).unwrap();
 
         assert_eq!(retrieved_string, "foobar");
     }

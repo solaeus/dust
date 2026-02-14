@@ -24,7 +24,7 @@ use tracing::level_filters::LevelFilter;
 )]
 pub struct Cli {
     #[command(subcommand)]
-    pub mode: Option<Mode>,
+    pub command: Option<Command>,
 
     #[command(flatten)]
     pub input: InputOptions,
@@ -41,10 +41,6 @@ pub struct Cli {
     #[arg(long)]
     pub no_output: bool,
 
-    /// Disable the standard library
-    #[arg(long)]
-    pub no_std: bool,
-
     /// Custom program name, overrides the file name
     #[arg(short, long)]
     pub name: Option<String>,
@@ -59,33 +55,33 @@ pub struct Cli {
 }
 
 #[derive(Subcommand, Eq, PartialEq)]
-pub enum Mode {
+pub enum Command {
     /// Parse the source code and print the syntax tree
     #[command(alias = "p")]
-    Parse,
+    Parse(InputOptions),
 
     /// Run a program (default)
     #[command(alias = "r")]
-    Run,
+    Run(InputOptions),
 
     /// Compile and output the compiled program
     #[command(alias = "c")]
-    Compile,
+    Compile(CompileCommand),
 
     /// Lex the source code and print the tokens
     #[command(alias = "t")]
-    Tokenize,
+    Tokenize(InputOptions),
 
     /// Initialize a new Dust project
     #[command(alias = "i")]
-    Init,
+    Init(InputOptions),
 }
 
-#[derive(Args)]
-#[group(required = true, multiple = false)]
+#[derive(Args, Clone, Eq, PartialEq)]
+#[group(multiple = false)]
 pub struct InputOptions {
     /// Source code to run instead of a file
-    #[arg(short, long, value_name = "INPUT", value_hint = ValueHint::Other)]
+    #[arg(short, long, value_name = "INPUT")]
     pub eval: Option<String>,
 
     /// Read source code from stdin
@@ -93,6 +89,24 @@ pub struct InputOptions {
     pub stdin: bool,
 
     /// Path to a source code file
-    #[arg(value_name = "PATH", value_hint = ValueHint::FilePath)]
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath)]
     pub path: Option<PathBuf>,
+}
+
+#[derive(Args, Clone, Eq, PartialEq)]
+pub struct CompileCommand {
+    #[command(flatten)]
+    pub input: InputOptions,
+
+    /// Disable all output
+    #[arg(long)]
+    pub no_output: bool,
+
+    /// Display the time taken for each operation
+    #[arg(short, long)]
+    pub time: bool,
+
+    /// Dispaly disassembly with a TUI (default: true)
+    #[arg(long, default_value = "true")]
+    pub no_tui: bool,
 }

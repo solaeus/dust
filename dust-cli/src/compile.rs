@@ -7,6 +7,7 @@ use crate::{handle_source, print_times};
 pub fn handle_compile_command(
     eval: Option<String>,
     path: Option<PathBuf>,
+    no_tui: bool,
     no_output: bool,
     time: bool,
     start_time: Instant,
@@ -27,9 +28,13 @@ pub fn handle_compile_command(
     };
 
     if !no_output {
-        let disassembler = Disassembler::new(&program, &source, &syntax, &resolver);
+        if no_tui {
+            println!("{program:#?}");
+        } else {
+            let disassembler = Disassembler::new(&program, &source, &syntax, &resolver);
 
-        disassembler.disassemble().unwrap();
+            disassembler.disassemble().unwrap();
+        }
     }
 
     if time {

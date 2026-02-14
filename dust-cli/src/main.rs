@@ -32,7 +32,7 @@ use tracing_subscriber::{
 };
 
 use crate::{
-    cli::{Cli, InputOptions, Mode},
+    cli::{Cli, Command, CompileCommand, InputOptions},
     compile::handle_compile_command,
     parse::handle_parse_command,
     run::handle_run_command,
@@ -42,47 +42,52 @@ use crate::{
 fn main() {
     let start_time = Instant::now();
     let Cli {
-        mode,
-        input: InputOptions { eval, stdin, path },
+        command,
+        input,
         log,
         time,
         no_output,
-        no_std: _,
         name: _,
         min_heap: _,
         min_sweep: _,
     } = Cli::parse();
-    let mode = mode.unwrap_or(Mode::Run);
+    let command = command.unwrap_or(Command::Run(input));
 
     if let Some(log_level) = log {
         start_logging(log_level, start_time);
     }
 
-    if let Mode::Run = mode {
+    if let Command::Run(InputOptions { eval, stdin, path }) = command {
         handle_run_command(eval, path, no_output, time, start_time);
 
         return;
     }
 
-    if mode == Mode::Parse {
+    if let Command::Parse(InputOptions { eval, stdin, path }) = command {
         handle_parse_command(eval, path, stdin, no_output, time, start_time);
 
         return;
     }
 
-    if mode == Mode::Compile {
-        handle_compile_command(eval, path, no_output, time, start_time);
+    if let Command::Compile(CompileCommand {
+        input: InputOptions { eval, stdin, path },
+        no_output,
+        time,
+        no_tui,
+    }) = command
+    {
+        handle_compile_command(eval, path, no_tui, no_output, time, start_time);
 
         return;
     }
 
-    if mode == Mode::Tokenize {
+    if let Command::Tokenize(InputOptions { eval, stdin, path }) = command {
         handle_tokenize_command(eval, path, stdin, no_output, time, start_time);
 
         return;
     }
 
-    if mode == Mode::Init {
+    if let Command::Init(InputOptions { path, .. }) = command {
         let path = path.unwrap_or_else(|| PathBuf::from("."));
 
         if !path.exists() {
@@ -180,7 +185,7 @@ where
     }
 }
 
-pub fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
+fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
     for (source_name, compile_time, run_time) in times {
         let total_time = run_time
             .map(|run_time| run_time + *compile_time)
@@ -275,13 +280,6 @@ fn handle_source<'src>(
 
     source
 }
-
-// fn handle_compile_error(error: CompileError, source: &str) {
-//     let dust_error = DustError::compile(error, source);
-//     let report = dust_error.report();
-
-//     eprintln!("{report}");
-// }
 
 #[cfg(test)]
 mod tests {

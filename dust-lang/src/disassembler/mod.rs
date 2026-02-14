@@ -331,7 +331,7 @@ impl<'a> Disassembler<'a> {
             let constant_rows = self
                 .program
                 .constants
-                .display_iterator()
+                .display_iter()
                 .enumerate()
                 .map(|(index, (value, r#type))| {
                     [
