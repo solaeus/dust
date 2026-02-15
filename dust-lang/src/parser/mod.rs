@@ -12,7 +12,7 @@ use lexical_core::{
     ParseFloatOptions, ParseIntegerOptions, format::RUST_LITERAL, parse_with_options,
 };
 use smallvec::{SmallVec, smallvec};
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 use crate::{
     dust_error::DustError,
@@ -79,7 +79,7 @@ impl<'src> Parser<'src> {
             Ok(root_node) => {
                 self.syntax_tree.replace_node(SyntaxId::ROOT, root_node);
             }
-            Err(error) => self.recover(error),
+            Err(error) => self.errors.push(error),
         }
 
         ParseResult {
@@ -163,14 +163,24 @@ impl<'src> Parser<'src> {
     fn recover(&mut self, error: ParseError) {
         self.errors.push(error);
 
+        debug!(
+            "Encountered an error, on {} at {}",
+            self.current_token.kind, self.current_token.span
+        );
+
         while !matches!(
             self.current_token.kind,
-            TokenKind::Semicolon | TokenKind::RightCurlyBrace | TokenKind::Eof | TokenKind::Unknown
+            TokenKind::Semicolon | TokenKind::Eof | TokenKind::Unknown
         ) {
             self.advance();
         }
 
         self.advance();
+
+        debug!(
+            "Recovered from an error, now on {} at {}",
+            self.current_token.kind, self.current_token.span
+        );
     }
 
     fn is_eof(&self) -> bool {
@@ -1119,18 +1129,9 @@ impl<'src> Parser<'src> {
         while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
             let is_last_child = self.current_token.kind == TokenKind::RightCurlyBrace;
 
-            if !is_last_child {
-                let statement_node = self.parse_statement()?;
-                let statement_id = self.syntax_tree.add_node(statement_node);
-
-                children.push(statement_id);
-
-                continue;
-            }
-
             match self.pratt(Precedence::None) {
                 Ok(node) => {
-                    if !node.kind.is_expression() {
+                    if is_last_child && !node.kind.is_expression() {
                         is_expression_statement = true;
                     }
 
