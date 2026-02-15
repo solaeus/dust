@@ -29,7 +29,7 @@ pub mod value_expression {
     pub const BOOLEAN: &[u8] = test_case!("true");
     pub const BYTE: &[u8] = test_case!("0x2A");
     pub const CHARACTER: &[u8] = test_case!("'a'");
-    pub const FLOAT: &[u8] = test_case!("3.14");
+    pub const FLOAT: &[u8] = test_case!("42.0");
     pub const INTEGER: &[u8] = test_case!("42");
     pub const STRING: &[u8] = test_case!("\"Hello, world!\"");
     pub const LIST: &[u8] = test_case!("[1, 2, 3]");

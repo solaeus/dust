@@ -1,78 +1,50 @@
 use std::hint::black_box;
 
-use criterion::{Criterion, criterion_group, criterion_main};
-use dust_lang::{lexer::Lexer, parser::Parser, source::SourceFileId};
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
+use dust_lang::{
+    lexer::Lexer,
+    parser::{ParseResult, Parser},
+    source::SourceFileId,
+};
 
-const LOOP: &[u8] = b"
-let mut i = 0;
+const BENCHES: [(&str, usize); 3] = [
+    ("tiny source", 10),
+    ("large source", 1_000),
+    ("insane source", 50_000),
+];
 
-while i < 5_000_000 {
-    i += 1;
-}
-";
-
-const FUNCTION: &[u8] = b"
-fn() {
+const SOURCE: [u8; 100] = *b"
+fn foobar_foobar_foobar() {
     let mut i = 0;
 
     while i < 5_000_000 {
-        i += 1;
+        i += 666;
     }
-};
-";
+}";
 
 fn parse_bench(source: &[u8]) {
-    let lexer = Lexer::from_bytes(source);
-    let parser = Parser::new(SourceFileId::MAIN, lexer);
+    let ParseResult {
+        syntax_tree: _,
+        errors,
+    } = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(source)).parse();
 
-    parser.parse_main();
+    assert!(errors.is_empty(), "{errors:#?}");
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let mut source = Vec::new();
     let mut group = c.benchmark_group("parser");
 
-    for _ in 0..10_000 {
-        source.extend_from_slice(LOOP);
-        source.push(b'\n');
+    for (name, count) in BENCHES.iter() {
+        let source = SOURCE.repeat(*count);
+        let bytes = SOURCE.len() * count;
+        let kilobytes = bytes as f64 / 1000.0;
+
+        group.throughput(Throughput::Bytes(bytes as u64));
+        group.bench_function(
+            format!("{name}: {count} functions, {kilobytes:.2} KB"),
+            |b| b.iter(|| parse_bench(black_box(&source))),
+        );
     }
-
-    group.throughput(criterion::Throughput::Bytes(source.len() as u64));
-    group.bench_function("parse 10,000 loops", |b| {
-        b.iter(|| parse_bench(black_box(&source)))
-    });
-
-    for _ in 0..40_000 {
-        source.extend_from_slice(LOOP);
-        source.push(b'\n');
-    }
-
-    group.throughput(criterion::Throughput::Bytes(source.len() as u64));
-    group.bench_function("parse 50,000 loops", |b| {
-        b.iter(|| parse_bench(black_box(&source)))
-    });
-
-    source.clear();
-
-    for _ in 0..10_000 {
-        source.extend_from_slice(FUNCTION);
-        source.push(b'\n');
-    }
-
-    group.throughput(criterion::Throughput::Bytes(source.len() as u64));
-    group.bench_function("parse 10,000 functions", |b| {
-        b.iter(|| parse_bench(black_box(&source)))
-    });
-
-    for _ in 0..90_000 {
-        source.extend_from_slice(FUNCTION);
-        source.push(b'\n');
-    }
-
-    group.throughput(criterion::Throughput::Bytes(source.len() as u64));
-    group.bench_function("parse 100,000 functions", |b| {
-        b.iter(|| parse_bench(black_box(&source)))
-    });
 }
 
 criterion_group!(benches, criterion_benchmark);

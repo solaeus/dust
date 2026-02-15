@@ -161,12 +161,12 @@ impl<'src> Parser<'src> {
     }
 
     fn recover(&mut self, error: ParseError) {
-        self.errors.push(error);
-
         debug!(
             "Encountered an error, on {} at {}",
             self.current_token.kind, self.current_token.span
         );
+
+        self.errors.push(error);
 
         while !matches!(
             self.current_token.kind,
@@ -433,7 +433,7 @@ impl<'src> Parser<'src> {
 
         match self.current_token.kind {
             TokenKind::Identifier => {
-                debug!("Parsing function statement");
+                debug!("Parsing function item");
 
                 let path_node = self.parse_path()?;
                 let path_id = self.syntax_tree.add_node(path_node);
@@ -1238,33 +1238,12 @@ impl<'src> Parser<'src> {
     fn parse_path_expression(&mut self) -> Result<SyntaxNode, ParseError> {
         debug!("Parsing path expression");
 
-        let may_be_struct_expression = !matches!(
-            self.previous_token.kind,
-            TokenKind::If
-                | TokenKind::Else
-                | TokenKind::While
-                | TokenKind::Plus
-                | TokenKind::Minus
-                | TokenKind::Asterisk
-                | TokenKind::Slash
-                | TokenKind::Percent
-                | TokenKind::Caret
-                | TokenKind::DoubleEqual
-                | TokenKind::BangEqual
-                | TokenKind::Greater
-                | TokenKind::GreaterEqual
-                | TokenKind::Less
-                | TokenKind::LessEqual
-                | TokenKind::DoubleAmpersand
-                | TokenKind::DoublePipe
-        );
-
         let span = self.current_token.span;
 
         let path_node = self.parse_path()?;
         let path_id = self.syntax_tree.add_node(path_node);
 
-        if may_be_struct_expression && self.allow(TokenKind::LeftCurlyBrace)? {
+        if self.allow(TokenKind::LeftCurlyBrace)? {
             let mut children = Self::new_child_buffer();
 
             children.push(path_id);
