@@ -64,6 +64,15 @@ impl SyntaxNode {
             span,
         }
     }
+
+    pub fn with_value(kind: SyntaxKind, span: Span, payload: SyntaxPayload) -> Self {
+        Self {
+            kind,
+            payload,
+            payload_kind: SyntaxPayloadKind::Value,
+            span,
+        }
+    }
 }
 
 impl Display for SyntaxNode {
@@ -216,6 +225,36 @@ pub enum SyntaxKind {
 }
 
 impl SyntaxKind {
+    pub fn empty(self, span: Span) -> SyntaxNode {
+        SyntaxNode::empty(self, span)
+    }
+
+    pub fn with_child(self, span: Span, child_id: SyntaxId) -> SyntaxNode {
+        SyntaxNode::with_child(self, span, child_id)
+    }
+
+    pub fn with_binary_children(
+        self,
+        span: Span,
+        left_child_id: SyntaxId,
+        right_child_id: SyntaxId,
+    ) -> SyntaxNode {
+        SyntaxNode::with_binary_children(self, span, left_child_id, right_child_id)
+    }
+
+    pub fn with_multiple_children(
+        self,
+        span: Span,
+        start_index: u32,
+        child_count: u32,
+    ) -> SyntaxNode {
+        SyntaxNode::with_multiple_children(self, span, start_index, child_count)
+    }
+
+    pub fn with_value(self, span: Span, payload: SyntaxPayload) -> SyntaxNode {
+        SyntaxNode::with_value(self, span, payload)
+    }
+
     pub fn is_item(&self) -> bool {
         matches!(
             self,

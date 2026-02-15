@@ -2,7 +2,6 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use termtree::Tree;
 use tracing::error;
 
 use crate::{
@@ -154,7 +153,7 @@ impl SyntaxTree {
         };
         let mut buffer = String::new();
 
-        root.draw_text_tree_line(&mut buffer, -1, 0, root.child_count(), false);
+        root.draw_text_tree(&mut buffer);
 
         buffer
     }

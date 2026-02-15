@@ -169,7 +169,11 @@ impl<'a> SyntaxReader<'a> {
         }
     }
 
-    pub(super) fn draw_text_tree_line(
+    pub fn draw_text_tree(&self, buffer: &mut String) {
+        self.draw_text_tree_line(buffer, -1, 0, self.child_count(), false);
+    }
+
+    fn draw_text_tree_line(
         &self,
         buffer: &mut String,
         depth: i16,
@@ -177,7 +181,6 @@ impl<'a> SyntaxReader<'a> {
         size: usize,
         parent_was_last: bool,
     ) {
-        let children = self.children();
         let is_last = index == size.saturating_sub(1);
         let prefix = if depth < 1 {
             ""
@@ -203,6 +206,7 @@ impl<'a> SyntaxReader<'a> {
         buffer.push_str(self.node.kind.as_str());
         buffer.push('\n');
 
+        let children = self.children();
         let size = children.len();
 
         for (index, child) in children.enumerate() {

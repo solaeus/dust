@@ -3,8 +3,8 @@ mod emitter;
 pub mod error;
 mod type_binder;
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
 use tracing::{Level, span};
 

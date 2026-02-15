@@ -1,8 +1,8 @@
 mod error;
 mod parse_rule;
 
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
 
 pub use error::ParseError;
 
@@ -165,7 +165,7 @@ impl<'src> Parser<'src> {
 
         while !matches!(
             self.current_token.kind,
-            TokenKind::Semicolon | TokenKind::RightCurlyBrace | TokenKind::Eof
+            TokenKind::Semicolon | TokenKind::RightCurlyBrace | TokenKind::Eof | TokenKind::Unknown
         ) {
             self.advance();
         }
@@ -658,23 +658,21 @@ impl<'src> Parser<'src> {
                     ))
                 }
             }
-            _ => {
-                return Err(ParseError::ExpectedMultipleTokens {
-                    expected: &[
-                        TokenKind::Bool,
-                        TokenKind::Byte,
-                        TokenKind::Char,
-                        TokenKind::Float,
-                        TokenKind::Int,
-                        TokenKind::Str,
-                        TokenKind::Identifier,
-                        TokenKind::Fn,
-                        TokenKind::LeftSquareBracket,
-                    ],
-                    found: self.current_token.kind,
-                    position: self.current_position(),
-                });
-            }
+            _ => Err(ParseError::ExpectedMultipleTokens {
+                expected: &[
+                    TokenKind::Bool,
+                    TokenKind::Byte,
+                    TokenKind::Char,
+                    TokenKind::Float,
+                    TokenKind::Int,
+                    TokenKind::Str,
+                    TokenKind::Identifier,
+                    TokenKind::Fn,
+                    TokenKind::LeftSquareBracket,
+                ],
+                found: self.current_token.kind,
+                position: self.current_position(),
+            }),
         }
     }
 
@@ -704,24 +702,17 @@ impl<'src> Parser<'src> {
 
         self.expect(TokenKind::Equal)?;
 
-        let expression_statement_node = self.pratt(Precedence::None).and_then(|node| {
-            if node.kind != SyntaxKind::ExpressionStatement {
-                Ok(node)
-            } else {
-                Err(ParseError::ExpectedToken {
-                    found: self.current_token.kind,
-                    expected: TokenKind::Semicolon,
-                    position: self.current_position(),
-                })
-            }
-        })?;
-        let expression_statement_id = self.syntax_tree.add_node(expression_statement_node);
+        let expression_node = self.parse_expression()?;
+        let expression_id = self.syntax_tree.add_node(expression_node);
+
+        self.expect(TokenKind::Semicolon)?;
+
         let end = self.previous_token.span.end();
 
         let let_statement_node = if let Some(type_notation_id) = type_notation_id {
-            let payload = self
-                .syntax_tree
-                .add_children(smallvec![type_notation_id, expression_statement_id]);
+            let payload =
+                self.syntax_tree
+                    .add_children(smallvec![path_id, type_notation_id, expression_id]);
 
             SyntaxNode {
                 kind,
@@ -730,12 +721,7 @@ impl<'src> Parser<'src> {
                 payload_kind: SyntaxPayloadKind::MultipleChildren,
             }
         } else {
-            SyntaxNode::with_binary_children(
-                kind,
-                Span::new(start, end),
-                path_id,
-                expression_statement_id,
-            )
+            SyntaxNode::with_binary_children(kind, Span::new(start, end), path_id, expression_id)
         };
 
         Ok(let_statement_node)
@@ -744,40 +730,36 @@ impl<'src> Parser<'src> {
     fn parse_reassignment_statement(&mut self) -> Result<SyntaxNode, ParseError> {
         debug!("Parsing reassignment statement");
 
-        let (start, path_id) = if let Some(path_expression_node) = self.syntax_tree.pop_node()
-            && path_expression_node.kind == SyntaxKind::PathExpression
-        {
-            (
-                path_expression_node.span.start(),
-                path_expression_node.payload.left_id(),
-            )
-        } else {
-            return Err(ParseError::ExpectedExpression {
+        let last_node = self
+            .syntax_tree
+            .pop_node()
+            .ok_or(ParseError::ExpectedExpression {
                 found: None,
                 position: self.current_position(),
+            })?;
+
+        let (start, path_id) = if last_node.kind == SyntaxKind::Path {
+            (last_node.span.start(), last_node.payload.left_id())
+        } else {
+            return Err(ParseError::ExpectedToken {
+                found: self.previous_token.kind,
+                expected: TokenKind::Identifier,
+                position: Position::new(self.syntax_tree.file_id, last_node.span),
             });
         };
 
         self.expect(TokenKind::Equal)?;
 
-        let expression_statement_node = self.parse_statement().and_then(|node| {
-            if node.kind == SyntaxKind::ExpressionStatement {
-                Ok(node)
-            } else {
-                Err(ParseError::ExpectedToken {
-                    found: self.current_token.kind,
-                    expected: TokenKind::Semicolon,
-                    position: self.current_position(),
-                })
-            }
-        })?;
-        let expression_statement_id = self.syntax_tree.add_node(expression_statement_node);
+        let expression_node = self.parse_expression()?;
+        let expression_id = self.syntax_tree.add_node(expression_node);
+
+        self.expect(TokenKind::Semicolon)?;
 
         Ok(SyntaxNode::with_binary_children(
             SyntaxKind::ReassignmentStatement,
             Span::new(start, self.previous_token.span.end()),
             path_id,
-            expression_statement_id,
+            expression_id,
         ))
     }
 
@@ -1132,42 +1114,35 @@ impl<'src> Parser<'src> {
         self.advance();
 
         let mut children = Self::new_child_buffer();
-        let mut last_node: Option<SyntaxNode> = None;
+        let mut is_expression_statement = false;
 
         while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
-            let position_before = self.current_token.span;
+            let is_last_child = self.current_token.kind == TokenKind::RightCurlyBrace;
+
+            if !is_last_child {
+                let statement_node = self.parse_statement()?;
+                let statement_id = self.syntax_tree.add_node(statement_node);
+
+                children.push(statement_id);
+
+                continue;
+            }
 
             match self.pratt(Precedence::None) {
                 Ok(node) => {
+                    if !node.kind.is_expression() {
+                        is_expression_statement = true;
+                    }
+
                     let child_id = self.syntax_tree.add_node(node);
 
-                    last_node = Some(node);
                     children.push(child_id);
                 }
-                Err(error) => {
-                    self.recover(error);
-
-                    if self.current_token.kind == TokenKind::Eof
-                        || self.current_token.span == position_before
-                    {
-                        break;
-                    }
-                }
+                Err(error) => self.recover(error),
             }
         }
 
-        let last_node = last_node.ok_or(ParseError::ExpectedExpression {
-            found: None,
-            position: self.current_position(),
-        })?;
-
-        if last_node.kind.is_expression() {
-            Ok(self.create_node_with_children(
-                SyntaxKind::BlockExpression,
-                Span::new(start, self.previous_token.span.end()),
-                children,
-            ))
-        } else {
+        if is_expression_statement {
             let block_node = self.create_node_with_children(
                 SyntaxKind::BlockExpression,
                 Span::new(start, self.previous_token.span.end()),
@@ -1179,6 +1154,12 @@ impl<'src> Parser<'src> {
                 SyntaxKind::ExpressionStatement,
                 block_node.span,
                 block_node_id,
+            ))
+        } else {
+            Ok(self.create_node_with_children(
+                SyntaxKind::BlockExpression,
+                Span::new(start, self.previous_token.span.end()),
+                children,
             ))
         }
     }
@@ -1425,26 +1406,6 @@ impl<'src> Parser<'src> {
             Span::new(start, end),
             target_id,
             index_id,
-        ))
-    }
-
-    fn parse_semicolon(&mut self) -> Result<SyntaxNode, ParseError> {
-        self.advance();
-
-        let end = self.previous_token.span.end();
-        let Some(last_node) = self.syntax_tree.last_node() else {
-            return Err(ParseError::UnexpectedToken {
-                found: self.previous_token.kind,
-                position: Position::new(self.syntax_tree.file_id, self.previous_token.span),
-            });
-        };
-        let span = Span::new(last_node.span.start(), end);
-        let expression_id = self.syntax_tree.last_node_id();
-
-        Ok(SyntaxNode::with_child(
-            SyntaxKind::ExpressionStatement,
-            span,
-            expression_id,
         ))
     }
 

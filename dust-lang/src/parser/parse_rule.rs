@@ -428,7 +428,7 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Semicolon => ParseRule {
                 prefix: None,
-                infix: Some(Parser::parse_semicolon),
+                infix: None,
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
