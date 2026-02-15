@@ -70,16 +70,16 @@ impl SyntaxTree {
         self.last_node().map(|node| (id, node))
     }
 
-    pub fn pop_node(&mut self) -> Option<SyntaxNode> {
-        self.nodes.pop()
-    }
-
-    pub fn add_node(&mut self, node: SyntaxNode) -> SyntaxId {
+    pub fn push(&mut self, node: SyntaxNode) -> SyntaxId {
         let index = self.nodes.len() as u32;
 
         self.nodes.push(node);
 
         SyntaxId(index)
+    }
+
+    pub fn pop(&mut self) -> Option<SyntaxNode> {
+        self.nodes.pop()
     }
 
     pub fn replace_node(&mut self, id: SyntaxId, node: SyntaxNode) {

@@ -184,9 +184,9 @@ impl<'src> Lexer<'src> {
 
                 Ok(())
             }
-            Err(err_index) => {
+            Err(index) => {
                 self.error = true;
-                self.index = err_index;
+                self.index = index;
 
                 Err(())
             }
@@ -284,21 +284,23 @@ impl<'src> Lexer<'src> {
                 }));
             }
 
-            if byte < 128 {
+            if byte.is_ascii() {
                 index += 1;
             } else {
                 match self.scan_utf8_sequence(index) {
                     Ok(width) => index += width,
-                    Err(err_index) => return Err(err_index),
+                    Err(index) => return Err(index),
                 }
             }
         }
+
+        let unknown_span = Span::new(start, self.index);
 
         self.index = self.source.len();
 
         Ok(Some(Token {
             kind: TokenKind::Unknown,
-            span: Span::new(start, self.index),
+            span: unknown_span,
         }))
     }
 
@@ -333,7 +335,7 @@ impl<'src> Lexer<'src> {
             } else {
                 match self.scan_utf8_sequence(index) {
                     Ok(width) => index += width,
-                    Err(err_index) => return Err(err_index),
+                    Err(index) => return Err(index),
                 }
             }
         }
@@ -507,8 +509,7 @@ impl Iterator for Lexer<'_> {
                     let mut next_index = self.index + 1;
 
                     while next_index < self.source.len() {
-                        let next_byte = self.source[next_index];
-                        let next_class = next_byte.class();
+                        let next_class = self.source[next_index].class();
 
                         if next_class.is_whitespace()
                             || next_class.is_operator_or_punctuation()

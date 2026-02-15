@@ -599,7 +599,7 @@ fn chinese_identifier() {
 
 #[test]
 fn emoji_is_not_identifier() {
-    let source = "🎉".as_bytes();
+    let source = "🍄".as_bytes();
     let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
@@ -612,6 +612,34 @@ fn emoji_is_not_identifier() {
             Token {
                 kind: TokenKind::Eof,
                 span: Span::new(4, 4)
+            }
+        ]
+    );
+}
+
+#[test]
+fn emoji_breaks_identifier() {
+    let source = "foo🍄bar".as_bytes();
+    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span::new(0, 3)
+            },
+            Token {
+                kind: TokenKind::Unknown,
+                span: Span::new(3, 7)
+            },
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span::new(7, 10)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(10, 10)
             }
         ]
     );
