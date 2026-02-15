@@ -933,8 +933,8 @@ impl<'src> Parser<'src> {
         ))
     }
 
-    fn parse_binary_operator(&mut self) -> Result<SyntaxNode, ParseError> {
-        debug!("Parsing binary operator");
+    fn parse_binary_expression(&mut self) -> Result<SyntaxNode, ParseError> {
+        debug!("Parsing binary expression");
 
         let (left_id, left_node) =
             self.syntax_tree
@@ -1043,55 +1043,6 @@ impl<'src> Parser<'src> {
             Span::new(start, end),
             expression_id,
             type_id,
-        ))
-    }
-
-    fn parse_call_expression(&mut self) -> Result<SyntaxNode, ParseError> {
-        debug!("Parsing call expression");
-
-        self.advance();
-
-        let (function_node_id, function_node) = self
-            .syntax_tree
-            .last()
-            .map(|(id, node)| (id, *node))
-            .ok_or(ParseError::ExpectedExpression {
-                found: None,
-                position: self.current_position(),
-            })?;
-        let start = function_node.span.start();
-        let mut value_arguments = Self::new_child_buffer();
-
-        debug!("Parsing call arguments");
-
-        while !self.allow(TokenKind::RightParenthesis)? {
-            if self.current_token.kind == TokenKind::Eof {
-                break;
-            }
-
-            debug!("Parsing call argument");
-
-            let argument_node = self.parse_expression()?;
-            let argument_id = self.syntax_tree.add_node(argument_node);
-
-            value_arguments.push(argument_id);
-
-            self.allow(TokenKind::Comma)?;
-        }
-
-        let end = self.previous_token.span.end();
-        let call_value_arguments_node = self.create_node_with_children(
-            SyntaxKind::CallValueArguments,
-            Span::new(function_node.span.end(), self.previous_token.span.end()),
-            value_arguments,
-        );
-        let call_value_arguments_id = self.syntax_tree.add_node(call_value_arguments_node);
-
-        Ok(SyntaxNode::with_binary_children(
-            SyntaxKind::CallExpression,
-            Span::new(start, end),
-            function_node_id,
-            call_value_arguments_id,
         ))
     }
 
@@ -1407,6 +1358,55 @@ impl<'src> Parser<'src> {
             Span::new(start, end),
             target_id,
             index_id,
+        ))
+    }
+
+    fn parse_call_expression(&mut self) -> Result<SyntaxNode, ParseError> {
+        debug!("Parsing call expression");
+
+        self.advance();
+
+        let (function_node_id, function_node) = self
+            .syntax_tree
+            .last()
+            .map(|(id, node)| (id, *node))
+            .ok_or(ParseError::ExpectedExpression {
+                found: None,
+                position: self.current_position(),
+            })?;
+        let start = function_node.span.start();
+        let mut value_arguments = Self::new_child_buffer();
+
+        debug!("Parsing call arguments");
+
+        while !self.allow(TokenKind::RightParenthesis)? {
+            if self.current_token.kind == TokenKind::Eof {
+                break;
+            }
+
+            debug!("Parsing call argument");
+
+            let argument_node = self.parse_expression()?;
+            let argument_id = self.syntax_tree.add_node(argument_node);
+
+            value_arguments.push(argument_id);
+
+            self.allow(TokenKind::Comma)?;
+        }
+
+        let end = self.previous_token.span.end();
+        let call_value_arguments_node = self.create_node_with_children(
+            SyntaxKind::CallValueArguments,
+            Span::new(function_node.span.end(), self.previous_token.span.end()),
+            value_arguments,
+        );
+        let call_value_arguments_id = self.syntax_tree.add_node(call_value_arguments_node);
+
+        Ok(SyntaxNode::with_binary_children(
+            SyntaxKind::CallExpression,
+            Span::new(start, end),
+            function_node_id,
+            call_value_arguments_id,
         ))
     }
 

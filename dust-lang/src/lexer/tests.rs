@@ -403,17 +403,17 @@ fn example_source_code() {
         let mut count = 1;
 
         while count <= 15 {
-        if count % 15 == 0 {
-       	write_line("fizzbuzz");
-        } else if count % 3 == 0 {
-       	write_line("fizz");
-        } else if count % 5 == 0 {
-       	write_line("buzz");
-        } else {
-            write_line(count as str);
-        }
+            if count % 15 == 0 {
+           	    write_line("fizzbuzz");
+            } else if count % 3 == 0 {
+               	write_line("fizz");
+            } else if count % 5 == 0 {
+               	write_line("buzz");
+            } else {
+                write_line(count as str);
+            }
 
-        count += 1;
+            count += 1;
         }
 
         fn hello_world() {
