@@ -64,64 +64,6 @@ impl SyntaxNode {
             span,
         }
     }
-
-    pub fn children(&self) -> SyntaxNodeChildren {
-        match self.kind {
-            SyntaxKind::Root
-            | SyntaxKind::ModuleItem
-            | SyntaxKind::PublicModuleItem
-            | SyntaxKind::LetStatement
-            | SyntaxKind::LetMutStatement
-            | SyntaxKind::BlockExpression
-            | SyntaxKind::ListExpression
-            | SyntaxKind::Path
-            | SyntaxKind::ValueParameters
-            | SyntaxKind::IfExpression
-            | SyntaxKind::CallValueArguments => SyntaxNodeChildren::Multiple(self.payload),
-            SyntaxKind::ExpressionStatement
-            | SyntaxKind::PathExpression
-            | SyntaxKind::GroupedExpression
-            | SyntaxKind::NegationExpression
-            | SyntaxKind::NotExpression
-            | SyntaxKind::ElseExpression => SyntaxNodeChildren::Single(SyntaxId(self.payload.left)),
-            SyntaxKind::FunctionItem
-            | SyntaxKind::PublicFunctionItem
-            | SyntaxKind::ReassignmentStatement
-            | SyntaxKind::FunctionExpression
-            | SyntaxKind::FunctionSignature
-            | SyntaxKind::AdditionExpression
-            | SyntaxKind::SubtractionExpression
-            | SyntaxKind::MultiplicationExpression
-            | SyntaxKind::DivisionExpression
-            | SyntaxKind::ModuloExpression
-            | SyntaxKind::ExponentExpression
-            | SyntaxKind::AdditionAssignmentStatement
-            | SyntaxKind::SubtractionAssignmentStatement
-            | SyntaxKind::MultiplicationAssignmentStatement
-            | SyntaxKind::DivisionAssignmentStatement
-            | SyntaxKind::ModuloAssignmentStatement
-            | SyntaxKind::AndExpression
-            | SyntaxKind::OrExpression
-            | SyntaxKind::EqualExpression
-            | SyntaxKind::NotEqualExpression
-            | SyntaxKind::LessThanExpression
-            | SyntaxKind::LessThanOrEqualExpression
-            | SyntaxKind::GreaterThanExpression
-            | SyntaxKind::GreaterThanOrEqualExpression
-            | SyntaxKind::WhileExpression
-            | SyntaxKind::CallExpression
-            | SyntaxKind::ListIndexExpression
-            | SyntaxKind::AsExpression
-            | SyntaxKind::FunctionType
-            | SyntaxKind::StructItem
-            | SyntaxKind::PublicStructItem
-            | SyntaxKind::StructExpression => SyntaxNodeChildren::Binary(
-                SyntaxId(self.payload.left),
-                SyntaxId(self.payload.right),
-            ),
-            _ => SyntaxNodeChildren::None,
-        }
-    }
 }
 
 impl Display for SyntaxNode {
@@ -356,110 +298,96 @@ impl SyntaxKind {
                 | SyntaxKind::WhileExpression
         )
     }
+
+    pub fn as_str(&self) -> &str {
+        match self {
+            SyntaxKind::Root => "root",
+            SyntaxKind::ModuleItem => "module item",
+            SyntaxKind::PublicModuleItem => "public module item",
+            SyntaxKind::UseItem => "use item",
+            SyntaxKind::PublicUseItem => "public use item",
+            SyntaxKind::FunctionItem => "function item",
+            SyntaxKind::PublicFunctionItem => "public function item",
+            SyntaxKind::StructItem => "struct item",
+            SyntaxKind::PublicStructItem => "public struct item",
+            SyntaxKind::ExpressionStatement => "expression statement",
+            SyntaxKind::LetStatement => "let statement",
+            SyntaxKind::LetMutStatement => "let mut statement",
+            SyntaxKind::ReassignmentStatement => "reassignment statement",
+            SyntaxKind::SemicolonStatement => "semicolon statement",
+            SyntaxKind::BooleanExpression => "boolean expression",
+            SyntaxKind::ByteExpression => "byte expression",
+            SyntaxKind::CharacterExpression => "character expression",
+            SyntaxKind::FloatExpression => "float expression",
+            SyntaxKind::IntegerExpression => "integer expression",
+            SyntaxKind::StringExpression => "string expression",
+            SyntaxKind::AdditionExpression => "addition expression",
+            SyntaxKind::SubtractionExpression => "subtraction expression",
+            SyntaxKind::MultiplicationExpression => "multiplication expression",
+            SyntaxKind::DivisionExpression => "division expression",
+            SyntaxKind::ModuloExpression => "modulo expression",
+            SyntaxKind::ExponentExpression => "exponent expression",
+            SyntaxKind::AdditionAssignmentStatement => "addition assignment statement",
+            SyntaxKind::SubtractionAssignmentStatement => "subtraction assignment statement",
+            SyntaxKind::MultiplicationAssignmentStatement => "multiplication assignment statement",
+            SyntaxKind::DivisionAssignmentStatement => "division assignment statement",
+            SyntaxKind::ModuloAssignmentStatement => "modulo assignment statement",
+            SyntaxKind::ExponentAssignmentStatement => "exponent assignment statement",
+            SyntaxKind::AndExpression => "and expression",
+            SyntaxKind::OrExpression => "or expression",
+            SyntaxKind::GreaterThanExpression => "greater than expression",
+            SyntaxKind::LessThanExpression => "less than expression",
+            SyntaxKind::GreaterThanOrEqualExpression => "greater than or equal expression",
+            SyntaxKind::LessThanOrEqualExpression => "less than or equal expression",
+            SyntaxKind::EqualExpression => "equal expression",
+            SyntaxKind::NotEqualExpression => "not equal expression",
+            SyntaxKind::NegationExpression => "negation expression",
+            SyntaxKind::NotExpression => "not expression",
+            SyntaxKind::ListIndexExpression => "index expression",
+            SyntaxKind::ListExpression => "list expression",
+            SyntaxKind::BlockExpression => "block expression",
+            SyntaxKind::CallExpression => "call expression",
+            SyntaxKind::FunctionExpression => "function expression",
+            SyntaxKind::NativeFunctionExpression => "native function expression",
+            SyntaxKind::GroupedExpression => "grouped expression",
+            SyntaxKind::IfExpression => "if expression",
+            SyntaxKind::ElseExpression => "else expression",
+            SyntaxKind::StructExpression => "struct expression",
+            SyntaxKind::PathExpression => "path expression",
+            SyntaxKind::WhileExpression => "while loop expression",
+            SyntaxKind::ReturnExpression => "return expression",
+            SyntaxKind::BreakExpression => "break expression",
+            SyntaxKind::AsExpression => "as expression",
+            SyntaxKind::FunctionSignature => "function signature",
+            SyntaxKind::ValueParameters => "value parameters",
+            SyntaxKind::FunctionType => "function type",
+            SyntaxKind::ValueParameterTypes => "value parameter types",
+            SyntaxKind::CallValueArguments => "call value arguments",
+            SyntaxKind::Path => "path",
+            SyntaxKind::PathSegment => "path segment",
+            SyntaxKind::BooleanType => "boolean type",
+            SyntaxKind::ByteType => "byte type",
+            SyntaxKind::CharacterType => "character type",
+            SyntaxKind::FloatType => "float type",
+            SyntaxKind::IntegerType => "integer type",
+            SyntaxKind::StringType => "string type",
+            SyntaxKind::TypePath => "type path",
+            SyntaxKind::ListType => "list type",
+            SyntaxKind::Trivia => "whitespace or comment",
+        }
+    }
 }
 
 impl Display for SyntaxKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SyntaxKind::Root => write!(f, "root"),
-            SyntaxKind::ModuleItem => write!(f, "module item"),
-            SyntaxKind::PublicModuleItem => write!(f, "public module item"),
-            SyntaxKind::UseItem => write!(f, "use item"),
-            SyntaxKind::PublicUseItem => write!(f, "public use item"),
-            SyntaxKind::FunctionItem => write!(f, "function item"),
-            SyntaxKind::PublicFunctionItem => write!(f, "public function item"),
-            SyntaxKind::StructItem => write!(f, "struct item"),
-            SyntaxKind::PublicStructItem => write!(f, "public struct item"),
-            SyntaxKind::ExpressionStatement => write!(f, "expression statement"),
-            SyntaxKind::LetStatement => write!(f, "let statement"),
-            SyntaxKind::LetMutStatement => write!(f, "let mut statement"),
-            SyntaxKind::ReassignmentStatement => write!(f, "reassignment statement"),
-            SyntaxKind::SemicolonStatement => write!(f, "semicolon statement"),
-            SyntaxKind::BooleanExpression => write!(f, "boolean expression"),
-            SyntaxKind::ByteExpression => write!(f, "byte expression"),
-            SyntaxKind::CharacterExpression => write!(f, "character expression"),
-            SyntaxKind::FloatExpression => write!(f, "float expression"),
-            SyntaxKind::IntegerExpression => write!(f, "integer expression"),
-            SyntaxKind::StringExpression => write!(f, "string expression"),
-            SyntaxKind::AdditionExpression => write!(f, "addition expression"),
-            SyntaxKind::SubtractionExpression => write!(f, "subtraction expression"),
-            SyntaxKind::MultiplicationExpression => write!(f, "multiplication expression"),
-            SyntaxKind::DivisionExpression => write!(f, "division expression"),
-            SyntaxKind::ModuloExpression => write!(f, "modulo expression"),
-            SyntaxKind::ExponentExpression => write!(f, "exponent expression"),
-            SyntaxKind::AdditionAssignmentStatement => {
-                write!(f, "addition assignment statement")
-            }
-            SyntaxKind::SubtractionAssignmentStatement => {
-                write!(f, "subtraction assignment statement")
-            }
-            SyntaxKind::MultiplicationAssignmentStatement => {
-                write!(f, "multiplication assignment statement")
-            }
-            SyntaxKind::DivisionAssignmentStatement => {
-                write!(f, "division assignment statement")
-            }
-            SyntaxKind::ModuloAssignmentStatement => {
-                write!(f, "modulo assignment statement")
-            }
-            SyntaxKind::ExponentAssignmentStatement => {
-                write!(f, "exponent assignment statement")
-            }
-            SyntaxKind::AndExpression => write!(f, "and expression"),
-            SyntaxKind::OrExpression => write!(f, "or expression"),
-            SyntaxKind::GreaterThanExpression => write!(f, "greater than expression"),
-            SyntaxKind::LessThanExpression => write!(f, "less than expression"),
-            SyntaxKind::GreaterThanOrEqualExpression => {
-                write!(f, "greater than or equal expression")
-            }
-            SyntaxKind::LessThanOrEqualExpression => write!(f, "less than or equal expression"),
-            SyntaxKind::EqualExpression => write!(f, "equal expression"),
-            SyntaxKind::NotEqualExpression => write!(f, "not equal expression"),
-            SyntaxKind::NegationExpression => write!(f, "negation expression"),
-            SyntaxKind::NotExpression => write!(f, "not expression"),
-            SyntaxKind::ListIndexExpression => write!(f, "index expression"),
-            SyntaxKind::ListExpression => write!(f, "list expression"),
-            SyntaxKind::BlockExpression => write!(f, "block expression"),
-            SyntaxKind::CallExpression => write!(f, "call expression"),
-            SyntaxKind::FunctionExpression => write!(f, "function expression"),
-            SyntaxKind::NativeFunctionExpression => write!(f, "native function expression"),
-            SyntaxKind::GroupedExpression => write!(f, "grouped expression"),
-            SyntaxKind::IfExpression => write!(f, "if expression"),
-            SyntaxKind::ElseExpression => write!(f, "else expression"),
-            SyntaxKind::StructExpression => write!(f, "struct expression"),
-            SyntaxKind::PathExpression => write!(f, "path expression"),
-            SyntaxKind::WhileExpression => write!(f, "while loop expression"),
-            SyntaxKind::ReturnExpression => write!(f, "return expression"),
-            SyntaxKind::BreakExpression => write!(f, "break expression"),
-            SyntaxKind::AsExpression => write!(f, "as expression"),
-            SyntaxKind::FunctionSignature => write!(f, "function signature"),
-            SyntaxKind::ValueParameters => {
-                write!(f, "value parameters")
-            }
-            SyntaxKind::FunctionType => write!(f, "function type"),
-            SyntaxKind::ValueParameterTypes => {
-                write!(f, "value parameter types")
-            }
-            SyntaxKind::CallValueArguments => write!(f, "call value arguments"),
-            SyntaxKind::Path => write!(f, "path"),
-            SyntaxKind::PathSegment => write!(f, "path segment"),
-            SyntaxKind::BooleanType => write!(f, "boolean type"),
-            SyntaxKind::ByteType => write!(f, "byte type"),
-            SyntaxKind::CharacterType => write!(f, "character type"),
-            SyntaxKind::FloatType => write!(f, "float type"),
-            SyntaxKind::IntegerType => write!(f, "integer type"),
-            SyntaxKind::StringType => write!(f, "string type"),
-            SyntaxKind::TypePath => write!(f, "type path"),
-            SyntaxKind::ListType => write!(f, "list type"),
-            SyntaxKind::Trivia => write!(f, "whitespace or comment"),
-        }
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyntaxPayload {
-    left: u32,
-    right: u32,
+    pub(super) left: u32,
+    pub(super) right: u32,
 }
 
 impl SyntaxPayload {
@@ -672,11 +600,4 @@ pub enum SyntaxPayloadKind {
     BinaryChildren,
     MultipleChildren,
     Value,
-}
-
-pub enum SyntaxNodeChildren {
-    None,
-    Single(SyntaxId),
-    Binary(SyntaxId, SyntaxId),
-    Multiple(SyntaxPayload),
 }

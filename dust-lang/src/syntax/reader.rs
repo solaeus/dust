@@ -62,6 +62,15 @@ impl<'a> SyntaxReader<'a> {
         Position::new(self.tree.file_id, self.node.span)
     }
 
+    pub fn child_count(&self) -> usize {
+        match self.node.payload_kind {
+            SyntaxPayloadKind::SingleChild => 1,
+            SyntaxPayloadKind::BinaryChildren => 2,
+            SyntaxPayloadKind::MultipleChildren => self.node.payload.right as usize,
+            _ => 0,
+        }
+    }
+
     pub fn has_left_child(&self) -> bool {
         let has_left_child = !self.node.payload.left_id().is_none();
         let has_encoded_left_payload = matches!(
@@ -138,35 +147,73 @@ impl<'a> SyntaxReader<'a> {
         })
     }
 
-    pub fn children(&'a self) -> Result<SyntaxReaderIterator<'a>, SyntaxError> {
+    pub fn children(&'a self) -> SyntaxReaderIterator<'a> {
         match self.node.payload_kind {
-            SyntaxPayloadKind::SingleChild => Ok(SyntaxReaderIterator::Single {
+            SyntaxPayloadKind::SingleChild => SyntaxReaderIterator::Single {
                 child_id: self.node.payload.left_id(),
                 tree: self.tree,
                 yielded: false,
-            }),
-            SyntaxPayloadKind::BinaryChildren => Ok(SyntaxReaderIterator::Binary {
+            },
+            SyntaxPayloadKind::BinaryChildren => SyntaxReaderIterator::Binary {
                 left_child_id: self.node.payload.left_id(),
                 right_child_id: self.node.payload.right_id(),
                 tree: self.tree,
                 current_index: 0,
-            }),
-            SyntaxPayloadKind::MultipleChildren => Ok(SyntaxReaderIterator::Multiple {
+            },
+            SyntaxPayloadKind::MultipleChildren => SyntaxReaderIterator::Multiple {
                 child_ids: self.tree.get_children(self.node.payload),
                 tree: self.tree,
                 current_index: 0,
-            }),
-            _ => {
-                return Err(SyntaxError::Internal(
-                    InternalSyntaxError::MissingSyntaxChildren(self.node.payload),
-                ));
-            }
+            },
+            _ => SyntaxReaderIterator::Empty,
+        }
+    }
+
+    pub(super) fn draw_text_tree_line(
+        &self,
+        buffer: &mut String,
+        depth: i16,
+        index: usize,
+        size: usize,
+        parent_was_last: bool,
+    ) {
+        let children = self.children();
+        let is_last = index == size.saturating_sub(1);
+        let prefix = if depth < 1 {
+            ""
+        } else if is_last && !parent_was_last {
+            "│   "
+        } else {
+            "    "
+        };
+        let connector = if depth < 0 && index == 0 {
+            ""
+        } else if is_last {
+            "└── "
+        } else {
+            "├── "
+        };
+
+        for _ in 0..depth.saturating_sub(1) {
+            buffer.push_str("    ");
+        }
+
+        buffer.push_str(prefix);
+        buffer.push_str(connector);
+        buffer.push_str(self.node.kind.as_str());
+        buffer.push('\n');
+
+        let size = children.len();
+
+        for (index, child) in children.enumerate() {
+            child.draw_text_tree_line(buffer, depth + 1, index, size, is_last);
         }
     }
 }
 
 #[derive(Clone, Copy, Debug)]
 pub enum SyntaxReaderIterator<'a> {
+    Empty,
     Single {
         child_id: SyntaxId,
         tree: &'a SyntaxTree,
@@ -188,6 +235,7 @@ pub enum SyntaxReaderIterator<'a> {
 impl<'a> SyntaxReaderIterator<'a> {
     pub fn len(&self) -> usize {
         match self {
+            SyntaxReaderIterator::Empty => 0,
             SyntaxReaderIterator::Single { yielded, .. } => {
                 if *yielded {
                     0
@@ -204,6 +252,7 @@ impl<'a> SyntaxReaderIterator<'a> {
 
     pub fn is_empty(&self) -> bool {
         match self {
+            SyntaxReaderIterator::Empty => true,
             SyntaxReaderIterator::Single { yielded, .. } => *yielded,
             SyntaxReaderIterator::Binary { current_index, .. } => *current_index > 1,
             SyntaxReaderIterator::Multiple { child_ids, .. } => child_ids.is_empty(),
