@@ -19,6 +19,7 @@ pub enum ParseError {
         found: TokenKind,
         expected: TokenKind,
         position: Position,
+        syntax: SyntaxKind,
     },
     ExpectedMultipleTokens {
         found: TokenKind,
@@ -66,6 +67,7 @@ impl<'a> AnnotatedError<'a> for ParseError {
                 found: actual,
                 expected,
                 position,
+                syntax,
             } => {
                 let title = "Expected a different token".to_string();
                 let file_str = source.get_file(position.file_id).content_as_str();
@@ -74,7 +76,9 @@ impl<'a> AnnotatedError<'a> for ParseError {
                     Snippet::source(file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
-                            .label(format!("Found {actual} but expected {expected} here")),
+                            .label(format!(
+                                "expected {expected} here, but found {actual} in {syntax}"
+                            )),
                     ),
                 )
             }

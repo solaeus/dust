@@ -147,7 +147,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline(always)]
-    fn handle_non_ascii(&mut self) -> Result<(), ()> {
+    fn handle_non_ascii(&mut self) -> Result<Option<Token>, ()> {
         match self.scan_utf8_sequence(self.index) {
             Ok(width) => {
                 let first_byte = self.source[self.index];
@@ -174,6 +174,13 @@ impl<'src> Lexer<'src> {
                         self.token_flags.unknown = true;
                     } else {
                         let is_valid_continue = is_xid_continue(code_point);
+
+                        if !is_valid_continue
+                            && !self.token_flags.unicode_identifier_started_non_ascii
+                        {
+                            return Ok(self.finish_token());
+                        }
+
                         self.token_flags.unicode_identifier_valid =
                             self.token_flags.unicode_identifier_valid && is_valid_continue;
                     }
@@ -182,19 +189,22 @@ impl<'src> Lexer<'src> {
                 self.token_flags.len = self.token_flags.len.saturating_add(width);
                 self.index += width;
 
-                Ok(())
-            }
-            Err(index) => {
-                self.error = true;
-                self.index = index;
+                if self.token_flags.unknown && self.index < self.source.len() {
+                    let next_class = self.source[self.index].class();
 
-                Err(())
+                    if next_class.is_alphabetical() || next_class.is_underscore() {
+                        return Ok(self.finish_token());
+                    }
+                }
+
+                Ok(None)
             }
+            Err(()) => Err(()),
         }
     }
 
     #[inline(always)]
-    fn scan_utf8_sequence(&self, start: usize) -> Result<usize, usize> {
+    fn scan_utf8_sequence(&mut self, start: usize) -> Result<usize, ()> {
         let first_byte = self.source[start];
 
         if first_byte.is_ascii() {
@@ -204,7 +214,12 @@ impl<'src> Lexer<'src> {
         let width = first_byte.utf8_width();
 
         if width == 0 || start + width > self.source.len() {
-            return Err(start);
+            {
+                self.error = true;
+                self.index = start;
+
+                return Err(());
+            }
         }
 
         if self.utf8_validated {
@@ -216,7 +231,12 @@ impl<'src> Lexer<'src> {
                 let second = self.source[start + 1];
 
                 if (second as i8) >= -64 {
-                    return Err(start);
+                    {
+                        self.error = true;
+                        self.index = start;
+
+                        return Err(());
+                    }
                 }
             }
             3 => {
@@ -227,13 +247,23 @@ impl<'src> Lexer<'src> {
                     | (0xE1..=0xEC, 0x80..=0xBF)
                     | (0xED, 0x80..=0x9F)
                     | (0xEE..=0xEF, 0x80..=0xBF) => {}
-                    _ => return Err(start),
+                    _ => {
+                        self.error = true;
+                        self.index = start;
+
+                        return Err(());
+                    }
                 }
 
                 let third = self.source[start + 2];
 
                 if (third as i8) >= -64 {
-                    return Err(start);
+                    {
+                        self.error = true;
+                        self.index = start;
+
+                        return Err(());
+                    }
                 }
             }
             4 => {
@@ -241,29 +271,49 @@ impl<'src> Lexer<'src> {
 
                 match (first_byte, second) {
                     (0xF0, 0x90..=0xBF) | (0xF1..=0xF3, 0x80..=0xBF) | (0xF4, 0x80..=0x8F) => {}
-                    _ => return Err(start),
+                    _ => {
+                        self.error = true;
+                        self.index = start;
+
+                        return Err(());
+                    }
                 }
 
                 let third = self.source[start + 2];
 
                 if (third as i8) >= -64 {
-                    return Err(start);
+                    {
+                        self.error = true;
+                        self.index = start;
+
+                        return Err(());
+                    }
                 }
 
                 let fourth = self.source[start + 3];
 
                 if (fourth as i8) >= -64 {
-                    return Err(start);
+                    {
+                        self.error = true;
+                        self.index = start;
+
+                        return Err(());
+                    }
                 }
             }
-            _ => return Err(start),
+            _ => {
+                self.error = true;
+                self.index = start;
+
+                return Err(());
+            }
         }
 
         Ok(width)
     }
 
     #[inline(always)]
-    fn scan_string(&mut self) -> Result<Option<Token>, usize> {
+    fn scan_string(&mut self) -> Result<Option<Token>, ()> {
         let start = self.index;
 
         if self.source[start] != b'"' {
@@ -289,7 +339,7 @@ impl<'src> Lexer<'src> {
             } else {
                 match self.scan_utf8_sequence(index) {
                     Ok(width) => index += width,
-                    Err(index) => return Err(index),
+                    Err(()) => return Err(()),
                 }
             }
         }
@@ -305,7 +355,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline(always)]
-    fn scan_chararacter(&mut self) -> Result<Option<Token>, usize> {
+    fn scan_chararacter(&mut self) -> Result<Option<Token>, ()> {
         let start = self.index;
 
         if self.source[start] != b'\'' {
@@ -335,7 +385,7 @@ impl<'src> Lexer<'src> {
             } else {
                 match self.scan_utf8_sequence(index) {
                     Ok(width) => index += width,
-                    Err(index) => return Err(index),
+                    Err(()) => return Err(()),
                 }
             }
         }
@@ -421,12 +471,7 @@ impl Iterator for Lexer<'_> {
 
                         continue;
                     }
-                    Err(error_index) => {
-                        self.error = true;
-                        self.index = error_index;
-
-                        return None;
-                    }
+                    Err(()) => return None,
                 }
             }
 
@@ -442,12 +487,7 @@ impl Iterator for Lexer<'_> {
 
                         continue;
                     }
-                    Err(error_index) => {
-                        self.error = true;
-                        self.index = error_index;
-
-                        return None;
-                    }
+                    Err(()) => return None,
                 }
             }
 
@@ -540,7 +580,8 @@ impl Iterator for Lexer<'_> {
                 cold_path();
 
                 match self.handle_non_ascii() {
-                    Ok(()) => continue,
+                    Ok(Some(token)) => return Some(token),
+                    Ok(None) => continue,
                     Err(_) => return None,
                 }
             }
