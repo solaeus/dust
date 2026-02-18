@@ -25,6 +25,7 @@ use crate::{
     resolver::{
         Resolver,
         scope_graph::{Scope, ScopeId, ScopeKind},
+        symbol_table::SymbolId,
     },
     source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, SyntaxId},
@@ -148,7 +149,7 @@ impl<'src> Compiler<'src> {
         });
 
         // Declaration binding phase
-        let main_function_declaration_id = {
+        {
             let span = span!(Level::INFO, "declare");
             let _enter = span.enter();
 
@@ -159,24 +160,29 @@ impl<'src> Compiler<'src> {
                 program_scope_id,
             );
 
-            match declaration_binder.bind_main() {
+            match declaration_binder.bind() {
                 Ok(main_declaration_id) => main_declaration_id,
                 Err(error) => return self.handle_error(error),
             }
         };
 
         // Type binding phase
-        let _main_function_type = {
+        {
             let span = span!(Level::INFO, "type");
             let _enter = span.enter();
 
-            let type_binder = TypeBinder::new(SourceFileId::MAIN, &self.syntax, &mut self.resolver);
+            let type_binder = TypeBinder::new(
+                SourceFileId::MAIN,
+                &self.source,
+                &self.syntax,
+                &mut self.resolver,
+            );
 
-            match type_binder.bind_main() {
-                Ok(main_type) => main_type,
+            match type_binder.bind() {
+                Ok(()) => {}
                 Err(error) => return self.handle_error(error),
             }
-        };
+        }
 
         // Emission phase
         let main_prototype_id = self.prototypes.reserve_slot();
@@ -184,32 +190,36 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "emit");
             let _enter = span.enter();
 
-            let main_syntax_tree = if let Some(tree) = self.syntax.get_tree(SourceFileId::MAIN) {
-                tree
+            let main_symbol_id = self.resolver.symbols.add_named_symbol("main");
+            let (main_declaration_id, main_declaration) = match self
+                .resolver
+                .declarations
+                .find_declaration(main_symbol_id, None, program_scope_id)
+            {
+                Some(declaration) => declaration,
+                None => return self.handle_error(CompileError::ExpectedMainFunction),
+            };
+
+            let main_module = if let Some(tree) = self.syntax.get_tree(SourceFileId::MAIN) {
+                tree.root().unwrap()
             } else {
                 return self.handle_error(CompileError::Internal(
                     InternalCompileError::MissingSyntaxTree(SourceFileId::MAIN),
                 ));
             };
-            let main_function = if let Some(syntax_node) = main_syntax_tree.root() {
+            let main_function = if let Some(syntax_node) = main_module.children().find(|node| {
+                self.resolver
+                    .get_declaration_binding(&node.id)
+                    .is_ok_and(|bound_id| *bound_id == main_declaration_id)
+            }) {
                 syntax_node
             } else {
-                return self.handle_error(CompileError::Internal(
-                    InternalCompileError::MissingSyntaxNode(SyntaxId::ROOT),
-                ));
-            };
-            let main_declaration = match self
-                .resolver
-                .declarations
-                .get_declaration(main_function_declaration_id)
-            {
-                Ok(declaration) => declaration,
-                Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
+                return self.handle_error(CompileError::ExpectedMainFunction);
             };
 
             let main_emitter = match Emitter::new(
                 main_function,
-                main_function_declaration_id,
+                main_declaration_id,
                 main_declaration.scope_id,
                 main_prototype_id,
                 None,
@@ -222,12 +232,12 @@ impl<'src> Compiler<'src> {
                 ),
             ) {
                 Ok(emitter) => emitter,
-                Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
+                Err(error) => return self.handle_error(error),
             };
 
-            match main_emitter.emit_main() {
+            match main_emitter.emit() {
                 Ok(prototype) => prototype,
-                Err(error) => return Err(DustError::compile(error, self.source, self.resolver)),
+                Err(error) => return self.handle_error(error),
             }
         };
 

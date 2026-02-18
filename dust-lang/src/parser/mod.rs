@@ -415,14 +415,14 @@ impl<'src> Parser<'src> {
                 let path_node = self.parse_path()?;
                 let path_id = self.syntax_tree.push(path_node);
 
-                let function_node = self.parse_function_expression()?;
-                let function_id = self.syntax_tree.push(function_node);
+                let function_expression = self.parse_function_expression()?;
+                let function_expression = self.syntax_tree.push(function_expression);
 
                 let function_item_node = SyntaxNode::with_binary_children(
                     kind,
                     Span::new(start, self.current_token.span.start()),
                     path_id,
-                    function_id,
+                    function_expression,
                 );
 
                 Ok(function_item_node)
@@ -528,6 +528,14 @@ impl<'src> Parser<'src> {
         let start = self.current_token.span.start();
 
         match self.current_token.kind {
+            TokenKind::Any => {
+                self.advance();
+
+                Ok(SyntaxNode::empty(
+                    SyntaxKind::AnyType,
+                    Span::new(start, self.previous_token.span.end()),
+                ))
+            }
             TokenKind::Bool => {
                 self.advance();
 

@@ -97,6 +97,7 @@ pub enum CompileError {
     ExpectedNativeFunctionCall {
         position: Position,
     },
+    ExpectedMainFunction,
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
@@ -272,36 +273,42 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 };
 
                 if let Some(expected_position) = expected_position {
-                    let expected_file_str =
-                        source.get_file(expected_position.file_id).content_as_str();
-                    let found_file_str = source.get_file(found_position.file_id).content_as_str();
+                    let expected_file = source.get_file(expected_position.file_id);
+                    let found_file = source.get_file(found_position.file_id);
 
                     Group::with_title(Level::ERROR.primary_title(title)).elements([
-                        Snippet::source(found_file_str).annotation(
+                        Snippet::source(expected_file.content_as_str())
+                            .path(found_file.file_name())
+                            .annotation(
+                                AnnotationKind::Context
+                                    .span(expected_position.span.as_usize_range())
+                                    .label(format!(
+                                        "Type `{expected_type_string}` was established here."
+                                    )),
+                            ),
+                        Snippet::source(found_file.content_as_str()).annotation(
                             AnnotationKind::Primary
                                 .span(found_position.span.as_usize_range())
-                                .label(format!("Found {found_type_string} here.")),
-                        ),
-                        Snippet::source(expected_file_str).annotation(
-                            AnnotationKind::Context
-                                .span(expected_position.span.as_usize_range())
-                                .label(format!(
-                                    "Type {expected_type_string} was established here."
-                                )),
+                                .label(format!("Found `{found_type_string}` here.")),
                         ),
                     ])
                 } else {
-                    let file_str = source.get_file(found_position.file_id).content_as_str();
+                    let file = source.get_file(found_position.file_id);
 
                     Group::with_title(Level::ERROR.primary_title(title))
                         .element(
-                            Snippet::source(file_str).annotation(
-                                AnnotationKind::Primary
-                                    .span(found_position.span.as_usize_range())
-                                    .label(format!("Found {found_type_string} here.")),
-                            ),
+                            Snippet::source(file.content_as_str())
+                                .path(file.full_path())
+                                .fold(false)
+                                .annotation(
+                                    AnnotationKind::Primary
+                                        .span(found_position.span.as_usize_range())
+                                        .label(format!("Found `{found_type_string}` here.")),
+                                ),
                         )
-                        .element(Level::ERROR.message(format!("Expected {expected_type_string}.")))
+                        .element(Level::ERROR.message(format!(
+                            "Expected this expression to have type `{expected_type_string}`."
+                        )))
                 }
             }
             CompileError::CannotApplyOperator {
@@ -509,6 +516,13 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     )
                 ).element(Level::HELP.message("To call this native function, add `()` after it."))
                 .element(Level::HELP.message("If you wanted to use a function value, declare a function that wraps the native function and use that instead."))
+            }
+            CompileError::ExpectedMainFunction => {
+                let title = "Expected a main function".to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Level::HELP.message("A \"main\" function is required to compile the program."),
+                )
             }
         }
     }

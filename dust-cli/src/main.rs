@@ -12,7 +12,7 @@ mod parse;
 mod tokenize;
 
 use std::{
-    fmt::{self, format},
+    fmt,
     fs::{File, create_dir, create_dir_all},
     io::{self, Read, Write},
     path::PathBuf,
@@ -216,7 +216,7 @@ fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
 
 fn handle_eval(input: &mut Option<String>) {
     if let Some(eval) = input {
-        *eval = format!("fn main() {{\n    {eval}\n}}");
+        *eval = format!("fn main() -> any {{\n    {eval}\n}}");
     }
 }
 

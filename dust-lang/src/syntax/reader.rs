@@ -83,7 +83,7 @@ impl<'a> SyntaxReader<'a> {
                 | SyntaxKind::StringExpression
         );
 
-        has_left_child && !has_encoded_left_payload
+        has_left_child || has_encoded_left_payload
     }
 
     pub fn has_right_child(&self) -> bool {
@@ -95,7 +95,35 @@ impl<'a> SyntaxReader<'a> {
                 | SyntaxKind::StringExpression
         );
 
-        has_right_child && !has_encoded_right_payload
+        has_right_child || has_encoded_right_payload
+    }
+
+    pub fn left_child(&self) -> Result<Option<Self>, SyntaxError> {
+        let left_id = self.node.payload.left_id();
+
+        if self.node.payload.left_id().is_none() {
+            Ok(None)
+        } else {
+            let child_node = self.tree.get_node(left_id).ok_or(SyntaxError::Internal(
+                InternalSyntaxError::MissingSyntaxNode(left_id),
+            ))?;
+
+            Ok(Some(SyntaxReader::new(left_id, child_node, self.tree)))
+        }
+    }
+
+    pub fn right_child(&self) -> Result<Option<Self>, SyntaxError> {
+        let right_id = self.node.payload.right_id();
+
+        if self.node.payload.right_id().is_none() {
+            Ok(None)
+        } else {
+            let child_node = self.tree.get_node(right_id).ok_or(SyntaxError::Internal(
+                InternalSyntaxError::MissingSyntaxNode(right_id),
+            ))?;
+
+            Ok(Some(SyntaxReader::new(right_id, child_node, self.tree)))
+        }
     }
 
     pub fn expect_left_child(&self) -> Result<Self, SyntaxError> {
@@ -167,6 +195,10 @@ impl<'a> SyntaxReader<'a> {
             },
             _ => SyntaxReaderIterator::Empty,
         }
+    }
+
+    pub fn last_child(&'a self) -> Option<Self> {
+        self.children().last()
     }
 
     pub fn draw_text_tree(&self, buffer: &mut String) {

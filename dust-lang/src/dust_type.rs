@@ -145,13 +145,7 @@ impl Display for DustFunctionType {
             }
         }
 
-        write!(f, ")")?;
-
-        if self.return_type != DustType::None {
-            write!(f, " -> {}", self.return_type)?;
-        }
-
-        Ok(())
+        write!(f, ") -> {}", self.return_type)
     }
 }
 

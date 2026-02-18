@@ -17,16 +17,13 @@ use crate::{
         scope_graph::ScopeId,
         type_graph::{TypeId, TypeNode},
     },
-    source::{Position, Source, SourceFileId, Span},
-    syntax::{
-        Syntax, SyntaxError, SyntaxId, SyntaxKind, SyntaxReader, SyntaxReaderIterator,
-        SyntaxVisitor,
-    },
+    source::{Position, Source, Span},
+    syntax::{Syntax, SyntaxError, SyntaxKind, SyntaxReader, SyntaxReaderIterator, SyntaxVisitor},
 };
 
 #[derive(Debug)]
 pub struct Emitter<'a> {
-    function_declaration_id: DeclarationId,
+    function: SyntaxReader<'a>,
 
     prototype_id: PrototypeId,
 
@@ -74,7 +71,7 @@ pub struct Emitter<'a> {
 
 impl<'a> Emitter<'a> {
     pub fn new(
-        function: SyntaxReader,
+        function: SyntaxReader<'a>,
         declaration_id: DeclarationId,
         starting_scope_id: ScopeId,
         prototype_id: PrototypeId,
@@ -89,7 +86,7 @@ impl<'a> Emitter<'a> {
     ) -> Result<Self, CompileError> {
         let parameter_count = parameters.as_ref().map_or(0, |parameters| parameters.len());
         let mut emitter = Self {
-            function_declaration_id: declaration_id,
+            function,
             prototype_id,
             source,
             syntax,
@@ -155,25 +152,12 @@ impl<'a> Emitter<'a> {
         Ok(emitter)
     }
 
-    pub fn emit_main(self) -> Result<Prototype, CompileError> {
-        let root = self
-            .syntax
-            .get_tree(SourceFileId::MAIN)
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingSyntaxTree(SourceFileId::MAIN),
-            ))?
-            .root()
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingSyntaxNode(SyntaxId::ROOT),
-            ))?;
+    pub fn emit(mut self) -> Result<Prototype, CompileError> {
+        let function_body = self.function.expect_right_child()?.expect_right_child()?;
 
-        self.emit(root)
-    }
-
-    pub fn emit(mut self, node: SyntaxReader) -> Result<Prototype, CompileError> {
-        match node.kind() {
+        match function_body.kind() {
             SyntaxKind::BlockExpression => {
-                let children = node.expect_multiple_children()?;
+                let children = function_body.children();
                 let last_index = children.len() - 1;
 
                 for (index, child) in children.into_iter().enumerate() {
@@ -194,20 +178,9 @@ impl<'a> Emitter<'a> {
                     self.handle_top_emission(child_emission, child)?;
                 }
             }
-            SyntaxKind::ExpressionStatement => {
-                let expression_node = node.expect_left_child()?;
-
-                let mut expression_emission = self.handle_implicit_return(expression_node, None)?;
-
-                if let Emission::Instructions(instructions) = &mut expression_emission {
-                    instructions.set_target(None);
-                }
-
-                self.handle_top_emission(expression_emission, expression_node)?;
-            }
             _ => {
                 return Err(CompileError::Internal(
-                    InternalCompileError::InvalidSyntaxNode(node.kind()),
+                    InternalCompileError::InvalidSyntaxNode(function_body.kind()),
                 ));
             }
         }
@@ -284,14 +257,11 @@ impl<'a> Emitter<'a> {
             }
         }
 
-        let declaration = self
-            .resolver
-            .declarations
-            .get_declaration(self.function_declaration_id)?;
+        let declaration_id = self.resolver.get_declaration_binding(&self.function.id)?;
         let type_id = *self
             .resolver
             .declarations
-            .get_declaration_type(&self.function_declaration_id)?;
+            .get_declaration_type(declaration_id)?;
         let return_type = {
             let get_type = self
                 .resolver
@@ -302,8 +272,14 @@ impl<'a> Emitter<'a> {
             if let Some(function_type) = get_type {
                 function_type
             } else {
-                let position = declaration.position.ok_or(CompileError::Internal(
-                    InternalCompileError::MissingDeclarationPosition(self.function_declaration_id),
+                let function_declaration_id =
+                    *self.resolver.get_declaration_binding(&self.function.id)?;
+                let function_declaration = self
+                    .resolver
+                    .declarations
+                    .get_declaration(function_declaration_id)?;
+                let position = function_declaration.position.ok_or(CompileError::Internal(
+                    InternalCompileError::MissingDeclarationPosition(function_declaration_id),
                 ))?;
 
                 return Err(CompileError::ExpectedFunctionType {
@@ -1171,7 +1147,7 @@ impl<'a> Emitter<'a> {
 }
 
 impl SyntaxVisitor for Emitter<'_> {
-    type MainOutput = Emission;
+    type RootOutput = Emission;
 
     type ItemOutput = ();
 
@@ -1185,10 +1161,10 @@ impl SyntaxVisitor for Emitter<'_> {
 
     type PathOutput = DeclarationId;
 
-    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
-        debug!("Emitting main function item");
+    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
+        debug!("Visting root");
 
-        let children = node.expect_multiple_children()?;
+        let children = node.children();
         let last_child = children.len() - 1;
         let mut final_emission = Emission::None;
 
@@ -1219,7 +1195,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader<'_>,
     ) -> Result<Self::ItemOutput, CompileError> {
-        debug!("Emitting function item");
+        debug!("Visting function item");
 
         let function_expression = node.expect_right_child()?;
 
@@ -1256,7 +1232,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader<'_>,
     ) -> Result<Self::StatementOutput, CompileError> {
-        debug!("Emitting expression statement");
+        debug!("Visting expression statement");
 
         let expression = node.expect_left_child()?;
 
@@ -1275,7 +1251,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
-        debug!("Emitting let statement");
+        debug!("Visting let statement");
 
         let mut children = node.expect_multiple_children()?;
         let path = children.expect_next()?;
@@ -1334,7 +1310,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
-        debug!("Emitting binary assignment statement");
+        debug!("Visting binary assignment statement");
 
         let emission = self.visit_math_binary_expression(node, None)?;
         let instructions = if let Emission::Instructions(mut instructions) = emission {
@@ -1352,7 +1328,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader<'_>,
     ) -> Result<Self::StatementOutput, CompileError> {
-        debug!("Emitting reassignment statement");
+        debug!("Visting reassignment statement");
 
         let (path, expression_statement) = node.expect_binary_children()?;
         let expression = expression_statement.expect_left_child()?;
@@ -1407,7 +1383,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting boolean expression");
+        debug!("Visting boolean expression");
 
         Ok(Emission::Constant(ConstantEmission::Boolean(
             node.payload().decode_boolean(),
@@ -1419,7 +1395,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting byte expression");
+        debug!("Visting byte expression");
 
         Ok(Emission::Constant(ConstantEmission::Byte(
             node.payload().decode_byte(),
@@ -1431,7 +1407,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting character expression");
+        debug!("Visting character expression");
 
         Ok(Emission::Constant(ConstantEmission::Character(
             node.payload().decode_character(),
@@ -1443,7 +1419,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting float expression");
+        debug!("Visting float expression");
 
         Ok(Emission::Constant(ConstantEmission::Float(
             node.payload().decode_float(),
@@ -1455,7 +1431,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting integer expression");
+        debug!("Visting integer expression");
 
         Ok(Emission::Constant(ConstantEmission::Integer(
             node.payload().decode_integer(),
@@ -1467,7 +1443,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting string expression");
+        debug!("Visting string expression");
 
         let bytes = self
             .source
@@ -1520,7 +1496,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 }),
             }
         }
-        debug!("Emitting list expression");
+        debug!("Visting list expression");
 
         let elements = node.expect_multiple_children()?;
         let element_count_address =
@@ -1560,7 +1536,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader,
         target: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting index expression");
+        debug!("Visting index expression");
 
         let (list_expression, index_expression) = node.expect_binary_children()?;
 
@@ -1589,7 +1565,7 @@ impl SyntaxVisitor for Emitter<'_> {
         path_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting path expression");
+        debug!("Visting path expression");
 
         let path = path_expression.expect_left_child()?;
 
@@ -1616,7 +1592,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader,
         target: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting struct expression");
+        debug!("Visting struct expression");
 
         fn flatten_leaf_operand_types(r#type: &DustType, out: &mut Vec<ByteType>) {
             match r#type {
@@ -1708,7 +1684,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader<'_>,
         target: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting block expression");
+        debug!("Visting block expression");
 
         let children = node.expect_multiple_children()?;
 
@@ -1823,7 +1799,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader<'_>,
         target: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting if expression");
+        debug!("Visting if expression");
 
         let mut children = node.expect_multiple_children()?;
         let condition = children.expect_next()?;
@@ -1892,7 +1868,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader,
         target: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting else expression");
+        debug!("Visting else expression");
 
         self.visit_block_expression(node.expect_left_child()?, target)
     }
@@ -1902,7 +1878,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader,
         target: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting math binary expression");
+        debug!("Visting math binary expression");
 
         let (left_expression, right_expression) = node.expect_binary_children()?;
 
@@ -2025,7 +2001,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader,
         input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting comparison binary expression");
+        debug!("Visting comparison binary expression");
 
         let (left_expression, right_expression) = node.expect_binary_children()?;
 
@@ -2095,7 +2071,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader<'_>,
         target: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting logical binary expression");
+        debug!("Visting logical binary expression");
 
         let (left_expression, right_expression) = node.expect_binary_children()?;
 
@@ -2147,7 +2123,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader,
         input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting unary negation expression");
+        debug!("Visting unary negation expression");
 
         let expression = node.expect_left_child()?;
 
@@ -2186,7 +2162,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader<'_>,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting while expression");
+        debug!("Visting while expression");
 
         let (condition, body) = node.expect_binary_children()?;
 
@@ -2219,7 +2195,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader<'_>,
         _target: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting function expression");
+        debug!("Visting function expression");
 
         let declaration_id = *self.resolver.get_declaration_binding(&node.id)?;
 
@@ -2256,7 +2232,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 self.prototypes,
             ),
         )?;
-        let prototype = function_emitter.emit(body)?;
+        let prototype = function_emitter.emit()?;
 
         self.prototypes.set_slot(prototype_id, prototype);
 
@@ -2268,7 +2244,7 @@ impl SyntaxVisitor for Emitter<'_> {
         node: SyntaxReader<'_>,
         target: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Emitting call expression");
+        debug!("Visting call expression");
 
         let (callee, argument_list) = node.expect_binary_children()?;
         let arguments = argument_list.expect_multiple_children()?;
@@ -2342,7 +2318,7 @@ impl SyntaxVisitor for Emitter<'_> {
     }
 
     fn visit_path(&mut self, path: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
-        debug!("Emitting path");
+        debug!("Visting path");
         debug_assert_eq!(path.kind(), SyntaxKind::Path);
 
         self.resolver.get_declaration_binding(&path.id).copied()

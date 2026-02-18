@@ -209,6 +209,7 @@ pub enum SyntaxKind {
     ValueParameters,
 
     // Types (Sub-Syntax)
+    AnyType,
     BooleanType,
     ByteType,
     CharacterType,
@@ -416,6 +417,7 @@ impl SyntaxKind {
             SyntaxKind::CallValueArguments => "call value arguments",
             SyntaxKind::Path => "path",
             SyntaxKind::PathSegment => "path segment",
+            SyntaxKind::AnyType => "any type",
             SyntaxKind::BooleanType => "boolean type",
             SyntaxKind::ByteType => "byte type",
             SyntaxKind::CharacterType => "character type",

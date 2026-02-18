@@ -1,5 +1,5 @@
 use smallvec::{SmallVec, smallvec};
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::{
     compiler::error::{CompileError, InternalCompileError},
@@ -37,7 +37,7 @@ impl<'a> DeclarationBinder<'a> {
         }
     }
 
-    pub fn bind_main(mut self) -> Result<DeclarationId, CompileError> {
+    pub fn bind(mut self) -> Result<(), CompileError> {
         let main_root = self
             .syntax
             .get_tree(SourceFileId::MAIN)
@@ -54,7 +54,7 @@ impl<'a> DeclarationBinder<'a> {
 }
 
 impl SyntaxVisitor for DeclarationBinder<'_> {
-    type MainOutput = DeclarationId;
+    type RootOutput = ();
     type ItemOutput = ();
     type StatementOutput = ();
     type ExpressionInput = ();
@@ -62,38 +62,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     type TypeOutput = ();
     type PathOutput = DeclarationId;
 
-    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
-        debug!("Visiting root node");
+    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
+        debug!("Visiting root");
         debug_assert_eq!(node.kind(), SyntaxKind::Root);
 
         let children = node.children();
-
-        let module_name = self
-            .source
-            .get_file(node.file_id())
-            .file_name()
-            .trim_suffix(".ds");
-        let module_symbol_id = self.resolver.symbols.add_named_symbol(module_name);
-        let module_scope_id = self.resolver.scopes.add_scope(Scope {
-            kind: ScopeKind::Module,
-            parent: self.current_scope_id,
-            modules: smallvec![ScopeId::CORE],
-            imports: SmallVec::new(),
-        });
-        let main_declaration_id = self.resolver.declarations.add_declaration(Declaration {
-            symbol_id: module_symbol_id,
-            kind: DeclarationKind::Function,
-            scope_id: module_scope_id,
-            is_public: true,
-            position: Some(node.position()),
-        });
-
-        self.resolver
-            .add_declaration_binding(node.id, main_declaration_id);
-        self.resolver.add_scope_binding(node.id, module_scope_id);
-
-        let parent_scope_id = self.current_scope_id;
-        self.current_scope_id = module_scope_id;
 
         for child in children {
             if child.kind().is_item() {
@@ -105,9 +78,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             }
         }
 
-        self.current_scope_id = parent_scope_id;
-
-        Ok(main_declaration_id)
+        Ok(())
     }
 
     fn visit_module_item(&mut self, _: SyntaxReader) -> Result<Self::ItemOutput, CompileError> {
@@ -116,11 +87,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_function_item(
         &mut self,
-        node: SyntaxReader,
+        function_item: SyntaxReader,
     ) -> Result<Self::ItemOutput, CompileError> {
         debug!("Visiting function item");
 
-        let (function_name, function_expression) = node.expect_binary_children()?;
+        let (function_name, function_expression) = function_item.expect_binary_children()?;
         let (signature, body) = function_expression.expect_binary_children()?;
         let value_parameter_list = signature.expect_left_child()?;
         let value_parameters = value_parameter_list.children();
@@ -143,7 +114,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             modules: smallvec![ScopeId::CORE],
             imports: SmallVec::new(),
         });
-        let is_public = match node.kind() {
+        let is_public = match function_item.kind() {
             SyntaxKind::PublicFunctionItem => true,
             SyntaxKind::FunctionItem => false,
             _ => unreachable!(),
@@ -159,6 +130,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .resolver
             .declarations
             .add_declaration(function_declaration);
+
+        info!("Declaring function \"{function_name_str}\"");
 
         for value_parameter in value_parameters {
             let parameter_name = value_parameter
@@ -185,6 +158,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
             self.resolver
                 .add_declaration_binding(parameter_name.id, parameter_declaration_id);
+
+            info!(
+                "Declaring parameter \"{parameter_name_str}\" of function \"{function_name_str}\""
+            );
         }
 
         if let Some(type_node) = return_type {
@@ -193,7 +170,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.resolver.add_scope_binding(body.id, function_scope_id);
         self.resolver
-            .add_declaration_binding(function_expression.id, function_declaration_id);
+            .add_declaration_binding(function_item.id, function_declaration_id);
 
         let starting_scope_id = self.current_scope_id;
         self.current_scope_id = function_scope_id;
@@ -279,15 +256,16 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
+        debug!("Visiting let statement");
         debug_assert!(matches!(
             node.kind(),
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement
         ));
 
-        let mut children = node.expect_multiple_children()?;
+        let mut children = node.children();
         let path = children.expect_next()?;
         let path_segment = {
-            let mut segments = path.expect_multiple_children()?;
+            let mut segments = path.children();
 
             if segments.len() != 1 {
                 todo!("Handle multi-segment paths in let statements");
@@ -295,8 +273,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
             segments.next().unwrap()
         };
-        let expression_statement = children.expect_next()?;
-        let expression = expression_statement.expect_left_child()?;
+        let expression = children.expect_next()?;
 
         self.visit_expression(expression, ())?;
 
@@ -497,7 +474,9 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        let mut children = node.expect_multiple_children()?;
+        debug!("Visiting if expression");
+
+        let mut children = node.children();
         let condition = children.expect_next()?;
         let then_branch = children.expect_next()?;
         let else_branch = children.next();
@@ -517,6 +496,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         node: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
+        debug!("Visiting else expression");
+
         self.visit_expression(node.expect_left_child()?, ())?;
 
         Ok(())

@@ -196,22 +196,22 @@ impl Resolver {
     pub fn unify_types(
         &mut self,
         left: TypeId,
-        left_position: Option<Position>,
+        left_syntax: Option<SyntaxReader>,
         right: TypeId,
-        right_position: Position,
+        right_syntax: SyntaxReader,
     ) -> Result<(), CompileError> {
         let left_inferred = self.infer_type(left)?;
         let right_inferred = self.infer_type(right)?;
 
-        self.unify_inferred_types(left_inferred, left_position, right_inferred, right_position)
+        self.unify_inferred_types(left_inferred, left_syntax, right_inferred, right_syntax)
     }
 
-    pub fn unify_inferred_types(
-        &mut self,
+    pub fn unify_inferred_types<'a>(
+        &'a mut self,
         left: TypeId,
-        left_position: Option<Position>,
+        left_syntax: Option<SyntaxReader<'a>>,
         right: TypeId,
-        right_position: Position,
+        right_syntax: SyntaxReader<'a>,
     ) -> Result<(), CompileError> {
         if left == right {
             return Ok(());
@@ -262,9 +262,9 @@ impl Resolver {
                 },
             ) => self.unify_types(
                 left_element_type,
-                left_position,
+                left_syntax,
                 right_element_type,
-                right_position,
+                right_syntax,
             ),
             (
                 TypeNode::Function {
@@ -295,14 +295,14 @@ impl Resolver {
                     .into_iter()
                     .zip(right_value_types.into_iter())
                 {
-                    self.unify_types(left_type_id, left_position, right_type_id, right_position)?;
+                    self.unify_types(left_type_id, left_syntax, right_type_id, right_syntax)?;
                 }
 
                 self.unify_types(
                     left_return_type,
-                    left_position,
+                    left_syntax,
                     right_return_type,
-                    right_position,
+                    right_syntax,
                 )?;
 
                 Ok(())
@@ -320,11 +320,23 @@ impl Resolver {
                 },
             ) => {
                 if left_declaration_id != right_declaration_id {
+                    let expected_position = if let Some(syntax) = left_syntax {
+                        if let Some(last_child) = syntax.last_child() {
+                            Some(last_child.position())
+                        } else {
+                            Some(syntax.position())
+                        }
+                    } else {
+                        None
+                    };
+                    let found_position =
+                        right_syntax.last_child().unwrap_or(right_syntax).position();
+
                     return Err(CompileError::TypeConflict {
                         expected_type: left,
-                        expected_position: left_position,
+                        expected_position,
                         found_type: right,
-                        found_position: right_position,
+                        found_position,
                     });
                 }
 
@@ -354,9 +366,9 @@ impl Resolver {
                 {
                     self.unify_types(
                         *left_field_type,
-                        left_position,
+                        left_syntax,
                         *right_field_type,
-                        right_position,
+                        right_syntax,
                     )?;
                 }
 
@@ -366,11 +378,23 @@ impl Resolver {
                 if left_type_node == right_type_node {
                     Ok(())
                 } else {
+                    let expected_position = if let Some(syntax) = left_syntax {
+                        if let Some(last_child) = syntax.last_child() {
+                            Some(last_child.position())
+                        } else {
+                            Some(syntax.position())
+                        }
+                    } else {
+                        None
+                    };
+                    let found_position =
+                        right_syntax.last_child().unwrap_or(right_syntax).position();
+
                     Err(CompileError::TypeConflict {
                         expected_type: left,
-                        expected_position: left_position,
+                        expected_position,
                         found_type: right,
-                        found_position: right_position,
+                        found_position,
                     })
                 }
             }
