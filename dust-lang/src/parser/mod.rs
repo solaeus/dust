@@ -705,7 +705,7 @@ impl<'src> Parser<'src> {
         let let_statement_node = if let Some(type_notation_id) = type_notation_id {
             let payload =
                 self.syntax_tree
-                    .add_children(smallvec![path_id, type_notation_id, expression_id]);
+                    .add_children(smallvec![path_id, expression_id, type_notation_id]);
 
             SyntaxNode {
                 kind,

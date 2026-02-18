@@ -171,11 +171,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Visting let statement");
 
-        let mut children = node.expect_multiple_children()?;
+        let mut children = node.children();
         let path = children.expect_next()?;
-        let expression_statement = children.expect_next()?;
+        let expression = children.expect_next()?;
         let type_notation = children.next();
-        let expression = expression_statement.expect_left_child()?;
 
         let expression_type_id = self.visit_expression(expression, ())?;
 
@@ -183,10 +182,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
             let explicit_type = self.visit_type(type_notation)?;
 
             self.resolver.unify_types(
-                expression_type_id,
-                Some(expression),
                 explicit_type,
-                type_notation,
+                Some(type_notation),
+                expression_type_id,
+                expression,
             )?;
         }
 

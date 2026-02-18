@@ -198,7 +198,7 @@ impl<'a> SyntaxReader<'a> {
     }
 
     pub fn last_child(&'a self) -> Option<Self> {
-        self.children().last()
+        self.children().next_back()
     }
 
     pub fn draw_text_tree(&self, buffer: &mut String) {
