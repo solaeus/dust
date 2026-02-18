@@ -29,7 +29,7 @@ use crate::{
 pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, DustError<'src>> {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::embedded_validated("eval", source_code));
+    source.add_file(SourceFile::embedded_validated("compile", source_code));
 
     let compiler = Compiler::new(source);
     let program = compiler.compile(None)?;

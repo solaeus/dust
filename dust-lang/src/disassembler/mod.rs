@@ -88,7 +88,7 @@ impl<'a> Disassembler<'a> {
         let mut tabs = Vec::with_capacity(self.tab_count());
 
         for source_file in self.source.files() {
-            let file_name = source_file.file_name().display().to_string();
+            let file_name = source_file.file_name().to_string();
 
             tabs.push(file_name);
         }
@@ -215,7 +215,7 @@ impl<'a> Disassembler<'a> {
             .borders(Borders::ALL)
             .border_type(BorderType::Thick)
             .title(Span::styled(
-                source_file.full_path().display().to_string(),
+                source_file.full_path().to_owned(),
                 Style::default().bold(),
             ))
             .title_alignment(Alignment::Center);

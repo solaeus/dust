@@ -6,7 +6,8 @@ use crate::{
     token::TokenKind,
 };
 
-pub type ParseLogic<'a> = fn(&mut Parser<'a>) -> Result<SyntaxNode, ParseError>;
+pub type PrefixParser<'a> = fn(&mut Parser<'a>) -> Result<SyntaxNode, ParseError>;
+pub type InfixParser<'a> = fn(&mut Parser<'a>, SyntaxNode) -> Result<SyntaxNode, ParseError>;
 
 /// Pratt parsing rule for a token in the Dust language.
 ///
@@ -15,8 +16,8 @@ pub type ParseLogic<'a> = fn(&mut Parser<'a>) -> Result<SyntaxNode, ParseError>;
 /// for operator precedence during parsing.
 #[derive(Debug, Clone, Copy)]
 pub struct ParseRule<'a> {
-    pub prefix: Option<ParseLogic<'a>>,
-    pub infix: Option<ParseLogic<'a>>,
+    pub prefix: Option<PrefixParser<'a>>,
+    pub infix: Option<InfixParser<'a>>,
     pub precedence: Precedence,
     pub associativity: Associativity,
 }
@@ -313,7 +314,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 associativity: Associativity::Left,
             },
             TokenKind::Let => ParseRule {
-                prefix: Some(Parser::parse_let_statement),
+                prefix: Some(Parser::parse_prefix_let_keyword),
                 infix: None,
                 precedence: Precedence::Assignment,
                 associativity: Associativity::Left,

@@ -338,6 +338,18 @@ impl SyntaxKind {
         )
     }
 
+    pub fn encodes_value_hint(self) -> bool {
+        matches!(
+            self,
+            SyntaxKind::BooleanExpression
+                | SyntaxKind::ByteExpression
+                | SyntaxKind::CharacterExpression
+                | SyntaxKind::FloatExpression
+                | SyntaxKind::IntegerExpression
+                | SyntaxKind::StringExpression
+        )
+    }
+
     pub fn as_str(&self) -> &str {
         match self {
             SyntaxKind::Root => "root",
@@ -412,7 +424,7 @@ impl SyntaxKind {
             SyntaxKind::StringType => "string type",
             SyntaxKind::TypePath => "type path",
             SyntaxKind::ListType => "list type",
-            SyntaxKind::Trivia => "whitespace or comment",
+            SyntaxKind::Trivia => "trivia",
         }
     }
 }

@@ -204,6 +204,45 @@ impl<'a> SyntaxReader<'a> {
         buffer.push_str(prefix);
         buffer.push_str(connector);
         buffer.push_str(self.node.kind.as_str());
+
+        if self.node.payload_kind == SyntaxPayloadKind::Value {
+            buffer.push_str(": ");
+
+            match self.node.kind {
+                SyntaxKind::BooleanExpression => {
+                    let boolean = self.node.payload.decode_boolean();
+
+                    buffer.push_str(&boolean.to_string());
+                }
+                SyntaxKind::ByteExpression => {
+                    let byte = self.node.payload.decode_byte();
+
+                    buffer.push_str(&byte.to_string());
+                }
+                SyntaxKind::CharacterExpression => {
+                    let character = self.node.payload.decode_character();
+
+                    buffer.push(character);
+                }
+                SyntaxKind::FloatExpression => {
+                    let float = self.node.payload.decode_float();
+
+                    buffer.push_str(&float.to_string());
+                }
+                SyntaxKind::IntegerExpression => {
+                    let integer = self.node.payload.decode_integer();
+
+                    buffer.push_str(&integer.to_string());
+                }
+                SyntaxKind::StringExpression => {
+                    let string = self.node.payload.decode_string();
+
+                    buffer.push_str(&string);
+                }
+                _ => {}
+            }
+        }
+
         buffer.push('\n');
 
         let children = self.children();

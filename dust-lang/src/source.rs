@@ -175,21 +175,20 @@ impl<'src> SourceFile<'src> {
         })
     }
 
-    pub fn full_path(&self) -> &Path {
+    pub fn full_path(&self) -> &str {
         match self {
-            Self::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => Path::new(path),
-            Self::File { path, .. } => path.as_path(),
+            Self::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => path,
+            Self::File { path, .. } => path.to_str().expect("File path contains invalid UTF-8"),
         }
     }
 
-    pub fn file_name(&self) -> &Path {
+    pub fn file_name(&self) -> &str {
         match self {
-            Self::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => Path::new(path),
+            Self::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => path,
             Self::File { path, .. } => path
-                .as_path()
                 .file_name()
-                .map(Path::new)
-                .unwrap_or_else(|| path.as_path()),
+                .and_then(|name| name.to_str())
+                .expect("File name conatins invalid UTF-8"),
         }
     }
 
@@ -208,7 +207,7 @@ impl<'src> SourceFile<'src> {
         full_source.get(range).unwrap_or_else(|| {
             let path = self.full_path();
 
-            error!("Failed to get source at {}:{span}", path.display());
+            error!("Failed to get source at {path}:{span}");
 
             SOURCE_NOT_FOUND.as_bytes()
         })

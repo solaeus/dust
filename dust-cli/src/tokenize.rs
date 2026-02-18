@@ -23,7 +23,7 @@ pub fn handle_tokenize_command(
     print("# Dust Tokens", no_output);
 
     for file in source.files() {
-        print(format!("\n## {}\n", file.file_name().display()), no_output);
+        print(format!("\n## {}\n", file.file_name()), no_output);
 
         let lexer = if file.is_utf8_validated() {
             Lexer::from_utf8(file.content_as_str())

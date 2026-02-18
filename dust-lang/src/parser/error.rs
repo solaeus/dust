@@ -15,11 +15,15 @@ pub enum ParseError {
     },
 
     // Syntax Errors
+    ExpectedSyntax {
+        found: SyntaxKind,
+        expected: SyntaxKind,
+        position: Position,
+    },
     ExpectedToken {
         found: TokenKind,
         expected: TokenKind,
         position: Position,
-        syntax: SyntaxKind,
     },
     ExpectedMultipleTokens {
         found: TokenKind,
@@ -53,13 +57,32 @@ impl<'a> AnnotatedError<'a> for ParseError {
         match self {
             ParseError::InvalidUtf8 { position } => {
                 let title = "Invalid UTF-8 sequence".to_string();
+                let file = source.get_file(position.file_id);
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file.content_as_str())
+                        .path(file.file_name())
+                        .fold(false)
+                        .annotation(
+                            AnnotationKind::Primary
+                                .span(position.span.as_usize_range())
+                                .label("This is not valid UTF-8"),
+                        ),
+                )
+            }
+            ParseError::ExpectedSyntax {
+                found: actual,
+                expected,
+                position,
+            } => {
+                let title = format!("Expected {expected}");
                 let file_str = source.get_file(position.file_id).content_as_str();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_str).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
-                            .label("This is not valid UTF-8"),
+                            .label(format!("Expected {expected}, but found {actual}.")),
                     ),
                 )
             }
@@ -67,19 +90,19 @@ impl<'a> AnnotatedError<'a> for ParseError {
                 found: actual,
                 expected,
                 position,
-                syntax,
             } => {
                 let title = "Expected a different token".to_string();
-                let file_str = source.get_file(position.file_id).content_as_str();
+                let file = source.get_file(position.file_id);
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!(
-                                "expected {expected} here, but found {actual} in {syntax}"
-                            )),
-                    ),
+                    Snippet::source(file.content_as_str())
+                        .path(file.file_name())
+                        .fold(false)
+                        .annotation(
+                            AnnotationKind::Primary
+                                .span(position.span.as_usize_range())
+                                .label(format!("expected {expected} here, but found {actual}.")),
+                        ),
                 )
             }
             ParseError::ExpectedMultipleTokens {
@@ -88,7 +111,7 @@ impl<'a> AnnotatedError<'a> for ParseError {
                 position,
             } => {
                 let title = "Expected a different token".to_string();
-                let file_str = source.get_file(position.file_id).content_as_str();
+                let file = source.get_file(position.file_id);
                 let expected_list = expected
                     .iter()
                     .enumerate()
@@ -104,25 +127,31 @@ impl<'a> AnnotatedError<'a> for ParseError {
                     .collect::<String>();
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!(
-                                "Found {actual} but expected one of: {expected_list} here"
-                            )),
-                    ),
+                    Snippet::source(file.content_as_str())
+                        .path(file.file_name())
+                        .fold(false)
+                        .annotation(
+                            AnnotationKind::Primary
+                                .span(position.span.as_usize_range())
+                                .label(format!(
+                                    "Found {actual} but expected one of: {expected_list} here"
+                                )),
+                        ),
                 )
             }
             ParseError::UnexpectedToken { position, found } => {
                 let title = "Unexpected token".to_string();
-                let file_str = source.get_file(position.file_id).content_as_str();
+                let file = source.get_file(position.file_id);
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!("{found} was not expected here")),
-                    ),
+                    Snippet::source(file.content_as_str())
+                        .path(file.full_path())
+                        .fold(false)
+                        .annotation(
+                            AnnotationKind::Primary
+                                .span(position.span.as_usize_range())
+                                .label(format!("{found} was not expected here")),
+                        ),
                 )
             }
             ParseError::ExpectedItem { position, found } => {
