@@ -98,7 +98,7 @@ impl<'a> SyntaxReader<'a> {
         has_right_child && !has_encoded_right_payload
     }
 
-    pub fn left_child(&self) -> Result<Self, SyntaxError> {
+    pub fn expect_left_child(&self) -> Result<Self, SyntaxError> {
         let child_id = self.node.payload.left_id();
         let child_node = self.tree.get_node(child_id).ok_or(SyntaxError::Internal(
             InternalSyntaxError::MissingSyntaxNode(child_id),
@@ -107,7 +107,7 @@ impl<'a> SyntaxReader<'a> {
         Ok(SyntaxReader::new(child_id, child_node, self.tree))
     }
 
-    pub fn right_child(&self) -> Result<Self, SyntaxError> {
+    pub fn expect_right_child(&self) -> Result<Self, SyntaxError> {
         let child_id = self.node.payload.right_id();
         let child_node = self.tree.get_node(child_id).ok_or(SyntaxError::Internal(
             InternalSyntaxError::MissingSyntaxNode(child_id),
@@ -116,14 +116,14 @@ impl<'a> SyntaxReader<'a> {
         Ok(SyntaxReader::new(child_id, child_node, self.tree))
     }
 
-    pub fn binary_children(&self) -> Result<(Self, Self), SyntaxError> {
-        let left_child = self.left_child()?;
-        let right_child = self.right_child()?;
+    pub fn expect_binary_children(&self) -> Result<(Self, Self), SyntaxError> {
+        let left_child = self.expect_left_child()?;
+        let right_child = self.expect_right_child()?;
 
         Ok((left_child, right_child))
     }
 
-    pub fn multiple_children(&self) -> Result<SyntaxReaderIterator<'a>, SyntaxError> {
+    pub fn expect_multiple_children(&self) -> Result<SyntaxReaderIterator<'a>, SyntaxError> {
         let child_ids = self.tree.get_children(self.node.payload);
 
         if child_ids.is_empty() {
@@ -170,38 +170,29 @@ impl<'a> SyntaxReader<'a> {
     }
 
     pub fn draw_text_tree(&self, buffer: &mut String) {
-        self.draw_text_tree_line(buffer, -1, 0, self.child_count(), false);
+        buffer.push_str(self.node.kind.as_str());
+        buffer.push('\n');
+
+        let children = self.children();
+        let size = children.len();
+        let mut ancestors = Vec::new();
+
+        for (index, child) in children.enumerate() {
+            let is_last = index == size.saturating_sub(1);
+
+            child.draw_text_tree_line(buffer, &mut ancestors, is_last);
+        }
     }
 
-    fn draw_text_tree_line(
-        &self,
-        buffer: &mut String,
-        depth: i16,
-        index: usize,
-        size: usize,
-        parent_was_last: bool,
-    ) {
-        let is_last = index == size.saturating_sub(1);
-        let prefix = if depth < 1 {
-            ""
-        } else if is_last && !parent_was_last {
-            "│   "
-        } else {
-            "    "
-        };
-        let connector = if depth < 0 && index == 0 {
-            ""
-        } else if is_last {
-            "└── "
-        } else {
-            "├── "
-        };
+    fn draw_text_tree_line(&self, buffer: &mut String, ancestors: &mut Vec<bool>, is_last: bool) {
+        for ancestor_is_last in ancestors.iter() {
+            let indent = if *ancestor_is_last { "    " } else { "│   " };
 
-        for _ in 0..depth.saturating_sub(1) {
-            buffer.push_str("    ");
+            buffer.push_str(indent);
         }
 
-        buffer.push_str(prefix);
+        let connector = if is_last { "└── " } else { "├── " };
+
         buffer.push_str(connector);
         buffer.push_str(self.node.kind.as_str());
 
@@ -248,9 +239,15 @@ impl<'a> SyntaxReader<'a> {
         let children = self.children();
         let size = children.len();
 
+        ancestors.push(is_last);
+
         for (index, child) in children.enumerate() {
-            child.draw_text_tree_line(buffer, depth + 1, index, size, is_last);
+            let child_is_last = index == size.saturating_sub(1);
+
+            child.draw_text_tree_line(buffer, ancestors, child_is_last);
         }
+
+        ancestors.pop();
     }
 }
 

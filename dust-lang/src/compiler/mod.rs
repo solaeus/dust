@@ -6,6 +6,7 @@ mod type_binder;
 // #[cfg(test)]
 // mod tests;
 
+use smallvec::SmallVec;
 use tracing::{Level, span};
 
 use crate::{
@@ -21,7 +22,10 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     prototype::{Prototype, PrototypeList},
-    resolver::Resolver,
+    resolver::{
+        Resolver,
+        scope_graph::{Scope, ScopeId, ScopeKind},
+    },
     source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, SyntaxId},
 };
@@ -74,7 +78,7 @@ impl<'src> Compiler<'src> {
             constants,
             prototypes,
             ..
-        } = self.compile_inner()?;
+        } = self.compile_inner(&program_name)?;
         let program = Program::new(program_name, constants, prototypes);
 
         Ok(program)
@@ -90,13 +94,13 @@ impl<'src> Compiler<'src> {
             constants,
             resolver,
             prototypes,
-        } = self.compile_inner()?;
+        } = self.compile_inner(&program_name)?;
         let program = Program::new(program_name, constants, prototypes);
 
         Ok((program, source, syntax, resolver))
     }
 
-    fn compile_inner(mut self) -> Result<Self, DustError<'src>> {
+    fn compile_inner(mut self, program_name: &Option<String>) -> Result<Self, DustError<'src>> {
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
 
@@ -131,13 +135,29 @@ impl<'src> Compiler<'src> {
             }
         }
 
+        let program_symbol_id = if let Some(name) = program_name {
+            self.resolver.symbols.add_named_symbol(name)
+        } else {
+            self.resolver.symbols.add_anonymous_symbol()
+        };
+        let program_scope_id = self.resolver.scopes.add_scope(Scope {
+            kind: ScopeKind::Project,
+            parent: ScopeId::NONE,
+            modules: SmallVec::new(),
+            imports: SmallVec::new(),
+        });
+
         // Declaration binding phase
         let main_function_declaration_id = {
             let span = span!(Level::INFO, "declare");
             let _enter = span.enter();
 
-            let declaration_binder =
-                DeclarationBinder::new(&self.source, &self.syntax, &mut self.resolver);
+            let declaration_binder = DeclarationBinder::new(
+                &self.source,
+                &self.syntax,
+                &mut self.resolver,
+                program_scope_id,
+            );
 
             match declaration_binder.bind_main() {
                 Ok(main_declaration_id) => main_declaration_id,

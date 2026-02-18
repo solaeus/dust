@@ -173,7 +173,7 @@ impl<'a> Emitter<'a> {
     pub fn emit(mut self, node: SyntaxReader) -> Result<Prototype, CompileError> {
         match node.kind() {
             SyntaxKind::BlockExpression => {
-                let children = node.multiple_children()?;
+                let children = node.expect_multiple_children()?;
                 let last_index = children.len() - 1;
 
                 for (index, child) in children.into_iter().enumerate() {
@@ -195,7 +195,7 @@ impl<'a> Emitter<'a> {
                 }
             }
             SyntaxKind::ExpressionStatement => {
-                let expression_node = node.left_child()?;
+                let expression_node = node.expect_left_child()?;
 
                 let mut expression_emission = self.handle_implicit_return(expression_node, None)?;
 
@@ -1188,7 +1188,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
         debug!("Emitting main function item");
 
-        let children = node.multiple_children()?;
+        let children = node.expect_multiple_children()?;
         let last_child = children.len() - 1;
         let mut final_emission = Emission::None;
 
@@ -1221,7 +1221,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ItemOutput, CompileError> {
         debug!("Emitting function item");
 
-        let function_expression = node.right_child()?;
+        let function_expression = node.expect_right_child()?;
 
         let function_emission = self.visit_function_expression(function_expression, None)?;
 
@@ -1258,7 +1258,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Emitting expression statement");
 
-        let expression = node.left_child()?;
+        let expression = node.expect_left_child()?;
 
         let expression_emission = self.visit_expression(expression, None)?;
 
@@ -1277,10 +1277,10 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Emitting let statement");
 
-        let mut children = node.multiple_children()?;
+        let mut children = node.expect_multiple_children()?;
         let path = children.expect_next()?;
         let expression_statement = children.expect_next()?;
-        let expression = expression_statement.left_child()?;
+        let expression = expression_statement.expect_left_child()?;
 
         let type_id = *self.resolver.get_type_binding(&expression.id)?;
 
@@ -1354,8 +1354,8 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Emitting reassignment statement");
 
-        let (path, expression_statement) = node.binary_children()?;
-        let expression = expression_statement.left_child()?;
+        let (path, expression_statement) = node.expect_binary_children()?;
+        let expression = expression_statement.expect_left_child()?;
 
         let declaration_id = self.resolver.get_declaration_binding(&path.id)?;
         let target = self
@@ -1522,7 +1522,7 @@ impl SyntaxVisitor for Emitter<'_> {
         }
         debug!("Emitting list expression");
 
-        let elements = node.multiple_children()?;
+        let elements = node.expect_multiple_children()?;
         let element_count_address =
             self.get_constant_address(ConstantEmission::Integer(elements.len() as i64));
 
@@ -1562,7 +1562,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting index expression");
 
-        let (list_expression, index_expression) = node.binary_children()?;
+        let (list_expression, index_expression) = node.expect_binary_children()?;
 
         let left_emission = self.visit_expression(list_expression, None)?;
         let right_emission = self.visit_expression(index_expression, None)?;
@@ -1591,7 +1591,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting path expression");
 
-        let path = path_expression.left_child()?;
+        let path = path_expression.expect_left_child()?;
 
         let declaration_id = self.visit_path(path)?;
 
@@ -1630,13 +1630,13 @@ impl SyntaxVisitor for Emitter<'_> {
             }
         }
 
-        let fields = node.right_child()?.multiple_children()?;
+        let fields = node.expect_right_child()?.expect_multiple_children()?;
 
         let mut field_leaf_operand_types = Vec::with_capacity(fields.len());
         let mut total_leaf_count: u16 = 0;
 
         for field in fields {
-            let field_expression = field.right_child()?;
+            let field_expression = field.expect_right_child()?;
             let field_type_id = *self.resolver.get_type_binding(&field_expression.id)?;
             let field_full_type = self.resolver.get_full_type(field_type_id, self.source)?;
 
@@ -1666,7 +1666,7 @@ impl SyntaxVisitor for Emitter<'_> {
         for (field, (is_struct_field, leaf_types)) in
             fields.into_iter().zip(field_leaf_operand_types)
         {
-            let field_expression = field.right_child()?;
+            let field_expression = field.expect_right_child()?;
             let field_emission = self.visit_expression(field_expression, None)?;
             let field_address = self.handle_operand_emission(
                 &mut struct_emission,
@@ -1710,7 +1710,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting block expression");
 
-        let children = node.multiple_children()?;
+        let children = node.expect_multiple_children()?;
 
         let block_scope_id = *self.resolver.get_scope_binding(&node.id)?;
         let parent_scope_id = self.current_scope_id;
@@ -1825,7 +1825,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting if expression");
 
-        let mut children = node.multiple_children()?;
+        let mut children = node.expect_multiple_children()?;
         let condition = children.expect_next()?;
         let then_block = children.expect_next()?;
         let else_block = children.next();
@@ -1894,7 +1894,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting else expression");
 
-        self.visit_block_expression(node.left_child()?, target)
+        self.visit_block_expression(node.expect_left_child()?, target)
     }
 
     fn visit_math_binary_expression(
@@ -1904,7 +1904,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting math binary expression");
 
-        let (left_expression, right_expression) = node.binary_children()?;
+        let (left_expression, right_expression) = node.expect_binary_children()?;
 
         let left_emission = self.visit_expression(left_expression, None)?;
         let right_emission = self.visit_expression(right_expression, None)?;
@@ -2027,7 +2027,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting comparison binary expression");
 
-        let (left_expression, right_expression) = node.binary_children()?;
+        let (left_expression, right_expression) = node.expect_binary_children()?;
 
         let left_emission = self.visit_expression(left_expression, None)?;
         let right_emission = self.visit_expression(right_expression, None)?;
@@ -2097,7 +2097,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting logical binary expression");
 
-        let (left_expression, right_expression) = node.binary_children()?;
+        let (left_expression, right_expression) = node.expect_binary_children()?;
 
         let left_emission = self.visit_expression(left_expression, None)?;
         let right_emission = self.visit_expression(right_expression, None)?;
@@ -2149,7 +2149,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting unary negation expression");
 
-        let expression = node.left_child()?;
+        let expression = node.expect_left_child()?;
 
         let expression_emission = self.visit_expression(expression, None)?;
 
@@ -2188,7 +2188,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting while expression");
 
-        let (condition, body) = node.binary_children()?;
+        let (condition, body) = node.expect_binary_children()?;
 
         let mut while_emission = InstructionsEmission::new();
         let condition_emission = self.visit_expression(condition, None)?;
@@ -2233,8 +2233,8 @@ impl SyntaxVisitor for Emitter<'_> {
             }));
         }
 
-        let (signature, body) = node.binary_children()?;
-        let parameters = signature.left_child()?.multiple_children()?;
+        let (signature, body) = node.expect_binary_children()?;
+        let parameters = signature.expect_left_child()?.expect_multiple_children()?;
         let function_scope_id = *self.resolver.get_scope_binding(&body.id)?;
         let prototype_id = self.prototypes.reserve_slot();
 
@@ -2270,8 +2270,8 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Emitting call expression");
 
-        let (callee, argument_list) = node.binary_children()?;
-        let arguments = argument_list.multiple_children()?;
+        let (callee, argument_list) = node.expect_binary_children()?;
+        let arguments = argument_list.expect_multiple_children()?;
 
         let mut call_emission = InstructionsEmission::new();
 

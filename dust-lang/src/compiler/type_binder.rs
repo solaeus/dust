@@ -58,7 +58,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::MainOutput, CompileError> {
         debug!("Binding types for main function");
 
-        let children = node.multiple_children()?;
+        let children = node.expect_multiple_children()?;
 
         let main_return_type_id = self.resolver.types.create_inferred_type();
         let main_function_type_id = self.resolver.types.add_type(TypeNode::Function {
@@ -113,7 +113,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ItemOutput, CompileError> {
         debug!("Binding types for function item");
 
-        let function_expression = node.right_child()?;
+        let function_expression = node.expect_right_child()?;
 
         self.visit_function_expression(function_expression, ())?;
 
@@ -129,13 +129,13 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, CompileError> {
         debug!("Binding types for struct item");
 
-        let (struct_name, struct_fields_list) = node.binary_children()?;
-        let struct_fields = struct_fields_list.multiple_children()?;
+        let (struct_name, struct_fields_list) = node.expect_binary_children()?;
+        let struct_fields = struct_fields_list.expect_multiple_children()?;
 
         let mut fields = SmallVec::<[DeclarationId; 8]>::new();
 
         for field in struct_fields {
-            let (field_name, field_type) = field.binary_children()?;
+            let (field_name, field_type) = field.expect_binary_children()?;
 
             let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
             let field_type_id = self.visit_type(field_type)?;
@@ -168,7 +168,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Binding types for expression statement");
 
-        self.visit_expression(node.left_child()?, ())?;
+        self.visit_expression(node.expect_left_child()?, ())?;
 
         Ok(())
     }
@@ -179,11 +179,11 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Binding types for let statement");
 
-        let mut children = node.multiple_children()?;
+        let mut children = node.expect_multiple_children()?;
         let path = children.expect_next()?;
         let expression_statement = children.expect_next()?;
         let type_notation = children.next();
-        let expression = expression_statement.left_child()?;
+        let expression = expression_statement.expect_left_child()?;
 
         let expression_type_id = self.visit_expression(expression, ())?;
 
@@ -217,7 +217,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Binding types for binary assignment statement");
 
-        let (path, expression) = node.binary_children()?;
+        let (path, expression) = node.expect_binary_children()?;
 
         let path_type = {
             let raw = self.visit_path(path)?;
@@ -264,8 +264,8 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Binding types for reassignment statement");
 
-        let (path, expression_statement) = node.binary_children()?;
-        let expression = expression_statement.left_child()?;
+        let (path, expression_statement) = node.expect_binary_children()?;
+        let expression = expression_statement.expect_left_child()?;
 
         let path_type = self.visit_path(path)?;
         let expression_type = self.visit_expression(expression, ())?;
@@ -363,7 +363,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for list expression");
 
-        let children = node.multiple_children()?;
+        let children = node.expect_multiple_children()?;
 
         let mut previous = None;
 
@@ -404,7 +404,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for index expression");
 
-        let (list_expression, index_expression) = node.binary_children()?;
+        let (list_expression, index_expression) = node.expect_binary_children()?;
 
         let list_type_id = {
             let raw = self.visit_expression(list_expression, input)?;
@@ -454,7 +454,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         debug!("Binding types for path expression");
         debug_assert_eq!(path_expression.kind(), SyntaxKind::PathExpression);
 
-        let type_id = self.visit_path(path_expression.left_child()?)?;
+        let type_id = self.visit_path(path_expression.expect_left_child()?)?;
 
         self.resolver.add_type_binding(path_expression.id, type_id);
 
@@ -468,7 +468,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for struct expression");
 
-        let fields = node.right_child()?.multiple_children()?;
+        let fields = node.expect_right_child()?.expect_multiple_children()?;
 
         let declaration_id = *self.resolver.get_declaration_binding(&node.id)?;
         let declared_struct_type_id = *self
@@ -477,7 +477,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             .get_declaration_type(&declaration_id)?;
 
         for field in fields {
-            let (field_name, field_expression) = field.binary_children()?;
+            let (field_name, field_expression) = field.expect_binary_children()?;
 
             let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
             let declared_field_type_id = *self
@@ -509,7 +509,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for block expression");
 
-        let children = node.multiple_children()?;
+        let children = node.expect_multiple_children()?;
 
         let mut block_type_id = TypeId::NONE;
 
@@ -542,7 +542,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for if expression");
 
-        let mut children = node.multiple_children()?;
+        let mut children = node.expect_multiple_children()?;
 
         let condition = children.expect_next()?;
         let then_block = children.expect_next()?;
@@ -587,7 +587,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for else expression");
 
-        self.visit_block_expression(node.left_child()?, ())
+        self.visit_block_expression(node.expect_left_child()?, ())
     }
 
     fn visit_math_binary_expression(
@@ -597,7 +597,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for math binary expression");
 
-        let (left_expression, right_expression) = node.binary_children()?;
+        let (left_expression, right_expression) = node.expect_binary_children()?;
 
         let left_type = {
             let raw = self.visit_expression(left_expression, ())?;
@@ -644,7 +644,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for comparison binary expression");
 
-        let (left_expression, right_expression) = node.binary_children()?;
+        let (left_expression, right_expression) = node.expect_binary_children()?;
 
         let left_type = self.visit_expression(left_expression, ())?;
         let right_type = self.visit_expression(right_expression, ())?;
@@ -667,7 +667,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for logical binary expression");
 
-        let (left_expression, right_expression) = node.binary_children()?;
+        let (left_expression, right_expression) = node.expect_binary_children()?;
 
         let left_type = {
             let raw = self.visit_expression(left_expression, input)?;
@@ -708,7 +708,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for unary negation expression");
 
-        let expression = node.left_child()?;
+        let expression = node.expect_left_child()?;
         let child_type = {
             let raw = self.visit_expression(expression, ())?;
 
@@ -736,7 +736,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for while expression");
 
-        let (condition, body) = node.binary_children()?;
+        let (condition, body) = node.expect_binary_children()?;
 
         let condition_type = {
             let raw = self.visit_expression(condition, ())?;
@@ -764,20 +764,20 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for function expression");
 
-        let (signature, body) = node.binary_children()?;
-        let value_parameters_list = signature.left_child()?;
+        let (signature, body) = node.expect_binary_children()?;
+        let value_parameters_list = signature.expect_left_child()?;
         let return_type = if signature.has_right_child() {
-            Some(signature.right_child()?)
+            Some(signature.expect_right_child()?)
         } else {
             None
         };
-        let value_parameters = value_parameters_list.multiple_children()?;
+        let value_parameters = value_parameters_list.expect_multiple_children()?;
 
         let mut value_parameter_types = SmallVec::<[TypeId; 8]>::new();
 
         for parameter_node in value_parameters {
-            let parameter_name = parameter_node.left_child()?;
-            let parameter_type = parameter_node.right_child()?;
+            let parameter_name = parameter_node.expect_left_child()?;
+            let parameter_type = parameter_node.expect_right_child()?;
 
             let parameter_declaration_id =
                 *self.resolver.get_declaration_binding(&parameter_name.id)?;
@@ -828,8 +828,8 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Binding types for call expression");
 
-        let (callee, arguments_list) = node.binary_children()?;
-        let arguments = arguments_list.multiple_children()?;
+        let (callee, arguments_list) = node.expect_binary_children()?;
+        let arguments = arguments_list.expect_multiple_children()?;
 
         let callee_type = {
             let raw = self.visit_expression(callee, ())?;
@@ -891,7 +891,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             SyntaxKind::IntegerType => Ok(TypeId::INTEGER),
             SyntaxKind::StringType => Ok(TypeId::STRING),
             SyntaxKind::ListType => {
-                let element_type_node = node.left_child()?;
+                let element_type_node = node.expect_left_child()?;
                 let element_type_id = self.visit_type(element_type_node)?;
                 let list_type_id = self.resolver.types.add_type(TypeNode::List {
                     element_type: element_type_id,
@@ -902,7 +902,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             SyntaxKind::FunctionType => {
                 let type_node = {
                     let type_node_value_parameters = if node.has_left_child() {
-                        let value_parameters = node.left_child()?.multiple_children()?;
+                        let value_parameters = node.expect_left_child()?.expect_multiple_children()?;
                         let mut value_parameter_ids = SmallVec::<[TypeId; 4]>::new();
 
                         for value_parameter in value_parameters {
@@ -921,7 +921,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                     };
 
                     let return_type_id = if node.has_right_child() {
-                        self.visit_type(node.right_child()?)?
+                        self.visit_type(node.expect_right_child()?)?
                     } else {
                         TypeId::NONE
                     };

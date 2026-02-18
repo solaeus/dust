@@ -5,7 +5,8 @@
     generic_const_exprs,
     int_from_ascii,
     iterator_try_collect,
-    thread_id_value
+    thread_id_value,
+    trim_prefix_suffix
 )]
 
 pub mod compiler;

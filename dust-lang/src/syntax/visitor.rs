@@ -96,7 +96,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::WhileExpression => self.visit_while_expression(node, input),
             SyntaxKind::FunctionExpression => self.visit_function_expression(node, input),
             SyntaxKind::CallExpression => self.visit_call_expression(node, input),
-            SyntaxKind::GroupedExpression => self.visit_expression(node.left_child()?, input),
+            SyntaxKind::GroupedExpression => self.visit_expression(node.expect_left_child()?, input),
             _ => Err(CompileError::from(SyntaxError::ExpectedExpression {
                 found: node.kind(),
                 position: node.position(),
