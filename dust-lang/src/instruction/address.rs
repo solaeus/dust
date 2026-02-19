@@ -2,8 +2,6 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::instruction::ByteType;
-
 use super::MemoryKind;
 
 #[derive(
@@ -30,29 +28,25 @@ impl Address {
     }
 
     pub fn encoded_boolean(boolean: bool) -> Self {
-        let encoded = (boolean as u16) << ByteType::BOOLEAN.0 as u16;
-
         Address {
-            index: encoded,
+            index: boolean as u16,
             memory: MemoryKind::ENCODED,
         }
     }
 
-    pub fn decoded_boolean(&self) -> bool {
-        (self.index >> ByteType::BOOLEAN.0 as u16) & 1 == 1
+    pub fn decode_boolean(&self) -> bool {
+        self.index != 0
     }
 
     pub fn encoded_byte(byte: u8) -> Self {
-        let encoded = (byte as u16) << ByteType::BYTE.0 as u16;
-
         Address {
-            index: encoded,
+            index: byte as u16,
             memory: MemoryKind::ENCODED,
         }
     }
 
-    pub fn decoded_byte(&self) -> u8 {
-        (self.index >> ByteType::BYTE.0 as u16) as u8
+    pub fn decode_byte(&self) -> u8 {
+        self.index as u8
     }
 
     pub fn prototype(index: u16) -> Self {
@@ -80,8 +74,8 @@ mod tests {
         let true_address = Address::encoded_boolean(true);
         let false_address = Address::encoded_boolean(false);
 
-        assert_eq!(true_address.decoded_boolean(), true);
-        assert_eq!(false_address.decoded_boolean(), false);
+        assert!(true_address.decode_boolean());
+        assert!(!false_address.decode_boolean());
     }
 
     #[test]
@@ -89,6 +83,6 @@ mod tests {
         let byte: u8 = 123;
         let address = Address::encoded_byte(byte);
 
-        assert_eq!(address.decoded_byte(), byte);
+        assert_eq!(address.decode_byte(), byte);
     }
 }

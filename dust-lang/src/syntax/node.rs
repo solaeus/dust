@@ -129,6 +129,8 @@ pub enum SyntaxKind {
     PublicFunctionItem,
     StructItem,
     PublicStructItem,
+    EnumItem,
+    PublicEnumItem,
 
     // Statements
     ExpressionStatement,
@@ -207,8 +209,14 @@ pub enum SyntaxKind {
     CallValueArguments,
     FunctionSignature,
     ValueParameters,
+    TypeParameters,
+    EnumVariant,
+    EnumVariants,
+    TupleFields,
+    StructField,
+    StructFields,
 
-    // Types (Sub-Syntax)
+    // Types
     AnyType,
     BooleanType,
     ByteType,
@@ -362,6 +370,8 @@ impl SyntaxKind {
             SyntaxKind::PublicFunctionItem => "public function item",
             SyntaxKind::StructItem => "struct item",
             SyntaxKind::PublicStructItem => "public struct item",
+            SyntaxKind::EnumItem => "enum item",
+            SyntaxKind::PublicEnumItem => "public enum item",
             SyntaxKind::ExpressionStatement => "expression statement",
             SyntaxKind::LetStatement => "let statement",
             SyntaxKind::LetMutStatement => "let mut statement",
@@ -414,6 +424,12 @@ impl SyntaxKind {
             SyntaxKind::ValueParameters => "value parameters",
             SyntaxKind::FunctionType => "function type",
             SyntaxKind::ValueParameterTypes => "value parameter types",
+            SyntaxKind::TypeParameters => "type parameters",
+            SyntaxKind::EnumVariant => "enum variant",
+            SyntaxKind::EnumVariants => "enum variants",
+            SyntaxKind::TupleFields => "tuple fields",
+            SyntaxKind::StructField => "struct field",
+            SyntaxKind::StructFields => "struct fields",
             SyntaxKind::CallValueArguments => "call value arguments",
             SyntaxKind::Path => "path",
             SyntaxKind::PathSegment => "path segment",

@@ -6,13 +6,13 @@ use crate::{
     tests::*,
 };
 
-
 #[test]
 fn function_item() {
     let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(FUNCTION_ITEM));
     let ParseResult {
         syntax_tree,
         errors,
+        ..
     } = parser.parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
@@ -37,6 +37,7 @@ fn let_statement() {
     let ParseResult {
         syntax_tree,
         errors,
+        ..
     } = parser.parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
@@ -68,6 +69,7 @@ fn let_statement_with_type() {
     let ParseResult {
         syntax_tree,
         errors,
+        ..
     } = parser.parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
@@ -97,6 +99,7 @@ fn let_mut_statement() {
     let ParseResult {
         syntax_tree,
         errors,
+        ..
     } = parser.parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
@@ -128,6 +131,7 @@ fn let_mut_statement_with_type() {
     let ParseResult {
         syntax_tree,
         errors,
+        ..
     } = parser.parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
@@ -160,6 +164,7 @@ fn reassignment_statement() {
     let ParseResult {
         syntax_tree,
         errors,
+        ..
     } = parser.parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
@@ -194,6 +199,7 @@ mod binary_assignment_statement {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -210,7 +216,11 @@ mod binary_assignment_statement {
                 BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                AdditionAssignmentStatement.with_binary_children(Span::new(16, 24), SyntaxId(6), SyntaxId(7)),
+                AdditionAssignmentStatement.with_binary_children(
+                    Span::new(16, 24),
+                    SyntaxId(6),
+                    SyntaxId(7)
+                ),
                 IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
             ]
         );
@@ -225,6 +235,7 @@ mod binary_assignment_statement {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -260,6 +271,7 @@ mod binary_assignment_statement {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -295,6 +307,7 @@ mod binary_assignment_statement {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -311,7 +324,11 @@ mod binary_assignment_statement {
                 BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                DivisionAssignmentStatement.with_binary_children(Span::new(16, 24), SyntaxId(6), SyntaxId(7)),
+                DivisionAssignmentStatement.with_binary_children(
+                    Span::new(16, 24),
+                    SyntaxId(6),
+                    SyntaxId(7)
+                ),
                 IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
             ]
         );
@@ -326,6 +343,7 @@ mod binary_assignment_statement {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -342,7 +360,11 @@ mod binary_assignment_statement {
                 BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                ModuloAssignmentStatement.with_binary_children(Span::new(16, 24), SyntaxId(6), SyntaxId(7)),
+                ModuloAssignmentStatement.with_binary_children(
+                    Span::new(16, 24),
+                    SyntaxId(6),
+                    SyntaxId(7)
+                ),
                 IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
             ]
         );
@@ -357,6 +379,7 @@ mod binary_assignment_statement {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -373,7 +396,11 @@ mod binary_assignment_statement {
                 BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                ExponentAssignmentStatement.with_binary_children(Span::new(16, 24), SyntaxId(6), SyntaxId(7)),
+                ExponentAssignmentStatement.with_binary_children(
+                    Span::new(16, 24),
+                    SyntaxId(6),
+                    SyntaxId(7)
+                ),
                 IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
             ]
         );
@@ -390,6 +417,7 @@ mod value_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -416,6 +444,7 @@ mod value_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -441,6 +470,7 @@ mod value_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -467,6 +497,7 @@ mod value_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -492,6 +523,7 @@ mod value_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -517,6 +549,7 @@ mod value_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -543,6 +576,7 @@ mod value_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -571,6 +605,7 @@ mod value_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -587,7 +622,11 @@ mod value_expression {
                 BlockExpression.with_child(Span::new(10, 25), SyntaxId(8)),
                 ValueParameters.empty(Span::new(18, 20)),
                 FunctionSignature.with_child(Span::new(18, 20), SyntaxId(5)),
-                FunctionExpression.with_binary_children(Span::new(18, 23), SyntaxId(6), SyntaxId(7)),
+                FunctionExpression.with_binary_children(
+                    Span::new(18, 23),
+                    SyntaxId(6),
+                    SyntaxId(7)
+                ),
                 BlockExpression.empty(Span::new(21, 23)),
             ]
         );
@@ -604,6 +643,7 @@ mod unary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -635,6 +675,7 @@ mod unary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -668,6 +709,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -680,11 +722,19 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 23), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 23),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 23), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                AdditionExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(9)),
+                AdditionExpression.with_binary_children(
+                    Span::new(16, 21),
+                    SyntaxId(6),
+                    SyntaxId(9)
+                ),
                 PathSegment.empty(Span::new(20, 21)),
                 Path.with_child(Span::new(20, 21), SyntaxId(7)),
                 PathExpression.with_child(Span::new(20, 21), SyntaxId(8)),
@@ -701,6 +751,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -713,11 +764,19 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 23), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 23),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 23), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                SubtractionExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(9)),
+                SubtractionExpression.with_binary_children(
+                    Span::new(16, 21),
+                    SyntaxId(6),
+                    SyntaxId(9)
+                ),
                 PathSegment.empty(Span::new(20, 21)),
                 Path.with_child(Span::new(20, 21), SyntaxId(7)),
                 PathExpression.with_child(Span::new(20, 21), SyntaxId(8)),
@@ -734,6 +793,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -746,11 +806,19 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 23), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 23),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 23), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                MultiplicationExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(9)),
+                MultiplicationExpression.with_binary_children(
+                    Span::new(16, 21),
+                    SyntaxId(6),
+                    SyntaxId(9)
+                ),
                 PathSegment.empty(Span::new(20, 21)),
                 Path.with_child(Span::new(20, 21), SyntaxId(7)),
                 PathExpression.with_child(Span::new(20, 21), SyntaxId(8)),
@@ -764,6 +832,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -776,11 +845,19 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 23), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 23),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 23), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                DivisionExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(9)),
+                DivisionExpression.with_binary_children(
+                    Span::new(16, 21),
+                    SyntaxId(6),
+                    SyntaxId(9)
+                ),
                 PathSegment.empty(Span::new(20, 21)),
                 Path.with_child(Span::new(20, 21), SyntaxId(7)),
                 PathExpression.with_child(Span::new(20, 21), SyntaxId(8)),
@@ -794,6 +871,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -806,7 +884,11 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 23), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 23),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 23), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
@@ -824,6 +906,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -836,11 +919,19 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 23), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 23),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 23), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                ExponentExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(9)),
+                ExponentExpression.with_binary_children(
+                    Span::new(16, 21),
+                    SyntaxId(6),
+                    SyntaxId(9)
+                ),
                 PathSegment.empty(Span::new(20, 21)),
                 Path.with_child(Span::new(20, 21), SyntaxId(7)),
                 PathExpression.with_child(Span::new(20, 21), SyntaxId(8)),
@@ -854,6 +945,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -866,7 +958,11 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 24), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 24),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 24), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
@@ -884,6 +980,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -896,11 +993,19 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 24), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 24),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 24), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                NotEqualExpression.with_binary_children(Span::new(16, 22), SyntaxId(6), SyntaxId(9)),
+                NotEqualExpression.with_binary_children(
+                    Span::new(16, 22),
+                    SyntaxId(6),
+                    SyntaxId(9)
+                ),
                 PathSegment.empty(Span::new(21, 22)),
                 Path.with_child(Span::new(21, 22), SyntaxId(7)),
                 PathExpression.with_child(Span::new(21, 22), SyntaxId(8)),
@@ -914,6 +1019,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -926,11 +1032,19 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 23), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 23),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 23), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                LessThanExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(9)),
+                LessThanExpression.with_binary_children(
+                    Span::new(16, 21),
+                    SyntaxId(6),
+                    SyntaxId(9)
+                ),
                 PathSegment.empty(Span::new(20, 21)),
                 Path.with_child(Span::new(20, 21), SyntaxId(7)),
                 PathExpression.with_child(Span::new(20, 21), SyntaxId(8)),
@@ -947,6 +1061,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -959,11 +1074,19 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 24), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 24),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 24), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                LessThanOrEqualExpression.with_binary_children(Span::new(16, 22), SyntaxId(6), SyntaxId(9)),
+                LessThanOrEqualExpression.with_binary_children(
+                    Span::new(16, 22),
+                    SyntaxId(6),
+                    SyntaxId(9)
+                ),
                 PathSegment.empty(Span::new(21, 22)),
                 Path.with_child(Span::new(21, 22), SyntaxId(7)),
                 PathExpression.with_child(Span::new(21, 22), SyntaxId(8)),
@@ -980,6 +1103,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -992,11 +1116,19 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 23), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 23),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 23), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                GreaterThanExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(9)),
+                GreaterThanExpression.with_binary_children(
+                    Span::new(16, 21),
+                    SyntaxId(6),
+                    SyntaxId(9)
+                ),
                 PathSegment.empty(Span::new(20, 21)),
                 Path.with_child(Span::new(20, 21), SyntaxId(7)),
                 PathExpression.with_child(Span::new(20, 21), SyntaxId(8)),
@@ -1013,6 +1145,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -1025,11 +1158,19 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 24), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 24),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 24), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
-                GreaterThanOrEqualExpression.with_binary_children(Span::new(16, 22), SyntaxId(6), SyntaxId(9)),
+                GreaterThanOrEqualExpression.with_binary_children(
+                    Span::new(16, 22),
+                    SyntaxId(6),
+                    SyntaxId(9)
+                ),
                 PathSegment.empty(Span::new(21, 22)),
                 Path.with_child(Span::new(21, 22), SyntaxId(7)),
                 PathExpression.with_child(Span::new(21, 22), SyntaxId(8)),
@@ -1046,6 +1187,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -1058,7 +1200,11 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 24), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 24),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 24), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
@@ -1079,6 +1225,7 @@ mod binary_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -1091,7 +1238,11 @@ mod binary_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 24), SyntaxId(4), SyntaxId(11)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 24),
+                    SyntaxId(4),
+                    SyntaxId(11)
+                ),
                 BlockExpression.with_child(Span::new(10, 24), SyntaxId(10)),
                 PathSegment.empty(Span::new(16, 17)),
                 Path.with_child(Span::new(16, 17), SyntaxId(5)),
@@ -1110,6 +1261,7 @@ fn grouped_expression() {
     let ParseResult {
         syntax_tree,
         errors,
+        ..
     } = parser.parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
@@ -1145,6 +1297,7 @@ mod block_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -1170,6 +1323,7 @@ mod block_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -1182,7 +1336,11 @@ mod block_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 33), SyntaxId(4), SyntaxId(13)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 33),
+                    SyntaxId(4),
+                    SyntaxId(13)
+                ),
                 BlockExpression.with_child(Span::new(10, 33), SyntaxId(12)),
                 BlockExpression.with_child(Span::new(16, 31), SyntaxId(11)),
                 FunctionItem.with_binary_children(Span::new(18, 30), SyntaxId(6), SyntaxId(10)),
@@ -1190,7 +1348,11 @@ mod block_expression {
                 Path.with_child(Span::new(21, 24), SyntaxId(5)),
                 ValueParameters.empty(Span::new(24, 26)),
                 FunctionSignature.with_child(Span::new(24, 26), SyntaxId(7)),
-                FunctionExpression.with_binary_children(Span::new(24, 29), SyntaxId(8), SyntaxId(9)),
+                FunctionExpression.with_binary_children(
+                    Span::new(24, 29),
+                    SyntaxId(8),
+                    SyntaxId(9)
+                ),
                 BlockExpression.empty(Span::new(27, 29)),
             ]
         );
@@ -1202,6 +1364,7 @@ mod block_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -1214,7 +1377,11 @@ mod block_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 33), SyntaxId(4), SyntaxId(10)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 33),
+                    SyntaxId(4),
+                    SyntaxId(10)
+                ),
                 BlockExpression.with_child(Span::new(10, 33), SyntaxId(9)),
                 BlockExpression.with_child(Span::new(16, 31), SyntaxId(8)),
                 LetStatement.with_binary_children(Span::new(18, 29), SyntaxId(6), SyntaxId(7)),
@@ -1234,6 +1401,7 @@ mod block_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -1246,12 +1414,20 @@ mod block_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 27), SyntaxId(4), SyntaxId(12)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 27),
+                    SyntaxId(4),
+                    SyntaxId(12)
+                ),
                 BlockExpression.with_child(Span::new(10, 27), SyntaxId(11)),
                 BlockExpression.with_child(Span::new(16, 25), SyntaxId(10)),
                 PathSegment.empty(Span::new(18, 19)),
                 Path.with_child(Span::new(18, 19), SyntaxId(5)),
-                AdditionExpression.with_binary_children(Span::new(18, 23), SyntaxId(6), SyntaxId(9)),
+                AdditionExpression.with_binary_children(
+                    Span::new(18, 23),
+                    SyntaxId(6),
+                    SyntaxId(9)
+                ),
                 PathSegment.empty(Span::new(22, 23)),
                 Path.with_child(Span::new(22, 23), SyntaxId(7)),
                 PathExpression.with_child(Span::new(22, 23), SyntaxId(8)),
@@ -1265,6 +1441,7 @@ mod block_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -1277,7 +1454,11 @@ mod block_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 51), SyntaxId(4), SyntaxId(23)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 51),
+                    SyntaxId(4),
+                    SyntaxId(23)
+                ),
                 BlockExpression.with_child(Span::new(10, 51), SyntaxId(22)),
                 BlockExpression.with_multiple_children(Span::new(16, 49), 0, 3),
                 FunctionItem.with_binary_children(Span::new(18, 30), SyntaxId(6), SyntaxId(10)),
@@ -1285,7 +1466,11 @@ mod block_expression {
                 Path.with_child(Span::new(21, 24), SyntaxId(5)),
                 ValueParameters.empty(Span::new(24, 26)),
                 FunctionSignature.with_child(Span::new(24, 26), SyntaxId(7)),
-                FunctionExpression.with_binary_children(Span::new(24, 29), SyntaxId(8), SyntaxId(9)),
+                FunctionExpression.with_binary_children(
+                    Span::new(24, 29),
+                    SyntaxId(8),
+                    SyntaxId(9)
+                ),
                 BlockExpression.empty(Span::new(27, 29)),
                 LetStatement.with_binary_children(Span::new(30, 41), SyntaxId(13), SyntaxId(14)),
                 PathSegment.empty(Span::new(34, 35)),
@@ -1293,7 +1478,11 @@ mod block_expression {
                 IntegerExpression.with_value(Span::new(38, 40), SyntaxPayload::encode_integer(42)),
                 PathSegment.empty(Span::new(42, 43)),
                 Path.with_child(Span::new(42, 43), SyntaxId(16)),
-                AdditionExpression.with_binary_children(Span::new(42, 47), SyntaxId(17), SyntaxId(20)),
+                AdditionExpression.with_binary_children(
+                    Span::new(42, 47),
+                    SyntaxId(17),
+                    SyntaxId(20)
+                ),
                 PathSegment.empty(Span::new(46, 47)),
                 Path.with_child(Span::new(46, 47), SyntaxId(18)),
                 PathExpression.with_child(Span::new(46, 47), SyntaxId(19)),
@@ -1312,6 +1501,7 @@ mod if_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -1324,7 +1514,11 @@ mod if_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 40), SyntaxId(4), SyntaxId(16)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 40),
+                    SyntaxId(4),
+                    SyntaxId(16)
+                ),
                 BlockExpression.with_child(Span::new(10, 40), SyntaxId(15)),
                 IfExpression.with_binary_children(Span::new(16, 38), SyntaxId(7), SyntaxId(14)),
                 PathSegment.empty(Span::new(19, 28)),
@@ -1333,7 +1527,11 @@ mod if_expression {
                 BlockExpression.with_child(Span::new(29, 38), SyntaxId(13)),
                 PathSegment.empty(Span::new(31, 32)),
                 Path.with_child(Span::new(31, 32), SyntaxId(8)),
-                AdditionExpression.with_binary_children(Span::new(31, 36), SyntaxId(9), SyntaxId(12)),
+                AdditionExpression.with_binary_children(
+                    Span::new(31, 36),
+                    SyntaxId(9),
+                    SyntaxId(12)
+                ),
                 PathSegment.empty(Span::new(35, 36)),
                 Path.with_child(Span::new(35, 36), SyntaxId(10)),
                 PathExpression.with_child(Span::new(35, 36), SyntaxId(11)),
@@ -1347,6 +1545,7 @@ mod if_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -1359,7 +1558,11 @@ mod if_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 55), SyntaxId(4), SyntaxId(24)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 55),
+                    SyntaxId(4),
+                    SyntaxId(24)
+                ),
                 BlockExpression.with_child(Span::new(10, 55), SyntaxId(23)),
                 IfExpression.with_multiple_children(Span::new(16, 53), 0, 3),
                 PathSegment.empty(Span::new(19, 28)),
@@ -1368,7 +1571,11 @@ mod if_expression {
                 BlockExpression.with_child(Span::new(29, 38), SyntaxId(13)),
                 PathSegment.empty(Span::new(31, 32)),
                 Path.with_child(Span::new(31, 32), SyntaxId(8)),
-                AdditionExpression.with_binary_children(Span::new(31, 36), SyntaxId(9), SyntaxId(12)),
+                AdditionExpression.with_binary_children(
+                    Span::new(31, 36),
+                    SyntaxId(9),
+                    SyntaxId(12)
+                ),
                 PathSegment.empty(Span::new(35, 36)),
                 Path.with_child(Span::new(35, 36), SyntaxId(10)),
                 PathExpression.with_child(Span::new(35, 36), SyntaxId(11)),
@@ -1376,7 +1583,11 @@ mod if_expression {
                 BlockExpression.with_child(Span::new(44, 53), SyntaxId(20)),
                 PathSegment.empty(Span::new(46, 47)),
                 Path.with_child(Span::new(46, 47), SyntaxId(15)),
-                SubtractionExpression.with_binary_children(Span::new(46, 51), SyntaxId(16), SyntaxId(19)),
+                SubtractionExpression.with_binary_children(
+                    Span::new(46, 51),
+                    SyntaxId(16),
+                    SyntaxId(19)
+                ),
                 PathSegment.empty(Span::new(50, 51)),
                 Path.with_child(Span::new(50, 51), SyntaxId(17)),
                 PathExpression.with_child(Span::new(50, 51), SyntaxId(18)),
@@ -1393,6 +1604,7 @@ mod if_expression {
         let ParseResult {
             syntax_tree,
             errors,
+            ..
         } = parser.parse();
 
         assert!(errors.is_empty(), "{errors:#?}");
@@ -1405,7 +1617,11 @@ mod if_expression {
                 Path.with_child(Span::new(3, 7), SyntaxId(1)),
                 ValueParameters.empty(Span::new(7, 9)),
                 FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
-                FunctionExpression.with_binary_children(Span::new(7, 74), SyntaxId(4), SyntaxId(36)),
+                FunctionExpression.with_binary_children(
+                    Span::new(7, 74),
+                    SyntaxId(4),
+                    SyntaxId(36)
+                ),
                 BlockExpression.with_child(Span::new(10, 74), SyntaxId(35)),
                 IfExpression.with_multiple_children(Span::new(16, 72), 3, 3),
                 PathSegment.empty(Span::new(19, 23)),
@@ -1414,7 +1630,11 @@ mod if_expression {
                 BlockExpression.with_child(Span::new(24, 33), SyntaxId(13)),
                 PathSegment.empty(Span::new(26, 27)),
                 Path.with_child(Span::new(26, 27), SyntaxId(8)),
-                AdditionExpression.with_binary_children(Span::new(26, 31), SyntaxId(9), SyntaxId(12)),
+                AdditionExpression.with_binary_children(
+                    Span::new(26, 31),
+                    SyntaxId(9),
+                    SyntaxId(12)
+                ),
                 PathSegment.empty(Span::new(30, 31)),
                 Path.with_child(Span::new(30, 31), SyntaxId(10)),
                 PathExpression.with_child(Span::new(30, 31), SyntaxId(11)),
@@ -1426,7 +1646,11 @@ mod if_expression {
                 BlockExpression.with_child(Span::new(48, 57), SyntaxId(23)),
                 PathSegment.empty(Span::new(50, 51)),
                 Path.with_child(Span::new(50, 51), SyntaxId(18)),
-                SubtractionExpression.with_binary_children(Span::new(50, 55), SyntaxId(19), SyntaxId(22)),
+                SubtractionExpression.with_binary_children(
+                    Span::new(50, 55),
+                    SyntaxId(19),
+                    SyntaxId(22)
+                ),
                 PathSegment.empty(Span::new(54, 55)),
                 Path.with_child(Span::new(54, 55), SyntaxId(20)),
                 PathExpression.with_child(Span::new(54, 55), SyntaxId(21)),
@@ -1434,7 +1658,11 @@ mod if_expression {
                 BlockExpression.with_child(Span::new(63, 72), SyntaxId(30)),
                 PathSegment.empty(Span::new(65, 66)),
                 Path.with_child(Span::new(65, 66), SyntaxId(25)),
-                MultiplicationExpression.with_binary_children(Span::new(65, 70), SyntaxId(26), SyntaxId(29)),
+                MultiplicationExpression.with_binary_children(
+                    Span::new(65, 70),
+                    SyntaxId(26),
+                    SyntaxId(29)
+                ),
                 PathSegment.empty(Span::new(69, 70)),
                 Path.with_child(Span::new(69, 70), SyntaxId(27)),
                 PathExpression.with_child(Span::new(69, 70), SyntaxId(28)),

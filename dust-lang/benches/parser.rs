@@ -23,10 +23,8 @@ fn foobar_foobar_foobar() {
 }";
 
 fn parse_bench(source: &[u8]) {
-    let ParseResult {
-        syntax_tree: _,
-        errors,
-    } = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(source)).parse();
+    let ParseResult { errors, .. } =
+        Parser::new(SourceFileId::MAIN, Lexer::from_bytes(source)).parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
 }

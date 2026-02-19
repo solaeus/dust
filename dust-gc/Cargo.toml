@@ -9,5 +9,5 @@ edition.workspace = true
 
 [dependencies]
 crossbeam-epoch = "0.9.18"
-memmap2 = "0.9.9"
+memmap2 = "0.9.10"
 parking_lot = "0.12.5"

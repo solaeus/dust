@@ -686,13 +686,11 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
                 b"ell" => Some(TokenKind::Cell),
                 _ => None,
             },
-            b'e' => {
-                if &token[1..4] == b"lse" {
-                    Some(TokenKind::Else)
-                } else {
-                    None
-                }
-            }
+            b'e' => match &token[1..4] {
+                b"lse" => Some(TokenKind::Else),
+                b"num" => Some(TokenKind::Enum),
+                _ => None,
+            },
             b'l' => match &token[1..4] {
                 b"oop" => Some(TokenKind::Loop),
                 _ => None,

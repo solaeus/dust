@@ -260,6 +260,7 @@ fn keywords() {
         ("char", TokenKind::Char),
         ("const", TokenKind::Const),
         ("else", TokenKind::Else),
+        ("enum", TokenKind::Enum),
         ("float", TokenKind::Float),
         ("fn", TokenKind::Fn),
         ("if", TokenKind::If),

@@ -217,6 +217,12 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
+            TokenKind::Enum => ParseRule {
+                prefix: Some(Parser::parse_prefix_enum_keyword),
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
             TokenKind::FloatValue => ParseRule {
                 prefix: Some(Parser::parse_prefix_float),
                 infix: None,
