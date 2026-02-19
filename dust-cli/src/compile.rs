@@ -1,17 +1,30 @@
-use std::{path::PathBuf, time::Instant};
+use std::time::Instant;
 
 use dust_lang::{compiler::Compiler, disassembler::Disassembler};
 
-use crate::{handle_source, print_times};
+use crate::{
+    cli::{CompileCommand, GlobalOptions, InputOptions, OutputOptions},
+    handle_source, print_times,
+};
 
-pub fn handle_compile_command(
-    eval: Option<String>,
-    path: Option<PathBuf>,
-    no_tui: bool,
-    no_output: bool,
-    time: bool,
-    start_time: Instant,
-) {
+pub fn handle_compile_command(command: CompileCommand, start_time: Instant) {
+    let CompileCommand {
+        global: GlobalOptions { log, time, name },
+        input: InputOptions {
+            mut eval,
+            stdin,
+            path,
+        },
+        output:
+            OutputOptions {
+                no_output,
+                ron,
+                pretty_ron,
+                postcard,
+            },
+        tui,
+    } = command;
+
     let source = handle_source(&eval, path, false);
     let compiler = Compiler::new(source);
     let compile_result = compiler.compile_with_extras(None);
@@ -28,12 +41,12 @@ pub fn handle_compile_command(
     };
 
     if !no_output {
-        if no_tui {
-            println!("{program:#?}");
-        } else {
+        if tui {
             let disassembler = Disassembler::new(&program, &source, &syntax, &resolver);
 
             disassembler.disassemble().unwrap();
+        } else {
+            println!("{program:#?}");
         }
     }
 

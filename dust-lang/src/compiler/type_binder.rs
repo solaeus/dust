@@ -21,6 +21,8 @@ pub struct TypeBinder<'a> {
     syntax: &'a Syntax,
 
     resolver: &'a mut Resolver,
+
+    errors: &'a mut Vec<CompileError>,
 }
 
 impl<'a> TypeBinder<'a> {
@@ -29,12 +31,14 @@ impl<'a> TypeBinder<'a> {
         source: &'a Source,
         syntax: &'a Syntax,
         resolver: &'a mut Resolver,
+        errors: &'a mut Vec<CompileError>,
     ) -> Self {
         Self {
             source,
             file_id,
             syntax,
             resolver,
+            errors,
         }
     }
 
@@ -181,12 +185,19 @@ impl SyntaxVisitor for TypeBinder<'_> {
         if let Some(type_notation) = type_notation {
             let explicit_type = self.visit_type(type_notation)?;
 
-            self.resolver.unify_types(
+            match self.resolver.unify_types(
                 explicit_type,
                 Some(type_notation),
                 expression_type_id,
                 expression,
-            )?;
+            ) {
+                Ok(()) => {}
+                Err(error) => {
+                    self.errors.push(error);
+
+                    return Ok(());
+                }
+            }
         }
 
         let declaration_id = *self.resolver.get_declaration_binding(&path.id)?;
@@ -194,7 +205,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
         self.resolver
             .add_type_binding(expression.id, expression_type_id);
         self.resolver.add_type_binding(node.id, TypeId::NONE);
-
         self.resolver
             .declarations
             .set_declaration_type(declaration_id, expression_type_id);
@@ -241,7 +251,14 @@ impl SyntaxVisitor for TypeBinder<'_> {
             return Ok(());
         }
 
-        unified?;
+        match unified {
+            Ok(()) => {}
+            Err(error) => {
+                self.errors.push(error);
+
+                return Ok(());
+            }
+        }
 
         Ok(())
     }

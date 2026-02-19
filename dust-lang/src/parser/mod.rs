@@ -6,7 +6,12 @@ mod tests;
 
 pub use error::ParseError;
 
-use std::mem::replace;
+use std::{
+    fs::File,
+    mem::replace,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use lexical_core::{
     ParseFloatOptions, ParseIntegerOptions, format::RUST_LITERAL, parse_with_options,
@@ -25,7 +30,7 @@ use crate::{
 
 pub fn parse<'src>(source_code: &'src str) -> (SyntaxTree, Option<DustError<'src>>) {
     let mut source = Source::new();
-    let file = SourceFile::embedded_validated("parse", source_code);
+    let file = SourceFile::validated("parse", source_code);
     let file_id = source.add_file(file);
     let file_str = source.get_file(file_id).content_as_str();
 
@@ -280,7 +285,7 @@ impl<'src> Parser<'src> {
         self.advance();
 
         match self.current_token.kind {
-            TokenKind::Use => self.parse_prefix_use_item(),
+            TokenKind::Use => self.parse_prefix_use_keyword(),
             TokenKind::Mod => self.parse_prefix_mod_keyword(),
             TokenKind::Fn => self.parse_prefix_fn_keyword(),
             _ => Err(ParseError::ExpectedMultipleTokens {
@@ -300,6 +305,26 @@ impl<'src> Parser<'src> {
         } else {
             (self.current_token.span.start(), SyntaxKind::ModuleItem)
         };
+
+        self.advance();
+
+        let module_name_node = self.parse_path()?;
+        let module_name_id = self.syntax_tree.push(module_name_node);
+
+        if self.allow(TokenKind::Semicolon)? {
+            // The path is already parsed and would have returned an error if it contained non-UTF-8.
+            let file_name_str = unsafe {
+                str::from_utf8_unchecked(&self.source()[module_name_node.span.as_usize_range()])
+            };
+            let file_path = PathBuf::from_str(file_name_str).unwrap();
+
+            return Ok(SyntaxNode::with_child(
+                module_kind,
+                Span::new(start, self.previous_token.span.end()),
+                module_name_id,
+            ));
+        }
+
         let mut children = Self::new_child_buffer();
 
         while !self.is_eof() {
@@ -322,7 +347,7 @@ impl<'src> Parser<'src> {
         Ok(module_node)
     }
 
-    fn parse_prefix_use_item(&mut self) -> Result<SyntaxNode, ParseError> {
+    fn parse_prefix_use_keyword(&mut self) -> Result<SyntaxNode, ParseError> {
         let start = self.current_token.span.start();
 
         self.advance();
@@ -330,15 +355,13 @@ impl<'src> Parser<'src> {
         let path_node = self.parse_path()?;
         let path_id = self.syntax_tree.push(path_node);
 
-        self.allow(TokenKind::Semicolon)?;
+        self.expect(TokenKind::Semicolon)?;
 
-        let use_node = SyntaxNode::with_child(
+        Ok(SyntaxNode::with_child(
             SyntaxKind::UseItem,
             Span::new(start, self.previous_token.span.end()),
             path_id,
-        );
-
-        Ok(use_node)
+        ))
     }
 
     fn parse_prefix_struct_keyword(&mut self) -> Result<SyntaxNode, ParseError> {

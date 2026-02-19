@@ -43,68 +43,50 @@ fn main() {
     let start_time = Instant::now();
     let Cli {
         command,
+        global,
         input,
-        log,
-        time,
-        no_output,
-        name: _,
-        min_heap: _,
-        min_sweep: _,
+        output,
     } = Cli::parse();
-    let command = command.unwrap_or(Command::Run(input));
+    // let command = command.unwrap_or(Command::Run(input));
 
-    if let Some(log_level) = log {
-        start_logging(log_level, start_time);
-    }
-
-    if let Command::Run(InputOptions {
-        mut eval,
-        stdin,
-        path,
-    }) = command
-    {
-        handle_eval(&mut eval);
+    if let Some(Command::Run(mut run_input)) = command {
+        run_input.join(input);
         // handle_run_command(eval, path, no_output, time, start_time);
 
         return;
     }
 
-    if let Command::Parse(command) = command {
+    if let Some(Command::Parse(mut command)) = command {
+        command.global.join(global);
+        command.input.join(input);
+        command.output.join(output);
+
         handle_parse_command(command, start_time);
 
         return;
     }
 
-    if let Command::Compile(CompileCommand {
-        input: InputOptions {
-            mut eval,
-            stdin,
-            path,
-        },
-        no_output,
-        time,
-        no_tui,
-    }) = command
-    {
-        handle_eval(&mut eval);
-        handle_compile_command(eval, path, no_tui, no_output, time, start_time);
+    if let Some(Command::Compile(mut command)) = command {
+        command.global.join(global);
+        command.input.join(input);
+        command.output.join(output);
+
+        handle_compile_command(command, start_time);
 
         return;
     }
 
-    if let Command::Tokenize(InputOptions {
-        mut eval,
-        stdin,
-        path,
-    }) = command
-    {
-        handle_eval(&mut eval);
-        handle_tokenize_command(eval, path, stdin, no_output, time, start_time);
+    if let Some(Command::Tokenize(mut command)) = command {
+        command.global.join(global);
+        command.input.join(input);
+        command.output.join(output);
+
+        handle_tokenize_command(command, start_time);
 
         return;
     }
 
-    if let Command::Init(InputOptions { path, .. }) = command {
+    if let Some(Command::Init(InputOptions { path, .. })) = command {
         let path = path.unwrap_or_else(|| PathBuf::from("."));
 
         if !path.exists() {
@@ -214,12 +196,6 @@ fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
     }
 }
 
-fn handle_eval(input: &mut Option<String>) {
-    if let Some(eval) = input {
-        *eval = format!("fn main() -> any {{\n    {eval}\n}}");
-    }
-}
-
 fn handle_source<'src>(
     eval: &'src Option<String>,
     path: Option<PathBuf>,
@@ -227,8 +203,9 @@ fn handle_source<'src>(
 ) -> Source<'src> {
     let mut source = Source::new();
 
-    if let Some(source_string) = eval {
-        let file = SourceFile::embedded_validated("CLI Input", source_string);
+    if let Some(input) = eval {
+        let eval_program = format!("fn main() -> any {{\n    {input}\n}}");
+        let file = SourceFile::validated_owned("CLI Input", eval_program);
 
         source.add_file(file);
     }
@@ -259,10 +236,7 @@ fn handle_source<'src>(
             } else {
                 path.join("src").join("main.ds")
             };
-            let main_file = File::open(&main_file_path).expect("Failed to open main source file");
-            let mmap = unsafe { MmapOptions::new().map(&main_file) }
-                .expect("Failed to memory map main source file");
-            let file = SourceFile::file(main_file_path, mmap).unwrap_or_else(|error| {
+            let file = SourceFile::file(main_file_path).unwrap_or_else(|error| {
                 panic!("Failed to create source file for main source file: {error}")
             });
 
@@ -271,19 +245,13 @@ fn handle_source<'src>(
             let lib_file_path = path.join("src").join("lib.ds");
 
             if lib_file_path.exists() {
-                let lib_file = File::open(&lib_file_path)
-                    .expect("Failed to open library source file from project config");
-                let mmap = unsafe { MmapOptions::new().map(&lib_file) }
-                    .expect("Failed to memory map library source file");
                 let file =
-                    SourceFile::file(lib_file_path, mmap).unwrap_or_else(|error| panic!("{error}"));
+                    SourceFile::file(lib_file_path).unwrap_or_else(|error| panic!("{error}"));
 
                 source.add_file(file);
             }
         } else {
-            let file = File::open(&path).expect("Failed to open file");
-            let mmap = unsafe { MmapOptions::new().map(&file).expect("Failed to map file") };
-            let file = SourceFile::file(path, mmap).unwrap_or_else(|error| panic!("{error}"));
+            let file = SourceFile::file(path).unwrap_or_else(|error| panic!("{error}"));
 
             source.add_file(file);
         }
@@ -296,7 +264,7 @@ fn handle_source<'src>(
             .read_to_end(&mut buffer)
             .expect("Failed to read from stdin");
 
-        let file = SourceFile::embedded_owned("stdin", buffer);
+        let file = SourceFile::non_validated_owned("stdin", buffer);
 
         source.add_file(file);
     }

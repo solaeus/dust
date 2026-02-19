@@ -27,8 +27,18 @@ pub struct Cli {
     pub command: Option<Command>,
 
     #[command(flatten)]
+    pub global: GlobalOptions,
+
+    #[command(flatten)]
     pub input: InputOptions,
 
+    #[command(flatten)]
+    pub output: OutputOptions,
+}
+
+#[derive(Args)]
+#[group(multiple = true)]
+pub struct GlobalOptions {
     /// Set the log level
     #[arg(short, long, value_name = "LEVEL", env = "DUST_LOG")]
     pub log: Option<LevelFilter>,
@@ -37,44 +47,40 @@ pub struct Cli {
     #[arg(short, long)]
     pub time: bool,
 
-    /// Disable all output
-    #[arg(long)]
-    pub no_output: bool,
-
     /// Custom program name, overrides the file name
     #[arg(short, long)]
     pub name: Option<String>,
+}
 
-    /// Minimum heap size at which garbage collection is triggered
-    #[arg(long, value_name = "BYTES", requires = "min_sweep")]
-    pub min_heap: Option<usize>,
-
-    /// Minimum bytes allocated between garbage collections
-    #[arg(long, value_name = "BYTES", requires = "min_heap")]
-    pub min_sweep: Option<usize>,
+impl GlobalOptions {
+    pub fn join(&mut self, other: GlobalOptions) {
+        self.log = self.log.take().or(other.log);
+        self.time = self.time || other.time;
+        self.name = self.name.take().or(other.name);
+    }
 }
 
 #[derive(Subcommand)]
 pub enum Command {
+    /// Initialize a new Dust project
+    #[command(alias = "i")]
+    Init(InputOptions),
+
+    /// Lex the source code and print the tokens
+    #[command(alias = "t")]
+    Tokenize(TokenizeCommand),
+
     /// Parse the source code and print the syntax tree
     #[command(alias = "p")]
     Parse(ParseCommand),
-
-    /// Run a program (default)
-    #[command(alias = "r")]
-    Run(InputOptions),
 
     /// Compile and output the compiled program
     #[command(alias = "c")]
     Compile(CompileCommand),
 
-    /// Lex the source code and print the tokens
-    #[command(alias = "t")]
-    Tokenize(InputOptions),
-
-    /// Initialize a new Dust project
-    #[command(alias = "i")]
-    Init(InputOptions),
+    /// Run a program (default)
+    #[command(alias = "r")]
+    Run(InputOptions),
 }
 
 #[derive(Args)]
@@ -92,80 +98,83 @@ pub struct InputOptions {
     pub path: Option<PathBuf>,
 }
 
+impl InputOptions {
+    pub fn join(&mut self, other: InputOptions) {
+        self.eval = self.eval.take().or(other.eval);
+        self.stdin = self.stdin || other.stdin;
+        self.path = self.path.take().or(other.path);
+    }
+}
+
 #[derive(Args)]
 #[group(multiple = true)]
 pub struct OutputOptions {
     /// Disable all output
-    #[arg(short, long)]
+    #[arg(long)]
     pub no_output: bool,
 
-    /// Display the time taken for each operation
-    #[arg(short, long)]
-    pub time: bool,
-}
-
-#[derive(Args)]
-#[group(multiple = false)]
-pub struct FormatOptions {
-    /// Rust's debug format
-    #[arg(long, group = "format")]
-    pub debug: bool,
-
-    /// Rust's pretty debug format
-    #[arg(long, group = "format")]
-    pub pretty_debug: bool,
-
-    /// Rusty Object Notation
+    /// Print output in Rusty Object Notation
     #[arg(long, group = "format")]
     pub ron: bool,
 
-    /// Pretty Rusty Object Notation
+    /// Print output in pretty Rusty Object Notation
     #[arg(long, group = "format")]
     pub pretty_ron: bool,
 
-    /// JavaScript Object Notation
-    #[arg(long, group = "format")]
-    pub json: bool,
-
-    /// Pretty JavaScript Object Notation
-    #[arg(long, group = "format")]
-    pub pretty_json: bool,
-
-    /// An efficient binary format, output in raw bytes
+    /// Print output in Postcard binary format
     #[arg(long, group = "format")]
     pub postcard: bool,
 }
 
+impl OutputOptions {
+    pub fn join(&mut self, other: OutputOptions) {
+        self.no_output = self.no_output || other.no_output;
+        self.ron = self.ron || other.ron;
+        self.pretty_ron = self.pretty_ron || other.pretty_ron;
+        self.postcard = self.postcard || other.postcard;
+    }
+}
+
+#[derive(Args)]
+pub struct TokenizeCommand {
+    #[command(flatten)]
+    pub global: GlobalOptions,
+
+    #[command(flatten)]
+    pub input: InputOptions,
+
+    #[command(flatten)]
+    pub output: OutputOptions,
+}
+
 #[derive(Args)]
 pub struct ParseCommand {
+    #[command(flatten)]
+    pub global: GlobalOptions,
+
     #[command(flatten)]
     pub input: InputOptions,
 
     #[command(flatten)]
     pub output: OutputOptions,
 
-    #[arg(long, default_value = "true", group = "format")]
     /// Print syntax trees as human-readable structured text trees (default: true)
+    #[arg(long, default_value = "true", group = "format")]
     pub trees: bool,
-
-    #[command(flatten)]
-    pub format: FormatOptions,
 }
 
 #[derive(Args)]
 pub struct CompileCommand {
     #[command(flatten)]
+    pub global: GlobalOptions,
+
+    #[command(flatten)]
     pub input: InputOptions,
 
-    /// Disable all output
-    #[arg(short, long)]
-    pub no_output: bool,
+    #[command(flatten)]
+    pub output: OutputOptions,
 
-    /// Display the time taken for each operation
-    #[arg(short, long)]
-    pub time: bool,
-
-    /// Disable the TUI and print the compiled program to stdout instead
-    #[arg(long)]
-    pub no_tui: bool,
+    /// Launch the TUI disassembler instead of printing the compiled program to stdout (default: true)
+    #[arg(long, default_value = "true", group = "format")]
+    pub tui: bool,
 }

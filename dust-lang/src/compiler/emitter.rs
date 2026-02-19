@@ -1253,10 +1253,9 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Visting let statement");
 
-        let mut children = node.expect_multiple_children()?;
+        let mut children = node.children();
         let path = children.expect_next()?;
-        let expression_statement = children.expect_next()?;
-        let expression = expression_statement.expect_left_child()?;
+        let expression = children.expect_next()?;
 
         let type_id = *self.resolver.get_type_binding(&expression.id)?;
 
@@ -1686,7 +1685,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting block expression");
 
-        let children = node.expect_multiple_children()?;
+        let children = node.children();
 
         let block_scope_id = *self.resolver.get_scope_binding(&node.id)?;
         let parent_scope_id = self.current_scope_id;
@@ -1698,7 +1697,7 @@ impl SyntaxVisitor for Emitter<'_> {
         let child_count = children.len();
         let mut block_emission = InstructionsEmission::new();
 
-        for (index, child) in children.into_iter().enumerate() {
+        for (index, child) in children.enumerate() {
             let is_last = index == child_count - 1;
             let child_emission = if child.is_item() {
                 self.visit_item(child)?;

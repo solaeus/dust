@@ -1,6 +1,8 @@
 use core::panic;
 use std::{
     fmt::{self, Display, Formatter},
+    fs::File,
+    io,
     ops::Range,
     path::{Path, PathBuf},
 };
@@ -66,7 +68,7 @@ impl<'src> Source<'src> {
         }
     }
 
-    pub fn iter(&self) -> SourceIterator<'_> {
+    pub fn files_iter(&self) -> SourceIterator<'_> {
         SourceIterator::new(self)
     }
 }
@@ -105,6 +107,11 @@ pub enum SourceFile<'src> {
         mmap: Mmap,
         utf8_validated: bool,
     },
+    FileLinked {
+        path: &'src Path,
+        mmap: Mmap,
+        utf8_validated: bool,
+    },
 }
 
 impl<'src> SourceFile<'src> {
@@ -116,7 +123,7 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn embedded(path: &'src str, content: &'src [u8]) -> Self {
+    pub fn non_validated(path: &'src str, content: &'src [u8]) -> Self {
         SourceFile::Embedded {
             path,
             content,
@@ -124,7 +131,7 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn embedded_validated(path: &'src str, content: &'src str) -> Self {
+    pub fn validated(path: &'src str, content: &'src str) -> Self {
         SourceFile::Embedded {
             path,
             content: content.as_bytes(),
@@ -132,7 +139,7 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn embedded_owned(path: &'src str, content: Vec<u8>) -> Self {
+    pub fn non_validated_owned(path: &'src str, content: Vec<u8>) -> Self {
         SourceFile::EmbeddedOwned {
             path,
             content,
@@ -140,7 +147,15 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn file(path: PathBuf, mmap: Mmap) -> Result<Self, SourceFileError> {
+    pub fn validated_owned(path: &'src str, content: String) -> Self {
+        SourceFile::EmbeddedOwned {
+            path,
+            content: content.into_bytes(),
+            utf8_validated: true,
+        }
+    }
+
+    pub fn file(path: PathBuf) -> Result<Self, SourceFileError> {
         let Ok(path) = path.canonicalize() else {
             error!(
                 "Path does not exist or is invalid for this platform \"{}\"",
@@ -168,7 +183,22 @@ impl<'src> SourceFile<'src> {
             });
         }
 
+        let file = File::open(&path).map_err(|error| SourceFileError::CannotOpen {
+            io_error: error.kind(),
+        })?;
+        let mmap = unsafe { Mmap::map(&file) }.map_err(|error| SourceFileError::CannotOpen {
+            io_error: error.kind(),
+        })?;
+
         Ok(SourceFile::File {
+            path,
+            mmap,
+            utf8_validated: false,
+        })
+    }
+
+    pub fn file_linked(path: &'src Path, mmap: Mmap) -> Result<Self, SourceFileError> {
+        Ok(SourceFile::FileLinked {
             path,
             mmap,
             utf8_validated: false,
@@ -179,6 +209,9 @@ impl<'src> SourceFile<'src> {
         match self {
             Self::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => path,
             Self::File { path, .. } => path.to_str().expect("File path contains invalid UTF-8"),
+            Self::FileLinked { path, .. } => {
+                path.to_str().expect("File path contains invalid UTF-8")
+            }
         }
     }
 
@@ -189,6 +222,10 @@ impl<'src> SourceFile<'src> {
                 .file_name()
                 .and_then(|name| name.to_str())
                 .expect("File name conatins invalid UTF-8"),
+            Self::FileLinked { path, .. } => path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .expect("File name conatins invalid UTF-8"),
         }
     }
 
@@ -196,7 +233,8 @@ impl<'src> SourceFile<'src> {
         match self {
             Self::Embedded { utf8_validated, .. }
             | Self::EmbeddedOwned { utf8_validated, .. }
-            | Self::File { utf8_validated, .. } => *utf8_validated,
+            | Self::File { utf8_validated, .. }
+            | Self::FileLinked { utf8_validated, .. } => *utf8_validated,
         }
     }
 
@@ -224,7 +262,7 @@ impl<'src> SourceFile<'src> {
         match self {
             Self::Embedded { content, .. } => content,
             Self::EmbeddedOwned { content, .. } => content,
-            Self::File { mmap, .. } => mmap,
+            Self::File { mmap, .. } | Self::FileLinked { mmap, .. } => mmap,
         }
     }
 
@@ -281,6 +319,17 @@ impl<'src> SourceFile<'src> {
                 }
             }
             Self::File {
+                path,
+                mmap,
+                utf8_validated,
+            } => {
+                if *utf8_validated {
+                    unsafe { str::from_utf8_unchecked(mmap) }
+                } else {
+                    handle_utf8_validation(path, mmap)
+                }
+            }
+            Self::FileLinked {
                 path,
                 mmap,
                 utf8_validated,
@@ -396,6 +445,12 @@ impl<'a> Iterator for SourceIterator<'a> {
 
         Some((file_id, file))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.source.files.len() - self.position;
+
+        (remaining, Some(remaining))
+    }
 }
 
 impl ExactSizeIterator for SourceIterator<'_> {}
@@ -406,6 +461,7 @@ pub enum SourceFileError {
     ExpectedFilePath { found: String },
     ExpectedUtf8Path { found: String },
     SpanOutOfBounds { span: Span, length: usize },
+    CannotOpen { io_error: io::ErrorKind },
 }
 
 impl Display for SourceFileError {
@@ -426,6 +482,9 @@ impl Display for SourceFileError {
                     f,
                     "The span ({span}) is out of bounds, the file's length is {length}."
                 )
+            }
+            SourceFileError::CannotOpen { io_error } => {
+                write!(f, "Failed to open file: {io_error}")
             }
         }
     }

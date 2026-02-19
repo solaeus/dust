@@ -139,7 +139,7 @@ impl Resolver {
 
     pub fn find_declaration_in_scope(
         &mut self,
-        symbol: SymbolId,
+        symbol_id: SymbolId,
         target_scope_id: ScopeId,
         parent: Option<DeclarationId>,
         is_type_lookup: bool,
@@ -154,7 +154,7 @@ impl Resolver {
 
             if let Some((declaration_id, declaration)) =
                 self.declarations
-                    .find_declaration(symbol, parent, current_scope_id)
+                    .find_declaration(symbol_id, parent, current_scope_id)
             {
                 self.scope_search.clear();
 
@@ -176,7 +176,7 @@ impl Resolver {
         self.scope_search.clear();
 
         Err(CompileError::Undeclared {
-            symbol,
+            symbol_id,
             usage_position: path_segment.position(),
         })
     }

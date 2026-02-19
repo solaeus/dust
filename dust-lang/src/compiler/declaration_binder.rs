@@ -1,32 +1,41 @@
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
+
+use memmap2::Mmap;
 use smallvec::{SmallVec, smallvec};
 use tracing::{debug, info};
 
 use crate::{
     compiler::error::{CompileError, InternalCompileError},
+    lexer::Lexer,
+    parser::{ParseResult, Parser},
     resolver::{
         Resolver,
-        declaration_graph::{Declaration, DeclarationId, DeclarationKind},
+        declaration_graph::{Declaration, DeclarationId, DeclarationKind, ModuleKind},
         scope_graph::{Scope, ScopeId, ScopeKind},
     },
-    source::{Source, SourceFileId},
+    source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
 };
 
-pub struct DeclarationBinder<'a> {
-    source: &'a Source<'a>,
+pub struct DeclarationBinder<'src> {
+    source: &'src Source<'src>,
 
-    syntax: &'a Syntax,
+    syntax: &'src Syntax,
 
-    resolver: &'a mut Resolver,
+    resolver: &'src mut Resolver,
 
     current_scope_id: ScopeId,
 }
 
-impl<'a> DeclarationBinder<'a> {
+impl<'src> DeclarationBinder<'src> {
     pub fn new(
-        source: &'a Source,
-        syntax: &'a Syntax,
-        resolver: &'a mut Resolver,
+        source: &'src Source<'src>,
+        syntax: &'src Syntax,
+        resolver: &'src mut Resolver,
         project_scope_id: ScopeId,
     ) -> Self {
         Self {
@@ -35,21 +44,6 @@ impl<'a> DeclarationBinder<'a> {
             resolver,
             current_scope_id: project_scope_id,
         }
-    }
-
-    pub fn bind(mut self) -> Result<(), CompileError> {
-        let main_root = self
-            .syntax
-            .get_tree(SourceFileId::MAIN)
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingSyntaxTree(SourceFileId::MAIN),
-            ))?
-            .root()
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingSyntaxNode(SyntaxId::ROOT),
-            ))?;
-
-        self.visit_root(main_root)
     }
 }
 
@@ -81,8 +75,108 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_module_item(&mut self, _: SyntaxReader) -> Result<Self::ItemOutput, CompileError> {
-        todo!()
+    fn visit_module_item(
+        &mut self,
+        module_item: SyntaxReader,
+    ) -> Result<Self::ItemOutput, CompileError> {
+        debug!("Visiting module item");
+        debug_assert_eq!(module_item.kind(), SyntaxKind::ModuleItem);
+
+        let mut children = module_item.children();
+        let module_name = children.expect_next()?;
+        let module_body = children.next();
+
+        let module_name_str = self
+            .source
+            .get_file(module_name.file_id())
+            .content_str(module_name.span());
+        let module_symbol_id = self.resolver.symbols.add_named_symbol(module_name_str);
+        let module_scope_id = self.resolver.scopes.add_scope(Scope {
+            kind: ScopeKind::Module,
+            parent: self.current_scope_id,
+            modules: smallvec![ScopeId::CORE],
+            imports: SmallVec::new(),
+        });
+        let is_public = module_item.kind() == SyntaxKind::PublicModuleItem;
+        let position = Some(module_name.position());
+
+        if let Some(module_body) = module_body {
+            let module_declaration_id = self.resolver.declarations.add_declaration(Declaration {
+                symbol_id: module_symbol_id,
+                kind: DeclarationKind::Module {
+                    kind: ModuleKind::Inline,
+                    inner_scope_id: module_scope_id,
+                },
+                scope_id: self.current_scope_id,
+                is_public,
+                position,
+            });
+
+            self.resolver
+                .add_scope_binding(module_body.id, module_scope_id);
+            self.resolver
+                .add_declaration_binding(module_item.id, module_declaration_id);
+
+            let starting_scope_id = self.current_scope_id;
+            self.current_scope_id = module_scope_id;
+
+            for child in module_body.children() {
+                self.visit_item(child)?;
+            }
+
+            self.current_scope_id = starting_scope_id;
+        } else {
+            let module_declaration_id = self.resolver.declarations.add_declaration(Declaration {
+                symbol_id: module_symbol_id,
+                kind: DeclarationKind::Module {
+                    kind: ModuleKind::File,
+                    inner_scope_id: module_scope_id,
+                },
+                scope_id: self.current_scope_id,
+                is_public,
+                position,
+            });
+
+            self.resolver
+                .add_declaration_binding(module_item.id, module_declaration_id);
+
+            let module_file_id = self
+                .source
+                .files_iter()
+                .find_map(|(file_id, file)| {
+                    let path = Path::new(file.full_path());
+
+                    if path
+                        .file_stem()
+                        .and_then(|stem| stem.to_str())
+                        .map(|stem_str| stem_str == module_name_str)
+                        .unwrap_or(false)
+                    {
+                        Some(file_id)
+                    } else {
+                        None
+                    }
+                })
+                .ok_or(CompileError::UnresolvedModule {
+                    symbol_id: module_symbol_id,
+                })?;
+            let module_root = self
+                .syntax
+                .get_tree(module_file_id)
+                .and_then(|tree| tree.root())
+                .ok_or(CompileError::Internal(
+                    InternalCompileError::MissingSyntaxTree(module_file_id),
+                ))?;
+
+            let starting_scope_id = self.current_scope_id;
+            self.current_scope_id = module_scope_id;
+
+            self.visit_root(module_root)?;
+
+            self.current_scope_id = starting_scope_id;
+        }
+
+        Ok(())
     }
 
     fn visit_function_item(
@@ -124,7 +218,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             kind: DeclarationKind::Function,
             scope_id: self.current_scope_id,
             is_public,
-            position: Some(signature.position()),
+            position: Some(function_item.position()),
         };
         let function_declaration_id = self
             .resolver

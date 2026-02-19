@@ -2,16 +2,28 @@ use std::{fmt::Display, path::PathBuf, time::Instant};
 
 use dust_lang::lexer::Lexer;
 
-use crate::{handle_source, print_times};
+use crate::{
+    cli::{GlobalOptions, InputOptions, OutputOptions, TokenizeCommand},
+    handle_source, print_times,
+};
 
-pub fn handle_tokenize_command(
-    eval: Option<String>,
-    path: Option<PathBuf>,
-    stdin: bool,
-    no_output: bool,
-    time: bool,
-    start_time: Instant,
-) {
+pub fn handle_tokenize_command(command: TokenizeCommand, start_time: Instant) {
+    let TokenizeCommand {
+        global: GlobalOptions { log, time, name },
+        input: InputOptions {
+            mut eval,
+            stdin,
+            path,
+        },
+        output:
+            OutputOptions {
+                no_output,
+                ron,
+                pretty_ron,
+                postcard,
+            },
+    } = command;
+
     fn print(message: impl Display, no_output: bool) {
         if !no_output {
             println!("{message}");

@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
@@ -12,14 +12,15 @@ use crate::{
         symbol_table::SymbolId,
         type_graph::{TypeId, TypeMembers, TypeNode},
     },
-    source::{Position, Source, SourceFileId},
+    source::{Position, Source, SourceFileError, SourceFileId},
     syntax::{SyntaxError, SyntaxId, SyntaxKind},
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub enum CompileError {
     Syntax(SyntaxError),
     Internal(InternalCompileError),
+    SourceFileError(SourceFileError),
 
     CannotApplyOperator {
         operator: SyntaxKind,
@@ -69,8 +70,11 @@ pub enum CompileError {
         usage_position: Position,
     },
     Undeclared {
-        symbol: SymbolId,
+        symbol_id: SymbolId,
         usage_position: Position,
+    },
+    UnresolvedModule {
+        symbol_id: SymbolId,
     },
     ExpectedFunctionType {
         found: TypeId,
@@ -111,6 +115,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 Group::with_title(Level::ERROR.primary_title(title))
             }
             CompileError::Syntax(syntax_error) => syntax_error.annotated_error(source),
+            CompileError::SourceFileError(source_file_error) => {
+                let title = format!("Source file error: {source_file_error}");
+
+                Group::with_title(Level::ERROR.primary_title(title))
+            }
             CompileError::DivisionByZero { position } => {
                 let title = "Division by zero".to_string();
                 let file_str = source.get_file(position.file_id).content_as_str();
@@ -350,12 +359,12 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 )
             }
             CompileError::Undeclared {
-                symbol,
+                symbol_id,
                 usage_position,
             } => {
                 let title = "Undeclared symbol".to_string();
                 let file_str = source.get_file(usage_position.file_id).content_as_str();
-                let name_str = match resolver.symbols.get_symbol(symbol) {
+                let name_str = match resolver.symbols.get_symbol(symbol_id) {
                     Ok(name) => name,
                     Err(error) => return error.annotated_error((source, resolver)),
                 };
@@ -367,6 +376,17 @@ impl<'a> AnnotatedError<'a> for CompileError {
                             .label(format!("\"{name_str}\" was never declared.")),
                     ),
                 )
+            }
+            CompileError::UnresolvedModule { symbol_id } => {
+                let title = "Unresolved module".to_string();
+                let symbol = match resolver.symbols.get_symbol(symbol_id) {
+                    Ok(symbol) => symbol,
+                    Err(error) => return error.annotated_error((source, resolver)),
+                };
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(Level::ERROR.message(
+                    format!("Could not find \"{symbol}.ds\" or \"{symbol}/mod.ds\"."),
+                ))
             }
             CompileError::ConstantTypeConflict {
                 expected,
@@ -534,6 +554,12 @@ impl From<SyntaxError> for CompileError {
     }
 }
 
+impl From<SourceFileError> for CompileError {
+    fn from(source_file_error: SourceFileError) -> Self {
+        CompileError::SourceFileError(source_file_error)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum InternalCompileError {
     InvalidDeclarationKind(DeclarationId),
@@ -564,7 +590,7 @@ pub enum InternalCompileError {
 }
 
 impl Display for InternalCompileError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             InternalCompileError::InvalidDeclarationKind(declaration_id) => {
                 write!(

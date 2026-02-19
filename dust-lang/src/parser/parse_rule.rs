@@ -470,7 +470,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 associativity: Associativity::Left,
             },
             TokenKind::Use => ParseRule {
-                prefix: Some(Parser::parse_prefix_use_item),
+                prefix: Some(Parser::parse_prefix_use_keyword),
                 infix: None,
                 precedence: Precedence::None,
                 associativity: Associativity::Left,

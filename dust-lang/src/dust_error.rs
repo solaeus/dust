@@ -16,7 +16,7 @@ pub enum DustError<'src> {
         source: Source<'src>,
     },
     Compile {
-        error: CompileError,
+        errors: Vec<CompileError>,
         source: Source<'src>,
         resolver: Box<Resolver>,
     },
@@ -28,9 +28,9 @@ impl<'src> DustError<'src> {
         DustError::Parse { errors, source }
     }
 
-    pub fn compile(error: CompileError, source: Source<'src>, resolver: Resolver) -> Self {
+    pub fn compile(errors: Vec<CompileError>, source: Source<'src>, resolver: Resolver) -> Self {
         DustError::Compile {
-            error,
+            errors,
             source,
             resolver: Box::new(resolver),
         }
@@ -56,11 +56,18 @@ impl<'src> DustError<'src> {
                 renderer.render(&report)
             }
             DustError::Compile {
-                error,
+                errors,
                 source,
                 resolver,
             } => {
-                let report = [error.annotated_error((source, resolver))];
+                let mut report = Vec::new();
+
+                for compile_error in errors {
+                    let group = compile_error.annotated_error((source, resolver));
+
+                    report.push(group);
+                }
+
                 let renderer = Renderer::styled();
 
                 renderer.render(&report)

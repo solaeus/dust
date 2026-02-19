@@ -13,7 +13,7 @@ use unicode_ident::{is_xid_continue, is_xid_start};
 
 pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, DustError<'_>> {
     let mut source = Source::with_capacity(1);
-    let file_id = source.add_file(SourceFile::embedded("tokenize", bytes));
+    let file_id = source.add_file(SourceFile::non_validated("tokenize", bytes));
 
     let mut lexer = Lexer::from_bytes(bytes);
     let mut tokens = Vec::new();
@@ -35,7 +35,7 @@ pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, DustError<'_>> {
 
 pub fn tokenize_str(str: &str) -> Result<Vec<Token>, DustError<'_>> {
     let mut source = Source::with_capacity(1);
-    let file_id = source.add_file(SourceFile::embedded_validated("tokenize", str));
+    let file_id = source.add_file(SourceFile::validated("tokenize", str));
 
     let mut lexer = Lexer::from_utf8(str);
     let mut tokens = Vec::new();
