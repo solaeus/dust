@@ -15,34 +15,34 @@ use serde::{Deserialize, Serialize};
 /// operations. This simply means that scalar types are represented by a byte in the 0..=127 range,
 /// while heap-allocated types must be in the 128..=255 range.
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ByteType(pub u8);
+pub struct SmallType(pub u8);
 
-impl ByteType {
+impl SmallType {
     // Scalar types
-    pub const NONE: ByteType = ByteType(0b0000_0000);
-    pub const BOOLEAN: ByteType = ByteType(0b0000_0001);
-    pub const BYTE: ByteType = ByteType(0b0000_0010);
-    pub const CHARACTER: ByteType = ByteType(0b0000_0011);
-    pub const FLOAT: ByteType = ByteType(0b0000_0100);
-    pub const INTEGER: ByteType = ByteType(0b0000_0101);
-    pub const FUNCTION: ByteType = ByteType(0b0000_0110);
-    pub const STRUCT: ByteType = ByteType(0b0000_0111);
+    pub const NONE: SmallType = SmallType(0b0000_0000);
+    pub const BOOLEAN: SmallType = SmallType(0b0000_0001);
+    pub const BYTE: SmallType = SmallType(0b0000_0010);
+    pub const CHARACTER: SmallType = SmallType(0b0000_0011);
+    pub const FLOAT: SmallType = SmallType(0b0000_0100);
+    pub const INTEGER: SmallType = SmallType(0b0000_0101);
+    pub const FUNCTION: SmallType = SmallType(0b0000_0110);
+    pub const STRUCT: SmallType = SmallType(0b0000_0111);
 
     // Heap-allocated types
     // Use the high bit to distinguish from scalar types
-    pub const STRING: ByteType = ByteType(0b1000_0000);
-    pub const LIST_BOOLEAN: ByteType = ByteType(0b1000_0001);
-    pub const LIST_BYTE: ByteType = ByteType(0b1000_0010);
-    pub const LIST_CHARACTER: ByteType = ByteType(0b1000_0011);
-    pub const LIST_FLOAT: ByteType = ByteType(0b1000_0100);
-    pub const LIST_INTEGER: ByteType = ByteType(0b1000_0101);
-    pub const LIST_STRING: ByteType = ByteType(0b1000_0110);
-    pub const LIST_FUNCTION: ByteType = ByteType(0b1000_0111);
-    pub const LIST_STRUCT: ByteType = ByteType(0b1000_1000);
-    pub const LIST_LIST: ByteType = ByteType(0b1000_1001);
+    pub const STRING: SmallType = SmallType(0b1000_0000);
+    pub const LIST_BOOLEAN: SmallType = SmallType(0b1000_0001);
+    pub const LIST_BYTE: SmallType = SmallType(0b1000_0010);
+    pub const LIST_CHARACTER: SmallType = SmallType(0b1000_0011);
+    pub const LIST_FLOAT: SmallType = SmallType(0b1000_0100);
+    pub const LIST_INTEGER: SmallType = SmallType(0b1000_0101);
+    pub const LIST_STRING: SmallType = SmallType(0b1000_0110);
+    pub const LIST_FUNCTION: SmallType = SmallType(0b1000_0111);
+    pub const LIST_STRUCT: SmallType = SmallType(0b1000_1000);
+    pub const LIST_LIST: SmallType = SmallType(0b1000_1001);
 }
 
-impl ByteType {
+impl SmallType {
     pub fn is_scalar(&self) -> bool {
         self.0 & 0b1000_0000 == 0
     }
@@ -62,13 +62,13 @@ impl ByteType {
     }
 }
 
-impl Debug for ByteType {
+impl Debug for SmallType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{self}")
     }
 }
 
-impl Display for ByteType {
+impl Display for SmallType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
             Self::NONE => write!(f, "none"),
@@ -97,23 +97,23 @@ mod tests {
 
     #[test]
     fn is_scalar() {
-        assert!(ByteType::BOOLEAN.is_scalar());
-        assert!(ByteType::BYTE.is_scalar());
-        assert!(ByteType::CHARACTER.is_scalar());
-        assert!(ByteType::FLOAT.is_scalar());
-        assert!(ByteType::INTEGER.is_scalar());
-        assert!(ByteType::FUNCTION.is_scalar());
-        assert!(ByteType::STRUCT.is_scalar());
+        assert!(SmallType::BOOLEAN.is_scalar());
+        assert!(SmallType::BYTE.is_scalar());
+        assert!(SmallType::CHARACTER.is_scalar());
+        assert!(SmallType::FLOAT.is_scalar());
+        assert!(SmallType::INTEGER.is_scalar());
+        assert!(SmallType::FUNCTION.is_scalar());
+        assert!(SmallType::STRUCT.is_scalar());
 
-        assert!(!ByteType::STRING.is_scalar());
-        assert!(!ByteType::LIST_BOOLEAN.is_scalar());
-        assert!(!ByteType::LIST_BYTE.is_scalar());
-        assert!(!ByteType::LIST_CHARACTER.is_scalar());
-        assert!(!ByteType::LIST_FLOAT.is_scalar());
-        assert!(!ByteType::LIST_INTEGER.is_scalar());
-        assert!(!ByteType::LIST_STRING.is_scalar());
-        assert!(!ByteType::LIST_FUNCTION.is_scalar());
-        assert!(!ByteType::LIST_STRUCT.is_scalar());
-        assert!(!ByteType::LIST_LIST.is_scalar());
+        assert!(!SmallType::STRING.is_scalar());
+        assert!(!SmallType::LIST_BOOLEAN.is_scalar());
+        assert!(!SmallType::LIST_BYTE.is_scalar());
+        assert!(!SmallType::LIST_CHARACTER.is_scalar());
+        assert!(!SmallType::LIST_FLOAT.is_scalar());
+        assert!(!SmallType::LIST_INTEGER.is_scalar());
+        assert!(!SmallType::LIST_STRING.is_scalar());
+        assert!(!SmallType::LIST_FUNCTION.is_scalar());
+        assert!(!SmallType::LIST_STRUCT.is_scalar());
+        assert!(!SmallType::LIST_LIST.is_scalar());
     }
 }

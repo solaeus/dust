@@ -29,7 +29,6 @@ mod r#move;
 mod multiply;
 mod negate;
 mod new_list;
-mod operand_type;
 mod operation;
 mod power;
 mod reference;
@@ -55,7 +54,6 @@ pub use r#move::Move;
 pub use multiply::Multiply;
 pub use negate::Negate;
 pub use new_list::NewList;
-pub use operand_type::ByteType;
 pub use operation::Operation;
 pub use power::Power;
 pub use reference::Reference;
@@ -132,12 +130,6 @@ impl Instruction {
         let bits_11_to_15 = (self.0 >> 11) & 0x1F;
 
         bits_11_to_15 as u16
-    }
-
-    pub fn operand_type(&self) -> ByteType {
-        let bits_11_to_15 = (self.0 >> 11) & 0x1F;
-
-        ByteType(bits_11_to_15 as u8)
     }
 
     pub fn set_b_field(&mut self, bits: u16) {
@@ -425,13 +417,7 @@ impl Debug for Instruction {
 
 impl Display for Instruction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{} ({}): {}",
-            self.operation(),
-            self.operand_type(),
-            self.disassembly_info()
-        )
+        write!(f, "{}: {}", self.operation(), self.disassembly_info())
     }
 }
 

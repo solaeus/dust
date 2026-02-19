@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::instruction::ByteType;
+use crate::small_type::SmallType;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[repr(C)]
@@ -55,16 +55,16 @@ impl List {
         List::Function(prototype_indexes.into())
     }
 
-    pub fn operand_type(&self) -> ByteType {
+    pub fn operand_type(&self) -> SmallType {
         match self {
-            List::Boolean(_) => ByteType::LIST_BOOLEAN,
-            List::Byte(_) => ByteType::LIST_BYTE,
-            List::Character(_) => ByteType::LIST_CHARACTER,
-            List::Float(_) => ByteType::LIST_FLOAT,
-            List::Integer(_) => ByteType::LIST_INTEGER,
-            List::String(_) => ByteType::LIST_STRING,
-            List::Nested(_) => ByteType::LIST_LIST,
-            List::Function(_) => ByteType::LIST_FUNCTION,
+            List::Boolean(_) => SmallType::LIST_BOOLEAN,
+            List::Byte(_) => SmallType::LIST_BYTE,
+            List::Character(_) => SmallType::LIST_CHARACTER,
+            List::Float(_) => SmallType::LIST_FLOAT,
+            List::Integer(_) => SmallType::LIST_INTEGER,
+            List::String(_) => SmallType::LIST_STRING,
+            List::Nested(_) => SmallType::LIST_LIST,
+            List::Function(_) => SmallType::LIST_FUNCTION,
         }
     }
 }

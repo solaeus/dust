@@ -28,6 +28,7 @@ mod constant_table;
 mod instruction;
 mod native_function;
 mod resolver;
+mod small_type;
 
 #[cfg(test)]
 mod tests;

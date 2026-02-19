@@ -1097,7 +1097,6 @@ impl<'src> Parser<'src> {
 
     fn parse_infix_binary_operator(&mut self, left: SyntaxNode) -> Result<SyntaxNode, ParseError> {
         let start = left.span.start();
-        let left_id = self.syntax_tree.push(left);
 
         let operator = self.current_token.kind;
         let (node_kind, is_statement) = match operator {
@@ -1113,12 +1112,12 @@ impl<'src> Parser<'src> {
             TokenKind::PercentEqual => (SyntaxKind::ModuloAssignmentStatement, true),
             TokenKind::Caret => (SyntaxKind::ExponentExpression, false),
             TokenKind::CaretEqual => (SyntaxKind::ExponentAssignmentStatement, true),
+            TokenKind::DoubleEqual => (SyntaxKind::EqualExpression, false),
+            TokenKind::BangEqual => (SyntaxKind::NotEqualExpression, false),
             TokenKind::Greater => (SyntaxKind::GreaterThanExpression, false),
             TokenKind::GreaterEqual => (SyntaxKind::GreaterThanOrEqualExpression, false),
             TokenKind::Less => (SyntaxKind::LessThanExpression, false),
             TokenKind::LessEqual => (SyntaxKind::LessThanOrEqualExpression, false),
-            TokenKind::DoubleEqual => (SyntaxKind::EqualExpression, false),
-            TokenKind::BangEqual => (SyntaxKind::NotEqualExpression, false),
             TokenKind::DoubleAmpersand => (SyntaxKind::AndExpression, false),
             TokenKind::DoublePipe => (SyntaxKind::OrExpression, false),
             _ => {
@@ -1150,6 +1149,20 @@ impl<'src> Parser<'src> {
             }
         };
 
+        let left_id = if is_statement {
+            if left.kind == SyntaxKind::PathExpression {
+                left.payload.left_id()
+            } else {
+                return Err(ParseError::ExpectedSyntax {
+                    found: left.kind,
+                    expected: SyntaxKind::Path,
+                    position: Position::new(self.syntax_tree.file_id, left.span),
+                });
+            }
+        } else {
+            self.syntax_tree.push(left)
+        };
+
         let parse_rule = ParseRule::from(operator);
         let operator_precedence = parse_rule.precedence;
         let right_precedence = match parse_rule.associativity {
@@ -1161,7 +1174,6 @@ impl<'src> Parser<'src> {
 
         let right = self.parse_sub_expression(right_precedence)?;
         let right_id = self.syntax_tree.push(right);
-        let end = right.span.end();
 
         if is_statement {
             self.expect(TokenKind::Semicolon)?;
@@ -1169,7 +1181,7 @@ impl<'src> Parser<'src> {
 
         Ok(SyntaxNode::with_binary_children(
             node_kind,
-            Span::new(start, end),
+            Span::new(start, self.previous_token.span.end()),
             left_id,
             right_id,
         ))

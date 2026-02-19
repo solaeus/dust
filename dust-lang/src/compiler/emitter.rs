@@ -8,7 +8,7 @@ use crate::{
     compiler::error::{CompileError, InternalCompileError},
     constant_table::{ConstantId, ConstantTable},
     dust_type::DustType,
-    instruction::{Address, ByteType, Drop, Instruction, MemoryKind, Move, Operation, Test},
+    instruction::{Address, Drop, Instruction, MemoryKind, Move, Operation, Test},
     native_function::NativeFunction,
     prototype::{Prototype, PrototypeId, PrototypeList},
     resolver::{
@@ -17,6 +17,7 @@ use crate::{
         scope_graph::ScopeId,
         type_graph::{TypeId, TypeNode},
     },
+    small_type::SmallType,
     source::{Position, Source, Span},
     syntax::{Syntax, SyntaxError, SyntaxKind, SyntaxReader, SyntaxReaderIterator, SyntaxVisitor},
 };
@@ -1593,7 +1594,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting struct expression");
 
-        fn flatten_leaf_operand_types(r#type: &DustType, out: &mut Vec<ByteType>) {
+        fn flatten_leaf_operand_types(r#type: &DustType, out: &mut Vec<SmallType>) {
             match r#type {
                 DustType::Struct(struct_type) => {
                     for (_, field_type) in &struct_type.fields {
@@ -2290,7 +2291,7 @@ impl SyntaxVisitor for Emitter<'_> {
             && target.destination_count() == register_count
         {
             Some(target)
-        } else if return_operand_type != ByteType::NONE {
+        } else if return_operand_type != SmallType::NONE {
             Some(self.allocate_temporary_registers(register_count))
         } else {
             None
@@ -2305,7 +2306,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
         call_emission.push(call_instruction);
 
-        if return_operand_type != ByteType::NONE {
+        if return_operand_type != SmallType::NONE {
             call_emission.set_target(target);
         }
 
@@ -2485,14 +2486,14 @@ pub enum ConstantEmission {
 }
 
 impl ConstantEmission {
-    fn operand_type(&self) -> ByteType {
+    fn operand_type(&self) -> SmallType {
         match self {
-            ConstantEmission::Boolean(_) => ByteType::BOOLEAN,
-            ConstantEmission::Byte(_) => ByteType::BYTE,
-            ConstantEmission::Character(_) => ByteType::CHARACTER,
-            ConstantEmission::Float(_) => ByteType::FLOAT,
-            ConstantEmission::Integer(_) => ByteType::INTEGER,
-            ConstantEmission::String { .. } => ByteType::STRING,
+            ConstantEmission::Boolean(_) => SmallType::BOOLEAN,
+            ConstantEmission::Byte(_) => SmallType::BYTE,
+            ConstantEmission::Character(_) => SmallType::CHARACTER,
+            ConstantEmission::Float(_) => SmallType::FLOAT,
+            ConstantEmission::Integer(_) => SmallType::INTEGER,
+            ConstantEmission::String { .. } => SmallType::STRING,
         }
     }
 }

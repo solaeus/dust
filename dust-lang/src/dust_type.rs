@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::instruction::ByteType;
+use crate::small_type::SmallType;
 
 #[derive(Clone, Default, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum DustType {
@@ -50,29 +50,29 @@ impl DustType {
         }
     }
 
-    pub fn as_operand_type(&self) -> ByteType {
+    pub fn as_operand_type(&self) -> SmallType {
         match self {
-            DustType::None => ByteType::NONE,
-            DustType::Boolean => ByteType::BOOLEAN,
-            DustType::Byte => ByteType::BYTE,
-            DustType::Character => ByteType::CHARACTER,
-            DustType::Float => ByteType::FLOAT,
-            DustType::Integer => ByteType::INTEGER,
-            DustType::String => ByteType::STRING,
+            DustType::None => SmallType::NONE,
+            DustType::Boolean => SmallType::BOOLEAN,
+            DustType::Byte => SmallType::BYTE,
+            DustType::Character => SmallType::CHARACTER,
+            DustType::Float => SmallType::FLOAT,
+            DustType::Integer => SmallType::INTEGER,
+            DustType::String => SmallType::STRING,
             DustType::List(item_type) => match item_type.as_ref() {
-                DustType::Boolean => ByteType::LIST_BOOLEAN,
-                DustType::Byte => ByteType::LIST_BYTE,
-                DustType::Character => ByteType::LIST_CHARACTER,
-                DustType::Float => ByteType::LIST_FLOAT,
-                DustType::Integer => ByteType::LIST_INTEGER,
-                DustType::String => ByteType::LIST_STRING,
-                DustType::Function(_) => ByteType::LIST_FUNCTION,
-                DustType::List(_) => ByteType::LIST_LIST,
-                DustType::Struct { .. } => ByteType::LIST_STRUCT,
+                DustType::Boolean => SmallType::LIST_BOOLEAN,
+                DustType::Byte => SmallType::LIST_BYTE,
+                DustType::Character => SmallType::LIST_CHARACTER,
+                DustType::Float => SmallType::LIST_FLOAT,
+                DustType::Integer => SmallType::LIST_INTEGER,
+                DustType::String => SmallType::LIST_STRING,
+                DustType::Function(_) => SmallType::LIST_FUNCTION,
+                DustType::List(_) => SmallType::LIST_LIST,
+                DustType::Struct { .. } => SmallType::LIST_STRUCT,
                 DustType::None => panic!("A list's item type must be known, even if it is empty"),
             },
-            DustType::Struct { .. } => ByteType::STRUCT,
-            DustType::Function(_) => ByteType::FUNCTION,
+            DustType::Struct { .. } => SmallType::STRUCT,
+            DustType::Function(_) => SmallType::FUNCTION,
         }
     }
 }

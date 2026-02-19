@@ -11,7 +11,6 @@ use smallvec::SmallVec;
 use crate::{
     compiler::error::{CompileError, InternalCompileError},
     dust_type::{DustFunctionType, DustStructType, DustType},
-    instruction::ByteType,
     native_function::NativeFunction,
     resolver::{
         declaration_graph::{
@@ -22,7 +21,8 @@ use crate::{
         symbol_table::{SymbolId, SymbolTable},
         type_graph::{TypeGraph, TypeId, TypeMembers, TypeNode},
     },
-    source::{Position, Source},
+    small_type::SmallType,
+    source::Source,
     syntax::{SyntaxId, SyntaxReader},
 };
 
@@ -609,34 +609,34 @@ impl Resolver {
         &self,
         type_id: TypeId,
         node: &SyntaxReader,
-    ) -> Result<ByteType, CompileError> {
+    ) -> Result<SmallType, CompileError> {
         let operand_type = match self.types.get_type(type_id)? {
-            TypeNode::None => ByteType::NONE,
-            TypeNode::Boolean => ByteType::BOOLEAN,
-            TypeNode::Byte => ByteType::BYTE,
-            TypeNode::Character => ByteType::CHARACTER,
-            TypeNode::Float => ByteType::FLOAT,
-            TypeNode::Integer => ByteType::INTEGER,
-            TypeNode::String => ByteType::STRING,
+            TypeNode::None => SmallType::NONE,
+            TypeNode::Boolean => SmallType::BOOLEAN,
+            TypeNode::Byte => SmallType::BYTE,
+            TypeNode::Character => SmallType::CHARACTER,
+            TypeNode::Float => SmallType::FLOAT,
+            TypeNode::Integer => SmallType::INTEGER,
+            TypeNode::String => SmallType::STRING,
             TypeNode::List { element_type } => match *element_type {
-                TypeId::BOOLEAN => ByteType::LIST_BOOLEAN,
-                TypeId::BYTE => ByteType::LIST_BYTE,
-                TypeId::CHARACTER => ByteType::LIST_CHARACTER,
-                TypeId::FLOAT => ByteType::LIST_FLOAT,
-                TypeId::INTEGER => ByteType::LIST_INTEGER,
-                TypeId::STRING => ByteType::LIST_STRING,
+                TypeId::BOOLEAN => SmallType::LIST_BOOLEAN,
+                TypeId::BYTE => SmallType::LIST_BYTE,
+                TypeId::CHARACTER => SmallType::LIST_CHARACTER,
+                TypeId::FLOAT => SmallType::LIST_FLOAT,
+                TypeId::INTEGER => SmallType::LIST_INTEGER,
+                TypeId::STRING => SmallType::LIST_STRING,
                 _ => {
                     let element_operand_type = self.get_operand_type(*element_type, node)?;
 
                     match element_operand_type {
-                        ByteType::LIST_BOOLEAN
-                        | ByteType::LIST_BYTE
-                        | ByteType::LIST_CHARACTER
-                        | ByteType::LIST_FLOAT
-                        | ByteType::LIST_INTEGER
-                        | ByteType::LIST_STRING
-                        | ByteType::LIST_LIST
-                        | ByteType::LIST_FUNCTION => ByteType::LIST_LIST,
+                        SmallType::LIST_BOOLEAN
+                        | SmallType::LIST_BYTE
+                        | SmallType::LIST_CHARACTER
+                        | SmallType::LIST_FLOAT
+                        | SmallType::LIST_INTEGER
+                        | SmallType::LIST_STRING
+                        | SmallType::LIST_LIST
+                        | SmallType::LIST_FUNCTION => SmallType::LIST_LIST,
                         _ => {
                             return Err(CompileError::CannotInferType {
                                 type_id,
@@ -646,8 +646,8 @@ impl Resolver {
                     }
                 }
             },
-            TypeNode::Function { .. } => ByteType::FUNCTION,
-            TypeNode::Struct { .. } => ByteType::STRUCT,
+            TypeNode::Function { .. } => SmallType::FUNCTION,
+            TypeNode::Struct { .. } => SmallType::STRUCT,
             TypeNode::Inferred {
                 resolved: Some(inferred),
                 ..
