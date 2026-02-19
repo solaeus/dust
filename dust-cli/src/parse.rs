@@ -1,16 +1,15 @@
 use std::{
-    fs::File,
     io::{Write, stdout},
+    path::Path,
     time::Instant,
 };
 
 use dust_lang::{
     dust_error::DustError,
     lexer::Lexer,
-    parser::{ParseResult, Parser},
-    source::SourceFile,
+    parser::{ParseError, ParseResult, Parser},
+    source::{Position, SourceFile},
 };
-use memmap2::Mmap;
 use ron::ser::PrettyConfig;
 
 use crate::{
@@ -65,9 +64,12 @@ pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
 
     let mut source = handle_source(&eval, path, stdin);
 
-    let mut errors = Vec::new();
+    let mut parse_errors = Vec::new();
+    let mut files_parsed = 0;
 
-    for (file_id, file) in source.files_iter() {
+    while files_parsed < source.file_count() {
+        let (file_id, file) = source.files_iter().nth(files_parsed).unwrap();
+
         let lexer = if file.is_utf8_validated() {
             Lexer::from_utf8(file.content_as_str())
         } else {
@@ -76,15 +78,42 @@ pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
         let parser = Parser::new(file_id, lexer);
         let ParseResult {
             syntax_tree,
-            errors: parse_errors,
+            errors,
+            file_module_names,
         } = parser.parse();
 
         handle_output(&syntax_tree, no_output, ron, pretty_ron, postcard, trees);
-        errors.extend(parse_errors);
+        parse_errors.extend(errors);
+
+        files_parsed += 1;
+
+        for span in file_module_names {
+            let parent_file = source.get_file(file_id);
+            let module_name_str = parent_file.content_str(span);
+            let parent_path = Path::new(parent_file.full_path())
+                .parent()
+                .unwrap_or_else(|| Path::new("/"));
+            let module_path = parent_path.join(module_name_str).with_added_extension("ds");
+            let module_file = {
+                match SourceFile::file(module_path) {
+                    Ok(file) => file,
+                    Err(error) => {
+                        parse_errors.push(ParseError::CannotResolveModule {
+                            error,
+                            position: Position::new(file_id, span),
+                        });
+
+                        continue;
+                    }
+                }
+            };
+
+            source.add_file(module_file);
+        }
     }
 
-    if !errors.is_empty() {
-        eprintln!("{}", DustError::parse(errors, source).report());
+    if !parse_errors.is_empty() {
+        eprintln!("{}", DustError::parse(parse_errors, source).report());
     }
 
     if time {

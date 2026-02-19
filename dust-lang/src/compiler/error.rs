@@ -12,7 +12,7 @@ use crate::{
         symbol_table::SymbolId,
         type_graph::{TypeId, TypeMembers, TypeNode},
     },
-    source::{Position, Source, SourceFileError, SourceFileId},
+    source::{Position, Source, SourceError, SourceFileId},
     syntax::{SyntaxError, SyntaxId, SyntaxKind},
 };
 
@@ -20,7 +20,7 @@ use crate::{
 pub enum CompileError {
     Syntax(SyntaxError),
     Internal(InternalCompileError),
-    SourceFileError(SourceFileError),
+    SourceFileError(SourceError),
 
     CannotApplyOperator {
         operator: SyntaxKind,
@@ -554,8 +554,8 @@ impl From<SyntaxError> for CompileError {
     }
 }
 
-impl From<SourceFileError> for CompileError {
-    fn from(source_file_error: SourceFileError) -> Self {
+impl From<SourceError> for CompileError {
+    fn from(source_file_error: SourceError) -> Self {
         CompileError::SourceFileError(source_file_error)
     }
 }

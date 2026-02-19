@@ -2,13 +2,18 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     dust_error::AnnotatedError,
-    source::{Position, Source},
+    source::{Position, Source, SourceError},
     syntax::SyntaxKind,
     token::TokenKind,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum ParseError {
+    CannotResolveModule {
+        error: SourceError,
+        position: Position,
+    },
+
     // Lexer Errors
     InvalidUtf8 {
         position: Position,
@@ -55,6 +60,22 @@ impl<'a> AnnotatedError<'a> for ParseError {
 
     fn annotated_error(&self, source: Self::Input) -> Group<'a> {
         match self {
+            ParseError::CannotResolveModule { error, position } => {
+                let title = "Cannot resolve module".to_string();
+                let file = source.get_file(position.file_id);
+                let module_name_str = file.content_str(position.span);
+
+                Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file.content_as_str())
+                        .path(file.file_name())
+                        .fold(false)
+                        .annotation(
+                            AnnotationKind::Primary
+                                .span(position.span.as_usize_range())
+                                .label(format!("Cannot find \"{module_name_str}.ds\" or \"{module_name_str}/mod.ds\" in this directory")),
+                        ),
+                ).element(Level::INFO.message(error.to_string()))
+            }
             ParseError::InvalidUtf8 { position } => {
                 let title = "Invalid UTF-8 sequence".to_string();
                 let file = source.get_file(position.file_id);

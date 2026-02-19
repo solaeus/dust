@@ -155,14 +155,14 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn file(path: PathBuf) -> Result<Self, SourceFileError> {
+    pub fn file(path: PathBuf) -> Result<Self, SourceError> {
         let Ok(path) = path.canonicalize() else {
             error!(
                 "Path does not exist or is invalid for this platform \"{}\"",
                 path.display()
             );
 
-            return Err(SourceFileError::InvalidPath {
+            return Err(SourceError::InvalidPath {
                 found: path.display().to_string(),
             });
         };
@@ -170,7 +170,7 @@ impl<'src> SourceFile<'src> {
         if !path.is_file() {
             error!("Path does not point to a file: \"{}\"", path.display());
 
-            return Err(SourceFileError::ExpectedFilePath {
+            return Err(SourceError::ExpectedFilePath {
                 found: path.display().to_string(),
             });
         }
@@ -178,15 +178,15 @@ impl<'src> SourceFile<'src> {
         if path.to_str().is_none() {
             error!("Path contains non-UTF-8 characters: {}", path.display());
 
-            return Err(SourceFileError::ExpectedUtf8Path {
+            return Err(SourceError::ExpectedUtf8Path {
                 found: path.display().to_string(),
             });
         }
 
-        let file = File::open(&path).map_err(|error| SourceFileError::CannotOpen {
+        let file = File::open(&path).map_err(|error| SourceError::CannotOpen {
             io_error: error.kind(),
         })?;
-        let mmap = unsafe { Mmap::map(&file) }.map_err(|error| SourceFileError::CannotOpen {
+        let mmap = unsafe { Mmap::map(&file) }.map_err(|error| SourceError::CannotOpen {
             io_error: error.kind(),
         })?;
 
@@ -197,7 +197,7 @@ impl<'src> SourceFile<'src> {
         })
     }
 
-    pub fn file_linked(path: &'src Path, mmap: Mmap) -> Result<Self, SourceFileError> {
+    pub fn file_linked(path: &'src Path, mmap: Mmap) -> Result<Self, SourceError> {
         Ok(SourceFile::FileLinked {
             path,
             mmap,
@@ -456,7 +456,7 @@ impl<'a> Iterator for SourceIterator<'a> {
 impl ExactSizeIterator for SourceIterator<'_> {}
 
 #[derive(Debug)]
-pub enum SourceFileError {
+pub enum SourceError {
     InvalidPath { found: String },
     ExpectedFilePath { found: String },
     ExpectedUtf8Path { found: String },
@@ -464,26 +464,26 @@ pub enum SourceFileError {
     CannotOpen { io_error: io::ErrorKind },
 }
 
-impl Display for SourceFileError {
+impl Display for SourceError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            SourceFileError::InvalidPath { found } => write!(
+            SourceError::InvalidPath { found } => write!(
                 f,
                 "The path \"{found}\" does not exist or is invalid for this platform."
             ),
-            SourceFileError::ExpectedFilePath { found } => {
+            SourceError::ExpectedFilePath { found } => {
                 write!(f, "The path \"{found}\" does not point to a file.")
             }
-            SourceFileError::ExpectedUtf8Path { found } => {
+            SourceError::ExpectedUtf8Path { found } => {
                 write!(f, "The path {found} contains non-UTF-8 characters.")
             }
-            SourceFileError::SpanOutOfBounds { span, length } => {
+            SourceError::SpanOutOfBounds { span, length } => {
                 write!(
                     f,
                     "The span ({span}) is out of bounds, the file's length is {length}."
                 )
             }
-            SourceFileError::CannotOpen { io_error } => {
+            SourceError::CannotOpen { io_error } => {
                 write!(f, "Failed to open file: {io_error}")
             }
         }

@@ -1,24 +1,17 @@
-use std::{
-    fs::File,
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::path::Path;
 
-use memmap2::Mmap;
 use smallvec::{SmallVec, smallvec};
 use tracing::{debug, info};
 
 use crate::{
     compiler::error::{CompileError, InternalCompileError},
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
     resolver::{
         Resolver,
         declaration_graph::{Declaration, DeclarationId, DeclarationKind, ModuleKind},
         scope_graph::{Scope, ScopeId, ScopeKind},
     },
-    source::{Source, SourceFile, SourceFileId},
-    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
+    source::Source,
+    syntax::{Syntax, SyntaxKind, SyntaxReader, SyntaxVisitor},
 };
 
 pub struct DeclarationBinder<'src> {

@@ -6,12 +6,7 @@ mod tests;
 
 pub use error::ParseError;
 
-use std::{
-    fs::File,
-    mem::replace,
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::mem::replace;
 
 use lexical_core::{
     ParseFloatOptions, ParseIntegerOptions, format::RUST_LITERAL, parse_with_options,
@@ -39,6 +34,7 @@ pub fn parse<'src>(source_code: &'src str) -> (SyntaxTree, Option<DustError<'src
     let ParseResult {
         syntax_tree,
         errors,
+        ..
     } = parser.parse();
     let dust_error = if errors.is_empty() {
         None
@@ -57,6 +53,7 @@ pub struct Parser<'src> {
     current_token: Token,
     previous_token: Token,
 
+    file_module_names: Vec<Span>,
     errors: Vec<ParseError>,
 }
 
@@ -67,6 +64,7 @@ impl<'src> Parser<'src> {
             syntax_tree: SyntaxTree::new(file_id),
             current_token: Token::default(),
             previous_token: Token::default(),
+            file_module_names: Vec::new(),
             errors: Vec::new(),
         }
     }
@@ -90,6 +88,7 @@ impl<'src> Parser<'src> {
         ParseResult {
             syntax_tree: self.syntax_tree,
             errors: self.errors,
+            file_module_names: self.file_module_names,
         }
     }
 
@@ -312,11 +311,7 @@ impl<'src> Parser<'src> {
         let module_name_id = self.syntax_tree.push(module_name_node);
 
         if self.allow(TokenKind::Semicolon)? {
-            // The path is already parsed and would have returned an error if it contained non-UTF-8.
-            let file_name_str = unsafe {
-                str::from_utf8_unchecked(&self.source()[module_name_node.span.as_usize_range()])
-            };
-            let file_path = PathBuf::from_str(file_name_str).unwrap();
+            self.file_module_names.push(module_name_node.span);
 
             return Ok(SyntaxNode::with_child(
                 module_kind,
@@ -1384,4 +1379,5 @@ impl<'src> Parser<'src> {
 pub struct ParseResult {
     pub syntax_tree: SyntaxTree,
     pub errors: Vec<ParseError>,
+    pub file_module_names: Vec<Span>,
 }

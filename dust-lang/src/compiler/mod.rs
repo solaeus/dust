@@ -6,7 +6,7 @@ mod type_binder;
 // #[cfg(test)]
 // mod tests;
 
-use std::fs::File;
+use std::{fs::File, path::Path};
 
 use memmap2::Mmap;
 use smallvec::SmallVec;
@@ -115,8 +115,11 @@ impl<'src> Compiler<'src> {
             let _enter = span.enter();
 
             let mut parse_errors = Vec::new();
+            let mut files_parsed = 0;
 
-            for (file_id, file) in self.source.files_iter() {
+            while files_parsed < self.source.file_count() {
+                let (file_id, file) = self.source.files_iter().nth(files_parsed).unwrap();
+
                 let lexer = if file.is_utf8_validated() {
                     Lexer::from_utf8(file.content_as_str())
                 } else {
@@ -126,12 +129,38 @@ impl<'src> Compiler<'src> {
                 let ParseResult {
                     syntax_tree,
                     errors,
+                    file_module_names,
                 } = parser.parse();
 
                 self.syntax.add_tree(syntax_tree).map_err(|max| {
                     panic!("The compiler expected {max} syntax trees in total.");
                 });
                 parse_errors.extend(errors);
+
+                files_parsed += 1;
+
+                for span in file_module_names {
+                    let parent_file = self.source.get_file(file_id);
+                    let module_name_str = parent_file.content_str(span);
+                    let parent_path = Path::new(parent_file.full_path())
+                        .parent()
+                        .unwrap_or_else(|| Path::new("/"));
+                    let module_path = parent_path.join(module_name_str).with_added_extension("ds");
+                    let module_file = {
+                        match SourceFile::file(module_path) {
+                            Ok(file) => file,
+                            Err(source_error) => {
+                                return Err(DustError::compile(
+                                    vec![CompileError::SourceFileError(source_error)],
+                                    self.source,
+                                    self.resolver,
+                                ));
+                            }
+                        }
+                    };
+
+                    let module_file_id = self.source.add_file(module_file);
+                }
             }
 
             if !parse_errors.is_empty() {
