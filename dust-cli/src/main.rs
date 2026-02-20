@@ -51,6 +51,7 @@ fn main() {
 
     if let Some(Command::Run(mut run_input)) = command {
         run_input.join(input);
+
         // handle_run_command(eval, path, no_output, time, start_time);
 
         return;
@@ -61,6 +62,7 @@ fn main() {
         command.input.join(input);
         command.output.join(output);
 
+        handle_logging(command.global.log, start_time);
         handle_parse_command(command, start_time);
 
         return;
@@ -71,6 +73,7 @@ fn main() {
         command.input.join(input);
         command.output.join(output);
 
+        handle_logging(command.global.log, start_time);
         handle_compile_command(command, start_time);
 
         return;
@@ -81,6 +84,7 @@ fn main() {
         command.input.join(input);
         command.output.join(output);
 
+        handle_logging(command.global.log, start_time);
         handle_tokenize_command(command, start_time);
 
         return;
@@ -128,11 +132,13 @@ fn main() {
     }
 }
 
-fn start_logging(level: LevelFilter, start_time: Instant) {
-    tracing_subscriber::fmt()
-        .with_env_filter(format!("none,dust_lang={level}"))
-        .event_format(LogFormatter { start_time })
-        .init();
+fn handle_logging(level: Option<LevelFilter>, start_time: Instant) {
+    if let Some(level) = level {
+        tracing_subscriber::fmt()
+            .with_env_filter(format!("none,dust_lang={level}"))
+            .event_format(LogFormatter { start_time })
+            .init();
+    }
 }
 
 struct LogFormatter {

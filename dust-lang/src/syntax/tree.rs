@@ -54,22 +54,6 @@ impl SyntaxTree {
         self.nodes.is_empty()
     }
 
-    pub fn last_node_id(&self) -> SyntaxId {
-        let index = self.nodes.len().saturating_sub(1) as u32;
-
-        SyntaxId(index)
-    }
-
-    pub fn last_node(&self) -> Option<&SyntaxNode> {
-        self.nodes.last()
-    }
-
-    pub fn last(&self) -> Option<(SyntaxId, &SyntaxNode)> {
-        let id = self.last_node_id();
-
-        self.last_node().map(|node| (id, node))
-    }
-
     pub fn push(&mut self, node: SyntaxNode) -> SyntaxId {
         let index = self.nodes.len() as u32;
 
@@ -108,7 +92,7 @@ impl SyntaxTree {
         self.nodes.get(id.0 as usize)
     }
 
-    pub fn get_children(&self, payload: SyntaxPayload) -> &[SyntaxId] {
+    pub fn get_child_ids(&self, payload: SyntaxPayload) -> &[SyntaxId] {
         if payload.left_id().is_none() || payload.right_id().is_none() {
             return &[];
         }
@@ -139,9 +123,21 @@ impl SyntaxTree {
     }
 
     pub fn sorted_nodes(&self) -> Vec<SyntaxNode> {
-        let mut nodes = self.nodes.clone();
+        fn collect_depth_first(node: SyntaxReader, nodes: &mut Vec<SyntaxNode>) {
+            nodes.push(*node.inner());
 
-        nodes.sort_by_key(|node| node.span.start());
+            for child in node.children() {
+                collect_depth_first(child, nodes);
+            }
+        }
+
+        let root = match self.root() {
+            Some(root) => root,
+            None => return Vec::new(),
+        };
+        let mut nodes = Vec::with_capacity(self.nodes.len());
+
+        collect_depth_first(root, &mut nodes);
 
         nodes
     }

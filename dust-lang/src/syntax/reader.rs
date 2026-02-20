@@ -152,7 +152,7 @@ impl<'a> SyntaxReader<'a> {
     }
 
     pub fn expect_multiple_children(&self) -> Result<SyntaxReaderIterator<'a>, SyntaxError> {
-        let child_ids = self.tree.get_children(self.node.payload);
+        let child_ids = self.tree.get_child_ids(self.node.payload);
 
         if child_ids.is_empty() {
             return Err(SyntaxError::Internal(
@@ -189,7 +189,7 @@ impl<'a> SyntaxReader<'a> {
                 current_index: 0,
             },
             SyntaxPayloadKind::MultipleChildren => SyntaxReaderIterator::Multiple {
-                child_ids: self.tree.get_children(self.node.payload),
+                child_ids: self.tree.get_child_ids(self.node.payload),
                 tree: self.tree,
                 current_index: 0,
             },
@@ -217,7 +217,7 @@ impl<'a> SyntaxReader<'a> {
     }
 
     fn draw_text_tree_line(&self, buffer: &mut String, ancestors: &mut Vec<bool>, is_last: bool) {
-        for ancestor_is_last in ancestors.iter() {
+        for ancestor_is_last in &*ancestors {
             let indent = if *ancestor_is_last { "    " } else { "│   " };
 
             buffer.push_str(indent);
@@ -360,11 +360,11 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
                 right_child_id,
                 tree,
                 current_index,
-            } if *current_index < 2 => {
-                let child_id = if *current_index == 0 {
-                    *left_child_id
-                } else {
-                    *right_child_id
+            } => {
+                let child_id = match *current_index {
+                    0 => *left_child_id,
+                    1 => *right_child_id,
+                    _ => return None,
                 };
                 let child_node = tree.get_node(child_id)?;
                 *current_index += 1;

@@ -117,7 +117,7 @@ impl Display for SyntaxNode {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum SyntaxKind {
     // Items
     Root,
@@ -207,7 +207,7 @@ pub enum SyntaxKind {
     BlockExpression,
 
     // Sub-Syntax
-    CallValueArguments,
+    ValueArguments,
     FunctionSignature,
     ValueParameters,
     TypeParameters,
@@ -374,7 +374,7 @@ impl SyntaxKind {
             SyntaxKind::ByteExpression => "byte expression",
             SyntaxKind::ByteType => "byte type",
             SyntaxKind::CallExpression => "call expression",
-            SyntaxKind::CallValueArguments => "call value arguments",
+            SyntaxKind::ValueArguments => "value arguments",
             SyntaxKind::CharacterExpression => "character expression",
             SyntaxKind::CharacterType => "character type",
             SyntaxKind::DivisionAssignmentStatement => "division assignment statement",
