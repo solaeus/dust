@@ -3,14 +3,12 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
-    tests::let_statement::{
-        LET_MUT_STATEMENT, LET_MUT_STATEMENT_WITH_TYPE, LET_STATEMENT, LET_STATEMENT_WITH_TYPE,
-    },
+    tests::let_statement::{WITH_TYPE, WITH_TYPE_MUT, WITHOUT_TYPE, WITHOUT_TYPE_MUT},
 };
 
 #[test]
 fn let_statement() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(LET_STATEMENT));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(WITHOUT_TYPE));
     let ParseResult {
         syntax_tree,
         errors,
@@ -38,10 +36,7 @@ fn let_statement() {
 
 #[test]
 fn let_statement_with_type() {
-    let parser = Parser::new(
-        SourceFileId::MAIN,
-        Lexer::from_bytes(LET_STATEMENT_WITH_TYPE),
-    );
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(WITH_TYPE));
     let ParseResult {
         syntax_tree,
         errors,
@@ -70,7 +65,7 @@ fn let_statement_with_type() {
 
 #[test]
 fn let_mut_statement() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(LET_MUT_STATEMENT));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(WITHOUT_TYPE_MUT));
     let ParseResult {
         syntax_tree,
         errors,
@@ -98,10 +93,7 @@ fn let_mut_statement() {
 
 #[test]
 fn let_mut_statement_with_type() {
-    let parser = Parser::new(
-        SourceFileId::MAIN,
-        Lexer::from_bytes(LET_MUT_STATEMENT_WITH_TYPE),
-    );
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(WITH_TYPE_MUT));
     let ParseResult {
         syntax_tree,
         errors,

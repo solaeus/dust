@@ -1098,7 +1098,14 @@ impl<'src> Parser<'src> {
 
         let left_id = if is_statement {
             if left.kind == SyntaxKind::PathExpression {
-                left.payload.left_id()
+                let path_node = SyntaxNode {
+                    kind: SyntaxKind::Path,
+                    payload: left.payload,
+                    payload_kind: left.payload_kind,
+                    span: left.span,
+                };
+
+                self.syntax_tree.push(path_node)
             } else {
                 return Err(ParseError::ExpectedSyntax {
                     found: left.kind,
