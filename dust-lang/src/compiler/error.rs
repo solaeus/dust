@@ -18,10 +18,6 @@ use crate::{
 
 #[derive(Debug)]
 pub enum CompileError {
-    Syntax(SyntaxError),
-    Internal(InternalCompileError),
-    SourceFileError(SourceError),
-
     CannotApplyOperator {
         operator: SyntaxKind,
         type_id: TypeId,
@@ -102,24 +98,17 @@ pub enum CompileError {
         position: Position,
     },
     ExpectedMainFunction,
+    UnimplementedSyntaxFeature {
+        syntax_kind: SyntaxKind,
+        position: Position,
+    },
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
-    type Input = (&'a Source<'a>, &'a Resolver);
+    type Context = (&'a Source<'a>, &'a Resolver);
 
-    fn annotated_error(&self, (source, resolver): Self::Input) -> Group<'a> {
+    fn annotated_error(&self, (source, resolver): Self::Context) -> Group<'a> {
         match self {
-            CompileError::Internal(internal_error) => {
-                let title = format!("Internal compiler error: {internal_error}");
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
-            CompileError::Syntax(syntax_error) => syntax_error.annotated_error(source),
-            CompileError::SourceFileError(source_file_error) => {
-                let title = format!("Source file error: {source_file_error}");
-
-                Group::with_title(Level::ERROR.primary_title(title))
-            }
             CompileError::DivisionByZero { position } => {
                 let title = "Division by zero".to_string();
                 let file_str = source.get_file(position.file_id).content_as_str();
@@ -543,173 +532,6 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 Group::with_title(Level::ERROR.primary_title(title)).element(
                     Level::HELP.message("A \"main\" function is required to compile the program."),
                 )
-            }
-        }
-    }
-}
-
-impl From<SyntaxError> for CompileError {
-    fn from(syntax_error: SyntaxError) -> Self {
-        CompileError::Syntax(syntax_error)
-    }
-}
-
-impl From<SourceError> for CompileError {
-    fn from(source_file_error: SourceError) -> Self {
-        CompileError::SourceFileError(source_file_error)
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum InternalCompileError {
-    InvalidDeclarationKind(DeclarationId),
-    InvalidJumpAnchorInstruction(Operation),
-    InvalidNativeFunction(&'static str),
-    InvalidSyntaxNode(SyntaxKind),
-    InvalidTypeNode(TypeId),
-    MissingDeclaration(DeclarationId),
-    MissingDeclarationBinding(SyntaxId),
-    MissingDeclarationMembers(DeclarationMembers),
-    MissingDeclarationPosition(DeclarationId),
-    MissingDeclarationType(DeclarationId),
-    MissingLocal(DeclarationId),
-    MissingScope(ScopeId),
-    MissingScopeBinding(SyntaxId),
-    MissingSourceFile(SourceFileId),
-    MissingSyntaxChild(SyntaxId),
-    MissingSyntaxChildren { start_index: u32, count: u32 },
-    MissingSyntaxNode(SyntaxId),
-    MissingSyntaxTree(SourceFileId),
-    MissingType(TypeId),
-    MissingTypeBinding(SyntaxId),
-    MissingTypeMembers(TypeMembers),
-    AnonymousType(DeclarationId),
-    MissingDeclarationMember(u32),
-    MissingTypeMember(u32),
-    AnonymousSymbolLookup,
-}
-
-impl Display for InternalCompileError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            InternalCompileError::InvalidDeclarationKind(declaration_id) => {
-                write!(
-                    f,
-                    "Invalid declaration kind for declaration ID {}",
-                    declaration_id.inner()
-                )
-            }
-            InternalCompileError::InvalidJumpAnchorInstruction(instruction) => {
-                write!(f, "Invalid jump anchor instruction: {:?}", instruction)
-            }
-            InternalCompileError::InvalidNativeFunction(name) => {
-                write!(f, "Invalid native function: {}", name)
-            }
-            InternalCompileError::InvalidSyntaxNode(kind) => {
-                write!(f, "Invalid syntax node kind: {:?}", kind)
-            }
-            InternalCompileError::InvalidTypeNode(type_id) => {
-                write!(f, "Invalid type node for type ID {}", type_id.inner())
-            }
-            InternalCompileError::MissingDeclaration(declaration_id) => {
-                write!(
-                    f,
-                    "Missing declaration for declaration ID {}",
-                    declaration_id.inner()
-                )
-            }
-            InternalCompileError::MissingDeclarationBinding(syntax_id) => {
-                write!(
-                    f,
-                    "Missing declaration binding for syntax ID {}",
-                    syntax_id.inner()
-                )
-            }
-            InternalCompileError::MissingDeclarationMembers(members) => {
-                write!(f, "Missing declaration members: {:?}", members)
-            }
-            InternalCompileError::MissingDeclarationPosition(declaration_id) => {
-                write!(
-                    f,
-                    "Missing declaration position for declaration ID {}",
-                    declaration_id.inner()
-                )
-            }
-            InternalCompileError::MissingDeclarationType(declaration_id) => {
-                write!(
-                    f,
-                    "Missing declaration type for declaration ID {}",
-                    declaration_id.inner()
-                )
-            }
-            InternalCompileError::MissingLocal(declaration_id) => {
-                write!(
-                    f,
-                    "Missing local for declaration ID {}",
-                    declaration_id.inner()
-                )
-            }
-            InternalCompileError::MissingScope(scope_id) => {
-                write!(f, "Missing scope for scope ID {}", scope_id.inner())
-            }
-            InternalCompileError::MissingScopeBinding(syntax_id) => {
-                write!(
-                    f,
-                    "Missing scope binding for syntax ID {}",
-                    syntax_id.inner()
-                )
-            }
-            InternalCompileError::MissingSourceFile(file_id) => {
-                write!(f, "Missing source file for file ID {}", file_id.inner())
-            }
-            InternalCompileError::MissingSyntaxChild(syntax_id) => {
-                write!(
-                    f,
-                    "Missing syntax child for syntax ID {}",
-                    syntax_id.inner()
-                )
-            }
-            InternalCompileError::MissingSyntaxChildren { start_index, count } => {
-                write!(
-                    f,
-                    "Missing {} syntax children starting from index {}",
-                    count, start_index
-                )
-            }
-            InternalCompileError::MissingSyntaxNode(syntax_id) => {
-                write!(f, "Missing syntax node for syntax ID {}", syntax_id.inner())
-            }
-            InternalCompileError::MissingSyntaxTree(file_id) => {
-                write!(f, "Missing syntax tree for file ID {}", file_id.inner())
-            }
-            InternalCompileError::MissingType(type_id) => {
-                write!(f, "Missing type for type ID {}", type_id.inner())
-            }
-            InternalCompileError::MissingTypeBinding(syntax_id) => {
-                write!(
-                    f,
-                    "Missing type binding for syntax ID {}",
-                    syntax_id.inner()
-                )
-            }
-            InternalCompileError::MissingTypeMembers(members) => {
-                write!(f, "Missing type members: {:?}", members)
-            }
-            InternalCompileError::AnonymousType(declaration_id) => {
-                write!(
-                    f,
-                    "Anonymous type for declaration ID {}",
-                    declaration_id.inner()
-                )
-            }
-            InternalCompileError::MissingDeclarationMember(index) => {
-                write!(f, "Missing declaration member at index {}", index)
-            }
-            InternalCompileError::MissingTypeMember(index) => {
-                write!(f, "Missing type member at index {}", index)
-            }
-            InternalCompileError::AnonymousSymbolLookup => {
-                write!(f, "Attempted to lookup an anonymous symbol")
             }
         }
     }

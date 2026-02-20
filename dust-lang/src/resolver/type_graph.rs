@@ -6,7 +6,7 @@ use std::{
 use indexmap::{IndexSet, set::MutableValues};
 
 use crate::{
-    compiler::error::{CompileError, InternalCompileError},
+    dust_error::{DustError, InternalError},
     resolver::declaration_graph::{DeclarationId, DeclarationMembers},
 };
 
@@ -56,20 +56,16 @@ impl TypeGraph {
         type_id
     }
 
-    pub fn get_type(&self, id: TypeId) -> Result<&TypeNode, CompileError> {
+    pub fn get_type(&self, id: TypeId) -> Result<&TypeNode, DustError> {
         self.types
             .get_index(id.0 as usize)
-            .ok_or(CompileError::Internal(InternalCompileError::MissingType(
-                id,
-            )))
+            .ok_or(DustError::Internal(InternalError::MissingType(id)))
     }
 
-    pub fn get_type_mut(&mut self, id: TypeId) -> Result<&mut TypeNode, CompileError> {
+    pub fn get_type_mut(&mut self, id: TypeId) -> Result<&mut TypeNode, DustError> {
         self.types
             .get_index_mut2(id.0 as usize)
-            .ok_or(CompileError::Internal(InternalCompileError::MissingType(
-                id,
-            )))
+            .ok_or(DustError::Internal(InternalError::MissingType(id)))
     }
 
     pub fn add_type_members(&mut self, types: &[TypeId]) -> TypeMembers {
@@ -83,20 +79,18 @@ impl TypeGraph {
         members
     }
 
-    pub fn get_type_members(&self, members: TypeMembers) -> Result<&[TypeId], CompileError> {
+    pub fn get_type_members(&self, members: TypeMembers) -> Result<&[TypeId], DustError> {
         self.members
             .get(members.as_usize_range())
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingTypeMembers(members),
-            ))
+            .ok_or(DustError::Internal(InternalError::MissingTypeMembers(
+                members,
+            )))
     }
 
-    pub fn get_type_member(&self, index: u32) -> Result<&TypeId, CompileError> {
+    pub fn get_type_member(&self, index: u32) -> Result<&TypeId, DustError> {
         self.members
             .get(index as usize)
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingTypeMember(index),
-            ))
+            .ok_or(DustError::Internal(InternalError::MissingTypeMember(index)))
     }
 
     pub fn create_inferred_type(&mut self) -> TypeId {

@@ -10,12 +10,13 @@ use serde::{Deserialize, Serialize};
 /// [`DustType`], which may have heap data and is a rather wasteful way to represent a type if used
 /// for every value. It is usually enough just to know how to interpret the value's bits.
 ///
-/// It's also nice to have a performant way to differentiate heap-allocated types from scalar types.
-/// The high bit is used to mark heap-allocated types, which allows for a simple check using bitwise
-/// operations. This simply means that scalar types are represented by a byte in the 0..=127 range,
-/// while heap-allocated types must be in the 128..=255 range.
+/// This type is used to encode type information in instructions. To that end, its values must fit
+/// in the instruction's D field, which is 6 bits. It's also nice to have a performant way to
+/// differentiate heap-allocated types from scalar types. The 5th bit is used to mark heap-allocated
+/// types, which allows for a simple check using a bitwise operation while staying within the 6-bit
+/// limit.
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct SmallType(pub u8);
+pub struct SmallType(u8);
 
 impl SmallType {
     // Scalar types
@@ -29,22 +30,22 @@ impl SmallType {
     pub const STRUCT: SmallType = SmallType(0b0000_0111);
 
     // Heap-allocated types
-    // Use the high bit to distinguish from scalar types
-    pub const STRING: SmallType = SmallType(0b1000_0000);
-    pub const LIST_BOOLEAN: SmallType = SmallType(0b1000_0001);
-    pub const LIST_BYTE: SmallType = SmallType(0b1000_0010);
-    pub const LIST_CHARACTER: SmallType = SmallType(0b1000_0011);
-    pub const LIST_FLOAT: SmallType = SmallType(0b1000_0100);
-    pub const LIST_INTEGER: SmallType = SmallType(0b1000_0101);
-    pub const LIST_STRING: SmallType = SmallType(0b1000_0110);
-    pub const LIST_FUNCTION: SmallType = SmallType(0b1000_0111);
-    pub const LIST_STRUCT: SmallType = SmallType(0b1000_1000);
-    pub const LIST_LIST: SmallType = SmallType(0b1000_1001);
+    // Use the 5th bit to mark heap-allocated types
+    pub const STRING: SmallType = SmallType(0b0001_0000);
+    pub const LIST_BOOLEAN: SmallType = SmallType(0b0001_0001);
+    pub const LIST_BYTE: SmallType = SmallType(0b0001_0010);
+    pub const LIST_CHARACTER: SmallType = SmallType(0b0001_0011);
+    pub const LIST_FLOAT: SmallType = SmallType(0b0001_0100);
+    pub const LIST_INTEGER: SmallType = SmallType(0b0001_0101);
+    pub const LIST_STRING: SmallType = SmallType(0b0001_0110);
+    pub const LIST_FUNCTION: SmallType = SmallType(0b0001_0111);
+    pub const LIST_STRUCT: SmallType = SmallType(0b0001_1000);
+    pub const LIST_LIST: SmallType = SmallType(0b0001_1001);
 }
 
 impl SmallType {
     pub fn is_scalar(&self) -> bool {
-        self.0 & 0b1000_0000 == 0
+        self.0 & 0b0001_0000 == 0
     }
 
     pub fn list_type(&self) -> Self {
@@ -79,6 +80,7 @@ impl Display for SmallType {
             Self::INTEGER => write!(f, "int"),
             Self::STRING => write!(f, "str"),
             Self::FUNCTION => write!(f, "fn"),
+            Self::STRUCT => write!(f, "T"),
             Self::LIST_BOOLEAN => write!(f, "[bool]"),
             Self::LIST_BYTE => write!(f, "[byte]"),
             Self::LIST_CHARACTER => write!(f, "[char]"),
@@ -86,7 +88,9 @@ impl Display for SmallType {
             Self::LIST_INTEGER => write!(f, "[int]"),
             Self::LIST_STRING => write!(f, "[str]"),
             Self::LIST_FUNCTION => write!(f, "[fn]"),
-            invalid => write!(f, "INVALID_OPERAND_TYPE({})", invalid.0),
+            Self::LIST_STRUCT => write!(f, "[T]"),
+            Self::LIST_LIST => write!(f, "[[?]]"),
+            invalid => write!(f, "<invalid SmallType: {}>", invalid.0),
         }
     }
 }
@@ -94,6 +98,29 @@ impl Display for SmallType {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn uses_6_bits() {
+        const {
+            assert!(SmallType::BOOLEAN.0.bit_width() <= 6);
+            assert!(SmallType::BYTE.0.bit_width() <= 6);
+            assert!(SmallType::CHARACTER.0.bit_width() <= 6);
+            assert!(SmallType::FLOAT.0.bit_width() <= 6);
+            assert!(SmallType::INTEGER.0.bit_width() <= 6);
+            assert!(SmallType::STRING.0.bit_width() <= 6);
+            assert!(SmallType::FUNCTION.0.bit_width() <= 6);
+            assert!(SmallType::STRUCT.0.bit_width() <= 6);
+            assert!(SmallType::LIST_BOOLEAN.0.bit_width() <= 6);
+            assert!(SmallType::LIST_BYTE.0.bit_width() <= 6);
+            assert!(SmallType::LIST_CHARACTER.0.bit_width() <= 6);
+            assert!(SmallType::LIST_FLOAT.0.bit_width() <= 6);
+            assert!(SmallType::LIST_INTEGER.0.bit_width() <= 6);
+            assert!(SmallType::LIST_STRING.0.bit_width() <= 6);
+            assert!(SmallType::LIST_FUNCTION.0.bit_width() <= 6);
+            assert!(SmallType::LIST_STRUCT.0.bit_width() <= 6);
+            assert!(SmallType::LIST_LIST.0.bit_width() <= 6);
+        }
+    }
 
     #[test]
     fn is_scalar() {

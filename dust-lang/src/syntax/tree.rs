@@ -85,7 +85,7 @@ impl SyntaxTree {
     }
 
     pub fn get_node(&self, id: SyntaxId) -> Option<&SyntaxNode> {
-        if id.is_none() {
+        if id == SyntaxId::NONE {
             return None;
         }
 
@@ -93,7 +93,7 @@ impl SyntaxTree {
     }
 
     pub fn get_child_ids(&self, payload: SyntaxPayload) -> &[SyntaxId] {
-        if payload.left_id().is_none() || payload.right_id().is_none() {
+        if payload.left_id() == SyntaxId::NONE || payload.right_id() == SyntaxId::NONE {
             return &[];
         }
 

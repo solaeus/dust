@@ -1,18 +1,4 @@
 //! The Dust instruction set.
-//!
-//! Each instruction is 64 bits and uses up to seven distinct fields.
-//!
-//! # Layout
-//!
-//! Bits    | Description
-//! ------- | -----------
-//! 0..=5   | Operation
-//! 6..=7   | B memory kind ━━━┓
-//! 8..=9   | C memory kind  ┐ ┃
-//! 10..=15 | D field        │ ┃
-//! 16..=31 | A field        │ ┃
-//! 48..=63 | C field ━━━━━━━━━┻━ B address
-//! 32..=47 | B field ───────┴─── C address
 mod add;
 mod address;
 mod call;
@@ -66,11 +52,23 @@ pub use to_string::ToString;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::native_function::NativeFunction;
+use crate::{native_function::NativeFunction, small_type::SmallType};
 
 /// An instruction for the Dust virtual machine.
 ///
-/// See the [module-level documentation](index.html) for more information.
+/// Each instruction is 64 bits and uses up to seven distinct fields.
+///
+/// # Layout
+///
+/// Bits    | Description
+/// ------- | -----------
+/// 0..=5   | Operation
+/// 6..=7   | B memory kind ━━━━┓
+/// 8..=9   | C memory kind  ─┐ ┃
+/// 10..=15 | Type or D field │ ┃
+/// 16..=31 | A field         │ ┃
+/// 48..=63 | B field ━━━━━━━━━━┻━ B address
+/// 32..=47 | C field ────────┴─── C address
 #[derive(Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(C)]
 pub struct Instruction(pub(crate) u64);
@@ -484,6 +482,13 @@ impl Display for MemoryKind {
             _ => write!(f, "invalid"),
         }
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct CallArgument {
+    pub index: u16,
+    pub memory: MemoryKind,
+    pub r#type: SmallType,
 }
 
 #[cfg(test)]

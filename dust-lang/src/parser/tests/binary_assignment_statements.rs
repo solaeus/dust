@@ -21,20 +21,20 @@ fn add_assign() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 26), SyntaxId(10)),
-            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(9)),
+            Root.with_child(Span::new(0, 26), SyntaxId(11)),
+            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(3, 7)),
-            ValueParameters.empty(Span::new(7, 9)),
+            FunctionExpression.with_binary_children(Span::new(7, 26), SyntaxId(3), SyntaxId(9)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(2)),
-            FunctionExpression.with_binary_children(Span::new(7, 26), SyntaxId(3), SyntaxId(8)),
-            BlockExpression.with_child(Span::new(10, 26), SyntaxId(7)),
-            PathSegment.empty(Span::new(16, 17)),
-            Path.with_child(Span::new(16, 17), SyntaxId(4)),
+            ValueParameters.empty(Span::new(7, 9)),
+            BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
             AdditionAssignmentStatement.with_binary_children(
                 Span::new(16, 24),
-                SyntaxId(5),
-                SyntaxId(6)
+                SyntaxId(6),
+                SyntaxId(7)
             ),
+            Path.with_child(Span::new(16, 17), SyntaxId(4)),
+            PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
         ]
     );
@@ -53,20 +53,20 @@ fn subtract_assign() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 26), SyntaxId(10)),
-            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(9)),
+            Root.with_child(Span::new(0, 26), SyntaxId(11)),
+            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(3, 7)),
-            ValueParameters.empty(Span::new(7, 9)),
+            FunctionExpression.with_binary_children(Span::new(7, 26), SyntaxId(3), SyntaxId(9)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(2)),
-            FunctionExpression.with_binary_children(Span::new(7, 26), SyntaxId(3), SyntaxId(8)),
-            BlockExpression.with_child(Span::new(10, 26), SyntaxId(7)),
-            PathSegment.empty(Span::new(16, 17)),
-            Path.with_child(Span::new(16, 17), SyntaxId(4)),
+            ValueParameters.empty(Span::new(7, 9)),
+            BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
             SubtractionAssignmentStatement.with_binary_children(
                 Span::new(16, 24),
-                SyntaxId(5),
-                SyntaxId(6)
+                SyntaxId(6),
+                SyntaxId(7)
             ),
+            Path.with_child(Span::new(16, 17), SyntaxId(4)),
+            PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
         ]
     );
@@ -85,20 +85,20 @@ fn multiply_assign() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 26), SyntaxId(10)),
-            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(9)),
+            Root.with_child(Span::new(0, 26), SyntaxId(11)),
+            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(3, 7)),
-            ValueParameters.empty(Span::new(7, 9)),
+            FunctionExpression.with_binary_children(Span::new(7, 26), SyntaxId(3), SyntaxId(9)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(2)),
-            FunctionExpression.with_binary_children(Span::new(7, 26), SyntaxId(3), SyntaxId(8)),
-            BlockExpression.with_child(Span::new(10, 26), SyntaxId(7)),
-            PathSegment.empty(Span::new(16, 17)),
-            Path.with_child(Span::new(16, 17), SyntaxId(4)),
+            ValueParameters.empty(Span::new(7, 9)),
+            BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
             MultiplicationAssignmentStatement.with_binary_children(
                 Span::new(16, 24),
-                SyntaxId(5),
-                SyntaxId(6)
+                SyntaxId(6),
+                SyntaxId(7)
             ),
+            Path.with_child(Span::new(16, 17), SyntaxId(4)),
+            PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
         ]
     );
@@ -117,20 +117,20 @@ fn divide_assign() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 26), SyntaxId(10)),
-            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(9)),
+            Root.with_child(Span::new(0, 26), SyntaxId(11)),
+            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(3, 7)),
-            ValueParameters.empty(Span::new(7, 9)),
+            FunctionExpression.with_binary_children(Span::new(7, 26), SyntaxId(3), SyntaxId(9)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(2)),
-            FunctionExpression.with_binary_children(Span::new(7, 26), SyntaxId(3), SyntaxId(8)),
-            BlockExpression.with_child(Span::new(10, 26), SyntaxId(7)),
-            PathSegment.empty(Span::new(16, 17)),
-            Path.with_child(Span::new(16, 17), SyntaxId(4)),
+            ValueParameters.empty(Span::new(7, 9)),
+            BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
             DivisionAssignmentStatement.with_binary_children(
                 Span::new(16, 24),
-                SyntaxId(5),
-                SyntaxId(6)
+                SyntaxId(6),
+                SyntaxId(7)
             ),
+            Path.with_child(Span::new(16, 17), SyntaxId(4)),
+            PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
         ]
     );
@@ -149,20 +149,20 @@ fn modulo_assign() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 26), SyntaxId(10)),
-            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(9)),
+            Root.with_child(Span::new(0, 26), SyntaxId(11)),
+            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(3, 7)),
-            ValueParameters.empty(Span::new(7, 9)),
+            FunctionExpression.with_binary_children(Span::new(7, 26), SyntaxId(3), SyntaxId(9)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(2)),
-            FunctionExpression.with_binary_children(Span::new(7, 26), SyntaxId(3), SyntaxId(8)),
-            BlockExpression.with_child(Span::new(10, 26), SyntaxId(7)),
-            PathSegment.empty(Span::new(16, 17)),
-            Path.with_child(Span::new(16, 17), SyntaxId(4)),
+            ValueParameters.empty(Span::new(7, 9)),
+            BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
             ModuloAssignmentStatement.with_binary_children(
                 Span::new(16, 24),
-                SyntaxId(5),
-                SyntaxId(6)
+                SyntaxId(6),
+                SyntaxId(7)
             ),
+            Path.with_child(Span::new(16, 17), SyntaxId(4)),
+            PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
         ]
     );
@@ -181,20 +181,20 @@ fn power_assign() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 26), SyntaxId(10)),
-            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(9)),
+            Root.with_child(Span::new(0, 26), SyntaxId(11)),
+            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(3, 7)),
-            ValueParameters.empty(Span::new(7, 9)),
+            FunctionExpression.with_binary_children(Span::new(7, 26), SyntaxId(3), SyntaxId(9)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(2)),
-            FunctionExpression.with_binary_children(Span::new(7, 26), SyntaxId(3), SyntaxId(8)),
-            BlockExpression.with_child(Span::new(10, 26), SyntaxId(7)),
-            PathSegment.empty(Span::new(16, 17)),
-            Path.with_child(Span::new(16, 17), SyntaxId(4)),
+            ValueParameters.empty(Span::new(7, 9)),
+            BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
             ExponentAssignmentStatement.with_binary_children(
                 Span::new(16, 24),
-                SyntaxId(5),
-                SyntaxId(6)
+                SyntaxId(6),
+                SyntaxId(7)
             ),
+            Path.with_child(Span::new(16, 17), SyntaxId(4)),
+            PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
         ]
     );

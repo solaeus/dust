@@ -1,10 +1,10 @@
 use tracing::warn;
 
 use crate::{
+    dust_error::{DustError, InternalError},
     source::{Position, SourceFileId, Span},
     syntax::{
-        SyntaxError, SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree,
-        error::InternalSyntaxError, node::SyntaxPayloadKind,
+        SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree, node::SyntaxPayloadKind,
     },
 };
 
@@ -20,10 +20,12 @@ impl<'a> SyntaxReader<'a> {
         Self { id, node, tree }
     }
 
-    pub fn root(&self) -> Result<Self, SyntaxError> {
+    pub fn root(&self) -> Result<Self, DustError> {
         self.tree
             .root()
-            .ok_or(SyntaxError::Internal(InternalSyntaxError::EmptySyntaxTree))
+            .ok_or(DustError::Internal(InternalError::MissingSyntaxNode(
+                SyntaxId::ROOT,
+            )))
     }
 
     pub fn inner(&self) -> &'a SyntaxNode {
@@ -72,92 +74,73 @@ impl<'a> SyntaxReader<'a> {
     }
 
     pub fn has_left_child(&self) -> bool {
-        let has_left_child = !self.node.payload.left_id().is_none();
-        let has_encoded_left_payload = matches!(
-            self.node.kind,
-            SyntaxKind::BooleanExpression
-                | SyntaxKind::ByteExpression
-                | SyntaxKind::CharacterExpression
-                | SyntaxKind::FloatExpression
-                | SyntaxKind::IntegerExpression
-                | SyntaxKind::StringExpression
-        );
-
-        has_left_child || has_encoded_left_payload
+        self.node.payload.left_id() != SyntaxId::NONE
     }
 
     pub fn has_right_child(&self) -> bool {
-        let has_right_child = !self.node.payload.right_id().is_none();
-        let has_encoded_right_payload = matches!(
-            self.node.kind,
-            SyntaxKind::FloatExpression
-                | SyntaxKind::IntegerExpression
-                | SyntaxKind::StringExpression
-        );
-
-        has_right_child || has_encoded_right_payload
+        self.node.payload.right_id() != SyntaxId::NONE
     }
 
-    pub fn left_child(&self) -> Result<Option<Self>, SyntaxError> {
+    pub fn left_child(&self) -> Result<Option<Self>, DustError> {
         let left_id = self.node.payload.left_id();
 
-        if self.node.payload.left_id().is_none() {
+        if self.node.payload.left_id() == SyntaxId::NONE {
             Ok(None)
         } else {
-            let child_node = self.tree.get_node(left_id).ok_or(SyntaxError::Internal(
-                InternalSyntaxError::MissingSyntaxNode(left_id),
+            let child_node = self.tree.get_node(left_id).ok_or(DustError::Internal(
+                InternalError::MissingSyntaxNode(left_id),
             ))?;
 
             Ok(Some(SyntaxReader::new(left_id, child_node, self.tree)))
         }
     }
 
-    pub fn right_child(&self) -> Result<Option<Self>, SyntaxError> {
+    pub fn right_child(&self) -> Result<Option<Self>, DustError> {
         let right_id = self.node.payload.right_id();
 
-        if self.node.payload.right_id().is_none() {
+        if self.node.payload.right_id() == SyntaxId::NONE {
             Ok(None)
         } else {
-            let child_node = self.tree.get_node(right_id).ok_or(SyntaxError::Internal(
-                InternalSyntaxError::MissingSyntaxNode(right_id),
+            let child_node = self.tree.get_node(right_id).ok_or(DustError::Internal(
+                InternalError::MissingSyntaxNode(right_id),
             ))?;
 
             Ok(Some(SyntaxReader::new(right_id, child_node, self.tree)))
         }
     }
 
-    pub fn expect_left_child(&self) -> Result<Self, SyntaxError> {
-        let child_id = self.node.payload.left_id();
-        let child_node = self.tree.get_node(child_id).ok_or(SyntaxError::Internal(
-            InternalSyntaxError::MissingSyntaxNode(child_id),
+    pub fn expect_left_child(&self) -> Result<Self, DustError> {
+        let left_id = self.node.payload.left_id();
+        let left_node = self.tree.get_node(left_id).ok_or(DustError::Internal(
+            InternalError::MissingSyntaxNode(left_id),
         ))?;
 
-        Ok(SyntaxReader::new(child_id, child_node, self.tree))
+        Ok(SyntaxReader::new(left_id, left_node, self.tree))
     }
 
-    pub fn expect_right_child(&self) -> Result<Self, SyntaxError> {
-        let child_id = self.node.payload.right_id();
-        let child_node = self.tree.get_node(child_id).ok_or(SyntaxError::Internal(
-            InternalSyntaxError::MissingSyntaxNode(child_id),
+    pub fn expect_right_child(&self) -> Result<Self, DustError> {
+        let right_id = self.node.payload.right_id();
+        let right_node = self.tree.get_node(right_id).ok_or(DustError::Internal(
+            InternalError::MissingSyntaxNode(right_id),
         ))?;
 
-        Ok(SyntaxReader::new(child_id, child_node, self.tree))
+        Ok(SyntaxReader::new(right_id, right_node, self.tree))
     }
 
-    pub fn expect_binary_children(&self) -> Result<(Self, Self), SyntaxError> {
+    pub fn expect_binary_children(&self) -> Result<(Self, Self), DustError> {
         let left_child = self.expect_left_child()?;
         let right_child = self.expect_right_child()?;
 
         Ok((left_child, right_child))
     }
 
-    pub fn expect_multiple_children(&self) -> Result<SyntaxReaderIterator<'a>, SyntaxError> {
+    pub fn expect_multiple_children(&self) -> Result<SyntaxReaderIterator<'a>, DustError> {
         let child_ids = self.tree.get_child_ids(self.node.payload);
 
         if child_ids.is_empty() {
-            return Err(SyntaxError::Internal(
-                InternalSyntaxError::MissingSyntaxChildren(self.node.payload),
-            ));
+            return Err(DustError::Internal(InternalError::MissingSyntaxChildren(
+                self.node.payload,
+            )));
         }
 
         #[cfg(debug_assertions)]
@@ -330,14 +313,6 @@ impl<'a> SyntaxReaderIterator<'a> {
             SyntaxReaderIterator::Multiple { child_ids, .. } => child_ids.is_empty(),
         }
     }
-
-    pub fn expect_next(&mut self) -> Result<SyntaxReader<'a>, SyntaxError> {
-        self.next().ok_or_else(|| {
-            let child_count = self.len();
-
-            SyntaxError::Internal(InternalSyntaxError::ExpectedChild { child_count })
-        })
-    }
 }
 
 impl<'a> Iterator for SyntaxReaderIterator<'a> {
@@ -387,9 +362,26 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.len();
+        let remaining = match self {
+            SyntaxReaderIterator::Empty => 0,
+            SyntaxReaderIterator::Single { yielded, .. } => {
+                if *yielded {
+                    0
+                } else {
+                    1
+                }
+            }
+            SyntaxReaderIterator::Binary { current_index, .. } => {
+                2_u8.saturating_sub(*current_index) as usize
+            }
+            SyntaxReaderIterator::Multiple {
+                child_ids,
+                current_index,
+                ..
+            } => child_ids.len().saturating_sub(*current_index),
+        };
 
-        (len, Some(len))
+        (remaining, Some(remaining))
     }
 }
 

@@ -1,4 +1,3 @@
-use core::panic;
 use std::{
     fmt::{self, Display, Formatter},
     fs::File,
@@ -7,9 +6,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use annotate_snippets::{Group, Level};
 use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
+
+use crate::dust_error::{AnnotatedError, DustError, InternalError};
 
 const SOURCE_NOT_FOUND: &str = "<dust internal error: source not found>";
 
@@ -45,23 +47,20 @@ impl<'src> Source<'src> {
         id
     }
 
-    pub fn get_file(&self, file_id: SourceFileId) -> &SourceFile<'src> {
-        if let Some(file) = self.files.get(file_id.0 as usize) {
-            file
-        } else {
-            panic!(
-                "Failed to find source file for {file_id:?}. This indicates a misuse of the\
-                `Source` type, which must be an append-only singleton"
-            );
-        }
+    pub fn get_file(&self, file_id: SourceFileId) -> Result<&SourceFile<'src>, DustError> {
+        self.files
+            .get(file_id.0 as usize)
+            .ok_or(DustError::Internal(InternalError::MissingSourceFile(
+                file_id,
+            )))
     }
 
-    pub fn get_file_content(&self, position: Position) -> &str {
-        self.get_file(position.file_id).content_str(position.span)
+    pub fn get_file_content(&self, position: &Position) -> Result<&str, DustError> {
+        self.get_file(position.file_id)?.content_str(position.span)
     }
 
     pub fn set_utf8_validated(&mut self, file_id: SourceFileId) {
-        if let Some(SourceFile::File { utf8_validated, .. }) =
+        if let Some(SourceFile::BaseFile { utf8_validated, .. }) =
             self.files.get_mut(file_id.0 as usize)
         {
             *utf8_validated = true;
@@ -102,13 +101,13 @@ pub enum SourceFile<'src> {
         content: Vec<u8>,
         utf8_validated: bool,
     },
-    File {
-        path: PathBuf,
+    BaseFile {
+        path: String,
         mmap: Mmap,
         utf8_validated: bool,
     },
-    FileLinked {
-        path: &'src Path,
+    ModuleFile {
+        path: &'src str,
         mmap: Mmap,
         utf8_validated: bool,
     },
@@ -155,30 +154,15 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn file(path: PathBuf) -> Result<Self, SourceError> {
+    pub fn base_file(path: PathBuf) -> Result<Self, SourceError> {
         let Ok(path) = path.canonicalize() else {
-            error!(
-                "Path does not exist or is invalid for this platform \"{}\"",
-                path.display()
-            );
-
             return Err(SourceError::InvalidPath {
                 found: path.display().to_string(),
             });
         };
 
         if !path.is_file() {
-            error!("Path does not point to a file: \"{}\"", path.display());
-
             return Err(SourceError::ExpectedFilePath {
-                found: path.display().to_string(),
-            });
-        }
-
-        if path.to_str().is_none() {
-            error!("Path contains non-UTF-8 characters: {}", path.display());
-
-            return Err(SourceError::ExpectedUtf8Path {
                 found: path.display().to_string(),
             });
         }
@@ -189,40 +173,47 @@ impl<'src> SourceFile<'src> {
         let mmap = unsafe { Mmap::map(&file) }.map_err(|error| SourceError::CannotOpen {
             io_error: error.kind(),
         })?;
+        let path = match path.into_os_string().into_string() {
+            Ok(string) => string,
+            Err(os_string) => {
+                return Err(SourceError::ExpectedUtf8Path {
+                    found: os_string.display().to_string(),
+                });
+            }
+        };
 
-        Ok(SourceFile::File {
+        Ok(SourceFile::BaseFile {
             path,
             mmap,
             utf8_validated: false,
         })
     }
 
-    pub fn file_linked(path: &'src Path, mmap: Mmap) -> Result<Self, SourceError> {
-        Ok(SourceFile::FileLinked {
+    pub fn module_file(path: &'src str, mmap: Mmap) -> Self {
+        SourceFile::ModuleFile {
             path,
             mmap,
             utf8_validated: false,
-        })
+        }
     }
 
     pub fn full_path(&self) -> &str {
         match self {
-            Self::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => path,
-            Self::File { path, .. } => path.to_str().expect("File path contains invalid UTF-8"),
-            Self::FileLinked { path, .. } => {
-                path.to_str().expect("File path contains invalid UTF-8")
-            }
+            Self::Embedded { path, .. }
+            | Self::EmbeddedOwned { path, .. }
+            | Self::ModuleFile { path, .. } => path,
+            Self::BaseFile { path, .. } => path,
         }
     }
 
     pub fn file_name(&self) -> &str {
         match self {
             Self::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => path,
-            Self::File { path, .. } => path
+            Self::BaseFile { path, .. } => Path::new(path)
                 .file_name()
                 .and_then(|name| name.to_str())
                 .expect("File name conatins invalid UTF-8"),
-            Self::FileLinked { path, .. } => path
+            Self::ModuleFile { path, .. } => Path::new(path)
                 .file_name()
                 .and_then(|name| name.to_str())
                 .expect("File name conatins invalid UTF-8"),
@@ -233,46 +224,50 @@ impl<'src> SourceFile<'src> {
         match self {
             Self::Embedded { utf8_validated, .. }
             | Self::EmbeddedOwned { utf8_validated, .. }
-            | Self::File { utf8_validated, .. }
-            | Self::FileLinked { utf8_validated, .. } => *utf8_validated,
+            | Self::BaseFile { utf8_validated, .. }
+            | Self::ModuleFile { utf8_validated, .. } => *utf8_validated,
         }
     }
 
-    pub fn content_bytes(&self, span: Span) -> &[u8] {
+    pub fn content_bytes(&self, span: Span) -> Result<&[u8], DustError> {
         let full_source = self.content_as_bytes();
         let range = span.as_usize_range();
 
-        full_source.get(range).unwrap_or_else(|| {
-            let path = self.full_path();
-
-            error!("Failed to get source at {path}:{span}");
-
-            SOURCE_NOT_FOUND.as_bytes()
+        full_source.get(range).ok_or_else(|| {
+            DustError::Internal(InternalError::MissingSourceFileContent {
+                span,
+                length: full_source.len(),
+            })
         })
     }
 
-    pub fn content_str(&self, span: Span) -> &str {
+    pub fn content_str(&self, span: Span) -> Result<&str, DustError> {
         let full_source = self.content_as_str();
         let range = span.as_usize_range();
 
-        full_source.get(range).unwrap_or(SOURCE_NOT_FOUND)
+        full_source.get(range).ok_or_else(|| {
+            DustError::Internal(InternalError::MissingSourceFileContent {
+                span,
+                length: full_source.len(),
+            })
+        })
     }
 
     pub fn content_as_bytes(&self) -> &[u8] {
         match self {
             Self::Embedded { content, .. } => content,
             Self::EmbeddedOwned { content, .. } => content,
-            Self::File { mmap, .. } | Self::FileLinked { mmap, .. } => mmap,
+            Self::BaseFile { mmap, .. } | Self::ModuleFile { mmap, .. } => mmap,
         }
     }
 
     pub fn content_as_str(&self) -> &str {
-        fn handle_utf8_validation<'a>(path: &Path, source_bytes: &'a [u8]) -> &'a str {
+        fn handle_utf8_validation<'a>(path: &str, source_bytes: &'a [u8]) -> &'a str {
             warn!(
                 "Source file {} is being accessed before UTF-8 validation. Doing immediate \
                 validation now. All files should be validated by the lexer before being accessed \
                 to avoid this warning.",
-                path.file_name().unwrap().display()
+                Path::new(path).file_name().unwrap().display()
             );
 
             let utf8_bytes = match str::from_utf8(source_bytes) {
@@ -280,7 +275,7 @@ impl<'src> SourceFile<'src> {
                 Err(error) => {
                     error!(
                         "Source file {} contains invalid UTF-8 at byte index {}.",
-                        path.display(),
+                        Path::new(path).display(),
                         error.valid_up_to()
                     );
 
@@ -300,8 +295,6 @@ impl<'src> SourceFile<'src> {
                 if *utf8_validated {
                     unsafe { str::from_utf8_unchecked(source_bytes) }
                 } else {
-                    let path = Path::new(path);
-
                     handle_utf8_validation(path, source_bytes)
                 }
             }
@@ -313,12 +306,10 @@ impl<'src> SourceFile<'src> {
                 if *utf8_validated {
                     unsafe { str::from_utf8_unchecked(source_bytes) }
                 } else {
-                    let path = Path::new(path);
-
                     handle_utf8_validation(path, source_bytes)
                 }
             }
-            Self::File {
+            Self::BaseFile {
                 path,
                 mmap,
                 utf8_validated,
@@ -329,7 +320,7 @@ impl<'src> SourceFile<'src> {
                     handle_utf8_validation(path, mmap)
                 }
             }
-            Self::FileLinked {
+            Self::ModuleFile {
                 path,
                 mmap,
                 utf8_validated,
@@ -457,35 +448,55 @@ impl ExactSizeIterator for SourceIterator<'_> {}
 
 #[derive(Debug)]
 pub enum SourceError {
-    InvalidPath { found: String },
+    CannotOpen { io_error: io::ErrorKind },
     ExpectedFilePath { found: String },
     ExpectedUtf8Path { found: String },
-    SpanOutOfBounds { span: Span, length: usize },
-    CannotOpen { io_error: io::ErrorKind },
+    InvalidPath { found: String },
 }
 
-impl Display for SourceError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            SourceError::InvalidPath { found } => write!(
-                f,
-                "The path \"{found}\" does not exist or is invalid for this platform."
-            ),
+impl<'src> AnnotatedError<'src> for SourceError {
+    type Context = ();
+
+    fn annotated_error(&self, _: &Self::Context, reports: &mut Vec<Group<'src>>) {
+        let group = match self {
+            SourceError::CannotOpen { io_error } => {
+                let title = "Cannot open source file".to_string();
+                let message = io_error.to_string();
+
+                Group::with_title(Level::ERROR.primary_title(title))
+                    .element(Level::ERROR.message(message))
+            }
             SourceError::ExpectedFilePath { found } => {
-                write!(f, "The path \"{found}\" does not point to a file.")
+                let title = "Expected file path".to_string();
+                let message = format!("\"{found}\" exists but is not a file.");
+                let help = if Path::new(found).is_dir() {
+                    "You may have meant \"{found}.ds\" or \"{found}/mod.ds\"."
+                } else {
+                    "Please provide a path to a Dust source file."
+                };
+
+                Group::with_title(Level::ERROR.primary_title(title))
+                    .element(Level::ERROR.message(message))
+                    .element(Level::HELP.message(help))
             }
             SourceError::ExpectedUtf8Path { found } => {
-                write!(f, "The path {found} contains non-UTF-8 characters.")
+                let title = "Expected UTF-8 file path".to_string();
+                let message = format!(
+                    "\"{found}\" contains non-UTF-8 characters. Dust file paths must be UTF-8."
+                );
+
+                Group::with_title(Level::ERROR.primary_title(title))
+                    .element(Level::ERROR.message(message))
             }
-            SourceError::SpanOutOfBounds { span, length } => {
-                write!(
-                    f,
-                    "The span ({span}) is out of bounds, the file's length is {length}."
-                )
+            SourceError::InvalidPath { found } => {
+                let title = "Invalid file path".to_string();
+                let message = format!("\"{found}\" is not a valid path.");
+
+                Group::with_title(Level::ERROR.primary_title(title))
+                    .element(Level::ERROR.message(message))
             }
-            SourceError::CannotOpen { io_error } => {
-                write!(f, "Failed to open file: {io_error}")
-            }
-        }
+        };
+
+        reports.push(group);
     }
 }

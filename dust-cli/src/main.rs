@@ -242,7 +242,7 @@ fn handle_source<'src>(
             } else {
                 path.join("src").join("main.ds")
             };
-            let file = SourceFile::file(main_file_path).unwrap_or_else(|error| {
+            let file = SourceFile::base_file(main_file_path).unwrap_or_else(|error| {
                 panic!("Failed to create source file for main source file: {error}")
             });
 
@@ -252,12 +252,12 @@ fn handle_source<'src>(
 
             if lib_file_path.exists() {
                 let file =
-                    SourceFile::file(lib_file_path).unwrap_or_else(|error| panic!("{error}"));
+                    SourceFile::base_file(lib_file_path).unwrap_or_else(|error| panic!("{error}"));
 
                 source.add_file(file);
             }
         } else {
-            let file = SourceFile::file(path).unwrap_or_else(|error| panic!("{error}"));
+            let file = SourceFile::base_file(path).unwrap_or_else(|error| panic!("{error}"));
 
             source.add_file(file);
         }

@@ -23,11 +23,11 @@ use crate::{
     token::{Token, TokenKind},
 };
 
-pub fn parse<'src>(source_code: &'src str) -> (SyntaxTree, Option<DustError<'src>>) {
+pub fn parse<'src>(source_code: &'src str) -> (SyntaxTree, Option<DustError>) {
     let mut source = Source::new();
     let file = SourceFile::validated("parse", source_code);
     let file_id = source.add_file(file);
-    let file_str = source.get_file(file_id).content_as_str();
+    let file_str = source.get_file(file_id).unwrap().content_as_str();
 
     let lexer = Lexer::from_utf8(file_str);
     let parser = Parser::new(file_id, lexer);

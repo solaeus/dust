@@ -1,10 +1,7 @@
-//! Part of an [Instruction][crate::Instruction] that is encoded as a single byte.
-
 use std::fmt::{self, Debug, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-/// Part of an [Instruction][crate::Instruction] that is encoded as a single byte.
 #[derive(Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Operation(pub u8);
 

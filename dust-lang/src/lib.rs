@@ -6,7 +6,8 @@
     int_from_ascii,
     iterator_try_collect,
     thread_id_value,
-    trim_prefix_suffix
+    trim_prefix_suffix,
+    uint_bit_width
 )]
 
 pub mod compiler;

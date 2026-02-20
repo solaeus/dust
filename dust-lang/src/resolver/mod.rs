@@ -9,7 +9,8 @@ use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 
 use crate::{
-    compiler::error::{CompileError, InternalCompileError},
+    compiler::error::CompileError,
+    dust_error::{DustError, InternalError},
     dust_type::{DustFunctionType, DustStructType, DustType},
     native_function::NativeFunction,
     resolver::{
@@ -51,7 +52,7 @@ impl Resolver {
             SmallVec::<[DeclarationId; 4]>::with_capacity(NativeFunction::ALL.len());
 
         for native_function in NativeFunction::ALL {
-            let function_symbol = symbols.add_named_symbol(native_function.name());
+            let function_symbol = symbols.add_symbol(native_function.name());
             let declaration_id = declarations.add_declaration(Declaration {
                 symbol_id: function_symbol,
                 position: None,
@@ -65,7 +66,7 @@ impl Resolver {
             core_imports.push(declaration_id);
         }
 
-        let core_symbol = symbols.add_anonymous_symbol();
+        let core_symbol = symbols.add_symbol("core");
         let _core_declaration_id = declarations.add_declaration(Declaration {
             symbol_id: core_symbol,
             position: None,
@@ -76,7 +77,6 @@ impl Resolver {
             scope_id: ScopeId::NONE,
             is_public: true,
         });
-
         let _core_scope_id = scopes.add_scope(Scope {
             kind: ScopeKind::Module,
             parent: ScopeId::NONE,
@@ -84,6 +84,7 @@ impl Resolver {
             imports: core_imports,
         });
 
+        debug_assert_eq!(_core_declaration_id, DeclarationId::CORE);
         debug_assert_eq!(_core_scope_id, ScopeId::CORE);
 
         Self {
@@ -105,11 +106,11 @@ impl Resolver {
     pub fn get_declaration_binding(
         &self,
         syntax_id: &SyntaxId,
-    ) -> Result<&DeclarationId, CompileError> {
+    ) -> Result<&DeclarationId, DustError> {
         self.declaration_bindings
             .get(syntax_id)
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingDeclarationBinding(*syntax_id),
+            .ok_or(DustError::Internal(
+                InternalError::MissingDeclarationBinding(*syntax_id),
             ))
     }
 
@@ -117,24 +118,22 @@ impl Resolver {
         self.scope_bindings.insert(syntax_id, scope_id);
     }
 
-    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Result<&ScopeId, CompileError> {
+    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Result<&ScopeId, DustError> {
         self.scope_bindings
             .get(syntax_id)
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingScopeBinding(*syntax_id),
-            ))
+            .ok_or(DustError::Internal(InternalError::MissingScopeBinding(
+                *syntax_id,
+            )))
     }
 
     pub fn add_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {
         self.type_bindings.insert(syntax_id, type_id);
     }
 
-    pub fn get_type_binding(&self, syntax_id: &SyntaxId) -> Result<&TypeId, CompileError> {
-        self.type_bindings
-            .get(syntax_id)
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingTypeBinding(*syntax_id),
-            ))
+    pub fn get_type_binding(&self, syntax_id: &SyntaxId) -> Result<&TypeId, DustError> {
+        self.type_bindings.get(syntax_id).ok_or(DustError::Internal(
+            InternalError::MissingTypeBinding(*syntax_id),
+        ))
     }
 
     pub fn find_declaration_in_scope(
@@ -142,9 +141,8 @@ impl Resolver {
         symbol_id: SymbolId,
         target_scope_id: ScopeId,
         parent: Option<DeclarationId>,
-        is_type_lookup: bool,
         path_segment: &SyntaxReader,
-    ) -> Result<(DeclarationId, Declaration), CompileError> {
+    ) -> Result<(DeclarationId, Declaration), DustError> {
         let mut current_scope_id = target_scope_id;
 
         loop {
@@ -161,27 +159,44 @@ impl Resolver {
                 return Ok((declaration_id, declaration));
             }
 
-            let next_scope = self.scopes.get_scope(current_scope_id)?;
+            let current_scope = self.scopes.get_scope(current_scope_id)?;
 
-            if (is_type_lookup
-                && !matches!(next_scope.kind, ScopeKind::Module | ScopeKind::Function))
-                || (!is_type_lookup && !matches!(next_scope.kind, ScopeKind::Block))
-            {
-                break;
+            for module_scope_id in &current_scope.modules {
+                if let Some((declaration_id, declaration)) =
+                    self.declarations
+                        .find_declaration(symbol_id, parent, *module_scope_id)
+                {
+                    self.scope_search.clear();
+
+                    return Ok((declaration_id, declaration));
+                }
             }
 
-            current_scope_id = next_scope.parent;
+            for import_declaration_id in &current_scope.imports {
+                let import_declaration =
+                    self.declarations.get_declaration(*import_declaration_id)?;
+
+                if import_declaration.symbol_id == symbol_id
+                    && import_declaration.parent() == parent
+                {
+                    self.scope_search.clear();
+
+                    return Ok((*import_declaration_id, import_declaration.clone()));
+                }
+            }
+
+            current_scope_id = current_scope.parent;
         }
 
         self.scope_search.clear();
 
-        Err(CompileError::Undeclared {
+        Err(DustError::Compile(CompileError::Undeclared {
             symbol_id,
             usage_position: path_segment.position(),
-        })
+        }))
     }
 
-    pub fn infer_type(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
+    pub fn infer_type(&mut self, type_id: TypeId) -> Result<TypeId, DustError> {
         if let TypeNode::Inferred {
             resolved: Some(resolved),
             ..
@@ -199,7 +214,7 @@ impl Resolver {
         left_syntax: Option<SyntaxReader>,
         right: TypeId,
         right_syntax: SyntaxReader,
-    ) -> Result<(), CompileError> {
+    ) -> Result<(), DustError> {
         let left_inferred = self.infer_type(left)?;
         let right_inferred = self.infer_type(right)?;
 
@@ -212,7 +227,7 @@ impl Resolver {
         left_syntax: Option<SyntaxReader<'a>>,
         right: TypeId,
         right_syntax: SyntaxReader<'a>,
-    ) -> Result<(), CompileError> {
+    ) -> Result<(), DustError> {
         if left == right {
             return Ok(());
         }
@@ -332,12 +347,12 @@ impl Resolver {
                     let found_position =
                         right_syntax.last_child().unwrap_or(right_syntax).position();
 
-                    return Err(CompileError::TypeConflict {
+                    return Err(DustError::Compile(CompileError::TypeConflict {
                         expected_type: left,
                         expected_position,
                         found_type: right,
                         found_position,
-                    });
+                    }));
                 }
 
                 let left_field_types = self
@@ -390,12 +405,12 @@ impl Resolver {
                     let found_position =
                         right_syntax.last_child().unwrap_or(right_syntax).position();
 
-                    Err(CompileError::TypeConflict {
+                    Err(DustError::Compile(CompileError::TypeConflict {
                         expected_type: left,
                         expected_position,
                         found_type: right,
                         found_position,
-                    })
+                    }))
                 }
             }
         }
@@ -421,7 +436,7 @@ impl Resolver {
                 );
 
                 for type_parameter_name in &function_type.type_parameters {
-                    let symbol = self.symbols.add_named_symbol(type_parameter_name);
+                    let symbol = self.symbols.add_symbol(type_parameter_name);
                     let type_parameter_id = self.declarations.add_declaration(Declaration {
                         symbol_id: symbol,
                         kind: DeclarationKind::Type { parent: None },
@@ -452,7 +467,7 @@ impl Resolver {
             DustType::Struct(struct_type) => {
                 let DustStructType { name, fields } = struct_type.as_ref();
 
-                let symbol = self.symbols.add_named_symbol(name);
+                let symbol = self.symbols.add_symbol(name);
                 let struct_declaration_id = self.declarations.add_declaration(Declaration {
                     symbol_id: symbol,
                     kind: DeclarationKind::Type { parent: None },
@@ -465,7 +480,7 @@ impl Resolver {
                     SmallVec::<[DeclarationId; 8]>::with_capacity(fields.len());
 
                 for (field_name, field_type) in fields {
-                    let symbol = self.symbols.add_named_symbol(field_name);
+                    let symbol = self.symbols.add_symbol(field_name);
                     let declaration_id = self.declarations.add_declaration(Declaration {
                         symbol_id: symbol,
                         kind: DeclarationKind::Type {
@@ -497,7 +512,7 @@ impl Resolver {
         self.types.add_type(node)
     }
 
-    pub fn get_full_type(&self, id: TypeId, source: &Source) -> Result<DustType, CompileError> {
+    pub fn get_full_type(&self, id: TypeId, source: &Source) -> Result<DustType, DustError> {
         let type_node = self.types.get_type(id)?;
 
         match type_node {
@@ -536,10 +551,10 @@ impl Resolver {
                 if let Some(resolved) = resolved {
                     self.get_full_type(*resolved, source)
                 } else {
-                    Err(CompileError::CannotInferType {
+                    Err(DustError::Compile(CompileError::CannotInferType {
                         type_id: id,
                         position: None,
-                    })
+                    }))
                 }
             }
             TypeNode::Struct {
@@ -553,10 +568,10 @@ impl Resolver {
                     .get_symbol(&struct_declaration.symbol_id)?
                     .to_string();
 
-                let fields = self.declarations.get_declaration_members(*fields)?;
-                let mut field_types = Vec::with_capacity(fields.len());
+                let field_ids = self.declarations.get_declaration_members(*fields)?;
+                let mut field_types = Vec::with_capacity(field_ids.len());
 
-                for field_id in fields {
+                for field_id in field_ids {
                     let field_declaration = self.declarations.get_declaration(*field_id)?;
                     let field_name = self
                         .symbols
@@ -583,7 +598,7 @@ impl Resolver {
     fn get_declaration_member_names(
         &self,
         members: DeclarationMembers,
-    ) -> impl Iterator<Item = Result<String, CompileError>> {
+    ) -> impl Iterator<Item = Result<String, DustError>> {
         members.as_range().map(|member_index| {
             let declaration_id = self.declarations.get_declaration_member(member_index)?;
             let declaration = self.declarations.get_declaration(*declaration_id)?;
@@ -597,7 +612,7 @@ impl Resolver {
         &self,
         members: TypeMembers,
         source: &Source,
-    ) -> impl Iterator<Item = Result<DustType, CompileError>> {
+    ) -> impl Iterator<Item = Result<DustType, DustError>> {
         members.as_range().map(|member_index| {
             let type_id = *self.types.get_type_member(member_index)?;
 
@@ -609,22 +624,22 @@ impl Resolver {
         &self,
         type_id: TypeId,
         node: &SyntaxReader,
-    ) -> Result<SmallType, CompileError> {
-        let operand_type = match self.types.get_type(type_id)? {
-            TypeNode::None => SmallType::NONE,
-            TypeNode::Boolean => SmallType::BOOLEAN,
-            TypeNode::Byte => SmallType::BYTE,
-            TypeNode::Character => SmallType::CHARACTER,
-            TypeNode::Float => SmallType::FLOAT,
-            TypeNode::Integer => SmallType::INTEGER,
-            TypeNode::String => SmallType::STRING,
+    ) -> Result<SmallType, DustError> {
+        match self.types.get_type(type_id)? {
+            TypeNode::None => Ok(SmallType::NONE),
+            TypeNode::Boolean => Ok(SmallType::BOOLEAN),
+            TypeNode::Byte => Ok(SmallType::BYTE),
+            TypeNode::Character => Ok(SmallType::CHARACTER),
+            TypeNode::Float => Ok(SmallType::FLOAT),
+            TypeNode::Integer => Ok(SmallType::INTEGER),
+            TypeNode::String => Ok(SmallType::STRING),
             TypeNode::List { element_type } => match *element_type {
-                TypeId::BOOLEAN => SmallType::LIST_BOOLEAN,
-                TypeId::BYTE => SmallType::LIST_BYTE,
-                TypeId::CHARACTER => SmallType::LIST_CHARACTER,
-                TypeId::FLOAT => SmallType::LIST_FLOAT,
-                TypeId::INTEGER => SmallType::LIST_INTEGER,
-                TypeId::STRING => SmallType::LIST_STRING,
+                TypeId::BOOLEAN => Ok(SmallType::LIST_BOOLEAN),
+                TypeId::BYTE => Ok(SmallType::LIST_BYTE),
+                TypeId::CHARACTER => Ok(SmallType::LIST_CHARACTER),
+                TypeId::FLOAT => Ok(SmallType::LIST_FLOAT),
+                TypeId::INTEGER => Ok(SmallType::LIST_INTEGER),
+                TypeId::STRING => Ok(SmallType::LIST_STRING),
                 _ => {
                     let element_operand_type = self.get_operand_type(*element_type, node)?;
 
@@ -636,52 +651,45 @@ impl Resolver {
                         | SmallType::LIST_INTEGER
                         | SmallType::LIST_STRING
                         | SmallType::LIST_LIST
-                        | SmallType::LIST_FUNCTION => SmallType::LIST_LIST,
-                        _ => {
-                            return Err(CompileError::CannotInferType {
-                                type_id,
-                                position: Some(node.position()),
-                            });
-                        }
+                        | SmallType::LIST_FUNCTION => Ok(SmallType::LIST_LIST),
+                        _ => Err(DustError::Compile(CompileError::CannotInferType {
+                            type_id,
+                            position: Some(node.position()),
+                        })),
                     }
                 }
             },
-            TypeNode::Function { .. } => SmallType::FUNCTION,
-            TypeNode::Struct { .. } => SmallType::STRUCT,
+            TypeNode::Function { .. } => Ok(SmallType::FUNCTION),
+            TypeNode::Struct { .. } => Ok(SmallType::STRUCT),
             TypeNode::Inferred {
                 resolved: Some(inferred),
                 ..
-            } => self.get_operand_type(*inferred, node)?,
+            } => self.get_operand_type(*inferred, node),
             TypeNode::Inferred { resolved: None, .. } | TypeNode::Enum { .. } => {
-                return Err(CompileError::CannotInferType {
+                Err(DustError::Compile(CompileError::CannotInferType {
                     type_id,
                     position: Some(node.position()),
-                });
+                }))
             }
-        };
-
-        Ok(operand_type)
+        }
     }
 
     pub fn get_register_size(
         &self,
         type_id: TypeId,
         node: &SyntaxReader,
-    ) -> Result<u16, CompileError> {
+    ) -> Result<u16, DustError> {
         match self.types.get_type(type_id)? {
-            TypeNode::None => Err(CompileError::ExpectedValue {
-                node_kind: node.kind(),
-                position: node.position(),
-            }),
+            TypeNode::None => Ok(0),
             TypeNode::Struct { fields, .. } => {
-                let mut leaf_count: u32 = 0;
+                let mut leaf_count: u16 = 0;
 
                 for index in fields.start..(fields.start + fields.count) {
                     let field_declaration_id = self.declarations.get_declaration_member(index)?;
                     let field_type_id = *self
                         .declarations
                         .get_declaration_type(field_declaration_id)?;
-                    let field_register_size = self.get_register_size(field_type_id, node)? as u32;
+                    let field_register_size = self.get_register_size(field_type_id, node)?;
 
                     let mut resolved_field_type_id = field_type_id;
 
@@ -702,14 +710,18 @@ impl Resolver {
                     leaf_count = leaf_count.saturating_add(field_leaf_count);
                 }
 
-                Ok(leaf_count as u16 + 1)
+                if leaf_count > 0 {
+                    leaf_count += 1;
+                }
+
+                Ok(leaf_count)
             }
             TypeNode::Inferred { resolved, .. } => match resolved {
                 Some(resolved) => self.get_register_size(*resolved, node),
-                None => Err(CompileError::CannotInferType {
+                None => Err(DustError::Compile(CompileError::CannotInferType {
                     type_id,
                     position: Some(node.position()),
-                }),
+                })),
             },
             _ => Ok(1),
         }

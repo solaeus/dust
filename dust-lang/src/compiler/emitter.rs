@@ -181,7 +181,7 @@ impl<'a> Emitter<'a> {
             }
             _ => {
                 return Err(CompileError::Internal(
-                    InternalCompileError::InvalidSyntaxNode(function_body.kind()),
+                    InternalCompileError::UnimplementedSyntaxFeature(function_body.kind()),
                 ));
             }
         }
@@ -538,7 +538,7 @@ impl<'a> Emitter<'a> {
                     SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                     _ => {
                         return Err(CompileError::Internal(
-                            InternalCompileError::InvalidSyntaxNode(operation),
+                            InternalCompileError::UnimplementedSyntaxFeature(operation),
                         ));
                     }
                 }
@@ -576,7 +576,7 @@ impl<'a> Emitter<'a> {
                 SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                 _ => {
                     return Err(CompileError::Internal(
-                        InternalCompileError::InvalidSyntaxNode(operation),
+                        InternalCompileError::UnimplementedSyntaxFeature(operation),
                     ));
                 }
             },
@@ -605,7 +605,7 @@ impl<'a> Emitter<'a> {
                 SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                 _ => {
                     return Err(CompileError::Internal(
-                        InternalCompileError::InvalidSyntaxNode(operation),
+                        InternalCompileError::UnimplementedSyntaxFeature(operation),
                     ));
                 }
             },
@@ -645,7 +645,7 @@ impl<'a> Emitter<'a> {
                     SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                     _ => {
                         return Err(CompileError::Internal(
-                            InternalCompileError::InvalidSyntaxNode(operation),
+                            InternalCompileError::UnimplementedSyntaxFeature(operation),
                         ));
                     }
                 }
@@ -677,7 +677,7 @@ impl<'a> Emitter<'a> {
                     SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                     _ => {
                         return Err(CompileError::Internal(
-                            InternalCompileError::InvalidSyntaxNode(operation),
+                            InternalCompileError::UnimplementedSyntaxFeature(operation),
                         ));
                     }
                 }
@@ -733,7 +733,7 @@ impl<'a> Emitter<'a> {
                     SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
                     _ => {
                         return Err(CompileError::Internal(
-                            InternalCompileError::InvalidSyntaxNode(operation),
+                            InternalCompileError::UnimplementedSyntaxFeature(operation),
                         ));
                     }
                 }
@@ -759,7 +759,7 @@ impl<'a> Emitter<'a> {
                     }
                     _ => {
                         return Err(CompileError::Internal(
-                            InternalCompileError::InvalidSyntaxNode(operation),
+                            InternalCompileError::UnimplementedSyntaxFeature(operation),
                         ));
                     }
                 };
@@ -790,7 +790,7 @@ impl<'a> Emitter<'a> {
                     }
                     _ => {
                         return Err(CompileError::Internal(
-                            InternalCompileError::InvalidSyntaxNode(operation),
+                            InternalCompileError::UnimplementedSyntaxFeature(operation),
                         ));
                     }
                 };

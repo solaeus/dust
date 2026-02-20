@@ -1,7 +1,7 @@
 use smallvec::SmallVec;
 
 use crate::{
-    compiler::error::{CompileError, InternalCompileError},
+    dust_error::{DustError, InternalError},
     resolver::declaration_graph::DeclarationId,
 };
 
@@ -15,18 +15,20 @@ impl ScopeGraph {
         Self { scopes: Vec::new() }
     }
 
-    pub fn add_scope(&mut self, scope: Scope) -> ScopeId {
+    pub fn add_scope(&mut self, mut scope: Scope) -> ScopeId {
         let id = ScopeId(self.scopes.len() as u32);
+
+        scope.modules.push(ScopeId::CORE);
 
         self.scopes.push(scope);
 
         id
     }
 
-    pub fn get_scope(&self, id: ScopeId) -> Result<&Scope, CompileError> {
-        self.scopes.get(id.0 as usize).ok_or(CompileError::Internal(
-            InternalCompileError::MissingScope(id),
-        ))
+    pub fn get_scope(&self, id: ScopeId) -> Result<&Scope, DustError> {
+        self.scopes
+            .get(id.0 as usize)
+            .ok_or(DustError::Internal(InternalError::MissingScope(id)))
     }
 }
 

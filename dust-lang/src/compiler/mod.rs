@@ -140,18 +140,18 @@ impl<'src> Compiler<'src> {
                 files_parsed += 1;
 
                 for span in file_module_names {
-                    let parent_file = self.source.get_file(file_id);
+                    let parent_file = self.source.get_file(file_id)?;
                     let module_name_str = parent_file.content_str(span);
                     let parent_path = Path::new(parent_file.full_path())
                         .parent()
                         .unwrap_or_else(|| Path::new("/"));
                     let module_path = parent_path.join(module_name_str).with_added_extension("ds");
                     let module_file = {
-                        match SourceFile::file(module_path) {
+                        match SourceFile::base_file(module_path) {
                             Ok(file) => file,
                             Err(source_error) => {
                                 return Err(DustError::compile(
-                                    vec![CompileError::SourceFileError(source_error)],
+                                    vec![CompileError::Source(source_error)],
                                     self.source,
                                     self.resolver,
                                 ));
@@ -169,7 +169,7 @@ impl<'src> Compiler<'src> {
         }
 
         let program_symbol_id = if let Some(name) = program_name {
-            self.resolver.symbols.add_named_symbol(name)
+            self.resolver.symbols.add_symbol(name)
         } else {
             self.resolver.symbols.add_anonymous_symbol()
         };
@@ -237,7 +237,7 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "emit");
             let _enter = span.enter();
 
-            let main_symbol_id = self.resolver.symbols.add_named_symbol("main");
+            let main_symbol_id = self.resolver.symbols.add_symbol("main");
             let (main_declaration_id, main_declaration) = match self
                 .resolver
                 .declarations

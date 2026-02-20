@@ -4,7 +4,6 @@ use smallvec::{SmallVec, smallvec};
 use tracing::{debug, info};
 
 use crate::{
-    compiler::error::{CompileError, InternalCompileError},
     resolver::{
         Resolver,
         declaration_graph::{Declaration, DeclarationId, DeclarationKind, ModuleKind},
@@ -83,11 +82,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .source
             .get_file(module_name.file_id())
             .content_str(module_name.span());
-        let module_symbol_id = self.resolver.symbols.add_named_symbol(module_name_str);
+        let module_symbol_id = self.resolver.symbols.add_symbol(module_name_str);
         let module_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Module,
             parent: self.current_scope_id,
-            modules: smallvec![ScopeId::CORE],
+            modules: SmallVec::new(),
             imports: SmallVec::new(),
         });
         let is_public = module_item.kind() == SyntaxKind::PublicModuleItem;
@@ -194,11 +193,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .source
             .get_file(function_name.file_id())
             .content_str(function_name.span());
-        let function_symbol = self.resolver.symbols.add_named_symbol(function_name_str);
+        let function_symbol = self.resolver.symbols.add_symbol(function_name_str);
         let function_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Function,
             parent: self.current_scope_id,
-            modules: smallvec![ScopeId::CORE],
+            modules: SmallVec::new(),
             imports: SmallVec::new(),
         });
         let is_public = match function_item.kind() {
@@ -229,7 +228,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 .get_file(parameter_name.file_id())
                 .content_str(parameter_name.span());
             let parameter_declaration = Declaration {
-                symbol_id: self.resolver.symbols.add_named_symbol(parameter_name_str),
+                symbol_id: self.resolver.symbols.add_symbol(parameter_name_str),
                 kind: DeclarationKind::Local {
                     shadowed: None,
                     is_mutable: false,
@@ -281,7 +280,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .source
             .get_file(struct_name.file_id())
             .content_str(struct_name.span());
-        let struct_symbol = self.resolver.symbols.add_named_symbol(struct_name_str);
+        let struct_symbol = self.resolver.symbols.add_symbol(struct_name_str);
         let struct_declaration = Declaration {
             symbol_id: struct_symbol,
             kind: DeclarationKind::Type { parent: None },
@@ -303,7 +302,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 .source
                 .get_file(field_name.file_id())
                 .content_str(field_name.span());
-            let field_symbol = self.resolver.symbols.add_named_symbol(field_name_str);
+            let field_symbol = self.resolver.symbols.add_symbol(field_name_str);
             let field_declaration = Declaration {
                 symbol_id: field_symbol,
                 kind: DeclarationKind::Type {
@@ -368,7 +367,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .source
             .get_file(path_segment.file_id())
             .content_str(path_segment.span());
-        let symbol = self.resolver.symbols.add_named_symbol(path_segment_str);
+        let symbol = self.resolver.symbols.add_symbol(path_segment_str);
         let shadowed = self
             .resolver
             .find_declaration_in_scope(symbol, self.current_scope_id, None, false, &path_segment)
@@ -533,7 +532,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let block_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Block,
             parent: self.current_scope_id,
-            modules: smallvec![ScopeId::CORE],
+            modules: SmallVec::new(),
             imports: SmallVec::new(),
         });
         let parent_scope_id = self.current_scope_id;
@@ -663,7 +662,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let function_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Function,
             parent: self.current_scope_id,
-            modules: smallvec![ScopeId::CORE],
+            modules: SmallVec::new(),
             imports: SmallVec::new(),
         });
 
@@ -748,7 +747,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         for segment in path_segments.rev() {
             let segment_str = file.content_str(segment.span());
-            let symbol = self.resolver.symbols.add_named_symbol(segment_str);
+            let symbol = self.resolver.symbols.add_symbol(segment_str);
             let (next_declaration_id, next_declaration) = self.resolver.find_declaration_in_scope(
                 symbol,
                 current_scope_id,

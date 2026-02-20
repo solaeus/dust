@@ -937,7 +937,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 Ok(*type_id)
             }
             _ => Err(CompileError::Internal(
-                InternalCompileError::InvalidSyntaxNode(node.kind()),
+                InternalCompileError::UnimplementedSyntaxFeature(node.kind()),
             )),
         }
     }

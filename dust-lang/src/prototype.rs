@@ -18,14 +18,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     dust_type::DustType,
-    instruction::{Address, Call, Instruction, MemoryKind, Operation},
+    instruction::{Address, Call, CallArgument, Instruction, MemoryKind, Operation},
 };
 
 /// Compiled representation of a Dust function.
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Prototype {
     pub(crate) instructions: Vec<Instruction>,
-    pub(crate) call_arguments: Vec<Address>,
+    pub(crate) call_arguments: Vec<CallArgument>,
     pub(crate) drops: Vec<u16>,
 
     pub(crate) return_type: DustType,

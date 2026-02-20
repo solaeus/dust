@@ -1,6 +1,6 @@
 use crate::{
-    compiler::error::CompileError,
-    syntax::{SyntaxError, SyntaxKind, SyntaxReader},
+    dust_error::{DustError, InternalError},
+    syntax::{SyntaxKind, SyntaxReader},
 };
 
 pub trait SyntaxVisitor {
@@ -18,7 +18,7 @@ pub trait SyntaxVisitor {
 
     type PathOutput;
 
-    fn visit_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, CompileError> {
+    fn visit_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, DustError> {
         match node.kind() {
             SyntaxKind::ModuleItem | SyntaxKind::PublicModuleItem => self.visit_module_item(node),
             SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem => {
@@ -26,17 +26,13 @@ pub trait SyntaxVisitor {
             }
             SyntaxKind::UseItem | SyntaxKind::PublicUseItem => self.visit_use_item(node),
             SyntaxKind::StructItem | SyntaxKind::PublicStructItem => self.visit_struct_item(node),
-            _ => Err(CompileError::from(SyntaxError::ExpectedItem {
-                found: node.kind(),
-                position: node.position(),
-            })),
+            _ => Err(DustError::Internal(InternalError::UnimplementedFeature(
+                node.kind(),
+            ))),
         }
     }
 
-    fn visit_statement(
-        &mut self,
-        node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, CompileError> {
+    fn visit_statement(&mut self, node: SyntaxReader) -> Result<Self::StatementOutput, DustError> {
         match node.kind() {
             SyntaxKind::ExpressionStatement => self.visit_expression_statement(node),
             SyntaxKind::ReassignmentStatement => self.visit_reassignment_statement(node),
@@ -51,10 +47,9 @@ pub trait SyntaxVisitor {
             | SyntaxKind::ExponentAssignmentStatement => {
                 self.visit_binary_assignment_statement(node)
             }
-            _ => Err(CompileError::from(SyntaxError::ExpectedStatement {
-                found: node.kind(),
-                position: node.position(),
-            })),
+            _ => Err(DustError::Internal(InternalError::UnimplementedFeature(
+                node.kind(),
+            ))),
         }
     }
 
@@ -62,7 +57,7 @@ pub trait SyntaxVisitor {
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         match node.kind() {
             SyntaxKind::PathExpression => self.visit_path_expression(node, input),
             SyntaxKind::BooleanExpression => self.visit_boolean_expression(node, input),
@@ -99,165 +94,163 @@ pub trait SyntaxVisitor {
             SyntaxKind::GroupedExpression => {
                 self.visit_expression(node.expect_left_child()?, input)
             }
-            _ => Err(CompileError::from(SyntaxError::ExpectedExpression {
-                found: node.kind(),
-                position: node.position(),
-            })),
+            _ => Err(DustError::Internal(InternalError::UnimplementedFeature(
+                node.kind(),
+            ))),
         }
     }
 
-    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, CompileError>;
+    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, DustError>;
 
-    fn visit_module_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, CompileError>;
+    fn visit_module_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, DustError>;
 
-    fn visit_function_item(&mut self, node: SyntaxReader)
-    -> Result<Self::ItemOutput, CompileError>;
+    fn visit_function_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, DustError>;
 
-    fn visit_use_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, CompileError>;
+    fn visit_use_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, DustError>;
 
-    fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, CompileError>;
+    fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, DustError>;
 
     fn visit_expression_statement(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, CompileError>;
+    ) -> Result<Self::StatementOutput, DustError>;
 
     fn visit_reassignment_statement(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, CompileError>;
+    ) -> Result<Self::StatementOutput, DustError>;
 
     fn visit_let_statement(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, CompileError>;
+    ) -> Result<Self::StatementOutput, DustError>;
 
     fn visit_binary_assignment_statement(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, CompileError>;
+    ) -> Result<Self::StatementOutput, DustError>;
 
     fn visit_boolean_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_byte_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_character_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_float_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_integer_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_string_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_list_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_index_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_path_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_struct_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_block_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_if_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_else_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_math_binary_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_comparison_binary_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_logical_binary_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_unary_negation_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_while_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_function_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
     fn visit_call_expression(
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::ExpressionOutput, DustError>;
 
-    fn visit_type(&mut self, node: SyntaxReader) -> Result<Self::TypeOutput, CompileError>;
+    fn visit_type(&mut self, node: SyntaxReader) -> Result<Self::TypeOutput, DustError>;
 
-    fn visit_path(&mut self, node: SyntaxReader) -> Result<Self::PathOutput, CompileError>;
+    fn visit_path(&mut self, node: SyntaxReader) -> Result<Self::PathOutput, DustError>;
 }

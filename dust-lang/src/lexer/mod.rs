@@ -11,7 +11,7 @@ use crate::{
 };
 use unicode_ident::{is_xid_continue, is_xid_start};
 
-pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, DustError<'_>> {
+pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, DustError> {
     let mut source = Source::with_capacity(1);
     let file_id = source.add_file(SourceFile::non_validated("tokenize", bytes));
 
@@ -25,15 +25,14 @@ pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, DustError<'_>> {
     if lexer.error {
         let error_index = lexer.error_index().unwrap_or(0);
         let position = Position::new(file_id, Span::new(error_index, error_index));
-        let error = ParseError::InvalidUtf8 { position };
 
-        return Err(DustError::parse(vec![error], source));
+        return Err(DustError::Parse(ParseError::InvalidUtf8 { position }));
     }
 
     Ok(tokens)
 }
 
-pub fn tokenize_str(str: &str) -> Result<Vec<Token>, DustError<'_>> {
+pub fn tokenize_str(str: &str) -> Result<Vec<Token>, DustError> {
     let mut source = Source::with_capacity(1);
     let file_id = source.add_file(SourceFile::validated("tokenize", str));
 
@@ -46,9 +45,8 @@ pub fn tokenize_str(str: &str) -> Result<Vec<Token>, DustError<'_>> {
 
     if let Some(error_index) = lexer.error_index() {
         let position = Position::new(file_id, Span::new(error_index, error_index));
-        let error = ParseError::InvalidUtf8 { position };
 
-        return Err(DustError::parse(vec![error], source));
+        return Err(DustError::Parse(ParseError::InvalidUtf8 { position }));
     }
 
     Ok(tokens)

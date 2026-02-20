@@ -95,7 +95,7 @@ pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
                 .unwrap_or_else(|| Path::new("/"));
             let module_path = parent_path.join(module_name_str).with_added_extension("ds");
             let module_file = {
-                match SourceFile::file(module_path) {
+                match SourceFile::base_file(module_path) {
                     Ok(file) => file,
                     Err(error) => {
                         parse_errors.push(ParseError::CannotResolveModule {

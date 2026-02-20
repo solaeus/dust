@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 
 use crate::{
-    compiler::error::{CompileError, InternalCompileError},
+    dust_error::{DustError, InternalError},
     native_function::NativeFunction,
     prototype::PrototypeId,
     resolver::{TypeId, scope_graph::ScopeId, symbol_table::SymbolId},
@@ -52,13 +52,11 @@ impl DeclarationGraph {
         declaration_id
     }
 
-    pub fn get_declaration(&self, id: DeclarationId) -> Result<Declaration, CompileError> {
+    pub fn get_declaration(&self, id: DeclarationId) -> Result<Declaration, DustError> {
         self.declarations
             .get_index(id.0 as usize)
             .map(|(key, value)| Declaration::from_key_and_value(*key, *value))
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingDeclaration(id),
-            ))
+            .ok_or(DustError::Internal(InternalError::MissingDeclaration(id)))
     }
 
     pub fn find_declaration(
@@ -93,22 +91,22 @@ impl DeclarationGraph {
         DeclarationMembers { start, count }
     }
 
-    pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, CompileError> {
+    pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, DustError> {
         self.declaration_members
             .get(index as usize)
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingDeclarationMember(index),
+            .ok_or(DustError::Internal(
+                InternalError::MissingDeclarationMember(index),
             ))
     }
 
     pub fn get_declaration_members(
         &self,
         members: DeclarationMembers,
-    ) -> Result<&[DeclarationId], CompileError> {
+    ) -> Result<&[DeclarationId], DustError> {
         self.declaration_members
             .get(members.as_usize_range())
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingDeclarationMembers(members),
+            .ok_or(DustError::Internal(
+                InternalError::MissingDeclarationMembers(members),
             ))
     }
 
@@ -119,12 +117,12 @@ impl DeclarationGraph {
     pub fn get_declaration_type(
         &self,
         declaration_id: &DeclarationId,
-    ) -> Result<&TypeId, CompileError> {
+    ) -> Result<&TypeId, DustError> {
         self.declaration_types
             .get(declaration_id)
-            .ok_or(CompileError::Internal(
-                InternalCompileError::MissingDeclarationType(*declaration_id),
-            ))
+            .ok_or(DustError::Internal(InternalError::MissingDeclarationType(
+                *declaration_id,
+            )))
     }
 
     pub fn set_declaration_prototype(
@@ -175,7 +173,7 @@ impl Declaration {
         }
     }
 
-    fn parent(&self) -> Option<DeclarationId> {
+    pub fn parent(&self) -> Option<DeclarationId> {
         if let DeclarationKind::Type { parent } = self.kind {
             parent
         } else {
@@ -186,10 +184,6 @@ impl Declaration {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DeclarationKind {
-    Local {
-        shadowed: Option<DeclarationId>,
-        is_mutable: bool,
-    },
     Module {
         kind: ModuleKind,
         inner_scope_id: ScopeId,

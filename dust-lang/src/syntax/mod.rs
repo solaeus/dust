@@ -1,10 +1,8 @@
-mod error;
 mod node;
 mod reader;
 mod tree;
 mod visitor;
 
-pub use error::SyntaxError;
 pub use node::{SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxPayloadKind};
 pub use reader::{SyntaxReader, SyntaxReaderIterator};
 pub use tree::SyntaxTree;
@@ -75,9 +73,5 @@ impl SyntaxId {
 
     pub fn inner(&self) -> u32 {
         self.0
-    }
-
-    pub fn is_none(&self) -> bool {
-        *self == SyntaxId::NONE
     }
 }
