@@ -291,16 +291,8 @@ impl<'a> SyntaxReaderIterator<'a> {
     pub fn len(&self) -> usize {
         match self {
             SyntaxReaderIterator::Empty => 0,
-            SyntaxReaderIterator::Single { yielded, .. } => {
-                if *yielded {
-                    0
-                } else {
-                    1
-                }
-            }
-            SyntaxReaderIterator::Binary { current_index, .. } => {
-                2_u8.saturating_sub(*current_index) as usize
-            }
+            SyntaxReaderIterator::Single { .. } => 1,
+            SyntaxReaderIterator::Binary { .. } => 2,
             SyntaxReaderIterator::Multiple { child_ids, .. } => child_ids.len(),
         }
     }
@@ -309,9 +301,17 @@ impl<'a> SyntaxReaderIterator<'a> {
         match self {
             SyntaxReaderIterator::Empty => true,
             SyntaxReaderIterator::Single { yielded, .. } => *yielded,
-            SyntaxReaderIterator::Binary { current_index, .. } => *current_index > 1,
+            SyntaxReaderIterator::Binary { current_index, .. } => *current_index >= 2,
             SyntaxReaderIterator::Multiple { child_ids, .. } => child_ids.is_empty(),
         }
+    }
+
+    pub fn expect_next(&mut self) -> Result<SyntaxReader<'a>, DustError> {
+        self.next().ok_or_else(|| {
+            DustError::Internal(InternalError::MissingSyntaxChild {
+                total_children: self.len(),
+            })
+        })
     }
 }
 

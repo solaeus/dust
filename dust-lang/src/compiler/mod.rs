@@ -13,12 +13,7 @@ use smallvec::SmallVec;
 use tracing::{Level, span};
 
 use crate::{
-    compiler::{
-        declaration_binder::DeclarationBinder,
-        emitter::Emitter,
-        error::{CompileError, InternalCompileError},
-        type_binder::TypeBinder,
-    },
+    compiler::{declaration_binder::DeclarationBinder, emitter::Emitter, type_binder::TypeBinder},
     constant_table::ConstantTable,
     dust_crate::Program,
     dust_error::DustError,
@@ -34,7 +29,7 @@ use crate::{
     syntax::{Syntax, SyntaxId, SyntaxVisitor},
 };
 
-pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, DustError<'src>> {
+pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, DustError> {
     let mut source = Source::new();
 
     source.add_file(SourceFile::validated("compile", source_code));
@@ -151,7 +146,7 @@ impl<'src> Compiler<'src> {
                             Ok(file) => file,
                             Err(source_error) => {
                                 return Err(DustError::compile(
-                                    vec![CompileError::Source(source_error)],
+                                    vec![DustError::Source(source_error)],
                                     self.source,
                                     self.resolver,
                                 ));
@@ -186,8 +181,8 @@ impl<'src> Compiler<'src> {
         {
             Some(root) => root,
             None => {
-                return self.handle_error(vec![CompileError::Internal(
-                    InternalCompileError::MissingSyntaxTree(SourceFileId::MAIN),
+                return self.handle_error(vec![DustError::Internal(
+                    InternalError::MissingSyntaxTree(SourceFileId::MAIN),
                 )]);
             }
         };
@@ -245,7 +240,7 @@ impl<'src> Compiler<'src> {
             {
                 Some(declaration) => declaration,
                 None => {
-                    compile_errors.push(CompileError::ExpectedMainFunction);
+                    compile_errors.push(DustError::ExpectedMainFunction);
 
                     return self.handle_error(compile_errors);
                 }
@@ -254,9 +249,9 @@ impl<'src> Compiler<'src> {
             let main_module = if let Some(tree) = self.syntax.get_tree(SourceFileId::MAIN) {
                 tree.root().unwrap()
             } else {
-                compile_errors.push(CompileError::Internal(
-                    InternalCompileError::MissingSyntaxTree(SourceFileId::MAIN),
-                ));
+                compile_errors.push(DustError::Internal(InternalError::MissingSyntaxTree(
+                    SourceFileId::MAIN,
+                )));
 
                 return self.handle_error(compile_errors);
             };
@@ -267,7 +262,7 @@ impl<'src> Compiler<'src> {
             }) {
                 syntax_node
             } else {
-                compile_errors.push(CompileError::ExpectedMainFunction);
+                compile_errors.push(DustError::ExpectedMainFunction);
 
                 return self.handle_error(compile_errors);
             };
@@ -309,7 +304,7 @@ impl<'src> Compiler<'src> {
         Ok(self)
     }
 
-    fn handle_error(self, errors: Vec<CompileError>) -> Result<Self, DustError<'src>> {
+    fn handle_error(self, errors: Vec<DustError>) -> Result<Self, DustError<'src>> {
         Err(DustError::compile(errors, self.source, self.resolver))
     }
 }

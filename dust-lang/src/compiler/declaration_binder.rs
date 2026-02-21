@@ -4,6 +4,7 @@ use smallvec::{SmallVec, smallvec};
 use tracing::{debug, info};
 
 use crate::{
+    dust_error::DustError,
     resolver::{
         Resolver,
         declaration_graph::{Declaration, DeclarationId, DeclarationKind, ModuleKind},
@@ -48,7 +49,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     type TypeOutput = ();
     type PathOutput = DeclarationId;
 
-    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
+    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, DustError> {
         debug!("Visiting root");
         debug_assert_eq!(node.kind(), SyntaxKind::Root);
 
@@ -70,7 +71,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_module_item(
         &mut self,
         module_item: SyntaxReader,
-    ) -> Result<Self::ItemOutput, CompileError> {
+    ) -> Result<Self::ItemOutput, DustError> {
         debug!("Visiting module item");
         debug_assert_eq!(module_item.kind(), SyntaxKind::ModuleItem);
 
@@ -149,16 +150,16 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                         None
                     }
                 })
-                .ok_or(CompileError::UnresolvedModule {
+                .ok_or(DustError::UnresolvedModule {
                     symbol_id: module_symbol_id,
                 })?;
             let module_root = self
                 .syntax
                 .get_tree(module_file_id)
                 .and_then(|tree| tree.root())
-                .ok_or(CompileError::Internal(
-                    InternalCompileError::MissingSyntaxTree(module_file_id),
-                ))?;
+                .ok_or(DustError::Internal(InternalError::MissingSyntaxTree(
+                    module_file_id,
+                )))?;
 
             let starting_scope_id = self.current_scope_id;
             self.current_scope_id = module_scope_id;
@@ -174,7 +175,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_function_item(
         &mut self,
         function_item: SyntaxReader,
-    ) -> Result<Self::ItemOutput, CompileError> {
+    ) -> Result<Self::ItemOutput, DustError> {
         debug!("Visiting function item");
 
         let (function_name, function_expression) = function_item.expect_binary_children()?;
@@ -222,7 +223,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         for value_parameter in value_parameters {
             let parameter_name = value_parameter
                 .expect_left_child()
-                .map_err(CompileError::Syntax)?;
+                .map_err(DustError::Syntax)?;
             let parameter_name_str = self
                 .source
                 .get_file(parameter_name.file_id())
@@ -268,11 +269,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_use_item(&mut self, _: SyntaxReader) -> Result<Self::ItemOutput, CompileError> {
+    fn visit_use_item(&mut self, _: SyntaxReader) -> Result<Self::ItemOutput, DustError> {
         todo!()
     }
 
-    fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, CompileError> {
+    fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, DustError> {
         let (struct_name, struct_fields_list) = node.expect_binary_children()?;
         let struct_fields = struct_fields_list.expect_multiple_children()?;
 
@@ -334,14 +335,14 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_expression_statement(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, CompileError> {
+    ) -> Result<Self::StatementOutput, DustError> {
         self.visit_expression(node.expect_left_child()?, ())
     }
 
     fn visit_let_statement(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, CompileError> {
+    ) -> Result<Self::StatementOutput, DustError> {
         debug!("Visiting let statement");
         debug_assert!(matches!(
             node.kind(),
@@ -395,7 +396,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_binary_assignment_statement(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, CompileError> {
+    ) -> Result<Self::StatementOutput, DustError> {
         let (path, expression) = node.expect_binary_children()?;
 
         self.visit_path(path)?;
@@ -407,7 +408,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_reassignment_statement(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, CompileError> {
+    ) -> Result<Self::StatementOutput, DustError> {
         let (path, expression_statement) = node.expect_binary_children()?;
         let expression = expression_statement.expect_left_child()?;
 
@@ -421,7 +422,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         _: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         Ok(())
     }
 
@@ -429,7 +430,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         _: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         Ok(())
     }
 
@@ -437,7 +438,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         _: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         Ok(())
     }
 
@@ -445,7 +446,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         _: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         Ok(())
     }
 
@@ -453,7 +454,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         _: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         Ok(())
     }
 
@@ -461,7 +462,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         _: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         Ok(())
     }
 
@@ -469,7 +470,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         for element in node.expect_multiple_children()? {
             self.visit_expression(element, ())?;
         }
@@ -481,7 +482,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         let (list, index) = node.expect_binary_children()?;
 
         self.visit_expression(list, ())?;
@@ -494,7 +495,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         path_expression: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         self.visit_path(path_expression.expect_left_child()?)?;
 
         Ok(())
@@ -504,7 +505,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         let (path, fields_list) = node.expect_binary_children()?;
         let fields = fields_list.expect_multiple_children()?;
 
@@ -524,7 +525,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visiting block expression");
 
         let children = node.children();
@@ -559,7 +560,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visiting if expression");
 
         let mut children = node.children();
@@ -581,7 +582,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visiting else expression");
 
         self.visit_expression(node.expect_left_child()?, ())?;
@@ -593,7 +594,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         let (left_expression, right_expression) = node.expect_binary_children()?;
 
         self.visit_expression(left_expression, ())?;
@@ -606,7 +607,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         let (left_expression, right_expression) = node.expect_binary_children()?;
 
         self.visit_expression(left_expression, ())?;
@@ -619,7 +620,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         let (left_expression, right_expression) = node.expect_binary_children()?;
 
         self.visit_expression(left_expression, ())?;
@@ -632,7 +633,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         self.visit_expression(node.expect_left_child()?, ())?;
 
         Ok(())
@@ -642,7 +643,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         let (condition, body) = node.expect_binary_children()?;
 
         self.visit_expression(condition, ())?;
@@ -655,7 +656,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         let (signature, body) = node.expect_binary_children()?;
         let value_parameters = signature.expect_left_child()?.expect_multiple_children()?;
 
@@ -707,7 +708,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
+    ) -> Result<Self::ExpressionOutput, DustError> {
         let (callee, arguments_list) = node.expect_binary_children()?;
         let arguments = arguments_list.expect_multiple_children()?;
 
@@ -720,7 +721,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_type(&mut self, node: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
+    fn visit_type(&mut self, node: SyntaxReader) -> Result<Self::TypeOutput, DustError> {
         if node.kind() == SyntaxKind::TypePath {
             let path = node.expect_left_child()?;
 
@@ -733,7 +734,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_path(&mut self, path: SyntaxReader) -> Result<Self::PathOutput, CompileError> {
+    fn visit_path(&mut self, path: SyntaxReader) -> Result<Self::PathOutput, DustError> {
         debug_assert_eq!(path.kind(), SyntaxKind::Path);
 
         let path_segments = path.expect_multiple_children()?;

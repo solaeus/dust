@@ -107,7 +107,7 @@ pub enum CompileError {
 impl<'a> AnnotatedError<'a> for CompileError {
     type Context = (&'a Source<'a>, &'a Resolver);
 
-    fn annotated_error(&self, (source, resolver): Self::Context) -> Group<'a> {
+    fn annotated_error(&self, (source, resolver): Self::Context, groups: &mut Vec<Group>) {
         match self {
             CompileError::DivisionByZero { position } => {
                 let title = "Division by zero".to_string();

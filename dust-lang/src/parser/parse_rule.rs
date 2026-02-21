@@ -1,13 +1,9 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{
-    parser::{ParseError, Parser},
-    syntax::SyntaxNode,
-    token::TokenKind,
-};
+use crate::{dust_error::DustError, parser::Parser, syntax::SyntaxNode, token::TokenKind};
 
-pub type PrefixParser<'a> = fn(&mut Parser<'a>) -> Result<SyntaxNode, ParseError>;
-pub type InfixParser<'a> = fn(&mut Parser<'a>, SyntaxNode) -> Result<SyntaxNode, ParseError>;
+pub type PrefixParser<'a> = fn(&mut Parser<'a>) -> Result<SyntaxNode, DustError>;
+pub type InfixParser<'a> = fn(&mut Parser<'a>, SyntaxNode) -> Result<SyntaxNode, DustError>;
 
 /// Pratt parsing rule for a token in the Dust language.
 ///

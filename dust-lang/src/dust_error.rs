@@ -1,6 +1,6 @@
 //! Top-level error for the Dust language API that can create detailed reports with source code
 //! annotations.
-use std::fmt::{self, Display, Formatter};
+use std::io::{self, Write};
 
 use annotate_snippets::{Group, Level, Renderer};
 
@@ -19,48 +19,53 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct DustErrors<'src> {
+pub struct DustErrors {
     errors: Vec<DustError>,
-    source: Source<'src>,
-    resolver: Resolver,
 }
 
-impl<'src> DustErrors<'src> {
-    pub fn new(errors: Vec<DustError>, source: Source<'src>, resolver: Resolver) -> Self {
-        Self {
-            errors,
-            source,
-            resolver,
-        }
+impl DustErrors {
+    pub fn new(errors: Vec<DustError>) -> Self {
+        Self { errors }
     }
-}
 
-impl Display for DustErrors<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    pub fn len(&self) -> usize {
+        self.errors.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.errors.is_empty()
+    }
+
+    pub fn errors(&self) -> &[DustError] {
+        &self.errors
+    }
+
+    pub fn write_reports<'src>(
+        &self,
+        writer: &mut impl Write,
+        source: &Source<'src>,
+        resolver: &Resolver,
+    ) -> io::Result<()> {
         let renderer = Renderer::styled();
-        let mut reports = Vec::with_capacity(self.errors.len());
+        let mut groups = Vec::new();
 
         for error in &self.errors {
-            let start = reports.len();
+            let report_start = groups.len();
 
             match error {
                 DustError::Internal(internal_error) => {
-                    let title = "Internal error".to_string();
-                    let message = format!("{internal_error:#?}");
-                    let help = "This is a bug. 🐛 If this is a released version of Dust, please report this to the developers.".to_string();
-                    let group = Group::with_title(Level::ERROR.primary_title(title))
-                        .element(Level::ERROR.message(message))
-                        .element(Level::NOTE.message(help));
-
-                    reports.push(group);
+                    internal_error.annotated_error((), &mut groups)
                 }
-                DustError::Source(source_error) => source_error.annotated_error(&(), &mut reports),
-                _ => todo!(),
+                DustError::Source(source_error) => source_error.annotated_error((), &mut groups),
+                DustError::Parse(parse_error) => parse_error.annotated_error(source, &mut groups),
+                DustError::Compile(compile_error) => {
+                    compile_error.annotated_error((source, resolver), &mut groups)
+                }
             }
 
-            let end = reports.len();
+            let report = renderer.render(&groups[report_start..]);
 
-            writeln!(f, "{}", renderer.render(&reports[start..end]))?;
+            writeln!(writer, "{report}")?;
         }
 
         Ok(())
@@ -112,6 +117,7 @@ pub enum InternalError {
 
     MissingSyntaxTree(SourceFileId),
     MissingSyntaxNode(SyntaxId),
+    MissingSyntaxChild { total_children: usize },
     MissingSyntaxChildren(SyntaxPayload),
 
     MissingType(TypeId),
@@ -122,18 +128,23 @@ pub enum InternalError {
     UnimplementedFeature(SyntaxKind),
 }
 
-impl InternalError {
-    /// Returns `true` if the internal error is [`ScopeBindingMissing`].
-    ///
-    /// [`ScopeBindingMissing`]: InternalError::ScopeBindingMissing
-    #[must_use]
-    pub fn is_scope_binding_missing(&self) -> bool {
-        matches!(self, Self::MissingScopeBinding(..))
+impl<'a> AnnotatedError<'a> for InternalError {
+    type Context = ();
+
+    fn annotated_error(&self, _: Self::Context, groups: &mut Vec<Group<'a>>) {
+        let title = "Internal error".to_string();
+        let message = format!("{self:#?}");
+        let help = "This is a bug. 🐛 If this is a released version of Dust, please report this to the developers.".to_string();
+        let group = Group::with_title(Level::ERROR.primary_title(title))
+            .element(Level::ERROR.message(message))
+            .element(Level::NOTE.message(help));
+
+        groups.push(group);
     }
 }
 
-pub trait AnnotatedError<'src> {
+pub trait AnnotatedError<'a> {
     type Context;
 
-    fn annotated_error(&self, context: &Self::Context, reports: &mut Vec<Group<'src>>);
+    fn annotated_error(&self, context: Self::Context, groups: &mut Vec<Group<'a>>);
 }
