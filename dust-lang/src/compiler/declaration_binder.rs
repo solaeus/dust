@@ -81,8 +81,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let module_name_str = self
             .source
-            .get_file(module_name.file_id())
-            .content_str(module_name.span());
+            .get_file(module_name.file_id())?
+            .content_str(module_name.span())?;
         let module_symbol_id = self.resolver.symbols.add_symbol(module_name_str);
         let module_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Module,

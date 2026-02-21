@@ -19,6 +19,7 @@ use crate::{
     dust_error::DustError,
     lexer::Lexer,
     parser::{ParseResult, Parser},
+    project::DEFAULT_PROGRAM_PATH,
     prototype::{Prototype, PrototypeList},
     resolver::{
         Resolver,
@@ -40,7 +41,7 @@ pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, DustError>
     Ok(program.prototypes)
 }
 
-pub fn compile_main<'src>(source_code: &'src str) -> Result<Prototype, DustError<'src>> {
+pub fn compile_main<'src>(source_code: &'src str) -> Result<Prototype, DustError> {
     let prototype = compile(source_code)?
         .into_iter()
         .next()
@@ -72,7 +73,7 @@ impl<'src> Compiler<'src> {
         &self.resolver
     }
 
-    pub fn compile(self, program_name: Option<String>) -> Result<Program, DustError<'src>> {
+    pub fn compile(self, program_name: Option<String>) -> Result<Program, DustError> {
         let Compiler {
             constants,
             prototypes,
@@ -86,7 +87,7 @@ impl<'src> Compiler<'src> {
     pub fn compile_with_extras(
         self,
         program_name: Option<String>,
-    ) -> Result<(Program, Source<'src>, Syntax, Resolver), DustError<'src>> {
+    ) -> Result<(Program, Source<'src>, Syntax, Resolver), DustError> {
         let Compiler {
             syntax,
             source,
@@ -99,7 +100,7 @@ impl<'src> Compiler<'src> {
         Ok((program, source, syntax, resolver))
     }
 
-    fn compile_inner(mut self, program_name: &Option<String>) -> Result<Self, DustError<'src>> {
+    fn compile_inner(mut self, program_name: &Option<String>) -> Result<Self, DustError> {
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
 
@@ -136,23 +137,12 @@ impl<'src> Compiler<'src> {
 
                 for span in file_module_names {
                     let parent_file = self.source.get_file(file_id)?;
-                    let module_name_str = parent_file.content_str(span);
+                    let module_name_str = parent_file.content_str(span)?;
                     let parent_path = Path::new(parent_file.full_path())
                         .parent()
                         .unwrap_or_else(|| Path::new("/"));
                     let module_path = parent_path.join(module_name_str).with_added_extension("ds");
-                    let module_file = {
-                        match SourceFile::base_file(module_path) {
-                            Ok(file) => file,
-                            Err(source_error) => {
-                                return Err(DustError::compile(
-                                    vec![DustError::Source(source_error)],
-                                    self.source,
-                                    self.resolver,
-                                ));
-                            }
-                        }
-                    };
+                    let module_file = SourceFile::base_file(module_path)?;
 
                     let module_file_id = self.source.add_file(module_file);
                 }
@@ -166,7 +156,7 @@ impl<'src> Compiler<'src> {
         let program_symbol_id = if let Some(name) = program_name {
             self.resolver.symbols.add_symbol(name)
         } else {
-            self.resolver.symbols.add_anonymous_symbol()
+            self.resolver.symbols.add_symbol(Program::DEFAULT_NAME)
         };
         let program_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Project,

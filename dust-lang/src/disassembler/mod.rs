@@ -13,6 +13,7 @@ use ratatui::{
 
 use crate::{
     dust_crate::Program,
+    instruction::Address,
     prototype::Prototype,
     resolver::Resolver,
     source::{Source, SourceFile},
@@ -363,7 +364,15 @@ impl<'a> Disassembler<'a> {
                 .call_arguments
                 .iter()
                 .enumerate()
-                .map(|(index, address)| [index.to_string(), address.to_string()])
+                .map(|(index, call_argument)| {
+                    let r#type = call_argument.r#type;
+                    let address = Address {
+                        index: call_argument.index,
+                        memory: call_argument.memory,
+                    };
+
+                    [index.to_string(), format!("{type} @ {address}")]
+                })
                 .collect::<Vec<_>>();
             let selected_row =
                 if self.selection_state.section == Some(PrototypeSection::CallArguments) {

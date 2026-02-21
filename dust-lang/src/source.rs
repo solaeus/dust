@@ -455,7 +455,7 @@ pub enum SourceError {
 impl<'src> AnnotatedError<'src> for SourceError {
     type Context = ();
 
-    fn annotated_error(&self, _: &Self::Context, reports: &mut Vec<Group<'src>>) {
+    fn add_report(&self, _: Self::Context, reports: &mut Vec<Group<'src>>) {
         let group = match self {
             SourceError::CannotOpen { io_error } => {
                 let title = "Cannot open source file".to_string();

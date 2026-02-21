@@ -15,7 +15,7 @@ use smallvec::{SmallVec, smallvec};
 use tracing::{debug, error};
 
 use crate::{
-    dust_error::{DustError, DustErrors},
+    dust_error::DustError,
     lexer::Lexer,
     parser::parse_rule::{Associativity, ParseRule, Precedence},
     source::{Position, Source, SourceFile, SourceFileId, Span},
@@ -23,7 +23,7 @@ use crate::{
     token::{Token, TokenKind},
 };
 
-pub fn parse<'src>(source_code: &'src str) -> (SyntaxTree, DustErrors) {
+pub fn parse<'src>(source_code: &'src str) -> (SyntaxTree, Vec<DustError>) {
     let mut source = Source::new();
     let file = SourceFile::validated("parse", source_code);
     let file_id = source.add_file(file);
@@ -82,7 +82,7 @@ impl<'src> Parser<'src> {
 
         ParseResult {
             syntax_tree: self.syntax_tree,
-            errors: DustErrors::new(self.errors),
+            errors: self.errors,
             file_module_names: self.file_module_names,
         }
     }
@@ -1584,6 +1584,6 @@ impl<'src> Parser<'src> {
 
 pub struct ParseResult {
     pub syntax_tree: SyntaxTree,
-    pub errors: DustErrors,
+    pub errors: Vec<DustError>,
     pub file_module_names: Vec<Span>,
 }

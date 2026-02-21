@@ -17,7 +17,7 @@ pub struct Program {
 }
 
 impl Program {
-    const DEFAULT_NAME: &str = "dust_program";
+    pub const DEFAULT_NAME: &str = "dust_program";
 
     pub fn new(name: Option<String>, constants: ConstantTable, prototypes: PrototypeList) -> Self {
         let name = name.unwrap_or_else(|| Self::DEFAULT_NAME.to_string());

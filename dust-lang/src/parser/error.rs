@@ -51,21 +51,21 @@ pub enum ParseError {
 impl<'src> AnnotatedError<'src> for ParseError {
     type Context = &'src Source<'src>;
 
-    fn annotated_error(&self, source: Self::Context, groups: &mut Vec<Group<'src>>) {
+    fn add_report(&self, source: Self::Context, groups: &mut Vec<Group<'src>>) {
         match self {
             ParseError::CannotResolveModule { position } => {
                 let title = "Cannot resolve module".to_string();
                 let file = match source.get_file(position.file_id) {
                     Ok(file) => file,
                     Err(error) => {
-                        error.annotated_error((), groups);
+                        error.add_report((), groups);
                         return;
                     }
                 };
                 let module_name = match file.content_str(position.span) {
                     Ok(str) => str,
                     Err(error) => {
-                        error.annotated_error((), groups);
+                        error.add_report((), groups);
                         return;
                     }
                 };
@@ -87,7 +87,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let file = match source.get_file(position.file_id) {
                     Ok(file) => file,
                     Err(error) => {
-                        error.annotated_error((), groups);
+                        error.add_report((), groups);
                         return;
                     }
                 };
@@ -113,7 +113,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let file_content = match source.get_file(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
-                        error.annotated_error((), groups);
+                        error.add_report((), groups);
                         return;
                     }
                 };
@@ -136,7 +136,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let file = match source.get_file(position.file_id) {
                     Ok(file) => file,
                     Err(error) => {
-                        error.annotated_error((), groups);
+                        error.add_report((), groups);
                         return;
                     }
                 };
@@ -162,7 +162,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let file = match source.get_file(position.file_id) {
                     Ok(file) => file,
                     Err(error) => {
-                        error.annotated_error((), groups);
+                        error.add_report((), groups);
                         return;
                     }
                 };
@@ -199,7 +199,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let file = match source.get_file(position.file_id) {
                     Ok(file) => file,
                     Err(error) => {
-                        error.annotated_error((), groups);
+                        error.add_report((), groups);
                         return;
                     }
                 };
@@ -221,7 +221,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let file_content = match source.get_file(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
-                        error.annotated_error((), groups);
+                        error.add_report((), groups);
                         return;
                     }
                 };
@@ -237,7 +237,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let file_content = match source.get_file(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
-                        error.annotated_error((), groups);
+                        error.add_report((), groups);
                         return;
                     }
                 };
@@ -256,7 +256,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let file_content = match source.get_file(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
-                        error.annotated_error((), groups);
+                        error.add_report((), groups);
                         return;
                     }
                 };

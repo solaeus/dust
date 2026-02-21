@@ -1,19 +1,15 @@
-use std::fmt::{self, Display, Formatter};
-
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     dust_error::AnnotatedError,
-    instruction::Operation,
     resolver::{
         Resolver,
-        declaration_graph::{DeclarationId, DeclarationMembers},
-        scope_graph::ScopeId,
+        declaration_graph::DeclarationId,
         symbol_table::SymbolId,
-        type_graph::{TypeId, TypeMembers, TypeNode},
+        type_graph::{TypeId, TypeNode},
     },
-    source::{Position, Source, SourceError, SourceFileId},
-    syntax::{SyntaxError, SyntaxId, SyntaxKind},
+    source::{Position, Source},
+    syntax::SyntaxKind,
 };
 
 #[derive(Debug)]
@@ -107,16 +103,22 @@ pub enum CompileError {
 impl<'a> AnnotatedError<'a> for CompileError {
     type Context = (&'a Source<'a>, &'a Resolver);
 
-    fn annotated_error(&self, (source, resolver): Self::Context, groups: &mut Vec<Group>) {
+    fn add_report(&self, (source, resolver): Self::Context, groups: &mut Vec<Group<'a>>) {
         match self {
             CompileError::DivisionByZero { position } => {
                 let title = "Division by zero".to_string();
-                let file_str = source.get_file(position.file_id).content_as_str();
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str)
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
-                )
+                );
+
+                groups.push(group);
             }
             CompileError::ExpectedIntegerIndex { found, position } => {
                 let found_type = resolver
@@ -124,12 +126,18 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     .map(|r#type| r#type.to_string())
                     .unwrap_or("<invalid type>".to_string());
                 let title = format!("Expected an integer index, found {found_type}");
-                let file_str = source.get_file(position.file_id).content_as_str();
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str)
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
-                )
+                );
+
+                groups.push(group);
             }
             CompileError::ExpectedBooleanExpression {
                 found: found_type_id,
@@ -137,30 +145,42 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = "Expected a boolean expression".to_string();
-                let file_str = source.get_file(position.file_id).content_as_str();
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
                 let found_type = match resolver.get_full_type(*found_type_id, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.annotated_error((source, resolver)),
+                    Err(error) => return error.add_report((source, resolver), groups),
                 };
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str)
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range()).label(format!(
                             "Expected a boolean expression here, but found this {node_kind} with type {found_type}."
                         ))),
-                )
+                );
+
+                groups.push(group);
             }
             CompileError::ExpectedFunction {
                 node_kind,
                 position,
             } => {
                 let title = format!("Expected a function, found {node_kind}");
-                let file_str = source.get_file(position.file_id).content_as_str();
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str)
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
-                )
+                );
+
+                groups.push(group);
             }
             CompileError::OutOfScopeId {
                 declaration_id,
@@ -170,18 +190,32 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 let declaration = match resolver.declarations.get_declaration(*declaration_id) {
                     Ok(declaration) => declaration,
-                    Err(error) => return error.annotated_error((source, resolver)),
+                    Err(error) => return error.add_report((source, resolver), groups),
                 };
                 let name = match resolver.symbols.get_symbol(&declaration.symbol_id) {
                     Ok(name) => name,
-                    Err(error) => return error.annotated_error((source, resolver)),
+                    Err(error) => return error.add_report((source, resolver), groups),
                 };
-                let file = source.get_file(usage_position.file_id);
-                let file_str = file.content_as_str();
+                let file_content = match source.get_file(usage_position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
 
-                let Some(position) = declaration.position else {
-                    return Group::with_title(Level::ERROR.primary_title(title)).element(
-                        Snippet::source(file_str).annotation(
+                let group = if let Some(position) = declaration.position {
+                    Group::with_title(Level::ERROR.primary_title(title)).element(
+                        Snippet::source(file_content).annotation(
+                            AnnotationKind::Primary
+                                .span(position.span.as_usize_range())
+                                .label(format!(
+                                    "\"{name}\" was declared here, but it is not in scope at the usage site."
+                                )),
+                        ),
+                    )
+                } else {
+                    Group::with_title(Level::ERROR.primary_title(title)).element(
+                        Snippet::source(file_content).annotation(
                             AnnotationKind::Primary
                                 .span(usage_position.span.as_usize_range())
                                 .label(format!("Attempted to use \"{name}\" but it is not available in this scope.")),
@@ -190,23 +224,14 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     .element(Level::HELP.message(
                         "\"{name}\" is not in the source code. It was declared externally via the API.",
                     ))
-                    ;
                 };
 
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!(
-                                "\"{name}\" was used here, but it was not declared in this scope."
-                            )),
-                    ),
-                )
+                groups.push(group);
             }
             CompileError::CannotInferType { type_id, position } => {
                 let type_node = match resolver.types.get_type(*type_id) {
                     Ok(type_node) => type_node,
-                    Err(error) => return error.annotated_error((source, resolver)),
+                    Err(error) => return error.add_report((source, resolver), groups),
                 };
                 let type_declaration_id = if let TypeNode::Struct { declaration_id, .. }
                 | TypeNode::Enum { declaration_id, .. } = type_node
@@ -218,7 +243,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let type_string = if let Some(declaration_id) = type_declaration_id {
                     let declaration = match resolver.declarations.get_declaration(declaration_id) {
                         Ok(declaration) => declaration,
-                        Err(error) => return error.annotated_error((source, resolver)),
+                        Err(error) => return error.add_report((source, resolver), groups),
                     };
 
                     resolver
@@ -229,17 +254,21 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 } else {
                     match resolver.get_full_type(*type_id, source) {
                         Ok(r#type) => r#type.to_string(),
-                        Err(error) => return error.annotated_error((source, resolver)),
+                        Err(error) => return error.add_report((source, resolver), groups),
                     }
                 };
                 let title = format!("Cannot infer type {type_string}");
-
-                match position {
+                let group = match position {
                     Some(position) => {
-                        let file_str = source.get_file(position.file_id).content_as_str();
+                        let file_content = match source.get_file(position.file_id) {
+                            Ok(file) => file.content_as_str(),
+                            Err(error) => {
+                                return error.add_report((), groups);
+                            }
+                        };
 
                         Group::with_title(Level::ERROR.primary_title(title)).elements([
-                            Snippet::source(file_str).annotation(
+                            Snippet::source(file_content).annotation(
                                 AnnotationKind::Primary
                                     .span(position.span.as_usize_range())
                                     .label(format!(
@@ -251,7 +280,9 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     None => Group::with_title(Level::ERROR.primary_title(title)).element(
                         Level::ERROR.message(format!("Type {type_string} cannot be inferred.")),
                     ),
-                }
+                };
+
+                groups.push(group);
             }
             CompileError::TypeConflict {
                 expected_type,
@@ -260,19 +291,23 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 found_position,
             } => {
                 let title = "Type conflict".to_string();
-
                 let expected_type_string = match resolver.get_full_type(*expected_type, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.annotated_error((source, resolver)),
+                    Err(error) => return error.add_report((source, resolver), groups),
                 };
                 let found_type_string = match resolver.get_full_type(*found_type, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.annotated_error((source, resolver)),
+                    Err(error) => return error.add_report((source, resolver), groups),
                 };
-
-                if let Some(expected_position) = expected_position {
-                    let expected_file = source.get_file(expected_position.file_id);
-                    let found_file = source.get_file(found_position.file_id);
+                let group = if let Some(expected_position) = expected_position {
+                    let expected_file = match source.get_file(expected_position.file_id) {
+                        Ok(file) => file,
+                        Err(error) => return error.add_report((), groups),
+                    };
+                    let found_file = match source.get_file(found_position.file_id) {
+                        Ok(file) => file,
+                        Err(error) => return error.add_report((), groups),
+                    };
 
                     Group::with_title(Level::ERROR.primary_title(title)).elements([
                         Snippet::source(expected_file.content_as_str())
@@ -291,7 +326,10 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         ),
                     ])
                 } else {
-                    let file = source.get_file(found_position.file_id);
+                    let file = match source.get_file(found_position.file_id) {
+                        Ok(file) => file,
+                        Err(error) => return error.add_report((), groups),
+                    };
 
                     Group::with_title(Level::ERROR.primary_title(title))
                         .element(
@@ -307,7 +345,9 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         .element(Level::ERROR.message(format!(
                             "Expected this expression to have type `{expected_type_string}`."
                         )))
-                }
+                };
+
+                groups.push(group);
             }
             CompileError::CannotApplyOperator {
                 operator,
@@ -316,66 +356,87 @@ impl<'a> AnnotatedError<'a> for CompileError {
             } => {
                 let r#type = match resolver.get_full_type(*type_id, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.annotated_error((source, resolver)),
+                    Err(error) => return error.add_report((source, resolver), groups),
                 };
                 let title = format!("Cannot apply operator {operator} to type {type}");
-                let file_str = source.get_file(position.file_id).content_as_str();
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!(
                                 "Attempted to apply operator {operator} to type {type} here"
                             )),
                     ),
-                )
+                );
+
+                groups.push(group);
             }
             CompileError::CannotIndex { type_id, position } => {
                 let r#type = match resolver.get_full_type(*type_id, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.annotated_error((source, resolver)),
+                    Err(error) => return error.add_report((source, resolver), groups),
                 };
                 let title = format!("Cannot index type {type}");
-                let file_str = source.get_file(position.file_id).content_as_str();
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!("Attempted to index type {type} here")),
                     ),
-                )
+                );
+
+                groups.push(group);
             }
             CompileError::Undeclared {
                 symbol_id,
                 usage_position,
             } => {
                 let title = "Undeclared symbol".to_string();
-                let file_str = source.get_file(usage_position.file_id).content_as_str();
+                let file_content = match source.get_file(usage_position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
                 let name_str = match resolver.symbols.get_symbol(symbol_id) {
                     Ok(name) => name,
-                    Err(error) => return error.annotated_error((source, resolver)),
+                    Err(error) => return error.add_report((source, resolver), groups),
                 };
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
                             .span(usage_position.span.as_usize_range())
                             .label(format!("\"{name_str}\" was never declared.")),
                     ),
-                )
+                );
+
+                groups.push(group);
             }
             CompileError::UnresolvedModule { symbol_id } => {
                 let title = "Unresolved module".to_string();
                 let symbol = match resolver.symbols.get_symbol(symbol_id) {
                     Ok(symbol) => symbol,
-                    Err(error) => return error.annotated_error((source, resolver)),
+                    Err(error) => return error.add_report((source, resolver), groups),
                 };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Level::ERROR.message(format!(
+                        "Could not find \"{symbol}.ds\" or \"{symbol}/mod.ds\"."
+                    )),
+                );
 
-                Group::with_title(Level::ERROR.primary_title(title)).element(Level::ERROR.message(
-                    format!("Could not find \"{symbol}.ds\" or \"{symbol}/mod.ds\"."),
-                ))
+                groups.push(group);
             }
             CompileError::ConstantTypeConflict {
                 expected,
@@ -383,44 +444,63 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = format!("Constant type conflict: expected {expected}, found {found}");
-                let file_str = source.get_file(position.file_id).content_as_str();
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!(
                                 "Found constant of type {found} here, but expected {expected}"
                             )),
                     ),
-                )
+                );
+
+                groups.push(group);
             }
             CompileError::CannotMutate { position } => {
                 let title = "Cannot mutate immutable value".to_string();
-                let file_str = source.get_file(position.file_id).content_as_str();
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str)
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
-                )
+                );
+
+                groups.push(group);
             }
             CompileError::ExpectedFunctionType { found, position } => {
                 let title = "Expected a function type";
-                let file_str = source.get_file(position.file_id).content_as_str();
-                let found_type = match resolver.get_full_type(*found, source) {
-                    Ok(r#type) => r#type,
-                    Err(error) => return error.annotated_error((source, resolver)),
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
                 };
 
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
+                let found_type = match resolver.get_full_type(*found, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => return error.add_report((source, resolver), groups),
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!(
                                 "Found {found_type}, but a function type is required."
                             )),
                     ),
-                )
+                );
+
+                groups.push(group);
             }
             CompileError::ExpectedArguments {
                 function_type,
@@ -429,14 +509,18 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 found_count,
             } => {
                 let title = "Incorrect argument count";
-                let file_str = source.get_file(found_position.file_id).content_as_str();
+                let file_content = match source.get_file(found_position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
                 let function_type = match resolver.get_full_type(*function_type, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.annotated_error((source, resolver)),
+                    Err(error) => return error.add_report((source, resolver), groups),
                 };
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
                             .span(found_position.span.as_usize_range())
                             .label(format!(
@@ -446,58 +530,78 @@ impl<'a> AnnotatedError<'a> for CompileError {
                                 "Type {function_type} has {expected_count} arguments."
                             )),
                     ),
-                )
+                );
+
+                groups.push(group);
             }
             CompileError::ExpectedValue {
                 node_kind,
                 position,
             } => {
                 let title = "Expected a value".to_string();
-                let file_str = source.get_file(position.file_id).content_as_str();
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!(
                                 "Expected a value here, but found {node_kind} with type `none`."
                             )),
                     ),
-                )
+                );
+
+                groups.push(group);
             }
             CompileError::ExpectedNoneType {
                 node_kind,
                 position,
             } => {
                 let title = "Expected type `none`".to_string();
-                let file_str = source.get_file(position.file_id).content_as_str();
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group =
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
+                    Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!(
                                 "Expected type `none` here, but found {node_kind} with a different type."
                             )),
                     ),
-                )
+                );
+
+                groups.push(group);
             }
             CompileError::CannotInstantiateType { type_id, position } => {
                 let title = "Cannot instantiate type".to_string();
                 let r#type = match resolver.get_full_type(*type_id, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.annotated_error((source, resolver)),
+                    Err(error) => return error.add_report((source, resolver), groups),
                 };
                 let error_message = format!("Type {type} is an enum and cannot be instantiated.");
                 let help_message =
                     "You must specify which variant of the enum you want to crete.".to_string();
-
-                if let Some(position) = position {
-                    let file_str = source.get_file(position.file_id).content_as_str();
+                let group = if let Some(position) = position {
+                    let file_content = match source.get_file(position.file_id) {
+                        Ok(file) => file.content_as_str(),
+                        Err(error) => {
+                            return error.add_report((), groups);
+                        }
+                    };
 
                     Group::with_title(Level::ERROR.primary_title(title))
                         .element(
-                            Snippet::source(file_str).annotation(
+                            Snippet::source(file_content).annotation(
                                 AnnotationKind::Primary
                                     .span(position.span.as_usize_range())
                                     .label(error_message),
@@ -509,14 +613,22 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         Level::ERROR.message(error_message),
                         Level::HELP.message(help_message),
                     ])
-                }
+                };
+
+                groups.push(group);
             }
             CompileError::ExpectedNativeFunctionCall { position } => {
                 let title = "Expected a native function to be called".to_string();
-                let file_str = source.get_file(position.file_id).content_as_str();
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group =
 
                 Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_str).annotation(
+                    Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(
@@ -524,14 +636,40 @@ impl<'a> AnnotatedError<'a> for CompileError {
                             ),
                     )
                 ).element(Level::HELP.message("To call this native function, add `()` after it."))
-                .element(Level::HELP.message("If you wanted to use a function value, declare a function that wraps the native function and use that instead."))
+                .element(Level::HELP.message("If you wanted to use a function value, declare a function that wraps the native function and use that instead."));
+
+                groups.push(group);
             }
             CompileError::ExpectedMainFunction => {
                 let title = "Expected a main function".to_string();
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Level::HELP.message("A \"main\" function is required to compile the program."),
-                )
+                );
+
+                groups.push(group);
+            }
+            CompileError::UnimplementedSyntaxFeature {
+                syntax_kind,
+                position,
+            } => {
+                let title = format!("Unimplemented syntax feature: {syntax_kind}");
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!(
+                                "Syntax feature {syntax_kind} is not yet implemented."
+                            )),
+                    ),
+                );
+
+                groups.push(group);
             }
         }
     }
