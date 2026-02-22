@@ -335,17 +335,16 @@ impl Resolver {
                 },
             ) => {
                 if left_declaration_id != right_declaration_id {
-                    let expected_position = if let Some(syntax) = left_syntax {
-                        if let Some(last_child) = syntax.last_child() {
-                            Some(last_child.position())
-                        } else {
-                            Some(syntax.position())
-                        }
+                    let expected_position = if let Some(left) = left_syntax {
+                        left.children()?.last().map(|child| child.position())
                     } else {
                         None
                     };
-                    let found_position =
-                        right_syntax.last_child().unwrap_or(right_syntax).position();
+                    let found_position = right_syntax
+                        .children()?
+                        .last()
+                        .unwrap_or(right_syntax)
+                        .position();
 
                     return Err(DustError::Compile(CompileError::TypeConflict {
                         expected_type: left,
@@ -393,17 +392,16 @@ impl Resolver {
                 if left_type_node == right_type_node {
                     Ok(())
                 } else {
-                    let expected_position = if let Some(syntax) = left_syntax {
-                        if let Some(last_child) = syntax.last_child() {
-                            Some(last_child.position())
-                        } else {
-                            Some(syntax.position())
-                        }
+                    let expected_position = if let Some(left) = left_syntax {
+                        left.children()?.last().map(|child| child.position())
                     } else {
                         None
                     };
-                    let found_position =
-                        right_syntax.last_child().unwrap_or(right_syntax).position();
+                    let found_position = right_syntax
+                        .children()?
+                        .last()
+                        .unwrap_or(right_syntax)
+                        .position();
 
                     Err(DustError::Compile(CompileError::TypeConflict {
                         expected_type: left,

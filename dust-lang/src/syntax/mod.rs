@@ -5,12 +5,15 @@ mod visitor;
 
 pub use node::{SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxPayloadKind};
 pub use reader::{SyntaxReader, SyntaxReaderIterator};
-pub use tree::SyntaxTree;
+pub use tree::{SyntaxTree, SyntaxTreeBuilder};
 pub use visitor::SyntaxVisitor;
 
 use serde::{Deserialize, Serialize};
 
-use crate::source::SourceFileId;
+use crate::{
+    dust_error::{DustError, InternalError},
+    source::SourceFileId,
+};
 
 #[derive(Debug)]
 pub struct Syntax {
@@ -48,14 +51,13 @@ impl Syntax {
         }
     }
 
-    pub fn get_tree(&self, file_id: SourceFileId) -> Option<&SyntaxTree> {
+    pub fn get_tree(&self, file_id: SourceFileId) -> Result<&SyntaxTree, DustError> {
         let index = file_id.inner() as usize;
 
-        if index < self.trees.len() {
-            self.trees[index].as_ref()
-        } else {
-            None
-        }
+        self.trees
+            .get(index)
+            .and_then(|tree| tree.as_ref())
+            .ok_or_else(|| DustError::Internal(InternalError::MissingSyntaxTree(file_id)))
     }
 }
 

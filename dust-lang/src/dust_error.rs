@@ -1,6 +1,6 @@
 //! Top-level error for the Dust language API that can create detailed reports with source code
 //! annotations.
-use std::io::{self, Write};
+use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::{Group, Level, Renderer};
 
@@ -25,41 +25,18 @@ pub enum DustError {
     Source(SourceError),
     Parse(ParseError),
     Compile(CompileError),
-    Multiple(Vec<DustError>),
 }
 
 impl DustError {
-    pub fn push(&mut self, error: DustError) {
+    pub fn into_internal(self) -> InternalError {
         match self {
-            DustError::Multiple(errors) => errors.push(error),
-            _ => {
-                let previous_self =
-                    std::mem::replace(self, DustError::Multiple(Vec::with_capacity(2)));
-
-                self.push(previous_self);
-                self.push(error);
+            DustError::Internal(internal_error) => internal_error,
+            DustError::Source(source_error) => InternalError::UnhandledSourceError(source_error),
+            DustError::Parse(parse_error) => InternalError::UnhandledParseError(parse_error),
+            DustError::Compile(compile_error) => {
+                InternalError::UnhandledCompileError(compile_error)
             }
         }
-    }
-
-    pub fn write_reports(
-        &self,
-        writer: &mut impl Write,
-        source: &Source,
-        resolver: &Resolver,
-    ) -> io::Result<()> {
-        let mut groups = Vec::new();
-        let report_start = groups.len();
-
-        self.add_report((source, resolver), &mut groups);
-
-        let report = Renderer::styled().render(&groups[report_start..]);
-
-        writer.write(report.as_bytes())?;
-        writer.write(b"\n")?;
-        writer.flush()?;
-
-        Ok(())
     }
 }
 
@@ -96,17 +73,61 @@ impl<'a> AnnotatedError<'a> for DustError {
             DustError::Source(source_error) => source_error.add_report((), groups),
             DustError::Parse(parse_error) => parse_error.add_report(context.0, groups),
             DustError::Compile(compile_error) => compile_error.add_report(context, groups),
-            DustError::Multiple(errors) => {
-                for error in errors {
-                    error.add_report(context, groups);
-                }
-            }
         }
+    }
+}
+
+pub struct DustErrors<'a> {
+    errors: Vec<DustError>,
+    source: &'a Source<'a>,
+    resolver: &'a Resolver,
+}
+
+impl<'a> DustErrors<'a> {
+    pub fn new(errors: Vec<DustError>, source: &'a Source<'a>, resolver: &'a Resolver) -> Self {
+        Self {
+            errors,
+            source,
+            resolver,
+        }
+    }
+
+    pub fn errors(&self) -> &Vec<DustError> {
+        &self.errors
+    }
+}
+
+impl<'a> Display for DustErrors<'a> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut groups = Vec::with_capacity(self.errors.len());
+        let renderer = Renderer::styled();
+
+        for error in &self.errors {
+            let start = groups.len();
+
+            error.add_report((self.source, self.resolver), &mut groups);
+
+            let display = renderer.render(&groups[start..]);
+
+            write!(f, "{display}")?;
+        }
+
+        Ok(())
     }
 }
 
 #[derive(Debug)]
 pub enum InternalError {
+    MissingSourceFile(SourceFileId),
+    MissingSourceFileContent { span: Span, length: usize },
+
+    MissingSyntaxTree(SourceFileId),
+    MissingSyntaxNode(SyntaxId),
+    MissingSyntaxChild { total_children: usize },
+    MissingSyntaxChildren(SyntaxPayload),
+    InvalidSyntaxPayload(SyntaxPayload),
+    ExpectedSyntaxChildren { expected: usize, actual: usize },
+
     MissingSymbol(SymbolId),
 
     MissingDeclaration(DeclarationId),
@@ -118,20 +139,16 @@ pub enum InternalError {
     MissingScope(ScopeId),
     MissingScopeBinding(SyntaxId),
 
-    MissingSourceFile(SourceFileId),
-    MissingSourceFileContent { span: Span, length: usize },
-
-    MissingSyntaxTree(SourceFileId),
-    MissingSyntaxNode(SyntaxId),
-    MissingSyntaxChild { total_children: usize },
-    MissingSyntaxChildren(SyntaxPayload),
-
     MissingType(TypeId),
     MissingTypeMember(u32),
     MissingTypeMembers(TypeMembers),
     MissingTypeBinding(SyntaxId),
 
     UnimplementedFeature(SyntaxKind),
+
+    UnhandledSourceError(SourceError),
+    UnhandledParseError(ParseError),
+    UnhandledCompileError(CompileError),
 }
 
 impl<'a> AnnotatedError<'a> for InternalError {
@@ -146,6 +163,19 @@ impl<'a> AnnotatedError<'a> for InternalError {
             .element(Level::NOTE.message(help));
 
         groups.push(group);
+    }
+}
+
+impl Display for InternalError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut groups = Vec::with_capacity(1);
+
+        self.add_report((), &mut groups);
+
+        let renderer = Renderer::styled();
+        let display = renderer.render(&groups);
+
+        write!(f, "{display}")
     }
 }
 

@@ -13,8 +13,6 @@ use tracing::{error, warn};
 
 use crate::dust_error::{AnnotatedError, DustError, InternalError};
 
-const SOURCE_NOT_FOUND: &str = "<dust internal error: source not found>";
-
 #[derive(Debug)]
 pub struct Source<'src> {
     files: Vec<SourceFile<'src>>,
@@ -47,13 +45,15 @@ impl<'src> Source<'src> {
         id
     }
 
-    pub fn get_file(&self, file_id: SourceFileId) -> Result<&SourceFile<'src>, InternalError> {
+    pub fn get_file(&self, file_id: SourceFileId) -> Result<&SourceFile<'src>, DustError> {
         self.files
             .get(file_id.0 as usize)
-            .ok_or(InternalError::MissingSourceFile(file_id))
+            .ok_or(DustError::Internal(InternalError::MissingSourceFile(
+                file_id,
+            )))
     }
 
-    pub fn get_file_content(&self, position: &Position) -> Result<&str, InternalError> {
+    pub fn get_file_content(&self, position: &Position) -> Result<&str, DustError> {
         self.get_file(position.file_id)?.content_str(position.span)
     }
 
@@ -152,31 +152,35 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn base_file(path: PathBuf) -> Result<Self, SourceError> {
+    pub fn base_file(path: PathBuf) -> Result<Self, DustError> {
         let Ok(path) = path.canonicalize() else {
-            return Err(SourceError::InvalidPath {
+            return Err(DustError::Source(SourceError::InvalidPath {
                 found: path.display().to_string(),
-            });
+            }));
         };
 
         if !path.is_file() {
-            return Err(SourceError::ExpectedFilePath {
+            return Err(DustError::Source(SourceError::ExpectedFilePath {
                 found: path.display().to_string(),
-            });
+            }));
         }
 
-        let file = File::open(&path).map_err(|error| SourceError::CannotOpen {
-            io_error: error.kind(),
+        let file = File::open(&path).map_err(|error| {
+            DustError::Source(SourceError::CannotOpen {
+                io_error: error.kind(),
+            })
         })?;
-        let mmap = unsafe { Mmap::map(&file) }.map_err(|error| SourceError::CannotOpen {
-            io_error: error.kind(),
+        let mmap = unsafe { Mmap::map(&file) }.map_err(|error| {
+            DustError::Source(SourceError::CannotOpen {
+                io_error: error.kind(),
+            })
         })?;
         let path = match path.into_os_string().into_string() {
             Ok(string) => string,
             Err(os_string) => {
-                return Err(SourceError::ExpectedUtf8Path {
+                return Err(DustError::Source(SourceError::ExpectedUtf8Path {
                     found: os_string.display().to_string(),
-                });
+                }));
             }
         };
 
@@ -239,16 +243,16 @@ impl<'src> SourceFile<'src> {
         })
     }
 
-    pub fn content_str(&self, span: Span) -> Result<&str, InternalError> {
+    pub fn content_str(&self, span: Span) -> Result<&str, DustError> {
         let full_source = self.content_as_str();
         let range = span.as_usize_range();
 
-        full_source
-            .get(range)
-            .ok_or_else(|| InternalError::MissingSourceFileContent {
+        full_source.get(range).ok_or_else(|| {
+            DustError::Internal(InternalError::MissingSourceFileContent {
                 span,
                 length: full_source.len(),
             })
+        })
     }
 
     pub fn content_as_bytes(&self) -> &[u8] {

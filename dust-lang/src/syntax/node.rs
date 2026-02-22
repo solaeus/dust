@@ -9,69 +9,19 @@ use crate::{source::Span, syntax::SyntaxId};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyntaxNode {
-    pub kind: SyntaxKind,
-    pub payload: SyntaxPayload,
-    pub payload_kind: SyntaxPayloadKind,
-    pub span: Span,
+    pub(crate) kind: SyntaxKind,
+    pub(crate) payload: SyntaxPayload,
+    pub(crate) payload_kind: SyntaxPayloadKind,
+    pub(crate) span: Span,
 }
 
 impl SyntaxNode {
-    pub fn empty(kind: SyntaxKind, span: Span) -> Self {
-        Self {
-            kind,
-            payload: SyntaxPayload::empty(),
-            payload_kind: SyntaxPayloadKind::Empty,
-            span,
-        }
+    pub fn set_kind(&mut self, kind: SyntaxKind) {
+        self.kind = kind;
     }
 
-    pub fn with_child(kind: SyntaxKind, span: Span, child_id: SyntaxId) -> Self {
-        Self {
-            kind,
-            payload: SyntaxPayload::child(child_id),
-            payload_kind: SyntaxPayloadKind::SingleChild,
-            span,
-        }
-    }
-
-    pub fn with_binary_children(
-        kind: SyntaxKind,
-        span: Span,
-        left_child_id: SyntaxId,
-        right_child_id: SyntaxId,
-    ) -> Self {
-        Self {
-            kind,
-            payload: SyntaxPayload::children(left_child_id, right_child_id),
-            payload_kind: SyntaxPayloadKind::BinaryChildren,
-            span,
-        }
-    }
-
-    pub fn with_multiple_children(
-        kind: SyntaxKind,
-        span: Span,
-        start_index: u32,
-        child_count: u32,
-    ) -> Self {
-        Self {
-            kind,
-            payload: SyntaxPayload {
-                left: start_index,
-                right: child_count,
-            },
-            payload_kind: SyntaxPayloadKind::MultipleChildren,
-            span,
-        }
-    }
-
-    pub fn with_value(kind: SyntaxKind, span: Span, payload: SyntaxPayload) -> Self {
-        Self {
-            kind,
-            payload,
-            payload_kind: SyntaxPayloadKind::Value,
-            span,
-        }
+    pub fn set_start(&mut self, start: u32) {
+        self.span = Span::new(start, self.span.end());
     }
 }
 
@@ -236,11 +186,27 @@ pub enum SyntaxKind {
 
 impl SyntaxKind {
     pub fn empty(self, span: Span) -> SyntaxNode {
-        SyntaxNode::empty(self, span)
+        SyntaxNode {
+            kind: self,
+            payload: SyntaxPayload {
+                left: SyntaxId::NONE.0,
+                right: SyntaxId::NONE.0,
+            },
+            payload_kind: SyntaxPayloadKind::Empty,
+            span,
+        }
     }
 
     pub fn with_child(self, span: Span, child_id: SyntaxId) -> SyntaxNode {
-        SyntaxNode::with_child(self, span, child_id)
+        SyntaxNode {
+            kind: self,
+            payload: SyntaxPayload {
+                left: child_id.0,
+                right: SyntaxId::NONE.0,
+            },
+            payload_kind: SyntaxPayloadKind::SingleChild,
+            span,
+        }
     }
 
     pub fn with_binary_children(
@@ -249,7 +215,15 @@ impl SyntaxKind {
         left_child_id: SyntaxId,
         right_child_id: SyntaxId,
     ) -> SyntaxNode {
-        SyntaxNode::with_binary_children(self, span, left_child_id, right_child_id)
+        SyntaxNode {
+            kind: self,
+            payload: SyntaxPayload {
+                left: left_child_id.0,
+                right: right_child_id.0,
+            },
+            payload_kind: SyntaxPayloadKind::BinaryChildren,
+            span,
+        }
     }
 
     pub fn with_multiple_children(
@@ -258,11 +232,26 @@ impl SyntaxKind {
         start_index: u32,
         child_count: u32,
     ) -> SyntaxNode {
-        SyntaxNode::with_multiple_children(self, span, start_index, child_count)
+        {
+            SyntaxNode {
+                kind: self,
+                payload: SyntaxPayload {
+                    left: start_index,
+                    right: child_count,
+                },
+                payload_kind: SyntaxPayloadKind::MultipleChildren,
+                span,
+            }
+        }
     }
 
-    pub fn with_value(self, span: Span, payload: SyntaxPayload) -> SyntaxNode {
-        SyntaxNode::with_value(self, span, payload)
+    pub fn with_value(self, span: Span, value: impl EncodePayload) -> SyntaxNode {
+        SyntaxNode {
+            kind: self,
+            payload: value.encode_payload(),
+            payload_kind: SyntaxPayloadKind::Value,
+            span,
+        }
     }
 
     pub fn is_item(&self) -> bool {
@@ -671,4 +660,24 @@ pub enum SyntaxPayloadKind {
     BinaryChildren,
     MultipleChildren,
     Value,
+}
+
+pub trait EncodePayload {
+    fn encode_payload(&self) -> SyntaxPayload;
+    fn decode_payload(payload: SyntaxPayload) -> Self;
+}
+
+impl EncodePayload for bool {
+    fn encode_payload(&self) -> SyntaxPayload {
+        {
+            SyntaxPayload {
+                left: *self as u32,
+                right: SyntaxId::NONE.0,
+            }
+        }
+    }
+
+    fn decode_payload(payload: SyntaxPayload) -> Self {
+        payload.left != 0
+    }
 }

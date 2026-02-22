@@ -1,12 +1,12 @@
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
 use tracing::error;
 
 use crate::{
+    dust_error::{DustError, InternalError},
     source::SourceFileId,
-    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxReader},
+    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxReader},
 };
 
 /// A parsed Dust source code file.
@@ -37,15 +37,6 @@ impl SyntaxTree {
             .is_some_and(|node| node.kind == SyntaxKind::Root)
     }
 
-    pub fn is_module(&self) -> bool {
-        self.nodes.first().is_some_and(|node| {
-            matches!(
-                node.kind,
-                SyntaxKind::ModuleItem | SyntaxKind::PublicModuleItem
-            )
-        })
-    }
-
     pub fn node_count(&self) -> usize {
         self.nodes.len()
     }
@@ -54,86 +45,47 @@ impl SyntaxTree {
         self.nodes.is_empty()
     }
 
-    pub fn push(&mut self, node: SyntaxNode) -> SyntaxId {
-        let index = self.nodes.len() as u32;
+    pub fn root(&self) -> Result<SyntaxReader<'_>, DustError> {
+        let root_node =
+            self.nodes
+                .first()
+                .ok_or(DustError::Internal(InternalError::MissingSyntaxNode(
+                    SyntaxId::ROOT,
+                )))?;
 
-        self.nodes.push(node);
-
-        SyntaxId(index)
+        Ok(SyntaxReader::new(SyntaxId::ROOT, root_node, self))
     }
 
-    pub fn pop(&mut self) -> Option<SyntaxNode> {
-        self.nodes.pop()
-    }
+    pub fn get_node(&self, id: SyntaxId) -> Result<SyntaxReader<'_>, DustError> {
+        let node = self
+            .nodes
+            .get(id.0 as usize)
+            .ok_or(DustError::Internal(InternalError::MissingSyntaxNode(id)))?;
 
-    pub fn replace_node(&mut self, id: SyntaxId, node: SyntaxNode) {
-        if let Some(existing_node) = self.nodes.get_mut(id.0 as usize) {
-            *existing_node = node;
-        }
-    }
-
-    pub fn root(&self) -> Option<SyntaxReader<'_>> {
-        let root_node = self.nodes.first()?;
-
-        Some(SyntaxReader::new(SyntaxId::ROOT, root_node, self))
-    }
-
-    pub fn read_node(&self, id: SyntaxId) -> Option<SyntaxReader<'_>> {
-        let node = self.get_node(id)?;
-
-        Some(SyntaxReader::new(id, node, self))
-    }
-
-    pub fn get_node(&self, id: SyntaxId) -> Option<&SyntaxNode> {
-        if id == SyntaxId::NONE {
-            return None;
-        }
-
-        self.nodes.get(id.0 as usize)
-    }
-
-    pub fn get_child_ids(&self, payload: SyntaxPayload) -> &[SyntaxId] {
-        if payload.left_id() == SyntaxId::NONE || payload.right_id() == SyntaxId::NONE {
-            return &[];
-        }
-
-        let child_range = payload.as_usize_range();
-
-        if child_range.end > self.children.len() {
-            error!(
-                "Failed to get syntax nodes: invalid range {}..{} with length {}",
-                child_range.start,
-                child_range.end,
-                self.children.len()
-            );
-
-            &[]
-        } else {
-            &self.children[child_range]
-        }
-    }
-
-    pub fn add_children(&mut self, children: SmallVec<[SyntaxId; 4]>) -> SyntaxPayload {
-        let start = self.children.len() as u32;
-        let count = children.len() as u32;
-
-        self.children.extend(children);
-
-        SyntaxPayload::child_indices(start, count)
+        Ok(SyntaxReader::new(id, node, self))
     }
 
     pub fn sorted_nodes(&self) -> Vec<SyntaxNode> {
         fn collect_depth_first(node: SyntaxReader, nodes: &mut Vec<SyntaxNode>) {
             nodes.push(*node.inner());
 
-            for child in node.children() {
+            let children = match node.children() {
+                Ok(children) => children,
+                Err(error) => {
+                    error!("{}", error.into_internal());
+
+                    return;
+                }
+            };
+
+            for child in children {
                 collect_depth_first(child, nodes);
             }
         }
 
         let root = match self.root() {
-            Some(root) => root,
-            None => return Vec::new(),
+            Ok(root) => root,
+            Err(_) => return Vec::new(),
         };
         let mut nodes = Vec::with_capacity(self.nodes.len());
 
@@ -144,8 +96,8 @@ impl SyntaxTree {
 
     fn as_text_tree(&self) -> String {
         let root = match self.root() {
-            Some(root) => root,
-            None => return "<empty>".to_string(),
+            Ok(root) => root,
+            Err(_) => return "<empty>".to_string(),
         };
         let mut buffer = String::new();
 
@@ -163,5 +115,54 @@ impl Display for SyntaxTree {
             self.node_count(),
             self.as_text_tree()
         )
+    }
+}
+
+pub struct SyntaxTreeBuilder {
+    tree: SyntaxTree,
+}
+
+impl SyntaxTreeBuilder {
+    pub fn new(file_id: SourceFileId) -> Self {
+        Self {
+            tree: SyntaxTree::new(file_id),
+        }
+    }
+
+    pub fn file_id(&self) -> SourceFileId {
+        self.tree.file_id
+    }
+
+    pub fn add_node(&mut self, node: SyntaxNode) -> SyntaxId {
+        let id = SyntaxId(self.tree.nodes.len() as u32);
+
+        self.tree.nodes.push(node);
+
+        id
+    }
+
+    pub fn replace_node(&mut self, id: SyntaxId, node: SyntaxNode) -> Result<(), DustError> {
+        let index = id.0 as usize;
+
+        if index >= self.tree.nodes.len() {
+            return Err(DustError::Internal(InternalError::MissingSyntaxNode(id)));
+        }
+
+        self.tree.nodes[index] = node;
+
+        Ok(())
+    }
+
+    pub fn add_children(&mut self, children: &[SyntaxId]) -> (u32, u32) {
+        let start_index = self.tree.children.len() as u32;
+        let length = children.len() as u32;
+
+        self.tree.children.extend_from_slice(children);
+
+        (start_index, length)
+    }
+
+    pub fn build(self) -> SyntaxTree {
+        self.tree
     }
 }

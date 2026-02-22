@@ -5,31 +5,31 @@
     generic_const_exprs,
     int_from_ascii,
     iterator_try_collect,
+    string_into_chars,
     thread_id_value,
     trim_prefix_suffix,
     uint_bit_width
 )]
 
-pub mod compiler;
-pub mod disassembler;
-pub mod dust_crate;
-pub mod dust_error;
-pub mod dust_type;
-// pub mod jit_vm;
-pub mod lexer;
-pub mod parser;
-pub mod project;
-pub mod prototype;
-pub mod source;
-pub mod syntax;
-pub mod token;
-pub mod value;
-
+mod compiler;
 mod constant_table;
+mod disassembler;
+mod dust_crate;
+mod dust_error;
+mod dust_type;
 mod instruction;
+// mod jit_vm;
+mod lexer;
 mod native_function;
+mod parser;
+mod project;
+mod prototype;
 mod resolver;
 mod small_type;
+mod source;
+mod syntax;
+mod token;
+mod value;
 
 #[cfg(test)]
 mod tests;

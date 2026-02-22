@@ -13,14 +13,17 @@ use smallvec::SmallVec;
 use tracing::{Level, span};
 
 use crate::{
-    compiler::{declaration_binder::DeclarationBinder, emitter::Emitter, type_binder::TypeBinder},
+    compiler::{
+        declaration_binder::DeclarationBinder, emitter::Emitter, error::CompileError,
+        type_binder::TypeBinder,
+    },
     constant_table::ConstantTable,
     dust_crate::Program,
-    dust_error::DustError,
+    dust_error::{DustError, DustErrors},
     lexer::Lexer,
     parser::{ParseResult, Parser},
     project::DEFAULT_PROGRAM_PATH,
-    prototype::{Prototype, PrototypeList},
+    prototype::{Prototype, PrototypeId, PrototypeList},
     resolver::{
         Resolver,
         scope_graph::{Scope, ScopeId, ScopeKind},
@@ -30,7 +33,7 @@ use crate::{
     syntax::{Syntax, SyntaxId, SyntaxVisitor},
 };
 
-pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, DustError> {
+pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, DustErrors<'src>> {
     let mut source = Source::new();
 
     source.add_file(SourceFile::validated("compile", source_code));
@@ -41,13 +44,13 @@ pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, DustError>
     Ok(program.prototypes)
 }
 
-pub fn compile_main<'src>(source_code: &'src str) -> Result<Prototype, DustError> {
-    let prototype = compile(source_code)?
+pub fn compile_main<'src>(source_code: &'src str) -> Result<Prototype, DustErrors<'src>> {
+    let main_prototype = compile(source_code)?
         .into_iter()
         .next()
         .expect("The compiler failed to produce a prototype");
 
-    Ok(prototype)
+    Ok(main_prototype)
 }
 
 pub struct Compiler<'src> {
@@ -73,34 +76,28 @@ impl<'src> Compiler<'src> {
         &self.resolver
     }
 
-    pub fn compile(self, program_name: Option<String>) -> Result<Program, DustError> {
-        let Compiler {
-            constants,
-            prototypes,
-            ..
-        } = self.compile_inner(&program_name)?;
-        let program = Program::new(program_name, constants, prototypes);
+    pub fn compile(mut self, program_name: Option<String>) -> Result<Program, DustErrors<'src>> {
+        self.compile_inner(&program_name)?;
+
+        let program = Program::new(program_name, self.constants, self.prototypes);
 
         Ok(program)
     }
 
     pub fn compile_with_extras(
-        self,
+        mut self,
         program_name: Option<String>,
-    ) -> Result<(Program, Source<'src>, Syntax, Resolver), DustError> {
-        let Compiler {
-            syntax,
-            source,
-            constants,
-            resolver,
-            prototypes,
-        } = self.compile_inner(&program_name)?;
-        let program = Program::new(program_name, constants, prototypes);
+    ) -> Result<(Program, Source<'src>, Syntax, Resolver), DustErrors<'src>> {
+        self.compile_inner(&program_name)?;
 
-        Ok((program, source, syntax, resolver))
+        let program = Program::new(program_name, self.constants, self.prototypes);
+
+        Ok((program, self.source, self.syntax, self.resolver))
     }
 
-    fn compile_inner(mut self, program_name: &Option<String>) -> Result<Self, DustError> {
+    fn compile_inner(&mut self, program_name: &Option<String>) -> Result<(), DustErrors<'src>> {
+        let handle_error = |error| DustErrors::new(vec![error], &self.source, &self.resolver);
+
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
 
@@ -136,20 +133,20 @@ impl<'src> Compiler<'src> {
                 files_parsed += 1;
 
                 for span in file_module_names {
-                    let parent_file = self.source.get_file(file_id)?;
-                    let module_name_str = parent_file.content_str(span)?;
+                    let parent_file = self.source.get_file(file_id).map_err(handle_error)?;
+                    let module_name_str = parent_file.content_str(span).map_err(handle_error)?;
                     let parent_path = Path::new(parent_file.full_path())
                         .parent()
                         .unwrap_or_else(|| Path::new("/"));
                     let module_path = parent_path.join(module_name_str).with_added_extension("ds");
-                    let module_file = SourceFile::base_file(module_path)?;
+                    let module_file = SourceFile::base_file(module_path).map_err(handle_error)?;
 
                     let module_file_id = self.source.add_file(module_file);
                 }
             }
 
             if !parse_errors.is_empty() {
-                return Err(DustError::parse(parse_errors, self.source));
+                return Err(DustErrors::new(parse_errors, &self.source, &self.resolver));
             }
         }
 
@@ -164,18 +161,12 @@ impl<'src> Compiler<'src> {
             modules: SmallVec::new(),
             imports: SmallVec::new(),
         });
-        let main_root = match self
+        let main_root = self
             .syntax
             .get_tree(SourceFileId::MAIN)
-            .and_then(|tree| tree.root())
-        {
-            Some(root) => root,
-            None => {
-                return self.handle_error(vec![DustError::Internal(
-                    InternalError::MissingSyntaxTree(SourceFileId::MAIN),
-                )]);
-            }
-        };
+            .map_err(handle_error)?
+            .root()
+            .map_err(handle_error)?;
 
         let mut compile_errors = Vec::new();
 
@@ -217,10 +208,13 @@ impl<'src> Compiler<'src> {
         }
 
         // Emission phase
-        let main_prototype_id = self.prototypes.reserve_slot();
-        let main_prototype = {
+        {
             let span = span!(Level::INFO, "emit");
             let _enter = span.enter();
+
+            let _main_prototype_id = self.prototypes.reserve_slot();
+
+            debug_assert_eq!(_main_prototype_id, PrototypeId::MAIN);
 
             let main_symbol_id = self.resolver.symbols.add_symbol("main");
             let (main_declaration_id, main_declaration) = match self
@@ -230,38 +224,46 @@ impl<'src> Compiler<'src> {
             {
                 Some(declaration) => declaration,
                 None => {
-                    compile_errors.push(DustError::ExpectedMainFunction);
+                    compile_errors.push(DustError::Compile(CompileError::ExpectedMainFunction));
 
-                    return self.handle_error(compile_errors);
+                    return Err(DustErrors::new(
+                        compile_errors,
+                        &self.source,
+                        &self.resolver,
+                    ));
                 }
             };
 
-            let main_module = if let Some(tree) = self.syntax.get_tree(SourceFileId::MAIN) {
-                tree.root().unwrap()
+            let find_main_function = self
+                .syntax
+                .get_tree(SourceFileId::MAIN)
+                .map_err(handle_error)?
+                .root()
+                .map_err(handle_error)?
+                .children()
+                .map_err(handle_error)?
+                .find(|node| {
+                    self.resolver
+                        .get_declaration_binding(&node.id)
+                        .is_ok_and(|bound_id| *bound_id == main_declaration_id)
+                });
+            let main_function = if let Some(node) = find_main_function {
+                node
             } else {
-                compile_errors.push(DustError::Internal(InternalError::MissingSyntaxTree(
-                    SourceFileId::MAIN,
-                )));
+                compile_errors.push(DustError::Compile(CompileError::ExpectedMainFunction));
 
-                return self.handle_error(compile_errors);
-            };
-            let main_function = if let Some(syntax_node) = main_module.children().find(|node| {
-                self.resolver
-                    .get_declaration_binding(&node.id)
-                    .is_ok_and(|bound_id| *bound_id == main_declaration_id)
-            }) {
-                syntax_node
-            } else {
-                compile_errors.push(DustError::ExpectedMainFunction);
-
-                return self.handle_error(compile_errors);
+                return Err(DustErrors::new(
+                    compile_errors,
+                    &self.source,
+                    &self.resolver,
+                ));
             };
 
-            let main_emitter = match Emitter::new(
+            match Emitter::new(
                 main_function,
                 main_declaration_id,
                 main_declaration.scope_id,
-                main_prototype_id,
+                PrototypeId::MAIN,
                 None,
                 (
                     &self.source,
@@ -270,31 +272,22 @@ impl<'src> Compiler<'src> {
                     &mut self.resolver,
                     &mut self.prototypes,
                 ),
-            ) {
-                Ok(emitter) => emitter,
+            )
+            .and_then(|emitter| emitter.emit())
+            {
+                Ok(prototype) => self.prototypes.set_slot(PrototypeId::MAIN, prototype),
                 Err(error) => {
                     compile_errors.push(error);
 
-                    return self.handle_error(compile_errors);
-                }
-            };
-
-            match main_emitter.emit() {
-                Ok(prototype) => prototype,
-                Err(error) => {
-                    compile_errors.push(error);
-
-                    return self.handle_error(compile_errors);
+                    return Err(DustErrors::new(
+                        compile_errors,
+                        &self.source,
+                        &self.resolver,
+                    ));
                 }
             }
-        };
+        }
 
-        self.prototypes.set_slot(main_prototype_id, main_prototype);
-
-        Ok(self)
-    }
-
-    fn handle_error(self, errors: Vec<DustError>) -> Result<Self, DustError<'src>> {
-        Err(DustError::compile(errors, self.source, self.resolver))
+        Ok(())
     }
 }

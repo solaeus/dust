@@ -19,7 +19,7 @@ use crate::{
     },
     small_type::SmallType,
     source::{Position, Source, Span},
-    syntax::{Syntax, SyntaxError, SyntaxKind, SyntaxReader, SyntaxReaderIterator, SyntaxVisitor},
+    syntax::{Syntax, SyntaxKind, SyntaxReader, SyntaxReaderIterator, SyntaxVisitor},
 };
 
 #[derive(Debug)]
@@ -154,7 +154,7 @@ impl<'a> Emitter<'a> {
     }
 
     pub fn emit(mut self) -> Result<Prototype, DustError> {
-        let function_body = self.function.expect_right_child()?.expect_right_child()?;
+        let function_body = self.function.right_child()?.right_child()?;
 
         match function_body.kind() {
             SyntaxKind::BlockExpression => {
@@ -245,9 +245,7 @@ impl<'a> Emitter<'a> {
                     }
                     _ => {
                         return Err(DustError::Internal(
-                            InternalError::InvalidJumpAnchorInstruction(
-                                instruction.operation(),
-                            ),
+                            InternalError::InvalidJumpAnchorInstruction(instruction.operation()),
                         ));
                     }
                 }
@@ -1198,7 +1196,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ItemOutput, DustError> {
         debug!("Visting function item");
 
-        let function_expression = node.expect_right_child()?;
+        let function_expression = node.right_child()?;
 
         let function_emission = self.visit_function_expression(function_expression, None)?;
 
@@ -1235,7 +1233,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::StatementOutput, DustError> {
         debug!("Visting expression statement");
 
-        let expression = node.expect_left_child()?;
+        let expression = node.child()?;
 
         let expression_emission = self.visit_expression(expression, None)?;
 
@@ -1330,8 +1328,8 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::StatementOutput, DustError> {
         debug!("Visting reassignment statement");
 
-        let (path, expression_statement) = node.expect_binary_children()?;
-        let expression = expression_statement.expect_left_child()?;
+        let (path, expression_statement) = node.binary_children()?;
+        let expression = expression_statement.child()?;
 
         let declaration_id = self.resolver.get_declaration_binding(&path.id)?;
         let target = self
@@ -1538,7 +1536,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting index expression");
 
-        let (list_expression, index_expression) = node.expect_binary_children()?;
+        let (list_expression, index_expression) = node.binary_children()?;
 
         let left_emission = self.visit_expression(list_expression, None)?;
         let right_emission = self.visit_expression(index_expression, None)?;
@@ -1567,7 +1565,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting path expression");
 
-        let path = path_expression.expect_left_child()?;
+        let path = path_expression.child()?;
 
         let declaration_id = self.visit_path(path)?;
 
@@ -1606,7 +1604,7 @@ impl SyntaxVisitor for Emitter<'_> {
             }
         }
 
-        let fields = node.expect_right_child()?.expect_multiple_children()?;
+        let fields = node.right_child()?.expect_multiple_children()?;
 
         let mut field_leaf_operand_types = Vec::with_capacity(fields.len());
         let mut total_leaf_count: u16 = 0;
@@ -1870,7 +1868,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting else expression");
 
-        self.visit_block_expression(node.expect_left_child()?, target)
+        self.visit_block_expression(node.child()?, target)
     }
 
     fn visit_math_binary_expression(
@@ -1880,7 +1878,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting math binary expression");
 
-        let (left_expression, right_expression) = node.expect_binary_children()?;
+        let (left_expression, right_expression) = node.binary_children()?;
 
         let left_emission = self.visit_expression(left_expression, None)?;
         let right_emission = self.visit_expression(right_expression, None)?;
@@ -2003,7 +2001,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting comparison binary expression");
 
-        let (left_expression, right_expression) = node.expect_binary_children()?;
+        let (left_expression, right_expression) = node.binary_children()?;
 
         let left_emission = self.visit_expression(left_expression, None)?;
         let right_emission = self.visit_expression(right_expression, None)?;
@@ -2073,7 +2071,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting logical binary expression");
 
-        let (left_expression, right_expression) = node.expect_binary_children()?;
+        let (left_expression, right_expression) = node.binary_children()?;
 
         let left_emission = self.visit_expression(left_expression, None)?;
         let right_emission = self.visit_expression(right_expression, None)?;
@@ -2125,7 +2123,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting unary negation expression");
 
-        let expression = node.expect_left_child()?;
+        let expression = node.child()?;
 
         let expression_emission = self.visit_expression(expression, None)?;
 
@@ -2164,7 +2162,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting while expression");
 
-        let (condition, body) = node.expect_binary_children()?;
+        let (condition, body) = node.binary_children()?;
 
         let mut while_emission = InstructionsEmission::new();
         let condition_emission = self.visit_expression(condition, None)?;
@@ -2209,8 +2207,8 @@ impl SyntaxVisitor for Emitter<'_> {
             }));
         }
 
-        let (signature, body) = node.expect_binary_children()?;
-        let parameters = signature.expect_left_child()?.expect_multiple_children()?;
+        let (signature, body) = node.binary_children()?;
+        let parameters = signature.child()?.expect_multiple_children()?;
         let function_scope_id = *self.resolver.get_scope_binding(&body.id)?;
         let prototype_id = self.prototypes.reserve_slot();
 
@@ -2246,7 +2244,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting call expression");
 
-        let (callee, argument_list) = node.expect_binary_children()?;
+        let (callee, argument_list) = node.binary_children()?;
         let arguments = argument_list.expect_multiple_children()?;
 
         let mut call_emission = InstructionsEmission::new();

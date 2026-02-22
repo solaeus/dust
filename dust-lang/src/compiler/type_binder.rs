@@ -46,13 +46,13 @@ impl<'a> TypeBinder<'a> {
         let main_root = self
             .syntax
             .get_tree(SourceFileId::MAIN)
-            .ok_or(DustError::Internal(
-                InternalError::MissingSyntaxTree(SourceFileId::MAIN),
-            ))?
+            .ok_or(DustError::Internal(InternalError::MissingSyntaxTree(
+                SourceFileId::MAIN,
+            )))?
             .root()
-            .ok_or(DustError::Internal(
-                InternalError::MissingSyntaxNode(SyntaxId::ROOT),
-            ))?;
+            .ok_or(DustError::Internal(InternalError::MissingSyntaxNode(
+                SyntaxId::ROOT,
+            )))?;
 
         self.visit_root(main_root)
     }
@@ -91,7 +91,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ItemOutput, DustError> {
         debug!("Visting function item");
 
-        let function_expression = function_item.expect_right_child()?;
+        let function_expression = function_item.right_child()?;
 
         let function_declaration_id = *self.resolver.get_declaration_binding(&function_item.id)?;
         let function_type_id = self.visit_function_expression(function_expression, ())?;
@@ -125,7 +125,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, DustError> {
         debug!("Visting struct item");
 
-        let (struct_name, struct_fields_list) = node.expect_binary_children()?;
+        let (struct_name, struct_fields_list) = node.binary_children()?;
         let struct_fields = struct_fields_list.expect_multiple_children()?;
 
         let mut fields = SmallVec::<[DeclarationId; 8]>::new();
@@ -164,7 +164,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::StatementOutput, DustError> {
         debug!("Visting expression statement");
 
-        self.visit_expression(node.expect_left_child()?, ())?;
+        self.visit_expression(node.child()?, ())?;
 
         Ok(())
     }
@@ -218,7 +218,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::StatementOutput, DustError> {
         debug!("Visting binary assignment statement");
 
-        let (path, expression) = node.expect_binary_children()?;
+        let (path, expression) = node.binary_children()?;
 
         let path_type = {
             let raw = self.visit_path(path)?;
@@ -269,8 +269,8 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::StatementOutput, DustError> {
         debug!("Visting reassignment statement");
 
-        let (path, expression_statement) = node.expect_binary_children()?;
-        let expression = expression_statement.expect_left_child()?;
+        let (path, expression_statement) = node.binary_children()?;
+        let expression = expression_statement.child()?;
 
         let path_type = self.visit_path(path)?;
         let expression_type = self.visit_expression(expression, ())?;
@@ -401,7 +401,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting index expression");
 
-        let (list_expression, index_expression) = node.expect_binary_children()?;
+        let (list_expression, index_expression) = node.binary_children()?;
 
         let list_type_id = {
             let raw = self.visit_expression(list_expression, input)?;
@@ -451,7 +451,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         debug!("Visting path expression");
         debug_assert_eq!(path_expression.kind(), SyntaxKind::PathExpression);
 
-        let type_id = self.visit_path(path_expression.expect_left_child()?)?;
+        let type_id = self.visit_path(path_expression.child()?)?;
 
         self.resolver.add_type_binding(path_expression.id, type_id);
 
@@ -465,7 +465,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting struct expression");
 
-        let fields = node.expect_right_child()?.expect_multiple_children()?;
+        let fields = node.right_child()?.expect_multiple_children()?;
 
         let declaration_id = *self.resolver.get_declaration_binding(&node.id)?;
         let declared_struct_type_id = *self
@@ -568,7 +568,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 then_type,
                 Some(then_block),
                 else_type,
-                else_block.expect_left_child()?,
+                else_block.child()?,
             )?;
         }
 
@@ -584,7 +584,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting else expression");
 
-        self.visit_block_expression(node.expect_left_child()?, ())
+        self.visit_block_expression(node.child()?, ())
     }
 
     fn visit_math_binary_expression(
@@ -594,7 +594,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting math binary expression");
 
-        let (left_expression, right_expression) = node.expect_binary_children()?;
+        let (left_expression, right_expression) = node.binary_children()?;
 
         let left_type = {
             let raw = self.visit_expression(left_expression, ())?;
@@ -641,7 +641,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting comparison binary expression");
 
-        let (left_expression, right_expression) = node.expect_binary_children()?;
+        let (left_expression, right_expression) = node.binary_children()?;
 
         let left_type = self.visit_expression(left_expression, ())?;
         let right_type = self.visit_expression(right_expression, ())?;
@@ -664,7 +664,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting logical binary expression");
 
-        let (left_expression, right_expression) = node.expect_binary_children()?;
+        let (left_expression, right_expression) = node.binary_children()?;
 
         let left_type = {
             let raw = self.visit_expression(left_expression, input)?;
@@ -705,7 +705,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting unary negation expression");
 
-        let expression = node.expect_left_child()?;
+        let expression = node.child()?;
         let child_type = {
             let raw = self.visit_expression(expression, ())?;
 
@@ -733,7 +733,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting while expression");
 
-        let (condition, body) = node.expect_binary_children()?;
+        let (condition, body) = node.binary_children()?;
 
         let condition_type = {
             let raw = self.visit_expression(condition, ())?;
@@ -761,8 +761,8 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting function expression");
 
-        let (signature, body) = node.expect_binary_children()?;
-        let value_parameters_list = signature.expect_left_child()?;
+        let (signature, body) = node.binary_children()?;
+        let value_parameters_list = signature.child()?;
         let value_parameters = value_parameters_list.children();
         let return_type = signature.right_child()?;
 
@@ -821,7 +821,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting call expression");
 
-        let (callee, arguments_list) = node.expect_binary_children()?;
+        let (callee, arguments_list) = node.binary_children()?;
         let arguments = arguments_list.expect_multiple_children()?;
 
         let callee_type = {
@@ -881,7 +881,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             SyntaxKind::IntegerType => Ok(TypeId::INTEGER),
             SyntaxKind::StringType => Ok(TypeId::STRING),
             SyntaxKind::ListType => {
-                let element_type_node = node.expect_left_child()?;
+                let element_type_node = node.child()?;
                 let element_type_id = self.visit_type(element_type_node)?;
                 let list_type_id = self.resolver.types.add_type(TypeNode::List {
                     element_type: element_type_id,
@@ -892,8 +892,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             SyntaxKind::FunctionType => {
                 let type_node = {
                     let type_node_value_parameters = if node.has_left_child() {
-                        let value_parameters =
-                            node.expect_left_child()?.expect_multiple_children()?;
+                        let value_parameters = node.child()?.expect_multiple_children()?;
                         let mut value_parameter_ids = SmallVec::<[TypeId; 4]>::new();
 
                         for value_parameter in value_parameters {
@@ -912,7 +911,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                     };
 
                     let return_type_id = if node.has_right_child() {
-                        self.visit_type(node.expect_right_child()?)?
+                        self.visit_type(node.right_child()?)?
                     } else {
                         TypeId::NONE
                     };

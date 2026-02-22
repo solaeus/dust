@@ -6,10 +6,6 @@ use crate::{
 pub trait SyntaxVisitor {
     type RootOutput;
 
-    type ItemOutput;
-
-    type StatementOutput;
-
     type ExpressionInput;
 
     type ExpressionOutput;
@@ -18,7 +14,9 @@ pub trait SyntaxVisitor {
 
     type PathOutput;
 
-    fn visit_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, DustError> {
+    fn recover(&mut self, error: DustError);
+
+    fn visit_item(&mut self, node: SyntaxReader) {
         match node.kind() {
             SyntaxKind::ModuleItem | SyntaxKind::PublicModuleItem => self.visit_module_item(node),
             SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem => {
@@ -30,9 +28,10 @@ pub trait SyntaxVisitor {
                 node.kind(),
             ))),
         }
+        .unwrap_or_else(|error| self.recover(error))
     }
 
-    fn visit_statement(&mut self, node: SyntaxReader) -> Result<Self::StatementOutput, DustError> {
+    fn visit_statement(&mut self, node: SyntaxReader) {
         match node.kind() {
             SyntaxKind::ExpressionStatement => self.visit_expression_statement(node),
             SyntaxKind::ReassignmentStatement => self.visit_reassignment_statement(node),
@@ -51,6 +50,7 @@ pub trait SyntaxVisitor {
                 node.kind(),
             ))),
         }
+        .unwrap_or_else(|error| self.recover(error))
     }
 
     fn visit_expression(
@@ -91,9 +91,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::WhileExpression => self.visit_while_expression(node, input),
             SyntaxKind::FunctionExpression => self.visit_function_expression(node, input),
             SyntaxKind::CallExpression => self.visit_call_expression(node, input),
-            SyntaxKind::GroupedExpression => {
-                self.visit_expression(node.expect_left_child()?, input)
-            }
+            SyntaxKind::GroupedExpression => self.visit_expression(node.child()?, input),
             _ => Err(DustError::Internal(InternalError::UnimplementedFeature(
                 node.kind(),
             ))),
@@ -102,33 +100,21 @@ pub trait SyntaxVisitor {
 
     fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, DustError>;
 
-    fn visit_module_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, DustError>;
+    fn visit_module_item(&mut self, node: SyntaxReader) -> Result<(), DustError>;
 
-    fn visit_function_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, DustError>;
+    fn visit_function_item(&mut self, node: SyntaxReader) -> Result<(), DustError>;
 
-    fn visit_use_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, DustError>;
+    fn visit_use_item(&mut self, node: SyntaxReader) -> Result<(), DustError>;
 
-    fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, DustError>;
+    fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<(), DustError>;
 
-    fn visit_expression_statement(
-        &mut self,
-        node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, DustError>;
+    fn visit_expression_statement(&mut self, node: SyntaxReader) -> Result<(), DustError>;
 
-    fn visit_reassignment_statement(
-        &mut self,
-        node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, DustError>;
+    fn visit_reassignment_statement(&mut self, node: SyntaxReader) -> Result<(), DustError>;
 
-    fn visit_let_statement(
-        &mut self,
-        node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, DustError>;
+    fn visit_let_statement(&mut self, node: SyntaxReader) -> Result<(), DustError>;
 
-    fn visit_binary_assignment_statement(
-        &mut self,
-        node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, DustError>;
+    fn visit_binary_assignment_statement(&mut self, node: SyntaxReader) -> Result<(), DustError>;
 
     fn visit_boolean_expression(
         &mut self,
