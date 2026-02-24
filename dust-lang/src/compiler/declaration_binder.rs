@@ -1,11 +1,11 @@
 use std::path::Path;
 
-use smallvec::{SmallVec, smallvec};
+use smallvec::SmallVec;
 use tracing::{debug, info};
 
 use crate::{
     compiler::error::CompileError,
-    dust_error::{DustError, InternalError},
+    dust_error::DustError,
     resolver::{
         Resolver,
         declaration_graph::{Declaration, DeclarationId, DeclarationKind, ModuleKind},
@@ -47,13 +47,14 @@ impl<'a> DeclarationBinder<'a> {
 
 impl SyntaxVisitor for DeclarationBinder<'_> {
     type RootOutput = ();
+    type StatementOutput = ();
     type ExpressionInput = ();
     type ExpressionOutput = ();
     type TypeOutput = ();
     type PathOutput = DeclarationId;
 
     fn recover(&mut self, error: DustError) {
-        debug!("Recovering from error: {error:?}");
+        debug!("Declaration binder encountered an error");
 
         self.errors.push(error);
     }
@@ -119,20 +120,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
             self.current_scope_id = starting_scope_id;
         } else {
-            let module_declaration_id = self.resolver.declarations.add_declaration(Declaration {
-                symbol_id: module_symbol_id,
-                kind: DeclarationKind::Module {
-                    kind: ModuleKind::File,
-                    inner_scope_id: module_scope_id,
-                },
-                scope_id: self.current_scope_id,
-                is_public,
-                position,
-            });
-
-            self.resolver
-                .add_declaration_binding(module_item.id, module_declaration_id);
-
             let module_file_id = self
                 .source
                 .files_iter()
@@ -153,6 +140,22 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 .ok_or(DustError::Compile(CompileError::UnresolvedModule {
                     symbol_id: module_symbol_id,
                 }))?;
+            let module_declaration_id = self.resolver.declarations.add_declaration(Declaration {
+                symbol_id: module_symbol_id,
+                kind: DeclarationKind::Module {
+                    kind: ModuleKind::File {
+                        file_id: module_file_id,
+                    },
+                    inner_scope_id: module_scope_id,
+                },
+                scope_id: self.current_scope_id,
+                is_public,
+                position,
+            });
+
+            self.resolver
+                .add_declaration_binding(module_name.id, module_declaration_id);
+
             let module_root = self.syntax.get_tree(module_file_id)?.root()?;
 
             let starting_scope_id = self.current_scope_id;
@@ -294,7 +297,22 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let expression = children.expect_next()?;
 
         let identifier = self.source.get_file_content(&simple_path.position())?;
+        let symbol_id = self.resolver.symbols.add_symbol(identifier);
+        let shadowed = self
+            .resolver
+            .find_declaration_in_scope(symbol_id, self.current_scope_id, None, true, &simple_path)
+            .ok()
+            .map(|(declaration_id, _)| declaration_id);
+        let declaration_id = self.resolver.declarations.add_declaration(Declaration {
+            symbol_id,
+            kind: DeclarationKind::Local { shadowed },
+            scope_id: self.current_scope_id,
+            is_public: false,
+            position: Some(simple_path.position()),
+        });
 
+        self.resolver
+            .add_declaration_binding(simple_path.id, declaration_id);
         self.visit_expression(expression, ())?;
 
         Ok(())
@@ -303,7 +321,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_binary_assignment_statement(&mut self, node: SyntaxReader) -> Result<(), DustError> {
         let (path, expression) = node.binary_children()?;
 
-        self.visit_path(path)?;
+        self.visit_path(path, true)?;
         self.visit_expression(expression, ())?;
 
         Ok(())
@@ -313,7 +331,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let (path, expression_statement) = node.binary_children()?;
         let expression = expression_statement.child()?;
 
-        self.visit_path(path)?;
+        self.visit_path(path, true)?;
         self.visit_expression(expression, ())?;
 
         Ok(())
@@ -397,7 +415,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         path_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, DustError> {
-        self.visit_path(path_expression.child()?)?;
+        self.visit_path(path_expression.child()?, true)?;
 
         Ok(())
     }
@@ -409,12 +427,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         let (path, fields) = node.binary_children()?;
 
-        self.visit_path(path)?;
+        self.visit_path(path, false)?;
 
         for field in fields.children()? {
             let (field_path, field_expression) = field.binary_children()?;
 
-            self.visit_path(field_path)?;
+            self.visit_path(field_path, false)?;
             self.visit_expression(field_expression, ())?;
         }
 
@@ -599,7 +617,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         if node.kind() == SyntaxKind::TypePath {
             let path = node.child()?;
 
-            let declaration_id = self.visit_path(path)?;
+            let declaration_id = self.visit_path(path, false)?;
 
             self.resolver
                 .add_declaration_binding(node.id, declaration_id);
@@ -608,7 +626,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_path(&mut self, path: SyntaxReader) -> Result<Self::PathOutput, DustError> {
+    fn visit_path(
+        &mut self,
+        path: SyntaxReader,
+        local: bool,
+    ) -> Result<Self::PathOutput, DustError> {
         debug_assert_eq!(path.kind(), SyntaxKind::Path);
 
         let file = self.source.get_file(path.file_id())?;
@@ -623,6 +645,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 symbol,
                 current_scope_id,
                 None,
+                local,
                 &segment,
             )?;
 

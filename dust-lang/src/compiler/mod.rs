@@ -6,9 +6,8 @@ mod type_binder;
 // #[cfg(test)]
 // mod tests;
 
-use std::{fs::File, path::Path};
+use std::path::Path;
 
-use memmap2::Mmap;
 use smallvec::SmallVec;
 use tracing::{Level, span};
 
@@ -22,15 +21,13 @@ use crate::{
     dust_error::{DustError, DustErrors},
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    project::DEFAULT_PROGRAM_PATH,
     prototype::{Prototype, PrototypeId, PrototypeList},
     resolver::{
         Resolver,
         scope_graph::{Scope, ScopeId, ScopeKind},
-        symbol_table::SymbolId,
     },
-    source::{Source, SourceFile, SourceFileId, SourceIterator},
-    syntax::{Syntax, SyntaxId, SyntaxVisitor},
+    source::{Source, SourceFile, SourceFileId},
+    syntax::{Syntax, SyntaxVisitor},
 };
 
 pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, DustErrors<'src>> {
@@ -96,7 +93,12 @@ impl<'src> Compiler<'src> {
     }
 
     fn compile_inner(&mut self, program_name: &Option<String>) -> Result<(), DustErrors<'src>> {
-        let handle_error = |error| DustErrors::new(vec![error], &self.source, &self.resolver);
+        let mut errors = Vec::new();
+        let handle_fatal_error = |error| {
+            errors.push(error);
+
+            DustErrors::new(errors, &self.source, &self.resolver)
+        };
 
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
@@ -107,7 +109,6 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "parse");
             let _enter = span.enter();
 
-            let mut parse_errors = Vec::new();
             let mut files_parsed = 0;
 
             while files_parsed < self.source.file_count() {
@@ -128,25 +129,23 @@ impl<'src> Compiler<'src> {
                 self.syntax.add_tree(syntax_tree).map_err(|max| {
                     panic!("The compiler expected {max} syntax trees in total.");
                 });
-                parse_errors.extend(errors);
+                errors.extend(errors);
 
                 files_parsed += 1;
 
                 for span in file_module_names {
-                    let parent_file = self.source.get_file(file_id).map_err(handle_error)?;
-                    let module_name_str = parent_file.content_str(span).map_err(handle_error)?;
+                    let parent_file = self.source.get_file(file_id).map_err(handle_fatal_error)?;
+                    let module_name_str =
+                        parent_file.content_str(span).map_err(handle_fatal_error)?;
                     let parent_path = Path::new(parent_file.full_path())
                         .parent()
                         .unwrap_or_else(|| Path::new("/"));
                     let module_path = parent_path.join(module_name_str).with_added_extension("ds");
-                    let module_file = SourceFile::base_file(module_path).map_err(handle_error)?;
+                    let module_file =
+                        SourceFile::base_file(module_path).map_err(handle_fatal_error)?;
 
                     let module_file_id = self.source.add_file(module_file);
                 }
-            }
-
-            if !parse_errors.is_empty() {
-                return Err(DustErrors::new(parse_errors, &self.source, &self.resolver));
             }
         }
 
@@ -164,11 +163,9 @@ impl<'src> Compiler<'src> {
         let main_root = self
             .syntax
             .get_tree(SourceFileId::MAIN)
-            .map_err(handle_error)?
+            .map_err(handle_fatal_error)?
             .root()
-            .map_err(handle_error)?;
-
-        let mut compile_errors = Vec::new();
+            .map_err(handle_fatal_error)?;
 
         // Declaration binding phase
         {
@@ -179,12 +176,13 @@ impl<'src> Compiler<'src> {
                 &mut self.source,
                 &self.syntax,
                 &mut self.resolver,
+                &mut errors,
                 program_scope_id,
             );
 
             match declaration_binder.visit_root(main_root) {
                 Ok(()) => {}
-                Err(error) => compile_errors.push(error),
+                Err(error) => errors.push(error),
             }
         }
 
@@ -198,12 +196,12 @@ impl<'src> Compiler<'src> {
                 &self.source,
                 &self.syntax,
                 &mut self.resolver,
-                &mut compile_errors,
+                &mut errors,
             );
 
             match type_binder.visit_root(main_root) {
                 Ok(()) => {}
-                Err(error) => compile_errors.push(error),
+                Err(error) => errors.push(error),
             }
         }
 
@@ -224,24 +222,20 @@ impl<'src> Compiler<'src> {
             {
                 Some(declaration) => declaration,
                 None => {
-                    compile_errors.push(DustError::Compile(CompileError::ExpectedMainFunction));
+                    errors.push(DustError::Compile(CompileError::ExpectedMainFunction));
 
-                    return Err(DustErrors::new(
-                        compile_errors,
-                        &self.source,
-                        &self.resolver,
-                    ));
+                    return Err(DustErrors::new(errors, &self.source, &self.resolver));
                 }
             };
 
             let find_main_function = self
                 .syntax
                 .get_tree(SourceFileId::MAIN)
-                .map_err(handle_error)?
+                .map_err(handle_fatal_error)?
                 .root()
-                .map_err(handle_error)?
+                .map_err(handle_fatal_error)?
                 .children()
-                .map_err(handle_error)?
+                .map_err(handle_fatal_error)?
                 .find(|node| {
                     self.resolver
                         .get_declaration_binding(&node.id)
@@ -250,13 +244,10 @@ impl<'src> Compiler<'src> {
             let main_function = if let Some(node) = find_main_function {
                 node
             } else {
-                compile_errors.push(DustError::Compile(CompileError::ExpectedMainFunction));
+                let errors =
+                    handle_fatal_error(DustError::Compile(CompileError::ExpectedMainFunction));
 
-                return Err(DustErrors::new(
-                    compile_errors,
-                    &self.source,
-                    &self.resolver,
-                ));
+                return Err(errors);
             };
 
             match Emitter::new(
@@ -277,17 +268,17 @@ impl<'src> Compiler<'src> {
             {
                 Ok(prototype) => self.prototypes.set_slot(PrototypeId::MAIN, prototype),
                 Err(error) => {
-                    compile_errors.push(error);
+                    let errors = handle_fatal_error(error);
 
-                    return Err(DustErrors::new(
-                        compile_errors,
-                        &self.source,
-                        &self.resolver,
-                    ));
+                    return Err(errors);
                 }
             }
         }
 
-        Ok(())
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(DustErrors::new(errors, &self.source, &self.resolver))
+        }
     }
 }

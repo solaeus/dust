@@ -2,10 +2,11 @@ use smallvec::SmallVec;
 use tracing::{debug, info};
 
 use crate::{
-    compiler::error::{DustError, InternalError},
+    compiler::error::CompileError,
+    dust_error::{DustError, InternalError},
     resolver::{
         Resolver,
-        declaration_graph::{DeclarationId, DeclarationMembers},
+        declaration_graph::{DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind},
         type_graph::{TypeId, TypeMembers, TypeNode},
     },
     source::{Position, Source, SourceFileId},
@@ -41,57 +42,83 @@ impl<'a> TypeBinder<'a> {
             errors,
         }
     }
-
-    pub fn bind(mut self) -> Result<(), DustError> {
-        let main_root = self
-            .syntax
-            .get_tree(SourceFileId::MAIN)
-            .ok_or(DustError::Internal(InternalError::MissingSyntaxTree(
-                SourceFileId::MAIN,
-            )))?
-            .root()
-            .ok_or(DustError::Internal(InternalError::MissingSyntaxNode(
-                SyntaxId::ROOT,
-            )))?;
-
-        self.visit_root(main_root)
-    }
 }
 
 impl SyntaxVisitor for TypeBinder<'_> {
     type RootOutput = ();
-    type ItemOutput = ();
     type StatementOutput = ();
     type ExpressionInput = ();
     type ExpressionOutput = TypeId;
     type TypeOutput = TypeId;
     type PathOutput = TypeId;
 
+    fn recover(&mut self, error: DustError) {
+        debug!("Type binder encountered an error");
+
+        self.errors.push(error);
+    }
+
     fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, DustError> {
         debug!("Visting root");
 
-        let children = node.children();
+        let children = node.children()?;
 
         for child in children {
-            self.visit_item(child)?;
+            self.visit_item(child);
         }
 
         Ok(())
     }
 
-    fn visit_module_item(&mut self, _: SyntaxReader) -> Result<Self::ItemOutput, DustError> {
+    fn visit_module_item(&mut self, module_item: SyntaxReader) -> Result<(), DustError> {
         debug!("Visting module item");
 
-        todo!()
+        let mut children = module_item.children()?;
+        let module_name = children.expect_next()?;
+        let module_body = children.next();
+
+        if let Some(module_body) = module_body {
+            for child in module_body.children()? {
+                self.visit_item(child);
+            }
+        } else {
+            let module_declaration_id = *self.resolver.get_declaration_binding(&module_name.id)?;
+            let module_declaration = self
+                .resolver
+                .declarations
+                .get_declaration(module_declaration_id)?;
+            let module_file_id = if let DeclarationKind::Module {
+                kind: ModuleKind::File { file_id },
+                ..
+            } = module_declaration.kind
+            {
+                file_id
+            } else {
+                return Err(DustError::Internal(
+                    InternalError::ExpectedModuleDeclaration {
+                        declaration_id: module_declaration_id,
+                    },
+                ));
+            };
+            let module_root = self.syntax.get_tree(module_file_id)?.root()?;
+            let mut module_type_binder = TypeBinder::new(
+                module_file_id,
+                self.source,
+                self.syntax,
+                self.resolver,
+                self.errors,
+            );
+
+            module_type_binder.visit_root(module_root)?;
+        }
+
+        Ok(())
     }
 
-    fn visit_function_item(
-        &mut self,
-        function_item: SyntaxReader,
-    ) -> Result<Self::ItemOutput, DustError> {
+    fn visit_function_item(&mut self, function_item: SyntaxReader) -> Result<(), DustError> {
         debug!("Visting function item");
 
-        let function_expression = function_item.right_child()?;
+        let (_function_name, function_expression) = function_item.binary_children()?;
 
         let function_declaration_id = *self.resolver.get_declaration_binding(&function_item.id)?;
         let function_type_id = self.visit_function_expression(function_expression, ())?;
@@ -102,11 +129,11 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 .declarations
                 .get_declaration(function_declaration_id)
                 .and_then(|declaration| self.resolver.symbols.get_symbol(&declaration.symbol_id))
-                .unwrap_or("anonymous"),
+                .unwrap_or("<error>"),
             self.resolver
                 .get_full_type(function_type_id, self.source)
                 .map(|r#type| r#type.to_string())
-                .unwrap_or_else(|_| "unknown type".to_string())
+                .unwrap_or_else(|_| "<error>".to_string())
         );
 
         self.resolver
@@ -116,22 +143,21 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(())
     }
 
-    fn visit_use_item(&mut self, _: SyntaxReader) -> Result<Self::ItemOutput, DustError> {
+    fn visit_use_item(&mut self, _: SyntaxReader) -> Result<(), DustError> {
         debug!("Visting use item");
 
         todo!()
     }
 
-    fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<Self::ItemOutput, DustError> {
+    fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<(), DustError> {
         debug!("Visting struct item");
 
-        let (struct_name, struct_fields_list) = node.binary_children()?;
-        let struct_fields = struct_fields_list.expect_multiple_children()?;
+        let (struct_name, struct_fields) = node.binary_children()?;
 
         let mut fields = SmallVec::<[DeclarationId; 8]>::new();
 
-        for field in struct_fields {
-            let (field_name, field_type) = field.expect_binary_children()?;
+        for field in struct_fields.children()? {
+            let (field_name, field_type) = field.binary_children()?;
 
             let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
             let field_type_id = self.visit_type(field_type)?;
@@ -175,7 +201,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::StatementOutput, DustError> {
         debug!("Visting let statement");
 
-        let mut children = node.children();
+        let mut children = node.children()?;
         let path = children.expect_next()?;
         let expression = children.expect_next()?;
         let type_notation = children.next();
@@ -221,7 +247,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let (path, expression) = node.binary_children()?;
 
         let path_type = {
-            let raw = self.visit_path(path)?;
+            let raw = self.visit_path(path, false)?;
 
             self.resolver.infer_type(raw)?
         };
@@ -272,7 +298,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let (path, expression_statement) = node.binary_children()?;
         let expression = expression_statement.child()?;
 
-        let path_type = self.visit_path(path)?;
+        let path_type = self.visit_path(path, false)?;
         let expression_type = self.visit_expression(expression, ())?;
 
         self.resolver
@@ -364,7 +390,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting list expression");
 
-        let children = node.expect_multiple_children()?;
+        let children = node.children()?;
 
         let mut first_type = None;
 
@@ -415,10 +441,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
         };
 
         if index_type_id != TypeId::INTEGER {
-            return Err(DustError::ExpectedIntegerIndex {
+            return Err(DustError::Compile(CompileError::ExpectedIntegerIndex {
                 found: index_type_id,
                 position: index_expression.position(),
-            });
+            }));
         }
 
         let list_type = *self.resolver.types.get_type(list_type_id)?;
@@ -429,10 +455,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 element_type
             }
             _ => {
-                return Err(DustError::CannotIndex {
+                return Err(DustError::Compile(CompileError::CannotIndex {
                     type_id: list_type_id,
                     position: list_expression.position(),
-                });
+                }));
             }
         };
 
@@ -451,7 +477,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         debug!("Visting path expression");
         debug_assert_eq!(path_expression.kind(), SyntaxKind::PathExpression);
 
-        let type_id = self.visit_path(path_expression.child()?)?;
+        let type_id = self.visit_path(path_expression.child()?, true)?;
 
         self.resolver.add_type_binding(path_expression.id, type_id);
 

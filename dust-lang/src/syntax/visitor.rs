@@ -6,6 +6,8 @@ use crate::{
 pub trait SyntaxVisitor {
     type RootOutput;
 
+    type StatementOutput;
+
     type ExpressionInput;
 
     type ExpressionOutput;
@@ -28,7 +30,7 @@ pub trait SyntaxVisitor {
                 node.kind(),
             ))),
         }
-        .unwrap_or_else(|error| self.recover(error))
+        .map_err(|error| self.recover(error));
     }
 
     fn visit_statement(&mut self, node: SyntaxReader) {
@@ -50,7 +52,7 @@ pub trait SyntaxVisitor {
                 node.kind(),
             ))),
         }
-        .unwrap_or_else(|error| self.recover(error))
+        .map_err(|error| self.recover(error));
     }
 
     fn visit_expression(
@@ -108,13 +110,25 @@ pub trait SyntaxVisitor {
 
     fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<(), DustError>;
 
-    fn visit_expression_statement(&mut self, node: SyntaxReader) -> Result<(), DustError>;
+    fn visit_expression_statement(
+        &mut self,
+        node: SyntaxReader,
+    ) -> Result<Self::StatementOutput, DustError>;
 
-    fn visit_reassignment_statement(&mut self, node: SyntaxReader) -> Result<(), DustError>;
+    fn visit_reassignment_statement(
+        &mut self,
+        node: SyntaxReader,
+    ) -> Result<Self::StatementOutput, DustError>;
 
-    fn visit_let_statement(&mut self, node: SyntaxReader) -> Result<(), DustError>;
+    fn visit_let_statement(
+        &mut self,
+        node: SyntaxReader,
+    ) -> Result<Self::StatementOutput, DustError>;
 
-    fn visit_binary_assignment_statement(&mut self, node: SyntaxReader) -> Result<(), DustError>;
+    fn visit_binary_assignment_statement(
+        &mut self,
+        node: SyntaxReader,
+    ) -> Result<Self::StatementOutput, DustError>;
 
     fn visit_boolean_expression(
         &mut self,
@@ -238,5 +252,9 @@ pub trait SyntaxVisitor {
 
     fn visit_type(&mut self, node: SyntaxReader) -> Result<Self::TypeOutput, DustError>;
 
-    fn visit_path(&mut self, node: SyntaxReader) -> Result<Self::PathOutput, DustError>;
+    fn visit_path(
+        &mut self,
+        node: SyntaxReader,
+        local: bool,
+    ) -> Result<Self::PathOutput, DustError>;
 }

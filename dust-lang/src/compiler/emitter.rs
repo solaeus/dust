@@ -5,8 +5,8 @@ use smallvec::SmallVec;
 use tracing::{debug, trace};
 
 use crate::{
-    compiler::error::{DustError, InternalError},
     constant_table::{ConstantId, ConstantTable},
+    dust_error::{DustError, InternalError},
     dust_type::DustType,
     instruction::{Address, Drop, Instruction, MemoryKind, Move, Operation, Test},
     native_function::NativeFunction,

@@ -8,7 +8,7 @@ use crate::{
     native_function::NativeFunction,
     prototype::PrototypeId,
     resolver::{TypeId, scope_graph::ScopeId, symbol_table::SymbolId},
-    source::Position,
+    source::{Position, SourceFileId},
 };
 
 #[derive(Debug)]
@@ -184,14 +184,17 @@ impl Declaration {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DeclarationKind {
+    Function,
+    NativeFunction(NativeFunction),
     Module {
         kind: ModuleKind,
         inner_scope_id: ScopeId,
     },
-    Function,
-    NativeFunction(NativeFunction),
     Type {
         parent: Option<DeclarationId>,
+    },
+    Local {
+        shadowed: Option<DeclarationId>,
     },
 }
 
@@ -219,7 +222,7 @@ impl DeclarationMembers {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ModuleKind {
-    File,
+    File { file_id: SourceFileId },
     Inline,
 }
 

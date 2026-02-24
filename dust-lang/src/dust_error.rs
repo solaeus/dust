@@ -135,6 +135,7 @@ pub enum InternalError {
     MissingDeclarationMembers(DeclarationMembers),
     MissingDeclarationType(DeclarationId),
     MissingDeclarationBinding(SyntaxId),
+    ExpectedModuleDeclaration { declaration_id: DeclarationId },
 
     MissingScope(ScopeId),
     MissingScopeBinding(SyntaxId),
