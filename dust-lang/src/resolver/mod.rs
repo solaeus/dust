@@ -623,7 +623,7 @@ impl Resolver {
         })
     }
 
-    pub fn get_operand_type(
+    pub fn get_small_type(
         &self,
         type_id: TypeId,
         node: &SyntaxReader,
@@ -644,7 +644,7 @@ impl Resolver {
                 TypeId::INTEGER => Ok(SmallType::LIST_INTEGER),
                 TypeId::STRING => Ok(SmallType::LIST_STRING),
                 _ => {
-                    let element_operand_type = self.get_operand_type(*element_type, node)?;
+                    let element_operand_type = self.get_small_type(*element_type, node)?;
 
                     match element_operand_type {
                         SmallType::LIST_BOOLEAN
@@ -667,7 +667,7 @@ impl Resolver {
             TypeNode::Inferred {
                 resolved: Some(inferred),
                 ..
-            } => self.get_operand_type(*inferred, node),
+            } => self.get_small_type(*inferred, node),
             TypeNode::Inferred { resolved: None, .. } | TypeNode::Enum { .. } => {
                 Err(DustError::Compile(CompileError::CannotInferType {
                     type_id,

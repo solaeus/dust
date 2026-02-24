@@ -52,12 +52,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
     type TypeOutput = TypeId;
     type PathOutput = TypeId;
 
-    fn recover(&mut self, error: DustError) {
-        debug!("Type binder encountered an error");
-
-        self.errors.push(error);
-    }
-
     fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, DustError> {
         debug!("Visting root");
 
@@ -491,7 +485,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting struct expression");
 
-        let fields = node.right_child()?.expect_multiple_children()?;
+        let (_struct_name, fields) = node.binary_children()?;
 
         let declaration_id = *self.resolver.get_declaration_binding(&node.id)?;
         let declared_struct_type_id = *self
@@ -499,8 +493,8 @@ impl SyntaxVisitor for TypeBinder<'_> {
             .declarations
             .get_declaration_type(&declaration_id)?;
 
-        for field in fields {
-            let (field_name, field_expression) = field.expect_binary_children()?;
+        for field in fields.children()? {
+            let (field_name, field_expression) = field.binary_children()?;
 
             let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
             let declared_field_type_id = *self
@@ -532,17 +526,17 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting block expression");
 
-        let children = node.children();
+        let children = node.children()?;
 
         let mut block_type_id = TypeId::NONE;
 
         for child in children {
             let child_type = if child.is_item() {
-                self.visit_item(child)?;
+                self.visit_item(child);
 
                 TypeId::NONE
             } else if child.is_statement() {
-                self.visit_statement(child)?;
+                self.visit_statement(child);
 
                 TypeId::NONE
             } else {
@@ -565,7 +559,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting if expression");
 
-        let mut children = node.expect_multiple_children()?;
+        let mut children = node.children()?;
 
         let condition = children.expect_next()?;
         let then_block = children.expect_next()?;
@@ -578,11 +572,13 @@ impl SyntaxVisitor for TypeBinder<'_> {
         };
 
         if condition_type != TypeId::BOOLEAN {
-            return Err(DustError::ExpectedBooleanExpression {
-                found: condition_type,
-                node_kind: node.kind(),
-                position: condition.position(),
-            });
+            return Err(DustError::Compile(
+                CompileError::ExpectedBooleanExpression {
+                    found: condition_type,
+                    node_kind: node.kind(),
+                    position: condition.position(),
+                },
+            ));
         }
 
         let then_type = self.visit_block_expression(then_block, ())?;
@@ -704,19 +700,23 @@ impl SyntaxVisitor for TypeBinder<'_> {
         };
 
         if left_type != TypeId::BOOLEAN {
-            return Err(DustError::ExpectedBooleanExpression {
-                found: left_type,
-                node_kind: left_expression.kind(),
-                position: left_expression.position(),
-            });
+            return Err(DustError::Compile(
+                CompileError::ExpectedBooleanExpression {
+                    found: left_type,
+                    node_kind: left_expression.kind(),
+                    position: left_expression.position(),
+                },
+            ));
         }
 
         if right_type != TypeId::BOOLEAN {
-            return Err(DustError::ExpectedBooleanExpression {
-                found: right_type,
-                node_kind: right_expression.kind(),
-                position: right_expression.position(),
-            });
+            return Err(DustError::Compile(
+                CompileError::ExpectedBooleanExpression {
+                    found: right_type,
+                    node_kind: right_expression.kind(),
+                    position: right_expression.position(),
+                },
+            ));
         }
 
         self.resolver.add_type_binding(node.id, TypeId::BOOLEAN);
@@ -744,11 +744,11 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
                 Ok(child_type)
             }
-            _ => Err(DustError::CannotApplyOperator {
+            _ => Err(DustError::Compile(CompileError::CannotApplyUnaryOperator {
                 operator: node.kind(),
-                type_id: child_type,
-                position: expression.position(),
-            }),
+                operand_type: self.resolver.get_small_type(child_type, &expression)?,
+                operand_position: expression.position(),
+            })),
         }
     }
 
@@ -768,11 +768,13 @@ impl SyntaxVisitor for TypeBinder<'_> {
         };
 
         if condition_type != TypeId::BOOLEAN {
-            return Err(DustError::ExpectedBooleanExpression {
-                found: condition_type,
-                node_kind: condition.kind(),
-                position: condition.position(),
-            });
+            return Err(DustError::Compile(
+                CompileError::ExpectedBooleanExpression {
+                    found: condition_type,
+                    node_kind: condition.kind(),
+                    position: condition.position(),
+                },
+            ));
         }
 
         self.visit_block_expression(body, ())?;
@@ -788,15 +790,14 @@ impl SyntaxVisitor for TypeBinder<'_> {
         debug!("Visting function expression");
 
         let (signature, body) = node.binary_children()?;
-        let value_parameters_list = signature.child()?;
-        let value_parameters = value_parameters_list.children();
-        let return_type = signature.right_child()?;
+        let mut signature_children = signature.children()?;
+        let value_parameters = signature_children.expect_next()?;
+        let return_type = signature_children.next();
 
         let mut value_parameter_types = SmallVec::<[TypeId; 8]>::new();
 
-        for parameter_node in value_parameters {
-            let parameter_name = parameter_node.expect_left_child()?;
-            let parameter_type = parameter_node.expect_right_child()?;
+        for parameter_node in value_parameters.children()? {
+            let (parameter_name, parameter_type) = parameter_node.binary_children()?;
 
             let parameter_declaration_id =
                 *self.resolver.get_declaration_binding(&parameter_name.id)?;
@@ -848,7 +849,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         debug!("Visting call expression");
 
         let (callee, arguments_list) = node.binary_children()?;
-        let arguments = arguments_list.expect_multiple_children()?;
+        let arguments = arguments_list.children()?;
 
         let callee_type = {
             let raw = self.visit_expression(callee, ())?;
@@ -862,10 +863,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
             ..
         } = *self.resolver.types.get_type(callee_type)?
         else {
-            return Err(DustError::ExpectedFunctionType {
+            return Err(DustError::Compile(CompileError::ExpectedFunctionType {
                 found: callee_type,
                 position: callee.position(),
-            });
+            }));
         };
 
         let expected_parameters = self
@@ -877,12 +878,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
             .collect::<SmallVec<[TypeId; 8]>>();
 
         if arguments.len() != expected_parameters.len() {
-            return Err(DustError::ExpectedArguments {
+            return Err(DustError::Compile(CompileError::ExpectedArguments {
                 function_type: callee_type,
                 found_position: callee.position(),
                 expected_count: expected_parameters.len(),
                 found_count: arguments.len(),
-            });
+            }));
         }
 
         for (argument, expected_type_id) in arguments.zip(expected_parameters.into_iter()) {
@@ -916,38 +917,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 Ok(list_type_id)
             }
             SyntaxKind::FunctionType => {
-                let type_node = {
-                    let type_node_value_parameters = if node.has_left_child() {
-                        let value_parameters = node.child()?.expect_multiple_children()?;
-                        let mut value_parameter_ids = SmallVec::<[TypeId; 4]>::new();
-
-                        for value_parameter in value_parameters {
-                            let type_id = if value_parameter.id == SyntaxId::NONE {
-                                TypeId::NONE
-                            } else {
-                                self.visit_type(value_parameter)?
-                            };
-
-                            value_parameter_ids.push(type_id);
-                        }
-
-                        self.resolver.types.add_type_members(&value_parameter_ids)
-                    } else {
-                        TypeMembers::default()
-                    };
-
-                    let return_type_id = if node.has_right_child() {
-                        self.visit_type(node.right_child()?)?
-                    } else {
-                        TypeId::NONE
-                    };
-
-                    TypeNode::Function {
-                        type_parameters: DeclarationMembers::default(),
-                        value_parameters: type_node_value_parameters,
-                        return_type_id,
-                    }
-                };
+                let type_node = todo!();
                 let function_type_id = self.resolver.types.add_type(type_node);
 
                 Ok(function_type_id)
@@ -961,13 +931,20 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
                 Ok(*type_id)
             }
-            _ => Err(DustError::Internal(
-                InternalError::UnimplementedSyntaxFeature(node.kind()),
+            _ => Err(DustError::Compile(
+                CompileError::UnimplementedSyntaxFeature {
+                    syntax_kind: node.kind(),
+                    position: node.position(),
+                },
             )),
         }
     }
 
-    fn visit_path(&mut self, path: SyntaxReader) -> Result<Self::PathOutput, DustError> {
+    fn visit_path(
+        &mut self,
+        path: SyntaxReader,
+        local: bool,
+    ) -> Result<Self::PathOutput, DustError> {
         debug!("Visting path");
 
         self.resolver

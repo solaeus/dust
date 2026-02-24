@@ -1,11 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use dust_lang::{
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
-    source::SourceFileId,
-};
+use dust_lang::{Lexer, ParseResult, Parser, SourceFileId};
 
 const BENCHES: [(&str, usize); 3] = [
     ("tiny source", 10),

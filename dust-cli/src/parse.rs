@@ -5,10 +5,7 @@ use std::{
 };
 
 use dust_lang::{
-    dust_error::DustError,
-    lexer::Lexer,
-    parser::{ParseError, ParseResult, Parser},
-    source::{Position, SourceFile},
+    DustError, DustErrors, Lexer, ParseError, ParseResult, Parser, Position, SourceFile, SyntaxTree,
 };
 use ron::ser::PrettyConfig;
 
@@ -18,7 +15,7 @@ use crate::{
 };
 
 fn handle_output(
-    syntax_tree: &dust_lang::syntax::SyntaxTree,
+    syntax_tree: &SyntaxTree,
     no_output: bool,
     ron: bool,
     pretty_ron: bool,
@@ -62,7 +59,12 @@ pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
         trees,
     } = command;
 
-    let mut source = handle_source(&eval, path, stdin);
+    let source = match handle_source(&eval, path, stdin) {
+        Ok(source) => source,
+        Err(DustError::Internal(error)) => {
+            DustErrors::with_source(vec![error], source).print_and_exit()
+        }
+    };
 
     let mut parse_errors = Vec::new();
     let mut files_parsed = 0;
@@ -79,41 +81,13 @@ pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
         let ParseResult {
             syntax_tree,
             errors,
-            file_module_names,
+            ..
         } = parser.parse();
 
         handle_output(&syntax_tree, no_output, ron, pretty_ron, postcard, trees);
         parse_errors.extend(errors);
 
         files_parsed += 1;
-
-        for span in file_module_names {
-            let parent_file = source.get_file(file_id);
-            let module_name_str = parent_file.content_str(span);
-            let parent_path = Path::new(parent_file.full_path())
-                .parent()
-                .unwrap_or_else(|| Path::new("/"));
-            let module_path = parent_path.join(module_name_str).with_added_extension("ds");
-            let module_file = {
-                match SourceFile::base_file(module_path) {
-                    Ok(file) => file,
-                    Err(error) => {
-                        parse_errors.push(ParseError::CannotResolveModule {
-                            error,
-                            position: Position::new(file_id, span),
-                        });
-
-                        continue;
-                    }
-                }
-            };
-
-            source.add_file(module_file);
-        }
-    }
-
-    if !parse_errors.is_empty() {
-        eprintln!("{}", DustError::parse(parse_errors, source).report());
     }
 
     if time {

@@ -1,13 +1,16 @@
 use std::{fmt::Display, path::PathBuf, time::Instant};
 
-use dust_lang::lexer::Lexer;
+use dust_lang::{DustError, Lexer};
 
 use crate::{
     cli::{GlobalOptions, InputOptions, OutputOptions, TokenizeCommand},
     handle_source, print_times,
 };
 
-pub fn handle_tokenize_command(command: TokenizeCommand, start_time: Instant) {
+pub fn handle_tokenize_command(
+    command: TokenizeCommand,
+    start_time: Instant,
+) -> Result<(), DustError> {
     let TokenizeCommand {
         global: GlobalOptions { log, time, name },
         input: InputOptions {
@@ -30,7 +33,7 @@ pub fn handle_tokenize_command(command: TokenizeCommand, start_time: Instant) {
         }
     }
 
-    let source = handle_source(&eval, path, stdin);
+    let source = handle_source(&eval, path, stdin)?;
 
     print("# Dust Tokens", no_output);
 
@@ -53,4 +56,6 @@ pub fn handle_tokenize_command(command: TokenizeCommand, start_time: Instant) {
 
         print_times(&[("Tokenization", end, None)]);
     }
+
+    Ok(())
 }

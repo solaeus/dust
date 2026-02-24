@@ -16,9 +16,7 @@ pub trait SyntaxVisitor {
 
     type PathOutput;
 
-    fn recover(&mut self, error: DustError);
-
-    fn visit_item(&mut self, node: SyntaxReader) {
+    fn visit_item(&mut self, node: SyntaxReader) -> Result<(), DustError> {
         match node.kind() {
             SyntaxKind::ModuleItem | SyntaxKind::PublicModuleItem => self.visit_module_item(node),
             SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem => {
@@ -30,10 +28,9 @@ pub trait SyntaxVisitor {
                 node.kind(),
             ))),
         }
-        .map_err(|error| self.recover(error));
     }
 
-    fn visit_statement(&mut self, node: SyntaxReader) {
+    fn visit_statement(&mut self, node: SyntaxReader) -> Result<Self::StatementOutput, DustError> {
         match node.kind() {
             SyntaxKind::ExpressionStatement => self.visit_expression_statement(node),
             SyntaxKind::ReassignmentStatement => self.visit_reassignment_statement(node),
@@ -52,7 +49,6 @@ pub trait SyntaxVisitor {
                 node.kind(),
             ))),
         }
-        .map_err(|error| self.recover(error));
     }
 
     fn visit_expression(

@@ -8,16 +8,25 @@ use crate::{
         symbol_table::SymbolId,
         type_graph::{TypeId, TypeNode},
     },
+    small_type::SmallType,
     source::{Position, Source},
     syntax::SyntaxKind,
 };
 
 #[derive(Debug)]
 pub enum CompileError {
-    CannotApplyOperator {
+    CannotApplyUnaryOperator {
         operator: SyntaxKind,
-        type_id: TypeId,
-        position: Position,
+        operand_type: SmallType,
+        operand_position: Position,
+    },
+    CannotApplyBinaryOperator {
+        operator: SyntaxKind,
+        operand_position: Position,
+        left_type: SmallType,
+        left_position: Position,
+        right_type: SmallType,
+        right_position: Position,
     },
     CannotInferType {
         type_id: TypeId,
@@ -110,7 +119,9 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let file_content = match source.get_file(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
-                        return error.add_report((), groups);
+                        error.add_report((), groups);
+
+                        return;
                     }
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
@@ -129,7 +140,9 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let file_content = match source.get_file(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
-                        return error.add_report((), groups);
+                        error.add_report((), groups);
+
+                        return;
                     }
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
@@ -148,12 +161,18 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let file_content = match source.get_file(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
-                        return error.add_report((), groups);
+                        error.add_report((), groups);
+
+                        return;
                     }
                 };
                 let found_type = match resolver.get_full_type(*found_type_id, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.add_report((source, resolver), groups),
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content)
@@ -172,7 +191,9 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let file_content = match source.get_file(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
-                        return error.add_report((), groups);
+                        error.add_report((), groups);
+
+                        return;
                     }
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
@@ -190,16 +211,26 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 let declaration = match resolver.declarations.get_declaration(*declaration_id) {
                     Ok(declaration) => declaration,
-                    Err(error) => return error.add_report((source, resolver), groups),
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
                 };
                 let name = match resolver.symbols.get_symbol(&declaration.symbol_id) {
                     Ok(name) => name,
-                    Err(error) => return error.add_report((source, resolver), groups),
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
                 };
                 let file_content = match source.get_file(usage_position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
-                        return error.add_report((), groups);
+                        error.add_report((), groups);
+
+                        return;
                     }
                 };
 
@@ -231,7 +262,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
             CompileError::CannotInferType { type_id, position } => {
                 let type_node = match resolver.types.get_type(*type_id) {
                     Ok(type_node) => type_node,
-                    Err(error) => return error.add_report((source, resolver), groups),
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
                 };
                 let type_declaration_id = if let TypeNode::Struct { declaration_id, .. }
                 | TypeNode::Enum { declaration_id, .. } = type_node
@@ -243,7 +278,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let type_string = if let Some(declaration_id) = type_declaration_id {
                     let declaration = match resolver.declarations.get_declaration(declaration_id) {
                         Ok(declaration) => declaration,
-                        Err(error) => return error.add_report((source, resolver), groups),
+                        Err(error) => {
+                            error.add_report((source, Some(resolver)), groups);
+
+                            return;
+                        }
                     };
 
                     resolver
@@ -254,7 +293,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 } else {
                     match resolver.get_full_type(*type_id, source) {
                         Ok(r#type) => r#type.to_string(),
-                        Err(error) => return error.add_report((source, resolver), groups),
+                        Err(error) => {
+                            error.add_report((source, Some(resolver)), groups);
+
+                            return;
+                        }
                     }
                 };
                 let title = format!("Cannot infer type {type_string}");
@@ -263,7 +306,9 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         let file_content = match source.get_file(position.file_id) {
                             Ok(file) => file.content_as_str(),
                             Err(error) => {
-                                return error.add_report((), groups);
+                                error.add_report((), groups);
+
+                                return;
                             }
                         };
 
@@ -293,20 +338,36 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let title = "Type conflict".to_string();
                 let expected_type_string = match resolver.get_full_type(*expected_type, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.add_report((source, resolver), groups),
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
                 };
                 let found_type_string = match resolver.get_full_type(*found_type, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.add_report((source, resolver), groups),
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
                 };
                 let group = if let Some(expected_position) = expected_position {
                     let expected_file = match source.get_file(expected_position.file_id) {
                         Ok(file) => file,
-                        Err(error) => return error.add_report((), groups),
+                        Err(error) => {
+                            error.add_report((), groups);
+
+                            return;
+                        }
                     };
                     let found_file = match source.get_file(found_position.file_id) {
                         Ok(file) => file,
-                        Err(error) => return error.add_report((), groups),
+                        Err(error) => {
+                            error.add_report((), groups);
+
+                            return;
+                        }
                     };
 
                     Group::with_title(Level::ERROR.primary_title(title)).elements([
@@ -349,38 +410,83 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::CannotApplyOperator {
+            CompileError::CannotApplyUnaryOperator {
                 operator,
-                type_id,
-                position,
+                operand_type,
+                operand_position,
             } => {
-                let r#type = match resolver.get_full_type(*type_id, source) {
-                    Ok(r#type) => r#type,
-                    Err(error) => return error.add_report((source, resolver), groups),
-                };
-                let title = format!("Cannot apply operator {operator} to type {type}");
-                let file_content = match source.get_file(position.file_id) {
+                let title = "Cannot apply operator".to_string();
+                let file_content = match source.get_file(operand_position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
-                        return error.add_report((), groups);
+                        error.add_report((), groups);
+
+                        return;
                     }
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!(
-                                "Attempted to apply operator {operator} to type {type} here"
-                            )),
+                            .span(operand_position.span.as_usize_range())
+                            .label(format!("Cannot apply {operator} to `{operand_type}`.")),
                     ),
                 );
 
                 groups.push(group);
             }
+            CompileError::CannotApplyBinaryOperator {
+                operator,
+                operand_position,
+                left_type,
+                left_position,
+                right_type,
+                right_position,
+            } => {
+                let title = "Cannot apply operator".to_string();
+                let file_content = match source.get_file(operand_position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        error.add_report((), groups);
+
+                        return;
+                    }
+                };
+                let error_groups = [
+                    Group::with_title(Level::ERROR.primary_title(title)).element(
+                        Snippet::source(file_content).annotation(
+                            AnnotationKind::Primary
+                                .span(operand_position.span.as_usize_range())
+                                .label(format!(
+                                    "Cannot apply {operator} to `{left_type}` and `{right_type}`."
+                                )),
+                        ),
+                    ),
+                    Group::with_title(Level::ERROR.secondary_title("Left operand type")).element(
+                        Snippet::source(file_content).annotation(
+                            AnnotationKind::Primary
+                                .span(left_position.span.as_usize_range())
+                                .label(format!("Left operand has type `{left_type}`.")),
+                        ),
+                    ),
+                    Group::with_title(Level::ERROR.secondary_title("Right operand type")).element(
+                        Snippet::source(file_content).annotation(
+                            AnnotationKind::Primary
+                                .span(right_position.span.as_usize_range())
+                                .label(format!("Right operand has type `{right_type}`.")),
+                        ),
+                    ),
+                ];
+
+                groups.extend(error_groups);
+            }
             CompileError::CannotIndex { type_id, position } => {
                 let r#type = match resolver.get_full_type(*type_id, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.add_report((source, resolver), groups),
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
                 };
                 let title = format!("Cannot index type {type}");
                 let file_content = match source.get_file(position.file_id) {
@@ -412,7 +518,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 };
                 let name_str = match resolver.symbols.get_symbol(symbol_id) {
                     Ok(name) => name,
-                    Err(error) => return error.add_report((source, resolver), groups),
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
@@ -428,7 +538,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let title = "Unresolved module".to_string();
                 let symbol = match resolver.symbols.get_symbol(symbol_id) {
                     Ok(symbol) => symbol,
-                    Err(error) => return error.add_report((source, resolver), groups),
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Level::ERROR.message(format!(
@@ -488,7 +602,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 let found_type = match resolver.get_full_type(*found, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.add_report((source, resolver), groups),
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
@@ -517,7 +635,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 };
                 let function_type = match resolver.get_full_type(*function_type, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.add_report((source, resolver), groups),
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
@@ -586,7 +708,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let title = "Cannot instantiate type".to_string();
                 let r#type = match resolver.get_full_type(*type_id, source) {
                     Ok(r#type) => r#type,
-                    Err(error) => return error.add_report((source, resolver), groups),
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
                 };
                 let error_message = format!("Type {type} is an enum and cannot be instantiated.");
                 let help_message =

@@ -31,6 +31,28 @@ mod syntax;
 mod token;
 mod value;
 
+pub use crate::{
+    compiler::{Compiler, compile, compile_main, error::CompileError},
+    disassembler::Disassembler,
+    dust_crate::Program,
+    dust_error::{DustError, DustErrors},
+    dust_type::DustType,
+    instruction::Instruction,
+    lexer::Lexer,
+    native_function::NativeFunction,
+    parser::{ParseError, ParseResult, Parser},
+    project::{
+        DEFAULT_PROGRAM_PATH, EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProgramConfig,
+        ProjectConfig,
+    },
+    prototype::{Prototype, PrototypeId, PrototypeList},
+    resolver::Resolver,
+    source::{Position, Source, SourceFile, SourceFileId, Span},
+    syntax::{Syntax, SyntaxKind, SyntaxReader, SyntaxTree, SyntaxVisitor},
+    token::{Token, TokenKind},
+    value::Value,
+};
+
 #[cfg(test)]
 mod tests;
 

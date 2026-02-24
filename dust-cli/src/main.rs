@@ -21,10 +21,9 @@ use std::{
 
 use clap::Parser as CliParser;
 use dust_lang::{
-    project::{EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
-    source::{Source, SourceFile},
+    DustError, EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig, Source,
+    SourceFile,
 };
-use memmap2::MmapOptions;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
     fmt::{FmtContext, FormatEvent, FormatFields, format::Writer},
@@ -32,7 +31,7 @@ use tracing_subscriber::{
 };
 
 use crate::{
-    cli::{Cli, Command, CompileCommand, InputOptions, OutputOptions, ParseCommand},
+    cli::{Cli, Command, InputOptions},
     compile::handle_compile_command,
     parse::handle_parse_command,
     // run::handle_run_command,
@@ -206,7 +205,7 @@ fn handle_source<'src>(
     eval: &'src Option<String>,
     path: Option<PathBuf>,
     stdin: bool,
-) -> Source<'src> {
+) -> Result<Source<'src>, DustError> {
     let mut source = Source::new();
 
     if let Some(input) = eval {
@@ -242,22 +241,19 @@ fn handle_source<'src>(
             } else {
                 path.join("src").join("main.ds")
             };
-            let file = SourceFile::base_file(main_file_path).unwrap_or_else(|error| {
-                panic!("Failed to create source file for main source file: {error}")
-            });
+            let file = SourceFile::base_file(main_file_path)?;
 
             source.add_file(file);
 
             let lib_file_path = path.join("src").join("lib.ds");
 
             if lib_file_path.exists() {
-                let file =
-                    SourceFile::base_file(lib_file_path).unwrap_or_else(|error| panic!("{error}"));
+                let file = SourceFile::base_file(lib_file_path)?;
 
                 source.add_file(file);
             }
         } else {
-            let file = SourceFile::base_file(path).unwrap_or_else(|error| panic!("{error}"));
+            let file = SourceFile::base_file(path)?;
 
             source.add_file(file);
         }
@@ -275,7 +271,7 @@ fn handle_source<'src>(
         source.add_file(file);
     }
 
-    source
+    Ok(source)
 }
 
 #[cfg(test)]

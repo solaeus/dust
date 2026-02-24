@@ -5,10 +5,11 @@ use smallvec::SmallVec;
 use tracing::{debug, trace};
 
 use crate::{
+    compiler::error::CompileError,
     constant_table::{ConstantId, ConstantTable},
     dust_error::{DustError, InternalError},
     dust_type::DustType,
-    instruction::{Address, Drop, Instruction, MemoryKind, Move, Operation, Test},
+    instruction::{Address, CallArgument, Drop, Instruction, MemoryKind, Move, Operation, Test},
     native_function::NativeFunction,
     prototype::{Prototype, PrototypeId, PrototypeList},
     resolver::{
@@ -45,7 +46,7 @@ pub struct Emitter<'a> {
     locals: HashMap<DeclarationId, Place, FxBuildHasher>,
 
     /// Concatenated list of arguments referenced by CALL instructions.
-    call_arguments: Vec<Address>,
+    call_arguments: Vec<CallArgument>,
 
     /// Concatenated list of register indices that are referenced by DROP and JUMP instructions.
     drop_lists: Vec<u16>,
@@ -123,10 +124,10 @@ impl<'a> Emitter<'a> {
                 value_parameters, ..
             } = type_node
             else {
-                return Err(DustError::ExpectedFunctionType {
+                return Err(DustError::Compile(CompileError::ExpectedFunctionType {
                     found: type_id,
                     position: function.position(),
-                });
+                }));
             };
             let value_parameter_types = emitter
                 .resolver
@@ -154,14 +155,14 @@ impl<'a> Emitter<'a> {
     }
 
     pub fn emit(mut self) -> Result<Prototype, DustError> {
-        let function_body = self.function.right_child()?.right_child()?;
+        let function_body = self.function.binary_children()?.1.binary_children()?.1;
 
         match function_body.kind() {
             SyntaxKind::BlockExpression => {
-                let children = function_body.children();
+                let children = function_body.children()?;
                 let last_index = children.len() - 1;
 
-                for (index, child) in children.into_iter().enumerate() {
+                for (index, child) in children.enumerate() {
                     let child_emission = if index == last_index {
                         self.handle_implicit_return(child, None)?
                     } else if child.is_expression() {
@@ -171,7 +172,7 @@ impl<'a> Emitter<'a> {
 
                         Emission::Instructions(instructions)
                     } else {
-                        self.visit_item(child)?;
+                        self.visit_item(child);
 
                         continue;
                     };
@@ -180,9 +181,9 @@ impl<'a> Emitter<'a> {
                 }
             }
             _ => {
-                return Err(DustError::Internal(
-                    InternalError::UnimplementedSyntaxFeature(function_body.kind()),
-                ));
+                return Err(DustError::Internal(InternalError::UnimplementedFeature(
+                    function_body.kind(),
+                )));
             }
         }
 
@@ -244,9 +245,10 @@ impl<'a> Emitter<'a> {
                         *instruction = Instruction::test(operand, comparator, total_distance);
                     }
                     _ => {
-                        return Err(DustError::Internal(
-                            InternalError::InvalidJumpAnchorInstruction(instruction.operation()),
-                        ));
+                        unreachable!(
+                            "Invalid jump anchor instruction: {:?}",
+                            instruction.operation()
+                        );
                     }
                 }
             } else {
@@ -278,13 +280,13 @@ impl<'a> Emitter<'a> {
                     .declarations
                     .get_declaration(function_declaration_id)?;
                 let position = function_declaration.position.ok_or(DustError::Internal(
-                    InternalError::MissingDeclarationPosition(function_declaration_id),
+                    InternalError::MissingDeclaration(function_declaration_id),
                 ))?;
 
-                return Err(DustError::ExpectedFunctionType {
+                return Err(DustError::Compile(CompileError::ExpectedFunctionType {
                     found: type_id,
                     position,
-                });
+                }));
             }
         };
 
@@ -495,141 +497,84 @@ impl<'a> Emitter<'a> {
 
     fn combine_constants(
         &mut self,
-        operation: SyntaxKind,
-        left: ConstantEmission,
+        operator: &SyntaxReader,
+        left_constant: ConstantEmission,
         left_node: &SyntaxReader,
-        right: ConstantEmission,
+        right_constant: ConstantEmission,
         right_node: &SyntaxReader,
     ) -> Result<ConstantEmission, DustError> {
         let check_for_division_by_zero = || {
             if matches!(
-                right,
+                right_constant,
                 ConstantEmission::Byte(0)
                     | ConstantEmission::Integer(0)
                     | ConstantEmission::Float(0.0)
             ) {
-                Err(DustError::DivisionByZero {
+                Err(DustError::Compile(CompileError::DivisionByZero {
                     position: Position::new(
                         left_node.file_id(),
                         Span::join(&left_node.span(), &right_node.span()),
                     ),
-                })
+                }))
             } else {
                 Ok(())
             }
         };
+        let create_error = || {
+            let left_type = left_constant.small_type();
+            let right_type = right_constant.small_type();
 
-        let combined = match (left, right) {
-            (ConstantEmission::Boolean(left), ConstantEmission::Boolean(right)) => {
-                match operation {
-                    SyntaxKind::AndExpression => ConstantEmission::Boolean(left && right),
-                    SyntaxKind::OrExpression => ConstantEmission::Boolean(left || right),
-                    SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left || right),
-                    SyntaxKind::GreaterThanOrEqualExpression => {
-                        ConstantEmission::Boolean(left >= right)
-                    }
-                    SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left || right),
-                    SyntaxKind::LessThanOrEqualExpression => {
-                        ConstantEmission::Boolean(left <= right)
-                    }
-                    SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
-                    SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
-                    _ => {
-                        return Err(DustError::Internal(
-                            InternalError::UnimplementedSyntaxFeature(operation),
-                        ));
-                    }
-                }
-            }
-            (ConstantEmission::Byte(left), ConstantEmission::Byte(right)) => match operation {
-                SyntaxKind::AdditionExpression => {
-                    ConstantEmission::Byte(left.saturating_add(right))
-                }
-                SyntaxKind::SubtractionExpression => {
-                    ConstantEmission::Byte(left.saturating_sub(right))
-                }
-                SyntaxKind::MultiplicationExpression => {
-                    ConstantEmission::Byte(left.saturating_mul(right))
-                }
-                SyntaxKind::DivisionExpression => {
-                    check_for_division_by_zero()?;
+            Err(DustError::Compile(
+                CompileError::CannotApplyBinaryOperator {
+                    operator: operator.kind(),
+                    operand_position: operator.position(),
+                    left_type,
+                    left_position: left_node.position(),
+                    right_type,
+                    right_position: right_node.position(),
+                },
+            ))
+        };
 
-                    ConstantEmission::Byte(left.saturating_div(right))
-                }
-                SyntaxKind::ModuloExpression => {
-                    check_for_division_by_zero()?;
-
-                    ConstantEmission::Byte(left % right)
-                }
-                SyntaxKind::ExponentExpression => {
-                    ConstantEmission::Byte(left.saturating_pow(right as u32))
-                }
-                SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
+        let combined = match (left_constant, right_constant) {
+            (ConstantEmission::Boolean(left), ConstantEmission::Boolean(right)) => match operator
+                .kind()
+            {
+                SyntaxKind::AndExpression => ConstantEmission::Boolean(left && right),
+                SyntaxKind::OrExpression => ConstantEmission::Boolean(left || right),
+                SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left || right),
                 SyntaxKind::GreaterThanOrEqualExpression => {
                     ConstantEmission::Boolean(left >= right)
                 }
-                SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
+                SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left || right),
                 SyntaxKind::LessThanOrEqualExpression => ConstantEmission::Boolean(left <= right),
                 SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
                 SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
-                _ => {
-                    return Err(DustError::Internal(
-                        InternalError::UnimplementedSyntaxFeature(operation),
-                    ));
-                }
+                _ => return create_error(),
             },
-            (ConstantEmission::Float(left), ConstantEmission::Float(right)) => match operation {
-                SyntaxKind::AdditionExpression => ConstantEmission::Float(left + right),
-                SyntaxKind::SubtractionExpression => ConstantEmission::Float(left - right),
-                SyntaxKind::MultiplicationExpression => ConstantEmission::Float(left * right),
-                SyntaxKind::DivisionExpression => {
-                    check_for_division_by_zero()?;
-
-                    ConstantEmission::Float(left / right)
-                }
-                SyntaxKind::ModuloExpression => {
-                    check_for_division_by_zero()?;
-
-                    ConstantEmission::Float(left % right)
-                }
-                SyntaxKind::ExponentExpression => ConstantEmission::Float(left.powf(right)),
-                SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
-                SyntaxKind::GreaterThanOrEqualExpression => {
-                    ConstantEmission::Boolean(left >= right)
-                }
-                SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
-                SyntaxKind::LessThanOrEqualExpression => ConstantEmission::Boolean(left <= right),
-                SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
-                SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
-                _ => {
-                    return Err(DustError::Internal(
-                        InternalError::UnimplementedSyntaxFeature(operation),
-                    ));
-                }
-            },
-            (ConstantEmission::Integer(left), ConstantEmission::Integer(right)) => {
-                match operation {
+            (ConstantEmission::Byte(left), ConstantEmission::Byte(right)) => {
+                match operator.kind() {
                     SyntaxKind::AdditionExpression => {
-                        ConstantEmission::Integer(left.saturating_add(right))
+                        ConstantEmission::Byte(left.saturating_add(right))
                     }
                     SyntaxKind::SubtractionExpression => {
-                        ConstantEmission::Integer(left.saturating_sub(right))
+                        ConstantEmission::Byte(left.saturating_sub(right))
                     }
                     SyntaxKind::MultiplicationExpression => {
-                        ConstantEmission::Integer(left.saturating_mul(right))
+                        ConstantEmission::Byte(left.saturating_mul(right))
                     }
                     SyntaxKind::DivisionExpression => {
                         check_for_division_by_zero()?;
 
-                        ConstantEmission::Integer(left.saturating_div(right))
+                        ConstantEmission::Byte(left.saturating_div(right))
                     }
                     SyntaxKind::ModuloExpression => {
                         check_for_division_by_zero()?;
 
-                        ConstantEmission::Integer(left % right)
+                        ConstantEmission::Byte(left % right)
                     }
                     SyntaxKind::ExponentExpression => {
-                        ConstantEmission::Integer(left.saturating_pow(right as u32))
+                        ConstantEmission::Byte(left.saturating_pow(right as u32))
                     }
                     SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
                     SyntaxKind::GreaterThanOrEqualExpression => {
@@ -641,15 +586,75 @@ impl<'a> Emitter<'a> {
                     }
                     SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
                     SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
-                    _ => {
-                        return Err(DustError::Internal(
-                            InternalError::UnimplementedSyntaxFeature(operation),
-                        ));
-                    }
+                    _ => return create_error(),
                 }
             }
+            (ConstantEmission::Float(left), ConstantEmission::Float(right)) => {
+                match operator.kind() {
+                    SyntaxKind::AdditionExpression => ConstantEmission::Float(left + right),
+                    SyntaxKind::SubtractionExpression => ConstantEmission::Float(left - right),
+                    SyntaxKind::MultiplicationExpression => ConstantEmission::Float(left * right),
+                    SyntaxKind::DivisionExpression => {
+                        check_for_division_by_zero()?;
+
+                        ConstantEmission::Float(left / right)
+                    }
+                    SyntaxKind::ModuloExpression => {
+                        check_for_division_by_zero()?;
+
+                        ConstantEmission::Float(left % right)
+                    }
+                    SyntaxKind::ExponentExpression => ConstantEmission::Float(left.powf(right)),
+                    SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
+                    SyntaxKind::GreaterThanOrEqualExpression => {
+                        ConstantEmission::Boolean(left >= right)
+                    }
+                    SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
+                    SyntaxKind::LessThanOrEqualExpression => {
+                        ConstantEmission::Boolean(left <= right)
+                    }
+                    SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
+                    SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
+                    _ => return create_error(),
+                }
+            }
+            (ConstantEmission::Integer(left), ConstantEmission::Integer(right)) => match operator
+                .kind()
+            {
+                SyntaxKind::AdditionExpression => {
+                    ConstantEmission::Integer(left.saturating_add(right))
+                }
+                SyntaxKind::SubtractionExpression => {
+                    ConstantEmission::Integer(left.saturating_sub(right))
+                }
+                SyntaxKind::MultiplicationExpression => {
+                    ConstantEmission::Integer(left.saturating_mul(right))
+                }
+                SyntaxKind::DivisionExpression => {
+                    check_for_division_by_zero()?;
+
+                    ConstantEmission::Integer(left.saturating_div(right))
+                }
+                SyntaxKind::ModuloExpression => {
+                    check_for_division_by_zero()?;
+
+                    ConstantEmission::Integer(left % right)
+                }
+                SyntaxKind::ExponentExpression => {
+                    ConstantEmission::Integer(left.saturating_pow(right as u32))
+                }
+                SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
+                SyntaxKind::GreaterThanOrEqualExpression => {
+                    ConstantEmission::Boolean(left >= right)
+                }
+                SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
+                SyntaxKind::LessThanOrEqualExpression => ConstantEmission::Boolean(left <= right),
+                SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
+                SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
+                _ => return create_error(),
+            },
             (ConstantEmission::Character(left), ConstantEmission::Character(right)) => {
-                match operation {
+                match operator.kind() {
                     SyntaxKind::AdditionExpression => {
                         let mut string = String::with_capacity(2);
 
@@ -673,11 +678,7 @@ impl<'a> Emitter<'a> {
                     }
                     SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
                     SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
-                    _ => {
-                        return Err(DustError::Internal(
-                            InternalError::UnimplementedSyntaxFeature(operation),
-                        ));
-                    }
+                    _ => return create_error(),
                 }
             }
             (
@@ -697,7 +698,7 @@ impl<'a> Emitter<'a> {
                     .constants
                     .get_string_pool_range(right_pool_start as usize..right_pool_end as usize);
 
-                match operation {
+                match operator.kind() {
                     SyntaxKind::AdditionExpression => {
                         if left_pool_end == right_pool_start {
                             return Ok(ConstantEmission::String {
@@ -729,11 +730,7 @@ impl<'a> Emitter<'a> {
                     }
                     SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
                     SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
-                    _ => {
-                        return Err(DustError::Internal(
-                            InternalError::UnimplementedSyntaxFeature(operation),
-                        ));
-                    }
+                    _ => return create_error(),
                 }
             }
             (
@@ -751,15 +748,11 @@ impl<'a> Emitter<'a> {
                 concatenated.push(left);
                 concatenated.push_str(right);
 
-                let combined = match operation {
+                let combined = match operator.kind() {
                     SyntaxKind::AdditionExpression => {
                         self.constants.push_str_to_string_pool(&concatenated)
                     }
-                    _ => {
-                        return Err(DustError::Internal(
-                            InternalError::UnimplementedSyntaxFeature(operation),
-                        ));
-                    }
+                    _ => return create_error(),
                 };
 
                 ConstantEmission::String {
@@ -782,15 +775,11 @@ impl<'a> Emitter<'a> {
                 bytes.push_str(left);
                 bytes.push(right);
 
-                let combined = match operation {
+                let combined = match operator.kind() {
                     SyntaxKind::AdditionExpression => {
                         self.constants.push_str_to_string_pool(&bytes)
                     }
-                    _ => {
-                        return Err(DustError::Internal(
-                            InternalError::UnimplementedSyntaxFeature(operation),
-                        ));
-                    }
+                    _ => return create_error(),
                 };
 
                 ConstantEmission::String {
@@ -799,14 +788,14 @@ impl<'a> Emitter<'a> {
                 }
             }
             _ => {
-                return Err(DustError::ConstantTypeConflict {
+                return Err(DustError::Compile(CompileError::ConstantTypeConflict {
                     expected: left_node.kind(),
                     found: right_node.kind(),
                     position: Position::new(
                         left_node.file_id(),
                         Span::join(&left_node.span(), &right_node.span()),
                     ),
-                });
+                }));
             }
         };
 
@@ -924,9 +913,11 @@ impl<'a> Emitter<'a> {
                 }
             }
             Emission::NativeFunction(_) => {
-                return Err(DustError::ExpectedNativeFunctionCall {
-                    position: node.position(),
-                });
+                return Err(DustError::Compile(
+                    CompileError::ExpectedNativeFunctionCall {
+                        position: node.position(),
+                    },
+                ));
             }
             Emission::None => {}
         }
@@ -946,8 +937,8 @@ impl<'a> Emitter<'a> {
             Emission::Instructions(operand_instructions) => {
                 let destination = operand_instructions
                     .target
-                    .ok_or(DustError::Syntax(SyntaxError::ExpectedExpression {
-                        found: node.kind(),
+                    .ok_or(DustError::Compile(CompileError::ExpectedValue {
+                        node_kind: node.kind(),
                         position: node.position(),
                     }))?
                     .index();
@@ -956,11 +947,13 @@ impl<'a> Emitter<'a> {
 
                 Ok(Address::register(destination))
             }
-            Emission::NativeFunction(_) => Err(DustError::ExpectedNativeFunctionCall {
-                position: node.position(),
-            }),
-            Emission::None => Err(DustError::Syntax(SyntaxError::ExpectedExpression {
-                found: node.kind(),
+            Emission::NativeFunction(_) => Err(DustError::Compile(
+                CompileError::ExpectedNativeFunctionCall {
+                    position: node.position(),
+                },
+            )),
+            Emission::None => Err(DustError::Compile(CompileError::ExpectedValue {
+                node_kind: node.kind(),
                 position: node.position(),
             })),
         }
@@ -1025,11 +1018,13 @@ impl<'a> Emitter<'a> {
             _ => {
                 let found = *self.resolver.get_type_binding(&node.id)?;
 
-                return Err(DustError::ExpectedBooleanExpression {
-                    found,
-                    node_kind: node.kind(),
-                    position: node.position(),
-                });
+                return Err(DustError::Compile(
+                    CompileError::ExpectedBooleanExpression {
+                        found,
+                        node_kind: node.kind(),
+                        position: node.position(),
+                    },
+                ));
             }
         }
 
@@ -1059,9 +1054,11 @@ impl<'a> Emitter<'a> {
                 instructions_emission.merge(branch_instructions);
             }
             Emission::NativeFunction(_) => {
-                return Err(DustError::ExpectedNativeFunctionCall {
-                    position: node.position(),
-                });
+                return Err(DustError::Compile(
+                    CompileError::ExpectedNativeFunctionCall {
+                        position: node.position(),
+                    },
+                ));
             }
             Emission::None => {}
         }
@@ -1103,9 +1100,11 @@ impl<'a> Emitter<'a> {
                 }
             }
             Emission::NativeFunction(_) => {
-                return Err(DustError::ExpectedNativeFunctionCall {
-                    position: node.position(),
-                });
+                return Err(DustError::Compile(
+                    CompileError::ExpectedNativeFunctionCall {
+                        position: node.position(),
+                    },
+                ));
             }
             Emission::None => Address::default(),
         };
@@ -1129,11 +1128,9 @@ impl<'a> Emitter<'a> {
             self.handle_return_emission(&mut return_emission, expression_emission, node)?;
         } else {
             if node.is_item() {
-                self.visit_item(node)?;
+                self.visit_item(node);
             } else {
-                let instructions = self.visit_statement(node)?;
-
-                return_emission.merge(instructions);
+                self.visit_statement(node);
             }
 
             let return_instruction = Instruction::r#return(Address::default());
@@ -1148,8 +1145,6 @@ impl<'a> Emitter<'a> {
 impl SyntaxVisitor for Emitter<'_> {
     type RootOutput = Emission;
 
-    type ItemOutput = ();
-
     type StatementOutput = InstructionsEmission;
 
     type ExpressionInput = Option<TargetRegister>;
@@ -1163,19 +1158,17 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, DustError> {
         debug!("Visting root");
 
-        let children = node.children();
+        let children = node.children()?;
         let last_child = children.len() - 1;
         let mut final_emission = Emission::None;
 
-        for (index, child) in children.into_iter().enumerate() {
+        for (index, child) in children.enumerate() {
             if index == last_child {
                 final_emission = self.handle_implicit_return(child, None)?;
             } else if child.is_item() {
-                self.visit_item(child)?;
+                self.visit_item(child);
             } else if child.is_statement() {
-                let instructions = self.visit_statement(child)?;
-
-                self.handle_top_emission(Emission::Instructions(instructions), child)?;
+                self.visit_statement(child);
             } else {
                 let emission = self.visit_expression(child, None)?;
 
@@ -1186,17 +1179,14 @@ impl SyntaxVisitor for Emitter<'_> {
         Ok(final_emission)
     }
 
-    fn visit_module_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::ItemOutput, DustError> {
+    fn visit_module_item(&mut self, _: SyntaxReader<'_>) -> Result<(), DustError> {
         todo!()
     }
 
-    fn visit_function_item(
-        &mut self,
-        node: SyntaxReader<'_>,
-    ) -> Result<Self::ItemOutput, DustError> {
+    fn visit_function_item(&mut self, node: SyntaxReader<'_>) -> Result<(), DustError> {
         debug!("Visting function item");
 
-        let function_expression = node.right_child()?;
+        let (_, function_expression) = node.binary_children()?;
 
         let function_emission = self.visit_function_expression(function_expression, None)?;
 
@@ -1219,11 +1209,11 @@ impl SyntaxVisitor for Emitter<'_> {
         Ok(())
     }
 
-    fn visit_use_item(&mut self, _: SyntaxReader<'_>) -> Result<Self::ItemOutput, DustError> {
+    fn visit_use_item(&mut self, _: SyntaxReader<'_>) -> Result<(), DustError> {
         todo!()
     }
 
-    fn visit_struct_item(&mut self, _: SyntaxReader) -> Result<Self::ItemOutput, DustError> {
+    fn visit_struct_item(&mut self, _: SyntaxReader) -> Result<(), DustError> {
         Ok(())
     }
 
@@ -1252,7 +1242,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::StatementOutput, DustError> {
         debug!("Visting let statement");
 
-        let mut children = node.children();
+        let mut children = node.children()?;
         let path = children.expect_next()?;
         let expression = children.expect_next()?;
 
@@ -1280,15 +1270,17 @@ impl SyntaxVisitor for Emitter<'_> {
                 let_statement_instructions.merge(expression_instructions);
             }
             Emission::NativeFunction(_) => {
-                return Err(DustError::ExpectedNativeFunctionCall {
-                    position: node.position(),
-                });
+                return Err(DustError::Compile(
+                    CompileError::ExpectedNativeFunctionCall {
+                        position: node.position(),
+                    },
+                ));
             }
             Emission::None => {
-                return Err(DustError::ExpectedValue {
+                return Err(DustError::Compile(CompileError::ExpectedValue {
                     node_kind: expression.kind(),
                     position: expression.position(),
-                });
+                }));
             }
         };
 
@@ -1335,9 +1327,11 @@ impl SyntaxVisitor for Emitter<'_> {
         let target = self
             .locals
             .get(declaration_id)
-            .ok_or_else(|| DustError::OutOfScopeId {
-                declaration_id: *declaration_id,
-                usage_position: path.position(),
+            .ok_or_else(|| {
+                DustError::Compile(CompileError::OutOfScopeId {
+                    declaration_id: *declaration_id,
+                    usage_position: path.position(),
+                })
             })?
             .expect_target(&path)?;
 
@@ -1361,15 +1355,17 @@ impl SyntaxVisitor for Emitter<'_> {
                 reassignment_instructions.set_target(None);
             }
             Emission::NativeFunction(_) => {
-                return Err(DustError::ExpectedNativeFunctionCall {
-                    position: node.position(),
-                });
+                return Err(DustError::Compile(
+                    CompileError::ExpectedNativeFunctionCall {
+                        position: node.position(),
+                    },
+                ));
             }
             Emission::None => {
-                return Err(DustError::ExpectedValue {
+                return Err(DustError::Compile(CompileError::ExpectedValue {
                     node_kind: expression.kind(),
                     position: expression.position(),
-                });
+                }));
             }
         }
 
@@ -1445,8 +1441,8 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let bytes = self
             .source
-            .get_file(node.file_id())
-            .content_str(node.span().shrink(1));
+            .get_file(node.file_id())?
+            .content_str(node.span().shrink(1))?;
         let (pool_start, pool_end) = self.constants.push_str_to_string_pool(bytes);
 
         self.resolver.add_type_binding(node.id, TypeId::STRING);
@@ -1476,27 +1472,29 @@ impl SyntaxVisitor for Emitter<'_> {
                     target,
                     ..
                 }) => {
-                    let target = target.ok_or(DustError::ExpectedValue {
+                    let target = target.ok_or(DustError::Compile(CompileError::ExpectedValue {
                         node_kind: element_node.kind(),
                         position: element_node.position(),
-                    })?;
+                    }))?;
 
                     instructions.instructions.extend(element_instructions);
 
                     Ok(Address::register(target.index()))
                 }
-                Emission::NativeFunction(_) => Err(DustError::ExpectedNativeFunctionCall {
-                    position: element_node.position(),
-                }),
-                Emission::None => Err(DustError::ExpectedValue {
+                Emission::NativeFunction(_) => Err(DustError::Compile(
+                    CompileError::ExpectedNativeFunctionCall {
+                        position: element_node.position(),
+                    },
+                )),
+                Emission::None => Err(DustError::Compile(CompileError::ExpectedValue {
                     node_kind: element_node.kind(),
                     position: element_node.position(),
-                }),
+                })),
             }
         }
         debug!("Visting list expression");
 
-        let elements = node.expect_multiple_children()?;
+        let elements = node.children()?;
         let element_count_address =
             self.get_constant_address(ConstantEmission::Integer(elements.len() as i64));
 
@@ -1567,7 +1565,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let path = path_expression.child()?;
 
-        let declaration_id = self.visit_path(path)?;
+        let declaration_id = self.visit_path(path, true)?;
 
         if let Some(local) = self.locals.get(&declaration_id) {
             return Ok(Emission::Place(*local));
@@ -1578,10 +1576,10 @@ impl SyntaxVisitor for Emitter<'_> {
         if let DeclarationKind::NativeFunction(function) = declaration.kind {
             Ok(Emission::NativeFunction(function))
         } else {
-            Err(DustError::OutOfScopeId {
+            Err(DustError::Compile(CompileError::OutOfScopeId {
                 declaration_id,
                 usage_position: path_expression.position(),
-            })
+            }))
         }
     }
 
@@ -1604,13 +1602,13 @@ impl SyntaxVisitor for Emitter<'_> {
             }
         }
 
-        let fields = node.right_child()?.expect_multiple_children()?;
+        let fields_node = node.binary_children()?.1;
 
-        let mut field_leaf_operand_types = Vec::with_capacity(fields.len());
+        let mut field_leaf_operand_types = Vec::with_capacity(fields_node.children()?.len());
         let mut total_leaf_count: u16 = 0;
 
-        for field in fields {
-            let field_expression = field.expect_right_child()?;
+        for field in fields_node.children()? {
+            let field_expression = field.binary_children()?.1;
             let field_type_id = *self.resolver.get_type_binding(&field_expression.id)?;
             let field_full_type = self.resolver.get_full_type(field_type_id, self.source)?;
 
@@ -1638,9 +1636,9 @@ impl SyntaxVisitor for Emitter<'_> {
         let mut next_destination = target.index() + 1;
 
         for (field, (is_struct_field, leaf_types)) in
-            fields.into_iter().zip(field_leaf_operand_types)
+            fields_node.children()?.zip(field_leaf_operand_types)
         {
-            let field_expression = field.expect_right_child()?;
+            let field_expression = field.binary_children()?.1;
             let field_emission = self.visit_expression(field_expression, None)?;
             let field_address = self.handle_operand_emission(
                 &mut struct_emission,
@@ -1684,7 +1682,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting block expression");
 
-        let children = node.children();
+        let children = node.children()?;
 
         let block_scope_id = *self.resolver.get_scope_binding(&node.id)?;
         let parent_scope_id = self.current_scope_id;
@@ -1699,13 +1697,13 @@ impl SyntaxVisitor for Emitter<'_> {
         for (index, child) in children.enumerate() {
             let is_last = index == child_count - 1;
             let child_emission = if child.is_item() {
-                self.visit_item(child)?;
+                self.visit_item(child);
 
                 continue;
             } else if child.is_statement() {
-                let instructions = self.visit_statement(child)?;
+                self.visit_statement(child);
 
-                Emission::Instructions(instructions)
+                continue;
             } else {
                 let expression_target = if is_last { target } else { None };
 
@@ -1771,9 +1769,11 @@ impl SyntaxVisitor for Emitter<'_> {
                         block_emission.merge(instructions);
                     }
                     Emission::NativeFunction(_) => {
-                        return Err(DustError::ExpectedNativeFunctionCall {
-                            position: node.position(),
-                        });
+                        return Err(DustError::Compile(
+                            CompileError::ExpectedNativeFunctionCall {
+                                position: node.position(),
+                            },
+                        ));
                     }
                     Emission::None => {}
                 }
@@ -1799,7 +1799,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, DustError> {
         debug!("Visting if expression");
 
-        let mut children = node.expect_multiple_children()?;
+        let mut children = node.children()?;
         let condition = children.expect_next()?;
         let then_block = children.expect_next()?;
         let else_block = children.next();
@@ -1888,7 +1888,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 (&left_emission, &right_emission)
         {
             let combined = self.combine_constants(
-                node.kind(),
+                &node,
                 *left_value,
                 &left_expression,
                 *right_value,
@@ -2010,7 +2010,7 @@ impl SyntaxVisitor for Emitter<'_> {
             && let Emission::Constant(right_constant) = right_emission
         {
             let combined = self.combine_constants(
-                node.kind(),
+                &node,
                 left_constant,
                 &left_expression,
                 right_constant,
@@ -2080,7 +2080,7 @@ impl SyntaxVisitor for Emitter<'_> {
             && let Emission::Constant(right_constant) = right_emission
         {
             let combined = self.combine_constants(
-                node.kind(),
+                &node,
                 left_constant,
                 &left_expression,
                 right_constant,
@@ -2208,7 +2208,7 @@ impl SyntaxVisitor for Emitter<'_> {
         }
 
         let (signature, body) = node.binary_children()?;
-        let parameters = signature.child()?.expect_multiple_children()?;
+        let (parameters, return_type) = signature.binary_children()?;
         let function_scope_id = *self.resolver.get_scope_binding(&body.id)?;
         let prototype_id = self.prototypes.reserve_slot();
 
@@ -2221,7 +2221,7 @@ impl SyntaxVisitor for Emitter<'_> {
             declaration_id,
             function_scope_id,
             prototype_id,
-            Some(parameters),
+            Some(parameters.children()?),
             (
                 self.source,
                 self.syntax,
@@ -2245,7 +2245,7 @@ impl SyntaxVisitor for Emitter<'_> {
         debug!("Visting call expression");
 
         let (callee, argument_list) = node.binary_children()?;
-        let arguments = argument_list.expect_multiple_children()?;
+        let arguments = argument_list.children()?;
 
         let mut call_emission = InstructionsEmission::new();
 
@@ -2257,7 +2257,11 @@ impl SyntaxVisitor for Emitter<'_> {
             let argument_address =
                 self.handle_operand_emission(&mut call_emission, argument_emission, &argument)?;
 
-            self.call_arguments.push(argument_address);
+            self.call_arguments.push(CallArgument {
+                index: argument_address.index,
+                memory: argument_address.memory,
+                r#type: SmallType::NONE,
+            });
             argument_count += 1;
         }
 
@@ -2274,15 +2278,15 @@ impl SyntaxVisitor for Emitter<'_> {
                 return Ok(Emission::Instructions(call_emission));
             }
             _ => {
-                return Err(DustError::ExpectedFunction {
+                return Err(DustError::Compile(CompileError::ExpectedFunction {
                     node_kind: callee.kind(),
                     position: callee.position(),
-                });
+                }));
             }
         };
 
         let return_type_id = *self.resolver.get_type_binding(&node.id)?;
-        let return_operand_type = self.resolver.get_operand_type(return_type_id, &node)?;
+        let return_operand_type = self.resolver.get_small_type(return_type_id, &node)?;
 
         let register_count = self.resolver.get_register_size(return_type_id, &node)?;
         let target = if let Some(target) = target
@@ -2315,7 +2319,11 @@ impl SyntaxVisitor for Emitter<'_> {
         Ok(())
     }
 
-    fn visit_path(&mut self, path: SyntaxReader) -> Result<Self::PathOutput, DustError> {
+    fn visit_path(
+        &mut self,
+        path: SyntaxReader,
+        _local: bool,
+    ) -> Result<Self::PathOutput, DustError> {
         debug!("Visting path");
         debug_assert_eq!(path.kind(), SyntaxKind::Path);
 
@@ -2409,9 +2417,9 @@ impl Place {
     fn expect_target(self, node: &SyntaxReader) -> Result<TargetRegister, DustError> {
         match self {
             Place::Target(target) => Ok(target),
-            _ => Err(DustError::CannotMutate {
+            _ => Err(DustError::Compile(CompileError::CannotMutate {
                 position: node.position(),
-            }),
+            })),
         }
     }
 
@@ -2484,7 +2492,7 @@ pub enum ConstantEmission {
 }
 
 impl ConstantEmission {
-    fn operand_type(&self) -> SmallType {
+    fn small_type(&self) -> SmallType {
         match self {
             ConstantEmission::Boolean(_) => SmallType::BOOLEAN,
             ConstantEmission::Byte(_) => SmallType::BYTE,

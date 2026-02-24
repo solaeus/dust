@@ -53,12 +53,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     type TypeOutput = ();
     type PathOutput = DeclarationId;
 
-    fn recover(&mut self, error: DustError) {
-        debug!("Declaration binder encountered an error");
-
-        self.errors.push(error);
-    }
-
     fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, DustError> {
         debug!("Visiting root");
         debug_assert_eq!(node.kind(), SyntaxKind::Root);
@@ -66,7 +60,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let children = node.children()?;
 
         for child in children {
-            self.visit_item(child);
+            self.visit_item(child)
+                .unwrap_or_else(|err| self.errors.push(err));
         }
 
         Ok(())

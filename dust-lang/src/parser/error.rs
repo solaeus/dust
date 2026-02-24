@@ -57,19 +57,19 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let title = "Cannot resolve module".to_string();
                 let file = match source.get_file(position.file_id) {
                     Ok(file) => file,
-                    Err(DustError::Internal(error)) => {
+                    Err(error) => {
                         error.add_report((), groups);
+
                         return;
                     }
-                    _ => unreachable!(),
                 };
                 let module_name = match file.content_str(position.span) {
                     Ok(str) => str,
-                    Err(DustError::Internal(error)) => {
+                    Err(error) => {
                         error.add_report((), groups);
+
                         return;
                     }
-                    _ => unreachable!(),
                 };
                 let group =  Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file.content_as_str())
@@ -88,11 +88,11 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let title = "Invalid UTF-8 sequence".to_string();
                 let file = match source.get_file(position.file_id) {
                     Ok(file) => file,
-                    Err(DustError::Internal(error)) => {
+                    Err(error) => {
                         error.add_report((), groups);
+
                         return;
                     }
-                    _ => unreachable!(),
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file.content_as_str())
@@ -115,11 +115,11 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let title = format!("Expected {expected}");
                 let file_content = match source.get_file(position.file_id) {
                     Ok(file) => file.content_as_str(),
-                    Err(DustError::Internal(error)) => {
+                    Err(error) => {
                         error.add_report((), groups);
+
                         return;
                     }
-                    _ => unreachable!(),
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
@@ -139,11 +139,11 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let title = "Expected a different token".to_string();
                 let file = match source.get_file(position.file_id) {
                     Ok(file) => file,
-                    Err(DustError::Internal(error)) => {
+                    Err(error) => {
                         error.add_report((), groups);
+
                         return;
                     }
-                    _ => unreachable!(),
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file.content_as_str())
@@ -166,11 +166,11 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let title = "Expected a different token".to_string();
                 let file = match source.get_file(position.file_id) {
                     Ok(file) => file,
-                    Err(DustError::Internal(error)) => {
+                    Err(error) => {
                         error.add_report((), groups);
+
                         return;
                     }
-                    _ => unreachable!(),
                 };
                 let expected_list = expected
                     .iter()
@@ -204,11 +204,11 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let title = "Unexpected token".to_string();
                 let file = match source.get_file(position.file_id) {
                     Ok(file) => file,
-                    Err(DustError::Internal(error)) => {
+                    Err(error) => {
                         error.add_report((), groups);
+
                         return;
                     }
-                    _ => unreachable!(),
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file.content_as_str())
@@ -227,11 +227,11 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let title = format!("Expected an item, but found {found}");
                 let file_content = match source.get_file(position.file_id) {
                     Ok(file) => file.content_as_str(),
-                    Err(DustError::Internal(error)) => {
+                    Err(error) => {
                         error.add_report((), groups);
+
                         return;
                     }
-                    _ => unreachable!(),
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content)
@@ -244,11 +244,11 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 let title = format!("Expected a statement, but found {found}");
                 let file_content = match source.get_file(position.file_id) {
                     Ok(file) => file.content_as_str(),
-                    Err(DustError::Internal(error)) => {
+                    Err(error) => {
                         error.add_report((), groups);
+
                         return;
                     }
-                    _ => unreachable!(),
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content)
@@ -264,11 +264,11 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 };
                 let file_content = match source.get_file(position.file_id) {
                     Ok(file) => file.content_as_str(),
-                    Err(DustError::Internal(error)) => {
+                    Err(error) => {
                         error.add_report((), groups);
+
                         return;
                     }
-                    _ => unreachable!(),
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content)

@@ -1,7 +1,7 @@
 use std::{hint::black_box, time::Duration};
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use dust_lang::compiler::compile_main;
+use dust_lang::compile;
 
 const LOOP: &str = r"
 let mut i = 0;
@@ -22,7 +22,7 @@ fn() {
 ";
 
 fn compile_bench(source: &str) {
-    compile_main(source).unwrap();
+    compile(source).unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

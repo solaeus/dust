@@ -1,13 +1,16 @@
 use std::time::Instant;
 
-use dust_lang::{compiler::Compiler, disassembler::Disassembler};
+use dust_lang::{Compiler, Disassembler, DustError};
 
 use crate::{
     cli::{CompileCommand, GlobalOptions, InputOptions, OutputOptions},
     handle_source, print_times,
 };
 
-pub fn handle_compile_command(command: CompileCommand, start_time: Instant) {
+pub fn handle_compile_command(
+    command: CompileCommand,
+    start_time: Instant,
+) -> Result<(), DustError> {
     let CompileCommand {
         global: GlobalOptions { log, time, name },
         input: InputOptions {
@@ -25,20 +28,13 @@ pub fn handle_compile_command(command: CompileCommand, start_time: Instant) {
         tui,
     } = command;
 
-    let source = handle_source(&eval, path, false);
+    let source = handle_source(&eval, path, false)?;
     let compiler = Compiler::new(source);
-    let compile_result = compiler.compile_with_extras(None);
-    let compile_time = start_time.elapsed();
-    let (program, source, syntax, resolver) = match compile_result {
-        Ok(program_and_extras) => program_and_extras,
-        Err(dust_error) => {
-            if !no_output {
-                eprintln!("{}", dust_error.report())
-            }
-
-            return;
-        }
+    let (program, source, syntax, resolver) = match compiler.compile_with_extras(None) {
+        Ok(result) => result,
+        Err(errors) => errors.print_and_exit(),
     };
+    let compile_time = start_time.elapsed();
 
     if !no_output {
         if tui {
@@ -53,4 +49,6 @@ pub fn handle_compile_command(command: CompileCommand, start_time: Instant) {
     if time {
         print_times(&[("Compile Time", compile_time, None)]);
     }
+
+    Ok(())
 }

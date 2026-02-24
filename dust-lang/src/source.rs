@@ -45,15 +45,13 @@ impl<'src> Source<'src> {
         id
     }
 
-    pub fn get_file(&self, file_id: SourceFileId) -> Result<&SourceFile<'src>, DustError> {
+    pub fn get_file(&self, file_id: SourceFileId) -> Result<&SourceFile<'src>, InternalError> {
         self.files
             .get(file_id.0 as usize)
-            .ok_or(DustError::Internal(InternalError::MissingSourceFile(
-                file_id,
-            )))
+            .ok_or(InternalError::MissingSourceFile(file_id))
     }
 
-    pub fn get_file_content(&self, position: &Position) -> Result<&str, DustError> {
+    pub fn get_file_content(&self, position: &Position) -> Result<&str, InternalError> {
         self.get_file(position.file_id)?.content_str(position.span)
     }
 
@@ -231,28 +229,28 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn content_bytes(&self, span: Span) -> Result<&[u8], DustError> {
+    pub fn content_bytes(&self, span: Span) -> Result<&[u8], InternalError> {
         let full_source = self.content_as_bytes();
         let range = span.as_usize_range();
 
-        full_source.get(range).ok_or_else(|| {
-            DustError::Internal(InternalError::MissingSourceFileContent {
+        full_source
+            .get(range)
+            .ok_or_else(|| InternalError::MissingSourceFileContent {
                 span,
                 length: full_source.len(),
             })
-        })
     }
 
-    pub fn content_str(&self, span: Span) -> Result<&str, DustError> {
+    pub fn content_str(&self, span: Span) -> Result<&str, InternalError> {
         let full_source = self.content_as_str();
         let range = span.as_usize_range();
 
-        full_source.get(range).ok_or_else(|| {
-            DustError::Internal(InternalError::MissingSourceFileContent {
+        full_source
+            .get(range)
+            .ok_or_else(|| InternalError::MissingSourceFileContent {
                 span,
                 length: full_source.len(),
             })
-        })
     }
 
     pub fn content_as_bytes(&self) -> &[u8] {

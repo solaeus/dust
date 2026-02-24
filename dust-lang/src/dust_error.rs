@@ -1,8 +1,12 @@
 //! Top-level error for the Dust language API that can create detailed reports with source code
 //! annotations.
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    process,
+};
 
 use annotate_snippets::{Group, Level, Renderer};
+use tracing::error;
 
 use crate::{
     compiler::error::CompileError,
@@ -65,35 +69,68 @@ impl From<CompileError> for DustError {
 }
 
 impl<'a> AnnotatedError<'a> for DustError {
-    type Context = (&'a Source<'a>, &'a Resolver);
+    type Context = (&'a Source<'a>, Option<&'a Resolver>);
 
     fn add_report(&self, context: Self::Context, groups: &mut Vec<Group<'a>>) {
+        let (source, resolver) = context;
+
         match self {
             DustError::Internal(internal_error) => internal_error.add_report((), groups),
             DustError::Source(source_error) => source_error.add_report((), groups),
-            DustError::Parse(parse_error) => parse_error.add_report(context.0, groups),
-            DustError::Compile(compile_error) => compile_error.add_report(context, groups),
+            DustError::Parse(parse_error) => parse_error.add_report(source, groups),
+            DustError::Compile(compile_error) => {
+                if let Some(resolver) = resolver {
+                    compile_error.add_report((source, resolver), groups)
+                } else {
+                    error!("Missing error messages due to incomplete error context.");
+                }
+            }
         }
     }
 }
 
-pub struct DustErrors<'a> {
+#[derive(Debug)]
+pub struct DustErrors<'src> {
     errors: Vec<DustError>,
-    source: &'a Source<'a>,
-    resolver: &'a Resolver,
+    source: Source<'src>,
+    resolver: Option<Box<Resolver>>,
 }
 
-impl<'a> DustErrors<'a> {
-    pub fn new(errors: Vec<DustError>, source: &'a Source<'a>, resolver: &'a Resolver) -> Self {
+impl<'src> DustErrors<'src> {
+    pub fn with_source(errors: Vec<DustError>, source: Source<'src>) -> Self {
         Self {
             errors,
             source,
-            resolver,
+            resolver: None,
+        }
+    }
+
+    pub fn with_source_and_resolver(
+        errors: Vec<DustError>,
+        source: Source<'src>,
+        resolver: Resolver,
+    ) -> Self {
+        Self {
+            errors,
+            source,
+            resolver: Some(Box::new(resolver)),
         }
     }
 
     pub fn errors(&self) -> &Vec<DustError> {
         &self.errors
+    }
+
+    pub fn print_and_exit(&self) -> ! {
+        eprintln!("{self}");
+
+        if self.errors.len() == 1 {
+            eprintln!("1 error found.");
+        } else {
+            eprintln!("{} errors found.", self.errors.len());
+        }
+
+        process::exit(1);
     }
 }
 
@@ -105,7 +142,7 @@ impl<'a> Display for DustErrors<'a> {
         for error in &self.errors {
             let start = groups.len();
 
-            error.add_report((self.source, self.resolver), &mut groups);
+            error.add_report((&self.source, self.resolver.as_deref()), &mut groups);
 
             let display = renderer.render(&groups[start..]);
 
