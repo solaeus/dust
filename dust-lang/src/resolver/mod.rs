@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 
 use crate::{
     compiler::error::CompileError,
-    dust_error::{DustError, InternalError},
+    dust_error::{ErrorKind, InternalError},
     dust_type::{DustFunctionType, DustStructType, DustType},
     native_function::NativeFunction,
     resolver::{
@@ -106,10 +106,10 @@ impl Resolver {
     pub fn get_declaration_binding(
         &self,
         syntax_id: &SyntaxId,
-    ) -> Result<&DeclarationId, DustError> {
+    ) -> Result<&DeclarationId, ErrorKind> {
         self.declaration_bindings
             .get(syntax_id)
-            .ok_or(DustError::Internal(
+            .ok_or(ErrorKind::Internal(
                 InternalError::MissingDeclarationBinding(*syntax_id),
             ))
     }
@@ -118,10 +118,10 @@ impl Resolver {
         self.scope_bindings.insert(syntax_id, scope_id);
     }
 
-    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Result<&ScopeId, DustError> {
+    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Result<&ScopeId, ErrorKind> {
         self.scope_bindings
             .get(syntax_id)
-            .ok_or(DustError::Internal(InternalError::MissingScopeBinding(
+            .ok_or(ErrorKind::Internal(InternalError::MissingScopeBinding(
                 *syntax_id,
             )))
     }
@@ -130,8 +130,8 @@ impl Resolver {
         self.type_bindings.insert(syntax_id, type_id);
     }
 
-    pub fn get_type_binding(&self, syntax_id: &SyntaxId) -> Result<&TypeId, DustError> {
-        self.type_bindings.get(syntax_id).ok_or(DustError::Internal(
+    pub fn get_type_binding(&self, syntax_id: &SyntaxId) -> Result<&TypeId, ErrorKind> {
+        self.type_bindings.get(syntax_id).ok_or(ErrorKind::Internal(
             InternalError::MissingTypeBinding(*syntax_id),
         ))
     }
@@ -143,7 +143,7 @@ impl Resolver {
         parent: Option<DeclarationId>,
         local: bool,
         path_segment: &SyntaxReader,
-    ) -> Result<(DeclarationId, Declaration), DustError> {
+    ) -> Result<(DeclarationId, Declaration), ErrorKind> {
         let mut current_scope_id = target_scope_id;
 
         loop {
@@ -195,13 +195,13 @@ impl Resolver {
 
         self.scope_search.clear();
 
-        Err(DustError::Compile(CompileError::Undeclared {
+        Err(ErrorKind::Compile(CompileError::Undeclared {
             symbol_id,
             usage_position: path_segment.position(),
         }))
     }
 
-    pub fn infer_type(&mut self, type_id: TypeId) -> Result<TypeId, DustError> {
+    pub fn infer_type(&mut self, type_id: TypeId) -> Result<TypeId, ErrorKind> {
         if let TypeNode::Inferred {
             resolved: Some(resolved),
             ..
@@ -219,7 +219,7 @@ impl Resolver {
         left_syntax: Option<SyntaxReader>,
         right: TypeId,
         right_syntax: SyntaxReader,
-    ) -> Result<(), DustError> {
+    ) -> Result<(), ErrorKind> {
         let left_inferred = self.infer_type(left)?;
         let right_inferred = self.infer_type(right)?;
 
@@ -232,7 +232,7 @@ impl Resolver {
         left_syntax: Option<SyntaxReader<'a>>,
         right: TypeId,
         right_syntax: SyntaxReader<'a>,
-    ) -> Result<(), DustError> {
+    ) -> Result<(), ErrorKind> {
         if left == right {
             return Ok(());
         }
@@ -351,7 +351,7 @@ impl Resolver {
                         .unwrap_or(right_syntax)
                         .position();
 
-                    return Err(DustError::Compile(CompileError::TypeConflict {
+                    return Err(ErrorKind::Compile(CompileError::TypeConflict {
                         expected_type: left,
                         expected_position,
                         found_type: right,
@@ -408,7 +408,7 @@ impl Resolver {
                         .unwrap_or(right_syntax)
                         .position();
 
-                    Err(DustError::Compile(CompileError::TypeConflict {
+                    Err(ErrorKind::Compile(CompileError::TypeConflict {
                         expected_type: left,
                         expected_position,
                         found_type: right,
@@ -515,7 +515,7 @@ impl Resolver {
         self.types.add_type(node)
     }
 
-    pub fn get_full_type(&self, id: TypeId, source: &Source) -> Result<DustType, DustError> {
+    pub fn get_full_type(&self, id: TypeId, source: &Source) -> Result<DustType, ErrorKind> {
         let type_node = self.types.get_type(id)?;
 
         match type_node {
@@ -554,7 +554,7 @@ impl Resolver {
                 if let Some(resolved) = resolved {
                     self.get_full_type(*resolved, source)
                 } else {
-                    Err(DustError::Compile(CompileError::CannotInferType {
+                    Err(ErrorKind::Compile(CompileError::CannotInferType {
                         type_id: id,
                         position: None,
                     }))
@@ -601,7 +601,7 @@ impl Resolver {
     fn get_declaration_member_names(
         &self,
         members: DeclarationMembers,
-    ) -> impl Iterator<Item = Result<String, DustError>> {
+    ) -> impl Iterator<Item = Result<String, ErrorKind>> {
         members.as_range().map(|member_index| {
             let declaration_id = self.declarations.get_declaration_member(member_index)?;
             let declaration = self.declarations.get_declaration(*declaration_id)?;
@@ -615,7 +615,7 @@ impl Resolver {
         &self,
         members: TypeMembers,
         source: &Source,
-    ) -> impl Iterator<Item = Result<DustType, DustError>> {
+    ) -> impl Iterator<Item = Result<DustType, ErrorKind>> {
         members.as_range().map(|member_index| {
             let type_id = *self.types.get_type_member(member_index)?;
 
@@ -627,7 +627,7 @@ impl Resolver {
         &self,
         type_id: TypeId,
         node: &SyntaxReader,
-    ) -> Result<SmallType, DustError> {
+    ) -> Result<SmallType, ErrorKind> {
         match self.types.get_type(type_id)? {
             TypeNode::None => Ok(SmallType::NONE),
             TypeNode::Boolean => Ok(SmallType::BOOLEAN),
@@ -655,7 +655,7 @@ impl Resolver {
                         | SmallType::LIST_STRING
                         | SmallType::LIST_LIST
                         | SmallType::LIST_FUNCTION => Ok(SmallType::LIST_LIST),
-                        _ => Err(DustError::Compile(CompileError::CannotInferType {
+                        _ => Err(ErrorKind::Compile(CompileError::CannotInferType {
                             type_id,
                             position: Some(node.position()),
                         })),
@@ -669,7 +669,7 @@ impl Resolver {
                 ..
             } => self.get_small_type(*inferred, node),
             TypeNode::Inferred { resolved: None, .. } | TypeNode::Enum { .. } => {
-                Err(DustError::Compile(CompileError::CannotInferType {
+                Err(ErrorKind::Compile(CompileError::CannotInferType {
                     type_id,
                     position: Some(node.position()),
                 }))
@@ -681,7 +681,7 @@ impl Resolver {
         &self,
         type_id: TypeId,
         node: &SyntaxReader,
-    ) -> Result<u16, DustError> {
+    ) -> Result<u16, ErrorKind> {
         match self.types.get_type(type_id)? {
             TypeNode::None => Ok(0),
             TypeNode::Struct { fields, .. } => {
@@ -721,7 +721,7 @@ impl Resolver {
             }
             TypeNode::Inferred { resolved, .. } => match resolved {
                 Some(resolved) => self.get_register_size(*resolved, node),
-                None => Err(DustError::Compile(CompileError::CannotInferType {
+                None => Err(ErrorKind::Compile(CompileError::CannotInferType {
                     type_id,
                     position: Some(node.position()),
                 })),

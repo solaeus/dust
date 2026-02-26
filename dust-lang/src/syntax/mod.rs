@@ -11,7 +11,7 @@ pub use visitor::SyntaxVisitor;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    dust_error::{DustError, InternalError},
+    dust_error::{ErrorKind, InternalError},
     source::SourceFileId,
 };
 
@@ -51,13 +51,13 @@ impl Syntax {
         }
     }
 
-    pub fn get_tree(&self, file_id: SourceFileId) -> Result<&SyntaxTree, DustError> {
+    pub fn get_tree(&self, file_id: SourceFileId) -> Result<&SyntaxTree, ErrorKind> {
         let index = file_id.inner() as usize;
 
         self.trees
             .get(index)
             .and_then(|tree| tree.as_ref())
-            .ok_or_else(|| DustError::Internal(InternalError::MissingSyntaxTree(file_id)))
+            .ok_or_else(|| ErrorKind::Internal(InternalError::MissingSyntaxTree(file_id)))
     }
 }
 

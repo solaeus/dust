@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 
 use crate::{
-    dust_error::{DustError, InternalError},
+    dust_error::{ErrorKind, InternalError},
     source::SourceFileId,
     syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxReader},
 };
@@ -45,22 +45,22 @@ impl SyntaxTree {
         self.nodes.is_empty()
     }
 
-    pub fn root(&self) -> Result<SyntaxReader<'_>, DustError> {
+    pub fn root(&self) -> Result<SyntaxReader<'_>, ErrorKind> {
         let root_node =
             self.nodes
                 .first()
-                .ok_or(DustError::Internal(InternalError::MissingSyntaxNode(
+                .ok_or(ErrorKind::Internal(InternalError::MissingSyntaxNode(
                     SyntaxId::ROOT,
                 )))?;
 
         Ok(SyntaxReader::new(SyntaxId::ROOT, root_node, self))
     }
 
-    pub fn get_node(&self, id: SyntaxId) -> Result<SyntaxReader<'_>, DustError> {
+    pub fn get_node(&self, id: SyntaxId) -> Result<SyntaxReader<'_>, ErrorKind> {
         let node = self
             .nodes
             .get(id.0 as usize)
-            .ok_or(DustError::Internal(InternalError::MissingSyntaxNode(id)))?;
+            .ok_or(ErrorKind::Internal(InternalError::MissingSyntaxNode(id)))?;
 
         Ok(SyntaxReader::new(id, node, self))
     }
@@ -141,11 +141,11 @@ impl SyntaxTreeBuilder {
         id
     }
 
-    pub fn replace_node(&mut self, id: SyntaxId, node: SyntaxNode) -> Result<(), DustError> {
+    pub fn replace_node(&mut self, id: SyntaxId, node: SyntaxNode) -> Result<(), ErrorKind> {
         let index = id.0 as usize;
 
         if index >= self.tree.nodes.len() {
-            return Err(DustError::Internal(InternalError::MissingSyntaxNode(id)));
+            return Err(ErrorKind::Internal(InternalError::MissingSyntaxNode(id)));
         }
 
         self.tree.nodes[index] = node;

@@ -22,82 +22,15 @@ use crate::{
     syntax::{SyntaxId, SyntaxKind, SyntaxPayload},
 };
 
-/// An error that can occur during the interpretation of Dust code.
 #[derive(Debug)]
-pub enum DustError {
-    Internal(InternalError),
-    Source(SourceError),
-    Parse(ParseError),
-    Compile(CompileError),
-}
-
-impl DustError {
-    pub fn into_internal(self) -> InternalError {
-        match self {
-            DustError::Internal(internal_error) => internal_error,
-            DustError::Source(source_error) => InternalError::UnhandledSourceError(source_error),
-            DustError::Parse(parse_error) => InternalError::UnhandledParseError(parse_error),
-            DustError::Compile(compile_error) => {
-                InternalError::UnhandledCompileError(compile_error)
-            }
-        }
-    }
-}
-
-impl From<InternalError> for DustError {
-    fn from(internal_error: InternalError) -> Self {
-        DustError::Internal(internal_error)
-    }
-}
-
-impl From<SourceError> for DustError {
-    fn from(source_error: SourceError) -> Self {
-        DustError::Source(source_error)
-    }
-}
-
-impl From<ParseError> for DustError {
-    fn from(parse_error: ParseError) -> Self {
-        DustError::Parse(parse_error)
-    }
-}
-
-impl From<CompileError> for DustError {
-    fn from(compile_error: CompileError) -> Self {
-        DustError::Compile(compile_error)
-    }
-}
-
-impl<'a> AnnotatedError<'a> for DustError {
-    type Context = (&'a Source<'a>, Option<&'a Resolver>);
-
-    fn add_report(&self, context: Self::Context, groups: &mut Vec<Group<'a>>) {
-        let (source, resolver) = context;
-
-        match self {
-            DustError::Internal(internal_error) => internal_error.add_report((), groups),
-            DustError::Source(source_error) => source_error.add_report((), groups),
-            DustError::Parse(parse_error) => parse_error.add_report(source, groups),
-            DustError::Compile(compile_error) => {
-                if let Some(resolver) = resolver {
-                    compile_error.add_report((source, resolver), groups)
-                } else {
-                    error!("Missing error messages due to incomplete error context.");
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct DustErrors<'src> {
-    errors: Vec<DustError>,
+pub struct Error<'src> {
+    errors: Vec<ErrorKind>,
     source: Source<'src>,
     resolver: Option<Box<Resolver>>,
 }
 
-impl<'src> DustErrors<'src> {
-    pub fn with_source(errors: Vec<DustError>, source: Source<'src>) -> Self {
+impl<'src> Error<'src> {
+    pub fn with_source(errors: Vec<ErrorKind>, source: Source<'src>) -> Self {
         Self {
             errors,
             source,
@@ -106,7 +39,7 @@ impl<'src> DustErrors<'src> {
     }
 
     pub fn with_source_and_resolver(
-        errors: Vec<DustError>,
+        errors: Vec<ErrorKind>,
         source: Source<'src>,
         resolver: Resolver,
     ) -> Self {
@@ -117,7 +50,7 @@ impl<'src> DustErrors<'src> {
         }
     }
 
-    pub fn errors(&self) -> &Vec<DustError> {
+    pub fn errors(&self) -> &Vec<ErrorKind> {
         &self.errors
     }
 
@@ -134,7 +67,7 @@ impl<'src> DustErrors<'src> {
     }
 }
 
-impl<'a> Display for DustErrors<'a> {
+impl<'a> Display for Error<'a> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let mut groups = Vec::with_capacity(self.errors.len());
         let renderer = Renderer::styled();
@@ -150,6 +83,73 @@ impl<'a> Display for DustErrors<'a> {
         }
 
         Ok(())
+    }
+}
+
+/// An error that can occur during the interpretation of Dust code.
+#[derive(Debug)]
+pub enum ErrorKind {
+    Internal(InternalError),
+    Source(SourceError),
+    Parse(ParseError),
+    Compile(CompileError),
+}
+
+impl ErrorKind {
+    pub fn into_internal(self) -> InternalError {
+        match self {
+            ErrorKind::Internal(internal_error) => internal_error,
+            ErrorKind::Source(source_error) => InternalError::UnhandledSourceError(source_error),
+            ErrorKind::Parse(parse_error) => InternalError::UnhandledParseError(parse_error),
+            ErrorKind::Compile(compile_error) => {
+                InternalError::UnhandledCompileError(compile_error)
+            }
+        }
+    }
+}
+
+impl From<InternalError> for ErrorKind {
+    fn from(internal_error: InternalError) -> Self {
+        ErrorKind::Internal(internal_error)
+    }
+}
+
+impl From<SourceError> for ErrorKind {
+    fn from(source_error: SourceError) -> Self {
+        ErrorKind::Source(source_error)
+    }
+}
+
+impl From<ParseError> for ErrorKind {
+    fn from(parse_error: ParseError) -> Self {
+        ErrorKind::Parse(parse_error)
+    }
+}
+
+impl From<CompileError> for ErrorKind {
+    fn from(compile_error: CompileError) -> Self {
+        ErrorKind::Compile(compile_error)
+    }
+}
+
+impl<'a> AnnotatedError<'a> for ErrorKind {
+    type Context = (&'a Source<'a>, Option<&'a Resolver>);
+
+    fn add_report(&self, context: Self::Context, groups: &mut Vec<Group<'a>>) {
+        let (source, resolver) = context;
+
+        match self {
+            ErrorKind::Internal(internal_error) => internal_error.add_report((), groups),
+            ErrorKind::Source(source_error) => source_error.add_report((), groups),
+            ErrorKind::Parse(parse_error) => parse_error.add_report(source, groups),
+            ErrorKind::Compile(compile_error) => {
+                if let Some(resolver) = resolver {
+                    compile_error.add_report((source, resolver), groups)
+                } else {
+                    error!("Missing error messages due to incomplete error context.");
+                }
+            }
+        }
     }
 }
 
@@ -187,6 +187,14 @@ pub enum InternalError {
     UnhandledSourceError(SourceError),
     UnhandledParseError(ParseError),
     UnhandledCompileError(CompileError),
+}
+
+impl InternalError {
+    pub fn print_and_exit(&self) -> ! {
+        eprintln!("{self}");
+
+        process::exit(1);
+    }
 }
 
 impl<'a> AnnotatedError<'a> for InternalError {

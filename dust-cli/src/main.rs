@@ -21,8 +21,8 @@ use std::{
 
 use clap::Parser as CliParser;
 use dust_lang::{
-    DustError, EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig, Source,
-    SourceFile,
+    EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, ErrorKind, PROJECT_CONFIG_PATH, ProjectConfig, Source,
+    SourceError, SourceFile,
 };
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -205,7 +205,7 @@ fn handle_source<'src>(
     eval: &'src Option<String>,
     path: Option<PathBuf>,
     stdin: bool,
-) -> Result<Source<'src>, DustError> {
+) -> Result<Source<'src>, SourceError> {
     let mut source = Source::new();
 
     if let Some(input) = eval {

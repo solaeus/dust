@@ -1,7 +1,7 @@
 use smallvec::SmallVec;
 
 use crate::{
-    dust_error::{DustError, InternalError},
+    dust_error::{ErrorKind, InternalError},
     resolver::declaration_graph::DeclarationId,
 };
 
@@ -25,10 +25,10 @@ impl ScopeGraph {
         id
     }
 
-    pub fn get_scope(&self, id: ScopeId) -> Result<&Scope, DustError> {
+    pub fn get_scope(&self, id: ScopeId) -> Result<&Scope, ErrorKind> {
         self.scopes
             .get(id.0 as usize)
-            .ok_or(DustError::Internal(InternalError::MissingScope(id)))
+            .ok_or(ErrorKind::Internal(InternalError::MissingScope(id)))
     }
 }
 

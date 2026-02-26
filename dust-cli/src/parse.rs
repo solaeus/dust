@@ -5,7 +5,7 @@ use std::{
 };
 
 use dust_lang::{
-    DustError, DustErrors, Lexer, ParseError, ParseResult, Parser, Position, SourceFile, SyntaxTree,
+    ErrorKind, Lexer, ParseError, ParseResult, Parser, Position, SourceFile, SyntaxTree,
 };
 use ron::ser::PrettyConfig;
 
@@ -61,9 +61,7 @@ pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
 
     let source = match handle_source(&eval, path, stdin) {
         Ok(source) => source,
-        Err(DustError::Internal(error)) => {
-            DustErrors::with_source(vec![error], source).print_and_exit()
-        }
+        Err(error) => error.print_and_exit(),
     };
 
     let mut parse_errors = Vec::new();

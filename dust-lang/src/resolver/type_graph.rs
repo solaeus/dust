@@ -6,7 +6,7 @@ use std::{
 use indexmap::{IndexSet, set::MutableValues};
 
 use crate::{
-    dust_error::{DustError, InternalError},
+    dust_error::{ErrorKind, InternalError},
     resolver::declaration_graph::{DeclarationId, DeclarationMembers},
 };
 
@@ -56,16 +56,16 @@ impl TypeGraph {
         type_id
     }
 
-    pub fn get_type(&self, id: TypeId) -> Result<&TypeNode, DustError> {
+    pub fn get_type(&self, id: TypeId) -> Result<&TypeNode, ErrorKind> {
         self.types
             .get_index(id.0 as usize)
-            .ok_or(DustError::Internal(InternalError::MissingType(id)))
+            .ok_or(ErrorKind::Internal(InternalError::MissingType(id)))
     }
 
-    pub fn get_type_mut(&mut self, id: TypeId) -> Result<&mut TypeNode, DustError> {
+    pub fn get_type_mut(&mut self, id: TypeId) -> Result<&mut TypeNode, ErrorKind> {
         self.types
             .get_index_mut2(id.0 as usize)
-            .ok_or(DustError::Internal(InternalError::MissingType(id)))
+            .ok_or(ErrorKind::Internal(InternalError::MissingType(id)))
     }
 
     pub fn add_type_members(&mut self, types: &[TypeId]) -> TypeMembers {
@@ -79,18 +79,18 @@ impl TypeGraph {
         members
     }
 
-    pub fn get_type_members(&self, members: TypeMembers) -> Result<&[TypeId], DustError> {
+    pub fn get_type_members(&self, members: TypeMembers) -> Result<&[TypeId], ErrorKind> {
         self.members
             .get(members.as_usize_range())
-            .ok_or(DustError::Internal(InternalError::MissingTypeMembers(
+            .ok_or(ErrorKind::Internal(InternalError::MissingTypeMembers(
                 members,
             )))
     }
 
-    pub fn get_type_member(&self, index: u32) -> Result<&TypeId, DustError> {
+    pub fn get_type_member(&self, index: u32) -> Result<&TypeId, ErrorKind> {
         self.members
             .get(index as usize)
-            .ok_or(DustError::Internal(InternalError::MissingTypeMember(index)))
+            .ok_or(ErrorKind::Internal(InternalError::MissingTypeMember(index)))
     }
 
     pub fn create_inferred_type(&mut self) -> TypeId {

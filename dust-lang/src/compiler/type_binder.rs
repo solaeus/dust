@@ -3,7 +3,7 @@ use tracing::{debug, info};
 
 use crate::{
     compiler::error::CompileError,
-    dust_error::{DustError, InternalError},
+    dust_error::{ErrorKind, InternalError},
     resolver::{
         Resolver,
         declaration_graph::{DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind},
@@ -23,7 +23,7 @@ pub struct TypeBinder<'a> {
 
     resolver: &'a mut Resolver,
 
-    errors: &'a mut Vec<DustError>,
+    errors: &'a mut Vec<ErrorKind>,
 }
 
 impl<'a> TypeBinder<'a> {
@@ -32,7 +32,7 @@ impl<'a> TypeBinder<'a> {
         source: &'a Source,
         syntax: &'a Syntax,
         resolver: &'a mut Resolver,
-        errors: &'a mut Vec<DustError>,
+        errors: &'a mut Vec<ErrorKind>,
     ) -> Self {
         Self {
             source,
@@ -52,7 +52,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     type TypeOutput = TypeId;
     type PathOutput = TypeId;
 
-    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, DustError> {
+    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, ErrorKind> {
         debug!("Visting root");
 
         let children = node.children()?;
@@ -64,7 +64,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(())
     }
 
-    fn visit_module_item(&mut self, module_item: SyntaxReader) -> Result<(), DustError> {
+    fn visit_module_item(&mut self, module_item: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visting module item");
 
         let mut children = module_item.children()?;
@@ -88,7 +88,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             {
                 file_id
             } else {
-                return Err(DustError::Internal(
+                return Err(ErrorKind::Internal(
                     InternalError::ExpectedModuleDeclaration {
                         declaration_id: module_declaration_id,
                     },
@@ -109,7 +109,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(())
     }
 
-    fn visit_function_item(&mut self, function_item: SyntaxReader) -> Result<(), DustError> {
+    fn visit_function_item(&mut self, function_item: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visting function item");
 
         let (_function_name, function_expression) = function_item.binary_children()?;
@@ -137,13 +137,13 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(())
     }
 
-    fn visit_use_item(&mut self, _: SyntaxReader) -> Result<(), DustError> {
+    fn visit_use_item(&mut self, _: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visting use item");
 
         todo!()
     }
 
-    fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<(), DustError> {
+    fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visting struct item");
 
         let (struct_name, struct_fields) = node.binary_children()?;
@@ -181,7 +181,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_expression_statement(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, DustError> {
+    ) -> Result<Self::StatementOutput, ErrorKind> {
         debug!("Visting expression statement");
 
         self.visit_expression(node.child()?, ())?;
@@ -192,7 +192,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_let_statement(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, DustError> {
+    ) -> Result<Self::StatementOutput, ErrorKind> {
         debug!("Visting let statement");
 
         let mut children = node.children()?;
@@ -235,7 +235,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_binary_assignment_statement(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, DustError> {
+    ) -> Result<Self::StatementOutput, ErrorKind> {
         debug!("Visting binary assignment statement");
 
         let (path, expression) = node.binary_children()?;
@@ -286,7 +286,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_reassignment_statement(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, DustError> {
+    ) -> Result<Self::StatementOutput, ErrorKind> {
         debug!("Visting reassignment statement");
 
         let (path, expression_statement) = node.binary_children()?;
@@ -309,7 +309,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting boolean expression");
 
         self.resolver.add_type_binding(node.id, TypeId::BOOLEAN);
@@ -321,7 +321,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting byte expression");
 
         self.resolver.add_type_binding(node.id, TypeId::BYTE);
@@ -333,7 +333,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting character expression");
 
         self.resolver.add_type_binding(node.id, TypeId::CHARACTER);
@@ -345,7 +345,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting float expression");
 
         self.resolver.add_type_binding(node.id, TypeId::FLOAT);
@@ -357,7 +357,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting integer expression");
 
         self.resolver.add_type_binding(node.id, TypeId::INTEGER);
@@ -369,7 +369,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting string expression");
 
         self.resolver.add_type_binding(node.id, TypeId::STRING);
@@ -381,7 +381,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting list expression");
 
         let children = node.children()?;
@@ -418,7 +418,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting index expression");
 
         let (list_expression, index_expression) = node.binary_children()?;
@@ -435,7 +435,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         };
 
         if index_type_id != TypeId::INTEGER {
-            return Err(DustError::Compile(CompileError::ExpectedIntegerIndex {
+            return Err(ErrorKind::Compile(CompileError::ExpectedIntegerIndex {
                 found: index_type_id,
                 position: index_expression.position(),
             }));
@@ -449,7 +449,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 element_type
             }
             _ => {
-                return Err(DustError::Compile(CompileError::CannotIndex {
+                return Err(ErrorKind::Compile(CompileError::CannotIndex {
                     type_id: list_type_id,
                     position: list_expression.position(),
                 }));
@@ -467,7 +467,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         path_expression: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting path expression");
         debug_assert_eq!(path_expression.kind(), SyntaxKind::PathExpression);
 
@@ -482,7 +482,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting struct expression");
 
         let (_struct_name, fields) = node.binary_children()?;
@@ -523,7 +523,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting block expression");
 
         let children = node.children()?;
@@ -556,7 +556,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting if expression");
 
         let mut children = node.children()?;
@@ -572,7 +572,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         };
 
         if condition_type != TypeId::BOOLEAN {
-            return Err(DustError::Compile(
+            return Err(ErrorKind::Compile(
                 CompileError::ExpectedBooleanExpression {
                     found: condition_type,
                     node_kind: node.kind(),
@@ -603,7 +603,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting else expression");
 
         self.visit_block_expression(node.child()?, ())
@@ -613,7 +613,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting math binary expression");
 
         let (left_expression, right_expression) = node.binary_children()?;
@@ -660,7 +660,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting comparison binary expression");
 
         let (left_expression, right_expression) = node.binary_children()?;
@@ -683,7 +683,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting logical binary expression");
 
         let (left_expression, right_expression) = node.binary_children()?;
@@ -700,7 +700,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         };
 
         if left_type != TypeId::BOOLEAN {
-            return Err(DustError::Compile(
+            return Err(ErrorKind::Compile(
                 CompileError::ExpectedBooleanExpression {
                     found: left_type,
                     node_kind: left_expression.kind(),
@@ -710,7 +710,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         }
 
         if right_type != TypeId::BOOLEAN {
-            return Err(DustError::Compile(
+            return Err(ErrorKind::Compile(
                 CompileError::ExpectedBooleanExpression {
                     found: right_type,
                     node_kind: right_expression.kind(),
@@ -728,7 +728,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting unary negation expression");
 
         let expression = node.child()?;
@@ -744,7 +744,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
                 Ok(child_type)
             }
-            _ => Err(DustError::Compile(CompileError::CannotApplyUnaryOperator {
+            _ => Err(ErrorKind::Compile(CompileError::CannotApplyUnaryOperator {
                 operator: node.kind(),
                 operand_type: self.resolver.get_small_type(child_type, &expression)?,
                 operand_position: expression.position(),
@@ -756,7 +756,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting while expression");
 
         let (condition, body) = node.binary_children()?;
@@ -768,7 +768,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         };
 
         if condition_type != TypeId::BOOLEAN {
-            return Err(DustError::Compile(
+            return Err(ErrorKind::Compile(
                 CompileError::ExpectedBooleanExpression {
                     found: condition_type,
                     node_kind: condition.kind(),
@@ -786,7 +786,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting function expression");
 
         let (signature, body) = node.binary_children()?;
@@ -845,7 +845,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         node: SyntaxReader,
         _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, DustError> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting call expression");
 
         let (callee, arguments_list) = node.binary_children()?;
@@ -863,7 +863,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             ..
         } = *self.resolver.types.get_type(callee_type)?
         else {
-            return Err(DustError::Compile(CompileError::ExpectedFunctionType {
+            return Err(ErrorKind::Compile(CompileError::ExpectedFunctionType {
                 found: callee_type,
                 position: callee.position(),
             }));
@@ -878,7 +878,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             .collect::<SmallVec<[TypeId; 8]>>();
 
         if arguments.len() != expected_parameters.len() {
-            return Err(DustError::Compile(CompileError::ExpectedArguments {
+            return Err(ErrorKind::Compile(CompileError::ExpectedArguments {
                 function_type: callee_type,
                 found_position: callee.position(),
                 expected_count: expected_parameters.len(),
@@ -898,7 +898,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(return_type_id)
     }
 
-    fn visit_type(&mut self, node: SyntaxReader) -> Result<Self::TypeOutput, DustError> {
+    fn visit_type(&mut self, node: SyntaxReader) -> Result<Self::TypeOutput, ErrorKind> {
         match node.kind() {
             SyntaxKind::AnyType => Ok(self.resolver.types.create_inferred_type()),
             SyntaxKind::BooleanType => Ok(TypeId::BOOLEAN),
@@ -931,7 +931,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
                 Ok(*type_id)
             }
-            _ => Err(DustError::Compile(
+            _ => Err(ErrorKind::Compile(
                 CompileError::UnimplementedSyntaxFeature {
                     syntax_kind: node.kind(),
                     position: node.position(),
@@ -944,7 +944,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         path: SyntaxReader,
         local: bool,
-    ) -> Result<Self::PathOutput, DustError> {
+    ) -> Result<Self::PathOutput, ErrorKind> {
         debug!("Visting path");
 
         self.resolver

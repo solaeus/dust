@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
 
 use crate::{
-    dust_error::{DustError, InternalError},
+    dust_error::{ErrorKind, InternalError},
     source::Span,
 };
 
@@ -44,11 +44,11 @@ impl SymbolTable {
         id
     }
 
-    pub fn get_symbol(&self, id: &SymbolId) -> Result<&str, DustError> {
+    pub fn get_symbol(&self, id: &SymbolId) -> Result<&str, ErrorKind> {
         let (_, span) = self
             .spans
             .get_index(id.0 as usize)
-            .ok_or(DustError::Internal(InternalError::MissingSymbol(*id)))?;
+            .ok_or(ErrorKind::Internal(InternalError::MissingSymbol(*id)))?;
         let symbol = &self.pool[span.as_usize_range()];
 
         Ok(symbol)

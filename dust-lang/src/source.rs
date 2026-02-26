@@ -6,12 +6,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use annotate_snippets::{Group, Level};
+use annotate_snippets::{Group, Level, Renderer};
 use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-use crate::dust_error::{AnnotatedError, DustError, InternalError};
+use crate::dust_error::{AnnotatedError, ErrorKind, InternalError};
 
 #[derive(Debug)]
 pub struct Source<'src> {
@@ -150,35 +150,31 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn base_file(path: PathBuf) -> Result<Self, DustError> {
+    pub fn base_file(path: PathBuf) -> Result<Self, SourceError> {
         let Ok(path) = path.canonicalize() else {
-            return Err(DustError::Source(SourceError::InvalidPath {
+            return Err(SourceError::InvalidPath {
                 found: path.display().to_string(),
-            }));
+            });
         };
 
         if !path.is_file() {
-            return Err(DustError::Source(SourceError::ExpectedFilePath {
+            return Err(SourceError::ExpectedFilePath {
                 found: path.display().to_string(),
-            }));
+            });
         }
 
-        let file = File::open(&path).map_err(|error| {
-            DustError::Source(SourceError::CannotOpen {
-                io_error: error.kind(),
-            })
+        let file = File::open(&path).map_err(|error| SourceError::CannotOpen {
+            io_error: error.kind(),
         })?;
-        let mmap = unsafe { Mmap::map(&file) }.map_err(|error| {
-            DustError::Source(SourceError::CannotOpen {
-                io_error: error.kind(),
-            })
+        let mmap = unsafe { Mmap::map(&file) }.map_err(|error| SourceError::CannotOpen {
+            io_error: error.kind(),
         })?;
         let path = match path.into_os_string().into_string() {
             Ok(string) => string,
             Err(os_string) => {
-                return Err(DustError::Source(SourceError::ExpectedUtf8Path {
+                return Err(SourceError::ExpectedUtf8Path {
                     found: os_string.display().to_string(),
-                }));
+                });
             }
         };
 
@@ -452,6 +448,27 @@ pub enum SourceError {
     ExpectedFilePath { found: String },
     ExpectedUtf8Path { found: String },
     InvalidPath { found: String },
+}
+
+impl SourceError {
+    pub fn print_and_exit(&self) -> ! {
+        eprintln!("{self}");
+
+        std::process::exit(1);
+    }
+}
+
+impl Display for SourceError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut groups = Vec::new();
+
+        self.add_report((), &mut groups);
+
+        let renderer = Renderer::styled();
+        let report = renderer.render(&groups);
+
+        write!(f, "{report}")
+    }
 }
 
 impl<'src> AnnotatedError<'src> for SourceError {

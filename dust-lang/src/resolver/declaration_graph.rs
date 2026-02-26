@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 
 use crate::{
-    dust_error::{DustError, InternalError},
+    dust_error::{ErrorKind, InternalError},
     native_function::NativeFunction,
     prototype::PrototypeId,
     resolver::{TypeId, scope_graph::ScopeId, symbol_table::SymbolId},
@@ -52,11 +52,11 @@ impl DeclarationGraph {
         declaration_id
     }
 
-    pub fn get_declaration(&self, id: DeclarationId) -> Result<Declaration, DustError> {
+    pub fn get_declaration(&self, id: DeclarationId) -> Result<Declaration, ErrorKind> {
         self.declarations
             .get_index(id.0 as usize)
             .map(|(key, value)| Declaration::from_key_and_value(*key, *value))
-            .ok_or(DustError::Internal(InternalError::MissingDeclaration(id)))
+            .ok_or(ErrorKind::Internal(InternalError::MissingDeclaration(id)))
     }
 
     pub fn find_declaration(
@@ -91,10 +91,10 @@ impl DeclarationGraph {
         DeclarationMembers { start, count }
     }
 
-    pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, DustError> {
+    pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, ErrorKind> {
         self.declaration_members
             .get(index as usize)
-            .ok_or(DustError::Internal(
+            .ok_or(ErrorKind::Internal(
                 InternalError::MissingDeclarationMember(index),
             ))
     }
@@ -102,10 +102,10 @@ impl DeclarationGraph {
     pub fn get_declaration_members(
         &self,
         members: DeclarationMembers,
-    ) -> Result<&[DeclarationId], DustError> {
+    ) -> Result<&[DeclarationId], ErrorKind> {
         self.declaration_members
             .get(members.as_usize_range())
-            .ok_or(DustError::Internal(
+            .ok_or(ErrorKind::Internal(
                 InternalError::MissingDeclarationMembers(members),
             ))
     }
@@ -117,10 +117,10 @@ impl DeclarationGraph {
     pub fn get_declaration_type(
         &self,
         declaration_id: &DeclarationId,
-    ) -> Result<&TypeId, DustError> {
+    ) -> Result<&TypeId, ErrorKind> {
         self.declaration_types
             .get(declaration_id)
-            .ok_or(DustError::Internal(InternalError::MissingDeclarationType(
+            .ok_or(ErrorKind::Internal(InternalError::MissingDeclarationType(
                 *declaration_id,
             )))
     }

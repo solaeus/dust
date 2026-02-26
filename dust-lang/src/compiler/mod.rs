@@ -18,7 +18,7 @@ use crate::{
     },
     constant_table::ConstantTable,
     dust_crate::Program,
-    dust_error::{DustError, DustErrors},
+    dust_error::{Error, ErrorKind},
     lexer::Lexer,
     parser::{ParseResult, Parser},
     prototype::{Prototype, PrototypeId, PrototypeList},
@@ -30,7 +30,7 @@ use crate::{
     syntax::{Syntax, SyntaxVisitor},
 };
 
-pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, DustErrors<'src>> {
+pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, Error<'src>> {
     let mut source = Source::new();
 
     source.add_file(SourceFile::validated("compile", source_code));
@@ -41,7 +41,7 @@ pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, DustErrors
     Ok(program.prototypes)
 }
 
-pub fn compile_main<'src>(source_code: &'src str) -> Result<Prototype, DustErrors<'src>> {
+pub fn compile_main<'src>(source_code: &'src str) -> Result<Prototype, Error<'src>> {
     let main_prototype = compile(source_code)?
         .into_iter()
         .next()
@@ -73,7 +73,7 @@ impl<'src> Compiler<'src> {
         &self.resolver
     }
 
-    pub fn compile(mut self, program_name: Option<String>) -> Result<Program, DustErrors<'src>> {
+    pub fn compile(mut self, program_name: Option<String>) -> Result<Program, Error<'src>> {
         match self.compile_inner(&program_name) {
             Ok(()) => {
                 let program = Program::new(program_name, self.constants, self.prototypes);
@@ -81,8 +81,7 @@ impl<'src> Compiler<'src> {
                 Ok(program)
             }
             Err(errors) => {
-                let errors =
-                    DustErrors::with_source_and_resolver(errors, self.source, self.resolver);
+                let errors = Error::with_source_and_resolver(errors, self.source, self.resolver);
 
                 Err(errors)
             }
@@ -92,7 +91,7 @@ impl<'src> Compiler<'src> {
     pub fn compile_with_extras(
         mut self,
         program_name: Option<String>,
-    ) -> Result<(Program, Source<'src>, Syntax, Resolver), DustErrors<'src>> {
+    ) -> Result<(Program, Source<'src>, Syntax, Resolver), Error<'src>> {
         match self.compile_inner(&program_name) {
             Ok(()) => {
                 let program = Program::new(program_name, self.constants, self.prototypes);
@@ -100,15 +99,14 @@ impl<'src> Compiler<'src> {
                 Ok((program, self.source, self.syntax, self.resolver))
             }
             Err(errors) => {
-                let errors =
-                    DustErrors::with_source_and_resolver(errors, self.source, self.resolver);
+                let errors = Error::with_source_and_resolver(errors, self.source, self.resolver);
 
                 Err(errors)
             }
         }
     }
 
-    fn compile_inner(&mut self, program_name: &Option<String>) -> Result<(), Vec<DustError>> {
+    fn compile_inner(&mut self, program_name: &Option<String>) -> Result<(), Vec<ErrorKind>> {
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
 
@@ -147,7 +145,7 @@ impl<'src> Compiler<'src> {
                     let parent_file = match self.source.get_file(file_id) {
                         Ok(file) => file,
                         Err(error) => {
-                            errors.push(DustError::Internal(error));
+                            errors.push(ErrorKind::Internal(error));
 
                             return Err(errors);
                         }
@@ -155,7 +153,7 @@ impl<'src> Compiler<'src> {
                     let module_name_str = match parent_file.content_str(span) {
                         Ok(name) => name,
                         Err(error) => {
-                            errors.push(DustError::Internal(error));
+                            errors.push(ErrorKind::Internal(error));
 
                             return Err(errors);
                         }
@@ -167,7 +165,7 @@ impl<'src> Compiler<'src> {
                     let module_file = match SourceFile::base_file(module_path) {
                         Ok(file) => file,
                         Err(error) => {
-                            errors.push(error);
+                            errors.push(ErrorKind::Source(error));
 
                             return Err(errors);
                         }
@@ -257,7 +255,7 @@ impl<'src> Compiler<'src> {
             {
                 Some(declaration) => declaration,
                 None => {
-                    errors.push(DustError::Compile(CompileError::ExpectedMainFunction));
+                    errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
 
                     return Err(errors);
                 }
@@ -279,7 +277,7 @@ impl<'src> Compiler<'src> {
             let main_function = if let Some(node) = find_main_function {
                 node
             } else {
-                errors.push(DustError::Compile(CompileError::ExpectedMainFunction));
+                errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
 
                 return Err(errors);
             };

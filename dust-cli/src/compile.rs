@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use dust_lang::{Compiler, Disassembler, DustError};
+use dust_lang::{Compiler, Disassembler, ErrorKind};
 
 use crate::{
     cli::{CompileCommand, GlobalOptions, InputOptions, OutputOptions},
@@ -10,7 +10,7 @@ use crate::{
 pub fn handle_compile_command(
     command: CompileCommand,
     start_time: Instant,
-) -> Result<(), DustError> {
+) -> Result<(), ErrorKind> {
     let CompileCommand {
         global: GlobalOptions { log, time, name },
         input: InputOptions {

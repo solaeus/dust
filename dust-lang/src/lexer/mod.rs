@@ -4,14 +4,14 @@ mod tests;
 use std::hint::cold_path;
 
 use crate::{
-    dust_error::DustError,
+    dust_error::ErrorKind,
     parser::ParseError,
     source::{Position, Source, SourceFile, Span},
     token::{Token, TokenKind},
 };
 use unicode_ident::{is_xid_continue, is_xid_start};
 
-pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, DustError> {
+pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, ErrorKind> {
     let mut source = Source::with_capacity(1);
     let file_id = source.add_file(SourceFile::non_validated("tokenize", bytes));
 
@@ -26,13 +26,13 @@ pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, DustError> {
         let error_index = lexer.error_index().unwrap_or(0);
         let position = Position::new(file_id, Span::new(error_index, error_index));
 
-        return Err(DustError::Parse(ParseError::InvalidUtf8 { position }));
+        return Err(ErrorKind::Parse(ParseError::InvalidUtf8 { position }));
     }
 
     Ok(tokens)
 }
 
-pub fn tokenize_str(str: &str) -> Result<Vec<Token>, DustError> {
+pub fn tokenize_str(str: &str) -> Result<Vec<Token>, ErrorKind> {
     let mut source = Source::with_capacity(1);
     let file_id = source.add_file(SourceFile::validated("tokenize", str));
 
@@ -46,7 +46,7 @@ pub fn tokenize_str(str: &str) -> Result<Vec<Token>, DustError> {
     if let Some(error_index) = lexer.error_index() {
         let position = Position::new(file_id, Span::new(error_index, error_index));
 
-        return Err(DustError::Parse(ParseError::InvalidUtf8 { position }));
+        return Err(ErrorKind::Parse(ParseError::InvalidUtf8 { position }));
     }
 
     Ok(tokens)

@@ -1,7 +1,7 @@
 use tracing::error;
 
 use crate::{
-    dust_error::{DustError, InternalError},
+    dust_error::{ErrorKind, InternalError},
     source::{Position, SourceFileId, Span},
     syntax::{
         SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree, node::SyntaxPayloadKind,
@@ -20,7 +20,7 @@ impl<'a> SyntaxReader<'a> {
         Self { id, node, tree }
     }
 
-    pub fn root(&self) -> Result<Self, DustError> {
+    pub fn root(&self) -> Result<Self, ErrorKind> {
         self.tree.root()
     }
 
@@ -85,9 +85,9 @@ impl<'a> SyntaxReader<'a> {
         )
     }
 
-    pub fn child(&self) -> Result<Self, DustError> {
+    pub fn child(&self) -> Result<Self, ErrorKind> {
         if self.node.payload_kind != SyntaxPayloadKind::SingleChild {
-            return Err(DustError::Internal(InternalError::ExpectedSyntaxChildren {
+            return Err(ErrorKind::Internal(InternalError::ExpectedSyntaxChildren {
                 expected: 1,
                 actual: self.child_count(),
             }));
@@ -99,9 +99,9 @@ impl<'a> SyntaxReader<'a> {
         Ok(left)
     }
 
-    pub fn binary_children(&self) -> Result<(Self, Self), DustError> {
+    pub fn binary_children(&self) -> Result<(Self, Self), ErrorKind> {
         if self.node.payload_kind != SyntaxPayloadKind::BinaryChildren {
-            return Err(DustError::Internal(InternalError::ExpectedSyntaxChildren {
+            return Err(ErrorKind::Internal(InternalError::ExpectedSyntaxChildren {
                 expected: 2,
                 actual: self.child_count(),
             }));
@@ -116,37 +116,37 @@ impl<'a> SyntaxReader<'a> {
         Ok((left_child, right_child))
     }
 
-    pub fn children(&'a self) -> Result<SyntaxReaderIterator<'a>, DustError> {
+    pub fn children(&'a self) -> Result<SyntaxReaderIterator<'a>, ErrorKind> {
         match self.node.payload_kind {
             SyntaxPayloadKind::Empty => {}
             SyntaxPayloadKind::Value => {
-                return Err(DustError::Internal(InternalError::InvalidSyntaxPayload(
+                return Err(ErrorKind::Internal(InternalError::InvalidSyntaxPayload(
                     self.payload(),
                 )));
             }
             SyntaxPayloadKind::SingleChild => {
                 if self.node.payload.left >= self.tree.node_count() as u32 {
-                    return Err(DustError::Internal(InternalError::MissingSyntaxNode(
+                    return Err(ErrorKind::Internal(InternalError::MissingSyntaxNode(
                         self.payload().left_id(),
                     )));
                 }
             }
             SyntaxPayloadKind::BinaryChildren => {
                 if self.node.payload.left >= self.tree.node_count() as u32 {
-                    return Err(DustError::Internal(InternalError::MissingSyntaxNode(
+                    return Err(ErrorKind::Internal(InternalError::MissingSyntaxNode(
                         self.payload().left_id(),
                     )));
                 }
 
                 if self.node.payload.right >= self.tree.node_count() as u32 {
-                    return Err(DustError::Internal(InternalError::MissingSyntaxNode(
+                    return Err(ErrorKind::Internal(InternalError::MissingSyntaxNode(
                         self.payload().right_id(),
                     )));
                 }
             }
             SyntaxPayloadKind::MultipleChildren => {
                 if self.node.payload.right >= self.tree.children.len() as u32 {
-                    return Err(DustError::Internal(InternalError::InvalidSyntaxPayload(
+                    return Err(ErrorKind::Internal(InternalError::InvalidSyntaxPayload(
                         self.payload(),
                     )));
                 }
@@ -156,7 +156,7 @@ impl<'a> SyntaxReader<'a> {
         Ok(SyntaxReaderIterator::new(self))
     }
 
-    pub fn last_child(&'a self) -> Result<Option<Self>, DustError> {
+    pub fn last_child(&'a self) -> Result<Option<Self>, ErrorKind> {
         match self.node.payload_kind {
             SyntaxPayloadKind::SingleChild => self.child().map(Some),
             SyntaxPayloadKind::BinaryChildren => {
@@ -273,9 +273,9 @@ impl<'a> SyntaxReaderIterator<'a> {
         }
     }
 
-    pub fn expect_next(&mut self) -> Result<SyntaxReader<'a>, DustError> {
+    pub fn expect_next(&mut self) -> Result<SyntaxReader<'a>, ErrorKind> {
         self.next().ok_or_else(|| {
-            DustError::Internal(InternalError::MissingSyntaxChild {
+            ErrorKind::Internal(InternalError::MissingSyntaxChild {
                 total_children: self.parent.child_count(),
             })
         })

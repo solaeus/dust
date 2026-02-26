@@ -1,6 +1,6 @@
 use std::{fmt::Display, path::PathBuf, time::Instant};
 
-use dust_lang::{DustError, Lexer};
+use dust_lang::{ErrorKind, Lexer};
 
 use crate::{
     cli::{GlobalOptions, InputOptions, OutputOptions, TokenizeCommand},
@@ -10,7 +10,7 @@ use crate::{
 pub fn handle_tokenize_command(
     command: TokenizeCommand,
     start_time: Instant,
-) -> Result<(), DustError> {
+) -> Result<(), ErrorKind> {
     let TokenizeCommand {
         global: GlobalOptions { log, time, name },
         input: InputOptions {
