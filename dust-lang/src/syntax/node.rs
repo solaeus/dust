@@ -245,10 +245,10 @@ impl SyntaxKind {
         }
     }
 
-    pub fn with_value(self, span: Span, value: impl EncodePayload) -> SyntaxNode {
+    pub fn with_value(self, span: Span, payload: SyntaxPayload) -> SyntaxNode {
         SyntaxNode {
             kind: self,
-            payload: value.encode_payload(),
+            payload,
             payload_kind: SyntaxPayloadKind::Value,
             span,
         }
@@ -660,24 +660,4 @@ pub enum SyntaxPayloadKind {
     BinaryChildren,
     MultipleChildren,
     Value,
-}
-
-pub trait EncodePayload {
-    fn encode_payload(&self) -> SyntaxPayload;
-    fn decode_payload(payload: SyntaxPayload) -> Self;
-}
-
-impl EncodePayload for bool {
-    fn encode_payload(&self) -> SyntaxPayload {
-        {
-            SyntaxPayload {
-                left: *self as u32,
-                right: SyntaxId::NONE.0,
-            }
-        }
-    }
-
-    fn decode_payload(payload: SyntaxPayload) -> Self {
-        payload.left != 0
-    }
 }
