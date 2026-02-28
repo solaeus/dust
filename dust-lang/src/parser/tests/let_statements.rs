@@ -55,10 +55,6 @@ fn let_statement_with_type() {
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 34), SyntaxId(8)),
             LetStatement.with_multiple_children(Span::new(16, 32), 0, 3),
-            Path.with_child(Span::new(20, 21), SyntaxId(4)),
-            PathSegment.empty(Span::new(20, 21)),
-            IntegerExpression.with_value(Span::new(29, 31), SyntaxPayload::encode_integer(42)),
-            IntegerType.empty(Span::new(23, 26)),
         ]
     );
 }
@@ -112,10 +108,6 @@ fn let_mut_statement_with_type() {
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 38), SyntaxId(8)),
             LetMutStatement.with_multiple_children(Span::new(16, 36), 0, 3),
-            Path.with_child(Span::new(24, 25), SyntaxId(4)),
-            PathSegment.empty(Span::new(24, 25)),
-            IntegerExpression.with_value(Span::new(33, 35), SyntaxPayload::encode_integer(42)),
-            IntegerType.empty(Span::new(27, 30)),
         ]
     );
 }

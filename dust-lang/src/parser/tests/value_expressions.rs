@@ -178,9 +178,6 @@ fn list() {
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 27), SyntaxId(7)),
             ListExpression.with_multiple_children(Span::new(16, 25), 0, 3),
-            IntegerExpression.with_value(Span::new(17, 18), SyntaxPayload::encode_integer(1)),
-            IntegerExpression.with_value(Span::new(20, 21), SyntaxPayload::encode_integer(2)),
-            IntegerExpression.with_value(Span::new(23, 24), SyntaxPayload::encode_integer(3)),
         ]
     );
 }

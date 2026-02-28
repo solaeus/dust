@@ -52,32 +52,14 @@ fn if_else() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 55), SyntaxId(27)),
-            FunctionItem.with_binary_children(Span::new(0, 55), SyntaxId(1), SyntaxId(26)),
+            Root.with_child(Span::new(0, 55), SyntaxId(26)),
+            FunctionItem.with_binary_children(Span::new(0, 55), SyntaxId(1), SyntaxId(25)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionExpression.with_binary_children(Span::new(7, 55), SyntaxId(3), SyntaxId(25)),
+            FunctionExpression.with_binary_children(Span::new(7, 55), SyntaxId(3), SyntaxId(24)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
-            BlockExpression.with_child(Span::new(10, 55), SyntaxId(24)),
+            BlockExpression.with_child(Span::new(10, 55), SyntaxId(23)),
             IfExpression.with_multiple_children(Span::new(16, 53), 0, 3),
-            PathExpression.with_child(Span::new(19, 28), SyntaxId(4)),
-            PathSegment.empty(Span::new(19, 28)),
-            BlockExpression.with_child(Span::new(29, 38), SyntaxId(13)),
-            AdditionExpression.with_binary_children(Span::new(31, 36), SyntaxId(9), SyntaxId(12)),
-            PathExpression.with_child(Span::new(31, 32), SyntaxId(7)),
-            PathSegment.empty(Span::new(31, 32)),
-            PathExpression.with_child(Span::new(35, 36), SyntaxId(10)),
-            PathSegment.empty(Span::new(35, 36)),
-            BlockExpression.with_child(Span::new(44, 53), SyntaxId(21)),
-            SubtractionExpression.with_binary_children(
-                Span::new(46, 51),
-                SyntaxId(17),
-                SyntaxId(20)
-            ),
-            PathExpression.with_child(Span::new(46, 47), SyntaxId(15)),
-            PathSegment.empty(Span::new(46, 47)),
-            PathExpression.with_child(Span::new(50, 51), SyntaxId(18)),
-            PathSegment.empty(Span::new(50, 51)),
         ]
     );
 }
@@ -95,13 +77,13 @@ fn if_else_if() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 74), SyntaxId(40)),
-            FunctionItem.with_binary_children(Span::new(0, 74), SyntaxId(1), SyntaxId(39)),
+            Root.with_child(Span::new(0, 74), SyntaxId(38)),
+            FunctionItem.with_binary_children(Span::new(0, 74), SyntaxId(1), SyntaxId(37)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionExpression.with_binary_children(Span::new(7, 74), SyntaxId(3), SyntaxId(38)),
+            FunctionExpression.with_binary_children(Span::new(7, 74), SyntaxId(3), SyntaxId(36)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
-            BlockExpression.with_child(Span::new(10, 74), SyntaxId(37)),
+            BlockExpression.with_child(Span::new(10, 74), SyntaxId(35)),
             IfExpression.with_multiple_children(Span::new(16, 72), 3, 3),
             PathExpression.with_child(Span::new(19, 23), SyntaxId(4)),
             PathSegment.empty(Span::new(19, 23)),

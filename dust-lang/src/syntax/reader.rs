@@ -328,7 +328,9 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
 
                 child_id
             }
-            SyntaxPayloadKind::MultipleChildren if self.current_index < self.parent.child_count() => {
+            SyntaxPayloadKind::MultipleChildren
+                if self.current_index < self.parent.child_count() =>
+            {
                 let child_index = self.parent.payload().as_usize_range().start + self.current_index;
                 self.current_index += 1;
 
@@ -367,7 +369,9 @@ impl DoubleEndedIterator for SyntaxReaderIterator<'_> {
 
                 child_id
             }
-            SyntaxPayloadKind::MultipleChildren if self.current_index < self.parent.child_count() => {
+            SyntaxPayloadKind::MultipleChildren
+                if self.current_index < self.parent.child_count() =>
+            {
                 let child_index =
                     self.parent.payload().as_usize_range().end - 1 - self.current_index;
                 self.current_index += 1;
@@ -382,3 +386,33 @@ impl DoubleEndedIterator for SyntaxReaderIterator<'_> {
 }
 
 impl ExactSizeIterator for SyntaxReaderIterator<'_> {}
+
+#[cfg(test)]
+mod tests {
+    use crate::parse;
+
+    #[test]
+    fn double_ended_iterator() {
+        let (syntax_tree, errors) = parse("fn main() { 1 + 2 * 3 }");
+
+        assert!(errors.is_empty());
+
+        let root = syntax_tree.root().unwrap();
+
+        let forward = {
+            let mut children = root.children().unwrap();
+
+            children
+                .by_ref()
+                .map(|node| node.inner())
+                .collect::<Vec<_>>()
+        };
+        let backward = {
+            let children = root.children().unwrap();
+
+            children.rev().map(|node| node.inner()).collect::<Vec<_>>()
+        };
+
+        assert_eq!(forward, backward);
+    }
+}
