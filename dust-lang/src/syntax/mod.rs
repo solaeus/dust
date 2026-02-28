@@ -57,7 +57,9 @@ impl Syntax {
         self.trees
             .get(index)
             .and_then(|tree| tree.as_ref())
-            .ok_or_else(|| ErrorKind::Internal(InternalError::MissingSyntaxTree(file_id)))
+            .ok_or(ErrorKind::Internal(InternalError::MissingSyntaxTree(
+                file_id,
+            )))
     }
 }
 

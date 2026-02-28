@@ -12,8 +12,8 @@ use ratatui::{
 };
 
 use crate::{
-    dust_crate::Program,
     instruction::Address,
+    program::Program,
     prototype::Prototype,
     resolver::Resolver,
     source::{Source, SourceFile},

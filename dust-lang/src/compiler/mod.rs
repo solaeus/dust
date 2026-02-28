@@ -17,10 +17,10 @@ use crate::{
         type_binder::TypeBinder,
     },
     constant_table::ConstantTable,
-    dust_crate::Program,
     dust_error::{Error, ErrorKind},
     lexer::Lexer,
     parser::{ParseResult, Parser},
+    program::Program,
     prototype::{Prototype, PrototypeId, PrototypeList},
     resolver::{
         Resolver,
@@ -206,7 +206,7 @@ impl<'src> Compiler<'src> {
             let _enter = span.enter();
 
             let mut declaration_binder = DeclarationBinder::new(
-                &mut self.source,
+                &self.source,
                 &self.syntax,
                 &mut self.resolver,
                 &mut errors,

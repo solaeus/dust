@@ -61,9 +61,3 @@ pub struct SymbolId(u32);
 impl SymbolId {
     pub const DUMMY: SymbolId = Self(u32::MAX);
 }
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct AnonymousSymbolId(u32);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct NamedSymbolId(u32);

@@ -14,10 +14,10 @@
 mod compiler;
 mod constant_table;
 mod disassembler;
-mod dust_crate;
 mod dust_error;
 mod dust_type;
 mod instruction;
+mod program;
 // mod jit_vm;
 mod lexer;
 mod native_function;
@@ -34,13 +34,13 @@ mod value;
 pub use crate::{
     compiler::{Compiler, compile, compile_main, error::CompileError},
     disassembler::Disassembler,
-    dust_crate::Program,
     dust_error::{Error, ErrorKind},
     dust_type::DustType,
     instruction::Instruction,
-    lexer::Lexer,
+    lexer::{Lexer, tokenize_bytes, tokenize_str},
     native_function::NativeFunction,
-    parser::{ParseError, ParseResult, Parser},
+    parser::{ParseError, ParseResult, Parser, parse},
+    program::Program,
     project::{
         DEFAULT_PROGRAM_PATH, EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProgramConfig,
         ProjectConfig,

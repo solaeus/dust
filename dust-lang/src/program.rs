@@ -1,13 +1,6 @@
-use std::sync::Arc;
-
 use serde::{Deserialize, Serialize};
 
-use crate::{constant_table::ConstantTable, prototype::PrototypeList, syntax::SyntaxTree};
-
-pub enum DustCrate {
-    Program(Arc<Program>),
-    Library(Vec<SyntaxTree>),
-}
+use crate::{constant_table::ConstantTable, prototype::PrototypeList};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Program {

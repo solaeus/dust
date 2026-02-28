@@ -172,7 +172,26 @@ impl<'a> SyntaxReader<'a> {
     pub fn draw_text_tree(&self, buffer: &mut String) {
         let mut ancestors = Vec::new();
 
-        self.draw_text_tree_line(buffer, &mut ancestors, false);
+        buffer.push_str(self.node.kind.as_str());
+        buffer.push('\n');
+
+        let size = self.child_count();
+
+        if size > 0 {
+            let children = match self.children() {
+                Ok(children) => children,
+                Err(error) => {
+                    error!("{error:?}");
+                    return;
+                }
+            };
+
+            for (index, child) in children.enumerate() {
+                let child_is_last = index == size.saturating_sub(1);
+
+                child.draw_text_tree_line(buffer, &mut ancestors, child_is_last);
+            }
+        }
     }
 
     fn draw_text_tree_line(&self, buffer: &mut String, ancestors: &mut Vec<bool>, is_last: bool) {

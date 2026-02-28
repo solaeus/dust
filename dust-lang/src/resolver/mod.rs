@@ -186,7 +186,7 @@ impl Resolver {
                 {
                     self.scope_search.clear();
 
-                    return Ok((*import_declaration_id, import_declaration.clone()));
+                    return Ok((*import_declaration_id, import_declaration));
                 }
             }
 
@@ -341,13 +341,13 @@ impl Resolver {
             ) => {
                 if left_declaration_id != right_declaration_id {
                     let expected_position = if let Some(left) = left_syntax {
-                        left.children()?.last().map(|child| child.position())
+                        left.children()?.next_back().map(|child| child.position())
                     } else {
                         None
                     };
                     let found_position = right_syntax
                         .children()?
-                        .last()
+                        .next_back()
                         .unwrap_or(right_syntax)
                         .position();
 
@@ -398,13 +398,13 @@ impl Resolver {
                     Ok(())
                 } else {
                     let expected_position = if let Some(left) = left_syntax {
-                        left.children()?.last().map(|child| child.position())
+                        left.children()?.next_back().map(|child| child.position())
                     } else {
                         None
                     };
                     let found_position = right_syntax
                         .children()?
-                        .last()
+                        .next_back()
                         .unwrap_or(right_syntax)
                         .position();
 
@@ -728,5 +728,11 @@ impl Resolver {
             },
             _ => Ok(1),
         }
+    }
+}
+
+impl Default for Resolver {
+    fn default() -> Self {
+        Self::new()
     }
 }
