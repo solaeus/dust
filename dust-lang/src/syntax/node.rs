@@ -144,7 +144,6 @@ pub enum SyntaxKind {
 
     // Control Flow Expressions
     IfExpression,
-    ElseExpression,
 
     // Loop Expressions
     WhileExpression,
@@ -322,7 +321,6 @@ impl SyntaxKind {
                 | SyntaxKind::BreakExpression
                 | SyntaxKind::AsExpression
                 | SyntaxKind::IfExpression
-                | SyntaxKind::ElseExpression
                 | SyntaxKind::StructExpression
         )
     }
@@ -330,10 +328,7 @@ impl SyntaxKind {
     pub fn has_block(self) -> bool {
         matches!(
             self,
-            SyntaxKind::BlockExpression
-                | SyntaxKind::IfExpression
-                | SyntaxKind::ElseExpression
-                | SyntaxKind::WhileExpression
+            SyntaxKind::BlockExpression | SyntaxKind::IfExpression | SyntaxKind::WhileExpression
         )
     }
 
@@ -368,7 +363,6 @@ impl SyntaxKind {
             SyntaxKind::CharacterType => "character type",
             SyntaxKind::DivisionAssignmentStatement => "division assignment statement",
             SyntaxKind::DivisionExpression => "division expression",
-            SyntaxKind::ElseExpression => "else expression",
             SyntaxKind::EnumItem => "enum item",
             SyntaxKind::EnumVariant => "enum variant",
             SyntaxKind::EnumVariants => "enum variants",

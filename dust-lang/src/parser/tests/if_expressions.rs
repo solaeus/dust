@@ -68,7 +68,6 @@ fn if_else() {
             PathSegment.empty(Span::new(31, 32)),
             PathExpression.with_child(Span::new(35, 36), SyntaxId(10)),
             PathSegment.empty(Span::new(35, 36)),
-            ElseExpression.with_child(Span::new(39, 53), SyntaxId(22)),
             BlockExpression.with_child(Span::new(44, 53), SyntaxId(21)),
             SubtractionExpression.with_binary_children(
                 Span::new(46, 51),
@@ -112,7 +111,6 @@ fn if_else_if() {
             PathSegment.empty(Span::new(26, 27)),
             PathExpression.with_child(Span::new(30, 31), SyntaxId(10)),
             PathSegment.empty(Span::new(30, 31)),
-            ElseExpression.with_child(Span::new(34, 72), SyntaxId(35)),
             IfExpression.with_multiple_children(Span::new(39, 72), 0, 3),
             PathExpression.with_child(Span::new(42, 47), SyntaxId(15)),
             PathSegment.empty(Span::new(42, 47)),
@@ -126,7 +124,6 @@ fn if_else_if() {
             PathSegment.empty(Span::new(50, 51)),
             PathExpression.with_child(Span::new(54, 55), SyntaxId(21)),
             PathSegment.empty(Span::new(54, 55)),
-            ElseExpression.with_child(Span::new(58, 72), SyntaxId(33)),
             BlockExpression.with_child(Span::new(63, 72), SyntaxId(32)),
             MultiplicationExpression.with_binary_children(
                 Span::new(65, 70),

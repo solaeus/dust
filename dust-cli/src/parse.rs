@@ -5,7 +5,7 @@ use std::{
 };
 
 use dust_lang::{
-    ErrorKind, Lexer, ParseError, ParseResult, Parser, Position, SourceFile, SyntaxTree,
+    Error, ErrorKind, Lexer, ParseError, ParseResult, Parser, Position, SourceFile, SyntaxTree,
 };
 use ron::ser::PrettyConfig;
 
@@ -86,6 +86,12 @@ pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
         parse_errors.extend(errors);
 
         files_parsed += 1;
+    }
+
+    if !parse_errors.is_empty() {
+        let error = Error::with_source(parse_errors, source);
+
+        eprintln!("{error}");
     }
 
     if time {

@@ -1169,29 +1169,35 @@ impl<'src> Parser<'src> {
 
         self.advance();
 
+        let mut children = Self::new_child_buffer();
+
         let condition_node = self.parse_expression()?;
         let condition_id = self.tree_builder.add_node(condition_node);
+
+        children.push(condition_id);
 
         let then_node = self.parse_prefix_left_brace()?;
         let then_id = self.tree_builder.add_node(then_node);
 
+        children.push(then_id);
+
         if self.current_token.kind == TokenKind::Else {
             let else_node = self.parse_else_expression()?;
             let else_id = self.tree_builder.add_node(else_node);
-            let span = Span::new(start, self.previous_token.span.end());
-            let (start, length) = self
-                .tree_builder
-                .add_children(&[condition_id, then_id, else_id]);
 
-            Ok(SyntaxKind::IfExpression.with_multiple_children(span, start, length))
-        } else {
-            let span = Span::new(start, self.previous_token.span.end());
-
-            Ok(SyntaxKind::IfExpression.with_binary_children(span, condition_id, then_id))
+            children.push(else_id);
         }
+
+        Ok(self.create_node_with_children(
+            SyntaxKind::IfExpression,
+            Span::new(start, self.previous_token.span.end()),
+            &children,
+        ))
     }
 
     fn parse_else_expression(&mut self) -> Result<SyntaxNode, ErrorKind> {
+        self.advance();
+
         match self.current_token.kind {
             TokenKind::If => self.parse_prefix_if_keyword(),
             TokenKind::LeftCurlyBrace => self.parse_prefix_left_brace(),

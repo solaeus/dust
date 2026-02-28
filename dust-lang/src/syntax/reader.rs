@@ -328,7 +328,7 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
 
                 child_id
             }
-            SyntaxPayloadKind::MultipleChildren if self.current_index < self.len() => {
+            SyntaxPayloadKind::MultipleChildren if self.current_index < self.parent.child_count() => {
                 let child_index = self.parent.payload().as_usize_range().start + self.current_index;
                 self.current_index += 1;
 
@@ -367,7 +367,7 @@ impl DoubleEndedIterator for SyntaxReaderIterator<'_> {
 
                 child_id
             }
-            SyntaxPayloadKind::MultipleChildren if self.current_index < self.len() => {
+            SyntaxPayloadKind::MultipleChildren if self.current_index < self.parent.child_count() => {
                 let child_index =
                     self.parent.payload().as_usize_range().end - 1 - self.current_index;
                 self.current_index += 1;
