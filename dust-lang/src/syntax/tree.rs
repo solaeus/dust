@@ -141,16 +141,8 @@ impl SyntaxTreeBuilder {
         id
     }
 
-    pub fn replace_node(&mut self, id: SyntaxId, node: SyntaxNode) -> Result<(), ErrorKind> {
-        let index = id.0 as usize;
-
-        if index >= self.tree.nodes.len() {
-            return Err(ErrorKind::Internal(InternalError::MissingSyntaxNode(id)));
-        }
-
-        self.tree.nodes[index] = node;
-
-        Ok(())
+    pub fn replace_node(&mut self, id: SyntaxId, node: SyntaxNode) {
+        self.tree.nodes[id.0 as usize] = node;
     }
 
     pub fn add_children(&mut self, children: &[SyntaxId]) -> (u32, u32) {

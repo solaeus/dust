@@ -26,7 +26,7 @@ use crate::{
     token::{Token, TokenKind},
 };
 
-pub fn parse<'src>(source_code: &'src str) -> (SyntaxTree, Vec<ErrorKind>) {
+pub fn parse(source_code: &str) -> (SyntaxTree, Vec<ErrorKind>) {
     let mut source = Source::new();
     let file = SourceFile::validated("parse", source_code);
     let file_id = source.add_file(file);

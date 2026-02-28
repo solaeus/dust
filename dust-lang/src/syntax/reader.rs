@@ -164,7 +164,7 @@ impl<'a> SyntaxReader<'a> {
 
                 self.tree.get_node(right_id).map(Some)
             }
-            SyntaxPayloadKind::MultipleChildren => Ok(SyntaxReaderIterator::new(self).last()),
+            SyntaxPayloadKind::MultipleChildren => Ok(SyntaxReaderIterator::new(self).next_back()),
             _ => Ok(None),
         }
     }
@@ -176,15 +176,6 @@ impl<'a> SyntaxReader<'a> {
     }
 
     fn draw_text_tree_line(&self, buffer: &mut String, ancestors: &mut Vec<bool>, is_last: bool) {
-        let children = match self.children() {
-            Ok(children) => children,
-            Err(error) => {
-                error!("{}", error.into_internal());
-
-                return;
-            }
-        };
-
         for ancestor_is_last in &*ancestors {
             let indent = if *ancestor_is_last { "    " } else { "│   " };
 
@@ -236,9 +227,24 @@ impl<'a> SyntaxReader<'a> {
 
         buffer.push('\n');
 
-        let size = children.len();
+        let size = self.child_count();
 
         ancestors.push(is_last);
+
+        if size == 0 {
+            ancestors.pop();
+
+            return;
+        }
+
+        let children = match self.children() {
+            Ok(children) => children,
+            Err(error) => {
+                error!("{error:?}");
+
+                return;
+            }
+        };
 
         for (index, child) in children.enumerate() {
             let child_is_last = index == size.saturating_sub(1);
