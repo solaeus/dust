@@ -20,10 +20,7 @@ use std::{
 };
 
 use clap::Parser as CliParser;
-use dust_lang::{
-    EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, ErrorKind, PROJECT_CONFIG_PATH, ProjectConfig, Source,
-    SourceError, SourceFile,
-};
+use dust_lang::prelude::*;
 use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
 use tracing_subscriber::{
     fmt::{FmtContext, FormatEvent, FormatFields, format::Writer},

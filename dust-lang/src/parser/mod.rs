@@ -473,51 +473,72 @@ impl<'src> Parser<'src> {
         let mut variant_nodes = Self::new_child_buffer();
 
         while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
-            let variant_node = {
-                let start = self.current_token.span.start();
+            let start = self.current_token.span.start();
 
-                let path_node = self.parse_simple_path()?;
-                let path_id = self.tree_builder.add_node(path_node);
+            println!(
+                "Parsing enum variant starting with token: {}",
+                self.current_token.kind
+            );
 
-                let fields_node = match self.current_token.kind {
-                    TokenKind::Comma => {
-                        self.advance();
+            let path_node = self.parse_simple_path()?;
+            let path_id = self.tree_builder.add_node(path_node);
 
-                        let variant_node = SyntaxKind::EnumVariant
-                            .with_child(Span::new(start, self.previous_token.span.end()), path_id);
-                        let variant_id = self.tree_builder.add_node(variant_node);
+            let variant_node = match self.current_token.kind {
+                TokenKind::Comma | TokenKind::RightCurlyBrace => {
+                    self.advance();
 
-                        variant_nodes.push(variant_id);
+                    SyntaxKind::EnumVariant
+                        .with_child(Span::new(start, self.previous_token.span.end()), path_id)
+                }
+                TokenKind::LeftParenthesis => {
+                    let tuple_fields_node = self.parse_tuple_fields()?;
+                    let tuple_fields_id = self.tree_builder.add_node(tuple_fields_node);
 
-                        continue;
-                    }
-                    TokenKind::LeftParenthesis => self.parse_tuple_fields()?,
-                    TokenKind::LeftCurlyBrace => self.parse_struct_fields()?,
-                    _ => {
-                        return Err(ErrorKind::Parse(ParseError::ExpectedMultipleTokens {
-                            expected: &[
-                                TokenKind::Comma,
-                                TokenKind::LeftParenthesis,
-                                TokenKind::LeftCurlyBrace,
-                                TokenKind::Less,
-                            ],
-                            found: self.current_token.kind,
-                            position: self.current_position(),
-                        }));
-                    }
-                };
-                let fields_id = self.tree_builder.add_node(fields_node);
+                    let fields_node = self.create_node_with_children(
+                        SyntaxKind::EnumVariant,
+                        Span::new(start, self.previous_token.span.end()),
+                        &[tuple_fields_id],
+                    );
+                    let fields_id = self.tree_builder.add_node(fields_node);
 
-                SyntaxKind::EnumVariant.with_binary_children(
-                    Span::new(start, self.previous_token.span.end()),
-                    path_id,
-                    fields_id,
-                )
+                    SyntaxKind::EnumVariant.with_binary_children(
+                        Span::new(start, self.previous_token.span.end()),
+                        path_id,
+                        fields_id,
+                    )
+                }
+                TokenKind::LeftCurlyBrace => {
+                    let struct_fields_node = self.parse_struct_fields()?;
+                    let struct_fields_id = self.tree_builder.add_node(struct_fields_node);
+
+                    let fields_node = self.create_node_with_children(
+                        SyntaxKind::EnumVariant,
+                        Span::new(start, self.previous_token.span.end()),
+                        &[struct_fields_id],
+                    );
+                    let fields_id = self.tree_builder.add_node(fields_node);
+
+                    SyntaxKind::EnumVariant.with_binary_children(
+                        Span::new(start, self.previous_token.span.end()),
+                        path_id,
+                        fields_id,
+                    )
+                }
+                _ => {
+                    return Err(ErrorKind::Parse(ParseError::ExpectedMultipleTokens {
+                        expected: &[
+                            TokenKind::Comma,
+                            TokenKind::LeftParenthesis,
+                            TokenKind::LeftCurlyBrace,
+                        ],
+                        found: self.current_token.kind,
+                        position: self.current_position(),
+                    }));
+                }
             };
             let variant_id = self.tree_builder.add_node(variant_node);
 
             variant_nodes.push(variant_id);
-
             self.allow(TokenKind::Comma)?;
         }
 

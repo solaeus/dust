@@ -1,12 +1,9 @@
 use std::{
     io::{Write, stdout},
-    path::Path,
     time::Instant,
 };
 
-use dust_lang::{
-    Error, ErrorKind, Lexer, ParseError, ParseResult, Parser, Position, SourceFile, SyntaxTree,
-};
+use dust_lang::prelude::*;
 use ron::ser::PrettyConfig;
 
 use crate::{

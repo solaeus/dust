@@ -1,8 +1,12 @@
 mod binary_assignment_statements;
 mod binary_expressions;
 mod block_expressions;
+mod enum_item;
+mod function_item;
 mod if_expressions;
 mod let_statements;
+mod mod_item;
+mod struct_item;
 mod unary_expressions;
 mod value_expressions;
 

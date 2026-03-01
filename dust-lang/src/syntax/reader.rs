@@ -145,7 +145,7 @@ impl<'a> SyntaxReader<'a> {
                 }
             }
             SyntaxPayloadKind::MultipleChildren => {
-                if self.node.payload.right >= self.tree.children.len() as u32 {
+                if self.node.payload.as_usize_range().end > self.tree.children.len() {
                     return Err(ErrorKind::Internal(InternalError::InvalidSyntaxPayload(
                         self.payload(),
                     )));
@@ -389,7 +389,7 @@ impl ExactSizeIterator for SyntaxReaderIterator<'_> {}
 
 #[cfg(test)]
 mod tests {
-    use crate::parse;
+    use crate::prelude::parse;
 
     #[test]
     fn double_ended_iterator() {

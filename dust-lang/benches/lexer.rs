@@ -3,7 +3,7 @@
 use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use dust_lang::Lexer;
+use dust_lang::prelude::*;
 
 const SOURCE: &[u8] = br#"
 fn fib (n: int) -> int {

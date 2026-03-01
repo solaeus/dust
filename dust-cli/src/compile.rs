@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use dust_lang::{Compiler, Disassembler, ErrorKind};
+use dust_lang::prelude::*;
 
 use crate::{
     cli::{CompileCommand, GlobalOptions, InputOptions, OutputOptions},

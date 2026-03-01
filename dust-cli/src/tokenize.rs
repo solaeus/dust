@@ -1,6 +1,6 @@
-use std::{fmt::Display, path::PathBuf, time::Instant};
+use std::{fmt::Display, time::Instant};
 
-use dust_lang::{ErrorKind, Lexer};
+use dust_lang::prelude::*;
 
 use crate::{
     cli::{GlobalOptions, InputOptions, OutputOptions, TokenizeCommand},

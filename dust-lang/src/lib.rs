@@ -31,27 +31,29 @@ mod syntax;
 mod token;
 mod value;
 
-pub use crate::{
-    compiler::{Compiler, compile, compile_main, error::CompileError},
-    disassembler::Disassembler,
-    dust_error::{Error, ErrorKind},
-    dust_type::DustType,
-    instruction::Instruction,
-    lexer::{Lexer, tokenize_bytes, tokenize_str},
-    native_function::NativeFunction,
-    parser::{ParseError, ParseResult, Parser, parse},
-    program::Program,
-    project::{
-        DEFAULT_PROGRAM_PATH, EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProgramConfig,
-        ProjectConfig,
-    },
-    prototype::{Prototype, PrototypeId, PrototypeList},
-    resolver::Resolver,
-    source::{Position, Source, SourceError, SourceFile, SourceFileId, Span},
-    syntax::{Syntax, SyntaxKind, SyntaxReader, SyntaxTree, SyntaxVisitor},
-    token::{Token, TokenKind},
-    value::Value,
-};
+pub mod prelude {
+    pub use crate::{
+        compiler::{Compiler, compile},
+        disassembler::Disassembler,
+        dust_error::{Error, ErrorKind},
+        dust_type::DustType,
+        instruction::Instruction,
+        lexer::{Lexer, tokenize_bytes, tokenize_str},
+        native_function::NativeFunction,
+        parser::{ParseError, ParseResult, Parser, parse},
+        program::Program,
+        project::{
+            DEFAULT_PROGRAM_PATH, EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH,
+            ProgramConfig, ProjectConfig,
+        },
+        prototype::{Prototype, PrototypeId, PrototypeList},
+        resolver::Resolver,
+        source::{Position, Source, SourceError, SourceFile, SourceFileId, Span},
+        syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxTree, SyntaxVisitor},
+        token::{Token, TokenKind},
+        value::Value,
+    };
+}
 
 #[cfg(test)]
 mod tests;

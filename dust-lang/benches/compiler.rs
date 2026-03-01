@@ -1,7 +1,7 @@
 use std::{hint::black_box, time::Duration};
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use dust_lang::compile;
+use dust_lang::prelude::*;
 
 const LOOP: &str = r"
 let mut i = 0;
