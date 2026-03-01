@@ -399,19 +399,17 @@ mod tests {
 
         let root = syntax_tree.root().unwrap();
 
-        let forward = {
-            let mut children = root.children().unwrap();
-
-            children
-                .by_ref()
-                .map(|node| node.inner())
-                .collect::<Vec<_>>()
-        };
-        let backward = {
-            let children = root.children().unwrap();
-
-            children.rev().map(|node| node.inner()).collect::<Vec<_>>()
-        };
+        let forward = root
+            .children()
+            .unwrap()
+            .map(|node| node.inner())
+            .collect::<Vec<_>>();
+        let backward = root
+            .children()
+            .unwrap()
+            .rev()
+            .map(|node| node.inner())
+            .collect::<Vec<_>>();
 
         assert_eq!(forward, backward);
     }

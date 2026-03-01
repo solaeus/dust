@@ -1,10 +1,12 @@
 pub mod binary_assignment_statements;
 pub mod binary_expressions;
 pub mod block_expression;
+pub mod enum_item;
 pub mod function_item;
 pub mod if_expressions;
 pub mod let_statement;
 pub mod mod_item;
+pub mod struct_item;
 pub mod unary_expressions;
 pub mod value_expressions;
 
