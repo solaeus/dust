@@ -60,6 +60,20 @@ fn if_else() {
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 55), SyntaxId(23)),
             IfExpression.with_multiple_children(Span::new(16, 53), 0, 3),
+            PathExpression.with_child(Span::new(19, 28), SyntaxId(4)),
+            PathSegment.empty(Span::new(19, 28)),
+            BlockExpression.with_child(Span::new(29, 38), SyntaxId(13)),
+            AdditionExpression.with_binary_children(Span::new(31, 36), SyntaxId(9), SyntaxId(12)),
+            PathExpression.with_child(Span::new(31, 32), SyntaxId(7)),
+            PathSegment.empty(Span::new(31, 32)),
+            PathExpression.with_child(Span::new(35, 36), SyntaxId(10)),
+            PathSegment.empty(Span::new(35, 36)),
+            BlockExpression.with_child(Span::new(44, 53), SyntaxId(21)),
+            SubtractionExpression.with_binary_children(Span::new(46, 51), SyntaxId(17), SyntaxId(20)),
+            PathExpression.with_child(Span::new(46, 47), SyntaxId(15)),
+            PathSegment.empty(Span::new(46, 47)),
+            PathExpression.with_child(Span::new(50, 51), SyntaxId(18)),
+            PathSegment.empty(Span::new(50, 51)),
         ]
     );
 }

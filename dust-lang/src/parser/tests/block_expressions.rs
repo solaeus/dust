@@ -142,6 +142,21 @@ fn mixed() {
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 51), SyntaxId(21)),
             BlockExpression.with_multiple_children(Span::new(16, 49), 0, 3),
+            FunctionItem.with_binary_children(Span::new(18, 30), SyntaxId(4), SyntaxId(8)),
+            SimplePath.empty(Span::new(21, 24)),
+            FunctionExpression.with_binary_children(Span::new(24, 29), SyntaxId(6), SyntaxId(7)),
+            FunctionSignature.with_child(Span::new(24, 26), SyntaxId(5)),
+            ValueParameters.empty(Span::new(24, 26)),
+            BlockExpression.empty(Span::new(27, 29)),
+            LetStatement.with_binary_children(Span::new(30, 41), SyntaxId(11), SyntaxId(12)),
+            Path.with_child(Span::new(34, 35), SyntaxId(10)),
+            PathSegment.empty(Span::new(34, 35)),
+            IntegerExpression.with_value(Span::new(38, 40), SyntaxPayload::encode_integer(42)),
+            AdditionExpression.with_binary_children(Span::new(42, 47), SyntaxId(16), SyntaxId(19)),
+            PathExpression.with_child(Span::new(42, 43), SyntaxId(14)),
+            PathSegment.empty(Span::new(42, 43)),
+            PathExpression.with_child(Span::new(46, 47), SyntaxId(17)),
+            PathSegment.empty(Span::new(46, 47)),
         ]
     );
 }

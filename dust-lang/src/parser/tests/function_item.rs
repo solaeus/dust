@@ -49,6 +49,12 @@ fn value_parameters() {
             FunctionExpression.with_binary_children(Span::new(6, 26), SyntaxId(9), SyntaxId(10)),
             FunctionSignature.with_child(Span::new(6, 23), SyntaxId(8)),
             ValueParameters.with_multiple_children(Span::new(6, 23), 0, 4),
+            Path.with_child(Span::new(7, 8), SyntaxId(2)),
+            PathSegment.empty(Span::new(7, 8)),
+            IntegerType.empty(Span::new(10, 13)),
+            Path.with_child(Span::new(15, 16), SyntaxId(5)),
+            PathSegment.empty(Span::new(15, 16)),
+            BooleanType.empty(Span::new(18, 22)),
             BlockExpression.empty(Span::new(24, 26)),
         ]
     );
@@ -74,6 +80,9 @@ fn type_parameters() {
             FunctionSignature.with_binary_children(Span::new(6, 17), SyntaxId(6), SyntaxId(5)),
             ValueParameters.empty(Span::new(15, 17)),
             TypeParameters.with_multiple_children(Span::new(6, 15), 0, 3),
+            SimplePath.empty(Span::new(7, 8)),
+            SimplePath.empty(Span::new(10, 11)),
+            SimplePath.empty(Span::new(13, 14)),
             BlockExpression.empty(Span::new(18, 20)),
         ]
     );

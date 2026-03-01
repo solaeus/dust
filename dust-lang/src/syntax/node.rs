@@ -265,6 +265,8 @@ impl SyntaxKind {
                 | SyntaxKind::PublicFunctionItem
                 | SyntaxKind::StructItem
                 | SyntaxKind::PublicStructItem
+                | SyntaxKind::EnumItem
+                | SyntaxKind::PublicEnumItem
         )
     }
 

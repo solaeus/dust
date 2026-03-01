@@ -475,11 +475,6 @@ impl<'src> Parser<'src> {
         while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
             let start = self.current_token.span.start();
 
-            println!(
-                "Parsing enum variant starting with token: {}",
-                self.current_token.kind
-            );
-
             let path_node = self.parse_simple_path()?;
             let path_id = self.tree_builder.add_node(path_node);
 
