@@ -6,6 +6,7 @@ pub mod function_item;
 pub mod if_expressions;
 pub mod let_statement;
 pub mod mod_item;
+pub mod struct_expression;
 pub mod struct_item;
 pub mod unary_expressions;
 pub mod value_expressions;

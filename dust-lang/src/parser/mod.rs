@@ -419,7 +419,7 @@ impl<'src> Parser<'src> {
                 self.advance();
             }
             TokenKind::LeftParenthesis => {
-                let fields_node = self.parse_tuple_fields()?;
+                let fields_node = self.parse_tuple_fields_declaration()?;
                 let fields_id = self.tree_builder.add_node(fields_node);
 
                 children.push(fields_id);
@@ -427,7 +427,7 @@ impl<'src> Parser<'src> {
                 self.expect(TokenKind::Semicolon)?;
             }
             TokenKind::LeftCurlyBrace => {
-                let fields_node = self.parse_struct_fields()?;
+                let fields_node = self.parse_struct_fields_declaration()?;
                 let fields_id = self.tree_builder.add_node(fields_node);
 
                 children.push(fields_id);
@@ -486,7 +486,7 @@ impl<'src> Parser<'src> {
                         .with_child(Span::new(start, self.previous_token.span.end()), path_id)
                 }
                 TokenKind::LeftParenthesis => {
-                    let tuple_fields_node = self.parse_tuple_fields()?;
+                    let tuple_fields_node = self.parse_tuple_fields_declaration()?;
                     let tuple_fields_id = self.tree_builder.add_node(tuple_fields_node);
 
                     let fields_node = self.create_node_with_children(
@@ -503,7 +503,7 @@ impl<'src> Parser<'src> {
                     )
                 }
                 TokenKind::LeftCurlyBrace => {
-                    let struct_fields_node = self.parse_struct_fields()?;
+                    let struct_fields_node = self.parse_struct_fields_declaration()?;
                     let struct_fields_id = self.tree_builder.add_node(struct_fields_node);
 
                     let fields_node = self.create_node_with_children(
@@ -1275,38 +1275,22 @@ impl<'src> Parser<'src> {
         let path_id = self.tree_builder.add_node(path_node);
 
         if may_be_struct && self.allow(TokenKind::LeftCurlyBrace)? {
-            let mut children = Self::new_child_buffer();
+            let struct_fields_node = self.parse_struct_fields_values()?;
+            let struct_fields_id = self.tree_builder.add_node(struct_fields_node);
 
-            children.push(path_id);
-
-            while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
-                let field_path_node = self.parse_path()?;
-                let field_path_id = self.tree_builder.add_node(field_path_node);
-
-                self.expect(TokenKind::Colon)?;
-
-                let field_expression_node = self.parse_expression()?;
-                let field_expression_id = self.tree_builder.add_node(field_expression_node);
-
-                self.allow(TokenKind::Comma)?;
-
-                children.push(field_path_id);
-                children.push(field_expression_id);
-            }
-
-            Ok(self.create_node_with_children(
-                SyntaxKind::StructExpression,
+            return Ok(SyntaxKind::StructExpression.with_binary_children(
                 Span::new(start, self.previous_token.span.end()),
-                &children,
-            ))
-        } else {
-            Ok(SyntaxNode {
-                kind: SyntaxKind::PathExpression,
-                span: path_node.span,
-                payload: path_node.payload,
-                payload_kind: path_node.payload_kind,
-            })
+                path_id,
+                struct_fields_id,
+            ));
         }
+
+        Ok(SyntaxNode {
+            kind: SyntaxKind::PathExpression,
+            span: path_node.span,
+            payload: path_node.payload,
+            payload_kind: path_node.payload_kind,
+        })
     }
 
     fn parse_prefix_left_bracket(&mut self) -> Result<SyntaxNode, ErrorKind> {
@@ -1316,11 +1300,7 @@ impl<'src> Parser<'src> {
 
         let mut children = Self::new_child_buffer();
 
-        while !self.allow(TokenKind::RightSquareBracket)? {
-            if self.current_token.kind == TokenKind::Eof {
-                break;
-            }
-
+        while !self.allow(TokenKind::RightSquareBracket)? && !self.is_eof() {
             let child_node = self.parse_expression()?;
             let child_id = self.tree_builder.add_node(child_node);
 
@@ -1458,7 +1438,7 @@ impl<'src> Parser<'src> {
         )))
     }
 
-    fn parse_tuple_fields(&mut self) -> Result<SyntaxNode, ErrorKind> {
+    fn parse_tuple_fields_declaration(&mut self) -> Result<SyntaxNode, ErrorKind> {
         let start = self.current_token.span.start();
 
         self.advance();
@@ -1475,13 +1455,13 @@ impl<'src> Parser<'src> {
         }
 
         Ok(self.create_node_with_children(
-            SyntaxKind::TupleFields,
+            SyntaxKind::TupleFieldsDeclaration,
             Span::new(start, self.previous_token.span.end()),
             &field_type_nodes,
         ))
     }
 
-    fn parse_struct_fields(&mut self) -> Result<SyntaxNode, ErrorKind> {
+    fn parse_struct_fields_declaration(&mut self) -> Result<SyntaxNode, ErrorKind> {
         let start = self.current_token.span.start();
 
         self.advance();
@@ -1499,7 +1479,7 @@ impl<'src> Parser<'src> {
 
             self.allow(TokenKind::Comma)?;
 
-            let field_node = SyntaxKind::StructField.with_binary_children(
+            let field_node = SyntaxKind::StructFieldDeclaration.with_binary_children(
                 Span::new(start, self.previous_token.span.end()),
                 field_path_id,
                 field_type_id,
@@ -1508,6 +1488,39 @@ impl<'src> Parser<'src> {
 
             fields.push(field_id);
             self.allow(TokenKind::Comma)?;
+        }
+
+        Ok(self.create_node_with_children(
+            SyntaxKind::StructFieldsDeclaration,
+            Span::new(start, self.previous_token.span.end()),
+            &fields,
+        ))
+    }
+
+    fn parse_struct_fields_values(&mut self) -> Result<SyntaxNode, ErrorKind> {
+        let start = self.current_token.span.start();
+
+        let mut fields = Self::new_child_buffer();
+
+        while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
+            let field_path_node = self.parse_simple_path()?;
+            let field_path_id = self.tree_builder.add_node(field_path_node);
+
+            self.expect(TokenKind::Colon)?;
+
+            let field_expression_node = self.parse_expression()?;
+            let field_expression_id = self.tree_builder.add_node(field_expression_node);
+
+            self.allow(TokenKind::Comma)?;
+
+            let field_node = SyntaxKind::StructField.with_binary_children(
+                Span::new(start, self.previous_token.span.end()),
+                field_path_id,
+                field_expression_id,
+            );
+            let field_id = self.tree_builder.add_node(field_node);
+
+            fields.push(field_id);
         }
 
         Ok(self.create_node_with_children(

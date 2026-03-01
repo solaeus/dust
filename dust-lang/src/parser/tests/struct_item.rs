@@ -22,7 +22,7 @@ fn empty() {
             Root.with_child(Span::new(0, 13), SyntaxId(3)),
             StructItem.with_binary_children(Span::new(0, 13), SyntaxId(1), SyntaxId(2)),
             SimplePath.empty(Span::new(7, 10)),
-            StructFields.empty(Span::new(11, 13)),
+            StructFieldsDeclaration.empty(Span::new(11, 13)),
         ]
     );
 }
@@ -43,7 +43,11 @@ fn tuple() {
             Root.with_child(Span::new(0, 21), SyntaxId(5)),
             StructItem.with_binary_children(Span::new(0, 21), SyntaxId(1), SyntaxId(4)),
             SimplePath.empty(Span::new(7, 10)),
-            TupleFields.with_binary_children(Span::new(10, 20), SyntaxId(2), SyntaxId(3)),
+            TupleFieldsDeclaration.with_binary_children(
+                Span::new(10, 20),
+                SyntaxId(2),
+                SyntaxId(3)
+            ),
             IntegerType.empty(Span::new(11, 14)),
             IntegerType.empty(Span::new(16, 19)),
         ]
@@ -66,11 +70,23 @@ fn fields() {
             Root.with_child(Span::new(0, 29), SyntaxId(9)),
             StructItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(8)),
             SimplePath.empty(Span::new(7, 10)),
-            StructFields.with_binary_children(Span::new(11, 29), SyntaxId(4), SyntaxId(7)),
-            StructField.with_binary_children(Span::new(11, 20), SyntaxId(2), SyntaxId(3)),
+            StructFieldsDeclaration.with_binary_children(
+                Span::new(11, 29),
+                SyntaxId(4),
+                SyntaxId(7)
+            ),
+            StructFieldDeclaration.with_binary_children(
+                Span::new(11, 20),
+                SyntaxId(2),
+                SyntaxId(3)
+            ),
             SimplePath.empty(Span::new(13, 14)),
             IntegerType.empty(Span::new(16, 19)),
-            StructField.with_binary_children(Span::new(11, 27), SyntaxId(5), SyntaxId(6)),
+            StructFieldDeclaration.with_binary_children(
+                Span::new(11, 27),
+                SyntaxId(5),
+                SyntaxId(6)
+            ),
             SimplePath.empty(Span::new(21, 22)),
             IntegerType.empty(Span::new(24, 27)),
         ]
@@ -97,7 +113,7 @@ fn type_parameters() {
             SimplePath.empty(Span::new(11, 12)),
             SimplePath.empty(Span::new(14, 15)),
             SimplePath.empty(Span::new(17, 18)),
-            StructFields.empty(Span::new(20, 22)),
+            StructFieldsDeclaration.empty(Span::new(20, 22)),
         ]
     );
 }
