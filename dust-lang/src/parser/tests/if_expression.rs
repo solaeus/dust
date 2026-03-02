@@ -3,11 +3,11 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::if_expressions::{IF, IF_ELSE, IF_ELSE_IF},
+    tests::if_expression::{IF, IF_ELSE, IF_ELSE_IF},
 };
 
 #[test]
-fn if_only() {
+fn r#if() {
     let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(IF));
     let ParseResult {
         syntax_tree,
@@ -69,7 +69,11 @@ fn if_else() {
             PathExpression.with_child(Span::new(35, 36), SyntaxId(10)),
             PathSegment.empty(Span::new(35, 36)),
             BlockExpression.with_child(Span::new(44, 53), SyntaxId(21)),
-            SubtractionExpression.with_binary_children(Span::new(46, 51), SyntaxId(17), SyntaxId(20)),
+            SubtractionExpression.with_binary_children(
+                Span::new(46, 51),
+                SyntaxId(17),
+                SyntaxId(20)
+            ),
             PathExpression.with_child(Span::new(46, 47), SyntaxId(15)),
             PathSegment.empty(Span::new(46, 47)),
             PathExpression.with_child(Span::new(50, 51), SyntaxId(18)),
