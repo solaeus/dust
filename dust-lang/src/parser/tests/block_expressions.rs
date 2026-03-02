@@ -3,7 +3,7 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
-    tests::block_expression::{EMPTY, EXPRESSION, ITEM, MIXED, STATEMENT},
+    tests::source_examples::block_expression::{EMPTY, EXPRESSION, ITEM, MIXED, STATEMENT},
 };
 
 #[test]

@@ -3,7 +3,7 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
-    tests::binary_assignment_statements::{
+    tests::source_examples::binary_assignment_statements::{
         ADD_ASSIGN, DIVIDE_ASSIGN, MODULO_ASSIGN, MULTIPLY_ASSIGN, POWER_ASSIGN, SUBTRACT_ASSIGN,
     },
 };

@@ -3,7 +3,7 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
-    tests::struct_expression::{EMPTY_FIELDS, FIELDS},
+    tests::source_examples::struct_expression::{EMPTY_FIELDS, FIELDS},
 };
 
 #[test]

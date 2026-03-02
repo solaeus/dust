@@ -48,6 +48,20 @@ impl Resolver {
         let mut symbols = SymbolTable::new();
         let mut types = TypeGraph::new();
 
+        let core_symbol = symbols.add_symbol("core");
+        let _core_declaration_id = declarations.add_declaration(Declaration {
+            symbol_id: core_symbol,
+            position: None,
+            kind: DeclarationKind::Module {
+                kind: ModuleKind::Inline,
+                inner_scope_id: ScopeId::CORE,
+            },
+            scope_id: ScopeId::NONE,
+            is_public: true,
+        });
+
+        debug_assert_eq!(_core_declaration_id, DeclarationId::CORE);
+
         let mut core_imports =
             SmallVec::<[DeclarationId; 4]>::with_capacity(NativeFunction::ALL.len());
 
@@ -66,17 +80,6 @@ impl Resolver {
             core_imports.push(declaration_id);
         }
 
-        let core_symbol = symbols.add_symbol("core");
-        let _core_declaration_id = declarations.add_declaration(Declaration {
-            symbol_id: core_symbol,
-            position: None,
-            kind: DeclarationKind::Module {
-                kind: ModuleKind::Inline,
-                inner_scope_id: ScopeId::CORE,
-            },
-            scope_id: ScopeId::NONE,
-            is_public: true,
-        });
         let _core_scope_id = scopes.add_scope(Scope {
             kind: ScopeKind::Module,
             parent: ScopeId::NONE,
@@ -84,7 +87,6 @@ impl Resolver {
             imports: core_imports,
         });
 
-        debug_assert_eq!(_core_declaration_id, DeclarationId::CORE);
         debug_assert_eq!(_core_scope_id, ScopeId::CORE);
 
         Self {

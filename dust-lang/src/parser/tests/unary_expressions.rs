@@ -3,7 +3,7 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::unary_expressions::{NEGATE, NOT},
+    tests::source_examples::unary_expressions::{NEGATE, NOT},
 };
 
 #[test]

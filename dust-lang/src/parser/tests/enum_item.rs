@@ -3,7 +3,7 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::enum_item::{
+    tests::source_examples::enum_item::{
         EMPTY_VARIANT, FIELDS_VARIANT, MIXED_VARIANTS, TUPLE_VARIANT, TYPE_PARAMETERS,
     },
 };

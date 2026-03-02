@@ -3,7 +3,7 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
-    tests::value_expressions::{BOOLEAN, BYTE, CHARACTER, FLOAT, FUNCTION, INTEGER, LIST, STRING},
+    tests::source_examples::value_expressions::{BOOLEAN, BYTE, CHARACTER, FLOAT, FUNCTION, INTEGER, LIST, STRING},
 };
 
 #[test]

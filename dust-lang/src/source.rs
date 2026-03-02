@@ -11,7 +11,7 @@ use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-use crate::dust_error::{AnnotatedError, ErrorKind, InternalError};
+use crate::dust_error::{AnnotatedError, InternalError};
 
 #[derive(Debug)]
 pub struct Source<'src> {
@@ -231,7 +231,7 @@ impl<'src> SourceFile<'src> {
 
         full_source
             .get(range)
-            .ok_or_else(|| InternalError::MissingSourceFileContent {
+            .ok_or(InternalError::MissingSourceFileContent {
                 span,
                 length: full_source.len(),
             })
@@ -243,7 +243,7 @@ impl<'src> SourceFile<'src> {
 
         full_source
             .get(range)
-            .ok_or_else(|| InternalError::MissingSourceFileContent {
+            .ok_or(InternalError::MissingSourceFileContent {
                 span,
                 length: full_source.len(),
             })

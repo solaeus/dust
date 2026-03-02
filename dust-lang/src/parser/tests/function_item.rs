@@ -3,7 +3,7 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::function_item::{EMPTY, MIXED, RETURN_TYPE, TYPE_PARAMETERS, VALUE_PARAMETERS},
+    tests::source_examples::function_item::{EMPTY, MIXED, RETURN_TYPE, TYPE_PARAMETERS, VALUE_PARAMETERS},
 };
 
 #[test]

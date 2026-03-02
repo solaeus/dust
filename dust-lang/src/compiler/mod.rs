@@ -41,15 +41,6 @@ pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, Error<'src
     Ok(program.prototypes)
 }
 
-pub fn compile_main<'src>(source_code: &'src str) -> Result<Prototype, Error<'src>> {
-    let main_prototype = compile(source_code)?
-        .into_iter()
-        .next()
-        .expect("The compiler failed to produce a prototype");
-
-    Ok(main_prototype)
-}
-
 pub struct Compiler<'src> {
     syntax: Syntax,
     source: Source<'src>,
@@ -134,6 +125,7 @@ impl<'src> Compiler<'src> {
                     file_module_names,
                 } = parser.parse();
 
+                self.source.set_utf8_validated(file_id);
                 self.syntax.add_tree(syntax_tree).map_err(|max| {
                     panic!("The compiler expected {max} syntax trees in total.");
                 });

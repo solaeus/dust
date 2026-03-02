@@ -3,7 +3,7 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::struct_item::{EMPYT, FIELDS, TUPLE, TYPE_PARAMETERS},
+    tests::source_examples::struct_item::{EMPYT, FIELDS, TUPLE, TYPE_PARAMETERS},
 };
 
 #[test]

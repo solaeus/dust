@@ -103,7 +103,7 @@ pub enum CompileError {
         position: Position,
     },
     ExpectedMainFunction,
-    UnimplementedSyntaxFeature {
+    Unimplemented {
         syntax_kind: SyntaxKind,
         position: Position,
     },
@@ -774,11 +774,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::UnimplementedSyntaxFeature {
+            CompileError::Unimplemented {
                 syntax_kind,
                 position,
             } => {
-                let title = format!("Unimplemented syntax feature: {syntax_kind}");
+                let title = format!("Unimplemented: `{syntax_kind}`");
                 let file_content = match source.get_file(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
@@ -789,9 +789,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
-                            .label(format!(
-                                "Syntax feature {syntax_kind} is not yet implemented."
-                            )),
+                            .label(format!("The use of {syntax_kind} here is not implemented.")),
                     ),
                 );
 

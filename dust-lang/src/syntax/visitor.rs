@@ -1,4 +1,5 @@
 use crate::{
+    compiler::error::CompileError,
     dust_error::{ErrorKind, InternalError},
     syntax::{SyntaxKind, SyntaxReader},
 };
@@ -24,9 +25,11 @@ pub trait SyntaxVisitor {
             }
             SyntaxKind::UseItem | SyntaxKind::PublicUseItem => self.visit_use_item(node),
             SyntaxKind::StructItem | SyntaxKind::PublicStructItem => self.visit_struct_item(node),
-            _ => Err(ErrorKind::Internal(InternalError::UnimplementedFeature(
-                node.kind(),
-            ))),
+            SyntaxKind::EnumItem | SyntaxKind::PublicEnumItem => self.visit_enum_item(node),
+            _ => Err(ErrorKind::Compile(CompileError::Unimplemented {
+                syntax_kind: node.kind(),
+                position: node.position(),
+            })),
         }
     }
 
@@ -45,9 +48,10 @@ pub trait SyntaxVisitor {
             | SyntaxKind::ExponentAssignmentStatement => {
                 self.visit_binary_assignment_statement(node)
             }
-            _ => Err(ErrorKind::Internal(InternalError::UnimplementedFeature(
-                node.kind(),
-            ))),
+            _ => Err(ErrorKind::Compile(CompileError::Unimplemented {
+                syntax_kind: node.kind(),
+                position: node.position(),
+            })),
         }
     }
 
@@ -90,9 +94,10 @@ pub trait SyntaxVisitor {
             SyntaxKind::FunctionExpression => self.visit_function_expression(node, input),
             SyntaxKind::CallExpression => self.visit_call_expression(node, input),
             SyntaxKind::GroupedExpression => self.visit_expression(node.child()?, input),
-            _ => Err(ErrorKind::Internal(InternalError::UnimplementedFeature(
-                node.kind(),
-            ))),
+            _ => Err(ErrorKind::Compile(CompileError::Unimplemented {
+                syntax_kind: node.kind(),
+                position: node.position(),
+            })),
         }
     }
 
@@ -105,6 +110,8 @@ pub trait SyntaxVisitor {
     fn visit_use_item(&mut self, node: SyntaxReader) -> Result<(), ErrorKind>;
 
     fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<(), ErrorKind>;
+
+    fn visit_enum_item(&mut self, node: SyntaxReader) -> Result<(), ErrorKind>;
 
     fn visit_expression_statement(
         &mut self,

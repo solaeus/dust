@@ -3,7 +3,7 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::binary_expressions::{
+    tests::source_examples::binary_expressions::{
         ADDITION, DIVISION, EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN,
         LESS_THAN_OR_EQUAL, LOGICAL_AND, LOGICAL_OR, MODULO, MULTIPLICATION, NOT_EQUAL, POWER,
         SUBTRACTION,

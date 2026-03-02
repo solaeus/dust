@@ -140,7 +140,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_use_item(&mut self, _: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visting use item");
 
-        todo!()
+        Ok(())
     }
 
     fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
@@ -174,6 +174,49 @@ impl SyntaxVisitor for TypeBinder<'_> {
         self.resolver
             .declarations
             .set_declaration_type(declaration_id, struct_type_id);
+
+        Ok(())
+    }
+
+    fn visit_enum_item(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
+        debug!("Visting enum item");
+
+        let mut children = node.children()?;
+        let enum_name = children.expect_next()?;
+        let enum_variants = children.expect_next()?;
+
+        let mut variants = SmallVec::<[DeclarationId; 8]>::new();
+
+        for variant in enum_variants.children()? {
+            debug!("Visting enum variant");
+
+            let (variant_name, variant_type) = variant.binary_children()?;
+
+            let variant_declaration_id =
+                *self.resolver.get_declaration_binding(&variant_name.id)?;
+            let variant_type_id = self.visit_type(variant_type)?;
+
+            self.resolver
+                .declarations
+                .set_declaration_type(variant_declaration_id, variant_type_id);
+            variants.push(variant_declaration_id);
+        }
+
+        let declaration_id = *self.resolver.get_declaration_binding(&enum_name.id)?;
+        let variants = self
+            .resolver
+            .declarations
+            .add_declaration_members(&variants);
+        let enum_type = TypeNode::Enum {
+            declaration_id,
+            variants,
+            generics: DeclarationMembers::default(),
+        };
+        let enum_type_id = self.resolver.types.add_type(enum_type);
+
+        self.resolver
+            .declarations
+            .set_declaration_type(declaration_id, enum_type_id);
 
         Ok(())
     }
@@ -931,12 +974,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
                 Ok(*type_id)
             }
-            _ => Err(ErrorKind::Compile(
-                CompileError::UnimplementedSyntaxFeature {
-                    syntax_kind: node.kind(),
-                    position: node.position(),
-                },
-            )),
+            _ => Err(ErrorKind::Compile(CompileError::Unimplemented {
+                syntax_kind: node.kind(),
+                position: node.position(),
+            })),
         }
     }
 

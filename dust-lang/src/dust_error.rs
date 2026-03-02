@@ -182,8 +182,6 @@ pub enum InternalError {
     MissingTypeMembers(TypeMembers),
     MissingTypeBinding(SyntaxId),
 
-    UnimplementedFeature(SyntaxKind),
-
     UnhandledSourceError(SourceError),
     UnhandledParseError(ParseError),
     UnhandledCompileError(CompileError),
@@ -202,7 +200,7 @@ impl<'a> AnnotatedError<'a> for InternalError {
 
     fn add_report(&self, _: Self::Context, groups: &mut Vec<Group<'a>>) {
         let title = "Internal error".to_string();
-        let message = format!("{self:#?}");
+        let message = format!("{self:?}");
         let help = "This is a bug. 🐛 If this is a released version of Dust, please report this to the developers.".to_string();
         let group = Group::with_title(Level::ERROR.primary_title(title))
             .element(Level::ERROR.message(message))

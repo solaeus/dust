@@ -199,8 +199,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .declarations
             .add_declaration(function_declaration);
 
-        info!("Declaring function \"{function_name_str}\"");
-
         if let Some(type_node) = return_type {
             self.visit_type(type_node)?;
         }
@@ -219,8 +217,17 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_use_item(&mut self, _: SyntaxReader) -> Result<(), ErrorKind> {
-        todo!()
+    fn visit_use_item(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
+        debug!("Visiting use item");
+
+        let path = node.child()?;
+
+        let declaration_id = self.visit_path(path, false)?;
+
+        self.resolver
+            .add_declaration_binding(node.id, declaration_id);
+
+        Ok(())
     }
 
     fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
@@ -272,6 +279,55 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.resolver
             .add_declaration_binding(struct_name.id, struct_declaration_id);
+
+        Ok(())
+    }
+
+    fn visit_enum_item(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
+        debug!("Visiting enum item");
+
+        let mut children = node.children()?;
+        let enum_name = children.expect_next()?;
+        let enum_variants = children.expect_next()?;
+
+        let enum_name_str = self.source.get_file_content(&enum_name.position())?;
+        let enum_symbol = self.resolver.symbols.add_symbol(enum_name_str);
+        let enum_declaration = Declaration {
+            symbol_id: enum_symbol,
+            kind: DeclarationKind::Type { parent: None },
+            scope_id: self.current_scope_id,
+            is_public: false,
+            position: Some(node.position()),
+        };
+        let enum_declaration_id = self.resolver.declarations.add_declaration(enum_declaration);
+
+        for variant in enum_variants.children()? {
+            debug!("Visiting enum variant");
+
+            let variant_name = variant.child()?;
+
+            let variant_name_str = self.source.get_file_content(&variant_name.position())?;
+            let variant_symbol = self.resolver.symbols.add_symbol(variant_name_str);
+            let variant_declaration = Declaration {
+                symbol_id: variant_symbol,
+                kind: DeclarationKind::Type {
+                    parent: Some(enum_declaration_id),
+                },
+                scope_id: self.current_scope_id,
+                is_public: false,
+                position: Some(variant.position()),
+            };
+            let variant_declaration_id = self
+                .resolver
+                .declarations
+                .add_declaration(variant_declaration);
+
+            self.resolver
+                .add_declaration_binding(variant_name.id, variant_declaration_id);
+        }
+
+        self.resolver
+            .add_declaration_binding(enum_name.id, enum_declaration_id);
 
         Ok(())
     }

@@ -160,7 +160,7 @@ impl<'a> Emitter<'a> {
         match function_body.kind() {
             SyntaxKind::BlockExpression => {
                 let children = function_body.children()?;
-                let last_index = children.len() - 1;
+                let last_index = children.len().saturating_sub(1);
 
                 for (index, child) in children.enumerate() {
                     let child_emission = if index == last_index {
@@ -181,9 +181,10 @@ impl<'a> Emitter<'a> {
                 }
             }
             _ => {
-                return Err(ErrorKind::Internal(InternalError::UnimplementedFeature(
-                    function_body.kind(),
-                )));
+                return Err(ErrorKind::Compile(CompileError::Unimplemented {
+                    syntax_kind: function_body.kind(),
+                    position: function_body.position(),
+                }));
             }
         }
 
@@ -1214,6 +1215,10 @@ impl SyntaxVisitor for Emitter<'_> {
     }
 
     fn visit_struct_item(&mut self, _: SyntaxReader) -> Result<(), ErrorKind> {
+        Ok(())
+    }
+
+    fn visit_enum_item(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
         Ok(())
     }
 

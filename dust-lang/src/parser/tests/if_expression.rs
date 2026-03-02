@@ -3,7 +3,7 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::if_expression::{IF, IF_ELSE, IF_ELSE_IF},
+    tests::source_examples::if_expression::{IF, IF_ELSE, IF_ELSE_IF},
 };
 
 #[test]

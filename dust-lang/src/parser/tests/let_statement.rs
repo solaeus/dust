@@ -3,7 +3,7 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
-    tests::let_statement::{WITH_TYPE, WITH_TYPE_MUT, WITHOUT_TYPE, WITHOUT_TYPE_MUT},
+    tests::source_examples::let_statement::{WITH_TYPE, WITH_TYPE_MUT, WITHOUT_TYPE, WITHOUT_TYPE_MUT},
 };
 
 #[test]

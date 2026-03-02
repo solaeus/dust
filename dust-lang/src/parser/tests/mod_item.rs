@@ -3,7 +3,7 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::mod_item::{EMPTY, FILE, NESTED},
+    tests::source_examples::mod_item::{EMPTY, FILE, NESTED},
 };
 
 #[test]
