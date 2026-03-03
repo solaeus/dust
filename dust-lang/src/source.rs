@@ -11,7 +11,10 @@ use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-use crate::dust_error::{AnnotatedError, InternalError};
+use crate::{
+    dust_error::{AnnotatedError, InternalError},
+    std::CORE,
+};
 
 #[derive(Debug)]
 pub struct Source<'src> {
@@ -43,6 +46,10 @@ impl<'src> Source<'src> {
         self.files.push(file);
 
         id
+    }
+
+    pub fn add_std(&mut self) {
+        self.add_file(CORE);
     }
 
     pub fn get_file(&self, file_id: SourceFileId) -> Result<&SourceFile<'src>, InternalError> {
@@ -110,14 +117,6 @@ pub enum SourceFile<'src> {
 }
 
 impl<'src> SourceFile<'src> {
-    pub fn built_in(path: &'static str, content: &'static str) -> Self {
-        SourceFile::Embedded {
-            path,
-            content: content.as_bytes(),
-            utf8_validated: true,
-        }
-    }
-
     pub fn non_validated(path: &'src str, content: &'src [u8]) -> Self {
         SourceFile::Embedded {
             path,
@@ -126,7 +125,7 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn validated(path: &'src str, content: &'src str) -> Self {
+    pub const fn validated(path: &'src str, content: &'src str) -> Self {
         SourceFile::Embedded {
             path,
             content: content.as_bytes(),

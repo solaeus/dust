@@ -167,6 +167,10 @@ impl DeclarationId {
     pub fn inner(self) -> u32 {
         self.0
     }
+
+    pub fn offset(self, offset: u32) -> Self {
+        DeclarationId(self.0 + offset)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

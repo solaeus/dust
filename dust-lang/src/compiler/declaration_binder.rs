@@ -112,7 +112,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             self.current_scope_id = module_scope_id;
 
             for child in module_body.children()? {
-                self.visit_item(child);
+                match self.visit_item(child) {
+                    Ok(()) => {}
+                    Err(error) => self.errors.push(error),
+                }
             }
 
             self.current_scope_id = starting_scope_id;
@@ -238,7 +241,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let struct_name_str = self.source.get_file_content(&struct_name.position())?;
         let struct_symbol = self.resolver.symbols.add_symbol(struct_name_str);
-        let struct_declaration_id = self.resolver.declarations.next_declaration_id();
+        let struct_declaration_id = self
+            .resolver
+            .declarations
+            .next_declaration_id()
+            .offset(struct_fields.len() as u32);
 
         let mut field_ids = SmallVec::<[DeclarationId; 8]>::new();
 
@@ -299,11 +306,16 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let enum_name_str = self.source.get_file_content(&enum_name.position())?;
         let enum_symbol = self.resolver.symbols.add_symbol(enum_name_str);
-        let enum_declaration_id = self.resolver.declarations.next_declaration_id();
+        let enum_variants_list = enum_variants.children()?;
+        let enum_declaration_id = self
+            .resolver
+            .declarations
+            .next_declaration_id()
+            .offset(enum_variants_list.len() as u32);
 
         let mut variant_ids = SmallVec::<[DeclarationId; 8]>::new();
 
-        for variant in enum_variants.children()? {
+        for variant in enum_variants_list {
             debug!("Visiting enum variant");
 
             let variant_name = variant.child()?;
@@ -551,9 +563,15 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         for child in children {
             if child.kind().is_item() {
-                self.visit_item(child);
+                match self.visit_item(child) {
+                    Ok(()) => {}
+                    Err(error) => self.errors.push(error),
+                }
             } else if child.kind().is_statement() {
-                self.visit_statement(child);
+                match self.visit_statement(child) {
+                    Ok(()) => {}
+                    Err(error) => self.errors.push(error),
+                }
             } else {
                 self.visit_expression(child, ())?;
             }

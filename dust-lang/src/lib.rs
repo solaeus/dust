@@ -27,6 +27,7 @@ mod prototype;
 mod resolver;
 mod small_type;
 mod source;
+mod std;
 mod syntax;
 mod token;
 mod value;

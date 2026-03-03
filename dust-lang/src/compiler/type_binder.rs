@@ -117,19 +117,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let function_declaration_id = *self.resolver.get_declaration_binding(&function_item.id)?;
         let function_type_id = self.visit_function_expression(function_expression, ())?;
 
-        info!(
-            "Declaring type of function \"{}\" as `{}`",
-            self.resolver
-                .declarations
-                .get_declaration(function_declaration_id)
-                .and_then(|declaration| self.resolver.symbols.get_symbol(&declaration.symbol_id))
-                .unwrap_or("<error>"),
-            self.resolver
-                .get_full_type(function_type_id, self.source)
-                .map(|r#type| r#type.to_string())
-                .unwrap_or_else(|_| "<error>".to_string())
-        );
-
         self.resolver
             .declarations
             .set_declaration_type(function_declaration_id, function_type_id);

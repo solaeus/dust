@@ -16,14 +16,13 @@ use crate::{
     resolver::{
         declaration_graph::{
             Declaration, DeclarationGraph, DeclarationId, DeclarationKind, DeclarationMembers,
-            ModuleKind,
         },
         scope_graph::{Scope, ScopeGraph, ScopeId, ScopeKind},
         symbol_table::{SymbolId, SymbolTable},
         type_graph::{TypeGraph, TypeId, TypeMembers, TypeNode},
     },
     small_type::SmallType,
-    source::Source,
+    source::{Source, SourceFile},
     syntax::{SyntaxId, SyntaxReader},
 };
 
@@ -54,95 +53,14 @@ impl Resolver {
             type_bindings: HashMap::default(),
         };
 
-        resolver.add_core();
+        resolver.add_native();
 
         resolver
     }
 
-    fn add_core(&mut self) {
-        let core_symbol = self.symbols.add_symbol("core");
-        let core_declaration_id = self.declarations.add_declaration(Declaration {
-            symbol_id: core_symbol,
-            position: None,
-            kind: DeclarationKind::Module {
-                kind: ModuleKind::Inline,
-                inner_scope_id: ScopeId::CORE,
-            },
-            scope_id: ScopeId::NONE,
-            is_public: true,
-        });
-
-        debug_assert_eq!(core_declaration_id, DeclarationId::CORE);
-
-        let mut core_imports =
+    fn add_native(&mut self) {
+        let mut native_imports =
             SmallVec::<[DeclarationId; 4]>::with_capacity(NativeFunction::ALL.len());
-
-        let none_symbol = self.symbols.add_symbol("None");
-        let none_declaration_id = self.declarations.add_declaration(Declaration {
-            symbol_id: none_symbol,
-            position: None,
-            kind: DeclarationKind::Type {
-                parent: None,
-                type_parameters: DeclarationMembers::default(),
-                members: DeclarationMembers::default(),
-            },
-            scope_id: ScopeId::CORE,
-            is_public: true,
-        });
-
-        let field_symbol = self.symbols.add_symbol("0");
-        let field_declaration_id = self.declarations.add_declaration(Declaration {
-            symbol_id: field_symbol,
-            position: None,
-            kind: DeclarationKind::Type {
-                parent: None,
-                type_parameters: DeclarationMembers::default(),
-                members: DeclarationMembers::default(),
-            },
-            scope_id: ScopeId::CORE,
-            is_public: false,
-        });
-
-        let some_members = self
-            .declarations
-            .add_declaration_members(&[field_declaration_id]);
-        let some_symbol = self.symbols.add_symbol("Some");
-        let some_declaration_id = self.declarations.add_declaration(Declaration {
-            symbol_id: some_symbol,
-            position: None,
-            kind: DeclarationKind::Type {
-                parent: None,
-                type_parameters: DeclarationMembers::default(),
-                members: some_members,
-            },
-            scope_id: ScopeId::CORE,
-            is_public: true,
-        });
-
-        let option_type_parameters = self
-            .declarations
-            .add_declaration_members(&[field_declaration_id]);
-        let option_members = self
-            .declarations
-            .add_declaration_members(&[none_declaration_id, some_declaration_id]);
-        let option_symbol = self.symbols.add_symbol("Option");
-        let option_declaration_id = self.declarations.add_declaration(Declaration {
-            symbol_id: option_symbol,
-            position: None,
-            kind: DeclarationKind::Type {
-                parent: None,
-                type_parameters: option_type_parameters,
-                members: option_members,
-            },
-            scope_id: ScopeId::CORE,
-            is_public: true,
-        });
-
-        core_imports.extend([
-            option_declaration_id,
-            none_declaration_id,
-            some_declaration_id,
-        ]);
 
         for native_function in NativeFunction::ALL {
             let function_symbol = self.symbols.add_symbol(native_function.name());
@@ -150,24 +68,24 @@ impl Resolver {
                 symbol_id: function_symbol,
                 position: None,
                 kind: DeclarationKind::NativeFunction(native_function),
-                scope_id: ScopeId::CORE,
+                scope_id: ScopeId::NATIVE,
                 is_public: true,
             });
             let type_id = native_function.signature(&mut self.types);
 
             self.declarations
                 .set_declaration_type(declaration_id, type_id);
-            core_imports.push(declaration_id);
+            native_imports.push(declaration_id);
         }
 
-        let core_scope_id = self.scopes.add_scope(Scope {
+        let native_scope_id = self.scopes.add_scope(Scope {
             kind: ScopeKind::Module,
             parent: ScopeId::NONE,
             modules: SmallVec::new(),
-            imports: core_imports,
+            imports: native_imports,
         });
 
-        debug_assert_eq!(core_scope_id, ScopeId::CORE);
+        debug_assert_eq!(native_scope_id, ScopeId::NATIVE);
     }
 
     pub fn add_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
@@ -813,8 +731,15 @@ impl Resolver {
             let kind_str = match declaration.kind {
                 DeclarationKind::Module { .. } => "module",
                 DeclarationKind::Type { parent, .. } => {
-                    if parent.is_some() {
-                        "type field"
+                    if let Some(parent) = parent {
+                        let parent_declaration = self.declarations.get_declaration(parent)?;
+                        let parent_symbol =
+                            self.symbols.get_symbol(&parent_declaration.symbol_id)?;
+
+                        return Ok(format!(
+                            "ID {}: {symbol} type (parent: {parent_symbol})",
+                            id.inner()
+                        ));
                     } else {
                         "type"
                     }
@@ -823,14 +748,14 @@ impl Resolver {
                 DeclarationKind::Function => "function",
                 DeclarationKind::Local { shadowed } => {
                     if shadowed.is_some() {
-                        "local (shadowed)"
+                        "local (shadow)"
                     } else {
                         "local"
                     }
                 }
             };
 
-            Ok(format!("ID {}: \"{symbol}\" {kind_str}", id.inner()))
+            Ok(format!("ID {}: {symbol} {kind_str}", id.inner()))
         })
     }
 }

@@ -243,22 +243,6 @@ impl<'a> Disassembler<'a> {
         paragraph.render(syntax_area, buffer);
     }
 
-    fn draw_declaration_tab(&self, resolver: &'a Resolver, area: Rect, buffer: &mut Buffer) {
-        let declaration_displays = resolver
-            .declaration_display_iterator()
-            .map(|result| match result {
-                Ok(display) => [display],
-                Err(error) => {
-                    error!("{error:?}");
-
-                    ["Error".to_string()]
-                }
-            })
-            .collect();
-
-        BlockTable::new("Declarations", [""], declaration_displays, None).render(area, buffer);
-    }
-
     fn draw_prototype_tab(
         &self,
         index: usize,
@@ -431,6 +415,22 @@ impl<'a> Disassembler<'a> {
 
             drop_lists_section.render(drop_lists_area, buffer);
         }
+    }
+
+    fn draw_declaration_tab(&self, resolver: &'a Resolver, area: Rect, buffer: &mut Buffer) {
+        let declaration_displays = resolver
+            .declaration_display_iterator()
+            .map(|result| match result {
+                Ok(display) => [display],
+                Err(error) => {
+                    error!("{error:?}");
+
+                    ["Error".to_string()]
+                }
+            })
+            .collect();
+
+        BlockTable::new("Declarations", [""], declaration_displays, None).render(area, buffer);
     }
 }
 
