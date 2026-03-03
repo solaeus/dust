@@ -119,7 +119,7 @@ impl Resolver {
             is_public: true,
         });
 
-        let option_type_params = self
+        let option_type_parameters = self
             .declarations
             .add_declaration_members(&[field_declaration_id]);
         let option_members = self
@@ -131,7 +131,7 @@ impl Resolver {
             position: None,
             kind: DeclarationKind::Type {
                 parent: None,
-                type_parameters: option_type_params,
+                type_parameters: option_type_parameters,
                 members: option_members,
             },
             scope_id: ScopeId::CORE,
@@ -803,6 +803,35 @@ impl Resolver {
             },
             _ => Ok(1),
         }
+    }
+
+    pub fn declaration_display_iterator<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = Result<String, ErrorKind>> + 'a {
+        self.declarations.iter().map(|(id, declaration)| {
+            let symbol = self.symbols.get_symbol(&declaration.symbol_id)?;
+            let kind_str = match declaration.kind {
+                DeclarationKind::Module { .. } => "module",
+                DeclarationKind::Type { parent, .. } => {
+                    if parent.is_some() {
+                        "type field"
+                    } else {
+                        "type"
+                    }
+                }
+                DeclarationKind::NativeFunction(_) => "native function",
+                DeclarationKind::Function => "function",
+                DeclarationKind::Local { shadowed } => {
+                    if shadowed.is_some() {
+                        "local (shadowed)"
+                    } else {
+                        "local"
+                    }
+                }
+            };
+
+            Ok(format!("ID {}: \"{symbol}\" {kind_str}", id.inner()))
+        })
     }
 }
 

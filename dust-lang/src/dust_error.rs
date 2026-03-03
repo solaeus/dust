@@ -19,7 +19,7 @@ use crate::{
         type_graph::{TypeId, TypeMembers},
     },
     source::{Source, SourceError, SourceFileId, Span},
-    syntax::{SyntaxId, SyntaxKind, SyntaxPayload},
+    syntax::{SyntaxId, SyntaxPayload},
 };
 
 #[derive(Debug)]

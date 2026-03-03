@@ -1,6 +1,6 @@
 use crate::{
     compiler::error::CompileError,
-    dust_error::{ErrorKind, InternalError},
+    dust_error::ErrorKind,
     syntax::{SyntaxKind, SyntaxReader},
 };
 

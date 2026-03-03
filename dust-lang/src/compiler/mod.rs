@@ -21,7 +21,7 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     program::Program,
-    prototype::{Prototype, PrototypeId, PrototypeList},
+    prototype::{PrototypeId, PrototypeList},
     resolver::{
         Resolver,
         scope_graph::{Scope, ScopeId, ScopeKind},

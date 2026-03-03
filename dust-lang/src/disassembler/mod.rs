@@ -10,6 +10,7 @@ use ratatui::{
     text::Span,
     widgets::{Block, BorderType, Borders, Paragraph, Tabs, Widget, Wrap},
 };
+use tracing::error;
 
 use crate::{
     instruction::Address,
@@ -82,7 +83,7 @@ impl<'a> Disassembler<'a> {
     }
 
     fn tab_count(&self) -> usize {
-        self.source.file_count() + self.program.prototypes.len()
+        self.source.file_count() + self.program.prototypes.len() + 1
     }
 
     fn get_tabs(&self) -> Vec<String> {
@@ -97,6 +98,8 @@ impl<'a> Disassembler<'a> {
         for index in 0..self.program.prototypes.len() {
             tabs.push(format!("proto_{index}"));
         }
+
+        tabs.push("declarations".to_string());
 
         tabs
     }
@@ -238,6 +241,22 @@ impl<'a> Disassembler<'a> {
             .scroll((0, 0));
 
         paragraph.render(syntax_area, buffer);
+    }
+
+    fn draw_declaration_tab(&self, resolver: &'a Resolver, area: Rect, buffer: &mut Buffer) {
+        let declaration_displays = resolver
+            .declaration_display_iterator()
+            .map(|result| match result {
+                Ok(display) => [display],
+                Err(error) => {
+                    error!("{error:?}");
+
+                    ["Error".to_string()]
+                }
+            })
+            .collect();
+
+        BlockTable::new("Declarations", [""], declaration_displays, None).render(area, buffer);
     }
 
     fn draw_prototype_tab(
@@ -467,7 +486,9 @@ impl Widget for &mut Disassembler<'_> {
             .select(self.selection_state.tab)
             .render(prototype_tabs_header_area, buffer);
 
-        if self.selection_state.tab < self.source.file_count() {
+        if self.selection_state.tab == self.source.file_count() + self.program.prototypes.len() {
+            self.draw_declaration_tab(self.resolver, tab_content_area, buffer);
+        } else if self.selection_state.tab < self.source.file_count() {
             let source_file = self.source.files().get(self.selection_state.tab).unwrap();
             let syntax_tree = self.syntax.iter().nth(self.selection_state.tab).unwrap();
 

@@ -144,6 +144,18 @@ impl DeclarationGraph {
     ) -> Option<&PrototypeId> {
         self.declaration_prototypes.get(declaration_id)
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (DeclarationId, Declaration)> + '_ {
+        self.declarations
+            .iter()
+            .enumerate()
+            .map(|(index, (key, value))| {
+                (
+                    DeclarationId(index as u32),
+                    Declaration::from_key_and_value(*key, *value),
+                )
+            })
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
