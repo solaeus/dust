@@ -11,10 +11,7 @@ use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-use crate::{
-    dust_error::{AnnotatedError, InternalError},
-    std::CORE,
-};
+use crate::dust_error::{AnnotatedError, InternalError};
 
 #[derive(Debug)]
 pub struct Source<'src> {
@@ -46,10 +43,6 @@ impl<'src> Source<'src> {
         self.files.push(file);
 
         id
-    }
-
-    pub fn add_std(&mut self) {
-        self.add_file(CORE);
     }
 
     pub fn get_file(&self, file_id: SourceFileId) -> Result<&SourceFile<'src>, InternalError> {

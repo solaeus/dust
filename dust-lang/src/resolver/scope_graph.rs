@@ -18,7 +18,7 @@ impl ScopeGraph {
     pub fn add_scope(&mut self, mut scope: Scope) -> ScopeId {
         let id = ScopeId(self.scopes.len() as u32);
 
-        scope.modules.push(ScopeId::NATIVE);
+        scope.modules.push(ScopeId::CORE);
 
         self.scopes.push(scope);
 
@@ -37,7 +37,7 @@ pub struct ScopeId(u32);
 
 impl ScopeId {
     pub const NONE: Self = ScopeId(u32::MAX);
-    pub const NATIVE: Self = ScopeId(0);
+    pub const CORE: Self = ScopeId(0);
 
     pub fn inner(self) -> u32 {
         self.0

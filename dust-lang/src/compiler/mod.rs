@@ -243,7 +243,7 @@ impl<'src> Compiler<'src> {
             let (main_declaration_id, main_declaration) = match self
                 .resolver
                 .declarations
-                .find_declaration(main_symbol_id, None, program_scope_id)
+                .find_declaration(main_symbol_id, program_scope_id)
             {
                 Some(declaration) => declaration,
                 None => {

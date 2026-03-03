@@ -33,7 +33,6 @@ impl DeclarationGraph {
         let key = DeclarationKey {
             symbol: declaration.symbol_id,
             scope_id: declaration.scope_id,
-            parent: declaration.parent(),
         };
 
         if let Some((existing_index, _, _)) = self.declarations.get_full(&key) {
@@ -62,12 +61,10 @@ impl DeclarationGraph {
     pub fn find_declaration(
         &self,
         symbol_id: SymbolId,
-        parent: Option<DeclarationId>,
         scope_id: ScopeId,
     ) -> Option<(DeclarationId, Declaration)> {
         let key = DeclarationKey {
             symbol: symbol_id,
-            parent,
             scope_id,
         };
 
@@ -162,8 +159,6 @@ impl DeclarationGraph {
 pub struct DeclarationId(u32);
 
 impl DeclarationId {
-    pub const CORE: Self = DeclarationId(0);
-
     pub fn inner(self) -> u32 {
         self.0
     }
@@ -251,7 +246,6 @@ pub enum ModuleKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct DeclarationKey {
     symbol: SymbolId,
-    parent: Option<DeclarationId>,
     scope_id: ScopeId,
 }
 

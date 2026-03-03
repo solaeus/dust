@@ -16,13 +16,14 @@ use crate::{
     resolver::{
         declaration_graph::{
             Declaration, DeclarationGraph, DeclarationId, DeclarationKind, DeclarationMembers,
+            ModuleKind,
         },
         scope_graph::{Scope, ScopeGraph, ScopeId, ScopeKind},
         symbol_table::{SymbolId, SymbolTable},
         type_graph::{TypeGraph, TypeId, TypeMembers, TypeNode},
     },
     small_type::SmallType,
-    source::{Source, SourceFile},
+    source::Source,
     syntax::{SyntaxId, SyntaxReader},
 };
 
@@ -53,14 +54,90 @@ impl Resolver {
             type_bindings: HashMap::default(),
         };
 
-        resolver.add_native();
+        resolver.add_core();
 
         resolver
     }
 
-    fn add_native(&mut self) {
-        let mut native_imports =
+    fn add_core(&mut self) {
+        let mut core_items =
             SmallVec::<[DeclarationId; 4]>::with_capacity(NativeFunction::ALL.len());
+
+        let option_declaration_id = self.declarations.next_declaration_id();
+        let none_declaration_id = option_declaration_id.offset(1);
+        let some_field_declaration_id = option_declaration_id.offset(2);
+        let some_declaration_id = option_declaration_id.offset(3);
+
+        let option_symbol = self.symbols.add_symbol("Option");
+        let none_symbol = self.symbols.add_symbol("None");
+        let some_field_symbol = self.symbols.add_symbol("0");
+        let some_symbol = self.symbols.add_symbol("Some");
+
+        let _option_declaration_id = {
+            let members = self
+                .declarations
+                .add_declaration_members(&[none_declaration_id, some_declaration_id]);
+
+            self.declarations.add_declaration(Declaration {
+                symbol_id: option_symbol,
+                position: None,
+                kind: DeclarationKind::Type {
+                    parent: None,
+                    type_parameters: DeclarationMembers::default(),
+                    members,
+                },
+                scope_id: ScopeId::CORE,
+                is_public: true,
+            })
+        };
+        let _none_declaration_id = self.declarations.add_declaration(Declaration {
+            symbol_id: none_symbol,
+            position: None,
+            kind: DeclarationKind::Type {
+                parent: Some(option_declaration_id),
+                type_parameters: DeclarationMembers::default(),
+                members: DeclarationMembers::default(),
+            },
+            scope_id: ScopeId::CORE,
+            is_public: true,
+        });
+        let _some_field_declaration_id = self.declarations.add_declaration(Declaration {
+            symbol_id: some_field_symbol,
+            position: None,
+            kind: DeclarationKind::Type {
+                parent: Some(some_declaration_id),
+                type_parameters: DeclarationMembers::default(),
+                members: DeclarationMembers::default(),
+            },
+            scope_id: ScopeId::CORE,
+            is_public: true,
+        });
+        let _some_declaration_id = {
+            let members = self
+                .declarations
+                .add_declaration_members(&[some_field_declaration_id]);
+
+            self.declarations.add_declaration(Declaration {
+                symbol_id: some_symbol,
+                position: None,
+                kind: DeclarationKind::Type {
+                    parent: Some(option_declaration_id),
+                    type_parameters: DeclarationMembers::default(),
+                    members,
+                },
+                scope_id: ScopeId::CORE,
+                is_public: true,
+            })
+        };
+
+        debug_assert_eq!(option_declaration_id, _option_declaration_id);
+        debug_assert_eq!(none_declaration_id, _none_declaration_id);
+        debug_assert_eq!(some_field_declaration_id, _some_field_declaration_id);
+        debug_assert_eq!(some_declaration_id, _some_declaration_id);
+
+        core_items.push(option_declaration_id);
+        core_items.push(none_declaration_id);
+        core_items.push(some_declaration_id);
 
         for native_function in NativeFunction::ALL {
             let function_symbol = self.symbols.add_symbol(native_function.name());
@@ -68,24 +145,37 @@ impl Resolver {
                 symbol_id: function_symbol,
                 position: None,
                 kind: DeclarationKind::NativeFunction(native_function),
-                scope_id: ScopeId::NATIVE,
+                scope_id: ScopeId::CORE,
                 is_public: true,
             });
             let type_id = native_function.signature(&mut self.types);
 
             self.declarations
                 .set_declaration_type(declaration_id, type_id);
-            native_imports.push(declaration_id);
+            core_items.push(declaration_id);
         }
 
-        let native_scope_id = self.scopes.add_scope(Scope {
+        let core_scope_id = self.scopes.add_scope(Scope {
             kind: ScopeKind::Module,
             parent: ScopeId::NONE,
             modules: SmallVec::new(),
-            imports: native_imports,
+            imports: core_items,
         });
 
-        debug_assert_eq!(native_scope_id, ScopeId::NATIVE);
+        debug_assert_eq!(core_scope_id, ScopeId::CORE);
+
+        let core_symbol_id = self.symbols.add_symbol("core");
+
+        self.declarations.add_declaration(Declaration {
+            symbol_id: core_symbol_id,
+            position: None,
+            kind: DeclarationKind::Module {
+                kind: ModuleKind::Inline,
+                inner_scope_id: core_scope_id,
+            },
+            scope_id: ScopeId::NONE,
+            is_public: true,
+        });
     }
 
     pub fn add_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
@@ -129,7 +219,6 @@ impl Resolver {
         &mut self,
         symbol_id: SymbolId,
         target_scope_id: ScopeId,
-        parent: Option<DeclarationId>,
         local: bool,
         path_segment: &SyntaxReader,
     ) -> Result<(DeclarationId, Declaration), ErrorKind> {
@@ -140,9 +229,9 @@ impl Resolver {
                 break;
             }
 
-            if let Some((declaration_id, declaration)) =
-                self.declarations
-                    .find_declaration(symbol_id, parent, current_scope_id)
+            if let Some((declaration_id, declaration)) = self
+                .declarations
+                .find_declaration(symbol_id, current_scope_id)
             {
                 self.scope_search.clear();
 
@@ -156,9 +245,9 @@ impl Resolver {
             }
 
             for module_scope_id in &current_scope.modules {
-                if let Some((declaration_id, declaration)) =
-                    self.declarations
-                        .find_declaration(symbol_id, parent, *module_scope_id)
+                if let Some((declaration_id, declaration)) = self
+                    .declarations
+                    .find_declaration(symbol_id, *module_scope_id)
                 {
                     self.scope_search.clear();
 
@@ -170,9 +259,7 @@ impl Resolver {
                 let import_declaration =
                     self.declarations.get_declaration(*import_declaration_id)?;
 
-                if import_declaration.symbol_id == symbol_id
-                    && import_declaration.parent() == parent
-                {
+                if import_declaration.symbol_id == symbol_id {
                     self.scope_search.clear();
 
                     return Ok((*import_declaration_id, import_declaration));

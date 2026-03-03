@@ -268,8 +268,6 @@ fn handle_source<'src>(
         source.add_file(file);
     }
 
-    source.add_std();
-
     Ok(source)
 }
 

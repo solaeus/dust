@@ -9,8 +9,8 @@ use crate::{
         declaration_graph::{DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind},
         type_graph::{TypeId, TypeMembers, TypeNode},
     },
-    source::{Position, Source, SourceFileId},
-    syntax::{Syntax, SyntaxId, SyntaxKind, SyntaxReader, SyntaxVisitor},
+    source::{Source, SourceFileId},
+    syntax::{Syntax, SyntaxKind, SyntaxReader, SyntaxVisitor},
 };
 
 #[derive(Debug)]
