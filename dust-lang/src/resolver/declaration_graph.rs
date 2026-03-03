@@ -79,6 +79,10 @@ impl DeclarationGraph {
         })
     }
 
+    pub fn next_declaration_id(&self) -> DeclarationId {
+        DeclarationId(self.declarations.len() as u32)
+    }
+
     pub fn add_declaration_members(
         &mut self,
         parameter_ids: &[DeclarationId],
@@ -174,7 +178,7 @@ impl Declaration {
     }
 
     pub fn parent(&self) -> Option<DeclarationId> {
-        if let DeclarationKind::Type { parent } = self.kind {
+        if let DeclarationKind::Type { parent, .. } = self.kind {
             parent
         } else {
             None
@@ -192,6 +196,8 @@ pub enum DeclarationKind {
     },
     Type {
         parent: Option<DeclarationId>,
+        type_parameters: DeclarationMembers,
+        members: DeclarationMembers,
     },
     Local {
         shadowed: Option<DeclarationId>,

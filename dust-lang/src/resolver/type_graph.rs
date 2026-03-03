@@ -25,7 +25,7 @@ impl TypeGraph {
             next_inferred_type_id: InferredTypeId(0),
         };
 
-        let _none_type_id = type_graph.add_type(TypeNode::None);
+        let _unit_type_id = type_graph.add_type(TypeNode::Unit);
         let _boolean_type_id = type_graph.add_type(TypeNode::Boolean);
         let _byte_type_id = type_graph.add_type(TypeNode::Byte);
         let _character_type_id = type_graph.add_type(TypeNode::Character);
@@ -33,7 +33,7 @@ impl TypeGraph {
         let _integer_type_id = type_graph.add_type(TypeNode::Integer);
         let _string_type_id = type_graph.add_type(TypeNode::String);
 
-        debug_assert_eq!(_none_type_id, TypeId::NONE);
+        debug_assert_eq!(_unit_type_id, TypeId::UNIT);
         debug_assert_eq!(_boolean_type_id, TypeId::BOOLEAN);
         debug_assert_eq!(_byte_type_id, TypeId::BYTE);
         debug_assert_eq!(_character_type_id, TypeId::CHARACTER);
@@ -109,7 +109,7 @@ impl TypeGraph {
 pub struct TypeId(u32);
 
 impl TypeId {
-    pub const NONE: Self = TypeId(0);
+    pub const UNIT: Self = TypeId(0);
     pub const BOOLEAN: Self = TypeId(1);
     pub const BYTE: Self = TypeId(2);
     pub const CHARACTER: Self = TypeId(3);
@@ -124,7 +124,7 @@ impl TypeId {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TypeNode {
-    None,
+    Unit,
     Boolean,
     Byte,
     Character,
@@ -141,13 +141,11 @@ pub enum TypeNode {
     },
     Struct {
         declaration_id: DeclarationId,
-        generics: DeclarationMembers,
-        fields: DeclarationMembers,
+        type_arguments: TypeMembers,
     },
     Enum {
         declaration_id: DeclarationId,
-        generics: DeclarationMembers,
-        variants: DeclarationMembers,
+        type_arguments: TypeMembers,
     },
     Inferred {
         inferred_id: InferredTypeId,
@@ -158,7 +156,7 @@ pub enum TypeNode {
 impl Hash for TypeNode {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
-            TypeNode::None => state.write_u8(0),
+            TypeNode::Unit => state.write_u8(0),
             TypeNode::Boolean => state.write_u8(1),
             TypeNode::Byte => state.write_u8(2),
             TypeNode::Character => state.write_u8(3),
@@ -181,23 +179,19 @@ impl Hash for TypeNode {
             }
             TypeNode::Struct {
                 declaration_id,
-                generics,
-                fields,
+                type_arguments,
             } => {
                 state.write_u8(9);
                 declaration_id.hash(state);
-                generics.hash(state);
-                fields.hash(state);
+                type_arguments.hash(state);
             }
             TypeNode::Enum {
                 declaration_id,
-                generics,
-                variants,
+                type_arguments,
             } => {
                 state.write_u8(10);
                 declaration_id.hash(state);
-                generics.hash(state);
-                variants.hash(state);
+                type_arguments.hash(state);
             }
             TypeNode::Inferred { inferred_id, .. } => {
                 state.write_u8(11);

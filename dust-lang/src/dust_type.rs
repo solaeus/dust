@@ -7,7 +7,7 @@ use crate::small_type::SmallType;
 #[derive(Clone, Default, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum DustType {
     #[default]
-    None,
+    Unit,
     Boolean,
     Byte,
     Character,
@@ -50,9 +50,9 @@ impl DustType {
         }
     }
 
-    pub fn as_operand_type(&self) -> SmallType {
+    pub fn as_small_type(&self) -> SmallType {
         match self {
-            DustType::None => SmallType::NONE,
+            DustType::Unit => SmallType::UNIT,
             DustType::Boolean => SmallType::BOOLEAN,
             DustType::Byte => SmallType::BYTE,
             DustType::Character => SmallType::CHARACTER,
@@ -69,7 +69,7 @@ impl DustType {
                 DustType::Function(_) => SmallType::LIST_FUNCTION,
                 DustType::List(_) => SmallType::LIST_LIST,
                 DustType::Struct { .. } => SmallType::LIST_STRUCT,
-                DustType::None => panic!("A list's item type must be known, even if it is empty"),
+                DustType::Unit => panic!("A list's item type must be known, even if it is empty"),
             },
             DustType::Struct { .. } => SmallType::STRUCT,
             DustType::Function(_) => SmallType::FUNCTION,
@@ -80,7 +80,7 @@ impl DustType {
 impl Display for DustType {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            DustType::None => write!(f, "none"),
+            DustType::Unit => write!(f, "none"),
             DustType::Boolean => write!(f, "bool"),
             DustType::Byte => write!(f, "byte"),
             DustType::Character => write!(f, "char"),

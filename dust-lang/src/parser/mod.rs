@@ -803,7 +803,7 @@ impl<'src> Parser<'src> {
             SyntaxKind::LetStatement
         };
 
-        let path_node = self.parse_path()?;
+        let path_node = self.parse_simple_path()?;
         let path_id = self.tree_builder.add_node(path_node);
         let type_notation_id = if self.allow(TokenKind::Colon)? {
             let type_node = self.parse_type()?;

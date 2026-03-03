@@ -163,11 +163,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
         }
 
         let declaration_id = *self.resolver.get_declaration_binding(&struct_name.id)?;
-        let fields = self.resolver.declarations.add_declaration_members(&fields);
         let struct_type = TypeNode::Struct {
             declaration_id,
-            fields,
-            generics: DeclarationMembers::default(),
+            type_arguments: TypeMembers::default(),
         };
         let struct_type_id = self.resolver.types.add_type(struct_type);
 
@@ -203,14 +201,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
         }
 
         let declaration_id = *self.resolver.get_declaration_binding(&enum_name.id)?;
-        let variants = self
-            .resolver
-            .declarations
-            .add_declaration_members(&variants);
         let enum_type = TypeNode::Enum {
             declaration_id,
-            variants,
-            generics: DeclarationMembers::default(),
+            type_arguments: TypeMembers::default(),
         };
         let enum_type_id = self.resolver.types.add_type(enum_type);
 
@@ -267,7 +260,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         self.resolver
             .add_type_binding(expression.id, expression_type_id);
-        self.resolver.add_type_binding(node.id, TypeId::NONE);
+        self.resolver.add_type_binding(node.id, TypeId::UNIT);
         self.resolver
             .declarations
             .set_declaration_type(declaration_id, expression_type_id);
@@ -343,7 +336,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         self.resolver.add_type_binding(path.id, path_type);
         self.resolver
             .add_type_binding(expression.id, expression_type);
-        self.resolver.add_type_binding(node.id, TypeId::NONE);
+        self.resolver.add_type_binding(node.id, TypeId::UNIT);
 
         Ok(())
     }
@@ -571,17 +564,17 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         let children = node.children()?;
 
-        let mut block_type_id = TypeId::NONE;
+        let mut block_type_id = TypeId::UNIT;
 
         for child in children {
             let child_type = if child.is_item() {
                 self.visit_item(child);
 
-                TypeId::NONE
+                TypeId::UNIT
             } else if child.is_statement() {
                 self.visit_statement(child);
 
-                TypeId::NONE
+                TypeId::UNIT
             } else {
                 self.visit_expression(child, ())?
             };
@@ -822,7 +815,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         self.visit_block_expression(body, ())?;
 
-        Ok(TypeId::NONE)
+        Ok(TypeId::UNIT)
     }
 
     fn visit_function_expression(
@@ -859,7 +852,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
                 self.resolver.infer_type(raw)?
             } else {
-                TypeId::NONE
+                TypeId::UNIT
             }
         };
         let actual_return_type_id = self.visit_block_expression(body, ())?;

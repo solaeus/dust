@@ -20,7 +20,7 @@ pub struct SmallType(u8);
 
 impl SmallType {
     // Scalar types
-    pub const NONE: SmallType = SmallType(0b0000_0000);
+    pub const UNIT: SmallType = SmallType(0b0000_0000);
     pub const BOOLEAN: SmallType = SmallType(0b0000_0001);
     pub const BYTE: SmallType = SmallType(0b0000_0010);
     pub const CHARACTER: SmallType = SmallType(0b0000_0011);
@@ -72,7 +72,7 @@ impl Debug for SmallType {
 impl Display for SmallType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
-            Self::NONE => write!(f, "none"),
+            Self::UNIT => write!(f, "none"),
             Self::BOOLEAN => write!(f, "bool"),
             Self::BYTE => write!(f, "byte"),
             Self::CHARACTER => write!(f, "char"),

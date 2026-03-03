@@ -8,7 +8,9 @@ use crate::{
     dust_error::ErrorKind,
     resolver::{
         Resolver,
-        declaration_graph::{Declaration, DeclarationId, DeclarationKind, ModuleKind},
+        declaration_graph::{
+            Declaration, DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind,
+        },
         scope_graph::{Scope, ScopeId, ScopeKind},
     },
     source::Source,
@@ -236,17 +238,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let struct_name_str = self.source.get_file_content(&struct_name.position())?;
         let struct_symbol = self.resolver.symbols.add_symbol(struct_name_str);
-        let struct_declaration = Declaration {
-            symbol_id: struct_symbol,
-            kind: DeclarationKind::Type { parent: None },
-            scope_id: self.current_scope_id,
-            is_public: false,
-            position: Some(node.position()),
-        };
-        let struct_declaration_id = self
-            .resolver
-            .declarations
-            .add_declaration(struct_declaration);
+        let struct_declaration_id = self.resolver.declarations.next_declaration_id();
 
         let mut field_ids = SmallVec::<[DeclarationId; 8]>::new();
 
@@ -255,19 +247,17 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
             let field_name_str = self.source.get_file_content(&field_name.position())?;
             let field_symbol = self.resolver.symbols.add_symbol(field_name_str);
-            let field_declaration = Declaration {
+            let field_declaration_id = self.resolver.declarations.add_declaration(Declaration {
                 symbol_id: field_symbol,
                 kind: DeclarationKind::Type {
                     parent: Some(struct_declaration_id),
+                    type_parameters: DeclarationMembers::default(),
+                    members: DeclarationMembers::default(),
                 },
                 scope_id: self.current_scope_id,
                 is_public: false,
                 position: Some(field.position()),
-            };
-            let field_declaration_id = self
-                .resolver
-                .declarations
-                .add_declaration(field_declaration);
+            });
 
             self.visit_type(field_type)?;
             self.resolver
@@ -277,6 +267,23 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             field_ids.push(field_declaration_id);
         }
 
+        let members = self
+            .resolver
+            .declarations
+            .add_declaration_members(&field_ids);
+        let declared_id = self.resolver.declarations.add_declaration(Declaration {
+            symbol_id: struct_symbol,
+            kind: DeclarationKind::Type {
+                parent: None,
+                type_parameters: DeclarationMembers::default(),
+                members,
+            },
+            scope_id: self.current_scope_id,
+            is_public: false,
+            position: Some(node.position()),
+        });
+
+        debug_assert_eq!(declared_id, struct_declaration_id);
         self.resolver
             .add_declaration_binding(struct_name.id, struct_declaration_id);
 
@@ -292,14 +299,9 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let enum_name_str = self.source.get_file_content(&enum_name.position())?;
         let enum_symbol = self.resolver.symbols.add_symbol(enum_name_str);
-        let enum_declaration = Declaration {
-            symbol_id: enum_symbol,
-            kind: DeclarationKind::Type { parent: None },
-            scope_id: self.current_scope_id,
-            is_public: false,
-            position: Some(node.position()),
-        };
-        let enum_declaration_id = self.resolver.declarations.add_declaration(enum_declaration);
+        let enum_declaration_id = self.resolver.declarations.next_declaration_id();
+
+        let mut variant_ids = SmallVec::<[DeclarationId; 8]>::new();
 
         for variant in enum_variants.children()? {
             debug!("Visiting enum variant");
@@ -308,24 +310,40 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
             let variant_name_str = self.source.get_file_content(&variant_name.position())?;
             let variant_symbol = self.resolver.symbols.add_symbol(variant_name_str);
-            let variant_declaration = Declaration {
+            let variant_declaration_id = self.resolver.declarations.add_declaration(Declaration {
                 symbol_id: variant_symbol,
                 kind: DeclarationKind::Type {
                     parent: Some(enum_declaration_id),
+                    type_parameters: DeclarationMembers::default(),
+                    members: DeclarationMembers::default(),
                 },
                 scope_id: self.current_scope_id,
                 is_public: false,
                 position: Some(variant.position()),
-            };
-            let variant_declaration_id = self
-                .resolver
-                .declarations
-                .add_declaration(variant_declaration);
+            });
 
             self.resolver
                 .add_declaration_binding(variant_name.id, variant_declaration_id);
+            variant_ids.push(variant_declaration_id);
         }
 
+        let members = self
+            .resolver
+            .declarations
+            .add_declaration_members(&variant_ids);
+        let declared_id = self.resolver.declarations.add_declaration(Declaration {
+            symbol_id: enum_symbol,
+            kind: DeclarationKind::Type {
+                parent: None,
+                type_parameters: DeclarationMembers::default(),
+                members,
+            },
+            scope_id: self.current_scope_id,
+            is_public: false,
+            position: Some(node.position()),
+        });
+
+        debug_assert_eq!(declared_id, enum_declaration_id);
         self.resolver
             .add_declaration_binding(enum_name.id, enum_declaration_id);
 
@@ -466,7 +484,30 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         path_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
-        self.visit_path(path_expression.child()?, true)?;
+        let segments = path_expression.children()?;
+
+        let file = self.source.get_file(path_expression.file_id())?;
+
+        let mut current_declaration_id = DeclarationId::CORE;
+        let mut current_scope_id = self.current_scope_id;
+
+        for segment in segments.rev() {
+            let segment_str = file.content_str(segment.span())?;
+            let symbol = self.resolver.symbols.add_symbol(segment_str);
+            let (next_declaration_id, next_declaration) = self.resolver.find_declaration_in_scope(
+                symbol,
+                current_scope_id,
+                None,
+                false,
+                &segment,
+            )?;
+
+            current_declaration_id = next_declaration_id;
+            current_scope_id = next_declaration.scope_id;
+        }
+
+        self.resolver
+            .add_declaration_binding(path_expression.id, current_declaration_id);
 
         Ok(())
     }

@@ -22,7 +22,7 @@ impl NativeFunction {
         types.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters: TypeMembers::default(),
-            return_type_id: TypeId::NONE,
+            return_type_id: TypeId::UNIT,
         })
     }
 
@@ -40,7 +40,7 @@ impl NativeFunction {
         types.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters,
-            return_type_id: TypeId::NONE,
+            return_type_id: TypeId::UNIT,
         })
     }
 
@@ -48,14 +48,14 @@ impl NativeFunction {
         let argument_type_id = types.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters: TypeMembers::default(),
-            return_type_id: TypeId::NONE,
+            return_type_id: TypeId::UNIT,
         });
         let value_parameters = types.add_type_members(&[argument_type_id]);
 
         types.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters,
-            return_type_id: TypeId::NONE,
+            return_type_id: TypeId::UNIT,
         })
     }
 }

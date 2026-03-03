@@ -1093,11 +1093,11 @@ impl<'a> Emitter<'a> {
                         } => Address::register(base_register + 1),
                     }
                 } else {
-                    debug_assert_eq!(type_id, TypeId::NONE);
+                    debug_assert_eq!(type_id, TypeId::UNIT);
 
                     return_instructions.merge(instructions);
 
-                    Address::default()
+                    Address::none()
                 }
             }
             Emission::NativeFunction(_) => {
@@ -1107,7 +1107,7 @@ impl<'a> Emitter<'a> {
                     },
                 ));
             }
-            Emission::None => Address::default(),
+            Emission::None => Address::none(),
         };
         let return_instruction = Instruction::r#return(address);
 
@@ -1134,7 +1134,7 @@ impl<'a> Emitter<'a> {
                 self.visit_statement(node);
             }
 
-            let return_instruction = Instruction::r#return(Address::default());
+            let return_instruction = Instruction::r#return(Address::none());
 
             return_emission.push(return_instruction);
         }
@@ -1602,8 +1602,8 @@ impl SyntaxVisitor for Emitter<'_> {
                         flatten_leaf_operand_types(field_type, out);
                     }
                 }
-                DustType::None => {}
-                other => out.push(other.as_operand_type()),
+                DustType::Unit => {}
+                other => out.push(other.as_small_type()),
             }
         }
 
@@ -2265,7 +2265,7 @@ impl SyntaxVisitor for Emitter<'_> {
             self.call_arguments.push(CallArgument {
                 index: argument_address.index,
                 memory: argument_address.memory,
-                r#type: SmallType::NONE,
+                r#type: SmallType::UNIT,
             });
             argument_count += 1;
         }
@@ -2298,7 +2298,7 @@ impl SyntaxVisitor for Emitter<'_> {
             && target.destination_count() == register_count
         {
             Some(target)
-        } else if return_operand_type != SmallType::NONE {
+        } else if return_operand_type != SmallType::UNIT {
             Some(self.allocate_temporary_registers(register_count))
         } else {
             None
@@ -2313,7 +2313,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
         call_emission.push(call_instruction);
 
-        if return_operand_type != SmallType::NONE {
+        if return_operand_type != SmallType::UNIT {
             call_emission.set_target(target);
         }
 

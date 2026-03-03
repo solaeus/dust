@@ -43,13 +43,25 @@ pub struct Resolver {
 
 impl Resolver {
     pub fn new() -> Self {
-        let mut declarations = DeclarationGraph::new();
-        let mut scopes = ScopeGraph::new();
-        let mut symbols = SymbolTable::new();
-        let mut types = TypeGraph::new();
+        let mut resolver = Self {
+            symbols: SymbolTable::new(),
+            declarations: DeclarationGraph::new(),
+            scopes: ScopeGraph::new(),
+            types: TypeGraph::new(),
+            scope_search: HashSet::default(),
+            declaration_bindings: HashMap::default(),
+            scope_bindings: HashMap::default(),
+            type_bindings: HashMap::default(),
+        };
 
-        let core_symbol = symbols.add_symbol("core");
-        let _core_declaration_id = declarations.add_declaration(Declaration {
+        resolver.add_core();
+
+        resolver
+    }
+
+    fn add_core(&mut self) {
+        let core_symbol = self.symbols.add_symbol("core");
+        let core_declaration_id = self.declarations.add_declaration(Declaration {
             symbol_id: core_symbol,
             position: None,
             kind: DeclarationKind::Module {
@@ -60,45 +72,102 @@ impl Resolver {
             is_public: true,
         });
 
-        debug_assert_eq!(_core_declaration_id, DeclarationId::CORE);
+        debug_assert_eq!(core_declaration_id, DeclarationId::CORE);
 
         let mut core_imports =
             SmallVec::<[DeclarationId; 4]>::with_capacity(NativeFunction::ALL.len());
 
+        let none_symbol = self.symbols.add_symbol("None");
+        let none_declaration_id = self.declarations.add_declaration(Declaration {
+            symbol_id: none_symbol,
+            position: None,
+            kind: DeclarationKind::Type {
+                parent: None,
+                type_parameters: DeclarationMembers::default(),
+                members: DeclarationMembers::default(),
+            },
+            scope_id: ScopeId::CORE,
+            is_public: true,
+        });
+
+        let field_symbol = self.symbols.add_symbol("0");
+        let field_declaration_id = self.declarations.add_declaration(Declaration {
+            symbol_id: field_symbol,
+            position: None,
+            kind: DeclarationKind::Type {
+                parent: None,
+                type_parameters: DeclarationMembers::default(),
+                members: DeclarationMembers::default(),
+            },
+            scope_id: ScopeId::CORE,
+            is_public: false,
+        });
+
+        let some_members = self
+            .declarations
+            .add_declaration_members(&[field_declaration_id]);
+        let some_symbol = self.symbols.add_symbol("Some");
+        let some_declaration_id = self.declarations.add_declaration(Declaration {
+            symbol_id: some_symbol,
+            position: None,
+            kind: DeclarationKind::Type {
+                parent: None,
+                type_parameters: DeclarationMembers::default(),
+                members: some_members,
+            },
+            scope_id: ScopeId::CORE,
+            is_public: true,
+        });
+
+        let option_type_params = self
+            .declarations
+            .add_declaration_members(&[field_declaration_id]);
+        let option_members = self
+            .declarations
+            .add_declaration_members(&[none_declaration_id, some_declaration_id]);
+        let option_symbol = self.symbols.add_symbol("Option");
+        let option_declaration_id = self.declarations.add_declaration(Declaration {
+            symbol_id: option_symbol,
+            position: None,
+            kind: DeclarationKind::Type {
+                parent: None,
+                type_parameters: option_type_params,
+                members: option_members,
+            },
+            scope_id: ScopeId::CORE,
+            is_public: true,
+        });
+
+        core_imports.extend([
+            option_declaration_id,
+            none_declaration_id,
+            some_declaration_id,
+        ]);
+
         for native_function in NativeFunction::ALL {
-            let function_symbol = symbols.add_symbol(native_function.name());
-            let declaration_id = declarations.add_declaration(Declaration {
+            let function_symbol = self.symbols.add_symbol(native_function.name());
+            let declaration_id = self.declarations.add_declaration(Declaration {
                 symbol_id: function_symbol,
                 position: None,
                 kind: DeclarationKind::NativeFunction(native_function),
                 scope_id: ScopeId::CORE,
                 is_public: true,
             });
-            let type_id = native_function.signature(&mut types);
+            let type_id = native_function.signature(&mut self.types);
 
-            declarations.set_declaration_type(declaration_id, type_id);
+            self.declarations
+                .set_declaration_type(declaration_id, type_id);
             core_imports.push(declaration_id);
         }
 
-        let _core_scope_id = scopes.add_scope(Scope {
+        let core_scope_id = self.scopes.add_scope(Scope {
             kind: ScopeKind::Module,
             parent: ScopeId::NONE,
             modules: SmallVec::new(),
             imports: core_imports,
         });
 
-        debug_assert_eq!(_core_scope_id, ScopeId::CORE);
-
-        Self {
-            symbols,
-            declarations,
-            scopes,
-            types,
-            scope_search: HashSet::default(),
-            declaration_bindings: HashMap::default(),
-            scope_bindings: HashMap::default(),
-            type_bindings: HashMap::default(),
-        }
+        debug_assert_eq!(core_scope_id, ScopeId::CORE);
     }
 
     pub fn add_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
@@ -203,7 +272,7 @@ impl Resolver {
         }))
     }
 
-    pub fn infer_type(&mut self, type_id: TypeId) -> Result<TypeId, ErrorKind> {
+    pub fn infer_type(&self, type_id: TypeId) -> Result<TypeId, ErrorKind> {
         if let TypeNode::Inferred {
             resolved: Some(resolved),
             ..
@@ -332,13 +401,13 @@ impl Resolver {
             (
                 TypeNode::Struct {
                     declaration_id: left_declaration_id,
-                    generics: _left_generics,
-                    fields: left_fields,
+                    type_arguments: left_type_arguments,
+                    ..
                 },
                 TypeNode::Struct {
                     declaration_id: right_declaration_id,
-                    generics: _right_generics,
-                    fields: right_fields,
+                    type_arguments: right_type_arguments,
+                    ..
                 },
             ) => {
                 if left_declaration_id != right_declaration_id {
@@ -361,36 +430,21 @@ impl Resolver {
                     }));
                 }
 
-                let left_field_types = self
-                    .declarations
-                    .get_declaration_members(left_fields)?
+                let left_args = self
+                    .types
+                    .get_type_members(left_type_arguments)?
                     .iter()
-                    .map(|declaration_id| {
-                        self.declarations
-                            .get_declaration_type(declaration_id)
-                            .copied()
-                    })
-                    .try_collect::<SmallVec<[TypeId; 8]>>()?;
-                let right_field_types = self
-                    .declarations
-                    .get_declaration_members(right_fields)?
+                    .copied()
+                    .collect::<SmallVec<[TypeId; 8]>>();
+                let right_args = self
+                    .types
+                    .get_type_members(right_type_arguments)?
                     .iter()
-                    .map(|declaration_id| {
-                        self.declarations
-                            .get_declaration_type(declaration_id)
-                            .copied()
-                    })
-                    .try_collect::<SmallVec<[TypeId; 8]>>()?;
+                    .copied()
+                    .collect::<SmallVec<[TypeId; 8]>>();
 
-                for (left_field_type, right_field_type) in
-                    left_field_types.iter().zip(right_field_types.iter())
-                {
-                    self.unify_types(
-                        *left_field_type,
-                        left_syntax,
-                        *right_field_type,
-                        right_syntax,
-                    )?;
+                for (left_arg, right_arg) in left_args.iter().zip(right_args.iter()) {
+                    self.unify_types(*left_arg, left_syntax, *right_arg, right_syntax)?;
                 }
 
                 Ok(())
@@ -423,7 +477,7 @@ impl Resolver {
 
     pub fn add_external_type(&mut self, new_type: &DustType) -> TypeId {
         let node = match new_type {
-            DustType::None => TypeNode::None,
+            DustType::Unit => TypeNode::Unit,
             DustType::Boolean => TypeNode::Boolean,
             DustType::Byte => TypeNode::Byte,
             DustType::Character => TypeNode::Character,
@@ -444,7 +498,11 @@ impl Resolver {
                     let symbol = self.symbols.add_symbol(type_parameter_name);
                     let type_parameter_id = self.declarations.add_declaration(Declaration {
                         symbol_id: symbol,
-                        kind: DeclarationKind::Type { parent: None },
+                        kind: DeclarationKind::Type {
+                            parent: None,
+                            type_parameters: DeclarationMembers::default(),
+                            members: DeclarationMembers::default(),
+                        },
                         scope_id: ScopeId::NONE,
                         is_public: false,
                         position: None,
@@ -473,13 +531,7 @@ impl Resolver {
                 let DustStructType { name, fields } = struct_type.as_ref();
 
                 let symbol = self.symbols.add_symbol(name);
-                let struct_declaration_id = self.declarations.add_declaration(Declaration {
-                    symbol_id: symbol,
-                    kind: DeclarationKind::Type { parent: None },
-                    scope_id: ScopeId::NONE,
-                    is_public: false,
-                    position: None,
-                });
+                let struct_declaration_id = self.declarations.next_declaration_id();
 
                 let mut field_declaration_ids =
                     SmallVec::<[DeclarationId; 8]>::with_capacity(fields.len());
@@ -490,6 +542,8 @@ impl Resolver {
                         symbol_id: symbol,
                         kind: DeclarationKind::Type {
                             parent: Some(struct_declaration_id),
+                            type_parameters: DeclarationMembers::default(),
+                            members: DeclarationMembers::default(),
                         },
                         scope_id: ScopeId::NONE,
                         is_public: false,
@@ -502,14 +556,26 @@ impl Resolver {
                         .set_declaration_type(declaration_id, type_id);
                 }
 
-                let fields = self
+                let members = self
                     .declarations
                     .add_declaration_members(&field_declaration_ids);
+                let declared_id = self.declarations.add_declaration(Declaration {
+                    symbol_id: symbol,
+                    kind: DeclarationKind::Type {
+                        parent: None,
+                        type_parameters: DeclarationMembers::default(),
+                        members,
+                    },
+                    scope_id: ScopeId::NONE,
+                    is_public: false,
+                    position: None,
+                });
+
+                debug_assert_eq!(declared_id, struct_declaration_id);
 
                 TypeNode::Struct {
                     declaration_id: struct_declaration_id,
-                    generics: DeclarationMembers::default(),
-                    fields,
+                    type_arguments: TypeMembers::default(),
                 }
             }
         };
@@ -521,7 +587,7 @@ impl Resolver {
         let type_node = self.types.get_type(id)?;
 
         match type_node {
-            TypeNode::None => Ok(DustType::None),
+            TypeNode::Unit => Ok(DustType::Unit),
             TypeNode::Boolean => Ok(DustType::Boolean),
             TypeNode::Byte => Ok(DustType::Byte),
             TypeNode::Character => Ok(DustType::Character),
@@ -562,18 +628,19 @@ impl Resolver {
                     }))
                 }
             }
-            TypeNode::Struct {
-                declaration_id,
-                fields,
-                ..
-            } => {
+            TypeNode::Struct { declaration_id, .. } => {
                 let struct_declaration = self.declarations.get_declaration(*declaration_id)?;
                 let struct_name = self
                     .symbols
                     .get_symbol(&struct_declaration.symbol_id)?
                     .to_string();
 
-                let field_ids = self.declarations.get_declaration_members(*fields)?;
+                let DeclarationKind::Type { members, .. } = struct_declaration.kind else {
+                    return Err(ErrorKind::Internal(InternalError::MissingDeclaration(
+                        *declaration_id,
+                    )));
+                };
+                let field_ids = self.declarations.get_declaration_members(members)?;
                 let mut field_types = Vec::with_capacity(field_ids.len());
 
                 for field_id in field_ids {
@@ -631,7 +698,7 @@ impl Resolver {
         node: &SyntaxReader,
     ) -> Result<SmallType, ErrorKind> {
         match self.types.get_type(type_id)? {
-            TypeNode::None => Ok(SmallType::NONE),
+            TypeNode::Unit => Ok(SmallType::UNIT),
             TypeNode::Boolean => Ok(SmallType::BOOLEAN),
             TypeNode::Byte => Ok(SmallType::BYTE),
             TypeNode::Character => Ok(SmallType::CHARACTER),
@@ -685,11 +752,17 @@ impl Resolver {
         node: &SyntaxReader,
     ) -> Result<u16, ErrorKind> {
         match self.types.get_type(type_id)? {
-            TypeNode::None => Ok(0),
-            TypeNode::Struct { fields, .. } => {
+            TypeNode::Unit => Ok(0),
+            TypeNode::Struct { declaration_id, .. } => {
+                let struct_declaration = self.declarations.get_declaration(*declaration_id)?;
+                let DeclarationKind::Type { members, .. } = struct_declaration.kind else {
+                    return Err(ErrorKind::Internal(InternalError::MissingDeclaration(
+                        *declaration_id,
+                    )));
+                };
                 let mut leaf_count: u16 = 0;
 
-                for index in fields.start..(fields.start + fields.count) {
+                for index in members.start..(members.start + members.count) {
                     let field_declaration_id = self.declarations.get_declaration_member(index)?;
                     let field_type_id = *self
                         .declarations
@@ -707,7 +780,7 @@ impl Resolver {
                     }
 
                     let field_leaf_count = match self.types.get_type(resolved_field_type_id)? {
-                        TypeNode::None => 0,
+                        TypeNode::Unit => 0,
                         TypeNode::Struct { .. } => field_register_size.saturating_sub(1),
                         _ => 1,
                     };

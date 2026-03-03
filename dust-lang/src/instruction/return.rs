@@ -34,8 +34,12 @@ impl From<Return> for Instruction {
 
 impl Display for Return {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let Return { operand } = self;
+        let Return { operand } = *self;
 
-        write!(f, "return {operand}")
+        if operand == Address::none() {
+            write!(f, "return")
+        } else {
+            write!(f, "return {operand}")
+        }
     }
 }

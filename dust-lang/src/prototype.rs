@@ -39,7 +39,7 @@ impl Prototype {
             instructions: Vec::new(),
             call_arguments: Vec::new(),
             drops: Vec::new(),
-            return_type: DustType::None,
+            return_type: DustType::Unit,
             register_count: 0,
         }
     }
