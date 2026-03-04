@@ -3,12 +3,11 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::source_examples::function_item::{EMPTY, MIXED, RETURN_TYPE, TYPE_PARAMETERS, VALUE_PARAMETERS},
 };
 
 #[test]
 fn empty() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(EMPTY));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"fn foo() {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -32,7 +31,10 @@ fn empty() {
 
 #[test]
 fn value_parameters() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(VALUE_PARAMETERS));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(b"fn foo(x: int, y: bool) {}"),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -62,7 +64,10 @@ fn value_parameters() {
 
 #[test]
 fn type_parameters() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(TYPE_PARAMETERS));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(b"fn foo<A, B, C>() {}"),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -90,7 +95,7 @@ fn type_parameters() {
 
 #[test]
 fn return_type() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(RETURN_TYPE));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"fn foo() -> int {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -115,7 +120,10 @@ fn return_type() {
 
 #[test]
 fn mixed() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(MIXED));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(b"fn foo<A, B, C>(x: A, y: B) -> C {}"),
+    );
     let ParseResult {
         syntax_tree,
         errors,

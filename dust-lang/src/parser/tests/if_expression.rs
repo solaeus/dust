@@ -1,14 +1,17 @@
+use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::source_examples::if_expression::{IF, IF_ELSE, IF_ELSE_IF},
 };
 
 #[test]
 fn r#if() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(IF));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("if condition { x + y }")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -41,7 +44,10 @@ fn r#if() {
 
 #[test]
 fn if_else() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(IF_ELSE));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("if condition { x + y } else { x - y }")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -84,7 +90,12 @@ fn if_else() {
 
 #[test]
 fn if_else_if() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(IF_ELSE_IF));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!(
+            "if left { x + y } else if right { x - y } else { x * y }"
+        )),
+    );
     let ParseResult {
         syntax_tree,
         errors,

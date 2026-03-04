@@ -65,6 +65,13 @@ impl SyntaxTree {
         Ok(SyntaxReader::new(id, node, self))
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = SyntaxReader<'_>> {
+        self.nodes
+            .iter()
+            .enumerate()
+            .map(|(index, node)| SyntaxReader::new(SyntaxId(index as u32), node, self))
+    }
+
     pub fn sorted_nodes(&self) -> Vec<SyntaxNode> {
         fn collect_depth_first(node: SyntaxReader, nodes: &mut Vec<SyntaxNode>) {
             nodes.push(*node.inner());

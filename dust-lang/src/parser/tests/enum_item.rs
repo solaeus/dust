@@ -3,14 +3,11 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::source_examples::enum_item::{
-        EMPTY_VARIANT, FIELDS_VARIANT, MIXED_VARIANTS, TUPLE_VARIANT, TYPE_PARAMETERS,
-    },
 };
 
 #[test]
 fn empty_variant() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(EMPTY_VARIANT));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"enum Foo { Bar }"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -33,7 +30,10 @@ fn empty_variant() {
 
 #[test]
 fn tuple_variant() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(TUPLE_VARIANT));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(b"enum Foo { Bar(int, int) }"),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -64,7 +64,10 @@ fn tuple_variant() {
 
 #[test]
 fn fields_variant() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(FIELDS_VARIANT));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(b"enum Foo { Bar { x: int, y: int } }"),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -107,7 +110,10 @@ fn fields_variant() {
 
 #[test]
 fn mixed_variants() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(MIXED_VARIANTS));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(b"enum Foo { Bar, Baz(int), Qux { x: int } }"),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -146,7 +152,10 @@ fn mixed_variants() {
 
 #[test]
 fn type_parameters() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(TYPE_PARAMETERS));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(b"enum Foo<A, B, C> { Bar }"),
+    );
     let ParseResult {
         syntax_tree,
         errors,

@@ -1,14 +1,17 @@
+use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::source_examples::unary_expressions::{NEGATE, NOT},
 };
 
 #[test]
 fn negation() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(NEGATE));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("-x")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -35,7 +38,10 @@ fn negation() {
 
 #[test]
 fn logical_not() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(NOT));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("!x")),
+    );
     let ParseResult {
         syntax_tree,
         errors,

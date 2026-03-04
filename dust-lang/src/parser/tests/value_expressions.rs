@@ -1,14 +1,17 @@
+use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
-    tests::source_examples::value_expressions::{BOOLEAN, BYTE, CHARACTER, FLOAT, FUNCTION, INTEGER, LIST, STRING},
 };
 
 #[test]
 fn boolean() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(BOOLEAN));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("true")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -33,7 +36,10 @@ fn boolean() {
 
 #[test]
 fn byte() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(BYTE));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("0x2A")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -58,7 +64,10 @@ fn byte() {
 
 #[test]
 fn character() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(CHARACTER));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("'a'")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -83,7 +92,10 @@ fn character() {
 
 #[test]
 fn float() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(FLOAT));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("42.0")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -108,7 +120,10 @@ fn float() {
 
 #[test]
 fn integer() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(INTEGER));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("42")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -133,7 +148,10 @@ fn integer() {
 
 #[test]
 fn string() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(STRING));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("\"Hello, world!\"")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -159,7 +177,10 @@ fn string() {
 
 #[test]
 fn list() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(LIST));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("[1, 2, 3]")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -187,7 +208,10 @@ fn list() {
 
 #[test]
 fn function() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(FUNCTION));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("fn() {}")),
+    );
     let ParseResult {
         syntax_tree,
         errors,

@@ -16,14 +16,20 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
-    tests::source_examples::{GROUPED_EXPRESSION, REASSIGNMENT_STATEMENT},
 };
+
+#[macro_export]
+macro_rules! function_wrapper {
+    ($content:expr) => {
+        concat!("fn main() {\n    ", $content, "\n}").as_bytes()
+    };
+}
 
 #[test]
 fn reassignment_statement() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(REASSIGNMENT_STATEMENT),
+        Lexer::from_bytes(function_wrapper!("x = 42;")),
     );
     let ParseResult {
         syntax_tree,
@@ -51,7 +57,10 @@ fn reassignment_statement() {
 
 #[test]
 fn grouped_expression() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(GROUPED_EXPRESSION));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("(x + y)")),
+    );
     let ParseResult {
         syntax_tree,
         errors,

@@ -27,14 +27,12 @@ pub struct Prototype {
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) call_arguments: Vec<CallArgument>,
     pub(crate) drops: Vec<u16>,
-
     pub(crate) return_type: DustType,
-
     pub(crate) register_count: u16,
 }
 
 impl Prototype {
-    pub(crate) fn dummy() -> Self {
+    pub(crate) fn placeholder() -> Self {
         Self {
             instructions: Vec::new(),
             call_arguments: Vec::new(),
@@ -80,7 +78,7 @@ impl PrototypeList {
     pub fn reserve_slot(&mut self) -> PrototypeId {
         let id = PrototypeId(self.prototypes.len() as u16);
 
-        self.prototypes.push(Prototype::dummy());
+        self.prototypes.push(Prototype::placeholder());
 
         id
     }

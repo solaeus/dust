@@ -55,9 +55,6 @@ pub mod prelude {
     };
 }
 
-#[cfg(test)]
-mod tests;
-
 #[cfg(feature = "mimalloc")]
 mod allocator {
     use mimalloc::MiMalloc;

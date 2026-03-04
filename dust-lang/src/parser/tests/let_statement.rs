@@ -1,14 +1,17 @@
+use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
-    tests::source_examples::let_statement::{WITH_TYPE, WITH_TYPE_MUT, WITHOUT_TYPE, WITHOUT_TYPE_MUT},
 };
 
 #[test]
 fn let_statement() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(WITHOUT_TYPE));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("let x = 42;")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -35,7 +38,10 @@ fn let_statement() {
 
 #[test]
 fn let_statement_with_type() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(WITH_TYPE));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("let x: int = 42;")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -63,7 +69,10 @@ fn let_statement_with_type() {
 
 #[test]
 fn let_mut_statement() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(WITHOUT_TYPE_MUT));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("let mut x = 42;")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -90,7 +99,10 @@ fn let_mut_statement() {
 
 #[test]
 fn let_mut_statement_with_type() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(WITH_TYPE_MUT));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("let mut x: int = 42;")),
+    );
     let ParseResult {
         syntax_tree,
         errors,

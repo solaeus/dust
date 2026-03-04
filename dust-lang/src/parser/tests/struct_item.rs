@@ -3,12 +3,11 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::source_examples::struct_item::{EMPYT, FIELDS, TUPLE, TYPE_PARAMETERS},
 };
 
 #[test]
 fn empty() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(EMPYT));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"struct Foo {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -29,7 +28,10 @@ fn empty() {
 
 #[test]
 fn tuple() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(TUPLE));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(b"struct Foo(int, int);"),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -56,7 +58,10 @@ fn tuple() {
 
 #[test]
 fn fields() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(FIELDS));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(b"struct Foo { x: int, y: int }"),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -95,7 +100,10 @@ fn fields() {
 
 #[test]
 fn type_parameters() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(TYPE_PARAMETERS));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(b"struct Foo<A, B, C> {}"),
+    );
     let ParseResult {
         syntax_tree,
         errors,

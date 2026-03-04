@@ -1,14 +1,17 @@
+use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
-    tests::source_examples::struct_expression::{EMPTY_FIELDS, FIELDS},
 };
 
 #[test]
 fn empty_fields() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(EMPTY_FIELDS));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("Foo {}")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -36,7 +39,10 @@ fn empty_fields() {
 
 #[test]
 fn fields() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(FIELDS));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("Foo { x: 42, y: 666 }")),
+    );
     let ParseResult {
         syntax_tree,
         errors,

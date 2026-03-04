@@ -1,14 +1,17 @@
+use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
-    tests::source_examples::block_expression::{EMPTY, EXPRESSION, ITEM, MIXED, STATEMENT},
 };
 
 #[test]
 fn empty() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(EMPTY));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("{}")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -33,7 +36,10 @@ fn empty() {
 
 #[test]
 fn item() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(ITEM));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("{ fn foo() {} }")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -64,7 +70,10 @@ fn item() {
 
 #[test]
 fn statement() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(STATEMENT));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("{ let x = 42; }")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -92,7 +101,10 @@ fn statement() {
 
 #[test]
 fn expression() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(EXPRESSION));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("{ x + y }")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -122,7 +134,10 @@ fn expression() {
 
 #[test]
 fn mixed() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(MIXED));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("{ fn foo() {} let x = 42; x + y }")),
+    );
     let ParseResult {
         syntax_tree,
         errors,

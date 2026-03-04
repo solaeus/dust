@@ -3,12 +3,11 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::source_examples::mod_item::{EMPTY, FILE, NESTED},
 };
 
 #[test]
 fn file() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(FILE));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"mod foo;"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -28,7 +27,7 @@ fn file() {
 
 #[test]
 fn empty() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(EMPTY));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"mod foo {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -49,7 +48,10 @@ fn empty() {
 
 #[test]
 fn nested() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(NESTED));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(b"mod foo { mod bar {} }"),
+    );
     let ParseResult {
         syntax_tree,
         errors,

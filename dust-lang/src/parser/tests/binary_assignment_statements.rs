@@ -1,16 +1,17 @@
+use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
-    tests::source_examples::binary_assignment_statements::{
-        ADD_ASSIGN, DIVIDE_ASSIGN, MODULO_ASSIGN, MULTIPLY_ASSIGN, POWER_ASSIGN, SUBTRACT_ASSIGN,
-    },
 };
 
 #[test]
 fn add_assign() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(ADD_ASSIGN));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x += 42;")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -42,7 +43,10 @@ fn add_assign() {
 
 #[test]
 fn subtract_assign() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(SUBTRACT_ASSIGN));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x -= 42;")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -74,7 +78,10 @@ fn subtract_assign() {
 
 #[test]
 fn multiply_assign() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(MULTIPLY_ASSIGN));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x *= 42;")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -106,7 +113,10 @@ fn multiply_assign() {
 
 #[test]
 fn divide_assign() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(DIVIDE_ASSIGN));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x /= 42;")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -138,7 +148,10 @@ fn divide_assign() {
 
 #[test]
 fn modulo_assign() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(MODULO_ASSIGN));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x %= 42;")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -170,7 +183,10 @@ fn modulo_assign() {
 
 #[test]
 fn power_assign() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(POWER_ASSIGN));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x ^= 42;")),
+    );
     let ParseResult {
         syntax_tree,
         errors,

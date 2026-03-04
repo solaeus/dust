@@ -1,18 +1,17 @@
+use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*},
-    tests::source_examples::binary_expressions::{
-        ADDITION, DIVISION, EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN,
-        LESS_THAN_OR_EQUAL, LOGICAL_AND, LOGICAL_OR, MODULO, MULTIPLICATION, NOT_EQUAL, POWER,
-        SUBTRACTION,
-    },
 };
 
 #[test]
 fn addition() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(ADDITION));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x + y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -41,7 +40,10 @@ fn addition() {
 
 #[test]
 fn subtraction() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(SUBTRACTION));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x - y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -70,7 +72,10 @@ fn subtraction() {
 
 #[test]
 fn multiplication() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(MULTIPLICATION));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x * y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -103,7 +108,10 @@ fn multiplication() {
 
 #[test]
 fn division() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(DIVISION));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x / y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -132,7 +140,10 @@ fn division() {
 
 #[test]
 fn modulo() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(MODULO));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x % y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -161,7 +172,10 @@ fn modulo() {
 
 #[test]
 fn power() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(POWER));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x ^ y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -190,7 +204,10 @@ fn power() {
 
 #[test]
 fn equal() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(EQUAL));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x == y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -219,7 +236,10 @@ fn equal() {
 
 #[test]
 fn not_equal() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(NOT_EQUAL));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x != y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -248,7 +268,10 @@ fn not_equal() {
 
 #[test]
 fn less_than() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(LESS_THAN));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x < y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -277,7 +300,10 @@ fn less_than() {
 
 #[test]
 fn less_than_or_equal() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(LESS_THAN_OR_EQUAL));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x <= y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -310,7 +336,10 @@ fn less_than_or_equal() {
 
 #[test]
 fn greater_than() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(GREATER_THAN));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x > y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -339,7 +368,10 @@ fn greater_than() {
 
 #[test]
 fn greater_than_or_equal() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(GREATER_THAN_OR_EQUAL));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x >= y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -372,7 +404,10 @@ fn greater_than_or_equal() {
 
 #[test]
 fn logical_and() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(LOGICAL_AND));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x && y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -401,7 +436,10 @@ fn logical_and() {
 
 #[test]
 fn logical_or() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(LOGICAL_OR));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::from_bytes(function_wrapper!("x || y")),
+    );
     let ParseResult {
         syntax_tree,
         errors,

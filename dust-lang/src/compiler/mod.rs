@@ -65,7 +65,7 @@ impl<'src> Compiler<'src> {
     }
 
     pub fn compile(mut self, program_name: Option<String>) -> Result<Program, Error<'src>> {
-        match self.compile_inner(&program_name) {
+        match self.compile_inner() {
             Ok(()) => {
                 let program = Program::new(program_name, self.constants, self.prototypes);
 
@@ -83,7 +83,7 @@ impl<'src> Compiler<'src> {
         mut self,
         program_name: Option<String>,
     ) -> Result<(Program, Source<'src>, Syntax, Resolver), Error<'src>> {
-        match self.compile_inner(&program_name) {
+        match self.compile_inner() {
             Ok(()) => {
                 let program = Program::new(program_name, self.constants, self.prototypes);
 
@@ -97,7 +97,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
-    fn compile_inner(&mut self, program_name: &Option<String>) -> Result<(), Vec<ErrorKind>> {
+    fn compile_inner(&mut self) -> Result<(), Vec<ErrorKind>> {
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
 
@@ -211,13 +211,7 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "type");
             let _enter = span.enter();
 
-            let mut type_binder = TypeBinder::new(
-                SourceFileId::MAIN,
-                &self.source,
-                &self.syntax,
-                &mut self.resolver,
-                &mut errors,
-            );
+            let mut type_binder = TypeBinder::new(&self.syntax, &mut self.resolver, &mut errors);
 
             match type_binder.visit_root(main_root) {
                 Ok(()) => {}

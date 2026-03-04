@@ -1,5 +1,5 @@
 use smallvec::SmallVec;
-use tracing::{debug, info};
+use tracing::debug;
 
 use crate::{
     compiler::error::CompileError,
@@ -9,16 +9,11 @@ use crate::{
         declaration_graph::{DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind},
         type_graph::{TypeId, TypeMembers, TypeNode},
     },
-    source::{Source, SourceFileId},
     syntax::{Syntax, SyntaxKind, SyntaxReader, SyntaxVisitor},
 };
 
 #[derive(Debug)]
 pub struct TypeBinder<'a> {
-    file_id: SourceFileId,
-
-    source: &'a Source<'a>,
-
     syntax: &'a Syntax,
 
     resolver: &'a mut Resolver,
@@ -28,15 +23,11 @@ pub struct TypeBinder<'a> {
 
 impl<'a> TypeBinder<'a> {
     pub fn new(
-        file_id: SourceFileId,
-        source: &'a Source,
         syntax: &'a Syntax,
         resolver: &'a mut Resolver,
         errors: &'a mut Vec<ErrorKind>,
     ) -> Self {
         Self {
-            source,
-            file_id,
             syntax,
             resolver,
             errors,
@@ -58,7 +49,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let children = node.children()?;
 
         for child in children {
-            self.visit_item(child);
+            match self.visit_item(child) {
+                Ok(()) => {}
+                Err(error) => {
+                    self.errors.push(error);
+                }
+            }
         }
 
         Ok(())
@@ -73,7 +69,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         if let Some(module_body) = module_body {
             for child in module_body.children()? {
-                self.visit_item(child);
+                match self.visit_item(child) {
+                    Ok(()) => {}
+                    Err(error) => {
+                        self.errors.push(error);
+                    }
+                }
             }
         } else {
             let module_declaration_id = *self.resolver.get_declaration_binding(&module_name.id)?;
@@ -95,15 +96,8 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 ));
             };
             let module_root = self.syntax.get_tree(module_file_id)?.root()?;
-            let mut module_type_binder = TypeBinder::new(
-                module_file_id,
-                self.source,
-                self.syntax,
-                self.resolver,
-                self.errors,
-            );
 
-            module_type_binder.visit_root(module_root)?;
+            self.visit_root(module_root)?;
         }
 
         Ok(())
@@ -555,11 +549,21 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         for child in children {
             let child_type = if child.is_item() {
-                self.visit_item(child);
+                match self.visit_item(child) {
+                    Ok(()) => {}
+                    Err(error) => {
+                        self.errors.push(error);
+                    }
+                }
 
                 TypeId::UNIT
             } else if child.is_statement() {
-                self.visit_statement(child);
+                match self.visit_statement(child) {
+                    Ok(()) => {}
+                    Err(error) => {
+                        self.errors.push(error);
+                    }
+                }
 
                 TypeId::UNIT
             } else {
