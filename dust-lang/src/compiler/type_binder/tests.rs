@@ -683,7 +683,7 @@ fn index_expression_has_element_type() {
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let node = tree
         .iter()
-        .find(|node| node.kind() == SyntaxKind::ListIndexExpression)
+        .find(|node| node.kind() == SyntaxKind::IndexExpression)
         .unwrap();
 
     assert_eq!(

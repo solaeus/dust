@@ -135,7 +135,7 @@ pub enum SyntaxKind {
 
     // List Expressions
     ListExpression,
-    ListIndexExpression,
+    IndexExpression,
 
     // Function Expressions
     FunctionExpression,
@@ -316,7 +316,7 @@ impl SyntaxKind {
                 | SyntaxKind::NegationExpression
                 | SyntaxKind::NotExpression
                 | SyntaxKind::ListExpression
-                | SyntaxKind::ListIndexExpression
+                | SyntaxKind::IndexExpression
                 | SyntaxKind::BlockExpression
                 | SyntaxKind::CallExpression
                 | SyntaxKind::FunctionExpression
@@ -393,7 +393,7 @@ impl SyntaxKind {
             SyntaxKind::LetMutStatement => "let mut statement",
             SyntaxKind::LetStatement => "let statement",
             SyntaxKind::ListExpression => "list expression",
-            SyntaxKind::ListIndexExpression => "index expression",
+            SyntaxKind::IndexExpression => "index expression",
             SyntaxKind::ListType => "list type",
             SyntaxKind::ModuleBody => "module body",
             SyntaxKind::ModuleItem => "module item",

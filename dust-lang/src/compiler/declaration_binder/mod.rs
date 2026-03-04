@@ -61,12 +61,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     type TypeOutput = ();
     type PathOutput = DeclarationId;
 
-    fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, ErrorKind> {
+    fn visit_root(&mut self, root: SyntaxReader) -> Result<Self::RootOutput, ErrorKind> {
         debug!("Visiting root");
+        debug_assert_eq!(root.kind(), SyntaxKind::Root);
 
-        let children = node.children()?;
-
-        for child in children {
+        for child in root.children()? {
             match self.visit_item(child) {
                 Ok(()) => {}
                 Err(error) => self.errors.push(error),
@@ -78,6 +77,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_module_item(&mut self, module_item: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visiting module item");
+        debug_assert!(matches!(
+            module_item.kind(),
+            SyntaxKind::ModuleItem | SyntaxKind::PublicModuleItem
+        ),);
 
         let mut children = module_item.children()?;
         let module_name = children.expect_next()?;
@@ -177,6 +180,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_function_item(&mut self, function_item: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visiting function item");
+        debug_assert!(matches!(
+            function_item.kind(),
+            SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem
+        ),);
 
         let (function_name, function_expression) = function_item.binary_children()?;
 
@@ -199,21 +206,29 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_use_item(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
+    fn visit_use_item(&mut self, use_item: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visiting use item");
+        debug_assert!(matches!(
+            use_item.kind(),
+            SyntaxKind::UseItem | SyntaxKind::PublicUseItem
+        ),);
 
-        let path = node.child()?;
+        let path = use_item.child()?;
 
         let declaration_id = self.visit_path(path, Visibility::Module)?;
 
         self.resolver
-            .add_declaration_binding(node.id, declaration_id);
+            .add_declaration_binding(use_item.id, declaration_id);
 
         Ok(())
     }
 
     fn visit_struct_item(&mut self, struct_item: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visiting struct item");
+        debug_assert!(matches!(
+            struct_item.kind(),
+            SyntaxKind::StructItem | SyntaxKind::PublicStructItem
+        ),);
 
         let (struct_name, struct_fields) = struct_item.binary_children()?;
 
@@ -275,6 +290,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_enum_item(&mut self, enum_item: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visiting enum item");
+        debug_assert!(matches!(
+            enum_item.kind(),
+            SyntaxKind::EnumItem | SyntaxKind::PublicEnumItem
+        ),);
 
         let mut children = enum_item.children()?;
         let enum_name = children.expect_next()?;
@@ -343,12 +362,16 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         expression_statement: SyntaxReader,
     ) -> Result<(), ErrorKind> {
         debug!("Visiting expression statement");
+        debug_assert_eq!(expression_statement.kind(), SyntaxKind::ExpressionStatement);
 
-        self.visit_expression(expression_statement.child()?, ())
+        self.visit_expression(expression_statement.child()?, ())?;
+
+        Ok(())
     }
 
     fn visit_let_statement(&mut self, let_statement: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visiting let statement");
+        debug_assert_eq!(let_statement.kind(), SyntaxKind::LetStatement);
 
         let (simple_path, expression) = let_statement.binary_children()?;
 
@@ -379,10 +402,21 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_binary_assignment_statement(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
+    fn visit_binary_assignment_statement(
+        &mut self,
+        binary_assignment_statement: SyntaxReader,
+    ) -> Result<(), ErrorKind> {
         debug!("Visiting binary assignment statement");
+        debug_assert!(matches!(
+            binary_assignment_statement.kind(),
+            SyntaxKind::AdditionAssignmentStatement
+                | SyntaxKind::SubtractionAssignmentStatement
+                | SyntaxKind::MultiplicationAssignmentStatement
+                | SyntaxKind::DivisionAssignmentStatement
+                | SyntaxKind::ModuloAssignmentStatement
+        ),);
 
-        let (path, expression) = node.binary_children()?;
+        let (path, expression) = binary_assignment_statement.binary_children()?;
 
         self.visit_path(path, Visibility::Block)?;
         self.visit_expression(expression, ())?;
@@ -390,10 +424,17 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_reassignment_statement(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
+    fn visit_reassignment_statement(
+        &mut self,
+        reassignment_statement: SyntaxReader,
+    ) -> Result<(), ErrorKind> {
         debug!("Visiting reassignment statement");
+        debug_assert_eq!(
+            reassignment_statement.kind(),
+            SyntaxKind::ReassignmentStatement
+        );
 
-        let (simple_path, expression) = node.binary_children()?;
+        let (simple_path, expression) = reassignment_statement.binary_children()?;
 
         let identifier = self.source.get_file_content(&simple_path.position())?;
         let symbol_id = self.resolver.symbols.add_symbol(identifier);
@@ -464,12 +505,13 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_list_expression(
         &mut self,
-        node: SyntaxReader,
+        list_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting list expression");
+        debug_assert_eq!(list_expression.kind(), SyntaxKind::ListExpression);
 
-        for element in node.children()? {
+        for element in list_expression.children()? {
             self.visit_expression(element, ())?;
         }
 
@@ -478,12 +520,13 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_index_expression(
         &mut self,
-        node: SyntaxReader,
+        index_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting index expression");
+        debug_assert_eq!(index_expression.kind(), SyntaxKind::IndexExpression);
 
-        let (list, index) = node.binary_children()?;
+        let (list, index) = index_expression.binary_children()?;
 
         self.visit_expression(list, ())?;
         self.visit_expression(index, ())?;
@@ -497,6 +540,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting path expression");
+        debug_assert_eq!(path_expression.kind(), SyntaxKind::PathExpression);
 
         let declaration_id = search_path_segments(self, path_expression, Visibility::Block)?;
 
@@ -508,12 +552,13 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_struct_expression(
         &mut self,
-        node: SyntaxReader,
+        struct_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting struct expression");
+        debug_assert_eq!(struct_expression.kind(), SyntaxKind::StructExpression);
 
-        let (path, fields) = node.binary_children()?;
+        let (path, fields) = struct_expression.binary_children()?;
 
         self.visit_path(path, Visibility::Module)?;
 
@@ -533,6 +578,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting block expression");
+        debug_assert_eq!(block_expression.kind(), SyntaxKind::BlockExpression);
 
         let block_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Block,
@@ -569,12 +615,13 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_if_expression(
         &mut self,
-        node: SyntaxReader,
+        if_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting if expression");
+        debug_assert_eq!(if_expression.kind(), SyntaxKind::IfExpression);
 
-        let mut children = node.children()?;
+        let mut children = if_expression.children()?;
         let condition = children.expect_next()?;
         let then_branch = children.expect_next()?;
         let else_branch = children.next();
@@ -591,12 +638,20 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_math_binary_expression(
         &mut self,
-        node: SyntaxReader,
+        math_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting math binary expression");
+        debug_assert!(matches!(
+            math_expression.kind(),
+            SyntaxKind::AdditionExpression
+                | SyntaxKind::SubtractionExpression
+                | SyntaxKind::MultiplicationExpression
+                | SyntaxKind::DivisionExpression
+                | SyntaxKind::ModuloExpression
+        ),);
 
-        let (left_expression, right_expression) = node.binary_children()?;
+        let (left_expression, right_expression) = math_expression.binary_children()?;
 
         self.visit_expression(left_expression, ())?;
         self.visit_expression(right_expression, ())?;
@@ -606,12 +661,21 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_comparison_binary_expression(
         &mut self,
-        node: SyntaxReader,
+        comparison_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting comparison binary expression");
+        debug_assert!(matches!(
+            comparison_expression.kind(),
+            SyntaxKind::EqualExpression
+                | SyntaxKind::NotEqualExpression
+                | SyntaxKind::LessThanExpression
+                | SyntaxKind::GreaterThanExpression
+                | SyntaxKind::LessThanOrEqualExpression
+                | SyntaxKind::GreaterThanOrEqualExpression
+        ),);
 
-        let (left_expression, right_expression) = node.binary_children()?;
+        let (left_expression, right_expression) = comparison_expression.binary_children()?;
 
         self.visit_expression(left_expression, ())?;
         self.visit_expression(right_expression, ())?;
@@ -621,12 +685,16 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_logical_binary_expression(
         &mut self,
-        node: SyntaxReader,
+        logical_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting logical binary expression");
+        debug_assert!(matches!(
+            logical_expression.kind(),
+            SyntaxKind::AndExpression | SyntaxKind::OrExpression
+        ),);
 
-        let (left_expression, right_expression) = node.binary_children()?;
+        let (left_expression, right_expression) = logical_expression.binary_children()?;
 
         self.visit_expression(left_expression, ())?;
         self.visit_expression(right_expression, ())?;
@@ -636,12 +704,13 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_unary_negation_expression(
         &mut self,
-        node: SyntaxReader,
+        negation_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting unary negation expression");
+        debug_assert_eq!(negation_expression.kind(), SyntaxKind::NegationExpression);
 
-        self.visit_expression(node.child()?, ())?;
+        self.visit_expression(negation_expression.child()?, ())?;
 
         Ok(())
     }
@@ -652,6 +721,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting while expression");
+        debug_assert_eq!(node.kind(), SyntaxKind::WhileExpression);
 
         let (condition, body) = node.binary_children()?;
 
@@ -667,6 +737,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting function expression");
+        debug_assert_eq!(node.kind(), SyntaxKind::FunctionExpression);
 
         let (signature, body) = node.binary_children()?;
         let mut signature_children = signature.children()?;
@@ -720,6 +791,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting call expression");
+        debug_assert_eq!(node.kind(), SyntaxKind::CallExpression);
 
         let (callee, arguments_list) = node.binary_children()?;
         let arguments = arguments_list.children()?;
@@ -735,6 +807,19 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_type(&mut self, node: SyntaxReader) -> Result<Self::TypeOutput, ErrorKind> {
         debug!("Visiting type");
+        debug_assert!(matches!(
+            node.kind(),
+            SyntaxKind::AnyType
+                | SyntaxKind::BooleanType
+                | SyntaxKind::ByteType
+                | SyntaxKind::CharacterType
+                | SyntaxKind::FloatType
+                | SyntaxKind::IntegerType
+                | SyntaxKind::StringType
+                | SyntaxKind::ListType
+                | SyntaxKind::FunctionType
+                | SyntaxKind::TypePath
+        ),);
 
         if node.kind() == SyntaxKind::TypePath {
             let path = node.child()?;
@@ -754,6 +839,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         visibility: Visibility,
     ) -> Result<Self::PathOutput, ErrorKind> {
         debug!("Visiting path");
+        debug_assert_eq!(path.kind(), SyntaxKind::Path);
 
         let declaration_id = search_path_segments(self, path, visibility)?;
 

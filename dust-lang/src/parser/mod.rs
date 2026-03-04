@@ -1346,7 +1346,7 @@ impl<'src> Parser<'src> {
 
         let end = self.previous_token.span.end();
 
-        Ok(SyntaxKind::ListIndexExpression.with_binary_children(
+        Ok(SyntaxKind::IndexExpression.with_binary_children(
             Span::new(start, end),
             left_id,
             index_id,
