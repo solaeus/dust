@@ -156,6 +156,7 @@ pub enum SyntaxKind {
     BlockExpression,
 
     // Sub-Syntax
+    ModuleBody,
     ValueArguments,
     FunctionSignature,
     ValueParameters,
@@ -393,6 +394,7 @@ impl SyntaxKind {
             SyntaxKind::ListExpression => "list expression",
             SyntaxKind::ListIndexExpression => "index expression",
             SyntaxKind::ListType => "list type",
+            SyntaxKind::ModuleBody => "module body",
             SyntaxKind::ModuleItem => "module item",
             SyntaxKind::ModuloAssignmentStatement => "modulo assignment statement",
             SyntaxKind::ModuloExpression => "modulo expression",

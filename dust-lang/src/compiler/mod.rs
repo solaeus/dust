@@ -168,13 +168,8 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        let program_symbol_id = if let Some(name) = program_name {
-            self.resolver.symbols.add_symbol(name)
-        } else {
-            self.resolver.symbols.add_symbol(Program::DEFAULT_NAME)
-        };
-        let program_scope_id = self.resolver.scopes.add_scope(Scope {
-            kind: ScopeKind::Project,
+        let crate_scope_id = self.resolver.scopes.add_scope(Scope {
+            kind: ScopeKind::Crate,
             parent: ScopeId::NONE,
             modules: SmallVec::new(),
             imports: SmallVec::new(),
@@ -202,7 +197,7 @@ impl<'src> Compiler<'src> {
                 &self.syntax,
                 &mut self.resolver,
                 &mut errors,
-                program_scope_id,
+                crate_scope_id,
             );
 
             match declaration_binder.visit_root(main_root) {
@@ -243,7 +238,7 @@ impl<'src> Compiler<'src> {
             let (main_declaration_id, main_declaration) = match self
                 .resolver
                 .declarations
-                .find_declaration(main_symbol_id, program_scope_id)
+                .find_declaration(main_symbol_id, crate_scope_id)
             {
                 Some(declaration) => declaration,
                 None => {

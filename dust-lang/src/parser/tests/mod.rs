@@ -16,7 +16,7 @@ use crate::{
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
     syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
-    tests::{GROUPED_EXPRESSION, REASSIGNMENT_STATEMENT},
+    tests::source_examples::{GROUPED_EXPRESSION, REASSIGNMENT_STATEMENT},
 };
 
 #[test]

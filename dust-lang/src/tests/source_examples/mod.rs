@@ -10,3 +10,9 @@ pub mod struct_expression;
 pub mod struct_item;
 pub mod unary_expressions;
 pub mod value_expressions;
+
+use crate::function_wrapper;
+
+pub const REASSIGNMENT_STATEMENT: &[u8] = function_wrapper!("x = 42;");
+
+pub const GROUPED_EXPRESSION: &[u8] = function_wrapper!("(x + y)");

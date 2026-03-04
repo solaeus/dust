@@ -219,7 +219,6 @@ impl Resolver {
         &mut self,
         symbol_id: SymbolId,
         target_scope_id: ScopeId,
-        local: bool,
         path_segment: &SyntaxReader,
     ) -> Result<(DeclarationId, Declaration), ErrorKind> {
         let mut current_scope_id = target_scope_id;
@@ -239,10 +238,6 @@ impl Resolver {
             }
 
             let current_scope = self.scopes.get_scope(current_scope_id)?;
-
-            if local && current_scope.kind == ScopeKind::Module {
-                break;
-            }
 
             for module_scope_id in &current_scope.modules {
                 if let Some((declaration_id, declaration)) = self

@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use std::path::Path;
 
 use smallvec::SmallVec;
@@ -27,6 +30,8 @@ pub struct DeclarationBinder<'a> {
     errors: &'a mut Vec<ErrorKind>,
 
     current_scope_id: ScopeId,
+
+    crate_scope_id: ScopeId,
 }
 
 impl<'a> DeclarationBinder<'a> {
@@ -35,14 +40,15 @@ impl<'a> DeclarationBinder<'a> {
         syntax: &'a Syntax,
         resolver: &'a mut Resolver,
         errors: &'a mut Vec<ErrorKind>,
-        project_scope_id: ScopeId,
+        crate_scope_id: ScopeId,
     ) -> Self {
         Self {
             source,
             syntax,
             resolver,
             errors,
-            current_scope_id: project_scope_id,
+            current_scope_id: crate_scope_id,
+            crate_scope_id,
         }
     }
 }
@@ -61,8 +67,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let children = node.children()?;
 
         for child in children {
-            self.visit_item(child)
-                .unwrap_or_else(|err| self.errors.push(err));
+            match self.visit_item(child) {
+                Ok(()) => {}
+                Err(error) => self.errors.push(error),
+            }
         }
 
         Ok(())
@@ -171,51 +179,22 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         debug!("Visiting function item");
 
         let (function_name, function_expression) = function_item.binary_children()?;
-        let (signature, body) = function_expression.binary_children()?;
-        let mut signature_children = signature.children()?;
-        let value_parameter_list = signature_children.expect_next()?;
-        let return_type = signature_children.next();
-        let value_parameters = value_parameter_list.children()?;
 
         let function_name_str = self.source.get_file_content(&function_name.position())?;
-        let function_symbol = self.resolver.symbols.add_symbol(function_name_str);
-        let function_scope_id = self.resolver.scopes.add_scope(Scope {
-            kind: ScopeKind::Function,
-            parent: self.current_scope_id,
-            modules: SmallVec::new(),
-            imports: SmallVec::new(),
-        });
-        let is_public = match function_item.kind() {
-            SyntaxKind::PublicFunctionItem => true,
-            SyntaxKind::FunctionItem => false,
-            _ => unreachable!(),
-        };
-        let function_declaration = Declaration {
-            symbol_id: function_symbol,
+        let function_symbol_id = self.resolver.symbols.add_symbol(function_name_str);
+
+        let is_public = function_item.kind() == SyntaxKind::PublicFunctionItem;
+        let function_declaration_id = self.resolver.declarations.add_declaration(Declaration {
+            symbol_id: function_symbol_id,
             kind: DeclarationKind::Function,
             scope_id: self.current_scope_id,
             is_public,
-            position: Some(function_item.position()),
-        };
-        let function_declaration_id = self
-            .resolver
-            .declarations
-            .add_declaration(function_declaration);
+            position: Some(function_name.position()),
+        });
 
-        if let Some(type_node) = return_type {
-            self.visit_type(type_node)?;
-        }
-
-        self.resolver.add_scope_binding(body.id, function_scope_id);
         self.resolver
-            .add_declaration_binding(function_item.id, function_declaration_id);
-
-        let starting_scope_id = self.current_scope_id;
-        self.current_scope_id = function_scope_id;
-
-        self.visit_block_expression(body, ())?;
-
-        self.current_scope_id = starting_scope_id;
+            .add_declaration_binding(function_name.id, function_declaration_id);
+        self.visit_function_expression(function_expression, ())?;
 
         Ok(())
     }
@@ -379,14 +358,16 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let identifier = self.source.get_file_content(&simple_path.position())?;
         let symbol_id = self.resolver.symbols.add_symbol(identifier);
-        let shadowed = self
+        let shadowed_declaration = self
             .resolver
-            .find_declaration_in_scope(symbol_id, self.current_scope_id, true, &simple_path)
+            .find_declaration_in_scope(symbol_id, self.current_scope_id, &simple_path)
             .ok()
             .map(|(declaration_id, _)| declaration_id);
         let declaration_id = self.resolver.declarations.add_declaration(Declaration {
             symbol_id,
-            kind: DeclarationKind::Local { shadowed },
+            kind: DeclarationKind::Local {
+                shadowed: shadowed_declaration,
+            },
             scope_id: self.current_scope_id,
             is_public: false,
             position: Some(simple_path.position()),
@@ -768,22 +749,37 @@ fn search_path_segments<'a>(
 
     let file = binder.source.get_file(path_expression.file_id())?;
 
-    let mut current_declaration_id = None;
     let mut current_scope_id = binder.current_scope_id;
+    let mut current_declaration_id = None;
     let mut parent_declaration_id = None;
+    let mut is_first = true;
 
-    for segment in segments.rev() {
+    for segment in segments {
         let segment_str = file.content_str(segment.span())?;
         let symbol_id = binder.resolver.symbols.add_symbol(segment_str);
-        let (next_declaration_id, next_declaration) = binder.resolver.find_declaration_in_scope(
-            symbol_id,
-            current_scope_id,
-            false,
-            &segment,
-        )?;
+        let (next_declaration_id, next_declaration) = binder
+            .resolver
+            .find_declaration_in_scope(symbol_id, current_scope_id, &segment)
+            .or_else(|error| {
+                if is_first {
+                    binder.resolver.find_declaration_in_scope(
+                        symbol_id,
+                        binder.crate_scope_id,
+                        &segment,
+                    )
+                } else {
+                    Err(error)
+                }
+            })?;
 
         current_declaration_id = Some(next_declaration_id);
-        current_scope_id = next_declaration.scope_id;
+        current_scope_id =
+            if let DeclarationKind::Module { inner_scope_id, .. } = next_declaration.kind {
+                inner_scope_id
+            } else {
+                break;
+            };
+        is_first = false;
 
         if let DeclarationKind::Type {
             parent: Some(parent_id),

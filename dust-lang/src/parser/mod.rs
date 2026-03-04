@@ -353,9 +353,9 @@ impl<'src> Parser<'src> {
             TokenKind::LeftCurlyBrace => {
                 self.advance();
 
-                let mut children = Self::new_child_buffer();
+                let body_start = self.previous_token.span.start();
 
-                children.push(module_name_id);
+                let mut children = Self::new_child_buffer();
 
                 while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
                     match self.parse_item() {
@@ -368,10 +368,16 @@ impl<'src> Parser<'src> {
                     }
                 }
 
+                let span = Span::new(body_start, self.previous_token.span.end());
+
+                let module_body =
+                    self.create_node_with_children(SyntaxKind::ModuleBody, span, &children);
+                let module_body_id = self.tree_builder.add_node(module_body);
+
                 Ok(self.create_node_with_children(
                     SyntaxKind::ModuleItem,
                     Span::new(start, self.previous_token.span.end()),
-                    &children,
+                    &[module_name_id, module_body_id],
                 ))
             }
             _ => Err(ErrorKind::Parse(ParseError::ExpectedMultipleTokens {

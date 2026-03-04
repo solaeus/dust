@@ -79,7 +79,7 @@ impl<'a> Display for Error<'a> {
 
             let display = renderer.render(&groups[start..]);
 
-            write!(f, "{display}")?;
+            writeln!(f, "{display}")?;
         }
 
         Ok(())
