@@ -32,7 +32,7 @@ fn empty_variant() {
 fn tuple_variant() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"enum Foo { Bar(int, int) }"),
+        Lexer::from_bytes(b"enum Foo { Bar(i64, i64) }"),
     );
     let ParseResult {
         syntax_tree,
@@ -66,7 +66,7 @@ fn tuple_variant() {
 fn fields_variant() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"enum Foo { Bar { x: int, y: int } }"),
+        Lexer::from_bytes(b"enum Foo { Bar { x: i64, y: i64 } }"),
     );
     let ParseResult {
         syntax_tree,
@@ -98,7 +98,7 @@ fn fields_variant() {
 fn mixed_variants() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"enum Foo { Bar, Baz(int), Qux { x: int } }"),
+        Lexer::from_bytes(b"enum Foo { Bar, Baz(i64), Qux { x: i64 } }"),
     );
     let ParseResult {
         syntax_tree,

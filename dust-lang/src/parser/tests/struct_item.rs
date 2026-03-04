@@ -30,7 +30,7 @@ fn empty() {
 fn tuple() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"struct Foo(int, int);"),
+        Lexer::from_bytes(b"struct Foo(i64, i64);"),
     );
     let ParseResult {
         syntax_tree,
@@ -60,7 +60,7 @@ fn tuple() {
 fn fields() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"struct Foo { x: int, y: int }"),
+        Lexer::from_bytes(b"struct Foo { x: i64, y: i64 }"),
     );
     let ParseResult {
         syntax_tree,

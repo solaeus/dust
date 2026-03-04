@@ -34,7 +34,7 @@ fn empty() {
 fn value_parameters() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"fn foo(x: int, y: bool) {}"),
+        Lexer::from_bytes(b"fn foo(x: i64, y: bool) {}"),
     );
     let ParseResult {
         syntax_tree,
@@ -96,7 +96,7 @@ fn type_parameters() {
 
 #[test]
 fn return_type() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"fn foo() -> int {}"));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"fn foo() -> i64 {}"));
     let ParseResult {
         syntax_tree,
         errors,
