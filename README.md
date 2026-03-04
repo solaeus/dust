@@ -27,7 +27,7 @@ fn fib (n: int) -> int {
 }
 
 fn main() -> int {
-    fib(25)
+    fib(10)
 }
 ```
 

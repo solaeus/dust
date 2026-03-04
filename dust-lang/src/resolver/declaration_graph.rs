@@ -1,6 +1,5 @@
 use std::{collections::HashMap, ops::Range};
 
-use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 
 use crate::{
@@ -14,7 +13,8 @@ use crate::{
 
 #[derive(Debug)]
 pub struct DeclarationGraph {
-    declarations: IndexMap<DeclarationKey, DeclarationValue, FxBuildHasher>,
+    declarations: Vec<(DeclarationKey, DeclarationValue)>,
+    declaration_lookup: HashMap<DeclarationKey, DeclarationId, FxBuildHasher>,
     declaration_members: Vec<DeclarationId>,
     declaration_types: HashMap<DeclarationId, TypeId, FxBuildHasher>,
     declaration_prototypes: HashMap<DeclarationId, PrototypeId, FxBuildHasher>,
@@ -23,7 +23,8 @@ pub struct DeclarationGraph {
 impl DeclarationGraph {
     pub fn new() -> Self {
         Self {
-            declarations: IndexMap::default(),
+            declarations: Vec::new(),
+            declaration_lookup: HashMap::default(),
             declaration_members: Vec::new(),
             declaration_types: HashMap::default(),
             declaration_prototypes: HashMap::default(),
@@ -37,8 +38,10 @@ impl DeclarationGraph {
             visibility: declaration.kind.visibility(),
         };
 
-        if let Some((existing_index, _, _)) = self.declarations.get_full(&key) {
-            return DeclarationId(existing_index as u32);
+        if declaration.kind != DeclarationKind::Local
+            && let Some(existing_id) = self.declaration_lookup.get(&key)
+        {
+            return *existing_id;
         }
 
         let declaration_id = DeclarationId(self.declarations.len() as u32);
@@ -48,14 +51,15 @@ impl DeclarationGraph {
             syntax: declaration.syntax,
         };
 
-        self.declarations.insert(key, value);
+        self.declarations.push((key, value));
+        self.declaration_lookup.insert(key, declaration_id);
 
         declaration_id
     }
 
     pub fn get_declaration(&self, id: DeclarationId) -> Result<Declaration, ErrorKind> {
         self.declarations
-            .get_index(id.0 as usize)
+            .get(id.0 as usize)
             .map(|(key, value)| Declaration::from_key_and_value(*key, *value))
             .ok_or(ErrorKind::Internal(InternalError::MissingDeclaration(id)))
     }
@@ -72,11 +76,9 @@ impl DeclarationGraph {
             visibility,
         };
 
-        self.declarations.get_full(&key).map(|(index, key, value)| {
-            (
-                DeclarationId(index as u32),
-                Declaration::from_key_and_value(*key, *value),
-            )
+        self.declaration_lookup.get(&key).map(|&id| {
+            let (key, value) = &self.declarations[id.0 as usize];
+            (id, Declaration::from_key_and_value(*key, *value))
         })
     }
 

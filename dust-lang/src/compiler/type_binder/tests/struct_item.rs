@@ -1,0 +1,24 @@
+use crate::resolver::type_graph::{TypeId, TypeNode};
+
+use super::{bind_types, find_declaration};
+
+#[test]
+fn creates_struct_type() {
+    let (_syntax, mut resolver) = bind_types("struct Foo { x: int }");
+
+    let (foo_id, _) = find_declaration(&mut resolver, "Foo").unwrap();
+    let foo_type_id = *resolver.declarations.get_declaration_type(&foo_id).unwrap();
+    let foo_type = *resolver.types.get_type(foo_type_id).unwrap();
+
+    assert!(matches!(foo_type, TypeNode::Struct { .. }));
+}
+
+#[test]
+fn field_gets_declared_type() {
+    let (_syntax, mut resolver) = bind_types("struct Foo { x: int }");
+
+    let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
+    let x_type = *resolver.declarations.get_declaration_type(&x_id).unwrap();
+
+    assert_eq!(x_type, TypeId::INTEGER);
+}

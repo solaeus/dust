@@ -8,4 +8,6 @@ fn fib (n: int) -> int {
     }
 }
 
-fib(10)
+fn main() -> int {
+    fib(10)
+}

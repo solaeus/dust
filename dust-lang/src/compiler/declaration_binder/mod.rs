@@ -375,18 +375,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let (simple_path, expression) = let_statement.binary_children()?;
 
+        self.visit_expression(expression, ())?;
+
         let identifier = self.source.get_file_content(&simple_path.position())?;
         let symbol_id = self.resolver.symbols.add_symbol(identifier);
-        let shadowed_declaration = self
-            .resolver
-            .find_declaration_in_scope(
-                symbol_id,
-                self.current_scope_id,
-                Visibility::Block,
-                &simple_path,
-            )
-            .ok()
-            .map(|(declaration_id, _)| declaration_id);
         let declaration_id = self.resolver.declarations.add_declaration(Declaration {
             symbol_id,
             kind: DeclarationKind::Local,
@@ -397,7 +389,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.resolver
             .add_declaration_binding(simple_path.id, declaration_id);
-        self.visit_expression(expression, ())?;
 
         Ok(())
     }
