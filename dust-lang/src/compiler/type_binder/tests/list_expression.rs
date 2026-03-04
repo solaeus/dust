@@ -24,7 +24,7 @@ fn creates_list_type() {
         other => panic!("expected List type, got {other:?}"),
     };
 
-    assert_eq!(element_type, TypeId::INTEGER);
+    assert_eq!(element_type, TypeId::I_64);
 }
 
 #[test]
@@ -55,6 +55,6 @@ fn index_has_element_type() {
 
     assert_eq!(
         *resolver.get_type_binding(&node.id).unwrap(),
-        TypeId::INTEGER
+        TypeId::I_64
     );
 }

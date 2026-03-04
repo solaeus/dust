@@ -26,7 +26,7 @@ fn return_type_matches_annotation() {
         other => panic!("expected Function type, got {other:?}"),
     };
 
-    assert_eq!(return_type_id, TypeId::INTEGER);
+    assert_eq!(return_type_id, TypeId::I_64);
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn parameters_get_declared_types() {
     let (y_id, _) = find_declaration(&mut resolver, "y").unwrap();
     let y_type = *resolver.declarations.get_declaration_type(&y_id).unwrap();
 
-    assert_eq!(x_type, TypeId::INTEGER);
+    assert_eq!(x_type, TypeId::I_64);
     assert_eq!(y_type, TypeId::BOOLEAN);
 }
 

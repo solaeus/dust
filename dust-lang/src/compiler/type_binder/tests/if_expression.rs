@@ -14,6 +14,6 @@ fn has_then_branch_type() {
 
     assert_eq!(
         *resolver.get_type_binding(&node.id).unwrap(),
-        TypeId::INTEGER
+        TypeId::I_64
     );
 }

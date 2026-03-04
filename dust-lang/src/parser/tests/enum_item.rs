@@ -56,8 +56,8 @@ fn tuple_variant() {
                 SyntaxId(3),
                 SyntaxId(4)
             ),
-            IntegerType.empty(Span::new(15, 18)),
-            IntegerType.empty(Span::new(20, 23)),
+            I64Type.empty(Span::new(15, 18)),
+            I64Type.empty(Span::new(20, 23)),
         ]
     );
 }
@@ -87,9 +87,9 @@ fn fields_variant() {
             EnumVariant.with_child(Span::new(11, 33), SyntaxId(7)),
             StructFieldsDeclaration.with_multiple_children(Span::new(15, 33), 0, 4),
             SimplePath.empty(Span::new(17, 18)),
-            IntegerType.empty(Span::new(20, 23)),
+            I64Type.empty(Span::new(20, 23)),
             SimplePath.empty(Span::new(25, 26)),
-            IntegerType.empty(Span::new(28, 31)),
+            I64Type.empty(Span::new(28, 31)),
         ]
     );
 }
@@ -120,7 +120,7 @@ fn mixed_variants() {
             SimplePath.empty(Span::new(16, 19)),
             EnumVariant.with_child(Span::new(16, 24), SyntaxId(6)),
             TupleFieldsDeclaration.with_child(Span::new(19, 24), SyntaxId(5)),
-            IntegerType.empty(Span::new(20, 23)),
+            I64Type.empty(Span::new(20, 23)),
             EnumVariant.with_binary_children(Span::new(26, 40), SyntaxId(9), SyntaxId(13)),
             SimplePath.empty(Span::new(26, 29)),
             EnumVariant.with_child(Span::new(26, 40), SyntaxId(12)),
@@ -130,7 +130,7 @@ fn mixed_variants() {
                 SyntaxId(11)
             ),
             SimplePath.empty(Span::new(32, 33)),
-            IntegerType.empty(Span::new(35, 38)),
+            I64Type.empty(Span::new(35, 38)),
         ]
     );
 }

@@ -117,7 +117,7 @@ impl<'src> Lexer<'src> {
 
         if self.token_flags.starts_with_digit {
             if self.token_flags.in_hexadecimal && self.token_flags.hex_digits > 0 {
-                return finish(TokenKind::ByteValue, span, self);
+                return finish(TokenKind::HexIntegerValue, span, self);
             } else if self.token_flags.has_decimal {
                 return finish(TokenKind::FloatValue, span, self);
             }
@@ -613,13 +613,15 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
                     None
                 }
             }
-            b'i' => {
-                if token[1] == b'f' {
-                    Some(TokenKind::If)
-                } else {
-                    None
-                }
-            }
+            b'i' => match token[1] {
+                b'f' => Some(TokenKind::If),
+                b'8' => Some(TokenKind::I8),
+                _ => None,
+            },
+            b'u' => match token[1] {
+                b'8' => Some(TokenKind::U8),
+                _ => None,
+            },
             _ => None,
         },
         3 => match token[0] {
@@ -630,13 +632,12 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
                     None
                 }
             }
-            b'i' => {
-                if &token[1..3] == b"nt" {
-                    Some(TokenKind::Int)
-                } else {
-                    None
-                }
-            }
+            b'i' => match &token[1..3] {
+                b"16" => Some(TokenKind::I16),
+                b"32" => Some(TokenKind::I32),
+                b"64" => Some(TokenKind::I64),
+                _ => None,
+            },
             b'l' => {
                 if &token[1..3] == b"et" {
                     Some(TokenKind::Let)
@@ -664,19 +665,18 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
                     None
                 }
             }
-            b'u' => {
-                if &token[1..3] == b"se" {
-                    Some(TokenKind::Use)
-                } else {
-                    None
-                }
-            }
+            b'u' => match &token[1..3] {
+                b"16" => Some(TokenKind::U16),
+                b"32" => Some(TokenKind::U32),
+                b"64" => Some(TokenKind::U64),
+                b"us" => Some(TokenKind::Use),
+                _ => None,
+            },
             _ => None,
         },
         4 => match token[0] {
             b'b' => match &token[1..4] {
                 b"ool" => Some(TokenKind::Bool),
-                b"yte" => Some(TokenKind::Byte),
                 _ => None,
             },
             b'c' => match &token[1..4] {
@@ -689,17 +689,22 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
                 b"num" => Some(TokenKind::Enum),
                 _ => None,
             },
+            b'i' => match &token[1..4] {
+                b"128" => Some(TokenKind::I128),
+                _ => None,
+            },
             b'l' => match &token[1..4] {
                 b"oop" => Some(TokenKind::Loop),
                 _ => None,
             },
-            b't' => {
-                if &token[1..4] == b"rue" {
-                    Some(TokenKind::TrueValue)
-                } else {
-                    None
-                }
-            }
+            b't' => match &token[1..4] {
+                b"rue" => Some(TokenKind::True),
+                _ => None,
+            },
+            b'u' => match &token[1..4] {
+                b"128" => Some(TokenKind::U128),
+                _ => None,
+            },
             _ => None,
         },
         5 => match token[0] {
@@ -725,8 +730,7 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
                 }
             }
             b'f' => match &token[1..5] {
-                b"alse" => Some(TokenKind::FalseValue),
-                b"loat" => Some(TokenKind::Float),
+                b"alse" => Some(TokenKind::False),
                 _ => None,
             },
             b'w' => {

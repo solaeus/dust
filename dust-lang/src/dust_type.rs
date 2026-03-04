@@ -2,18 +2,25 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::small_type::SmallType;
-
 #[derive(Clone, Default, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum DustType {
     #[default]
     Unit,
     Boolean,
-    Byte,
     Character,
-    Float,
-    Integer,
     String,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64,
+    U128,
+    I128,
+    F32,
+    F64,
     List(Box<DustType>),
     Function(Box<DustFunctionType>),
     Struct(Box<DustStructType>),
@@ -49,32 +56,6 @@ impl DustType {
             _ => None,
         }
     }
-
-    pub fn as_small_type(&self) -> SmallType {
-        match self {
-            DustType::Unit => SmallType::UNIT,
-            DustType::Boolean => SmallType::BOOLEAN,
-            DustType::Byte => SmallType::BYTE,
-            DustType::Character => SmallType::CHARACTER,
-            DustType::Float => SmallType::FLOAT,
-            DustType::Integer => SmallType::INTEGER,
-            DustType::String => SmallType::STRING,
-            DustType::List(item_type) => match item_type.as_ref() {
-                DustType::Boolean => SmallType::LIST_BOOLEAN,
-                DustType::Byte => SmallType::LIST_BYTE,
-                DustType::Character => SmallType::LIST_CHARACTER,
-                DustType::Float => SmallType::LIST_FLOAT,
-                DustType::Integer => SmallType::LIST_INTEGER,
-                DustType::String => SmallType::LIST_STRING,
-                DustType::Function(_) => SmallType::LIST_FUNCTION,
-                DustType::List(_) => SmallType::LIST_LIST,
-                DustType::Struct { .. } => SmallType::LIST_STRUCT,
-                DustType::Unit => panic!("A list's item type must be known, even if it is empty"),
-            },
-            DustType::Struct { .. } => SmallType::STRUCT,
-            DustType::Function(_) => SmallType::FUNCTION,
-        }
-    }
 }
 
 impl Display for DustType {
@@ -82,14 +63,23 @@ impl Display for DustType {
         match self {
             DustType::Unit => write!(f, "none"),
             DustType::Boolean => write!(f, "bool"),
-            DustType::Byte => write!(f, "byte"),
             DustType::Character => write!(f, "char"),
-            DustType::Float => write!(f, "float"),
+            DustType::String => write!(f, "str"),
+            DustType::U8 => write!(f, "u8"),
+            DustType::I8 => write!(f, "i8"),
+            DustType::U16 => write!(f, "u16"),
+            DustType::I16 => write!(f, "i16"),
+            DustType::U32 => write!(f, "u32"),
+            DustType::I32 => write!(f, "i32"),
+            DustType::U64 => write!(f, "u64"),
+            DustType::I64 => write!(f, "i64"),
+            DustType::U128 => write!(f, "u128"),
+            DustType::I128 => write!(f, "i128"),
+            DustType::F32 => write!(f, "f32"),
+            DustType::F64 => write!(f, "f64"),
             DustType::Function(function_type) => write!(f, "{function_type}"),
-            DustType::Integer => write!(f, "int"),
             DustType::List(item_type) => write!(f, "[{item_type}]"),
             DustType::Struct(struct_type) => write!(f, "{struct_type}"),
-            DustType::String => write!(f, "str"),
         }
     }
 }

@@ -108,3 +108,31 @@ fn body_binds_to_module_scope() {
 
     assert_eq!(scope.kind, ScopeKind::Module);
 }
+
+#[test]
+fn is_not_public_by_default() {
+    let (_syntax, mut resolver) = bind_declarations("mod foo { fn bar() {} }");
+
+    let foo_symbol_id = resolver.symbols.add_symbol("foo");
+    let (_, foo_declaration) = resolver
+        .declarations
+        .iter()
+        .find(|(_, declaration)| declaration.symbol_id == foo_symbol_id)
+        .unwrap();
+
+    assert!(!foo_declaration.is_public);
+}
+
+#[test]
+fn is_public_when_pub() {
+    let (_syntax, mut resolver) = bind_declarations("pub mod foo { fn bar() {} }");
+
+    let foo_symbol_id = resolver.symbols.add_symbol("foo");
+    let (_, foo_declaration) = resolver
+        .declarations
+        .iter()
+        .find(|(_, declaration)| declaration.symbol_id == foo_symbol_id)
+        .unwrap();
+
+    assert!(foo_declaration.is_public);
+}

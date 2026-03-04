@@ -104,3 +104,17 @@ fn is_not_public_by_default() {
 
     assert!(!color_declaration.is_public);
 }
+
+#[test]
+fn is_public_when_pub() {
+    let (_syntax, mut resolver) = bind_declarations("pub enum Color { Red }");
+
+    let color_symbol_id = resolver.symbols.add_symbol("Color");
+    let (_, color_declaration) = resolver
+        .declarations
+        .iter()
+        .find(|(_, declaration)| declaration.symbol_id == color_symbol_id)
+        .unwrap();
+
+    assert!(color_declaration.is_public);
+}

@@ -54,7 +54,7 @@ fn value_parameters() {
             FunctionParameters.with_child(Span::new(6, 23), SyntaxId(6)),
             ValueParameters.with_multiple_children(Span::new(6, 23), 0, 4),
             SimplePath.empty(Span::new(7, 8)),
-            IntegerType.empty(Span::new(10, 13)),
+            I64Type.empty(Span::new(10, 13)),
             SimplePath.empty(Span::new(15, 16)),
             BooleanType.empty(Span::new(18, 22)),
             BlockExpression.empty(Span::new(24, 26)),
@@ -114,7 +114,7 @@ fn return_type() {
             FunctionSignature.with_binary_children(Span::new(6, 15), SyntaxId(3), SyntaxId(4)),
             FunctionParameters.with_child(Span::new(6, 8), SyntaxId(2)),
             ValueParameters.empty(Span::new(6, 8)),
-            IntegerType.empty(Span::new(12, 15)),
+            I64Type.empty(Span::new(12, 15)),
             BlockExpression.empty(Span::new(16, 18)),
         ]
     );

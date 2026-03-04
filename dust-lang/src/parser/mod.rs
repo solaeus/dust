@@ -247,13 +247,6 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_unexpected(&mut self) -> Result<SyntaxNode, ErrorKind> {
-        Err(ErrorKind::Parse(ParseError::UnexpectedToken {
-            found: self.current_token.kind,
-            position: self.current_position(),
-        }))
-    }
-
     fn parse_root(&mut self) -> Result<SyntaxNode, ErrorKind> {
         let mut children = Self::new_child_buffer();
 
@@ -701,31 +694,76 @@ impl<'src> Parser<'src> {
 
                 Ok(SyntaxKind::BooleanType.empty(Span::new(start, self.previous_token.span.end())))
             }
-            TokenKind::Byte => {
-                self.advance();
-
-                Ok(SyntaxKind::ByteType.empty(Span::new(start, self.previous_token.span.end())))
-            }
             TokenKind::Char => {
                 self.advance();
 
                 Ok(SyntaxKind::CharacterType
                     .empty(Span::new(start, self.previous_token.span.end())))
             }
-            TokenKind::Float => {
-                self.advance();
-
-                Ok(SyntaxKind::FloatType.empty(Span::new(start, self.previous_token.span.end())))
-            }
-            TokenKind::Int => {
-                self.advance();
-
-                Ok(SyntaxKind::IntegerType.empty(Span::new(start, self.previous_token.span.end())))
-            }
             TokenKind::Str => {
                 self.advance();
 
                 Ok(SyntaxKind::StringType.empty(Span::new(start, self.previous_token.span.end())))
+            }
+            TokenKind::U8 => {
+                self.advance();
+
+                Ok(SyntaxKind::U8Type.empty(Span::new(start, self.previous_token.span.end())))
+            }
+            TokenKind::I8 => {
+                self.advance();
+
+                Ok(SyntaxKind::I8Type.empty(Span::new(start, self.previous_token.span.end())))
+            }
+            TokenKind::U16 => {
+                self.advance();
+
+                Ok(SyntaxKind::U16Type.empty(Span::new(start, self.previous_token.span.end())))
+            }
+            TokenKind::I16 => {
+                self.advance();
+
+                Ok(SyntaxKind::I16Type.empty(Span::new(start, self.previous_token.span.end())))
+            }
+            TokenKind::U32 => {
+                self.advance();
+
+                Ok(SyntaxKind::U32Type.empty(Span::new(start, self.previous_token.span.end())))
+            }
+            TokenKind::I32 => {
+                self.advance();
+
+                Ok(SyntaxKind::I32Type.empty(Span::new(start, self.previous_token.span.end())))
+            }
+            TokenKind::U64 => {
+                self.advance();
+
+                Ok(SyntaxKind::U64Type.empty(Span::new(start, self.previous_token.span.end())))
+            }
+            TokenKind::I64 => {
+                self.advance();
+
+                Ok(SyntaxKind::I64Type.empty(Span::new(start, self.previous_token.span.end())))
+            }
+            TokenKind::U128 => {
+                self.advance();
+
+                Ok(SyntaxKind::U128Type.empty(Span::new(start, self.previous_token.span.end())))
+            }
+            TokenKind::I128 => {
+                self.advance();
+
+                Ok(SyntaxKind::I128Type.empty(Span::new(start, self.previous_token.span.end())))
+            }
+            TokenKind::F32 => {
+                self.advance();
+
+                Ok(SyntaxKind::F32Type.empty(Span::new(start, self.previous_token.span.end())))
+            }
+            TokenKind::F64 => {
+                self.advance();
+
+                Ok(SyntaxKind::F64Type.empty(Span::new(start, self.previous_token.span.end())))
             }
             TokenKind::Identifier => {
                 let mut path_node = self.parse_path()?;
@@ -793,11 +831,20 @@ impl<'src> Parser<'src> {
             _ => Err(ErrorKind::Parse(ParseError::ExpectedMultipleTokens {
                 expected: &[
                     TokenKind::Bool,
-                    TokenKind::Byte,
                     TokenKind::Char,
-                    TokenKind::Float,
-                    TokenKind::Int,
                     TokenKind::Str,
+                    TokenKind::U8,
+                    TokenKind::I8,
+                    TokenKind::U16,
+                    TokenKind::I16,
+                    TokenKind::U32,
+                    TokenKind::I32,
+                    TokenKind::U64,
+                    TokenKind::I64,
+                    TokenKind::U128,
+                    TokenKind::I128,
+                    TokenKind::F32,
+                    TokenKind::F64,
                     TokenKind::Identifier,
                     TokenKind::Fn,
                     TokenKind::LeftSquareBracket,
@@ -885,11 +932,11 @@ impl<'src> Parser<'src> {
 
     fn parse_prefix_boolean(&mut self) -> Result<SyntaxNode, ErrorKind> {
         let boolean = match self.current_token.kind {
-            TokenKind::TrueValue => true,
-            TokenKind::FalseValue => false,
+            TokenKind::True => true,
+            TokenKind::False => false,
             _ => {
                 return Err(ErrorKind::Parse(ParseError::ExpectedMultipleTokens {
-                    expected: &[TokenKind::TrueValue, TokenKind::FalseValue],
+                    expected: &[TokenKind::True, TokenKind::False],
                     found: self.current_token.kind,
                     position: self.current_position(),
                 }));
@@ -908,7 +955,7 @@ impl<'src> Parser<'src> {
         })
     }
 
-    fn parse_prefix_byte(&mut self) -> Result<SyntaxNode, ErrorKind> {
+    fn parse_prefix_hex_integer(&mut self) -> Result<SyntaxNode, ErrorKind> {
         let byte_str = &self.current_source()[2..]; // Skip the "0x" prefix
         let byte = u8::from_ascii_radix(byte_str, 16).unwrap_or_default();
         let payload = SyntaxPayload::encode_byte(byte);

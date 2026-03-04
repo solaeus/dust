@@ -51,3 +51,20 @@ fn qualified_path_resolves_through_module() {
 
     assert_eq!(bar_declaration.kind, DeclarationKind::Function);
 }
+
+#[test]
+fn resolves_from_outer_scope() {
+    let (syntax, mut resolver) = bind_declarations("fn main() { let x = 1; { x } }");
+    let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let path_expr = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::PathExpression)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_declaration_binding(&path_expr.id).unwrap(),
+        x_id
+    );
+}

@@ -100,3 +100,17 @@ fn is_not_public_by_default() {
 
     assert!(!foo_declaration.is_public);
 }
+
+#[test]
+fn is_public_when_pub() {
+    let (_syntax, mut resolver) = bind_declarations("pub struct Foo { x: int }");
+
+    let foo_symbol_id = resolver.symbols.add_symbol("Foo");
+    let (_, foo_declaration) = resolver
+        .declarations
+        .iter()
+        .find(|(_, declaration)| declaration.symbol_id == foo_symbol_id)
+        .unwrap();
+
+    assert!(foo_declaration.is_public);
+}

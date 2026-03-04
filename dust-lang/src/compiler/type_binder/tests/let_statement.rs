@@ -22,7 +22,7 @@ fn declaration_gets_expression_type() {
     let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
     let x_type = *resolver.declarations.get_declaration_type(&x_id).unwrap();
 
-    assert_eq!(x_type, TypeId::INTEGER);
+    assert_eq!(x_type, TypeId::I_64);
 }
 
 #[test]
@@ -32,5 +32,5 @@ fn type_annotation_sets_declaration_type() {
     let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
     let x_type = *resolver.declarations.get_declaration_type(&x_id).unwrap();
 
-    assert_eq!(x_type, TypeId::INTEGER);
+    assert_eq!(x_type, TypeId::I_64);
 }

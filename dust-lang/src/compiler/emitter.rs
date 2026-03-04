@@ -483,20 +483,43 @@ impl<'a> Emitter<'a> {
         }
     }
 
-    fn get_constant_address(&mut self, constant: ConstantEmission) -> Address {
+    fn get_constant_address(&mut self, constant: ConstantEmission) -> (Address, Option<Address>) {
         let constant_id = match constant {
-            ConstantEmission::Boolean(boolean) => return Address::encoded_boolean(boolean),
-            ConstantEmission::Byte(byte) => return Address::encoded_byte(byte),
+            ConstantEmission::Boolean(boolean) => return (Address::encoded_boolean(boolean), None),
             ConstantEmission::Character(character) => self.constants.add_character(character),
-            ConstantEmission::Float(float) => self.constants.add_float(float),
-            ConstantEmission::Integer(integer) => self.constants.add_integer(integer),
             ConstantEmission::String {
                 pool_start,
                 pool_end,
             } => self.constants.add_pooled_string(pool_start, pool_end),
+            ConstantEmission::U8(integer) => return (Address::encoded_u8(integer), None),
+            ConstantEmission::I8(integer) => return (Address::encoded_i8(integer), None),
+            ConstantEmission::U16(integer) => return (Address::encoded_u16(integer), None),
+            ConstantEmission::I16(integer) => return (Address::encoded_i16(integer), None),
+            ConstantEmission::U32(integer) => self.constants.add_u32(integer),
+            ConstantEmission::I32(integer) => self.constants.add_i32(integer),
+            ConstantEmission::U64(integer) => self.constants.add_u64(integer),
+            ConstantEmission::I64(integer) => self.constants.add_i64(integer),
+            ConstantEmission::U128(integer) => {
+                let (left_id, right_id) = self.constants.add_u128(integer);
+
+                return (
+                    Address::constant(left_id.0),
+                    Some(Address::constant(right_id.0)),
+                );
+            }
+            ConstantEmission::I128(integer) => {
+                let (left_id, right_id) = self.constants.add_i128(integer);
+
+                return (
+                    Address::constant(left_id.0),
+                    Some(Address::constant(right_id.0)),
+                );
+            }
+            ConstantEmission::F32(float) => self.constants.add_f32(float),
+            ConstantEmission::F64(float) => self.constants.add_f64(float),
         };
 
-        Address::constant(constant_id.0)
+        (Address::constant(constant_id.0), None)
     }
 
     fn combine_constants(
@@ -510,9 +533,18 @@ impl<'a> Emitter<'a> {
         let check_for_division_by_zero = || {
             if matches!(
                 right_constant,
-                ConstantEmission::Byte(0)
-                    | ConstantEmission::Integer(0)
-                    | ConstantEmission::Float(0.0)
+                ConstantEmission::U8(0)
+                    | ConstantEmission::I8(0)
+                    | ConstantEmission::U16(0)
+                    | ConstantEmission::I16(0)
+                    | ConstantEmission::U32(0)
+                    | ConstantEmission::I32(0)
+                    | ConstantEmission::U64(0)
+                    | ConstantEmission::I64(0)
+                    | ConstantEmission::U128(0)
+                    | ConstantEmission::I128(0)
+                    | ConstantEmission::F32(0.0)
+                    | ConstantEmission::F64(0.0)
             ) {
                 Err(ErrorKind::Compile(CompileError::DivisionByZero {
                     position: Position::new(
@@ -528,282 +560,60 @@ impl<'a> Emitter<'a> {
             let left_type = left_constant.small_type();
             let right_type = right_constant.small_type();
 
-            Err(ErrorKind::Compile(
-                CompileError::CannotApplyBinaryOperator {
-                    operator: operator.kind(),
-                    operand_position: operator.position(),
-                    left_type,
-                    left_position: left_node.position(),
-                    right_type,
-                    right_position: right_node.position(),
-                },
-            ))
+            ErrorKind::Compile(CompileError::CannotApplyBinaryOperator {
+                operator: operator.kind(),
+                operand_position: operator.position(),
+                left_type,
+                left_position: left_node.position(),
+                right_type,
+                right_position: right_node.position(),
+            })
         };
 
-        let combined = match (left_constant, right_constant) {
-            (ConstantEmission::Boolean(left), ConstantEmission::Boolean(right)) => match operator
-                .kind()
-            {
-                SyntaxKind::AndExpression => ConstantEmission::Boolean(left && right),
-                SyntaxKind::OrExpression => ConstantEmission::Boolean(left || right),
-                SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left || right),
-                SyntaxKind::GreaterThanOrEqualExpression => {
-                    ConstantEmission::Boolean(left >= right)
-                }
-                SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left || right),
-                SyntaxKind::LessThanOrEqualExpression => ConstantEmission::Boolean(left <= right),
-                SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
-                SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
-                _ => return create_error(),
-            },
-            (ConstantEmission::Byte(left), ConstantEmission::Byte(right)) => {
-                match operator.kind() {
-                    SyntaxKind::AdditionExpression => {
-                        ConstantEmission::Byte(left.saturating_add(right))
-                    }
-                    SyntaxKind::SubtractionExpression => {
-                        ConstantEmission::Byte(left.saturating_sub(right))
-                    }
-                    SyntaxKind::MultiplicationExpression => {
-                        ConstantEmission::Byte(left.saturating_mul(right))
-                    }
-                    SyntaxKind::DivisionExpression => {
-                        check_for_division_by_zero()?;
+        match operator.kind() {
+            SyntaxKind::AdditionExpression => left_constant
+                .add(right_constant, self)
+                .ok_or_else(create_error),
+            SyntaxKind::SubtractionExpression => left_constant
+                .subtract(right_constant)
+                .ok_or_else(create_error),
+            SyntaxKind::MultiplicationExpression => left_constant
+                .multiply(right_constant)
+                .ok_or_else(create_error),
+            SyntaxKind::DivisionExpression => {
+                check_for_division_by_zero()?;
 
-                        ConstantEmission::Byte(left.saturating_div(right))
-                    }
-                    SyntaxKind::ModuloExpression => {
-                        check_for_division_by_zero()?;
-
-                        ConstantEmission::Byte(left % right)
-                    }
-                    SyntaxKind::ExponentExpression => {
-                        ConstantEmission::Byte(left.saturating_pow(right as u32))
-                    }
-                    SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
-                    SyntaxKind::GreaterThanOrEqualExpression => {
-                        ConstantEmission::Boolean(left >= right)
-                    }
-                    SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
-                    SyntaxKind::LessThanOrEqualExpression => {
-                        ConstantEmission::Boolean(left <= right)
-                    }
-                    SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
-                    SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
-                    _ => return create_error(),
-                }
+                left_constant
+                    .divide(right_constant)
+                    .ok_or_else(create_error)
             }
-            (ConstantEmission::Float(left), ConstantEmission::Float(right)) => {
-                match operator.kind() {
-                    SyntaxKind::AdditionExpression => ConstantEmission::Float(left + right),
-                    SyntaxKind::SubtractionExpression => ConstantEmission::Float(left - right),
-                    SyntaxKind::MultiplicationExpression => ConstantEmission::Float(left * right),
-                    SyntaxKind::DivisionExpression => {
-                        check_for_division_by_zero()?;
+            SyntaxKind::ModuloExpression => {
+                check_for_division_by_zero()?;
 
-                        ConstantEmission::Float(left / right)
-                    }
-                    SyntaxKind::ModuloExpression => {
-                        check_for_division_by_zero()?;
-
-                        ConstantEmission::Float(left % right)
-                    }
-                    SyntaxKind::ExponentExpression => ConstantEmission::Float(left.powf(right)),
-                    SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
-                    SyntaxKind::GreaterThanOrEqualExpression => {
-                        ConstantEmission::Boolean(left >= right)
-                    }
-                    SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
-                    SyntaxKind::LessThanOrEqualExpression => {
-                        ConstantEmission::Boolean(left <= right)
-                    }
-                    SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
-                    SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
-                    _ => return create_error(),
-                }
+                left_constant
+                    .modulo(right_constant)
+                    .ok_or_else(create_error)
             }
-            (ConstantEmission::Integer(left), ConstantEmission::Integer(right)) => match operator
-                .kind()
-            {
-                SyntaxKind::AdditionExpression => {
-                    ConstantEmission::Integer(left.saturating_add(right))
-                }
-                SyntaxKind::SubtractionExpression => {
-                    ConstantEmission::Integer(left.saturating_sub(right))
-                }
-                SyntaxKind::MultiplicationExpression => {
-                    ConstantEmission::Integer(left.saturating_mul(right))
-                }
-                SyntaxKind::DivisionExpression => {
-                    check_for_division_by_zero()?;
-
-                    ConstantEmission::Integer(left.saturating_div(right))
-                }
-                SyntaxKind::ModuloExpression => {
-                    check_for_division_by_zero()?;
-
-                    ConstantEmission::Integer(left % right)
-                }
-                SyntaxKind::ExponentExpression => {
-                    ConstantEmission::Integer(left.saturating_pow(right as u32))
-                }
-                SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
-                SyntaxKind::GreaterThanOrEqualExpression => {
-                    ConstantEmission::Boolean(left >= right)
-                }
-                SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
-                SyntaxKind::LessThanOrEqualExpression => ConstantEmission::Boolean(left <= right),
-                SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
-                SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
-                _ => return create_error(),
-            },
-            (ConstantEmission::Character(left), ConstantEmission::Character(right)) => {
-                match operator.kind() {
-                    SyntaxKind::AdditionExpression => {
-                        let mut string = String::with_capacity(2);
-
-                        string.push(left);
-                        string.push(right);
-
-                        let combined = self.constants.push_str_to_string_pool(&string);
-
-                        ConstantEmission::String {
-                            pool_start: combined.0,
-                            pool_end: combined.1,
-                        }
-                    }
-                    SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
-                    SyntaxKind::GreaterThanOrEqualExpression => {
-                        ConstantEmission::Boolean(left >= right)
-                    }
-                    SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
-                    SyntaxKind::LessThanOrEqualExpression => {
-                        ConstantEmission::Boolean(left <= right)
-                    }
-                    SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
-                    SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
-                    _ => return create_error(),
-                }
-            }
-            (
-                ConstantEmission::String {
-                    pool_start: left_pool_start,
-                    pool_end: left_pool_end,
-                },
-                ConstantEmission::String {
-                    pool_start: right_pool_start,
-                    pool_end: right_pool_end,
-                },
-            ) => {
-                let left = self
-                    .constants
-                    .get_string_pool_range(left_pool_start as usize..left_pool_end as usize);
-                let right = self
-                    .constants
-                    .get_string_pool_range(right_pool_start as usize..right_pool_end as usize);
-
-                match operator.kind() {
-                    SyntaxKind::AdditionExpression => {
-                        if left_pool_end == right_pool_start {
-                            return Ok(ConstantEmission::String {
-                                pool_start: left_pool_start,
-                                pool_end: right_pool_end,
-                            });
-                        }
-
-                        let mut concetenated = String::with_capacity(left.len() + right.len());
-
-                        concetenated.push_str(left);
-                        concetenated.push_str(right);
-
-                        let (pool_start, pool_end) =
-                            self.constants.push_str_to_string_pool(&concetenated);
-
-                        ConstantEmission::String {
-                            pool_start,
-                            pool_end,
-                        }
-                    }
-                    SyntaxKind::GreaterThanExpression => ConstantEmission::Boolean(left > right),
-                    SyntaxKind::GreaterThanOrEqualExpression => {
-                        ConstantEmission::Boolean(left >= right)
-                    }
-                    SyntaxKind::LessThanExpression => ConstantEmission::Boolean(left < right),
-                    SyntaxKind::LessThanOrEqualExpression => {
-                        ConstantEmission::Boolean(left <= right)
-                    }
-                    SyntaxKind::EqualExpression => ConstantEmission::Boolean(left == right),
-                    SyntaxKind::NotEqualExpression => ConstantEmission::Boolean(left != right),
-                    _ => return create_error(),
-                }
-            }
-            (
-                ConstantEmission::Character(left),
-                ConstantEmission::String {
-                    pool_start,
-                    pool_end,
-                },
-            ) => {
-                let right = self
-                    .constants
-                    .get_string_pool_range(pool_start as usize..pool_end as usize);
-                let mut concatenated = String::with_capacity(left.len_utf8() + right.len());
-
-                concatenated.push(left);
-                concatenated.push_str(right);
-
-                let combined = match operator.kind() {
-                    SyntaxKind::AdditionExpression => {
-                        self.constants.push_str_to_string_pool(&concatenated)
-                    }
-                    _ => return create_error(),
-                };
-
-                ConstantEmission::String {
-                    pool_start: combined.0,
-                    pool_end: combined.1,
-                }
-            }
-            (
-                ConstantEmission::String {
-                    pool_start,
-                    pool_end,
-                },
-                ConstantEmission::Character(right),
-            ) => {
-                let left = self
-                    .constants
-                    .get_string_pool_range(pool_start as usize..pool_end as usize);
-                let mut bytes = String::with_capacity(left.len() + right.len_utf8());
-
-                bytes.push_str(left);
-                bytes.push(right);
-
-                let combined = match operator.kind() {
-                    SyntaxKind::AdditionExpression => {
-                        self.constants.push_str_to_string_pool(&bytes)
-                    }
-                    _ => return create_error(),
-                };
-
-                ConstantEmission::String {
-                    pool_start: combined.0,
-                    pool_end: combined.1,
-                }
-            }
-            _ => {
-                return Err(ErrorKind::Compile(CompileError::ConstantTypeConflict {
-                    expected: left_node.kind(),
-                    found: right_node.kind(),
-                    position: Position::new(
-                        left_node.file_id(),
-                        Span::join(&left_node.span(), &right_node.span()),
-                    ),
-                }));
-            }
-        };
-
-        Ok(combined)
+            SyntaxKind::EqualExpression => left_constant
+                .equal(right_constant, self)
+                .ok_or_else(create_error),
+            SyntaxKind::NotEqualExpression => left_constant
+                .not_equal(right_constant, self)
+                .ok_or_else(create_error),
+            SyntaxKind::LessThanExpression => left_constant
+                .less(right_constant, self)
+                .ok_or_else(create_error),
+            SyntaxKind::GreaterThanExpression => left_constant
+                .greater(right_constant, self)
+                .ok_or_else(create_error),
+            SyntaxKind::LessThanOrEqualExpression => left_constant
+                .less_equal(right_constant, self)
+                .ok_or_else(create_error),
+            SyntaxKind::GreaterThanOrEqualExpression => left_constant
+                .greater_equal(right_constant, self)
+                .ok_or_else(create_error),
+            _ => unreachable!("Invalid binary operator: {:?}", operator.kind()),
+        }
     }
 
     fn handle_top_emission(
@@ -1598,40 +1408,11 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting struct expression");
 
-        fn flatten_leaf_operand_types(r#type: &DustType, out: &mut Vec<SmallType>) {
-            match r#type {
-                DustType::Struct(struct_type) => {
-                    for (_, field_type) in &struct_type.fields {
-                        flatten_leaf_operand_types(field_type, out);
-                    }
-                }
-                DustType::Unit => {}
-                other => out.push(other.as_small_type()),
-            }
-        }
+        let (struct_name, struct_fields) = node.binary_children()?;
 
-        let fields_node = node.binary_children()?.1;
-
-        let mut field_leaf_operand_types = Vec::with_capacity(fields_node.children()?.len());
-        let mut total_leaf_count: u16 = 0;
-
-        for field in fields_node.children()? {
-            let field_expression = field.binary_children()?.1;
-            let field_type_id = *self.resolver.get_type_binding(&field_expression.id)?;
-            let field_full_type = self.resolver.get_full_type(field_type_id, self.source)?;
-
-            let is_struct_field = matches!(field_full_type, DustType::Struct { .. });
-
-            let mut leaf_types = Vec::new();
-
-            flatten_leaf_operand_types(&field_full_type, &mut leaf_types);
-
-            total_leaf_count += leaf_types.len() as u16;
-
-            field_leaf_operand_types.push((is_struct_field, leaf_types));
-        }
-
-        let register_count = total_leaf_count.saturating_add(1).max(1);
+        let declaration_id = self.resolver.get_declaration_binding(&struct_name.id)?;
+        let type_id = *self.resolver.get_type_binding(&struct_name.id)?;
+        let register_count = self.resolver.get_register_size(type_id, &node)?;
         let target = if let Some(target) = target
             && target.destination_count() == register_count
         {
@@ -1643,10 +1424,7 @@ impl SyntaxVisitor for Emitter<'_> {
         let mut struct_emission = InstructionsEmission::new();
         let mut next_destination = target.index() + 1;
 
-        for (field, (is_struct_field, leaf_types)) in
-            fields_node.children()?.zip(field_leaf_operand_types)
-        {
-            let field_expression = field.binary_children()?.1;
+        for [field_name, field_expression] in struct_fields.children()?.array_chunks::<2>() {
             let field_emission = self.visit_expression(field_expression, None)?;
             let field_address = self.handle_operand_emission(
                 &mut struct_emission,
@@ -1654,27 +1432,16 @@ impl SyntaxVisitor for Emitter<'_> {
                 &field_expression,
             )?;
 
-            if is_struct_field {
-                if field_address.memory != MemoryKind::REGISTER {
-                    todo!("Handle non-register struct field address");
-                }
+            let field_move_instruction = Instruction::r#move(next_destination, field_address);
+            next_destination += 1;
 
-                for leaf_index in 0..leaf_types.len() {
-                    let source = Address::register(field_address.index + 1 + leaf_index as u16);
-                    let field_move_instruction = Instruction::r#move(next_destination, source);
-                    struct_emission.push(field_move_instruction);
-                    next_destination += 1;
-                }
-            } else {
-                let field_move_instruction = Instruction::r#move(next_destination, field_address);
-                struct_emission.push(field_move_instruction);
-                next_destination += 1;
-            }
+            struct_emission.push(field_move_instruction);
         }
 
-        if total_leaf_count > 0 {
+        if register_count > 0 {
             let struct_reference_instruction =
-                Instruction::reference(target.index(), target.index() + 1, total_leaf_count);
+                Instruction::reference(target.index(), target.index() + 1, register_count);
+
             struct_emission.push(struct_reference_instruction);
         }
 
@@ -2482,23 +2249,539 @@ impl TargetRegister {
 #[derive(Clone, Copy, Debug)]
 pub enum ConstantEmission {
     Boolean(bool),
-    Byte(u8),
     Character(char),
-    Float(f64),
-    Integer(i64),
     String { pool_start: u32, pool_end: u32 },
+    U8(u8),
+    I8(i8),
+    U16(u16),
+    I16(i16),
+    U32(u32),
+    I32(i32),
+    U64(u64),
+    I64(i64),
+    U128(u128),
+    I128(i128),
+    F32(f32),
+    F64(f64),
 }
 
 impl ConstantEmission {
     fn small_type(&self) -> SmallType {
         match self {
             ConstantEmission::Boolean(_) => SmallType::BOOLEAN,
-            ConstantEmission::Byte(_) => SmallType::BYTE,
             ConstantEmission::Character(_) => SmallType::CHARACTER,
-            ConstantEmission::Float(_) => SmallType::FLOAT,
-            ConstantEmission::Integer(_) => SmallType::INTEGER,
             ConstantEmission::String { .. } => SmallType::STRING,
+            ConstantEmission::U8(_) => SmallType::U_8,
+            ConstantEmission::I8(_) => SmallType::I_8,
+            ConstantEmission::U16(_) => SmallType::U_16,
+            ConstantEmission::I16(_) => SmallType::I_16,
+            ConstantEmission::U32(_) => SmallType::U_32,
+            ConstantEmission::I32(_) => SmallType::I_32,
+            ConstantEmission::U64(_) => SmallType::U_64,
+            ConstantEmission::I64(_) => SmallType::I_64,
+            ConstantEmission::U128(_) => SmallType::U_128,
+            ConstantEmission::I128(_) => SmallType::I_128,
+            ConstantEmission::F32(_) => SmallType::F_32,
+            ConstantEmission::F64(_) => SmallType::F_64,
         }
+    }
+
+    fn add(self, other: Self, emitter: &mut Emitter) -> Option<Self> {
+        match (self, other) {
+            (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
+                Some(ConstantEmission::U8(left + right))
+            }
+            (ConstantEmission::I8(left), ConstantEmission::I8(right)) => {
+                Some(ConstantEmission::I8(left + right))
+            }
+            (ConstantEmission::U16(left), ConstantEmission::U16(right)) => {
+                Some(ConstantEmission::U16(left + right))
+            }
+            (ConstantEmission::I16(left), ConstantEmission::I16(right)) => {
+                Some(ConstantEmission::I16(left + right))
+            }
+            (ConstantEmission::U32(left), ConstantEmission::U32(right)) => {
+                Some(ConstantEmission::U32(left + right))
+            }
+            (ConstantEmission::I32(left), ConstantEmission::I32(right)) => {
+                Some(ConstantEmission::I32(left + right))
+            }
+            (ConstantEmission::U64(left), ConstantEmission::U64(right)) => {
+                Some(ConstantEmission::U64(left + right))
+            }
+            (ConstantEmission::I64(left), ConstantEmission::I64(right)) => {
+                Some(ConstantEmission::I64(left + right))
+            }
+            (ConstantEmission::U128(left), ConstantEmission::U128(right)) => {
+                Some(ConstantEmission::U128(left + right))
+            }
+            (ConstantEmission::I128(left), ConstantEmission::I128(right)) => {
+                Some(ConstantEmission::I128(left + right))
+            }
+            (ConstantEmission::F32(left), ConstantEmission::F32(right)) => {
+                Some(ConstantEmission::F32(left + right))
+            }
+            (ConstantEmission::F64(left), ConstantEmission::F64(right)) => {
+                Some(ConstantEmission::F64(left + right))
+            }
+            (
+                ConstantEmission::String {
+                    pool_start: left_start,
+                    pool_end: left_end,
+                },
+                ConstantEmission::String {
+                    pool_start: right_start,
+                    pool_end: right_end,
+                },
+            ) => {
+                let left = emitter
+                    .constants
+                    .get_string_pool_range(left_start as usize..left_end as usize);
+                let right = emitter
+                    .constants
+                    .get_string_pool_range(right_start as usize..right_end as usize);
+
+                let mut combined = String::with_capacity(left.len() + right.len());
+
+                combined.push_str(left);
+                combined.push_str(right);
+
+                let (combined_pool_start, combined_pool_end) =
+                    emitter.constants.push_str_to_string_pool(&combined);
+
+                Some(ConstantEmission::String {
+                    pool_start: combined_pool_start,
+                    pool_end: combined_pool_end,
+                })
+            }
+            _ => None,
+        }
+    }
+
+    fn subtract(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
+                Some(ConstantEmission::U8(left - right))
+            }
+            (ConstantEmission::I8(left), ConstantEmission::I8(right)) => {
+                Some(ConstantEmission::I8(left - right))
+            }
+            (ConstantEmission::U16(left), ConstantEmission::U16(right)) => {
+                Some(ConstantEmission::U16(left - right))
+            }
+            (ConstantEmission::I16(left), ConstantEmission::I16(right)) => {
+                Some(ConstantEmission::I16(left - right))
+            }
+            (ConstantEmission::U32(left), ConstantEmission::U32(right)) => {
+                Some(ConstantEmission::U32(left - right))
+            }
+            (ConstantEmission::I32(left), ConstantEmission::I32(right)) => {
+                Some(ConstantEmission::I32(left - right))
+            }
+            (ConstantEmission::U64(left), ConstantEmission::U64(right)) => {
+                Some(ConstantEmission::U64(left - right))
+            }
+            (ConstantEmission::I64(left), ConstantEmission::I64(right)) => {
+                Some(ConstantEmission::I64(left - right))
+            }
+            (ConstantEmission::U128(left), ConstantEmission::U128(right)) => {
+                Some(ConstantEmission::U128(left - right))
+            }
+            (ConstantEmission::I128(left), ConstantEmission::I128(right)) => {
+                Some(ConstantEmission::I128(left - right))
+            }
+            (ConstantEmission::F32(left), ConstantEmission::F32(right)) => {
+                Some(ConstantEmission::F32(left - right))
+            }
+            (ConstantEmission::F64(left), ConstantEmission::F64(right)) => {
+                Some(ConstantEmission::F64(left - right))
+            }
+            _ => None,
+        }
+    }
+
+    fn multiply(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
+                Some(ConstantEmission::U8(left * right))
+            }
+            (ConstantEmission::I8(left), ConstantEmission::I8(right)) => {
+                Some(ConstantEmission::I8(left * right))
+            }
+            (ConstantEmission::U16(left), ConstantEmission::U16(right)) => {
+                Some(ConstantEmission::U16(left * right))
+            }
+            (ConstantEmission::I16(left), ConstantEmission::I16(right)) => {
+                Some(ConstantEmission::I16(left * right))
+            }
+            (ConstantEmission::U32(left), ConstantEmission::U32(right)) => {
+                Some(ConstantEmission::U32(left * right))
+            }
+            (ConstantEmission::I32(left), ConstantEmission::I32(right)) => {
+                Some(ConstantEmission::I32(left * right))
+            }
+            (ConstantEmission::U64(left), ConstantEmission::U64(right)) => {
+                Some(ConstantEmission::U64(left * right))
+            }
+            (ConstantEmission::I64(left), ConstantEmission::I64(right)) => {
+                Some(ConstantEmission::I64(left * right))
+            }
+            (ConstantEmission::U128(left), ConstantEmission::U128(right)) => {
+                Some(ConstantEmission::U128(left * right))
+            }
+            (ConstantEmission::I128(left), ConstantEmission::I128(right)) => {
+                Some(ConstantEmission::I128(left * right))
+            }
+            (ConstantEmission::F32(left), ConstantEmission::F32(right)) => {
+                Some(ConstantEmission::F32(left * right))
+            }
+            (ConstantEmission::F64(left), ConstantEmission::F64(right)) => {
+                Some(ConstantEmission::F64(left * right))
+            }
+            _ => None,
+        }
+    }
+
+    fn divide(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
+                Some(ConstantEmission::U8(left / right))
+            }
+            (ConstantEmission::I8(left), ConstantEmission::I8(right)) => {
+                Some(ConstantEmission::I8(left / right))
+            }
+            (ConstantEmission::U16(left), ConstantEmission::U16(right)) => {
+                Some(ConstantEmission::U16(left / right))
+            }
+            (ConstantEmission::I16(left), ConstantEmission::I16(right)) => {
+                Some(ConstantEmission::I16(left / right))
+            }
+            (ConstantEmission::U32(left), ConstantEmission::U32(right)) => {
+                Some(ConstantEmission::U32(left / right))
+            }
+            (ConstantEmission::I32(left), ConstantEmission::I32(right)) => {
+                Some(ConstantEmission::I32(left / right))
+            }
+            (ConstantEmission::U64(left), ConstantEmission::U64(right)) => {
+                Some(ConstantEmission::U64(left / right))
+            }
+            (ConstantEmission::I64(left), ConstantEmission::I64(right)) => {
+                Some(ConstantEmission::I64(left / right))
+            }
+            (ConstantEmission::U128(left), ConstantEmission::U128(right)) => {
+                Some(ConstantEmission::U128(left / right))
+            }
+            (ConstantEmission::I128(left), ConstantEmission::I128(right)) => {
+                Some(ConstantEmission::I128(left / right))
+            }
+            (ConstantEmission::F32(left), ConstantEmission::F32(right)) => {
+                Some(ConstantEmission::F32(left / right))
+            }
+            (ConstantEmission::F64(left), ConstantEmission::F64(right)) => {
+                Some(ConstantEmission::F64(left / right))
+            }
+            _ => None,
+        }
+    }
+
+    fn modulo(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
+                Some(ConstantEmission::U8(left % right))
+            }
+            (ConstantEmission::I8(left), ConstantEmission::I8(right)) => {
+                Some(ConstantEmission::I8(left % right))
+            }
+            (ConstantEmission::U16(left), ConstantEmission::U16(right)) => {
+                Some(ConstantEmission::U16(left % right))
+            }
+            (ConstantEmission::I16(left), ConstantEmission::I16(right)) => {
+                Some(ConstantEmission::I16(left % right))
+            }
+            (ConstantEmission::U32(left), ConstantEmission::U32(right)) => {
+                Some(ConstantEmission::U32(left % right))
+            }
+            (ConstantEmission::I32(left), ConstantEmission::I32(right)) => {
+                Some(ConstantEmission::I32(left % right))
+            }
+            (ConstantEmission::U64(left), ConstantEmission::U64(right)) => {
+                Some(ConstantEmission::U64(left % right))
+            }
+            (ConstantEmission::I64(left), ConstantEmission::I64(right)) => {
+                Some(ConstantEmission::I64(left % right))
+            }
+            (ConstantEmission::U128(left), ConstantEmission::U128(right)) => {
+                Some(ConstantEmission::U128(left % right))
+            }
+            (ConstantEmission::I128(left), ConstantEmission::I128(right)) => {
+                Some(ConstantEmission::I128(left % right))
+            }
+            (ConstantEmission::F32(left), ConstantEmission::F32(right)) => {
+                Some(ConstantEmission::F32(left % right))
+            }
+            (ConstantEmission::F64(left), ConstantEmission::F64(right)) => {
+                Some(ConstantEmission::F64(left % right))
+            }
+            _ => None,
+        }
+    }
+
+    fn power(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
+                Some(ConstantEmission::U8(left.pow(right as u32)))
+            }
+            (ConstantEmission::I8(left), ConstantEmission::I8(right)) => {
+                Some(ConstantEmission::I8(left.pow(right as u32)))
+            }
+            (ConstantEmission::U16(left), ConstantEmission::U16(right)) => {
+                Some(ConstantEmission::U16(left.pow(right as u32)))
+            }
+            (ConstantEmission::I16(left), ConstantEmission::I16(right)) => {
+                Some(ConstantEmission::I16(left.pow(right as u32)))
+            }
+            (ConstantEmission::U32(left), ConstantEmission::U32(right)) => {
+                Some(ConstantEmission::U32(left.pow(right)))
+            }
+            (ConstantEmission::I32(left), ConstantEmission::I32(right)) => {
+                Some(ConstantEmission::I32(left.pow(right as u32)))
+            }
+            (ConstantEmission::U64(left), ConstantEmission::U64(right)) => {
+                Some(ConstantEmission::U64(left.pow(right)))
+            }
+            (ConstantEmission::I64(left), ConstantEmission::I64(right)) => {
+                Some(ConstantEmission::I64(left.pow(right as u32)))
+            }
+            (ConstantEmission::U128(left), ConstantEmission::U128(right)) => {
+                Some(ConstantEmission::U128(left.pow(right as u32)))
+            }
+            (ConstantEmission::I128(left), ConstantEmission::I128(right)) => {
+                Some(ConstantEmission::I128(left.pow(right as u32)))
+            }
+            (ConstantEmission::F32(left), ConstantEmission::F32(right)) => {
+                Some(ConstantEmission::F32(left.powf(right)))
+            }
+            (ConstantEmission::F64(left), ConstantEmission::F64(right)) => {
+                Some(ConstantEmission::F64(left.powf(right)))
+            }
+            _ => None,
+        }
+    }
+
+    fn equal(self, other: Self, emitter: &Emitter) -> Option<Self> {
+        match (self, other) {
+            (ConstantEmission::Boolean(left), ConstantEmission::Boolean(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (ConstantEmission::Character(left), ConstantEmission::Character(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (
+                ConstantEmission::String {
+                    pool_start: left_start,
+                    pool_end: left_end,
+                },
+                ConstantEmission::String {
+                    pool_start: right_start,
+                    pool_end: right_end,
+                },
+            ) => {
+                let left = emitter
+                    .constants
+                    .get_string_pool_range(left_start as usize..left_end as usize);
+                let right = emitter
+                    .constants
+                    .get_string_pool_range(right_start as usize..right_end as usize);
+
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (ConstantEmission::I8(left), ConstantEmission::I8(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (ConstantEmission::U16(left), ConstantEmission::U16(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (ConstantEmission::I16(left), ConstantEmission::I16(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (ConstantEmission::U32(left), ConstantEmission::U32(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (ConstantEmission::I32(left), ConstantEmission::I32(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (ConstantEmission::U64(left), ConstantEmission::U64(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (ConstantEmission::I64(left), ConstantEmission::I64(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (ConstantEmission::U128(left), ConstantEmission::U128(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (ConstantEmission::I128(left), ConstantEmission::I128(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (ConstantEmission::F32(left), ConstantEmission::F32(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            (ConstantEmission::F64(left), ConstantEmission::F64(right)) => {
+                Some(ConstantEmission::Boolean(left == right))
+            }
+            _ => None,
+        }
+    }
+
+    fn not_equal(self, other: Self, emitter: &Emitter) -> Option<Self> {
+        self.equal(other, emitter).map(|equality| match equality {
+            ConstantEmission::Boolean(value) => ConstantEmission::Boolean(!value),
+            _ => unreachable!("Expected boolean constant from equality comparison"),
+        })
+    }
+
+    fn less(self, other: Self, emitter: &Emitter) -> Option<Self> {
+        match (self, other) {
+            (ConstantEmission::Character(left), ConstantEmission::Character(right)) => {
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            (
+                ConstantEmission::String {
+                    pool_start: left_start,
+                    pool_end: left_end,
+                },
+                ConstantEmission::String {
+                    pool_start: right_start,
+                    pool_end: right_end,
+                },
+            ) => {
+                let left = emitter
+                    .constants
+                    .get_string_pool_range(left_start as usize..left_end as usize);
+                let right = emitter
+                    .constants
+                    .get_string_pool_range(right_start as usize..right_end as usize);
+
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            (ConstantEmission::I8(left), ConstantEmission::I8(right)) => {
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            (ConstantEmission::U16(left), ConstantEmission::U16(right)) => {
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            (ConstantEmission::I16(left), ConstantEmission::I16(right)) => {
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            (ConstantEmission::U32(left), ConstantEmission::U32(right)) => {
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            (ConstantEmission::I32(left), ConstantEmission::I32(right)) => {
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            (ConstantEmission::U64(left), ConstantEmission::U64(right)) => {
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            (ConstantEmission::I64(left), ConstantEmission::I64(right)) => {
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            (ConstantEmission::U128(left), ConstantEmission::U128(right)) => {
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            (ConstantEmission::I128(left), ConstantEmission::I128(right)) => {
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            (ConstantEmission::F32(left), ConstantEmission::F32(right)) => {
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            (ConstantEmission::F64(left), ConstantEmission::F64(right)) => {
+                Some(ConstantEmission::Boolean(left < right))
+            }
+            _ => None,
+        }
+    }
+
+    fn greater(self, other: Self, emitter: &Emitter) -> Option<Self> {
+        self.less_equal(other, emitter).map(|less| match less {
+            ConstantEmission::Boolean(value) => ConstantEmission::Boolean(!value),
+            _ => unreachable!("Expected boolean constant from less comparison"),
+        })
+    }
+
+    fn less_equal(self, other: Self, emitter: &Emitter) -> Option<Self> {
+        match (self, other) {
+            (ConstantEmission::Character(left), ConstantEmission::Character(right)) => {
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            (
+                ConstantEmission::String {
+                    pool_start: left_start,
+                    pool_end: left_end,
+                },
+                ConstantEmission::String {
+                    pool_start: right_start,
+                    pool_end: right_end,
+                },
+            ) => {
+                let left = emitter
+                    .constants
+                    .get_string_pool_range(left_start as usize..left_end as usize);
+                let right = emitter
+                    .constants
+                    .get_string_pool_range(right_start as usize..right_end as usize);
+
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            (ConstantEmission::I8(left), ConstantEmission::I8(right)) => {
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            (ConstantEmission::U16(left), ConstantEmission::U16(right)) => {
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            (ConstantEmission::I16(left), ConstantEmission::I16(right)) => {
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            (ConstantEmission::U32(left), ConstantEmission::U32(right)) => {
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            (ConstantEmission::I32(left), ConstantEmission::I32(right)) => {
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            (ConstantEmission::U64(left), ConstantEmission::U64(right)) => {
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            (ConstantEmission::I64(left), ConstantEmission::I64(right)) => {
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            (ConstantEmission::U128(left), ConstantEmission::U128(right)) => {
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            (ConstantEmission::I128(left), ConstantEmission::I128(right)) => {
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            (ConstantEmission::F32(left), ConstantEmission::F32(right)) => {
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            (ConstantEmission::F64(left), ConstantEmission::F64(right)) => {
+                Some(ConstantEmission::Boolean(left <= right))
+            }
+            _ => None,
+        }
+    }
+
+    fn greater_equal(self, other: Self, emitter: &Emitter) -> Option<Self> {
+        self.less(other, emitter).map(|less| match less {
+            ConstantEmission::Boolean(value) => ConstantEmission::Boolean(!value),
+            _ => unreachable!("Expected boolean constant from less comparison"),
+        })
     }
 }
 

@@ -102,3 +102,19 @@ fn parameter_binds_to_declaration() {
         x_id
     );
 }
+
+#[test]
+fn parameters_are_in_function_scope() {
+    let (_syntax, mut resolver) = bind_declarations("fn foo(x: int) {}");
+
+    let x_symbol_id = resolver.symbols.add_symbol("x");
+    let (_, x_declaration) = resolver
+        .declarations
+        .iter()
+        .find(|(_, declaration)| declaration.symbol_id == x_symbol_id)
+        .unwrap();
+
+    let scope = resolver.scopes.get_scope(x_declaration.scope_id).unwrap();
+
+    assert_eq!(scope.kind, ScopeKind::Function);
+}

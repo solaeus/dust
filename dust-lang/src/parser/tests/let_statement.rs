@@ -64,7 +64,7 @@ fn let_statement_with_type() {
             LetStatement.with_multiple_children(Span::new(16, 32), 0, 3),
             SimplePath.empty(Span::new(20, 21)),
             IntegerExpression.with_value(Span::new(29, 31), SyntaxPayload::encode_integer(42)),
-            IntegerType.empty(Span::new(23, 26)),
+            I64Type.empty(Span::new(23, 26)),
         ]
     );
 }
@@ -127,7 +127,7 @@ fn let_mut_statement_with_type() {
             LetMutStatement.with_multiple_children(Span::new(16, 36), 0, 3),
             SimplePath.empty(Span::new(24, 25)),
             IntegerExpression.with_value(Span::new(33, 35), SyntaxPayload::encode_integer(42)),
-            IntegerType.empty(Span::new(27, 30)),
+            I64Type.empty(Span::new(27, 30)),
         ]
     );
 }

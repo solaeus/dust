@@ -58,3 +58,19 @@ fn binds_to_block_scope() {
 
     assert_eq!(scope.kind, ScopeKind::Block);
 }
+
+#[test]
+fn variables_have_block_scope() {
+    let (_syntax, mut resolver) = bind_declarations("fn main() { { let x = 1; } }");
+
+    let x_symbol_id = resolver.symbols.add_symbol("x");
+    let (_, x_declaration) = resolver
+        .declarations
+        .iter()
+        .find(|(_, declaration)| declaration.symbol_id == x_symbol_id)
+        .unwrap();
+
+    let scope = resolver.scopes.get_scope(x_declaration.scope_id).unwrap();
+
+    assert_eq!(scope.kind, ScopeKind::Block);
+}

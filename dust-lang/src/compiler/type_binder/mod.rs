@@ -353,9 +353,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting byte expression");
 
-        self.resolver.add_type_binding(node.id, TypeId::BYTE);
+        self.resolver.add_type_binding(node.id, TypeId::U_8);
 
-        Ok(TypeId::BYTE)
+        Ok(TypeId::U_8)
     }
 
     fn visit_character_expression(
@@ -377,9 +377,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting float expression");
 
-        self.resolver.add_type_binding(node.id, TypeId::FLOAT);
+        self.resolver.add_type_binding(node.id, TypeId::F_64);
 
-        Ok(TypeId::FLOAT)
+        Ok(TypeId::F_64)
     }
 
     fn visit_integer_expression(
@@ -389,9 +389,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting integer expression");
 
-        self.resolver.add_type_binding(node.id, TypeId::INTEGER);
+        self.resolver.add_type_binding(node.id, TypeId::I_64);
 
-        Ok(TypeId::INTEGER)
+        Ok(TypeId::I_64)
     }
 
     fn visit_string_expression(
@@ -463,7 +463,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             self.resolver.infer_type(raw)?
         };
 
-        if index_type_id != TypeId::INTEGER {
+        if index_type_id != TypeId::U_64 {
             return Err(ErrorKind::Compile(CompileError::ExpectedIntegerIndex {
                 found: index_type_id,
                 position: index_expression.position(),
@@ -786,7 +786,19 @@ impl SyntaxVisitor for TypeBinder<'_> {
         };
 
         match child_type {
-            TypeId::BOOLEAN | TypeId::BYTE | TypeId::FLOAT | TypeId::INTEGER => {
+            TypeId::BOOLEAN
+            | TypeId::U_8
+            | TypeId::I_8
+            | TypeId::U_16
+            | TypeId::I_16
+            | TypeId::U_32
+            | TypeId::I_32
+            | TypeId::U_64
+            | TypeId::I_64
+            | TypeId::U_128
+            | TypeId::I_128
+            | TypeId::F_32
+            | TypeId::F_64 => {
                 self.resolver.add_type_binding(node.id, child_type);
 
                 Ok(child_type)
@@ -974,10 +986,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
         match node.kind() {
             SyntaxKind::AnyType => Ok(self.resolver.types.create_inferred_type()),
             SyntaxKind::BooleanType => Ok(TypeId::BOOLEAN),
-            SyntaxKind::ByteType => Ok(TypeId::BYTE),
+            SyntaxKind::U8Type => Ok(TypeId::U_8),
             SyntaxKind::CharacterType => Ok(TypeId::CHARACTER),
-            SyntaxKind::FloatType => Ok(TypeId::FLOAT),
-            SyntaxKind::IntegerType => Ok(TypeId::INTEGER),
+            SyntaxKind::F64Type => Ok(TypeId::F_64),
+            SyntaxKind::I64Type => Ok(TypeId::I_64),
             SyntaxKind::StringType => Ok(TypeId::STRING),
             SyntaxKind::ListType => {
                 let element_type_node = node.child()?;

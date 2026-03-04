@@ -27,19 +27,37 @@ impl TypeGraph {
 
         let _unit_type_id = type_graph.add_type(TypeNode::Unit);
         let _boolean_type_id = type_graph.add_type(TypeNode::Boolean);
-        let _byte_type_id = type_graph.add_type(TypeNode::Byte);
         let _character_type_id = type_graph.add_type(TypeNode::Character);
-        let _float_type_id = type_graph.add_type(TypeNode::Float);
-        let _integer_type_id = type_graph.add_type(TypeNode::Integer);
         let _string_type_id = type_graph.add_type(TypeNode::String);
+        let _u8_type_id = type_graph.add_type(TypeNode::U8);
+        let _i8_type_id = type_graph.add_type(TypeNode::I8);
+        let _u16_type_id = type_graph.add_type(TypeNode::U16);
+        let _i16_type_id = type_graph.add_type(TypeNode::I16);
+        let _u32_type_id = type_graph.add_type(TypeNode::U32);
+        let _i32_type_id = type_graph.add_type(TypeNode::I32);
+        let _u64_type_id = type_graph.add_type(TypeNode::U64);
+        let _i64_type_id = type_graph.add_type(TypeNode::I64);
+        let _u128_type_id = type_graph.add_type(TypeNode::U128);
+        let _i128_type_id = type_graph.add_type(TypeNode::I128);
+        let _f32_type_id = type_graph.add_type(TypeNode::F32);
+        let _f64_type_id = type_graph.add_type(TypeNode::F64);
 
         debug_assert_eq!(_unit_type_id, TypeId::UNIT);
         debug_assert_eq!(_boolean_type_id, TypeId::BOOLEAN);
-        debug_assert_eq!(_byte_type_id, TypeId::BYTE);
         debug_assert_eq!(_character_type_id, TypeId::CHARACTER);
-        debug_assert_eq!(_float_type_id, TypeId::FLOAT);
-        debug_assert_eq!(_integer_type_id, TypeId::INTEGER);
         debug_assert_eq!(_string_type_id, TypeId::STRING);
+        debug_assert_eq!(_u8_type_id, TypeId::U_8);
+        debug_assert_eq!(_i8_type_id, TypeId::I_8);
+        debug_assert_eq!(_u16_type_id, TypeId::U_16);
+        debug_assert_eq!(_i16_type_id, TypeId::I_16);
+        debug_assert_eq!(_u32_type_id, TypeId::U_32);
+        debug_assert_eq!(_i32_type_id, TypeId::I_32);
+        debug_assert_eq!(_u64_type_id, TypeId::U_64);
+        debug_assert_eq!(_i64_type_id, TypeId::I_64);
+        debug_assert_eq!(_u128_type_id, TypeId::U_128);
+        debug_assert_eq!(_i128_type_id, TypeId::I_128);
+        debug_assert_eq!(_f32_type_id, TypeId::F_32);
+        debug_assert_eq!(_f64_type_id, TypeId::F_64);
 
         type_graph
     }
@@ -111,11 +129,20 @@ pub struct TypeId(u32);
 impl TypeId {
     pub const UNIT: Self = TypeId(0);
     pub const BOOLEAN: Self = TypeId(1);
-    pub const BYTE: Self = TypeId(2);
-    pub const CHARACTER: Self = TypeId(3);
-    pub const FLOAT: Self = TypeId(4);
-    pub const INTEGER: Self = TypeId(5);
-    pub const STRING: Self = TypeId(6);
+    pub const CHARACTER: Self = TypeId(2);
+    pub const STRING: Self = TypeId(3);
+    pub const U_8: Self = TypeId(4);
+    pub const I_8: Self = TypeId(5);
+    pub const U_16: Self = TypeId(6);
+    pub const I_16: Self = TypeId(7);
+    pub const U_32: Self = TypeId(8);
+    pub const I_32: Self = TypeId(9);
+    pub const U_64: Self = TypeId(10);
+    pub const I_64: Self = TypeId(11);
+    pub const U_128: Self = TypeId(12);
+    pub const I_128: Self = TypeId(13);
+    pub const F_32: Self = TypeId(14);
+    pub const F_64: Self = TypeId(15);
 
     pub fn inner(self) -> u32 {
         self.0
@@ -126,11 +153,20 @@ impl TypeId {
 pub enum TypeNode {
     Unit,
     Boolean,
-    Byte,
     Character,
-    Float,
-    Integer,
     String,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64,
+    U128,
+    I128,
+    F32,
+    F64,
     List {
         element_type: TypeId,
     },
@@ -158,13 +194,22 @@ impl Hash for TypeNode {
         match self {
             TypeNode::Unit => state.write_u8(0),
             TypeNode::Boolean => state.write_u8(1),
-            TypeNode::Byte => state.write_u8(2),
-            TypeNode::Character => state.write_u8(3),
-            TypeNode::Float => state.write_u8(4),
-            TypeNode::Integer => state.write_u8(5),
-            TypeNode::String => state.write_u8(6),
+            TypeNode::Character => state.write_u8(2),
+            TypeNode::String => state.write_u8(3),
+            TypeNode::U8 => state.write_u8(4),
+            TypeNode::I8 => state.write_u8(5),
+            TypeNode::U16 => state.write_u8(6),
+            TypeNode::I16 => state.write_u8(7),
+            TypeNode::U32 => state.write_u8(8),
+            TypeNode::I32 => state.write_u8(9),
+            TypeNode::U64 => state.write_u8(10),
+            TypeNode::I64 => state.write_u8(11),
+            TypeNode::U128 => state.write_u8(12),
+            TypeNode::I128 => state.write_u8(13),
+            TypeNode::F32 => state.write_u8(14),
+            TypeNode::F64 => state.write_u8(15),
             TypeNode::List { element_type } => {
-                state.write_u8(7);
+                state.write_u8(16);
                 element_type.hash(state);
             }
             TypeNode::Function {
@@ -172,7 +217,7 @@ impl Hash for TypeNode {
                 value_parameters,
                 return_type_id,
             } => {
-                state.write_u8(8);
+                state.write_u8(17);
                 type_parameters.hash(state);
                 value_parameters.hash(state);
                 return_type_id.hash(state);
@@ -181,7 +226,7 @@ impl Hash for TypeNode {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(9);
+                state.write_u8(18);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }
@@ -189,12 +234,12 @@ impl Hash for TypeNode {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(10);
+                state.write_u8(19);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }
             TypeNode::Inferred { inferred_id, .. } => {
-                state.write_u8(11);
+                state.write_u8(20);
                 inferred_id.hash(state);
             }
         }

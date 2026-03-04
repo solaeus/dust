@@ -480,11 +480,20 @@ impl Resolver {
         let node = match new_type {
             DustType::Unit => TypeNode::Unit,
             DustType::Boolean => TypeNode::Boolean,
-            DustType::Byte => TypeNode::Byte,
             DustType::Character => TypeNode::Character,
-            DustType::Float => TypeNode::Float,
-            DustType::Integer => TypeNode::Integer,
             DustType::String => TypeNode::String,
+            DustType::U8 => TypeNode::U8,
+            DustType::I8 => TypeNode::I8,
+            DustType::U16 => TypeNode::U16,
+            DustType::I16 => TypeNode::I16,
+            DustType::U32 => TypeNode::U32,
+            DustType::I32 => TypeNode::I32,
+            DustType::U64 => TypeNode::U64,
+            DustType::I64 => TypeNode::I64,
+            DustType::U128 => TypeNode::U128,
+            DustType::I128 => TypeNode::I128,
+            DustType::F32 => TypeNode::F32,
+            DustType::F64 => TypeNode::F64,
             DustType::List(element_type) => {
                 let element_type = self.add_external_type(element_type);
 
@@ -590,11 +599,20 @@ impl Resolver {
         match type_node {
             TypeNode::Unit => Ok(DustType::Unit),
             TypeNode::Boolean => Ok(DustType::Boolean),
-            TypeNode::Byte => Ok(DustType::Byte),
             TypeNode::Character => Ok(DustType::Character),
-            TypeNode::Float => Ok(DustType::Float),
-            TypeNode::Integer => Ok(DustType::Integer),
             TypeNode::String => Ok(DustType::String),
+            TypeNode::U8 => Ok(DustType::U8),
+            TypeNode::I8 => Ok(DustType::I8),
+            TypeNode::U16 => Ok(DustType::U16),
+            TypeNode::I16 => Ok(DustType::I16),
+            TypeNode::U32 => Ok(DustType::U32),
+            TypeNode::I32 => Ok(DustType::I32),
+            TypeNode::U64 => Ok(DustType::U64),
+            TypeNode::I64 => Ok(DustType::I64),
+            TypeNode::U128 => Ok(DustType::U128),
+            TypeNode::I128 => Ok(DustType::I128),
+            TypeNode::F32 => Ok(DustType::F32),
+            TypeNode::F64 => Ok(DustType::F64),
             TypeNode::List { element_type } => {
                 let element_type = self.get_full_type(*element_type, source)?;
 
@@ -701,28 +719,55 @@ impl Resolver {
         match self.types.get_type(type_id)? {
             TypeNode::Unit => Ok(SmallType::UNIT),
             TypeNode::Boolean => Ok(SmallType::BOOLEAN),
-            TypeNode::Byte => Ok(SmallType::BYTE),
             TypeNode::Character => Ok(SmallType::CHARACTER),
-            TypeNode::Float => Ok(SmallType::FLOAT),
-            TypeNode::Integer => Ok(SmallType::INTEGER),
             TypeNode::String => Ok(SmallType::STRING),
+            TypeNode::U8 => Ok(SmallType::U_8),
+            TypeNode::I8 => Ok(SmallType::I_8),
+            TypeNode::U16 => Ok(SmallType::U_16),
+            TypeNode::I16 => Ok(SmallType::I_16),
+            TypeNode::U32 => Ok(SmallType::U_32),
+            TypeNode::I32 => Ok(SmallType::I_32),
+            TypeNode::U64 => Ok(SmallType::U_64),
+            TypeNode::I64 => Ok(SmallType::I_64),
+            TypeNode::U128 => Ok(SmallType::U_128),
+            TypeNode::I128 => Ok(SmallType::I_128),
+            TypeNode::F32 => Ok(SmallType::F_32),
+            TypeNode::F64 => Ok(SmallType::F_64),
             TypeNode::List { element_type } => match *element_type {
                 TypeId::BOOLEAN => Ok(SmallType::LIST_BOOLEAN),
-                TypeId::BYTE => Ok(SmallType::LIST_BYTE),
                 TypeId::CHARACTER => Ok(SmallType::LIST_CHARACTER),
-                TypeId::FLOAT => Ok(SmallType::LIST_FLOAT),
-                TypeId::INTEGER => Ok(SmallType::LIST_INTEGER),
                 TypeId::STRING => Ok(SmallType::LIST_STRING),
+                TypeId::U_8 => Ok(SmallType::LIST_U_8),
+                TypeId::I_8 => Ok(SmallType::LIST_I_8),
+                TypeId::U_16 => Ok(SmallType::LIST_U_16),
+                TypeId::I_16 => Ok(SmallType::LIST_I_16),
+                TypeId::U_32 => Ok(SmallType::LIST_U_32),
+                TypeId::I_32 => Ok(SmallType::LIST_I_32),
+                TypeId::U_64 => Ok(SmallType::LIST_U_64),
+                TypeId::I_64 => Ok(SmallType::LIST_I_64),
+                TypeId::U_128 => Ok(SmallType::LIST_U_128),
+                TypeId::I_128 => Ok(SmallType::LIST_I_128),
+                TypeId::F_32 => Ok(SmallType::LIST_F_32),
+                TypeId::F_64 => Ok(SmallType::LIST_F_64),
                 _ => {
                     let element_operand_type = self.get_small_type(*element_type, node)?;
 
                     match element_operand_type {
                         SmallType::LIST_BOOLEAN
-                        | SmallType::LIST_BYTE
                         | SmallType::LIST_CHARACTER
-                        | SmallType::LIST_FLOAT
-                        | SmallType::LIST_INTEGER
                         | SmallType::LIST_STRING
+                        | SmallType::LIST_U_8
+                        | SmallType::LIST_I_8
+                        | SmallType::LIST_U_16
+                        | SmallType::LIST_I_16
+                        | SmallType::LIST_U_32
+                        | SmallType::LIST_I_32
+                        | SmallType::LIST_U_64
+                        | SmallType::LIST_I_64
+                        | SmallType::LIST_U_128
+                        | SmallType::LIST_I_128
+                        | SmallType::LIST_F_32
+                        | SmallType::LIST_F_64
                         | SmallType::LIST_LIST
                         | SmallType::LIST_FUNCTION => Ok(SmallType::LIST_LIST),
                         _ => Err(ErrorKind::Compile(CompileError::CannotInferType {

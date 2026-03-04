@@ -802,10 +802,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             node.kind(),
             SyntaxKind::AnyType
                 | SyntaxKind::BooleanType
-                | SyntaxKind::ByteType
+                | SyntaxKind::U8Type
                 | SyntaxKind::CharacterType
-                | SyntaxKind::FloatType
-                | SyntaxKind::IntegerType
+                | SyntaxKind::F64Type
+                | SyntaxKind::I64Type
                 | SyntaxKind::StringType
                 | SyntaxKind::ListType
                 | SyntaxKind::FunctionType

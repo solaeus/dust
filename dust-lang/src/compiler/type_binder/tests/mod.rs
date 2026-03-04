@@ -11,6 +11,7 @@ mod list_expression;
 mod literal_expressions;
 mod logical_expressions;
 mod path_expression;
+mod reassignment_statement;
 mod struct_expression;
 mod struct_item;
 mod unary_expressions;

@@ -12,10 +12,7 @@ fn integer_has_integer_type() {
         .find(|node| node.kind() == SyntaxKind::IntegerExpression)
         .unwrap();
 
-    assert_eq!(
-        *resolver.get_type_binding(&node.id).unwrap(),
-        TypeId::INTEGER
-    );
+    assert_eq!(*resolver.get_type_binding(&node.id).unwrap(), TypeId::I_64);
 }
 
 #[test]
@@ -28,7 +25,7 @@ fn float_has_float_type() {
         .find(|node| node.kind() == SyntaxKind::FloatExpression)
         .unwrap();
 
-    assert_eq!(*resolver.get_type_binding(&node.id).unwrap(), TypeId::FLOAT);
+    assert_eq!(*resolver.get_type_binding(&node.id).unwrap(), TypeId::F_64);
 }
 
 #[test]
@@ -77,17 +74,4 @@ fn character_has_character_type() {
         *resolver.get_type_binding(&node.id).unwrap(),
         TypeId::CHARACTER
     );
-}
-
-#[test]
-fn byte_has_byte_type() {
-    let (syntax, resolver) = bind_types("fn main() -> byte { 0x2A }");
-
-    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
-    let node = tree
-        .iter()
-        .find(|node| node.kind() == SyntaxKind::ByteExpression)
-        .unwrap();
-
-    assert_eq!(*resolver.get_type_binding(&node.id).unwrap(), TypeId::BYTE);
 }

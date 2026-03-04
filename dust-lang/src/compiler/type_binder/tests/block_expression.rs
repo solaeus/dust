@@ -21,7 +21,7 @@ fn empty_has_unit_type() {
 
 #[test]
 fn with_expression_has_expression_type() {
-    let (syntax, resolver) = bind_types("fn main() -> int { { 42 } }");
+    let (syntax, resolver) = bind_types("fn main() -> i64 { { 42 } }");
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let blocks: Vec<_> = tree
@@ -32,7 +32,7 @@ fn with_expression_has_expression_type() {
 
     assert_eq!(
         *resolver.get_type_binding(&inner_block.id).unwrap(),
-        TypeId::INTEGER
+        TypeId::I_64
     );
 }
 

@@ -39,19 +39,32 @@ impl Address {
         }
     }
 
-    pub fn decode_boolean(&self) -> bool {
-        self.index != 0
-    }
-
-    pub fn encoded_byte(byte: u8) -> Self {
+    pub fn encoded_u8(u8: u8) -> Self {
         Address {
-            index: byte as u16,
+            index: u8 as u16,
             memory: MemoryKind::ENCODED,
         }
     }
 
-    pub fn decode_byte(&self) -> u8 {
-        self.index as u8
+    pub fn encoded_i8(i8: i8) -> Self {
+        Address {
+            index: i8 as u16,
+            memory: MemoryKind::ENCODED,
+        }
+    }
+
+    pub fn encoded_u16(u16: u16) -> Self {
+        Address {
+            index: u16,
+            memory: MemoryKind::ENCODED,
+        }
+    }
+
+    pub fn encoded_i16(i16: i16) -> Self {
+        Address {
+            index: i16 as u16,
+            memory: MemoryKind::ENCODED,
+        }
     }
 
     pub fn prototype(index: u16) -> Self {
@@ -67,27 +80,5 @@ impl Display for Address {
         let Address { index, memory } = self;
 
         write!(f, "{memory}_{index}")
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn encoded_booleans() {
-        let true_address = Address::encoded_boolean(true);
-        let false_address = Address::encoded_boolean(false);
-
-        assert!(true_address.decode_boolean());
-        assert!(!false_address.decode_boolean());
-    }
-
-    #[test]
-    fn encoded_bytes() {
-        let byte: u8 = 123;
-        let address = Address::encoded_byte(byte);
-
-        assert_eq!(address.decode_byte(), byte);
     }
 }

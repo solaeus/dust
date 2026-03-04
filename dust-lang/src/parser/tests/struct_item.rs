@@ -50,8 +50,8 @@ fn tuple() {
                 SyntaxId(2),
                 SyntaxId(3)
             ),
-            IntegerType.empty(Span::new(11, 14)),
-            IntegerType.empty(Span::new(16, 19)),
+            I64Type.empty(Span::new(11, 14)),
+            I64Type.empty(Span::new(16, 19)),
         ]
     );
 }
@@ -77,9 +77,9 @@ fn fields() {
             SimplePath.empty(Span::new(7, 10)),
             StructFieldsDeclaration.with_multiple_children(Span::new(11, 29), 0, 4),
             SimplePath.empty(Span::new(13, 14)),
-            IntegerType.empty(Span::new(16, 19)),
+            I64Type.empty(Span::new(16, 19)),
             SimplePath.empty(Span::new(21, 22)),
-            IntegerType.empty(Span::new(24, 27)),
+            I64Type.empty(Span::new(24, 27)),
         ]
     );
 }

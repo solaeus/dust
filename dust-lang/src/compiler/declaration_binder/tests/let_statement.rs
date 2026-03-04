@@ -66,3 +66,30 @@ fn same_scope_shadowing_creates_distinct_declarations() {
         "Shadowed declarations must have different DeclarationIds"
     );
 }
+
+#[test]
+fn shadowed_rhs_resolves_to_original() {
+    let (syntax, mut resolver) = bind_declarations("fn main() { let x = 1; let x = x + 1; }");
+
+    let x_symbol_id = resolver.symbols.add_symbol("x");
+    let x_declarations: Vec<DeclarationId> = resolver
+        .declarations
+        .iter()
+        .filter(|(_, declaration)| declaration.symbol_id == x_symbol_id)
+        .map(|(id, _)| id)
+        .collect();
+    let first_x = x_declarations[0];
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let path_expr = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::PathExpression)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_declaration_binding(&path_expr.id).unwrap(),
+        first_x,
+        "RHS 'x' in shadowing let must resolve to the original declaration"
+    );
+}
+

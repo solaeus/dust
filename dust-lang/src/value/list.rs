@@ -6,8 +6,6 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::small_type::SmallType;
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[repr(C)]
 pub enum List {
@@ -53,19 +51,6 @@ impl List {
 
     pub fn function<T: Into<Vec<usize>>>(prototype_indexes: T) -> Self {
         List::Function(prototype_indexes.into())
-    }
-
-    pub fn operand_type(&self) -> SmallType {
-        match self {
-            List::Boolean(_) => SmallType::LIST_BOOLEAN,
-            List::Byte(_) => SmallType::LIST_BYTE,
-            List::Character(_) => SmallType::LIST_CHARACTER,
-            List::Float(_) => SmallType::LIST_FLOAT,
-            List::Integer(_) => SmallType::LIST_INTEGER,
-            List::String(_) => SmallType::LIST_STRING,
-            List::Nested(_) => SmallType::LIST_LIST,
-            List::Function(_) => SmallType::LIST_FUNCTION,
-        }
     }
 }
 

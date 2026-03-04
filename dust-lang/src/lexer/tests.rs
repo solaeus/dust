@@ -81,11 +81,11 @@ fn booleans() {
         tokens,
         vec![
             Token {
-                kind: TokenKind::TrueValue,
+                kind: TokenKind::True,
                 span: Span::new(0, 4)
             },
             Token {
-                kind: TokenKind::FalseValue,
+                kind: TokenKind::False,
                 span: Span::new(5, 10)
             },
             Token {
@@ -97,7 +97,7 @@ fn booleans() {
 }
 
 #[test]
-fn bytes() {
+fn hex_integers() {
     let source = b"0x42 0xFF";
     let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
@@ -105,11 +105,11 @@ fn bytes() {
         tokens,
         vec![
             Token {
-                kind: TokenKind::ByteValue,
+                kind: TokenKind::HexIntegerValue,
                 span: Span::new(0, 4)
             },
             Token {
-                kind: TokenKind::ByteValue,
+                kind: TokenKind::HexIntegerValue,
                 span: Span::new(5, 9)
             },
             Token {
@@ -255,16 +255,21 @@ fn keywords() {
         ("async", TokenKind::Async),
         ("bool", TokenKind::Bool),
         ("break", TokenKind::Break),
-        ("byte", TokenKind::Byte),
         ("cell", TokenKind::Cell),
         ("char", TokenKind::Char),
         ("const", TokenKind::Const),
         ("else", TokenKind::Else),
         ("enum", TokenKind::Enum),
-        ("float", TokenKind::Float),
+        ("f32", TokenKind::F32),
+        ("f64", TokenKind::F64),
+        ("false", TokenKind::False),
         ("fn", TokenKind::Fn),
+        ("i8", TokenKind::I8),
+        ("i16", TokenKind::I16),
+        ("i32", TokenKind::I32),
+        ("i64", TokenKind::I64),
+        ("i128", TokenKind::I128),
         ("if", TokenKind::If),
-        ("int", TokenKind::Int),
         ("let", TokenKind::Let),
         ("loop", TokenKind::Loop),
         ("map", TokenKind::Map),
@@ -274,6 +279,12 @@ fn keywords() {
         ("return", TokenKind::Return),
         ("str", TokenKind::Str),
         ("struct", TokenKind::Struct),
+        ("true", TokenKind::True),
+        ("u8", TokenKind::U8),
+        ("u16", TokenKind::U16),
+        ("u32", TokenKind::U32),
+        ("u64", TokenKind::U64),
+        ("u128", TokenKind::U128),
         ("use", TokenKind::Use),
         ("while", TokenKind::While),
     ];
@@ -346,7 +357,7 @@ fn operators_and_punctuation() {
 
 #[test]
 fn adjacent_tokens() {
-    let source = b"let x:int=42;";
+    let source = b"let x:i8=42;";
     let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
@@ -365,7 +376,7 @@ fn adjacent_tokens() {
                 span: Span::new(5, 6)
             },
             Token {
-                kind: TokenKind::Int,
+                kind: TokenKind::I8,
                 span: Span::new(6, 9)
             },
             Token {
