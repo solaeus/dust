@@ -85,11 +85,7 @@ fn fields_variant() {
             EnumVariant.with_binary_children(Span::new(11, 33), SyntaxId(2), SyntaxId(8)),
             SimplePath.empty(Span::new(11, 14)),
             EnumVariant.with_child(Span::new(11, 33), SyntaxId(7)),
-            StructFieldsDeclaration.with_multiple_children(
-                Span::new(15, 33),
-                0,
-                4
-            ),
+            StructFieldsDeclaration.with_multiple_children(Span::new(15, 33), 0, 4),
             SimplePath.empty(Span::new(17, 18)),
             IntegerType.empty(Span::new(20, 23)),
             SimplePath.empty(Span::new(25, 26)),

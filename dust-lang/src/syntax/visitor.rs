@@ -1,6 +1,7 @@
 use crate::{
     compiler::error::CompileError,
     dust_error::ErrorKind,
+    resolver::declaration_graph::Visibility,
     syntax::{SyntaxKind, SyntaxReader},
 };
 
@@ -205,12 +206,6 @@ pub trait SyntaxVisitor {
         input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
-    fn visit_else_expression(
-        &mut self,
-        node: SyntaxReader,
-        input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, ErrorKind>;
-
     fn visit_math_binary_expression(
         &mut self,
         node: SyntaxReader,
@@ -258,6 +253,6 @@ pub trait SyntaxVisitor {
     fn visit_path(
         &mut self,
         node: SyntaxReader,
-        local: bool,
+        visibility: Visibility,
     ) -> Result<Self::PathOutput, ErrorKind>;
 }

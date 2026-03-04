@@ -16,7 +16,7 @@ use crate::{
     resolver::{
         declaration_graph::{
             Declaration, DeclarationGraph, DeclarationId, DeclarationKind, DeclarationMembers,
-            ModuleKind,
+            ModuleKind, Visibility,
         },
         scope_graph::{Scope, ScopeGraph, ScopeId, ScopeKind},
         symbol_table::{SymbolId, SymbolTable},
@@ -219,6 +219,7 @@ impl Resolver {
         &mut self,
         symbol_id: SymbolId,
         target_scope_id: ScopeId,
+        visibility: Visibility,
         path_segment: &SyntaxReader,
     ) -> Result<(DeclarationId, Declaration), ErrorKind> {
         let mut current_scope_id = target_scope_id;
@@ -228,9 +229,9 @@ impl Resolver {
                 break;
             }
 
-            if let Some((declaration_id, declaration)) = self
-                .declarations
-                .find_declaration(symbol_id, current_scope_id)
+            if let Some((declaration_id, declaration)) =
+                self.declarations
+                    .find_declaration(symbol_id, current_scope_id, visibility)
             {
                 self.scope_search.clear();
 
@@ -240,9 +241,9 @@ impl Resolver {
             let current_scope = self.scopes.get_scope(current_scope_id)?;
 
             for module_scope_id in &current_scope.modules {
-                if let Some((declaration_id, declaration)) = self
-                    .declarations
-                    .find_declaration(symbol_id, *module_scope_id)
+                if let Some((declaration_id, declaration)) =
+                    self.declarations
+                        .find_declaration(symbol_id, *module_scope_id, visibility)
                 {
                     self.scope_search.clear();
 
@@ -828,13 +829,7 @@ impl Resolver {
                 }
                 DeclarationKind::NativeFunction(_) => "native function",
                 DeclarationKind::Function => "function",
-                DeclarationKind::Local { shadowed } => {
-                    if shadowed.is_some() {
-                        "local (shadow)"
-                    } else {
-                        "local"
-                    }
-                }
+                DeclarationKind::Local { .. } => "local",
             };
 
             Ok(format!("ID {}: {symbol} {kind_str}", id.inner()))

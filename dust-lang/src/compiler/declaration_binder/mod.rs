@@ -12,7 +12,7 @@ use crate::{
     resolver::{
         Resolver,
         declaration_graph::{
-            Declaration, DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind,
+            Declaration, DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind, Visibility,
         },
         scope_graph::{Scope, ScopeId, ScopeKind},
     },
@@ -204,7 +204,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let path = node.child()?;
 
-        let declaration_id = self.visit_path(path, false)?;
+        let declaration_id = self.visit_path(path, Visibility::Module)?;
 
         self.resolver
             .add_declaration_binding(node.id, declaration_id);
@@ -350,22 +350,23 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_let_statement(&mut self, let_statement: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visiting let statement");
 
-        let mut children = let_statement.children()?;
-        let simple_path = children.expect_next()?;
-        let expression = children.expect_next()?;
+        let (simple_path, expression) = let_statement.binary_children()?;
 
         let identifier = self.source.get_file_content(&simple_path.position())?;
         let symbol_id = self.resolver.symbols.add_symbol(identifier);
         let shadowed_declaration = self
             .resolver
-            .find_declaration_in_scope(symbol_id, self.current_scope_id, &simple_path)
+            .find_declaration_in_scope(
+                symbol_id,
+                self.current_scope_id,
+                Visibility::Block,
+                &simple_path,
+            )
             .ok()
             .map(|(declaration_id, _)| declaration_id);
         let declaration_id = self.resolver.declarations.add_declaration(Declaration {
             symbol_id,
-            kind: DeclarationKind::Local {
-                shadowed: shadowed_declaration,
-            },
+            kind: DeclarationKind::Local,
             scope_id: self.current_scope_id,
             is_public: false,
             syntax: Some((simple_path.position(), simple_path.id)),
@@ -383,7 +384,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let (path, expression) = node.binary_children()?;
 
-        self.visit_path(path, true)?;
+        self.visit_path(path, Visibility::Block)?;
         self.visit_expression(expression, ())?;
 
         Ok(())
@@ -392,10 +393,22 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_reassignment_statement(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visiting reassignment statement");
 
-        let (path, expression_statement) = node.binary_children()?;
-        let expression = expression_statement.child()?;
+        let (simple_path, expression) = node.binary_children()?;
 
-        self.visit_path(path, true)?;
+        let identifier = self.source.get_file_content(&simple_path.position())?;
+        let symbol_id = self.resolver.symbols.add_symbol(identifier);
+        let declaration_id = self
+            .resolver
+            .find_declaration_in_scope(
+                symbol_id,
+                self.current_scope_id,
+                Visibility::Block,
+                &simple_path,
+            )
+            .map(|(declaration_id, _)| declaration_id)?;
+
+        self.resolver
+            .add_declaration_binding(simple_path.id, declaration_id);
         self.visit_expression(expression, ())?;
 
         Ok(())
@@ -485,7 +498,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting path expression");
 
-        let declaration_id = search_path_segments(self, path_expression)?;
+        let declaration_id = search_path_segments(self, path_expression, Visibility::Block)?;
 
         self.resolver
             .add_declaration_binding(path_expression.id, declaration_id);
@@ -502,12 +515,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let (path, fields) = node.binary_children()?;
 
-        self.visit_path(path, false)?;
+        self.visit_path(path, Visibility::Module)?;
 
         for field in fields.children()? {
             let (field_path, field_expression) = field.binary_children()?;
 
-            self.visit_path(field_path, false)?;
+            self.visit_path(field_path, Visibility::Module)?;
             self.visit_expression(field_expression, ())?;
         }
 
@@ -516,12 +529,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_block_expression(
         &mut self,
-        node: SyntaxReader,
+        block_expression: SyntaxReader,
         _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting block expression");
-
-        let children = node.children()?;
 
         let block_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Block,
@@ -532,7 +543,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let parent_scope_id = self.current_scope_id;
         self.current_scope_id = block_scope_id;
 
-        for child in children {
+        for child in block_expression.children()? {
             if child.kind().is_item() {
                 match self.visit_item(child) {
                     Ok(()) => {}
@@ -550,7 +561,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.current_scope_id = parent_scope_id;
 
-        self.resolver.add_scope_binding(node.id, block_scope_id);
+        self.resolver
+            .add_scope_binding(block_expression.id, block_scope_id);
 
         Ok(())
     }
@@ -571,20 +583,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         self.visit_block_expression(then_branch, ())?;
 
         if let Some(else_branch) = else_branch {
-            self.visit_else_expression(else_branch, ())?;
+            self.visit_block_expression(else_branch, ())?;
         }
-
-        Ok(())
-    }
-
-    fn visit_else_expression(
-        &mut self,
-        node: SyntaxReader,
-        _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
-        debug!("Visiting else expression");
-
-        self.visit_expression(node.child()?, ())?;
 
         Ok(())
     }
@@ -684,7 +684,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             let parameter_declaration_id =
                 self.resolver.declarations.add_declaration(Declaration {
                     symbol_id: parameter_symbol_id,
-                    kind: DeclarationKind::Local { shadowed: None },
+                    kind: DeclarationKind::Local,
                     scope_id: self.current_scope_id,
                     is_public: false,
                     syntax: Some((parameter_name.position(), parameter_name.id)),
@@ -739,7 +739,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         if node.kind() == SyntaxKind::TypePath {
             let path = node.child()?;
 
-            let declaration_id = self.visit_path(path, false)?;
+            let declaration_id = self.visit_path(path, Visibility::Module)?;
 
             self.resolver
                 .add_declaration_binding(node.id, declaration_id);
@@ -751,11 +751,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_path(
         &mut self,
         path: SyntaxReader,
-        _local: bool,
+        visibility: Visibility,
     ) -> Result<Self::PathOutput, ErrorKind> {
         debug!("Visiting path");
 
-        let declaration_id = search_path_segments(self, path)?;
+        let declaration_id = search_path_segments(self, path, visibility)?;
 
         self.resolver
             .add_declaration_binding(path.id, declaration_id);
@@ -767,6 +767,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 fn search_path_segments<'a>(
     binder: &mut DeclarationBinder<'a>,
     path_expression: SyntaxReader,
+    visibility: Visibility,
 ) -> Result<DeclarationId, ErrorKind> {
     let segments = path_expression.children()?;
 
@@ -782,12 +783,13 @@ fn search_path_segments<'a>(
         let symbol_id = binder.resolver.symbols.add_symbol(segment_str);
         let (next_declaration_id, next_declaration) = binder
             .resolver
-            .find_declaration_in_scope(symbol_id, current_scope_id, &segment)
+            .find_declaration_in_scope(symbol_id, current_scope_id, visibility, &segment)
             .or_else(|error| {
                 if is_first {
                     binder.resolver.find_declaration_in_scope(
                         symbol_id,
                         binder.crate_scope_id,
+                        visibility,
                         &segment,
                     )
                 } else {

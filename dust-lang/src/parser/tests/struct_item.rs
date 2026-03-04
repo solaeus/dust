@@ -75,11 +75,7 @@ fn fields() {
             Root.with_child(Span::new(0, 29), SyntaxId(7)),
             StructItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(7, 10)),
-            StructFieldsDeclaration.with_multiple_children(
-                Span::new(11, 29),
-                0,
-                4
-            ),
+            StructFieldsDeclaration.with_multiple_children(Span::new(11, 29), 0, 4),
             SimplePath.empty(Span::new(13, 14)),
             IntegerType.empty(Span::new(16, 19)),
             SimplePath.empty(Span::new(21, 22)),

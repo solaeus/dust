@@ -75,7 +75,7 @@ fn let_creates_local_declaration() {
 
     let (_, x_kind) = find_declaration(&mut resolver, "x").unwrap();
 
-    assert!(matches!(x_kind, DeclarationKind::Local { shadowed: None }));
+    assert!(matches!(x_kind, DeclarationKind::Local));
 }
 
 #[test]
@@ -90,33 +90,6 @@ fn let_creates_non_public_declaration() {
         .unwrap();
 
     assert!(!x_declaration.is_public);
-}
-
-#[test]
-fn let_shadowing_across_scopes_links_to_previous_declaration() {
-    let (_syntax, mut resolver) = bind_declarations("fn main() { let x = 1; { let x = 2; } }");
-
-    let x_symbol_id = resolver.symbols.add_symbol("x");
-    let x_declarations: Vec<_> = resolver
-        .declarations
-        .iter()
-        .filter(|(_, declaration)| declaration.symbol_id == x_symbol_id)
-        .collect();
-
-    assert_eq!(x_declarations.len(), 2);
-
-    let (first_x_declaration_id, first_x_declaration) = x_declarations[0];
-    let (_, second_x_declaration) = x_declarations[1];
-
-    assert!(matches!(
-        first_x_declaration.kind,
-        DeclarationKind::Local { shadowed: None }
-    ));
-    assert!(matches!(
-        second_x_declaration.kind,
-        DeclarationKind::Local { shadowed: Some(shadowed_id) }
-            if shadowed_id == first_x_declaration_id
-    ));
 }
 
 #[test]
@@ -157,7 +130,7 @@ fn public_function_item_is_public() {
 }
 
 #[test]
-fn function_item_is_declared_in_project_scope() {
+fn function_item_declares_function() {
     let (_syntax, mut resolver) = bind_declarations("fn foo() {}");
 
     let foo_symbol_id = resolver.symbols.add_symbol("foo");
@@ -173,7 +146,7 @@ fn function_item_is_declared_in_project_scope() {
 }
 
 #[test]
-fn inline_module_creates_module_declaration() {
+fn inline_module_declares_module() {
     let (_syntax, mut resolver) = bind_declarations("mod foo { fn bar() {} }");
 
     let foo_symbol_id = resolver.symbols.add_symbol("foo");
@@ -417,7 +390,7 @@ fn path_expression_resolves_to_local_declaration() {
             .get_declaration(x_declaration_id)
             .unwrap()
             .kind,
-        DeclarationKind::Local { .. }
+        DeclarationKind::Local
     ));
 }
 
@@ -614,4 +587,208 @@ fn function_expression_body_binds_to_function_scope() {
     let parent_scope = resolver.scopes.get_scope(scope.parent).unwrap();
 
     assert_eq!(parent_scope.kind, ScopeKind::Function);
+}
+
+#[test]
+fn reassignment_resolves_path() {
+    let (syntax, mut resolver) = bind_declarations("fn main() { let x = 1; x = 2; }");
+    let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let reassignment = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::ReassignmentStatement)
+        .unwrap();
+    let (path, _) = reassignment.binary_children().unwrap();
+
+    assert_eq!(*resolver.get_declaration_binding(&path.id).unwrap(), x_id);
+}
+
+#[test]
+fn binary_assignment_resolves_path() {
+    let (syntax, mut resolver) = bind_declarations("fn main() { let x = 1; x += 2; }");
+    let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let assignment = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::AdditionAssignmentStatement)
+        .unwrap();
+    let (path, _) = assignment.binary_children().unwrap();
+
+    assert_eq!(*resolver.get_declaration_binding(&path.id).unwrap(), x_id);
+}
+
+#[test]
+fn if_expression_then_block_creates_scope() {
+    let (syntax, resolver) = bind_declarations("fn main() { if true { let a = 1; } }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let if_expr = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::IfExpression)
+        .unwrap();
+    let mut children = if_expr.children().unwrap();
+    let _condition = children.next().unwrap();
+    let then_block = children.next().unwrap();
+
+    let scope_id = resolver.get_scope_binding(&then_block.id).unwrap();
+    let scope = resolver.scopes.get_scope(*scope_id).unwrap();
+
+    assert_eq!(scope.kind, ScopeKind::Block);
+}
+
+#[test]
+fn if_else_creates_scopes_for_both_branches() {
+    let (syntax, resolver) =
+        bind_declarations("fn main() { if true { let a = 1; } else { let b = 2; } }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let if_expression = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::IfExpression)
+        .unwrap();
+    let mut children = if_expression.children().unwrap();
+    let _condition = children.next().unwrap();
+    let then_block = children.next().unwrap();
+    let else_block = children.next().unwrap();
+
+    let then_scope_id = resolver.get_scope_binding(&then_block.id).unwrap();
+    let then_scope = resolver.scopes.get_scope(*then_scope_id).unwrap();
+    assert_eq!(then_scope.kind, ScopeKind::Block);
+
+    let else_scope_id = resolver.get_scope_binding(&else_block.id).unwrap();
+    let else_scope = resolver.scopes.get_scope(*else_scope_id).unwrap();
+    assert_eq!(else_scope.kind, ScopeKind::Block);
+}
+
+#[test]
+fn while_body_creates_block_scope() {
+    let (syntax, resolver) = bind_declarations("fn main() { while true { let x = 1; } }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let while_expr = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::WhileExpression)
+        .unwrap();
+    let (_condition, body) = while_expr.binary_children().unwrap();
+
+    let scope_id = resolver.get_scope_binding(&body.id).unwrap();
+    let scope = resolver.scopes.get_scope(*scope_id).unwrap();
+
+    assert_eq!(scope.kind, ScopeKind::Block);
+}
+
+#[test]
+fn call_expression_resolves_callee() {
+    let (syntax, mut resolver) = bind_declarations("fn foo() {} fn main() { foo() }");
+    let (foo_id, _) = find_declaration(&mut resolver, "foo").unwrap();
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let call = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::CallExpression)
+        .unwrap();
+    let (callee, _) = call.binary_children().unwrap();
+
+    assert_eq!(
+        *resolver.get_declaration_binding(&callee.id).unwrap(),
+        foo_id
+    );
+}
+
+#[test]
+fn function_parameters_create_local_declarations() {
+    let (_syntax, mut resolver) = bind_declarations("fn foo(x: int, y: bool) {}");
+
+    let (_, x_kind) = find_declaration(&mut resolver, "x").unwrap();
+    let (_, y_kind) = find_declaration(&mut resolver, "y").unwrap();
+
+    assert!(matches!(x_kind, DeclarationKind::Local));
+    assert!(matches!(y_kind, DeclarationKind::Local));
+}
+
+#[test]
+fn function_parameter_binds_to_declaration() {
+    let (syntax, mut resolver) = bind_declarations("fn foo(x: int) {}");
+    let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let value_params = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::ValueParameters)
+        .unwrap();
+    let param_name = value_params.children().unwrap().next().unwrap();
+
+    assert_eq!(
+        *resolver.get_declaration_binding(&param_name.id).unwrap(),
+        x_id
+    );
+}
+
+#[test]
+fn struct_expression_resolves_field_paths() {
+    let (syntax, mut resolver) =
+        bind_declarations("struct Foo { x: int } fn main() { Foo { x: 1 } }");
+    let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let struct_expr = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::StructExpression)
+        .unwrap();
+    let (_path, fields) = struct_expr.binary_children().unwrap();
+    let field = fields.children().unwrap().next().unwrap();
+    let (field_path, _) = field.binary_children().unwrap();
+
+    assert_eq!(
+        *resolver.get_declaration_binding(&field_path.id).unwrap(),
+        x_id
+    );
+}
+
+#[test]
+fn use_item_binds_to_declaration() {
+    let (syntax, mut resolver) =
+        bind_declarations("mod foo { pub fn bar() {} } use foo::bar; fn main() { bar }");
+    let (bar_id, _) = find_declaration(&mut resolver, "bar").unwrap();
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let use_item = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::UseItem)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_declaration_binding(&use_item.id).unwrap(),
+        bar_id
+    );
+}
+
+#[test]
+fn struct_item_is_not_public() {
+    let (_syntax, mut resolver) = bind_declarations("struct Foo { x: int }");
+
+    let foo_symbol_id = resolver.symbols.add_symbol("Foo");
+    let (_, foo_declaration) = resolver
+        .declarations
+        .iter()
+        .find(|(_, declaration)| declaration.symbol_id == foo_symbol_id)
+        .unwrap();
+
+    assert!(!foo_declaration.is_public);
+}
+
+#[test]
+fn enum_item_is_not_public() {
+    let (_syntax, mut resolver) = bind_declarations("enum Color { Red }");
+
+    let color_symbol_id = resolver.symbols.add_symbol("Color");
+    let (_, color_declaration) = resolver
+        .declarations
+        .iter()
+        .find(|(_, declaration)| declaration.symbol_id == color_symbol_id)
+        .unwrap();
+
+    assert!(!color_declaration.is_public);
 }

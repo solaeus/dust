@@ -24,6 +24,7 @@ use crate::{
     prototype::{PrototypeId, PrototypeList},
     resolver::{
         Resolver,
+        declaration_graph::Visibility,
         scope_graph::{Scope, ScopeId, ScopeKind},
     },
     source::{Source, SourceFile, SourceFileId},
@@ -232,7 +233,7 @@ impl<'src> Compiler<'src> {
             let (main_declaration_id, main_declaration) = match self
                 .resolver
                 .declarations
-                .find_declaration(main_symbol_id, crate_scope_id)
+                .find_declaration(main_symbol_id, crate_scope_id, Visibility::Block)
             {
                 Some(declaration) => declaration,
                 None => {

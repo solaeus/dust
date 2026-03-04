@@ -34,6 +34,7 @@ impl DeclarationGraph {
         let key = DeclarationKey {
             symbol: declaration.symbol_id,
             scope_id: declaration.scope_id,
+            visibility: declaration.kind.visibility(),
         };
 
         if let Some((existing_index, _, _)) = self.declarations.get_full(&key) {
@@ -63,10 +64,12 @@ impl DeclarationGraph {
         &self,
         symbol_id: SymbolId,
         scope_id: ScopeId,
+        visibility: Visibility,
     ) -> Option<(DeclarationId, Declaration)> {
         let key = DeclarationKey {
             symbol: symbol_id,
             scope_id,
+            visibility,
         };
 
         self.declarations.get_full(&key).map(|(index, key, value)| {
@@ -188,14 +191,6 @@ impl Declaration {
             is_public: value.is_public,
         }
     }
-
-    pub fn parent(&self) -> Option<DeclarationId> {
-        if let DeclarationKind::Type { parent, .. } = self.kind {
-            parent
-        } else {
-            None
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -211,9 +206,36 @@ pub enum DeclarationKind {
         type_parameters: DeclarationMembers,
         members: DeclarationMembers,
     },
-    Local {
-        shadowed: Option<DeclarationId>,
-    },
+    Local,
+}
+
+impl DeclarationKind {
+    fn visibility(&self) -> Visibility {
+        match self {
+            DeclarationKind::Function
+            | DeclarationKind::NativeFunction(_)
+            | DeclarationKind::Module { .. }
+            | DeclarationKind::Type { parent: None, .. } => Visibility::Module,
+            DeclarationKind::Type {
+                parent: Some(_), ..
+            } => Visibility::Type,
+            DeclarationKind::Local { .. } => Visibility::Block,
+        }
+    }
+
+    fn parent(&self) -> Option<DeclarationId> {
+        match self {
+            DeclarationKind::Type { parent, .. } => *parent,
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Visibility {
+    Module,
+    Block,
+    Type,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -248,6 +270,7 @@ pub enum ModuleKind {
 struct DeclarationKey {
     symbol: SymbolId,
     scope_id: ScopeId,
+    visibility: Visibility,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

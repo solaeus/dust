@@ -454,3 +454,240 @@ fn call_expression_has_return_type() {
         TypeId::INTEGER
     );
 }
+
+#[test]
+fn negation_expression_has_integer_type() {
+    let (syntax, resolver) = bind_types("fn main() -> int { -42 }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::NegationExpression)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_type_binding(&node.id).unwrap(),
+        TypeId::INTEGER
+    );
+}
+
+#[test]
+fn logical_not_has_boolean_type() {
+    let (syntax, resolver) = bind_types("fn main() -> bool { !true }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::NotExpression)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_type_binding(&node.id).unwrap(),
+        TypeId::BOOLEAN
+    );
+}
+
+#[test]
+fn while_expression_has_unit_type() {
+    let (syntax, resolver) = bind_types("fn main() { while true { 42; } }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::WhileExpression)
+        .unwrap();
+
+    assert_eq!(*resolver.get_type_binding(&node.id).unwrap(), TypeId::UNIT);
+}
+
+#[test]
+fn if_expression_has_then_branch_type() {
+    let (syntax, resolver) = bind_types("fn main() -> int { if true { 42 } else { 0 } }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::IfExpression)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_type_binding(&node.id).unwrap(),
+        TypeId::INTEGER
+    );
+}
+
+#[test]
+fn struct_expression_has_struct_type() {
+    let (syntax, resolver) = bind_types("struct Foo { x: int } fn main() { Foo { x: 1 } }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::StructExpression)
+        .unwrap();
+
+    let type_id = *resolver.get_type_binding(&node.id).unwrap();
+    let type_node = *resolver.types.get_type(type_id).unwrap();
+
+    assert!(matches!(type_node, TypeNode::Struct { .. }));
+}
+
+#[test]
+fn subtraction_expression_has_operand_type() {
+    let (syntax, resolver) = bind_types("fn main() -> int { 3 - 1 }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::SubtractionExpression)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_type_binding(&node.id).unwrap(),
+        TypeId::INTEGER
+    );
+}
+
+#[test]
+fn multiplication_expression_has_operand_type() {
+    let (syntax, resolver) = bind_types("fn main() -> int { 2 * 3 }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::MultiplicationExpression)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_type_binding(&node.id).unwrap(),
+        TypeId::INTEGER
+    );
+}
+
+#[test]
+fn division_expression_has_operand_type() {
+    let (syntax, resolver) = bind_types("fn main() -> int { 6 / 2 }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::DivisionExpression)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_type_binding(&node.id).unwrap(),
+        TypeId::INTEGER
+    );
+}
+
+#[test]
+fn not_equal_expression_has_boolean_type() {
+    let (syntax, resolver) = bind_types("fn main() -> bool { 1 != 2 }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::NotEqualExpression)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_type_binding(&node.id).unwrap(),
+        TypeId::BOOLEAN
+    );
+}
+
+#[test]
+fn less_than_expression_has_boolean_type() {
+    let (syntax, resolver) = bind_types("fn main() -> bool { 1 < 2 }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::LessThanExpression)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_type_binding(&node.id).unwrap(),
+        TypeId::BOOLEAN
+    );
+}
+
+#[test]
+fn greater_than_expression_has_boolean_type() {
+    let (syntax, resolver) = bind_types("fn main() -> bool { 1 > 2 }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::GreaterThanExpression)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_type_binding(&node.id).unwrap(),
+        TypeId::BOOLEAN
+    );
+}
+
+#[test]
+fn logical_or_has_boolean_type() {
+    let (syntax, resolver) = bind_types("fn main() -> bool { true || false }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::OrExpression)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_type_binding(&node.id).unwrap(),
+        TypeId::BOOLEAN
+    );
+}
+
+#[test]
+fn function_without_return_type_has_unit_return() {
+    let (_syntax, mut resolver) = bind_types("fn foo() {}");
+
+    let (foo_id, _) = find_declaration(&mut resolver, "foo").unwrap();
+    let foo_type_id = *resolver.declarations.get_declaration_type(&foo_id).unwrap();
+    let foo_type = *resolver.types.get_type(foo_type_id).unwrap();
+
+    let return_type_id = match foo_type {
+        TypeNode::Function { return_type_id, .. } => return_type_id,
+        other => panic!("expected Function type, got {other:?}"),
+    };
+
+    assert_eq!(return_type_id, TypeId::UNIT);
+}
+
+#[test]
+fn empty_list_creates_inferred_type() {
+    let (syntax, resolver) = bind_types("fn main() { let x: [int] = []; }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::ListExpression)
+        .unwrap();
+
+    let type_id = *resolver.get_type_binding(&node.id).unwrap();
+    let type_node = *resolver.types.get_type(type_id).unwrap();
+
+    assert!(matches!(type_node, TypeNode::List { .. }));
+}
+
+#[test]
+fn index_expression_has_element_type() {
+    let (syntax, resolver) = bind_types("fn main() -> int { [1, 2, 3][0] }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let node = tree
+        .iter()
+        .find(|node| node.kind() == SyntaxKind::ListIndexExpression)
+        .unwrap();
+
+    assert_eq!(
+        *resolver.get_type_binding(&node.id).unwrap(),
+        TypeId::INTEGER
+    );
+}

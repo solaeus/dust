@@ -9,7 +9,9 @@ use crate::{
     dust_error::{ErrorKind, InternalError},
     resolver::{
         Resolver,
-        declaration_graph::{DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind},
+        declaration_graph::{
+            DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind, Visibility,
+        },
         type_graph::{TypeId, TypeMembers, TypeNode},
     },
     syntax::{Syntax, SyntaxKind, SyntaxReader, SyntaxVisitor},
@@ -268,7 +270,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let (path, expression) = node.binary_children()?;
 
         let path_type = {
-            let raw = self.visit_path(path, false)?;
+            let raw = self.visit_path(path, Visibility::Block)?;
 
             self.resolver.infer_type(raw)?
         };
@@ -319,7 +321,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let (path, expression_statement) = node.binary_children()?;
         let expression = expression_statement.child()?;
 
-        let path_type = self.visit_path(path, false)?;
+        let path_type = self.visit_path(path, Visibility::Block)?;
         let expression_type = self.visit_expression(expression, ())?;
 
         self.resolver
@@ -639,7 +641,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let then_type = self.visit_block_expression(then_block, ())?;
 
         if let Some(else_block) = else_block {
-            let else_type = self.visit_else_expression(else_block, ())?;
+            let else_type = self.visit_block_expression(else_block, ())?;
 
             self.resolver.unify_types(
                 then_type,
@@ -652,16 +654,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
         self.resolver.add_type_binding(node.id, then_type);
 
         Ok(then_type)
-    }
-
-    fn visit_else_expression(
-        &mut self,
-        node: SyntaxReader,
-        _: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
-        debug!("Visting else expression");
-
-        self.visit_block_expression(node.child()?, ())
     }
 
     fn visit_math_binary_expression(
@@ -1021,7 +1013,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_path(
         &mut self,
         path: SyntaxReader,
-        local: bool,
+        _: Visibility,
     ) -> Result<Self::PathOutput, ErrorKind> {
         debug!("Visting path");
 

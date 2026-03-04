@@ -14,7 +14,7 @@ use crate::{
     prototype::{Prototype, PrototypeId, PrototypeList},
     resolver::{
         Resolver,
-        declaration_graph::{DeclarationId, DeclarationKind},
+        declaration_graph::{DeclarationId, DeclarationKind, Visibility},
         scope_graph::ScopeId,
         type_graph::{TypeId, TypeNode},
     },
@@ -1573,7 +1573,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let path = path_expression.child()?;
 
-        let declaration_id = self.visit_path(path, true)?;
+        let declaration_id = self.visit_path(path, Visibility::Block)?;
 
         if let Some(local) = self.locals.get(&declaration_id) {
             return Ok(Emission::Place(*local));
@@ -1834,8 +1834,8 @@ impl SyntaxVisitor for Emitter<'_> {
             id: jump_over_then_id,
         });
 
-        if let Some(else_expression) = else_block {
-            let else_emission = self.visit_else_expression(else_expression, Some(target))?;
+        if let Some(else_block) = else_block {
+            let else_emission = self.visit_block_expression(else_block, Some(target))?;
             let jump_over_else_id = self.create_jump_id();
 
             self.jump_over_else_anchor_ids.push(jump_over_else_id);
@@ -1848,7 +1848,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 &mut if_emission,
                 else_emission,
                 target.index(),
-                else_expression,
+                else_block,
             )?;
 
             if_emission.push_drop_anchor(JumpAnchor::ForwardToNext {
@@ -1867,16 +1867,6 @@ impl SyntaxVisitor for Emitter<'_> {
         if_emission.set_target(Some(target));
 
         Ok(Emission::Instructions(if_emission))
-    }
-
-    fn visit_else_expression(
-        &mut self,
-        node: SyntaxReader,
-        target: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
-        debug!("Visting else expression");
-
-        self.visit_block_expression(node.child()?, target)
     }
 
     fn visit_math_binary_expression(
@@ -2330,7 +2320,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_path(
         &mut self,
         path: SyntaxReader,
-        _local: bool,
+        _: Visibility,
     ) -> Result<Self::PathOutput, ErrorKind> {
         debug!("Visting path");
         debug_assert_eq!(path.kind(), SyntaxKind::Path);
