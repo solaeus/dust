@@ -9,6 +9,7 @@ use crate::{
     prototype::PrototypeId,
     resolver::{TypeId, scope_graph::ScopeId, symbol_table::SymbolId},
     source::{Position, SourceFileId},
+    syntax::SyntaxId,
 };
 
 #[derive(Debug)]
@@ -43,7 +44,7 @@ impl DeclarationGraph {
         let value = DeclarationValue {
             kind: declaration.kind,
             is_public: declaration.is_public,
-            position: declaration.position,
+            syntax: declaration.syntax,
         };
 
         self.declarations.insert(key, value);
@@ -174,14 +175,14 @@ pub struct Declaration {
     pub kind: DeclarationKind,
     pub scope_id: ScopeId,
     pub is_public: bool,
-    pub position: Option<Position>,
+    pub syntax: Option<(Position, SyntaxId)>,
 }
 
 impl Declaration {
     fn from_key_and_value(key: DeclarationKey, value: DeclarationValue) -> Self {
         Self {
             symbol_id: key.symbol,
-            position: value.position,
+            syntax: value.syntax,
             kind: value.kind,
             scope_id: key.scope_id,
             is_public: value.is_public,
@@ -253,5 +254,5 @@ struct DeclarationKey {
 struct DeclarationValue {
     kind: DeclarationKind,
     is_public: bool,
-    position: Option<Position>,
+    syntax: Option<(Position, SyntaxId)>,
 }

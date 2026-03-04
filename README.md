@@ -5,23 +5,15 @@
 **Programming language focused on correctness, performance and ease of use.**
 
 Dust is an ongoing research project into a language implementation that enforces static typing, has
-no null or undefined values and emits helpful errors that guide users to correct syntax. Compiling
-to 64-bit encoded bytecode in a single pass before JIT compilation enables powerful runtime
-optimizations and fast startup times. Dust is designed to combine the best features of
-register-based virtual machines, JIT compilation and static typing to deliver a language that never
-compromises on correctness or speed while remaining delightfully easy to read and write.
+no null or undefined values and emits helpful errors that guide users to correct syntax. Dust is
+designed to combine the best features of expressive syntax, register-based virtual machines and
+static typing to deliver a language that never compromises on correctness or speed while remaining
+delightfully easy to read and write.
 
-An interactive "Hello, world" using Dust's built-in I/O functions:
 
-```rust
-write_line("Enter your name...");
-
-let name = read_line();
-
-write_line("Hello " + name + "!");
+```bash
+dust -e 'write_line("Hello, world!")'
 ```
-
-The classic, unoptimized Fibonacci sequence:
 
 ```rust
 fn fib (n: int) -> int {
@@ -34,7 +26,9 @@ fn fib (n: int) -> int {
     }
 }
 
-fib(25)
+fn main() -> int {
+    fib(25)
+}
 ```
 
 ## Project Status

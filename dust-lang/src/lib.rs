@@ -4,6 +4,7 @@
     formatting_options,
     generic_const_exprs,
     int_from_ascii,
+    iter_array_chunks,
     iterator_try_collect,
     string_into_chars,
     thread_id_value,

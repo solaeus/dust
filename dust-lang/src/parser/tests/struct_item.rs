@@ -72,26 +72,16 @@ fn fields() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 29), SyntaxId(9)),
-            StructItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(8)),
+            Root.with_child(Span::new(0, 29), SyntaxId(7)),
+            StructItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(7, 10)),
-            StructFieldsDeclaration.with_binary_children(
+            StructFieldsDeclaration.with_multiple_children(
                 Span::new(11, 29),
-                SyntaxId(4),
-                SyntaxId(7)
-            ),
-            StructFieldDeclaration.with_binary_children(
-                Span::new(11, 20),
-                SyntaxId(2),
-                SyntaxId(3)
+                0,
+                4
             ),
             SimplePath.empty(Span::new(13, 14)),
             IntegerType.empty(Span::new(16, 19)),
-            StructFieldDeclaration.with_binary_children(
-                Span::new(11, 27),
-                SyntaxId(5),
-                SyntaxId(6)
-            ),
             SimplePath.empty(Span::new(21, 22)),
             IntegerType.empty(Span::new(24, 27)),
         ]

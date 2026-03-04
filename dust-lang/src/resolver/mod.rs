@@ -80,7 +80,7 @@ impl Resolver {
 
             self.declarations.add_declaration(Declaration {
                 symbol_id: option_symbol,
-                position: None,
+                syntax: None,
                 kind: DeclarationKind::Type {
                     parent: None,
                     type_parameters: DeclarationMembers::default(),
@@ -92,7 +92,7 @@ impl Resolver {
         };
         let _none_declaration_id = self.declarations.add_declaration(Declaration {
             symbol_id: none_symbol,
-            position: None,
+            syntax: None,
             kind: DeclarationKind::Type {
                 parent: Some(option_declaration_id),
                 type_parameters: DeclarationMembers::default(),
@@ -103,7 +103,7 @@ impl Resolver {
         });
         let _some_field_declaration_id = self.declarations.add_declaration(Declaration {
             symbol_id: some_field_symbol,
-            position: None,
+            syntax: None,
             kind: DeclarationKind::Type {
                 parent: Some(some_declaration_id),
                 type_parameters: DeclarationMembers::default(),
@@ -119,7 +119,7 @@ impl Resolver {
 
             self.declarations.add_declaration(Declaration {
                 symbol_id: some_symbol,
-                position: None,
+                syntax: None,
                 kind: DeclarationKind::Type {
                     parent: Some(option_declaration_id),
                     type_parameters: DeclarationMembers::default(),
@@ -143,7 +143,7 @@ impl Resolver {
             let function_symbol = self.symbols.add_symbol(native_function.name());
             let declaration_id = self.declarations.add_declaration(Declaration {
                 symbol_id: function_symbol,
-                position: None,
+                syntax: None,
                 kind: DeclarationKind::NativeFunction(native_function),
                 scope_id: ScopeId::CORE,
                 is_public: true,
@@ -168,7 +168,7 @@ impl Resolver {
 
         self.declarations.add_declaration(Declaration {
             symbol_id: core_symbol_id,
-            position: None,
+            syntax: None,
             kind: DeclarationKind::Module {
                 kind: ModuleKind::Inline,
                 inner_scope_id: core_scope_id,
@@ -505,7 +505,7 @@ impl Resolver {
                         },
                         scope_id: ScopeId::NONE,
                         is_public: false,
-                        position: None,
+                        syntax: None,
                     });
                     let type_parameter_type_id = self.types.create_inferred_type();
 
@@ -547,7 +547,7 @@ impl Resolver {
                         },
                         scope_id: ScopeId::NONE,
                         is_public: false,
-                        position: None,
+                        syntax: None,
                     });
                     let type_id = self.add_external_type(field_type);
 
@@ -568,7 +568,7 @@ impl Resolver {
                     },
                     scope_id: ScopeId::NONE,
                     is_public: false,
-                    position: None,
+                    syntax: None,
                 });
 
                 debug_assert_eq!(declared_id, struct_declaration_id);

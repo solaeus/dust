@@ -487,11 +487,11 @@ fn struct_field_name_binds_to_field_declaration() {
     let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
-    let field = tree
+    let fields = tree
         .iter()
-        .find(|node| node.kind() == SyntaxKind::StructFieldDeclaration)
+        .find(|node| node.kind() == SyntaxKind::StructFieldsDeclaration)
         .unwrap();
-    let (name, _) = field.binary_children().unwrap();
+    let name = fields.children().unwrap().next().unwrap();
 
     assert_eq!(*resolver.get_declaration_binding(&name.id).unwrap(), x_id);
 }
@@ -614,18 +614,4 @@ fn function_expression_body_binds_to_function_scope() {
     let parent_scope = resolver.scopes.get_scope(scope.parent).unwrap();
 
     assert_eq!(parent_scope.kind, ScopeKind::Function);
-}
-
-#[test]
-fn struct_field_type_has_scope_binding() {
-    let (syntax, resolver) = bind_declarations("struct Foo { x: int }");
-
-    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
-    let field = tree
-        .iter()
-        .find(|node| node.kind() == SyntaxKind::StructFieldDeclaration)
-        .unwrap();
-    let (_, field_type) = field.binary_children().unwrap();
-
-    assert!(resolver.get_scope_binding(&field_type.id).is_ok());
 }

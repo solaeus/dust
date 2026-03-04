@@ -95,7 +95,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             imports: SmallVec::new(),
         });
         let is_public = module_item.kind() == SyntaxKind::PublicModuleItem;
-        let position = Some(module_name.position());
+        let syntax = Some((module_name.position(), module_item.id));
 
         if let Some(module_body) = module_body {
             let module_declaration_id = self.resolver.declarations.add_declaration(Declaration {
@@ -106,7 +106,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 },
                 scope_id: self.current_scope_id,
                 is_public,
-                position,
+                syntax,
             });
 
             self.resolver
@@ -156,7 +156,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 },
                 scope_id: self.current_scope_id,
                 is_public,
-                position,
+                syntax,
             });
 
             self.resolver
@@ -189,7 +189,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             kind: DeclarationKind::Function,
             scope_id: self.current_scope_id,
             is_public,
-            position: Some(function_name.position()),
+            syntax: Some((function_name.position(), function_item.id)),
         });
 
         self.resolver
@@ -212,11 +212,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
+    fn visit_struct_item(&mut self, struct_item: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visiting struct item");
 
-        let (struct_name, struct_fields_list) = node.binary_children()?;
-        let struct_fields = struct_fields_list.children()?;
+        let (struct_name, struct_fields) = struct_item.binary_children()?;
 
         let struct_name_str = self.source.get_file_content(&struct_name.position())?;
         let struct_symbol = self.resolver.symbols.add_symbol(struct_name_str);
@@ -224,14 +223,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .resolver
             .declarations
             .next_declaration_id()
-            .offset(struct_fields.len() as u32);
+            .offset((struct_fields.child_count() / 2) as u32);
 
         let mut field_ids = SmallVec::<[DeclarationId; 8]>::new();
 
-        for field in struct_fields {
+        for [field_name, field_type] in struct_fields.children()?.array_chunks::<2>() {
             debug!("Visiting struct field");
-
-            let (field_name, field_type) = field.binary_children()?;
 
             let field_name_str = self.source.get_file_content(&field_name.position())?;
             let field_symbol = self.resolver.symbols.add_symbol(field_name_str);
@@ -244,14 +241,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 },
                 scope_id: self.current_scope_id,
                 is_public: false,
-                position: Some(field.position()),
+                syntax: Some((field_name.position(), field_name.id)),
             });
 
             self.visit_type(field_type)?;
             self.resolver
                 .add_declaration_binding(field_name.id, field_declaration_id);
-            self.resolver
-                .add_scope_binding(field_type.id, self.current_scope_id);
             field_ids.push(field_declaration_id);
         }
 
@@ -268,7 +263,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             },
             scope_id: self.current_scope_id,
             is_public: false,
-            position: Some(node.position()),
+            syntax: Some((struct_item.position(), struct_item.id)),
         });
 
         debug_assert_eq!(declared_id, struct_declaration_id);
@@ -278,10 +273,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_enum_item(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
+    fn visit_enum_item(&mut self, enum_item: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visiting enum item");
 
-        let mut children = node.children()?;
+        let mut children = enum_item.children()?;
         let enum_name = children.expect_next()?;
         let enum_variants = children.expect_next()?;
 
@@ -312,7 +307,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 },
                 scope_id: self.current_scope_id,
                 is_public: false,
-                position: Some(variant.position()),
+                syntax: Some((variant.position(), variant.id)),
             });
 
             self.resolver
@@ -333,7 +328,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             },
             scope_id: self.current_scope_id,
             is_public: false,
-            position: Some(node.position()),
+            syntax: Some((enum_item.position(), enum_item.id)),
         });
 
         debug_assert_eq!(declared_id, enum_declaration_id);
@@ -343,16 +338,19 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_expression_statement(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
+    fn visit_expression_statement(
+        &mut self,
+        expression_statement: SyntaxReader,
+    ) -> Result<(), ErrorKind> {
         debug!("Visiting expression statement");
 
-        self.visit_expression(node.child()?, ())
+        self.visit_expression(expression_statement.child()?, ())
     }
 
-    fn visit_let_statement(&mut self, node: SyntaxReader) -> Result<(), ErrorKind> {
+    fn visit_let_statement(&mut self, let_statement: SyntaxReader) -> Result<(), ErrorKind> {
         debug!("Visiting let statement");
 
-        let mut children = node.children()?;
+        let mut children = let_statement.children()?;
         let simple_path = children.expect_next()?;
         let expression = children.expect_next()?;
 
@@ -370,7 +368,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             },
             scope_id: self.current_scope_id,
             is_public: false,
-            position: Some(simple_path.position()),
+            syntax: Some((simple_path.position(), simple_path.id)),
         });
 
         self.resolver
@@ -670,7 +668,32 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visiting function expression");
 
-        let (_signature, body) = node.binary_children()?;
+        let (signature, body) = node.binary_children()?;
+        let mut signature_children = signature.children()?;
+        let parameters = signature_children.expect_next()?;
+        let return_type = signature_children.next();
+        let mut parameters_children = parameters.children()?;
+        let value_parameters = parameters_children.expect_next()?;
+        let type_parameters = parameters_children.next();
+
+        for [parameter_name, parameter_type] in value_parameters.children()?.array_chunks::<2>() {
+            debug!("Visiting function parameter");
+
+            let parameter_name_str = self.source.get_file_content(&parameter_name.position())?;
+            let parameter_symbol_id = self.resolver.symbols.add_symbol(parameter_name_str);
+            let parameter_declaration_id =
+                self.resolver.declarations.add_declaration(Declaration {
+                    symbol_id: parameter_symbol_id,
+                    kind: DeclarationKind::Local { shadowed: None },
+                    scope_id: self.current_scope_id,
+                    is_public: false,
+                    syntax: Some((parameter_name.position(), parameter_name.id)),
+                });
+
+            self.resolver
+                .add_declaration_binding(parameter_name.id, parameter_declaration_id);
+            self.visit_type(parameter_type)?;
+        }
 
         let function_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Function,

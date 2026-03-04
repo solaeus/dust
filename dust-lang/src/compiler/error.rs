@@ -234,7 +234,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     }
                 };
 
-                let group = if let Some(position) = declaration.position {
+                let group = if let Some((position, _)) = declaration.syntax {
                     Group::with_title(Level::ERROR.primary_title(title)).element(
                         Snippet::source(file_content).annotation(
                             AnnotationKind::Primary

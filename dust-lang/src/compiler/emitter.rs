@@ -280,9 +280,12 @@ impl<'a> Emitter<'a> {
                     .resolver
                     .declarations
                     .get_declaration(function_declaration_id)?;
-                let position = function_declaration.position.ok_or(ErrorKind::Internal(
-                    InternalError::MissingDeclaration(function_declaration_id),
-                ))?;
+                let position = function_declaration
+                    .syntax
+                    .ok_or(ErrorKind::Internal(InternalError::MissingDeclaration(
+                        function_declaration_id,
+                    )))?
+                    .0;
 
                 return Err(ErrorKind::Compile(CompileError::ExpectedFunctionType {
                     found: type_id,

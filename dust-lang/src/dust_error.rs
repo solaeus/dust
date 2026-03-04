@@ -72,7 +72,7 @@ impl<'a> Display for Error<'a> {
         let mut groups = Vec::with_capacity(self.errors.len());
         let renderer = Renderer::styled();
 
-        for error in &self.errors {
+        for (index, error) in self.errors.iter().enumerate() {
             let start = groups.len();
 
             error.add_report((&self.source, self.resolver.as_deref()), &mut groups);
@@ -80,6 +80,10 @@ impl<'a> Display for Error<'a> {
             let display = renderer.render(&groups[start..]);
 
             writeln!(f, "{display}")?;
+
+            if index < self.errors.len() - 1 {
+                writeln!(f)?;
+            }
         }
 
         Ok(())

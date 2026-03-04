@@ -241,26 +241,18 @@ impl<'src> Compiler<'src> {
                     return Err(errors);
                 }
             };
-
-            let mut root_children = match main_root.children() {
-                Ok(children) => children,
+            let main_syntax_id = main_declaration.syntax.unwrap().1;
+            let main_function = match self
+                .syntax
+                .get_tree(SourceFileId::MAIN)
+                .and_then(|tree| tree.get_node(main_syntax_id))
+            {
+                Ok(node) => node,
                 Err(error) => {
                     errors.push(error);
 
                     return Err(errors);
                 }
-            };
-            let find_main_function = root_children.find(|node| {
-                self.resolver
-                    .get_declaration_binding(&node.id)
-                    .is_ok_and(|bound_id| *bound_id == main_declaration_id)
-            });
-            let main_function = if let Some(node) = find_main_function {
-                node
-            } else {
-                errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
-
-                return Err(errors);
             };
 
             match Emitter::new(

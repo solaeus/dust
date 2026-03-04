@@ -614,32 +614,42 @@ impl<'src> Parser<'src> {
     fn parse_function_signature(&mut self) -> Result<SyntaxNode, ErrorKind> {
         let start = self.current_token.span.start();
 
-        let mut children = Self::new_child_buffer();
-
         let type_parameters_id = self
             .parse_optional_type_parameters()?
             .map(|node| self.tree_builder.add_node(node));
         let value_parameters_node = self.parse_function_value_parameters()?;
         let value_parameters_id = self.tree_builder.add_node(value_parameters_node);
 
-        children.push(value_parameters_id);
-
-        if self.allow(TokenKind::ArrowThin)? {
+        let parameters_node = if let Some(type_parameters_id) = type_parameters_id {
+            SyntaxKind::FunctionParameters.with_binary_children(
+                Span::new(start, self.previous_token.span.end()),
+                type_parameters_id,
+                value_parameters_id,
+            )
+        } else {
+            SyntaxKind::FunctionParameters.with_child(
+                Span::new(start, self.previous_token.span.end()),
+                value_parameters_id,
+            )
+        };
+        let parameters_id = self.tree_builder.add_node(parameters_node);
+        let signature_node = if self.allow(TokenKind::ArrowThin)? {
             let return_type_node = self.parse_type()?;
             let return_type_id = self.tree_builder.add_node(return_type_node);
 
-            children.push(return_type_id);
-        }
+            SyntaxKind::FunctionSignature.with_binary_children(
+                Span::new(start, self.previous_token.span.end()),
+                parameters_id,
+                return_type_id,
+            )
+        } else {
+            SyntaxKind::FunctionSignature.with_child(
+                Span::new(start, self.previous_token.span.end()),
+                parameters_id,
+            )
+        };
 
-        if let Some(type_parameters_id) = type_parameters_id {
-            children.push(type_parameters_id);
-        }
-
-        Ok(self.create_node_with_children(
-            SyntaxKind::FunctionSignature,
-            Span::new(start, self.previous_token.span.end()),
-            &children,
-        ))
+        Ok(signature_node)
     }
 
     fn parse_function_value_parameters(&mut self) -> Result<SyntaxNode, ErrorKind> {
@@ -654,7 +664,7 @@ impl<'src> Parser<'src> {
                 break;
             }
 
-            let parameter_path_node = self.parse_path()?;
+            let parameter_path_node = self.parse_simple_path()?;
             let parameter_path_id = self.tree_builder.add_node(parameter_path_node);
 
             self.expect(TokenKind::Colon)?;
@@ -662,10 +672,10 @@ impl<'src> Parser<'src> {
             let parameter_type_node_id = self.parse_type()?;
             let parameter_type_id = self.tree_builder.add_node(parameter_type_node_id);
 
+            self.allow(TokenKind::Comma)?;
+
             children.push(parameter_path_id);
             children.push(parameter_type_id);
-
-            self.allow(TokenKind::Comma)?;
         }
 
         let node = self.create_node_with_children(
@@ -1485,15 +1495,8 @@ impl<'src> Parser<'src> {
 
             self.allow(TokenKind::Comma)?;
 
-            let field_node = SyntaxKind::StructFieldDeclaration.with_binary_children(
-                Span::new(start, self.previous_token.span.end()),
-                field_path_id,
-                field_type_id,
-            );
-            let field_id = self.tree_builder.add_node(field_node);
-
-            fields.push(field_id);
-            self.allow(TokenKind::Comma)?;
+            fields.push(field_path_id);
+            fields.push(field_type_id);
         }
 
         Ok(self.create_node_with_children(
