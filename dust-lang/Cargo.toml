@@ -9,16 +9,18 @@ repository.workspace = true
 version.workspace = true
 
 [features]
+jit = ["cranelift", "cranelift-jit", "cranelift-module", "cranelift-native"]
 mimalloc = []
+
 
 [dependencies]
 annotate-snippets = "0.12.12"
 bumpalo = { version = "3.20.1", features = ["boxed", "collections"] }
 clap = { version = "4.5.59", features = ["env"] }
-cranelift = "0.126.2"
-cranelift-jit = "0.126.2"
-cranelift-module = "0.126.2"
-cranelift-native = "0.126.2"
+cranelift = { version = "0.126.2", optional = true }
+cranelift-jit = { version = "0.126.2", optional = true }
+cranelift-module = { version = "0.126.2", optional = true }
+cranelift-native = { version = "0.126.2", optional = true }
 crossbeam = { version = "0.8.4", features = ["crossbeam-channel", "nightly"] }
 crossbeam-channel = "0.5.15"
 getrandom = "0.3" # Indirect dependency, for WASM builds

@@ -20,6 +20,7 @@ mod power;
 mod reference;
 mod r#return;
 mod set_list;
+mod small_type;
 mod subtract;
 mod test;
 mod to_string;
@@ -45,6 +46,7 @@ pub use power::Power;
 pub use reference::Reference;
 pub use r#return::Return;
 pub use set_list::SetList;
+pub use small_type::SmallType;
 pub use subtract::Subtract;
 pub use test::Test;
 pub use to_string::ToString;
@@ -52,7 +54,7 @@ pub use to_string::ToString;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{native_function::NativeFunction, small_type::SmallType};
+use crate::native_function::NativeFunction;
 
 /// An instruction for the Dust virtual machine.
 ///
@@ -63,21 +65,51 @@ use crate::{native_function::NativeFunction, small_type::SmallType};
 /// Bits    | Description
 /// ------- | -----------
 /// 0..=5   | Operation
-/// 6..=7   | B memory kind ━━━━┓
-/// 8..=9   | C memory kind  ─┐ ┃
-/// 10..=15 | Type or D field │ ┃
-/// 16..=31 | A field         │ ┃
-/// 48..=63 | B field ━━━━━━━━━━┻━ B address
-/// 32..=47 | C field ────────┴─── C address
+/// 6..=7   | B memory kind ━━━━━━━━━┓
+/// 8..=9   | C memory kind  ──────┐ ┃
+/// 10..=15 | Type or D field      │ ┃
+/// 16..=31 | A field              │ ┃
+/// 48..=63 | B field ━━━━━━━━━━━━━━━┻━ B address
+/// 32..=47 | C field ─────────────┴─── C address
 #[derive(Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(C)]
-pub struct Instruction(pub(crate) u64);
+pub struct Instruction(u64);
 
 impl Instruction {
-    pub fn operation(&self) -> Operation {
-        let bits_0_to_4 = (self.0 & 0x1F) as u8;
+    pub fn inner(&self) -> u64 {
+        self.0
+    }
 
-        Operation(bits_0_to_4)
+    pub fn operation(&self) -> Operation {
+        Operation(self.0 as u8 & 0x1F)
+    }
+
+    pub fn operand_type(&self) -> SmallType {
+        SmallType(((self.0 >> 10) & 0x1F) as u8)
+    }
+
+    pub fn b_memory_kind(&self) -> MemoryKind {
+        MemoryKind(((self.0 >> 7) & 0x3) as u8)
+    }
+
+    pub fn c_memory_kind(&self) -> MemoryKind {
+        MemoryKind(((self.0 >> 9) & 0x3) as u8)
+    }
+
+    pub fn d_field(&self) -> u16 {
+        ((self.0 >> 10) & 0x1F) as u16
+    }
+
+    pub fn a_field(&self) -> u16 {
+        ((self.0 >> 16) & 0xFFFF) as u16
+    }
+
+    pub fn b_field(&self) -> u16 {
+        ((self.0 >> 32) & 0xFFFF) as u16
+    }
+
+    pub fn c_field(&self) -> u16 {
+        ((self.0 >> 48) & 0xFFFF) as u16
     }
 
     pub fn b_address(&self) -> Address {
@@ -92,42 +124,6 @@ impl Instruction {
             index: self.c_field(),
             memory: self.c_memory_kind(),
         }
-    }
-
-    pub fn b_memory_kind(&self) -> MemoryKind {
-        let bits_7_to_8 = (self.0 >> 7) & 0x3;
-
-        MemoryKind(bits_7_to_8 as u8)
-    }
-
-    pub fn c_memory_kind(&self) -> MemoryKind {
-        let bits_9_to_10 = (self.0 >> 9) & 0x3;
-
-        MemoryKind(bits_9_to_10 as u8)
-    }
-
-    pub fn a_field(&self) -> u16 {
-        let bits_16_to_31 = (self.0 >> 16) & 0xFFFF;
-
-        bits_16_to_31 as u16
-    }
-
-    pub fn b_field(&self) -> u16 {
-        let bits_32_to_47 = (self.0 >> 32) & 0xFFFF;
-
-        bits_32_to_47 as u16
-    }
-
-    pub fn c_field(&self) -> u16 {
-        let bits_48_to_63 = (self.0 >> 48) & 0xFFFF;
-
-        bits_48_to_63 as u16
-    }
-
-    pub fn d_field(&self) -> u16 {
-        let bits_11_to_15 = (self.0 >> 11) & 0x1F;
-
-        bits_11_to_15 as u16
     }
 
     pub fn set_b_field(&mut self, bits: u16) {
@@ -146,26 +142,17 @@ impl Instruction {
         Instruction(0)
     }
 
-    pub fn r#move(destination: u16, operand: Address) -> Instruction {
-        Instruction::from(Move {
-            destination,
-            operand,
-            jump_distance: 0,
-            jump_is_positive: false,
-        })
-    }
-
-    pub fn move_with_jump(
+    pub fn r#move(
         destination: u16,
+        operand_type: SmallType,
         operand: Address,
-        jump_distance: u16,
-        jump_is_positive: bool,
+        secondary_index: u16,
     ) -> Instruction {
         Instruction::from(Move {
             destination,
+            operand_type,
             operand,
-            jump_distance,
-            jump_is_positive,
+            secondary_index,
         })
     }
 
@@ -194,7 +181,7 @@ impl Instruction {
     pub fn set_list(destination_list: u16, item_source: Address, index: Address) -> Instruction {
         Instruction::from(SetList {
             destination_list,
-            item_source,
+            source_operand: item_source,
             index,
         })
     }
@@ -343,8 +330,16 @@ impl Instruction {
         })
     }
 
-    pub fn r#return(operand: Address) -> Instruction {
-        Instruction::from(Return { operand })
+    pub fn r#return(
+        operand_type: SmallType,
+        operand: Address,
+        secondary_index: u16,
+    ) -> Instruction {
+        Instruction::from(Return {
+            operand_type,
+            operand,
+            secondary_index,
+        })
     }
 
     pub fn to_string(destination: u16, operand: Address) -> Instruction {
@@ -357,15 +352,6 @@ impl Instruction {
     pub fn is_coallescible_with_jump(&self, forward: bool) -> bool {
         match self.operation() {
             Operation::DROP => true,
-            Operation::MOVE => {
-                let Move {
-                    jump_distance,
-                    jump_is_positive,
-                    ..
-                } = Move::from(self);
-
-                jump_distance == 0 || (forward == jump_is_positive)
-            }
             Operation::TEST => {
                 let Test { jump_distance, .. } = Test::from(self);
 
@@ -422,6 +408,7 @@ impl Display for Instruction {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct InstructionFields {
     pub operation: Operation,
+    pub operand_type: SmallType,
     pub b_memory_kind: MemoryKind,
     pub c_memory_kind: MemoryKind,
     pub d_field: u16,
@@ -437,10 +424,11 @@ impl InstructionFields {
         bits |= (self.operation.0 as u64) & 0x1F;
         bits |= ((self.b_memory_kind.0 as u64) & 0x3) << 7;
         bits |= ((self.c_memory_kind.0 as u64) & 0x3) << 9;
-        bits |= ((self.d_field as u64) & 0x1F) << 11;
-        bits |= ((self.a_field as u64) & 0xFFFF) << 16;
-        bits |= ((self.b_field as u64) & 0xFFFF) << 32;
-        bits |= ((self.c_field as u64) & 0xFFFF) << 48;
+        bits |= (self.d_field as u64 & 0x1F) << 10;
+        bits |= (self.operand_type.0 as u64 & 0x1F) << 10;
+        bits |= (self.a_field as u64 & 0xFFFF) << 16;
+        bits |= (self.b_field as u64 & 0xFFFF) << 32;
+        bits |= (self.c_field as u64 & 0xFFFF) << 48;
 
         Instruction(bits)
     }
@@ -450,6 +438,7 @@ impl From<&Instruction> for InstructionFields {
     fn from(instruction: &Instruction) -> Self {
         InstructionFields {
             operation: instruction.operation(),
+            operand_type: instruction.operand_type(),
             b_memory_kind: instruction.b_memory_kind(),
             c_memory_kind: instruction.c_memory_kind(),
             d_field: instruction.d_field(),
@@ -468,8 +457,19 @@ pub struct MemoryKind(pub u8);
 impl MemoryKind {
     pub const REGISTER: MemoryKind = MemoryKind(0);
     pub const CONSTANT: MemoryKind = MemoryKind(1);
-    pub const ENCODED: MemoryKind = MemoryKind(2);
-    pub const PROTOTYPE: MemoryKind = MemoryKind(3);
+    pub const PROTOTYPE: MemoryKind = MemoryKind(2);
+    pub const COMPOUND: MemoryKind = MemoryKind(3);
+
+    pub fn display(&self, r#type: SmallType) -> &'static str {
+        match *self {
+            Self::REGISTER => "reg",
+            Self::CONSTANT => "const",
+            Self::PROTOTYPE => "proto",
+            Self::COMPOUND if matches!(r#type, SmallType::U_128 | SmallType::I_128) => "& ",
+            Self::COMPOUND if r#type == SmallType::STRUCT => "..=",
+            _ => "invalid",
+        }
+    }
 }
 
 impl Display for MemoryKind {
@@ -477,8 +477,8 @@ impl Display for MemoryKind {
         match *self {
             Self::REGISTER => write!(f, "reg"),
             Self::CONSTANT => write!(f, "const"),
-            Self::ENCODED => write!(f, "enc"),
             Self::PROTOTYPE => write!(f, "proto"),
+            Self::COMPOUND => write!(f, " ..="),
             _ => write!(f, "invalid"),
         }
     }
@@ -496,26 +496,26 @@ mod tests {
     use super::*;
 
     fn create_instruction() -> Instruction {
-        Instruction::add(42, Address::register(1), Address::constant(2))
+        Instruction::r#move(42, SmallType::U_128, Address::constant(42), 42)
     }
 
     #[test]
     fn decode_operation() {
         let instruction = create_instruction();
 
-        assert_eq!(instruction.operation(), Operation::ADD);
+        assert_eq!(instruction.operation(), Operation::MOVE);
     }
 
     #[test]
     fn decode_b_memory() {
         let instruction = create_instruction();
 
-        assert_eq!(instruction.b_memory_kind(), MemoryKind::REGISTER);
+        assert_eq!(instruction.b_memory_kind(), MemoryKind::CONSTANT);
     }
 
     #[test]
     fn decode_c_memory() {
-        let instruction = create_instruction();
+        let instruction = Instruction::add(42, Address::constant(1), Address::constant(2));
 
         assert_eq!(instruction.c_memory_kind(), MemoryKind::CONSTANT);
     }
@@ -531,24 +531,20 @@ mod tests {
     fn decode_b_field() {
         let instruction = create_instruction();
 
-        assert_eq!(instruction.b_field(), 1);
+        assert_eq!(instruction.b_field(), 42);
     }
 
     #[test]
     fn decode_c_field() {
         let instruction = create_instruction();
 
-        assert_eq!(instruction.c_field(), 2);
+        assert_eq!(instruction.c_field(), 42);
     }
 
     #[test]
     fn decode_d_field() {
-        let instruction = Instruction::call(Some(5), Address::constant(10), 25, 0);
+        let instruction = Instruction::call(None, Address::register(666), 30, 42);
 
-        assert_eq!(instruction.d_field(), 0);
-
-        let instruction = Instruction::call(None, Address::register(42), 30, 2);
-
-        assert_eq!(instruction.d_field(), 2);
+        assert_eq!(instruction.d_field(), 42);
     }
 }

@@ -2,13 +2,13 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     dust_error::AnnotatedError,
+    instruction::SmallType,
     resolver::{
         Resolver,
         declaration_graph::DeclarationId,
         symbol_table::SymbolId,
         type_graph::{TypeId, TypeNode},
     },
-    small_type::SmallType,
     source::{Position, Source},
     syntax::SyntaxKind,
 };

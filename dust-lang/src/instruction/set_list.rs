@@ -4,19 +4,19 @@ use super::{Address, Instruction, InstructionFields, Operation};
 
 pub struct SetList {
     pub destination_list: u16,
-    pub item_source: Address,
     pub index: Address,
+    pub source_operand: Address,
 }
 
 impl From<&Instruction> for SetList {
     fn from(instruction: &Instruction) -> Self {
         let destination_list = instruction.a_field();
-        let item_source = instruction.b_address();
+        let source_operand = instruction.b_address();
         let index = instruction.c_address();
 
         SetList {
             destination_list,
-            item_source,
+            source_operand,
             index,
         }
     }
@@ -29,7 +29,7 @@ impl From<SetList> for Instruction {
         let Address {
             index: b_field,
             memory: b_memory_kind,
-        } = set_list.item_source;
+        } = set_list.source_operand;
         let Address {
             index: c_field,
             memory: c_memory_kind,
@@ -52,10 +52,10 @@ impl Display for SetList {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let SetList {
             destination_list,
-            item_source,
+            source_operand,
             index,
         } = self;
 
-        write!(f, "reg_{destination_list}[{index}] = {item_source}")
+        write!(f, "reg_{destination_list}[{index}] = {source_operand}")
     }
 }

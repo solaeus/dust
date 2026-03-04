@@ -12,6 +12,7 @@ use crate::{
     compiler::error::CompileError,
     dust_error::{ErrorKind, InternalError},
     dust_type::{DustFunctionType, DustStructType, DustType},
+    instruction::SmallType,
     native_function::NativeFunction,
     resolver::{
         declaration_graph::{
@@ -22,7 +23,6 @@ use crate::{
         symbol_table::{SymbolId, SymbolTable},
         type_graph::{TypeGraph, TypeId, TypeMembers, TypeNode},
     },
-    small_type::SmallType,
     source::Source,
     syntax::{SyntaxId, SyntaxReader},
 };
@@ -799,6 +799,7 @@ impl Resolver {
     ) -> Result<u16, ErrorKind> {
         match self.types.get_type(type_id)? {
             TypeNode::Unit => Ok(0),
+            TypeNode::U128 | TypeNode::I128 => Ok(2),
             TypeNode::Struct { declaration_id, .. } => {
                 let struct_declaration = self.declarations.get_declaration(*declaration_id)?;
                 let DeclarationKind::Type { members, .. } = struct_declaration.kind else {
@@ -832,10 +833,6 @@ impl Resolver {
                     };
 
                     leaf_count = leaf_count.saturating_add(field_leaf_count);
-                }
-
-                if leaf_count > 0 {
-                    leaf_count += 1;
                 }
 
                 Ok(leaf_count)
@@ -874,7 +871,7 @@ impl Resolver {
                 }
                 DeclarationKind::NativeFunction(_) => "native function",
                 DeclarationKind::Function => "function",
-                DeclarationKind::Local { .. } => "local",
+                DeclarationKind::Local => "local",
             };
 
             Ok(format!("ID {}: {symbol} {kind_str}", id.inner()))

@@ -1,22 +1,21 @@
-/// One-byte representation of a type.
+/// 6-bit representation of a type.
 use std::fmt::{self, Debug, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-/// One-byte representation of a type. This is an independent and self-contained representation, it is
+/// 6-bit representation of a type. This is an independent and self-contained representation, it is
 /// not part of the [`TypeGraph`] and does not have any references to other types.
 ///
 /// For many applications, it is not necessary to have a full representation of a value's type using
 /// [`DustType`], which may have heap data and is a rather wasteful way to represent a type if used
 /// for every value. It is usually enough just to know how to interpret the value's bits.
 ///
-/// This type is used to encode type information in instructions. To that end, its values must fit
-/// in the instruction's D field, which is 6 bits. It's also nice to have a performant way to
-/// differentiate heap-allocated types from scalar types. The 6th bit is used to mark heap-allocated
-/// types, which allows for a simple check using a bitwise operation while staying within the 6-bit
-/// limit.
+/// `SmallType` is also used to encode type information in instructions. To that end, its values
+/// must fit in the instruction's D field, which is 6 bits. It's also nice to have a performant way
+/// to differentiate heap-allocated types from scalar types. The 6th bit is used as a marker, which
+/// allows for a simple check using a bitwise operation while staying within the 6-bit limit.
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct SmallType(u8);
+pub struct SmallType(pub(super) u8);
 
 impl SmallType {
     // Scalar types

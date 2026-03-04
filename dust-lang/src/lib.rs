@@ -6,6 +6,7 @@
     int_from_ascii,
     iter_array_chunks,
     iterator_try_collect,
+    result_option_map_or_default,
     string_into_chars,
     thread_id_value,
     trim_prefix_suffix,
@@ -26,7 +27,6 @@ mod parser;
 mod project;
 mod prototype;
 mod resolver;
-mod small_type;
 mod source;
 mod syntax;
 mod token;

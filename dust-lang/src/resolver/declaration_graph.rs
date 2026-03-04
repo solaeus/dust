@@ -221,14 +221,7 @@ impl DeclarationKind {
             DeclarationKind::Type {
                 parent: Some(_), ..
             } => Visibility::Type,
-            DeclarationKind::Local { .. } => Visibility::Block,
-        }
-    }
-
-    fn parent(&self) -> Option<DeclarationId> {
-        match self {
-            DeclarationKind::Type { parent, .. } => *parent,
-            _ => None,
+            DeclarationKind::Local => Visibility::Block,
         }
     }
 }
