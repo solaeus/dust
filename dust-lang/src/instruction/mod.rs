@@ -543,8 +543,8 @@ mod tests {
 
     #[test]
     fn decode_d_field() {
-        let instruction = Instruction::call(None, Address::register(666), 30, 42);
+        let instruction = Instruction::call(None, Address::register(666), 30, 16);
 
-        assert_eq!(instruction.d_field(), 42);
+        assert_eq!(instruction.d_field(), 16);
     }
 }

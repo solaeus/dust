@@ -357,7 +357,7 @@ fn operators_and_punctuation() {
 
 #[test]
 fn adjacent_tokens() {
-    let source = b"let x:i8=42;";
+    let source = b"let x:i32=42;";
     let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
 
     assert_eq!(
@@ -376,7 +376,7 @@ fn adjacent_tokens() {
                 span: Span::new(5, 6)
             },
             Token {
-                kind: TokenKind::I8,
+                kind: TokenKind::I32,
                 span: Span::new(6, 9)
             },
             Token {

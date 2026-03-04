@@ -632,6 +632,11 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
                     None
                 }
             }
+            b'f' => match &token[1..3] {
+                b"32" => Some(TokenKind::F32),
+                b"64" => Some(TokenKind::F64),
+                _ => None,
+            },
             b'i' => match &token[1..3] {
                 b"16" => Some(TokenKind::I16),
                 b"32" => Some(TokenKind::I32),
@@ -669,7 +674,7 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
                 b"16" => Some(TokenKind::U16),
                 b"32" => Some(TokenKind::U32),
                 b"64" => Some(TokenKind::U64),
-                b"us" => Some(TokenKind::Use),
+                b"se" => Some(TokenKind::Use),
                 _ => None,
             },
             _ => None,
