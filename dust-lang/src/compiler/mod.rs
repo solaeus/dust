@@ -31,15 +31,19 @@ use crate::{
     syntax::{Syntax, SyntaxVisitor},
 };
 
-pub fn compile<'src>(source_code: &'src str) -> Result<PrototypeList, Error<'src>> {
+pub fn compile<'src>(source_files: &[(&'src str, &'src str)]) -> Result<Program, Error<'src>> {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated("compile", source_code));
+    for (name, source_code) in source_files {
+        let file = SourceFile::validated(name, source_code);
+
+        source.add_file(file);
+    }
 
     let compiler = Compiler::new(source);
     let program = compiler.compile(None)?;
 
-    Ok(program.prototypes)
+    Ok(program)
 }
 
 pub struct Compiler<'src> {
@@ -151,11 +155,13 @@ impl<'src> Compiler<'src> {
                             return Err(errors);
                         }
                     };
-                    let parent_path = Path::new(parent_file.full_path())
-                        .parent()
-                        .unwrap_or_else(|| Path::new("/"));
+                    let parent_path = parent_file
+                        .path()
+                        .map(|path| path.parent())
+                        .flatten()
+                        .unwrap_or_else(|| Path::new("."));
                     let module_path = parent_path.join(module_name_str).with_added_extension("ds");
-                    let module_file = match SourceFile::base_file(module_path) {
+                    let module_file = match SourceFile::file_from_path(&module_path) {
                         Ok(file) => file,
                         Err(error) => {
                             errors.push(ErrorKind::Source(error));

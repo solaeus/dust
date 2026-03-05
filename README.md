@@ -11,12 +11,14 @@ static typing to deliver a language that never compromises on correctness or spe
 delightfully easy to read and write.
 
 
-```bash
+```sh
+#!/bin/sh
+ 
 dust -e 'write_line("Hello, world!")'
 ```
 
 ```rust
-fn fib (n: i64) -> i64 {
+fn fib (n: i32) -> i32 {
     if n <= 0 {
         0
     } else if n == 1 {
@@ -26,7 +28,7 @@ fn fib (n: i64) -> i64 {
     }
 }
 
-fn main() -> i64 {
+fn main() -> i32 {
     fib(10)
 }
 ```

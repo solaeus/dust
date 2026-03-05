@@ -238,19 +238,19 @@ fn handle_source<'src>(
             } else {
                 path.join("src").join("main.ds")
             };
-            let file = SourceFile::base_file(main_file_path)?;
+            let file = SourceFile::file_from_path(&main_file_path)?;
 
             source.add_file(file);
 
             let lib_file_path = path.join("src").join("lib.ds");
 
             if lib_file_path.exists() {
-                let file = SourceFile::base_file(lib_file_path)?;
+                let file = SourceFile::file_from_path(&lib_file_path)?;
 
                 source.add_file(file);
             }
         } else {
-            let file = SourceFile::base_file(path)?;
+            let file = SourceFile::file_from_path(&path)?;
 
             source.add_file(file);
         }

@@ -212,7 +212,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file.content_as_str())
-                        .path(file.full_path())
+                        .path(file.path_or_name())
                         .fold(false)
                         .annotation(
                             AnnotationKind::Primary

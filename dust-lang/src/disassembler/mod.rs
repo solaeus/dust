@@ -220,7 +220,7 @@ impl<'a> Disassembler<'a> {
             .borders(Borders::ALL)
             .border_type(BorderType::Thick)
             .title(Span::styled(
-                source_file.full_path().to_owned(),
+                source_file.file_name(),
                 Style::default().bold(),
             ))
             .title_alignment(Alignment::Center);

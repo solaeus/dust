@@ -22,15 +22,15 @@ fn negation() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 20), SyntaxId(11)),
-            FunctionItem.with_binary_children(Span::new(0, 20), SyntaxId(1), SyntaxId(10)),
+            Root.with_child(Span::new(0, 20), SyntaxId(10)),
+            FunctionItem.with_binary_children(Span::new(0, 20), SyntaxId(1), SyntaxId(9)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionExpression.with_binary_children(Span::new(7, 20), SyntaxId(4), SyntaxId(9)),
+            FunctionExpression.with_binary_children(Span::new(7, 20), SyntaxId(4), SyntaxId(8)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
-            BlockExpression.with_child(Span::new(10, 20), SyntaxId(8)),
-            NegationExpression.with_child(Span::new(16, 18), SyntaxId(7)),
+            BlockExpression.with_child(Span::new(10, 20), SyntaxId(7)),
+            NegationExpression.with_child(Span::new(16, 18), SyntaxId(6)),
             PathExpression.with_child(Span::new(17, 18), SyntaxId(5)),
             PathSegment.empty(Span::new(17, 18)),
         ]
@@ -53,15 +53,15 @@ fn logical_not() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 20), SyntaxId(11)),
-            FunctionItem.with_binary_children(Span::new(0, 20), SyntaxId(1), SyntaxId(10)),
+            Root.with_child(Span::new(0, 20), SyntaxId(10)),
+            FunctionItem.with_binary_children(Span::new(0, 20), SyntaxId(1), SyntaxId(9)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionExpression.with_binary_children(Span::new(7, 20), SyntaxId(4), SyntaxId(9)),
+            FunctionExpression.with_binary_children(Span::new(7, 20), SyntaxId(4), SyntaxId(8)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
-            BlockExpression.with_child(Span::new(10, 20), SyntaxId(8)),
-            NotExpression.with_child(Span::new(16, 18), SyntaxId(7)),
+            BlockExpression.with_child(Span::new(10, 20), SyntaxId(7)),
+            NotExpression.with_child(Span::new(16, 18), SyntaxId(6)),
             PathExpression.with_child(Span::new(17, 18), SyntaxId(5)),
             PathSegment.empty(Span::new(17, 18)),
         ]

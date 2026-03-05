@@ -41,16 +41,16 @@ fn reassignment_statement() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 25), SyntaxId(11)),
-            FunctionItem.with_binary_children(Span::new(0, 25), SyntaxId(1), SyntaxId(10)),
+            Root.with_child(Span::new(0, 25), SyntaxId(10)),
+            FunctionItem.with_binary_children(Span::new(0, 25), SyntaxId(1), SyntaxId(9)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionExpression.with_binary_children(Span::new(7, 25), SyntaxId(4), SyntaxId(9)),
+            FunctionExpression.with_binary_children(Span::new(7, 25), SyntaxId(4), SyntaxId(8)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
-            BlockExpression.with_child(Span::new(10, 25), SyntaxId(8)),
-            ReassignmentStatement.with_binary_children(Span::new(16, 23), SyntaxId(5), SyntaxId(7)),
-            PathSegment.empty(Span::new(16, 17)),
+            BlockExpression.with_child(Span::new(10, 25), SyntaxId(7)),
+            ReassignmentStatement.with_binary_children(Span::new(16, 23), SyntaxId(5), SyntaxId(6)),
+            SimplePath.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(20, 22), SyntaxPayload::encode_integer(42)),
         ]
     );
@@ -72,19 +72,19 @@ fn grouped_expression() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 25), SyntaxId(15)),
-            FunctionItem.with_binary_children(Span::new(0, 25), SyntaxId(1), SyntaxId(14)),
+            Root.with_child(Span::new(0, 25), SyntaxId(13)),
+            FunctionItem.with_binary_children(Span::new(0, 25), SyntaxId(1), SyntaxId(12)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionExpression.with_binary_children(Span::new(7, 25), SyntaxId(4), SyntaxId(13)),
+            FunctionExpression.with_binary_children(Span::new(7, 25), SyntaxId(4), SyntaxId(11)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
-            BlockExpression.with_child(Span::new(10, 25), SyntaxId(12)),
-            GroupedExpression.with_child(Span::new(16, 23), SyntaxId(11)),
-            AdditionExpression.with_binary_children(Span::new(17, 22), SyntaxId(7), SyntaxId(10)),
+            BlockExpression.with_child(Span::new(10, 25), SyntaxId(10)),
+            GroupedExpression.with_child(Span::new(16, 23), SyntaxId(9)),
+            AdditionExpression.with_binary_children(Span::new(17, 22), SyntaxId(6), SyntaxId(8)),
             PathExpression.with_child(Span::new(17, 18), SyntaxId(5)),
             PathSegment.empty(Span::new(17, 18)),
-            PathExpression.with_child(Span::new(21, 22), SyntaxId(8)),
+            PathExpression.with_child(Span::new(21, 22), SyntaxId(7)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );

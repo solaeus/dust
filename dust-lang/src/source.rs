@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fmt::{self, Display, Formatter},
     fs::File,
     io,
@@ -56,8 +57,11 @@ impl<'src> Source<'src> {
     }
 
     pub fn set_utf8_validated(&mut self, file_id: SourceFileId) {
-        if let Some(SourceFile::BaseFile { utf8_validated, .. }) =
-            self.files.get_mut(file_id.0 as usize)
+        if let Some(
+            SourceFile::File { utf8_validated, .. }
+            | SourceFile::Embedded { utf8_validated, .. }
+            | SourceFile::EmbeddedOwned { utf8_validated, .. },
+        ) = self.files.get_mut(file_id.0 as usize)
         {
             *utf8_validated = true;
         }
@@ -87,62 +91,57 @@ impl SourceFileId {
 
 #[derive(Debug)]
 pub enum SourceFile<'src> {
+    File {
+        path: PathBuf,
+        mmap: Mmap,
+        utf8_validated: bool,
+    },
     Embedded {
-        path: &'src str,
+        name: &'src str,
         content: &'src [u8],
         utf8_validated: bool,
     },
     EmbeddedOwned {
-        path: &'src str,
+        name: &'src str,
         content: Vec<u8>,
-        utf8_validated: bool,
-    },
-    BaseFile {
-        path: String,
-        mmap: Mmap,
-        utf8_validated: bool,
-    },
-    ModuleFile {
-        path: &'src str,
-        mmap: Mmap,
         utf8_validated: bool,
     },
 }
 
 impl<'src> SourceFile<'src> {
-    pub fn non_validated(path: &'src str, content: &'src [u8]) -> Self {
+    pub fn non_validated(name: &'src str, content: &'src [u8]) -> Self {
         SourceFile::Embedded {
-            path,
+            name,
             content,
             utf8_validated: false,
         }
     }
 
-    pub const fn validated(path: &'src str, content: &'src str) -> Self {
+    pub const fn validated(name: &'src str, content: &'src str) -> Self {
         SourceFile::Embedded {
-            path,
+            name,
             content: content.as_bytes(),
             utf8_validated: true,
         }
     }
 
-    pub fn non_validated_owned(path: &'src str, content: Vec<u8>) -> Self {
+    pub fn non_validated_owned(name: &'src str, content: Vec<u8>) -> Self {
         SourceFile::EmbeddedOwned {
-            path,
+            name,
             content,
             utf8_validated: false,
         }
     }
 
-    pub fn validated_owned(path: &'src str, content: String) -> Self {
+    pub fn validated_owned(name: &'src str, content: String) -> Self {
         SourceFile::EmbeddedOwned {
-            path,
+            name,
             content: content.into_bytes(),
             utf8_validated: true,
         }
     }
 
-    pub fn base_file(path: PathBuf) -> Result<Self, SourceError> {
+    pub fn file_from_path(path: &Path) -> Result<Self, SourceError> {
         let Ok(path) = path.canonicalize() else {
             return Err(SourceError::InvalidPath {
                 found: path.display().to_string(),
@@ -161,50 +160,35 @@ impl<'src> SourceFile<'src> {
         let mmap = unsafe { Mmap::map(&file) }.map_err(|error| SourceError::CannotOpen {
             io_error: error.kind(),
         })?;
-        let path = match path.into_os_string().into_string() {
-            Ok(string) => string,
-            Err(os_string) => {
-                return Err(SourceError::ExpectedUtf8Path {
-                    found: os_string.display().to_string(),
-                });
-            }
-        };
 
-        Ok(SourceFile::BaseFile {
+        Ok(SourceFile::File {
             path,
             mmap,
             utf8_validated: false,
         })
     }
 
-    pub fn module_file(path: &'src str, mmap: Mmap) -> Self {
-        SourceFile::ModuleFile {
-            path,
-            mmap,
-            utf8_validated: false,
-        }
-    }
-
-    pub fn full_path(&self) -> &str {
+    pub fn path(&self) -> Option<&Path> {
         match self {
-            Self::Embedded { path, .. }
-            | Self::EmbeddedOwned { path, .. }
-            | Self::ModuleFile { path, .. } => path,
-            Self::BaseFile { path, .. } => path,
+            Self::File { path, .. } => Some(path.as_path()),
+            _ => None,
         }
     }
 
     pub fn file_name(&self) -> &str {
         match self {
-            Self::Embedded { path, .. } | Self::EmbeddedOwned { path, .. } => path,
-            Self::BaseFile { path, .. } => Path::new(path)
+            Self::Embedded { name, .. } | Self::EmbeddedOwned { name, .. } => name,
+            Self::File { path, .. } => path
                 .file_name()
                 .and_then(|name| name.to_str())
                 .expect("File name conatins invalid UTF-8"),
-            Self::ModuleFile { path, .. } => Path::new(path)
-                .file_name()
-                .and_then(|name| name.to_str())
-                .expect("File name conatins invalid UTF-8"),
+        }
+    }
+
+    pub fn path_or_name(&self) -> Cow<'_, str> {
+        match self {
+            Self::Embedded { name, .. } | Self::EmbeddedOwned { name, .. } => Cow::Borrowed(name),
+            Self::File { path, .. } => path.to_string_lossy(),
         }
     }
 
@@ -212,8 +196,7 @@ impl<'src> SourceFile<'src> {
         match self {
             Self::Embedded { utf8_validated, .. }
             | Self::EmbeddedOwned { utf8_validated, .. }
-            | Self::BaseFile { utf8_validated, .. }
-            | Self::ModuleFile { utf8_validated, .. } => *utf8_validated,
+            | Self::File { utf8_validated, .. } => *utf8_validated,
         }
     }
 
@@ -245,7 +228,7 @@ impl<'src> SourceFile<'src> {
         match self {
             Self::Embedded { content, .. } => content,
             Self::EmbeddedOwned { content, .. } => content,
-            Self::BaseFile { mmap, .. } | Self::ModuleFile { mmap, .. } => mmap,
+            Self::File { mmap, .. } => mmap,
         }
     }
 
@@ -276,7 +259,7 @@ impl<'src> SourceFile<'src> {
 
         match self {
             Self::Embedded {
-                path,
+                name: path,
                 content: source_bytes,
                 utf8_validated,
             } => {
@@ -287,7 +270,7 @@ impl<'src> SourceFile<'src> {
                 }
             }
             Self::EmbeddedOwned {
-                path,
+                name: path,
                 content: source_bytes,
                 utf8_validated,
             } => {
@@ -297,7 +280,7 @@ impl<'src> SourceFile<'src> {
                     handle_utf8_validation(path, source_bytes)
                 }
             }
-            Self::BaseFile {
+            Self::File {
                 path,
                 mmap,
                 utf8_validated,
@@ -305,18 +288,7 @@ impl<'src> SourceFile<'src> {
                 if *utf8_validated {
                     unsafe { str::from_utf8_unchecked(mmap) }
                 } else {
-                    handle_utf8_validation(path, mmap)
-                }
-            }
-            Self::ModuleFile {
-                path,
-                mmap,
-                utf8_validated,
-            } => {
-                if *utf8_validated {
-                    unsafe { str::from_utf8_unchecked(mmap) }
-                } else {
-                    handle_utf8_validation(path, mmap)
+                    handle_utf8_validation(&path.to_string_lossy(), mmap)
                 }
             }
         }

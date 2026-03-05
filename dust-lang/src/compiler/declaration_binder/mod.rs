@@ -134,9 +134,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 .source
                 .files_iter()
                 .find_map(|(file_id, file)| {
-                    let path = Path::new(file.full_path());
-
-                    if path
+                    if file
+                        .path()?
                         .file_stem()
                         .and_then(|stem| stem.to_str())
                         .map(|stem_str| stem_str == module_name_str)

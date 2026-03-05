@@ -119,19 +119,19 @@ fn expression() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 27), SyntaxId(15)),
-            FunctionItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(14)),
+            Root.with_child(Span::new(0, 27), SyntaxId(13)),
+            FunctionItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(12)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionExpression.with_binary_children(Span::new(7, 27), SyntaxId(4), SyntaxId(13)),
+            FunctionExpression.with_binary_children(Span::new(7, 27), SyntaxId(4), SyntaxId(11)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
-            BlockExpression.with_child(Span::new(10, 27), SyntaxId(12)),
-            BlockExpression.with_child(Span::new(16, 25), SyntaxId(11)),
-            AdditionExpression.with_binary_children(Span::new(18, 23), SyntaxId(7), SyntaxId(10)),
+            BlockExpression.with_child(Span::new(10, 27), SyntaxId(10)),
+            BlockExpression.with_child(Span::new(16, 25), SyntaxId(9)),
+            AdditionExpression.with_binary_children(Span::new(18, 23), SyntaxId(6), SyntaxId(8)),
             PathExpression.with_child(Span::new(18, 19), SyntaxId(5)),
             PathSegment.empty(Span::new(18, 19)),
-            PathExpression.with_child(Span::new(22, 23), SyntaxId(8)),
+            PathExpression.with_child(Span::new(22, 23), SyntaxId(7)),
             PathSegment.empty(Span::new(22, 23)),
         ]
     );
@@ -153,14 +153,14 @@ fn mixed() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 51), SyntaxId(25)),
-            FunctionItem.with_binary_children(Span::new(0, 51), SyntaxId(1), SyntaxId(24)),
+            Root.with_child(Span::new(0, 51), SyntaxId(23)),
+            FunctionItem.with_binary_children(Span::new(0, 51), SyntaxId(1), SyntaxId(22)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionExpression.with_binary_children(Span::new(7, 51), SyntaxId(4), SyntaxId(23)),
+            FunctionExpression.with_binary_children(Span::new(7, 51), SyntaxId(4), SyntaxId(21)),
             FunctionSignature.with_child(Span::new(7, 9), SyntaxId(3)),
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
-            BlockExpression.with_child(Span::new(10, 51), SyntaxId(22)),
+            BlockExpression.with_child(Span::new(10, 51), SyntaxId(20)),
             BlockExpression.with_multiple_children(Span::new(16, 49), 0, 3),
             FunctionItem.with_binary_children(Span::new(18, 30), SyntaxId(5), SyntaxId(10)),
             SimplePath.empty(Span::new(21, 24)),
@@ -172,10 +172,10 @@ fn mixed() {
             LetStatement.with_binary_children(Span::new(30, 41), SyntaxId(12), SyntaxId(13)),
             SimplePath.empty(Span::new(34, 35)),
             IntegerExpression.with_value(Span::new(38, 40), SyntaxPayload::encode_integer(42)),
-            AdditionExpression.with_binary_children(Span::new(42, 47), SyntaxId(17), SyntaxId(20)),
+            AdditionExpression.with_binary_children(Span::new(42, 47), SyntaxId(16), SyntaxId(18)),
             PathExpression.with_child(Span::new(42, 43), SyntaxId(15)),
             PathSegment.empty(Span::new(42, 43)),
-            PathExpression.with_child(Span::new(46, 47), SyntaxId(18)),
+            PathExpression.with_child(Span::new(46, 47), SyntaxId(17)),
             PathSegment.empty(Span::new(46, 47)),
         ]
     );
