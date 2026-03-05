@@ -351,7 +351,7 @@ impl ConstantTable {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ConstantId(pub(crate) u16);
+pub struct ConstantId(u16);
 
 impl ConstantId {
     pub fn inner(&self) -> u16 {

@@ -31,6 +31,11 @@ impl From<Test> for Instruction {
             jump_distance,
         } = test;
 
+        debug_assert!(
+            jump_distance > 0,
+            "TEST instructions must have a non-zero jump distance"
+        );
+
         InstructionBuilder::new(Operation::TEST)
             .a_field(comparator as u16)
             .b_memory(operand_memory)

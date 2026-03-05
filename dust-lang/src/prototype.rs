@@ -143,7 +143,7 @@ pub struct PrototypeId(#[cfg(test)] pub(crate) u16, #[cfg(not(test))] u16);
 impl PrototypeId {
     pub(crate) const MAIN: Self = Self(0);
 
-    pub fn index(self) -> u16 {
+    pub fn inner(self) -> u16 {
         self.0
     }
 
