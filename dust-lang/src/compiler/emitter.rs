@@ -1,4 +1,4 @@
-use std::{collections::HashMap, marker::PhantomData};
+use std::collections::HashMap;
 
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
@@ -9,14 +9,14 @@ use crate::{
     constant_table::{ConstantId, ConstantTable},
     dust_error::{ErrorKind, InternalError},
     instruction::{
-        Add, Address, CallArgument, Drop, Instruction, MemoryKind, Operation, SmallType, Test,
+        Address, CallArgument, Drop, Instruction, MemoryKind, Operation, SmallType, Test,
     },
     native_function::NativeFunction,
     prototype::{Prototype, PrototypeId, PrototypeList},
     register::RegisterClass,
     resolver::{
         Resolver,
-        declaration_graph::{DeclarationId, DeclarationKind, Visibility},
+        declaration_graph::{DeclarationId, DeclarationKind},
         scope_graph::ScopeId,
         type_graph::{TypeId, TypeNode},
     },
@@ -27,8 +27,6 @@ use crate::{
 #[derive(Debug)]
 pub struct Emitter<'a> {
     function: SyntaxReader<'a>,
-
-    prototype_id: PrototypeId,
 
     source: &'a Source<'a>,
 
@@ -87,7 +85,6 @@ impl<'a> Emitter<'a> {
         let parameter_count = parameters.as_ref().map_or(0, |parameters| parameters.len());
         let mut emitter = Self {
             function,
-            prototype_id,
             source,
             syntax,
             constants,

@@ -1,4 +1,4 @@
-fn increment(x: int) -> int {
+fn increment(x: i64) -> i64 {
     x + 1
 }
 

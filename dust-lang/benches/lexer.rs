@@ -6,7 +6,7 @@ use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use dust_lang::prelude::*;
 
 const SOURCE: &[u8] = br#"
-fn fib (n: int) -> int {
+fn fib (n: i64) -> i64 {
     if n <= 0 {
         0
     } else if n == 1 {

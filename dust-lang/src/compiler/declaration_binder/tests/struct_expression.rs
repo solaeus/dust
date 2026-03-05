@@ -6,7 +6,7 @@ use super::{bind_declarations, find_declaration};
 #[test]
 fn resolves_field_paths() {
     let (syntax, mut resolver) =
-        bind_declarations("struct Foo { x: int } fn main() { Foo { x: 1 } }");
+        bind_declarations("struct Foo { x: i64 } fn main() { Foo { x: 1 } }");
     let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();

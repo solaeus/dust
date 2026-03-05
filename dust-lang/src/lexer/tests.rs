@@ -402,7 +402,7 @@ fn adjacent_tokens() {
 #[test]
 fn example_source_code() {
     let source = br#"
-        fn fib (n: int) -> int {
+        fn fib (n: i64) -> i64 {
             if n <= 0 {
                 0
             } else if n == 1 {

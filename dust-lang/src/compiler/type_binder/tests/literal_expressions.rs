@@ -4,7 +4,7 @@ use super::bind_types;
 
 #[test]
 fn integer_has_integer_type() {
-    let (syntax, resolver) = bind_types("fn main() -> int { 42 }");
+    let (syntax, resolver) = bind_types("fn main() -> i64 { 42 }");
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let node = tree

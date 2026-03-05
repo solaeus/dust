@@ -4,7 +4,7 @@ use super::bind_types;
 
 #[test]
 fn has_function_type_binding() {
-    let (syntax, resolver) = bind_types("fn main() { let f = fn(x: int) -> int { x }; }");
+    let (syntax, resolver) = bind_types("fn main() { let f = fn(x: i64) -> i64 { x }; }");
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let fn_exprs: Vec<_> = tree

@@ -4,7 +4,7 @@ use super::bind_types;
 
 #[test]
 fn has_struct_type() {
-    let (syntax, resolver) = bind_types("struct Foo { x: int } fn main() { Foo { x: 1 } }");
+    let (syntax, resolver) = bind_types("struct Foo { x: i64 } fn main() { Foo { x: 1 } }");
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let node = tree

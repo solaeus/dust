@@ -16,7 +16,7 @@ dust -e 'write_line("Hello, world!")'
 ```
 
 ```rust
-fn fib (n: int) -> int {
+fn fib (n: i64) -> i64 {
     if n <= 0 {
         0
     } else if n == 1 {
@@ -26,7 +26,7 @@ fn fib (n: int) -> int {
     }
 }
 
-fn main() -> int {
+fn main() -> i64 {
     fib(10)
 }
 ```

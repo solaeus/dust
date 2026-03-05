@@ -6,7 +6,7 @@ use super::{bind_declarations, find_declaration};
 
 #[test]
 fn creates_type_declaration() {
-    let (_syntax, mut resolver) = bind_declarations("struct Foo { x: int, y: int }");
+    let (_syntax, mut resolver) = bind_declarations("struct Foo { x: i64, y: i64 }");
 
     let (_, foo_kind) = find_declaration(&mut resolver, "Foo").unwrap();
 
@@ -15,7 +15,7 @@ fn creates_type_declaration() {
 
 #[test]
 fn field_count_matches_definition() {
-    let (_syntax, mut resolver) = bind_declarations("struct Foo { x: int, y: int }");
+    let (_syntax, mut resolver) = bind_declarations("struct Foo { x: i64, y: i64 }");
 
     let (_, foo_kind) = find_declaration(&mut resolver, "Foo").unwrap();
 
@@ -29,7 +29,7 @@ fn field_count_matches_definition() {
 
 #[test]
 fn fields_reference_parent() {
-    let (_syntax, mut resolver) = bind_declarations("struct Foo { x: int }");
+    let (_syntax, mut resolver) = bind_declarations("struct Foo { x: i64 }");
 
     let (foo_declaration_id, _) = find_declaration(&mut resolver, "Foo").unwrap();
 
@@ -45,7 +45,7 @@ fn fields_reference_parent() {
 
 #[test]
 fn has_no_parent() {
-    let (_syntax, mut resolver) = bind_declarations("struct Foo { x: int }");
+    let (_syntax, mut resolver) = bind_declarations("struct Foo { x: i64 }");
 
     let (_, foo_kind) = find_declaration(&mut resolver, "Foo").unwrap();
 
@@ -59,7 +59,7 @@ fn has_no_parent() {
 
 #[test]
 fn name_binds_to_type_declaration() {
-    let (syntax, mut resolver) = bind_declarations("struct Foo { x: int }");
+    let (syntax, mut resolver) = bind_declarations("struct Foo { x: i64 }");
     let (foo_id, _) = find_declaration(&mut resolver, "Foo").unwrap();
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
@@ -74,7 +74,7 @@ fn name_binds_to_type_declaration() {
 
 #[test]
 fn field_name_binds_to_field_declaration() {
-    let (syntax, mut resolver) = bind_declarations("struct Foo { x: int }");
+    let (syntax, mut resolver) = bind_declarations("struct Foo { x: i64 }");
     let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
@@ -89,7 +89,7 @@ fn field_name_binds_to_field_declaration() {
 
 #[test]
 fn is_not_public_by_default() {
-    let (_syntax, mut resolver) = bind_declarations("struct Foo { x: int }");
+    let (_syntax, mut resolver) = bind_declarations("struct Foo { x: i64 }");
 
     let foo_symbol_id = resolver.symbols.add_symbol("Foo");
     let (_, foo_declaration) = resolver
@@ -103,7 +103,7 @@ fn is_not_public_by_default() {
 
 #[test]
 fn is_public_when_pub() {
-    let (_syntax, mut resolver) = bind_declarations("pub struct Foo { x: int }");
+    let (_syntax, mut resolver) = bind_declarations("pub struct Foo { x: i64 }");
 
     let foo_symbol_id = resolver.symbols.add_symbol("Foo");
     let (_, foo_declaration) = resolver

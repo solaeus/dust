@@ -76,7 +76,7 @@ fn binds_name_to_declaration() {
 
 #[test]
 fn parameters_create_local_declarations() {
-    let (_syntax, mut resolver) = bind_declarations("fn foo(x: int, y: bool) {}");
+    let (_syntax, mut resolver) = bind_declarations("fn foo(x: i64, y: bool) {}");
 
     let (_, x_kind) = find_declaration(&mut resolver, "x").unwrap();
     let (_, y_kind) = find_declaration(&mut resolver, "y").unwrap();
@@ -87,7 +87,7 @@ fn parameters_create_local_declarations() {
 
 #[test]
 fn parameter_binds_to_declaration() {
-    let (syntax, mut resolver) = bind_declarations("fn foo(x: int) {}");
+    let (syntax, mut resolver) = bind_declarations("fn foo(x: i64) {}");
     let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
@@ -105,7 +105,7 @@ fn parameter_binds_to_declaration() {
 
 #[test]
 fn parameters_are_in_function_scope() {
-    let (_syntax, mut resolver) = bind_declarations("fn foo(x: int) {}");
+    let (_syntax, mut resolver) = bind_declarations("fn foo(x: i64) {}");
 
     let x_symbol_id = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver

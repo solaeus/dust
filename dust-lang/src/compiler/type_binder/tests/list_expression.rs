@@ -8,7 +8,7 @@ use super::bind_types;
 
 #[test]
 fn creates_list_type() {
-    let (syntax, resolver) = bind_types("fn main() -> [int] { [1, 2, 3] }");
+    let (syntax, resolver) = bind_types("fn main() -> [i64] { [1, 2, 3] }");
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let node = tree
@@ -29,7 +29,7 @@ fn creates_list_type() {
 
 #[test]
 fn empty_list_creates_inferred_type() {
-    let (syntax, resolver) = bind_types("fn main() { let x: [int] = []; }");
+    let (syntax, resolver) = bind_types("fn main() { let x: [i64] = []; }");
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let node = tree
@@ -45,7 +45,7 @@ fn empty_list_creates_inferred_type() {
 
 #[test]
 fn index_has_element_type() {
-    let (syntax, resolver) = bind_types("fn main() -> int { [1, 2, 3][0] }");
+    let (syntax, resolver) = bind_types("fn main() -> i64 { [1, 2, 3][0] }");
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let node = tree

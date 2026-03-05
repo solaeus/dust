@@ -1,6 +1,6 @@
 class Fibonacci {
 
-    static int fib(int n) {
+    static i64 fib(i64 n) {
         if (n <= 0) {
             return 0;
         } else if (n == 1) {

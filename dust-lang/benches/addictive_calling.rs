@@ -4,7 +4,7 @@
 // use dust_lang::jit_vm::run_main;
 
 // const SOURCE: &str = r"
-// fn increment(x: int) -> int {
+// fn increment(x: i64) -> i64 {
 //     x + 1
 // }
 

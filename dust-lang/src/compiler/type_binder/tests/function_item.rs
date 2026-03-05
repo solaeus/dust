@@ -15,7 +15,7 @@ fn creates_function_type() {
 
 #[test]
 fn return_type_matches_annotation() {
-    let (_syntax, mut resolver) = bind_types("fn foo() -> int { 42 }");
+    let (_syntax, mut resolver) = bind_types("fn foo() -> i64 { 42 }");
 
     let (foo_id, _) = find_declaration(&mut resolver, "foo").unwrap();
     let foo_type_id = *resolver.declarations.get_declaration_type(&foo_id).unwrap();
@@ -31,7 +31,7 @@ fn return_type_matches_annotation() {
 
 #[test]
 fn parameters_get_declared_types() {
-    let (_syntax, mut resolver) = bind_types("fn foo(x: int, y: bool) {}");
+    let (_syntax, mut resolver) = bind_types("fn foo(x: i64, y: bool) {}");
 
     let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
     let x_type = *resolver.declarations.get_declaration_type(&x_id).unwrap();

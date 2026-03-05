@@ -1,6 +1,6 @@
 use std::{
     fmt::{self, Display, Formatter},
-    ops::Range,
+    range::Range,
 };
 
 use serde::{Deserialize, Serialize};
@@ -671,7 +671,7 @@ impl SyntaxPayload {
         let start = self.left as usize;
         let end = start.saturating_add(self.right as usize);
 
-        start..end
+        Range { start, end }
     }
 }
 

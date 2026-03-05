@@ -7,7 +7,7 @@ pub struct Integer32Register(pub i32);
 pub struct Integer64Register(pub i64);
 
 #[repr(C)]
-pub struct Float64Register(pub f32);
+pub struct Float64Register(pub f64);
 
 #[repr(C)]
 pub struct PointerRegister(pub *mut u8);

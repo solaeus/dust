@@ -4,7 +4,7 @@ use super::{bind_types, find_declaration};
 
 #[test]
 fn creates_struct_type() {
-    let (_syntax, mut resolver) = bind_types("struct Foo { x: int }");
+    let (_syntax, mut resolver) = bind_types("struct Foo { x: i64 }");
 
     let (foo_id, _) = find_declaration(&mut resolver, "Foo").unwrap();
     let foo_type_id = *resolver.declarations.get_declaration_type(&foo_id).unwrap();
@@ -15,7 +15,7 @@ fn creates_struct_type() {
 
 #[test]
 fn field_gets_declared_type() {
-    let (_syntax, mut resolver) = bind_types("struct Foo { x: int }");
+    let (_syntax, mut resolver) = bind_types("struct Foo { x: i64 }");
 
     let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
     let x_type = *resolver.declarations.get_declaration_type(&x_id).unwrap();
@@ -25,7 +25,7 @@ fn field_gets_declared_type() {
 
 #[test]
 fn multiple_fields_get_correct_types() {
-    let (_syntax, mut resolver) = bind_types("struct Foo { x: int, y: bool }");
+    let (_syntax, mut resolver) = bind_types("struct Foo { x: i64, y: bool }");
 
     let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
     let x_type = *resolver.declarations.get_declaration_type(&x_id).unwrap();

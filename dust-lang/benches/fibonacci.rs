@@ -4,7 +4,7 @@
 // use dust_lang::jit_vm::run_main;
 
 // const SOURCE: &str = r"
-//     fn fib (n: int) -> int {
+//     fn fib (n: i64) -> i64 {
 //         if n <= 0 {
 //             0
 //         } else if n == 1 {

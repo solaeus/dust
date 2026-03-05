@@ -6,6 +6,7 @@
     int_from_ascii,
     iter_array_chunks,
     iterator_try_collect,
+    new_range_api,
     result_option_map_or_default,
     string_into_chars,
     thread_id_value,
