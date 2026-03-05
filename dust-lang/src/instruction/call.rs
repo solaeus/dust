@@ -1,51 +1,53 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, Operation};
+use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, OperandType, Operation};
 
 pub struct Call {
-    pub destination: u16,
-    pub callee: Address,
+    pub destination: Option<u16>,
+    pub callee_memory: MemoryKind,
+    pub callee_index: u16,
     pub arguments_start: u16,
     pub argument_count: u16,
 }
 
 impl From<&Instruction> for Call {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_field();
-        let callee = instruction.b_address();
-        let arguments_start = instruction.c_field();
-        let argument_count = instruction.d_field();
-
         Call {
-            destination,
-            callee,
-            arguments_start,
-            argument_count,
+            destination: {
+                let a_field = instruction.a_field();
+
+                if a_field == u16::MAX {
+                    None
+                } else {
+                    Some(a_field)
+                }
+            },
+            callee_memory: instruction.b_memory(),
+            callee_index: instruction.b_field(),
+            arguments_start: instruction.c_field(),
+            argument_count: instruction.d_field(),
         }
     }
 }
 
 impl From<Call> for Instruction {
     fn from(call: Call) -> Self {
-        let operation = Operation::CALL;
-        let a_field = call.destination;
-        let Address {
-            index: b_field,
-            memory: b_memory_kind,
-        } = call.callee;
-        let c_field = call.arguments_start;
-        let d_field = call.argument_count;
+        let Call {
+            destination,
+            callee_memory,
+            callee_index,
+            arguments_start,
+            argument_count,
+        } = call;
+        let destination = destination.unwrap_or(u16::MAX);
 
-        InstructionFields {
-            operation,
-            a_field,
-            b_field,
-            b_memory_kind,
-            c_field,
-            d_field,
-            ..Default::default()
-        }
-        .build()
+        InstructionBuilder::new(Operation::CALL)
+            .a_field(destination)
+            .b_memory(callee_memory)
+            .b_field(callee_index)
+            .c_field(arguments_start)
+            .d_field(argument_count)
+            .build()
     }
 }
 
@@ -53,21 +55,26 @@ impl Display for Call {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Call {
             destination,
-            callee,
+            callee_memory,
+            callee_index,
             arguments_start,
             argument_count,
         } = self;
 
-        if *destination != u16::MAX {
+        if let Some(destination) = destination {
             write!(f, "reg_{destination} = ")?;
         }
 
+        let callee_memory = callee_memory.as_string(OperandType::FUNCTION);
+
+        write!(f, "{callee_memory}_{callee_index}")?;
+
         if *argument_count == 0 {
-            write!(f, "{callee}()")
+            write!(f, "()")
         } else {
             let arguments_end = arguments_start + argument_count;
 
-            write!(f, "{callee}(args_{arguments_start}..args_{arguments_end})")
+            write!(f, "(args_{arguments_start}..args_{arguments_end})")
         }
     }
 }

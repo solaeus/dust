@@ -2,43 +2,41 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::native_function::NativeFunction;
 
-use super::{Instruction, InstructionFields, Operation};
+use super::{Instruction, InstructionBuilder, Operation};
 
 pub struct CallNative {
     pub destination: u16,
     pub function_id: u16,
     pub arguments_start: u16,
+    pub argument_count: u16,
 }
 
 impl From<&Instruction> for CallNative {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_field();
-        let function_id = instruction.b_field();
-        let arguments_start = instruction.c_field();
-
         CallNative {
-            destination,
-            function_id,
-            arguments_start,
+            destination: instruction.a_field(),
+            function_id: instruction.b_field(),
+            arguments_start: instruction.c_field(),
+            argument_count: instruction.d_field(),
         }
     }
 }
 
 impl From<CallNative> for Instruction {
     fn from(call_native: CallNative) -> Self {
-        let operation = Operation::CALL_NATIVE;
-        let a_field = call_native.destination;
-        let b_field = call_native.function_id;
-        let c_field = call_native.arguments_start;
+        let CallNative {
+            destination,
+            function_id,
+            arguments_start,
+            argument_count: arguments_count,
+        } = call_native;
 
-        InstructionFields {
-            operation,
-            a_field,
-            b_field,
-            c_field,
-            ..Default::default()
-        }
-        .build()
+        InstructionBuilder::new(Operation::CALL_NATIVE)
+            .a_field(destination)
+            .b_field(function_id)
+            .c_field(arguments_start)
+            .d_field(arguments_count)
+            .build()
     }
 }
 
@@ -48,11 +46,11 @@ impl Display for CallNative {
             destination,
             function_id,
             arguments_start,
-        } = self;
-        let function = NativeFunction { id: *function_id };
-        let argument_count = function.argument_count();
+            argument_count,
+        } = *self;
+        let function = NativeFunction { id: function_id };
 
-        if *destination != 0 {
+        if destination != 0 {
             write!(f, "reg_{destination} = ")?;
         }
 

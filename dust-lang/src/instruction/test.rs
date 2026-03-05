@@ -1,57 +1,59 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, Operation};
+use crate::instruction::OperandType;
+
+use super::{Instruction, InstructionBuilder, MemoryKind, Operation};
 
 pub struct Test {
     pub comparator: bool,
-    pub operand: Address,
+    pub operand_memory: MemoryKind,
+    pub operand_index: u16,
     pub jump_distance: u16,
 }
 
 impl From<&Instruction> for Test {
     fn from(instruction: &Instruction) -> Self {
-        let comparator = instruction.a_field() != 0;
-        let operand = instruction.b_address();
-        let jump_distance = instruction.c_field();
-
         Test {
-            comparator,
-            operand,
-            jump_distance,
+            comparator: instruction.a_field() != 0,
+            operand_memory: instruction.b_memory(),
+            operand_index: instruction.b_field(),
+            jump_distance: instruction.c_field(),
         }
     }
 }
 
 impl From<Test> for Instruction {
     fn from(test: Test) -> Self {
-        let a_field = test.comparator as u16;
-        let Address {
-            index: b_field,
-            memory: b_memory_kind,
-        } = test.operand;
-        let c_field = test.jump_distance;
+        let Test {
+            comparator,
+            operand_memory,
+            operand_index,
+            jump_distance,
+        } = test;
 
-        InstructionFields {
-            operation: Operation::TEST,
-            a_field,
-            b_field,
-            b_memory_kind,
-            c_field,
-            ..Default::default()
-        }
-        .build()
+        InstructionBuilder::new(Operation::TEST)
+            .a_field(comparator as u16)
+            .b_memory(operand_memory)
+            .b_field(operand_index)
+            .c_field(jump_distance)
+            .build()
     }
 }
 
 impl Display for Test {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Test {
-            operand,
             comparator,
+            operand_memory,
+            operand_index,
             jump_distance,
         } = self;
         let bang = if *comparator { "" } else { "!" };
+        let operand_memory = operand_memory.as_string(OperandType::BOOLEAN);
 
-        write!(f, "if {bang}{operand} {{ jump +{jump_distance} }}")
+        write!(
+            f,
+            "if {bang}{operand_memory}_{operand_index} {{ jump +{jump_distance} }}"
+        )
     }
 }

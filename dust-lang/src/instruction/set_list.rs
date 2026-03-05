@@ -1,50 +1,48 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, Operation};
+use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, OperandType, Operation};
 
 pub struct SetList {
     pub destination_list: u16,
-    pub index: Address,
-    pub source_operand: Address,
+    pub element_type: OperandType,
+    pub source_memory: MemoryKind,
+    pub source_index: u16,
+    pub index_memory: MemoryKind,
+    pub index_index: u16,
 }
 
 impl From<&Instruction> for SetList {
     fn from(instruction: &Instruction) -> Self {
-        let destination_list = instruction.a_field();
-        let source_operand = instruction.b_address();
-        let index = instruction.c_address();
-
         SetList {
-            destination_list,
-            source_operand,
-            index,
+            destination_list: instruction.a_field(),
+            element_type: instruction.operand_type(),
+            source_memory: instruction.b_memory(),
+            source_index: instruction.b_field(),
+            index_memory: instruction.c_memory(),
+            index_index: instruction.c_field(),
         }
     }
 }
 
 impl From<SetList> for Instruction {
     fn from(set_list: SetList) -> Self {
-        let operation = Operation::SET_LIST;
-        let a_field = set_list.destination_list;
-        let Address {
-            index: b_field,
-            memory: b_memory_kind,
-        } = set_list.source_operand;
-        let Address {
-            index: c_field,
-            memory: c_memory_kind,
-        } = set_list.index;
+        let SetList {
+            destination_list,
+            element_type,
+            source_memory,
+            source_index,
+            index_memory,
+            index_index,
+        } = set_list;
 
-        InstructionFields {
-            operation,
-            a_field,
-            b_field,
-            b_memory_kind,
-            c_field,
-            c_memory_kind,
-            ..Default::default()
-        }
-        .build()
+        InstructionBuilder::new(Operation::SET_LIST)
+            .a_field(destination_list)
+            .b_memory(source_memory)
+            .b_field(source_index)
+            .c_memory(index_memory)
+            .c_field(index_index)
+            .operand_type(element_type)
+            .build()
     }
 }
 
@@ -52,10 +50,18 @@ impl Display for SetList {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let SetList {
             destination_list,
-            source_operand,
-            index,
-        } = self;
+            element_type,
+            source_memory,
+            source_index,
+            index_memory,
+            index_index,
+        } = *self;
+        let source_memory = source_memory.as_string(element_type);
+        let index_memory = index_memory.as_string(OperandType::U_64);
 
-        write!(f, "reg_{destination_list}[{index}] = {source_operand}")
+        write!(
+            f,
+            "reg_{destination_list}[{index_memory}_{index_index}] = {source_memory}_{source_index}"
+        )
     }
 }

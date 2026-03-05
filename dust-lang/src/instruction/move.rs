@@ -1,50 +1,48 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, Operation, SmallType};
+use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, OperandType, Operation};
 
 pub struct Move {
     pub destination: u16,
-    pub operand_type: SmallType,
-    pub operand: Address,
-    pub secondary_index: u16,
+    pub operand_type: OperandType,
+    pub operand_memory: MemoryKind,
+    pub operand_index: u16,
+    pub jump_distance: u16,
+    pub jump_forward: bool,
 }
 
 impl From<&Instruction> for Move {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_field();
-        let operand_type = instruction.operand_type();
-        let operand = instruction.b_address();
-        let secondary_operand = instruction.c_field();
-
         Move {
-            destination,
-            operand_type,
-            operand,
-            secondary_index: secondary_operand,
+            destination: instruction.a_field(),
+            operand_type: instruction.operand_type(),
+            operand_memory: instruction.b_memory(),
+            operand_index: instruction.b_field(),
+            jump_distance: instruction.c_field(),
+            jump_forward: instruction.e_field(),
         }
     }
 }
 
 impl From<Move> for Instruction {
     fn from(r#move: Move) -> Self {
-        let a_field = r#move.destination;
-        let operand_type = r#move.operand_type;
-        let Address {
-            index: b_field,
-            memory: b_memory_kind,
-        } = r#move.operand;
-        let c_field = r#move.secondary_index;
-
-        InstructionFields {
-            operation: Operation::MOVE,
+        let Move {
+            destination,
             operand_type,
-            a_field,
-            b_field,
-            b_memory_kind,
-            c_field,
-            ..Default::default()
-        }
-        .build()
+            operand_memory,
+            operand_index,
+            jump_distance,
+            jump_forward,
+        } = r#move;
+
+        InstructionBuilder::new(Operation::MOVE)
+            .a_field(destination)
+            .b_memory(operand_memory)
+            .b_field(operand_index)
+            .c_field(jump_distance)
+            .e_field(jump_forward)
+            .operand_type(operand_type)
+            .build()
     }
 }
 
@@ -53,19 +51,19 @@ impl Display for Move {
         let Move {
             destination,
             operand_type,
-            operand,
-            secondary_index,
+            operand_memory,
+            operand_index,
+            jump_distance,
+            jump_forward,
         } = *self;
+        let operand_memory = operand_memory.as_string(operand_type);
 
-        write!(f, "reg_{destination}: {operand_type} = {operand}")?;
+        write!(f, "reg_{destination} = {operand_memory}_{operand_index}")?;
 
-        let memory_kind = operand.memory;
+        if jump_distance > 0 {
+            let direction = if jump_forward { "+" } else { "-" };
 
-        match operand_type {
-            SmallType::U_128 | SmallType::I_128 => write!(f, " & {memory_kind}_{secondary_index}")?,
-            SmallType::STRUCT => write!(f, "..={memory_kind}_{secondary_index}")?,
-            _ if secondary_index != 0 => write!(f, " JUMP +{secondary_index}")?,
-            _ => write!(f, " <invalid secondary operand>")?,
+            write!(f, " jump {direction}{jump_distance}")?;
         }
 
         Ok(())

@@ -7,13 +7,13 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::{dust_error::InternalError, instruction::SmallType};
+use crate::{dust_error::InternalError, instruction::OperandType};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ConstantTable {
     bytes: Vec<u8>,
     byte_indices: IndexMap<ConstantKey, u32, FxBuildHasher>,
-    tags: Vec<SmallType>,
+    tags: Vec<OperandType>,
     string_pool: String,
 }
 
@@ -42,7 +42,7 @@ impl ConstantTable {
     pub fn add_character(&mut self, character: char) -> ConstantId {
         let bytes = (character as u32).to_le_bytes();
 
-        self.add_bytes(&bytes, SmallType::CHARACTER)
+        self.add_bytes(&bytes, OperandType::CHARACTER)
     }
 
     pub fn get_character(&self, id: ConstantId) -> Result<char, InternalError> {
@@ -64,7 +64,7 @@ impl ConstantTable {
     pub fn add_u32(&mut self, integer: u32) -> ConstantId {
         let bytes = integer.to_le_bytes();
 
-        self.add_bytes(&bytes, SmallType::U_32)
+        self.add_bytes(&bytes, OperandType::U_32)
     }
 
     pub fn get_u32(&self, id: ConstantId) -> Result<u32, InternalError> {
@@ -85,7 +85,7 @@ impl ConstantTable {
     pub fn add_i32(&mut self, integer: i32) -> ConstantId {
         let bytes = integer.to_le_bytes();
 
-        self.add_bytes(&bytes, SmallType::I_32)
+        self.add_bytes(&bytes, OperandType::I_32)
     }
 
     pub fn get_i32(&self, id: ConstantId) -> Result<i32, InternalError> {
@@ -106,7 +106,7 @@ impl ConstantTable {
     pub fn add_u64(&mut self, integer: u64) -> ConstantId {
         let bytes = integer.to_le_bytes();
 
-        self.add_bytes(&bytes, SmallType::U_64)
+        self.add_bytes(&bytes, OperandType::U_64)
     }
 
     pub fn get_u64(&self, id: ConstantId) -> Result<u64, InternalError> {
@@ -129,7 +129,7 @@ impl ConstantTable {
     pub fn add_i64(&mut self, integer: i64) -> ConstantId {
         let bytes = integer.to_le_bytes();
 
-        self.add_bytes(&bytes, SmallType::I_64)
+        self.add_bytes(&bytes, OperandType::I_64)
     }
 
     pub fn get_i64(&self, id: ConstantId) -> Result<i64, InternalError> {
@@ -152,7 +152,7 @@ impl ConstantTable {
     pub fn add_u128(&mut self, integer: u128) -> ConstantId {
         let bytes = integer.to_le_bytes();
 
-        self.add_bytes(&bytes, SmallType::U_128)
+        self.add_bytes(&bytes, OperandType::U_128)
     }
 
     pub fn get_u128(&self, left_id: ConstantId) -> Result<u128, InternalError> {
@@ -176,7 +176,7 @@ impl ConstantTable {
     pub fn add_i128(&mut self, integer: i128) -> ConstantId {
         let bytes = integer.to_le_bytes();
 
-        self.add_bytes(&bytes, SmallType::I_128)
+        self.add_bytes(&bytes, OperandType::I_128)
     }
 
     pub fn get_i128(&self, left_id: ConstantId) -> Result<i128, InternalError> {
@@ -200,7 +200,7 @@ impl ConstantTable {
     pub fn add_f32(&mut self, float: f32) -> ConstantId {
         let bytes = float.to_bits().to_le_bytes();
 
-        self.add_bytes(&bytes, SmallType::F_32)
+        self.add_bytes(&bytes, OperandType::F_32)
     }
 
     pub fn get_f32(&self, id: ConstantId) -> Result<f32, InternalError> {
@@ -223,7 +223,7 @@ impl ConstantTable {
     pub fn add_f64(&mut self, float: f64) -> ConstantId {
         let bytes = float.to_bits().to_le_bytes();
 
-        self.add_bytes(&bytes, SmallType::F_64)
+        self.add_bytes(&bytes, OperandType::F_64)
     }
 
     pub fn get_f64(&self, id: ConstantId) -> Result<f64, InternalError> {
@@ -245,7 +245,7 @@ impl ConstantTable {
 
     pub fn add_string(&mut self, str: &str) -> ConstantId {
         let str_bytes = str.as_bytes();
-        let key = ConstantKey::new(str_bytes, SmallType::STRING);
+        let key = ConstantKey::new(str_bytes, OperandType::STRING);
 
         if let Some(existing) = self.byte_indices.get_index_of(&key) {
             ConstantId(existing as u16)
@@ -285,7 +285,7 @@ impl ConstantTable {
 
     pub fn push_str_to_string_pool(&mut self, str: &str) -> Result<(u32, u32), InternalError> {
         let bytes = str.as_bytes();
-        let key = ConstantKey::new(bytes, SmallType::STRING);
+        let key = ConstantKey::new(bytes, OperandType::STRING);
 
         if let Some(str_start) = self.byte_indices.get(&key) {
             let str_end = str_start + 8;
@@ -307,7 +307,7 @@ impl ConstantTable {
             let bytes = encoded_range.to_le_bytes();
 
             self.string_pool.push_str(str);
-            self.add_bytes(&bytes, SmallType::STRING);
+            self.add_bytes(&bytes, OperandType::STRING);
 
             Ok((start, end))
         }
@@ -317,7 +317,7 @@ impl ConstantTable {
         let bytes = self
             .get_string_pool_range(start as usize..end as usize)
             .as_bytes();
-        let key = ConstantKey::new(bytes, SmallType::STRING);
+        let key = ConstantKey::new(bytes, OperandType::STRING);
 
         if let Some(existing) = self.byte_indices.get_index_of(&key) {
             ConstantId(existing as u16)
@@ -325,7 +325,7 @@ impl ConstantTable {
             let encoded_range = (start as u64) << 32 | (end as u64);
             let bytes = encoded_range.to_le_bytes();
 
-            self.add_bytes(&bytes, SmallType::STRING)
+            self.add_bytes(&bytes, OperandType::STRING)
         }
     }
 
@@ -336,7 +336,7 @@ impl ConstantTable {
         }
     }
 
-    fn add_bytes(&mut self, bytes: &[u8], tag: SmallType) -> ConstantId {
+    fn add_bytes(&mut self, bytes: &[u8], tag: OperandType) -> ConstantId {
         let key = ConstantKey::new(bytes, tag);
         let next_byte = self.bytes.len() as u32;
         let (index, found) = self.byte_indices.insert_full(key, next_byte);
@@ -363,7 +363,7 @@ impl ConstantId {
 struct ConstantKey(u64);
 
 impl ConstantKey {
-    pub fn new(bytes: &[u8], tag: SmallType) -> Self {
+    pub fn new(bytes: &[u8], tag: OperandType) -> Self {
         let mut hasher = FxHasher::default();
 
         tag.hash(&mut hasher);
@@ -392,16 +392,16 @@ impl Iterator for ConstantTableDisplayIterator<'_> {
         let tag = self.table.tags[self.index];
         let id = ConstantId(self.index as u16);
         let value_string = match tag {
-            SmallType::CHARACTER => self.table.get_character(id).unwrap_or_default().to_string(),
-            SmallType::U_32 => self.table.get_u32(id).unwrap_or_default().to_string(),
-            SmallType::I_32 => self.table.get_i32(id).unwrap_or_default().to_string(),
-            SmallType::U_64 => self.table.get_u64(id).unwrap_or_default().to_string(),
-            SmallType::I_64 => self.table.get_i64(id).unwrap_or_default().to_string(),
-            SmallType::U_128 => self.table.get_u128(id).unwrap_or_default().to_string(),
-            SmallType::I_128 => self.table.get_i128(id).unwrap_or_default().to_string(),
-            SmallType::F_32 => self.table.get_f32(id).unwrap_or_default().to_string(),
-            SmallType::F_64 => self.table.get_f64(id).unwrap_or_default().to_string(),
-            SmallType::STRING => self.table.get_string(id).unwrap_or_default().to_string(),
+            OperandType::CHARACTER => self.table.get_character(id).unwrap_or_default().to_string(),
+            OperandType::U_32 => self.table.get_u32(id).unwrap_or_default().to_string(),
+            OperandType::I_32 => self.table.get_i32(id).unwrap_or_default().to_string(),
+            OperandType::U_64 => self.table.get_u64(id).unwrap_or_default().to_string(),
+            OperandType::I_64 => self.table.get_i64(id).unwrap_or_default().to_string(),
+            OperandType::U_128 => self.table.get_u128(id).unwrap_or_default().to_string(),
+            OperandType::I_128 => self.table.get_i128(id).unwrap_or_default().to_string(),
+            OperandType::F_32 => self.table.get_f32(id).unwrap_or_default().to_string(),
+            OperandType::F_64 => self.table.get_f64(id).unwrap_or_default().to_string(),
+            OperandType::STRING => self.table.get_string(id).unwrap_or_default().to_string(),
             _ => "Unknown constant type".to_string(),
         };
         let type_string = tag.to_string();

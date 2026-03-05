@@ -1,41 +1,36 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::Address;
-
-use super::{Instruction, InstructionFields, Operation};
+use crate::instruction::{Instruction, InstructionBuilder, OperandType, Operation};
 
 pub struct NewList {
     pub destination: u16,
-    pub initial_length: Address,
+    pub element_type: OperandType,
+    pub initial_length: u32,
 }
 
 impl From<&Instruction> for NewList {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_field();
-        let initial_length = instruction.b_address();
-
         NewList {
-            destination,
-            initial_length,
+            destination: instruction.a_field(),
+            element_type: instruction.operand_type(),
+            initial_length: instruction.bc_field(),
         }
     }
 }
 
 impl From<NewList> for Instruction {
     fn from(list: NewList) -> Self {
-        let operation = Operation::NEW_LIST;
-        let a_field = list.destination;
-        let b_field = list.initial_length.index;
-        let b_memory_kind = list.initial_length.memory;
+        let NewList {
+            destination,
+            element_type,
+            initial_length,
+        } = list;
 
-        InstructionFields {
-            operation,
-            a_field,
-            b_field,
-            b_memory_kind,
-            ..Default::default()
-        }
-        .build()
+        InstructionBuilder::new(Operation::NEW_LIST)
+            .a_field(destination)
+            .operand_type(element_type)
+            .bc_field(initial_length)
+            .build()
     }
 }
 
@@ -43,9 +38,10 @@ impl Display for NewList {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let NewList {
             destination,
+            element_type,
             initial_length,
         } = self;
 
-        write!(f, "reg_{destination} = [; {initial_length}]")
+        write!(f, "reg_{destination} = [{element_type}; {initial_length}]")
     }
 }

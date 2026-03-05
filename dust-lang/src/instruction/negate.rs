@@ -1,41 +1,40 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, Operation};
+use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, OperandType, Operation};
 
 pub struct Negate {
     pub destination: u16,
-    pub operand: Address,
+    pub operand_type: OperandType,
+    pub operand_memory: MemoryKind,
+    pub operand_index: u16,
 }
 
 impl From<&Instruction> for Negate {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_field();
-        let operand = instruction.b_address();
-
         Negate {
-            destination,
-            operand,
+            destination: instruction.a_field(),
+            operand_type: instruction.operand_type(),
+            operand_memory: instruction.b_memory(),
+            operand_index: instruction.b_field(),
         }
     }
 }
 
 impl From<Negate> for Instruction {
     fn from(negate: Negate) -> Self {
-        let operation = Operation::NEGATE;
-        let a_field = negate.destination;
-        let Address {
-            index: b_field,
-            memory: b_memory_kind,
-        } = negate.operand;
+        let Negate {
+            destination,
+            operand_type,
+            operand_memory,
+            operand_index,
+        } = negate;
 
-        InstructionFields {
-            operation,
-            a_field,
-            b_field,
-            b_memory_kind,
-            ..Default::default()
-        }
-        .build()
+        InstructionBuilder::new(Operation::NEGATE)
+            .a_field(destination)
+            .b_memory(operand_memory)
+            .b_field(operand_index)
+            .operand_type(operand_type)
+            .build()
     }
 }
 
@@ -43,9 +42,19 @@ impl Display for Negate {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Negate {
             destination,
-            operand,
-        } = self;
+            operand_type,
+            operand_memory,
+            operand_index,
+        } = *self;
+        let operator = match operand_type {
+            OperandType::BOOLEAN => "!",
+            _ => "-",
+        };
+        let operand_memory = operand_memory.as_string(operand_type);
 
-        write!(f, "reg_{destination} = -{operand}")
+        write!(
+            f,
+            "reg_{destination} = {operator}{operand_memory}_{operand_index}"
+        )
     }
 }

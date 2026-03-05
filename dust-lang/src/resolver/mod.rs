@@ -6,15 +6,13 @@ pub mod type_graph;
 use std::collections::{HashMap, HashSet};
 
 use rustc_hash::FxBuildHasher;
-use smallvec::{SmallVec, smallvec};
+use smallvec::SmallVec;
 
 use crate::{
     compiler::error::CompileError,
     dust_error::{ErrorKind, InternalError},
     dust_type::{DustFunctionType, DustStructType, DustType},
-    instruction::SmallType,
     native_function::NativeFunction,
-    register::RegisterClass,
     resolver::{
         declaration_graph::{
             Declaration, DeclarationGraph, DeclarationId, DeclarationKind, DeclarationMembers,
@@ -709,148 +707,6 @@ impl Resolver {
 
             self.get_full_type(type_id, source)
         })
-    }
-
-    pub fn get_small_type(
-        &self,
-        type_id: TypeId,
-        node: &SyntaxReader,
-    ) -> Result<SmallType, ErrorKind> {
-        match self.types.get_type(type_id)? {
-            TypeNode::Unit => Ok(SmallType::UNIT),
-            TypeNode::Boolean => Ok(SmallType::BOOLEAN),
-            TypeNode::Character => Ok(SmallType::CHARACTER),
-            TypeNode::String => Ok(SmallType::STRING),
-            TypeNode::U8 => Ok(SmallType::U_8),
-            TypeNode::I8 => Ok(SmallType::I_8),
-            TypeNode::U16 => Ok(SmallType::U_16),
-            TypeNode::I16 => Ok(SmallType::I_16),
-            TypeNode::U32 => Ok(SmallType::U_32),
-            TypeNode::I32 => Ok(SmallType::I_32),
-            TypeNode::U64 => Ok(SmallType::U_64),
-            TypeNode::I64 => Ok(SmallType::I_64),
-            TypeNode::U128 => Ok(SmallType::U_128),
-            TypeNode::I128 => Ok(SmallType::I_128),
-            TypeNode::F32 => Ok(SmallType::F_32),
-            TypeNode::F64 => Ok(SmallType::F_64),
-            TypeNode::List { element_type } => match *element_type {
-                TypeId::BOOLEAN => Ok(SmallType::LIST_BOOLEAN),
-                TypeId::CHARACTER => Ok(SmallType::LIST_CHARACTER),
-                TypeId::STRING => Ok(SmallType::LIST_STRING),
-                TypeId::U_8 => Ok(SmallType::LIST_U_8),
-                TypeId::I_8 => Ok(SmallType::LIST_I_8),
-                TypeId::U_16 => Ok(SmallType::LIST_U_16),
-                TypeId::I_16 => Ok(SmallType::LIST_I_16),
-                TypeId::U_32 => Ok(SmallType::LIST_U_32),
-                TypeId::I_32 => Ok(SmallType::LIST_I_32),
-                TypeId::U_64 => Ok(SmallType::LIST_U_64),
-                TypeId::I_64 => Ok(SmallType::LIST_I_64),
-                TypeId::U_128 => Ok(SmallType::LIST_U_128),
-                TypeId::I_128 => Ok(SmallType::LIST_I_128),
-                TypeId::F_32 => Ok(SmallType::LIST_F_32),
-                TypeId::F_64 => Ok(SmallType::LIST_F_64),
-                _ => {
-                    let element_operand_type = self.get_small_type(*element_type, node)?;
-
-                    match element_operand_type {
-                        SmallType::LIST_BOOLEAN
-                        | SmallType::LIST_CHARACTER
-                        | SmallType::LIST_STRING
-                        | SmallType::LIST_U_8
-                        | SmallType::LIST_I_8
-                        | SmallType::LIST_U_16
-                        | SmallType::LIST_I_16
-                        | SmallType::LIST_U_32
-                        | SmallType::LIST_I_32
-                        | SmallType::LIST_U_64
-                        | SmallType::LIST_I_64
-                        | SmallType::LIST_U_128
-                        | SmallType::LIST_I_128
-                        | SmallType::LIST_F_32
-                        | SmallType::LIST_F_64
-                        | SmallType::LIST_LIST
-                        | SmallType::LIST_FUNCTION => Ok(SmallType::LIST_LIST),
-                        _ => Err(ErrorKind::Compile(CompileError::CannotInferType {
-                            type_id,
-                            position: Some(node.position()),
-                        })),
-                    }
-                }
-            },
-            TypeNode::Function { .. } => Ok(SmallType::FUNCTION),
-            TypeNode::Struct { .. } => Ok(SmallType::STRUCT),
-            TypeNode::Inferred {
-                resolved: Some(inferred),
-                ..
-            } => self.get_small_type(*inferred, node),
-            TypeNode::Inferred { resolved: None, .. } | TypeNode::Enum { .. } => {
-                Err(ErrorKind::Compile(CompileError::CannotInferType {
-                    type_id,
-                    position: Some(node.position()),
-                }))
-            }
-        }
-    }
-
-    pub fn get_register_classes(
-        &self,
-        type_id: TypeId,
-        node: &SyntaxReader,
-    ) -> Result<SmallVec<[RegisterClass; 8]>, ErrorKind> {
-        match self.types.get_type(type_id)? {
-            TypeNode::Unit => Ok(SmallVec::new()),
-            TypeNode::Boolean
-            | TypeNode::U8
-            | TypeNode::I8
-            | TypeNode::U16
-            | TypeNode::I16
-            | TypeNode::U32
-            | TypeNode::I32
-            | TypeNode::Character
-            | TypeNode::Function { .. } => Ok(smallvec![RegisterClass::Integer32]),
-            TypeNode::U64 | TypeNode::I64 => Ok(smallvec![RegisterClass::Integer64]),
-            TypeNode::U128 | TypeNode::I128 => Ok(smallvec![
-                RegisterClass::Integer64,
-                RegisterClass::Integer64
-            ]),
-            TypeNode::F32 | TypeNode::F64 => Ok(smallvec![RegisterClass::Float64]),
-            TypeNode::Struct { declaration_id, .. } => {
-                let struct_declaration = self.declarations.get_declaration(*declaration_id)?;
-                let DeclarationKind::Type { members, .. } = struct_declaration.kind else {
-                    return Err(ErrorKind::Internal(InternalError::MissingDeclaration(
-                        *declaration_id,
-                    )));
-                };
-
-                let mut register_classes =
-                    SmallVec::<[RegisterClass; 8]>::with_capacity(members.count as usize);
-
-                for index in members.start..(members.start + members.count) {
-                    let field_declaration_id = self.declarations.get_declaration_member(index)?;
-                    let field_type_id = *self
-                        .declarations
-                        .get_declaration_type(field_declaration_id)?;
-                    let field_register_classes = self.get_register_classes(field_type_id, node)?;
-
-                    register_classes.extend(field_register_classes);
-                }
-
-                Ok(register_classes)
-            }
-            TypeNode::Enum { declaration_id, .. } => {
-                let type_id = self.declarations.get_declaration_type(declaration_id)?;
-
-                self.get_register_classes(*type_id, node)
-            }
-            TypeNode::String | TypeNode::List { .. } => Ok(smallvec![RegisterClass::Pointer]),
-            TypeNode::Inferred { resolved, .. } => match resolved {
-                Some(resolved) => self.get_register_classes(*resolved, node),
-                None => Err(ErrorKind::Compile(CompileError::CannotInferType {
-                    type_id,
-                    position: Some(node.position()),
-                })),
-            },
-        }
     }
 
     pub fn declaration_display_iterator<'a>(

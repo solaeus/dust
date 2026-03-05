@@ -20,13 +20,19 @@ pub enum RegisterClass {
     Pointer,
 }
 
+impl RegisterClass {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RegisterClass::Integer32 => "i32",
+            RegisterClass::Integer64 => "i64",
+            RegisterClass::Float64 => "f64",
+            RegisterClass::Pointer => "ptr",
+        }
+    }
+}
+
 impl Display for RegisterClass {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            RegisterClass::Integer32 => write!(f, "i32"),
-            RegisterClass::Integer64 => write!(f, "i64"),
-            RegisterClass::Float64 => write!(f, "f64"),
-            RegisterClass::Pointer => write!(f, "ptr"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }

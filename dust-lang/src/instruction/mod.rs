@@ -1,6 +1,5 @@
 //! The Dust instruction set.
 mod add;
-mod address;
 mod call;
 mod call_native;
 mod divide;
@@ -15,17 +14,15 @@ mod r#move;
 mod multiply;
 mod negate;
 mod new_list;
+mod operand_type;
 mod operation;
 mod power;
 mod r#return;
 mod set_list;
-mod small_type;
 mod subtract;
 mod test;
-mod to_string;
 
 pub use add::Add;
-pub use address::Address;
 pub use call::Call;
 pub use call_native::CallNative;
 pub use divide::Divide;
@@ -40,14 +37,13 @@ pub use r#move::Move;
 pub use multiply::Multiply;
 pub use negate::Negate;
 pub use new_list::NewList;
+pub use operand_type::OperandType;
 pub use operation::Operation;
 pub use power::Power;
 pub use r#return::Return;
 pub use set_list::SetList;
-pub use small_type::SmallType;
 pub use subtract::Subtract;
 pub use test::Test;
-pub use to_string::ToString;
 
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
@@ -63,12 +59,24 @@ use crate::native_function::NativeFunction;
 /// Bits    | Description
 /// ------- | -----------
 /// 0..=5   | Operation
-/// 6..=7   | B memory kind ━━━━━━━━━┓
-/// 8..=9   | C memory kind  ──────┐ ┃
-/// 10..=15 | Type or D field      │ ┃
-/// 16..=31 | A field              │ ┃
-/// 48..=63 | B field ━━━━━━━━━━━━━━━┻━ B address
-/// 32..=47 | C field ─────────────┴─── C address
+/// 6       | B memory kind
+/// 7       | C memory kind
+/// 8       | E field
+/// 9       | F field
+/// 10..=15 | Type or D field
+/// 16..=31 | A field
+/// 32..=47 | B field
+/// 48..=63 | C field
+///
+/// - Operation: The opcode of the instruction, which determines how the other fields are interpreted
+/// - A field: Usually the destination register index
+/// - B and C fields: Usually indices for source registers or constants
+/// - B and C memory kind: Whether the B and C fields refer to a register or a constant
+/// - Type: Used by most instructions to indicate the type of the operand(s)
+/// - D field: Used for CALL instructions to store the argument count
+/// - E field: Boolean flag used by MOVE instructions that also jump to indicate the direction
+/// - F field: Unused
+/// - BC field: Combined 32-bit field spanning the B and C fields
 #[derive(Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(C)]
 pub struct Instruction(u64);
@@ -82,20 +90,16 @@ impl Instruction {
         Operation(self.0 as u8 & 0x1F)
     }
 
-    pub fn operand_type(&self) -> SmallType {
-        SmallType(((self.0 >> 10) & 0x1F) as u8)
+    pub fn operand_type(&self) -> OperandType {
+        OperandType(((self.0 >> 10) & 0x1F) as u8)
     }
 
-    pub fn b_memory_kind(&self) -> MemoryKind {
+    pub fn b_memory(&self) -> MemoryKind {
         MemoryKind(((self.0 >> 7) & 0x3) as u8)
     }
 
-    pub fn c_memory_kind(&self) -> MemoryKind {
+    pub fn c_memory(&self) -> MemoryKind {
         MemoryKind(((self.0 >> 9) & 0x3) as u8)
-    }
-
-    pub fn d_field(&self) -> u16 {
-        ((self.0 >> 10) & 0x1F) as u16
     }
 
     pub fn a_field(&self) -> u16 {
@@ -110,30 +114,16 @@ impl Instruction {
         ((self.0 >> 48) & 0xFFFF) as u16
     }
 
-    pub fn b_address(&self) -> Address {
-        Address {
-            index: self.b_field(),
-            memory: self.b_memory_kind(),
-        }
+    pub fn d_field(&self) -> u16 {
+        ((self.0 >> 10) & 0x1F) as u16
     }
 
-    pub fn c_address(&self) -> Address {
-        Address {
-            index: self.c_field(),
-            memory: self.c_memory_kind(),
-        }
+    pub fn e_field(&self) -> bool {
+        ((self.0 >> 8) & 0x1) != 0
     }
 
-    pub fn set_b_field(&mut self, bits: u16) {
-        let mut fields = InstructionFields::from(&*self);
-        fields.b_field = bits;
-        *self = fields.build();
-    }
-
-    pub fn set_c_field(&mut self, bits: u16) {
-        let mut fields = InstructionFields::from(&*self);
-        fields.c_field = bits;
-        *self = fields.build();
+    pub fn bc_field(&self) -> u32 {
+        ((self.0 >> 32) & 0xFFFFFFFF) as u32
     }
 
     pub fn no_op() -> Instruction {
@@ -142,15 +132,35 @@ impl Instruction {
 
     pub fn r#move(
         destination: u16,
-        operand_type: SmallType,
-        operand: Address,
-        secondary_index: u16,
+        operand_type: OperandType,
+        operand_memory: MemoryKind,
+        operand_index: u16,
     ) -> Instruction {
         Instruction::from(Move {
             destination,
             operand_type,
-            operand,
-            secondary_index,
+            operand_memory,
+            operand_index,
+            jump_distance: 0,
+            jump_forward: false,
+        })
+    }
+
+    pub fn move_with_jump(
+        destination: u16,
+        operand_type: OperandType,
+        operand_memory: MemoryKind,
+        operand_index: u16,
+        jump_distance: u16,
+        jump_forward: bool,
+    ) -> Instruction {
+        Instruction::from(Move {
+            destination,
+            operand_type,
+            operand_memory,
+            operand_index,
+            jump_distance,
+            jump_forward,
         })
     }
 
@@ -161,113 +171,235 @@ impl Instruction {
         })
     }
 
-    pub fn new_list(destination: u16, initial_length: Address) -> Instruction {
+    pub fn new_list(destination: u16, list_type: OperandType, initial_length: u32) -> Instruction {
         Instruction::from(NewList {
             destination,
+            element_type: list_type,
             initial_length,
         })
     }
 
-    pub fn set_list(destination_list: u16, item_source: Address, index: Address) -> Instruction {
+    pub fn set_list(
+        destination_list: u16,
+        element_type: OperandType,
+        source_memory: MemoryKind,
+        source_index: u16,
+        index_memory: MemoryKind,
+        index_index: u16,
+    ) -> Instruction {
         Instruction::from(SetList {
             destination_list,
-            source_operand: item_source,
-            index,
+            element_type,
+            source_memory,
+            source_index,
+            index_memory,
+            index_index,
         })
     }
 
-    pub fn get_list(destination: u16, list: Address, list_index: Address) -> Instruction {
+    pub fn get_list(
+        destination: u16,
+        element_type: OperandType,
+        list_index: u16,
+        index_memory: MemoryKind,
+        index_index: u16,
+    ) -> Instruction {
         Instruction::from(GetList {
             destination,
-            list,
+            element_type,
             list_index,
+            index_memory,
+            index_index,
         })
     }
 
-    pub fn add(destination: u16, left: Address, right: Address) -> Instruction {
+    pub fn add(
+        destination: u16,
+        operand_type: OperandType,
+        left_memory: MemoryKind,
+        left_index: u16,
+        right_memory: MemoryKind,
+        right_index: u16,
+    ) -> Instruction {
         Instruction::from(Add {
             destination,
-            left,
-            right,
+            operand_type,
+            left_memory,
+            left_index,
+            right_memory,
+            right_index,
         })
     }
 
-    pub fn subtract(destination: u16, left: Address, right: Address) -> Instruction {
+    pub fn subtract(
+        destination: u16,
+        operand_type: OperandType,
+        left_memory: MemoryKind,
+        left_index: u16,
+        right_memory: MemoryKind,
+        right_index: u16,
+    ) -> Instruction {
         Instruction::from(Subtract {
             destination,
-            left,
-            right,
+            operand_type,
+            left_memory,
+            left_index,
+            right_memory,
+            right_index,
         })
     }
 
-    pub fn multiply(destination: u16, left: Address, right: Address) -> Instruction {
+    pub fn multiply(
+        destination: u16,
+        operand_type: OperandType,
+        left_memory: MemoryKind,
+        left_index: u16,
+        right_memory: MemoryKind,
+        right_index: u16,
+    ) -> Instruction {
         Instruction::from(Multiply {
             destination,
-            left,
-            right,
+            operand_type,
+            left_memory,
+            left_index,
+            right_memory,
+            right_index,
         })
     }
 
-    pub fn divide(destination: u16, left: Address, right: Address) -> Instruction {
+    pub fn divide(
+        destination: u16,
+        operand_type: OperandType,
+        left_memory: MemoryKind,
+        left_index: u16,
+        right_memory: MemoryKind,
+        right_index: u16,
+    ) -> Instruction {
         Instruction::from(Divide {
             destination,
-            left,
-            right,
+            operand_type,
+            left_memory,
+            left_index,
+            right_memory,
+            right_index,
         })
     }
 
-    pub fn modulo(destination: u16, left: Address, right: Address) -> Instruction {
+    pub fn modulo(
+        destination: u16,
+        operand_type: OperandType,
+        left_memory: MemoryKind,
+        left_index: u16,
+        right_memory: MemoryKind,
+        right_index: u16,
+    ) -> Instruction {
         Instruction::from(Modulo {
             destination,
-            left,
-            right,
+            operand_type,
+            left_memory,
+            left_index,
+            right_memory,
+            right_index,
         })
     }
 
-    pub fn power(destination: u16, base: Address, exponent: Address) -> Instruction {
+    pub fn power(
+        destination: u16,
+        operand_type: OperandType,
+        base_memory: MemoryKind,
+        base_index: u16,
+        exponent_memory: MemoryKind,
+        exponent_index: u16,
+    ) -> Instruction {
         Instruction::from(Power {
             destination,
-            base,
-            exponent,
+            operand_type,
+            base_memory,
+            base_index,
+            exponent_memory,
+            exponent_index,
         })
     }
 
-    pub fn equal(comparator: bool, left: Address, right: Address) -> Instruction {
+    pub fn equal(
+        comparator: bool,
+        operand_type: OperandType,
+        left_memory: MemoryKind,
+        left_index: u16,
+        right_memory: MemoryKind,
+        right_index: u16,
+    ) -> Instruction {
         Instruction::from(Equal {
             comparator,
-            left,
-            right,
+            operand_type,
+            left_memory,
+            left_index,
+            right_memory,
+            right_index,
         })
     }
 
-    pub fn less(comparator: bool, left: Address, right: Address) -> Instruction {
+    pub fn less(
+        comparator: bool,
+        operand_type: OperandType,
+        left_memory: MemoryKind,
+        left_index: u16,
+        right_memory: MemoryKind,
+        right_index: u16,
+    ) -> Instruction {
         Instruction::from(Less {
             comparator,
-            left,
-            right,
+            operand_type,
+            left_memory,
+            left_index,
+            right_memory,
+            right_index,
         })
     }
 
-    pub fn less_equal(comparator: bool, left: Address, right: Address) -> Instruction {
+    pub fn less_equal(
+        comparator: bool,
+        operand_type: OperandType,
+        left_memory: MemoryKind,
+        left_index: u16,
+        right_memory: MemoryKind,
+        right_index: u16,
+    ) -> Instruction {
         Instruction::from(LessEqual {
             comparator,
-            left,
-            right,
+            operand_type,
+            left_memory,
+            left_index,
+            right_memory,
+            right_index,
         })
     }
 
-    pub fn test(operand: Address, comparator: bool, jump_distance: u16) -> Instruction {
+    pub fn test(
+        comparator: bool,
+        operand_memory: MemoryKind,
+        operand_index: u16,
+        jump_distance: u16,
+    ) -> Instruction {
         Instruction::from(Test {
-            operand,
             comparator,
+            operand_memory,
+            operand_index,
             jump_distance,
         })
     }
 
-    pub fn negate(destination: u16, operand: Address) -> Instruction {
+    pub fn negate(
+        destination: u16,
+        operand_type: OperandType,
+        operand_memory: MemoryKind,
+        operand_index: u16,
+    ) -> Instruction {
         Instruction::from(Negate {
             destination,
-            operand,
+            operand_type,
+            operand_memory,
+            operand_index,
         })
     }
 
@@ -296,15 +428,17 @@ impl Instruction {
 
     pub fn call(
         destination: Option<u16>,
-        callee: Address,
+        callee_memory: MemoryKind,
+        callee_index: u16,
         arguments_start: u16,
         argument_count: u16,
     ) -> Instruction {
         Instruction::from(Call {
-            destination: destination.unwrap_or(u16::MAX),
-            callee,
+            destination,
             arguments_start,
             argument_count,
+            callee_memory,
+            callee_index,
         })
     }
 
@@ -312,36 +446,44 @@ impl Instruction {
         destination: u16,
         function: NativeFunction,
         arguments_start: u16,
+        argument_count: u16,
     ) -> Instruction {
         Instruction::from(CallNative {
             destination,
             function_id: function.id,
             arguments_start,
+            argument_count,
         })
     }
 
     pub fn r#return(
-        operand_type: SmallType,
-        operand: Address,
-        secondary_index: u16,
+        returns_value: bool,
+        operand_type: OperandType,
+        operand_memory: MemoryKind,
+        operand_index: u16,
+        additional_registers: u16,
     ) -> Instruction {
         Instruction::from(Return {
+            returns_value,
             operand_type,
-            operand,
-            secondary_index,
-        })
-    }
-
-    pub fn to_string(destination: u16, operand: Address) -> Instruction {
-        Instruction::from(ToString {
-            destination,
-            operand,
+            operand_memory,
+            operand_index,
+            additional_registers,
         })
     }
 
     pub fn is_coallescible_with_jump(&self, forward: bool) -> bool {
         match self.operation() {
             Operation::DROP => true,
+            Operation::MOVE => {
+                let Move {
+                    jump_distance,
+                    jump_forward,
+                    ..
+                } = Move::from(self);
+
+                jump_distance == 0 || forward == jump_forward
+            }
             Operation::TEST => {
                 let Test { jump_distance, .. } = Test::from(self);
 
@@ -376,7 +518,6 @@ impl Instruction {
             Operation::CALL_NATIVE => CallNative::from(self).to_string(),
             Operation::JUMP => Jump::from(self).to_string(),
             Operation::RETURN => Return::from(self).to_string(),
-            Operation::TO_STRING => ToString::from(self).to_string(),
             unknown => format!("Unknown operation: {}", unknown.0),
         }
     }
@@ -394,47 +535,130 @@ impl Display for Instruction {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct InstructionFields {
-    pub operation: Operation,
-    pub operand_type: SmallType,
-    pub b_memory_kind: MemoryKind,
-    pub c_memory_kind: MemoryKind,
-    pub d_field: u16,
-    pub a_field: u16,
-    pub b_field: u16,
-    pub c_field: u16,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InstructionBuilder {
+    operation: Operation,
+    b_memory: Option<MemoryKind>,
+    c_memory: Option<MemoryKind>,
+    operand_type: Option<OperandType>,
+    d_field: Option<u16>,
+    e_field: Option<bool>,
+    a_field: Option<u16>,
+    b_field: Option<u16>,
+    c_field: Option<u16>,
+    bc_field: Option<u32>,
 }
 
-impl InstructionFields {
-    pub fn build(self) -> Instruction {
-        let mut bits = 0_u64;
+impl InstructionBuilder {
+    pub fn new(operation: Operation) -> Self {
+        Self {
+            operation,
+            b_memory: None,
+            c_memory: None,
+            operand_type: None,
+            d_field: None,
+            e_field: None,
+            a_field: None,
+            b_field: None,
+            c_field: None,
+            bc_field: None,
+        }
+    }
 
-        bits |= (self.operation.0 as u64) & 0x1F;
-        bits |= ((self.b_memory_kind.0 as u64) & 0x3) << 7;
-        bits |= ((self.c_memory_kind.0 as u64) & 0x3) << 9;
-        bits |= (self.d_field as u64 & 0x1F) << 10;
-        bits |= (self.operand_type.0 as u64 & 0x1F) << 10;
-        bits |= (self.a_field as u64 & 0xFFFF) << 16;
-        bits |= (self.b_field as u64 & 0xFFFF) << 32;
-        bits |= (self.c_field as u64 & 0xFFFF) << 48;
+    pub fn b_memory(mut self, memory: MemoryKind) -> Self {
+        self.b_memory = Some(memory);
+
+        self
+    }
+
+    pub fn c_memory(mut self, memory: MemoryKind) -> Self {
+        self.c_memory = Some(memory);
+
+        self
+    }
+
+    pub fn operand_type(mut self, operand_type: OperandType) -> Self {
+        self.operand_type = Some(operand_type);
+
+        self
+    }
+
+    pub fn d_field(mut self, d_field: u16) -> Self {
+        self.d_field = Some(d_field);
+
+        self
+    }
+
+    pub fn e_field(mut self, e_field: bool) -> Self {
+        self.e_field = Some(e_field);
+
+        self
+    }
+
+    pub fn a_field(mut self, a_field: u16) -> Self {
+        self.a_field = Some(a_field);
+
+        self
+    }
+
+    pub fn b_field(mut self, b_field: u16) -> Self {
+        self.b_field = Some(b_field);
+
+        self
+    }
+
+    pub fn c_field(mut self, c_field: u16) -> Self {
+        self.c_field = Some(c_field);
+
+        self
+    }
+
+    pub fn bc_field(mut self, bc_field: u32) -> Self {
+        self.bc_field = Some(bc_field);
+
+        self
+    }
+
+    pub fn build(self) -> Instruction {
+        let mut bits = self.operation.0 as u64;
+
+        if let Some(b_memory) = self.b_memory {
+            bits |= ((b_memory.0 as u64) & 0x3) << 7;
+        }
+
+        if let Some(c_memory) = self.c_memory {
+            bits |= ((c_memory.0 as u64) & 0x3) << 9;
+        }
+
+        if let Some(operand_type) = self.operand_type {
+            bits |= ((operand_type.0 as u64) & 0x1F) << 10;
+        }
+
+        if let Some(d_field) = self.d_field {
+            bits |= ((d_field as u64) & 0x1F) << 10;
+        }
+
+        if let Some(e_field) = self.e_field {
+            bits |= ((e_field as u64) & 0x1) << 8;
+        }
+
+        if let Some(a_field) = self.a_field {
+            bits |= ((a_field as u64) & 0xFFFF) << 16;
+        }
+
+        if let Some(b_field) = self.b_field {
+            bits |= ((b_field as u64) & 0xFFFF) << 32;
+        }
+
+        if let Some(c_field) = self.c_field {
+            bits |= ((c_field as u64) & 0xFFFF) << 48;
+        }
+
+        if let Some(bc_field) = self.bc_field {
+            bits |= ((bc_field as u64) & 0xFFFFFFFF) << 32;
+        }
 
         Instruction(bits)
-    }
-}
-
-impl From<&Instruction> for InstructionFields {
-    fn from(instruction: &Instruction) -> Self {
-        InstructionFields {
-            operation: instruction.operation(),
-            operand_type: instruction.operand_type(),
-            b_memory_kind: instruction.b_memory_kind(),
-            c_memory_kind: instruction.c_memory_kind(),
-            d_field: instruction.d_field(),
-            a_field: instruction.a_field(),
-            b_field: instruction.b_field(),
-            c_field: instruction.c_field(),
-        }
     }
 }
 
@@ -446,29 +670,22 @@ pub struct MemoryKind(pub u8);
 impl MemoryKind {
     pub const REGISTER: MemoryKind = MemoryKind(0);
     pub const CONSTANT: MemoryKind = MemoryKind(1);
-    pub const PROTOTYPE: MemoryKind = MemoryKind(2);
-    pub const COMPOUND: MemoryKind = MemoryKind(3);
 
-    pub fn display(&self, r#type: SmallType) -> &'static str {
-        match *self {
-            Self::REGISTER => "reg",
-            Self::CONSTANT => "const",
-            Self::PROTOTYPE => "proto",
-            Self::COMPOUND if matches!(r#type, SmallType::U_128 | SmallType::I_128) => "& ",
-            Self::COMPOUND if r#type == SmallType::STRUCT => "..=",
-            _ => "invalid",
-        }
-    }
-}
+    pub fn as_string(&self, r#type: OperandType) -> String {
+        let register_class = r#type.register_class().as_str();
 
-impl Display for MemoryKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
-            Self::REGISTER => write!(f, "reg"),
-            Self::CONSTANT => write!(f, "const"),
-            Self::PROTOTYPE => write!(f, "proto"),
-            Self::COMPOUND => write!(f, " ..="),
-            _ => write!(f, "invalid"),
+            Self::REGISTER => format!("reg_{register_class}"),
+            Self::CONSTANT => match r#type {
+                OperandType::BOOLEAN
+                | OperandType::U_8
+                | OperandType::I_8
+                | OperandType::U_16
+                | OperandType::I_16 => "enc".to_string(),
+                OperandType::FUNCTION => "func".to_string(),
+                _ => "const".to_string(),
+            },
+            _ => "invalid".to_string(),
         }
     }
 }
@@ -477,7 +694,7 @@ impl Display for MemoryKind {
 pub struct CallArgument {
     pub index: u16,
     pub memory: MemoryKind,
-    pub r#type: SmallType,
+    pub r#type: OperandType,
 }
 
 #[cfg(test)]
@@ -485,7 +702,7 @@ mod tests {
     use super::*;
 
     fn create_instruction() -> Instruction {
-        Instruction::r#move(42, SmallType::U_128, Address::constant(42), 42)
+        Instruction::move_with_jump(42, OperandType::U_128, MemoryKind::CONSTANT, 666, 10, true)
     }
 
     #[test]
@@ -499,14 +716,21 @@ mod tests {
     fn decode_b_memory() {
         let instruction = create_instruction();
 
-        assert_eq!(instruction.b_memory_kind(), MemoryKind::CONSTANT);
+        assert_eq!(instruction.b_memory(), MemoryKind::CONSTANT);
     }
 
     #[test]
     fn decode_c_memory() {
-        let instruction = Instruction::add(42, Address::constant(1), Address::constant(2));
+        let instruction = Instruction::add(
+            42,
+            OperandType::F_64,
+            MemoryKind::CONSTANT,
+            1,
+            MemoryKind::CONSTANT,
+            2,
+        );
 
-        assert_eq!(instruction.c_memory_kind(), MemoryKind::CONSTANT);
+        assert_eq!(instruction.c_memory(), MemoryKind::CONSTANT);
     }
 
     #[test]
@@ -532,7 +756,7 @@ mod tests {
 
     #[test]
     fn decode_d_field() {
-        let instruction = Instruction::call(None, Address::register(666), 30, 16);
+        let instruction = Instruction::call(None, MemoryKind::REGISTER, 666, 30, 16);
 
         assert_eq!(instruction.d_field(), 16);
     }

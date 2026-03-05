@@ -13,7 +13,6 @@ use ratatui::{
 use tracing::error;
 
 use crate::{
-    instruction::Address,
     program::Program,
     prototype::Prototype,
     resolver::Resolver,
@@ -288,9 +287,12 @@ impl<'a> Disassembler<'a> {
             .render(prototype_area, buffer);
 
         Paragraph::new(format!(
-            "{} instructions, {} registers",
+            "{} instructions, {} i32 registers, {} i64 registers, {} f64 registers, {} pointer registers",
             prototype.instructions.len(),
-            prototype.register_count,
+            prototype.i32_register_count,
+            prototype.i64_register_count,
+            prototype.f64_register_count,
+            prototype.pointer_register_count,
         ))
         .centered()
         .wrap(Wrap { trim: true })
@@ -370,12 +372,13 @@ impl<'a> Disassembler<'a> {
                 .enumerate()
                 .map(|(index, call_argument)| {
                     let r#type = call_argument.r#type;
-                    let address = Address {
-                        index: call_argument.index,
-                        memory: call_argument.memory,
-                    };
+                    let argument_memory = call_argument.memory.as_string(r#type);
+                    let argument_index = call_argument.index;
 
-                    [index.to_string(), format!("{type} @ {address}")]
+                    [
+                        index.to_string(),
+                        format!("{type} @ {argument_memory}_{argument_index}"),
+                    ]
                 })
                 .collect::<Vec<_>>();
             let selected_row =

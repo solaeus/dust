@@ -1,50 +1,48 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::{Address, Instruction, InstructionFields, Operation};
+use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, OperandType, Operation};
 
 pub struct Power {
     pub destination: u16,
-    pub base: Address,
-    pub exponent: Address,
+    pub operand_type: OperandType,
+    pub base_memory: MemoryKind,
+    pub base_index: u16,
+    pub exponent_memory: MemoryKind,
+    pub exponent_index: u16,
 }
 
 impl From<&Instruction> for Power {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_field();
-        let base = instruction.b_address();
-        let exponent = instruction.c_address();
-
         Power {
-            destination,
-            base,
-            exponent,
+            destination: instruction.a_field(),
+            operand_type: instruction.operand_type(),
+            base_memory: instruction.b_memory(),
+            base_index: instruction.b_field(),
+            exponent_memory: instruction.c_memory(),
+            exponent_index: instruction.c_field(),
         }
     }
 }
 
 impl From<Power> for Instruction {
     fn from(power: Power) -> Self {
-        let operation = Operation::POWER;
-        let a_field = power.destination;
-        let Address {
-            index: b_field,
-            memory: b_memory_kind,
-        } = power.base;
-        let Address {
-            index: c_field,
-            memory: c_memory_kind,
-        } = power.exponent;
+        let Power {
+            destination,
+            operand_type,
+            base_memory,
+            base_index,
+            exponent_memory,
+            exponent_index,
+        } = power;
 
-        InstructionFields {
-            operation,
-            a_field,
-            b_field,
-            b_memory_kind,
-            c_field,
-            c_memory_kind,
-            ..Default::default()
-        }
-        .build()
+        InstructionBuilder::new(Operation::POWER)
+            .a_field(destination)
+            .operand_type(operand_type)
+            .b_memory(base_memory)
+            .b_field(base_index)
+            .c_memory(exponent_memory)
+            .c_field(exponent_index)
+            .build()
     }
 }
 
@@ -52,10 +50,18 @@ impl Display for Power {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Power {
             destination,
-            base,
-            exponent,
-        } = self;
+            operand_type,
+            base_memory,
+            base_index,
+            exponent_memory,
+            exponent_index,
+        } = *self;
+        let base_memory = base_memory.as_string(operand_type);
+        let exponent_memory = exponent_memory.as_string(operand_type);
 
-        write!(f, "reg_{destination} = {base}^{exponent}")
+        write!(
+            f,
+            "reg_{destination} = {base_memory}_{base_index} ^ {exponent_memory}_{exponent_index}"
+        )
     }
 }

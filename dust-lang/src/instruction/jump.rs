@@ -1,8 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::MemoryKind;
-
-use super::{Instruction, InstructionFields, Operation};
+use crate::instruction::{Instruction, InstructionBuilder, Operation};
 
 pub struct Jump {
     pub offset: u16,
@@ -15,7 +13,7 @@ impl From<&Instruction> for Jump {
     fn from(instruction: &Instruction) -> Self {
         Jump {
             offset: instruction.a_field(),
-            is_positive: instruction.b_memory_kind().0 != 0,
+            is_positive: instruction.e_field(),
             drop_list_start: instruction.b_field(),
             drop_list_end: instruction.c_field(),
         }
@@ -24,21 +22,19 @@ impl From<&Instruction> for Jump {
 
 impl From<Jump> for Instruction {
     fn from(jump: Jump) -> Self {
-        let operation = Operation::JUMP;
-        let a_field = jump.offset;
-        let b_memory_kind = MemoryKind(jump.is_positive as u8);
-        let b_field = jump.drop_list_start;
-        let c_field = jump.drop_list_end;
+        let Jump {
+            offset,
+            is_positive,
+            drop_list_start,
+            drop_list_end,
+        } = jump;
 
-        InstructionFields {
-            operation,
-            a_field,
-            b_field,
-            b_memory_kind,
-            c_field,
-            ..Default::default()
-        }
-        .build()
+        InstructionBuilder::new(Operation::JUMP)
+            .a_field(offset)
+            .e_field(is_positive)
+            .b_field(drop_list_start)
+            .c_field(drop_list_end)
+            .build()
     }
 }
 

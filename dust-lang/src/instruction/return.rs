@@ -1,70 +1,68 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::SmallType;
-
-use super::{Address, Instruction, InstructionFields, Operation};
+use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, OperandType, Operation};
 
 pub struct Return {
-    pub operand_type: SmallType,
-    pub operand: Address,
-    pub secondary_index: u16,
+    pub returns_value: bool,
+    pub operand_type: OperandType,
+    pub operand_memory: MemoryKind,
+    pub operand_index: u16,
+    pub additional_registers: u16,
 }
 
 impl From<&Instruction> for Return {
     fn from(instruction: &Instruction) -> Self {
-        let operand_type = instruction.operand_type();
-        let operand = instruction.b_address();
-        let secondary_index = instruction.c_field();
-
         Return {
-            operand_type,
-            operand,
-            secondary_index,
+            returns_value: instruction.a_field() != 0,
+            operand_type: instruction.operand_type(),
+            operand_memory: instruction.b_memory(),
+            operand_index: instruction.b_field(),
+            additional_registers: instruction.c_field(),
         }
     }
 }
 
 impl From<Return> for Instruction {
     fn from(r#return: Return) -> Self {
-        let operation = Operation::RETURN;
-        let Address {
-            index: b_field,
-            memory: b_memory_kind,
-        } = r#return.operand;
-        let c_field = r#return.secondary_index;
+        let Return {
+            returns_value,
+            operand_type,
+            operand_memory,
+            operand_index,
+            additional_registers,
+        } = r#return;
 
-        InstructionFields {
-            operation,
-            b_field,
-            b_memory_kind,
-            c_field,
-            ..Default::default()
-        }
-        .build()
+        InstructionBuilder::new(Operation::RETURN)
+            .operand_type(operand_type)
+            .a_field(returns_value as u16)
+            .b_memory(operand_memory)
+            .b_field(operand_index)
+            .c_field(additional_registers)
+            .build()
     }
 }
 
 impl Display for Return {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Return {
+            returns_value,
             operand_type,
-            operand,
-            secondary_index,
+            operand_memory,
+            operand_index,
+            additional_registers,
         } = *self;
+        let operand_memory = operand_memory.as_string(operand_type);
 
         write!(f, "return")?;
 
-        if operand_type != SmallType::UNIT {
-            write!(f, " {operand}")?;
-        }
+        if returns_value {
+            write!(f, " {operand_memory}_{operand_index}")?;
 
-        let memory_kind = operand.memory;
+            if additional_registers > 0 {
+                let last_register = operand_index + additional_registers;
 
-        match operand_type {
-            SmallType::U_128 | SmallType::I_128 => write!(f, " & {memory_kind}_{secondary_index}")?,
-            SmallType::STRUCT => write!(f, "..={memory_kind}_{secondary_index}")?,
-            _ if secondary_index != 0 => write!(f, " JUMP +{secondary_index}")?,
-            _ => write!(f, " <invalid secondary operand>")?,
+                write!(f, "..=reg_{last_register}")?;
+            }
         }
 
         Ok(())

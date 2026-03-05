@@ -1,50 +1,44 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Address, Instruction, InstructionFields, Operation};
+use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, OperandType, Operation};
 
 pub struct GetList {
     pub destination: u16,
-    pub list: Address,
-    pub list_index: Address,
+    pub element_type: OperandType,
+    pub list_index: u16,
+    pub index_memory: MemoryKind,
+    pub index_index: u16,
 }
 
 impl From<&Instruction> for GetList {
     fn from(instruction: &Instruction) -> Self {
-        let destination = instruction.a_field();
-        let item_source = instruction.b_address();
-        let list_index = instruction.c_address();
-
         GetList {
-            destination,
-            list: item_source,
-            list_index,
+            destination: instruction.a_field(),
+            element_type: instruction.operand_type(),
+            list_index: instruction.b_field(),
+            index_memory: instruction.c_memory(),
+            index_index: instruction.c_field(),
         }
     }
 }
 
 impl From<GetList> for Instruction {
     fn from(set_list: GetList) -> Self {
-        let operation = Operation::GET_LIST;
-        let a_field = set_list.destination;
-        let Address {
-            index: b_field,
-            memory: b_memory_kind,
-        } = set_list.list;
-        let Address {
-            index: c_field,
-            memory: c_memory_kind,
-        } = set_list.list_index;
+        let GetList {
+            destination,
+            element_type,
+            list_index,
+            index_memory,
+            index_index,
+        } = set_list;
 
-        InstructionFields {
-            operation,
-            a_field,
-            b_field,
-            b_memory_kind,
-            c_field,
-            c_memory_kind,
-            ..Default::default()
-        }
-        .build()
+        InstructionBuilder::new(Operation::GET_LIST)
+            .a_field(destination)
+            .b_field(list_index)
+            .c_memory(index_memory)
+            .c_field(index_index)
+            .operand_type(element_type)
+            .build()
     }
 }
 
@@ -52,10 +46,16 @@ impl Display for GetList {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let GetList {
             destination,
-            list,
+            element_type: _,
             list_index,
-        } = self;
+            index_memory,
+            index_index,
+        } = *self;
+        let index_memory = index_memory.as_string(OperandType::U_64);
 
-        write!(f, "reg_{destination} = {list}[{list_index}]")
+        write!(
+            f,
+            "reg_{destination} = reg_{list_index}[{index_memory}_{index_index}]"
+        )
     }
 }

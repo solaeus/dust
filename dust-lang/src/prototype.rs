@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     dust_type::DustType,
-    instruction::{Address, Call, CallArgument, Instruction, MemoryKind, Operation},
+    instruction::{CallArgument, Instruction},
 };
 
 /// Compiled representation of a Dust function.
@@ -28,7 +28,10 @@ pub struct Prototype {
     pub(crate) call_arguments: Vec<CallArgument>,
     pub(crate) drops: Vec<u16>,
     pub(crate) return_type: DustType,
-    pub(crate) register_count: u16,
+    pub(crate) i32_register_count: u16,
+    pub(crate) i64_register_count: u16,
+    pub(crate) f64_register_count: u16,
+    pub(crate) pointer_register_count: u16,
 }
 
 impl Prototype {
@@ -38,7 +41,10 @@ impl Prototype {
             call_arguments: Vec::new(),
             drops: Vec::new(),
             return_type: DustType::Unit,
-            register_count: 0,
+            i32_register_count: 0,
+            i64_register_count: 0,
+            f64_register_count: 0,
+            pointer_register_count: 0,
         }
     }
 }
@@ -92,128 +98,6 @@ impl PrototypeList {
 
         self.prototypes[id.0 as usize] = prototype;
     }
-
-    // https://en.wikipedia.org/wiki/Tarjan's_strongly_connected_components_algorithm
-    pub fn get_compile_info(&self) -> PrototypeCompileInfo {
-        struct Tarjan<'a> {
-            compile_order: Vec<PrototypeId>,
-            edges: &'a [HashSet<PrototypeId, FxBuildHasher>],
-            index_counter: usize,
-            call_stack: Vec<PrototypeId>,
-            on_stack: Vec<bool>,
-            indices: Vec<usize>,
-            lowlinks: Vec<usize>,
-            scc_id: Vec<usize>,
-            scc_count: usize,
-        }
-
-        impl Tarjan<'_> {
-            fn visit(&mut self, current: PrototypeId) {
-                let current_index = current.0 as usize;
-
-                self.indices[current_index] = self.index_counter;
-                self.lowlinks[current_index] = self.index_counter;
-                self.index_counter += 1;
-                self.on_stack[current_index] = true;
-
-                self.call_stack.push(current);
-
-                for neighbor in &self.edges[current_index] {
-                    let neighbor_index = neighbor.0 as usize;
-                    let index_is_empty = self.indices[neighbor_index] == usize::MAX;
-
-                    if index_is_empty {
-                        self.visit(*neighbor);
-
-                        let lower_lowlink =
-                            self.lowlinks[current_index].min(self.lowlinks[neighbor_index]);
-
-                        self.lowlinks[current_index] = lower_lowlink;
-
-                        continue;
-                    }
-
-                    let neighbor_on_stack = self.on_stack[neighbor_index];
-
-                    if neighbor_on_stack {
-                        let lower_index =
-                            self.lowlinks[current_index].min(self.indices[neighbor_index]);
-
-                        self.lowlinks[current_index] = lower_index;
-                    }
-                }
-
-                if self.lowlinks[current_index] == self.indices[current_index] {
-                    while let Some(top) = self.call_stack.pop() {
-                        let top_index = top.0 as usize;
-
-                        self.on_stack[top_index] = false;
-                        self.scc_id[top_index] = self.scc_count;
-                        self.compile_order.push(top);
-                        if top_index == current_index {
-                            break;
-                        }
-                    }
-                    self.scc_count += 1;
-                }
-            }
-        }
-
-        let prototype_count = self.prototypes.len();
-        let mut edges = vec![HashSet::default(); prototype_count];
-        let mut argument_counts = vec![0; prototype_count];
-
-        for (caller_index, prototype) in self.prototypes.iter().enumerate() {
-            for instruction in &prototype.instructions {
-                if instruction.operation() == Operation::CALL {
-                    let Call {
-                        callee,
-                        argument_count,
-                        ..
-                    } = Call::from(instruction);
-
-                    let callee_id = PrototypeId(callee.index);
-
-                    edges[caller_index].insert(callee_id);
-                    argument_counts[caller_index] = argument_count;
-                }
-            }
-        }
-
-        let mut tarjan = Tarjan {
-            edges: &edges,
-            index_counter: 0,
-            call_stack: Vec::new(),
-            on_stack: vec![false; prototype_count],
-            indices: vec![usize::MAX; prototype_count],
-            lowlinks: vec![usize::MAX; prototype_count],
-            scc_id: vec![usize::MAX; prototype_count],
-            scc_count: 0,
-            compile_order: Vec::with_capacity(prototype_count),
-        };
-
-        tarjan.visit(PrototypeId::MAIN);
-
-        let mut recursive_calls = HashSet::default();
-
-        for (caller_index, callees) in edges.iter().enumerate() {
-            for &callee in callees {
-                let callee_index = callee.0 as usize;
-
-                if tarjan.scc_id[caller_index] == tarjan.scc_id[callee_index] {
-                    let caller = PrototypeId(caller_index as u16);
-
-                    recursive_calls.insert((caller.0, callee.0));
-                }
-            }
-        }
-
-        PrototypeCompileInfo {
-            compile_order: tarjan.compile_order,
-            argument_counts,
-            recursive_calls,
-        }
-    }
 }
 
 pub struct PrototypeCompileInfo {
@@ -258,14 +142,6 @@ pub struct PrototypeId(#[cfg(test)] pub(crate) u16, #[cfg(not(test))] u16);
 
 impl PrototypeId {
     pub(crate) const MAIN: Self = Self(0);
-
-    pub fn from_address(address: Address) -> Option<Self> {
-        if address.memory == MemoryKind::CONSTANT {
-            Some(PrototypeId(address.index))
-        } else {
-            None
-        }
-    }
 
     pub fn index(self) -> u16 {
         self.0

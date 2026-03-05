@@ -2,7 +2,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     dust_error::AnnotatedError,
-    instruction::SmallType,
+    instruction::OperandType,
     resolver::{
         Resolver,
         declaration_graph::DeclarationId,
@@ -17,15 +17,15 @@ use crate::{
 pub enum CompileError {
     CannotApplyUnaryOperator {
         operator: SyntaxKind,
-        operand_type: SmallType,
+        operand_type: OperandType,
         operand_position: Position,
     },
     CannotApplyBinaryOperator {
         operator: SyntaxKind,
         operand_position: Position,
-        left_type: SmallType,
+        left_type: OperandType,
         left_position: Position,
-        right_type: SmallType,
+        right_type: OperandType,
         right_position: Position,
     },
     CannotInferType {
