@@ -17,7 +17,6 @@ mod negate;
 mod new_list;
 mod operation;
 mod power;
-mod reference;
 mod r#return;
 mod set_list;
 mod small_type;
@@ -43,7 +42,6 @@ pub use negate::Negate;
 pub use new_list::NewList;
 pub use operation::Operation;
 pub use power::Power;
-pub use reference::Reference;
 pub use r#return::Return;
 pub use set_list::SetList;
 pub use small_type::SmallType;
@@ -153,14 +151,6 @@ impl Instruction {
             operand_type,
             operand,
             secondary_index,
-        })
-    }
-
-    pub fn reference(destination: u16, start: u16, length: u16) -> Instruction {
-        Instruction::from(Reference {
-            destination,
-            start,
-            length,
         })
     }
 
@@ -367,7 +357,6 @@ impl Instruction {
         match operation {
             Operation::NO_OP => String::new(),
             Operation::MOVE => Move::from(self).to_string(),
-            Operation::REFERENCE => Reference::from(self).to_string(),
             Operation::DROP => Drop::from(self).to_string(),
             Operation::NEW_LIST => NewList::from(self).to_string(),
             Operation::SET_LIST => SetList::from(self).to_string(),

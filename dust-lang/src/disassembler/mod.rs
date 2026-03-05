@@ -127,77 +127,78 @@ impl<'a> Disassembler<'a> {
 
                     self.selection_state.section = None;
                 }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    if self.selection_state.tab >= self.syntax.len() {
-                        let prototype_index = self.selection_state.tab - self.syntax.len();
-                        let prototype = &self.program.prototypes[prototype_index];
-                        if self.selection_state.row > 0 {
-                            self.selection_state.row -= 1;
-                        } else {
-                            match self.selection_state.section {
-                                Some(section) => {
-                                    self.selection_state.section = Some(section.previous());
-                                    let section_length = match self.selection_state.section {
-                                        Some(PrototypeSection::Instructions) => {
-                                            prototype.instructions.len()
-                                        }
-                                        Some(PrototypeSection::Constants) => {
-                                            self.program.constants.len()
-                                        }
-                                        Some(PrototypeSection::CallArguments) => {
-                                            prototype.call_arguments.len()
-                                        }
-                                        Some(PrototypeSection::Drops) => prototype.drops.len(),
-                                        None => 0,
-                                    };
-                                    if section_length > 0 {
-                                        self.selection_state.row = section_length - 1;
-                                    } else {
-                                        self.selection_state.row = 0;
+                KeyCode::Up | KeyCode::Char('k')
+                    if self.selection_state.tab >= self.syntax.len() =>
+                {
+                    let prototype_index = self.selection_state.tab - self.syntax.len();
+                    let prototype = &self.program.prototypes[prototype_index];
+                    if self.selection_state.row > 0 {
+                        self.selection_state.row -= 1;
+                    } else {
+                        match self.selection_state.section {
+                            Some(section) => {
+                                self.selection_state.section = Some(section.previous());
+                                let section_length = match self.selection_state.section {
+                                    Some(PrototypeSection::Instructions) => {
+                                        prototype.instructions.len()
                                     }
+                                    Some(PrototypeSection::Constants) => {
+                                        self.program.constants.len()
+                                    }
+                                    Some(PrototypeSection::CallArguments) => {
+                                        prototype.call_arguments.len()
+                                    }
+                                    Some(PrototypeSection::Drops) => prototype.drops.len(),
+                                    None => 0,
+                                };
+                                if section_length > 0 {
+                                    self.selection_state.row = section_length - 1;
+                                } else {
+                                    self.selection_state.row = 0;
                                 }
-                                None => {
-                                    self.selection_state.section = Some(PrototypeSection::Drops);
-                                    let section_length = prototype.drops.len();
-                                    if section_length > 0 {
-                                        self.selection_state.row = section_length - 1;
-                                    } else {
-                                        self.selection_state.row = 0;
-                                    }
+                            }
+                            None => {
+                                self.selection_state.section = Some(PrototypeSection::Drops);
+                                let section_length = prototype.drops.len();
+                                if section_length > 0 {
+                                    self.selection_state.row = section_length - 1;
+                                } else {
+                                    self.selection_state.row = 0;
                                 }
                             }
                         }
                     }
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    if self.selection_state.tab >= self.syntax.len() {
-                        let prototype_index = self.selection_state.tab - self.syntax.len();
-                        let prototype = &self.program.prototypes[prototype_index];
-                        let section_length = match self.selection_state.section {
-                            Some(PrototypeSection::Instructions) => prototype.instructions.len(),
-                            Some(PrototypeSection::Constants) => self.program.constants.len(),
-                            Some(PrototypeSection::CallArguments) => prototype.call_arguments.len(),
-                            Some(PrototypeSection::Drops) => prototype.drops.len(),
-                            None => 0,
-                        };
+                KeyCode::Up | KeyCode::Char('k') => {}
+                KeyCode::Down | KeyCode::Char('j')
+                    if self.selection_state.tab >= self.syntax.len() =>
+                {
+                    let prototype_index = self.selection_state.tab - self.syntax.len();
+                    let prototype = &self.program.prototypes[prototype_index];
+                    let section_length = match self.selection_state.section {
+                        Some(PrototypeSection::Instructions) => prototype.instructions.len(),
+                        Some(PrototypeSection::Constants) => self.program.constants.len(),
+                        Some(PrototypeSection::CallArguments) => prototype.call_arguments.len(),
+                        Some(PrototypeSection::Drops) => prototype.drops.len(),
+                        None => 0,
+                    };
 
-                        if self.selection_state.row + 1 < section_length {
-                            self.selection_state.row += 1;
-                        } else {
-                            match self.selection_state.section {
-                                Some(section) => {
-                                    self.selection_state.section = Some(section.next());
-                                    self.selection_state.row = 0;
-                                }
-                                None => {
-                                    self.selection_state.section =
-                                        Some(PrototypeSection::Instructions);
-                                    self.selection_state.row = 0;
-                                }
+                    if self.selection_state.row + 1 < section_length {
+                        self.selection_state.row += 1;
+                    } else {
+                        match self.selection_state.section {
+                            Some(section) => {
+                                self.selection_state.section = Some(section.next());
+                                self.selection_state.row = 0;
+                            }
+                            None => {
+                                self.selection_state.section = Some(PrototypeSection::Instructions);
+                                self.selection_state.row = 0;
                             }
                         }
                     }
                 }
+                KeyCode::Down | KeyCode::Char('j') => {}
                 KeyCode::Esc | KeyCode::Char('q') => {
                     self.state = TuiState::Quit;
                 }

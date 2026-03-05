@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
 
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
@@ -9,10 +9,11 @@ use crate::{
     constant_table::{ConstantId, ConstantTable},
     dust_error::{ErrorKind, InternalError},
     instruction::{
-        Address, CallArgument, Drop, Instruction, MemoryKind, Operation, SmallType, Test,
+        Add, Address, CallArgument, Drop, Instruction, MemoryKind, Operation, SmallType, Test,
     },
     native_function::NativeFunction,
     prototype::{Prototype, PrototypeId, PrototypeList},
+    register::RegisterClass,
     resolver::{
         Resolver,
         declaration_graph::{DeclarationId, DeclarationKind, Visibility},
@@ -62,13 +63,10 @@ pub struct Emitter<'a> {
 
     next_jump_id: u16,
 
-    next_local_register: u16,
-
-    next_temporary_register: u16,
-
-    top_allocated_register: u16,
-
-    top_emitted_register: u16,
+    integer_32_tracker: RegisterTracker,
+    integer_64_tracker: RegisterTracker,
+    float_64_tracker: RegisterTracker,
+    pointer_tracker: RegisterTracker,
 }
 
 impl<'a> Emitter<'a> {
@@ -104,10 +102,10 @@ impl<'a> Emitter<'a> {
             jump_over_else_anchor_ids: Vec::new(),
             current_scope_id: starting_scope_id,
             next_jump_id: 0,
-            next_local_register: 0,
-            next_temporary_register: 0,
-            top_allocated_register: 0,
-            top_emitted_register: 0,
+            integer_32_tracker: RegisterTracker::default(),
+            integer_64_tracker: RegisterTracker::default(),
+            float_64_tracker: RegisterTracker::default(),
+            pointer_tracker: RegisterTracker::default(),
         };
 
         emitter
@@ -142,12 +140,12 @@ impl<'a> Emitter<'a> {
                 .zip(value_parameter_types.into_iter())
             {
                 let parameter_id = *emitter.resolver.get_declaration_binding(&parameter.id)?;
-                let register_size = emitter
+                let register_classes = emitter
                     .resolver
-                    .get_register_size(expected_type, &parameter)?;
-                let target = emitter.allocate_local_registers(register_size);
+                    .get_register_classes(expected_type, &parameter)?;
+                let target = emitter.allocate_local_registers(register_classes);
 
-                emitter.locals.insert(parameter_id, Place::Target(target));
+                emitter.locals.insert(parameter_id, Place::Register(target));
             }
         }
 
@@ -283,14 +281,15 @@ impl<'a> Emitter<'a> {
             call_arguments: self.call_arguments,
             drops: self.drop_lists,
             return_type,
-            register_count: self.top_emitted_register,
+            register_count: self.integer_32_tracker.next_temporary
+                + self.integer_64_tracker.next_temporary
+                + self.float_64_tracker.next_temporary
+                + self.pointer_tracker.next_temporary,
         })
     }
 
     fn emit_instruction(&mut self, instruction: Instruction) {
         trace!("Emitting {} instruction", instruction.operation());
-
-        self.top_emitted_register = self.top_emitted_register.max(self.top_allocated_register);
 
         self.instructions.push(instruction);
     }
@@ -303,107 +302,69 @@ impl<'a> Emitter<'a> {
         anchor_id
     }
 
-    fn allocate_temporary_registers(&mut self, count: u16) -> TargetRegister {
-        let target = match count {
-            0 => panic!("Cannot allocate zero registers"),
-            1 => {
-                let index = self.next_temporary_register;
-                self.next_temporary_register += 1;
-
-                trace!("Allocating temporary reg_{}", index);
-
-                TargetRegister::Single {
-                    index,
-                    is_temporary: true,
-                }
-            }
-            2.. => {
-                let reference_index = self.next_temporary_register;
-                self.next_temporary_register += count;
-
-                trace!(
-                    "Allocating temporaries reg_{}..=reg_{}",
-                    reference_index,
-                    reference_index + count
-                );
-
-                TargetRegister::Compound {
-                    base_index: reference_index,
-                    length: count,
-                    is_temporary: true,
-                }
-            }
+    fn allocate_temporary_registers(
+        &mut self,
+        classes: SmallVec<[RegisterClass; 8]>,
+    ) -> RegisterAllocation {
+        let tracker = match classes[0] {
+            RegisterClass::Integer32 => &mut self.integer_32_tracker,
+            RegisterClass::Integer64 => &mut self.integer_64_tracker,
+            RegisterClass::Float64 => &mut self.float_64_tracker,
+            RegisterClass::Pointer => &mut self.pointer_tracker,
         };
+        let index = tracker.next_temporary;
+        tracker.next_temporary += 1;
 
-        if self.next_temporary_register > self.top_allocated_register {
-            self.top_allocated_register = self.next_temporary_register;
+        trace!("Allocating temporary reg_{}_{index}", classes[0]);
+
+        RegisterAllocation {
+            classes,
+            start_index: index,
+            is_temporary: true,
         }
-
-        target
     }
 
-    fn free_temporary_registers(&mut self, count: u16) {
-        debug_assert!(self.next_temporary_register >= self.next_local_register + count);
+    fn allocate_local_registers(
+        &mut self,
+        classes: SmallVec<[RegisterClass; 8]>,
+    ) -> RegisterAllocation {
+        let tracker = match classes[0] {
+            RegisterClass::Integer32 => &mut self.integer_32_tracker,
+            RegisterClass::Integer64 => &mut self.integer_64_tracker,
+            RegisterClass::Float64 => &mut self.float_64_tracker,
+            RegisterClass::Pointer => &mut self.pointer_tracker,
+        };
+        let index = tracker.next_local;
+        tracker.next_local += 1;
+
+        trace!("Allocating local reg_{}_{index}", classes[0]);
+
+        RegisterAllocation {
+            classes,
+            start_index: index,
+            is_temporary: false,
+        }
+    }
+
+    fn free_temporary_registers(&mut self, target: &RegisterAllocation) {
+        let tracker = match target.classes[0] {
+            RegisterClass::Integer32 => &mut self.integer_32_tracker,
+            RegisterClass::Integer64 => &mut self.integer_64_tracker,
+            RegisterClass::Float64 => &mut self.float_64_tracker,
+            RegisterClass::Pointer => &mut self.pointer_tracker,
+        };
+        let count = target.classes.len() as u16;
+
+        debug_assert!(target.is_temporary);
+        debug_assert!(tracker.next_temporary >= tracker.next_local + count);
         trace!(
             "Freeing temporary registers: {}",
-            ((self.next_temporary_register - count)..(self.next_temporary_register))
+            ((tracker.next_temporary - count)..(tracker.next_temporary))
                 .map(|register| format!("reg_{register}"))
                 .collect::<String>()
         );
 
-        self.next_temporary_register -= count;
-
-        if self.top_allocated_register > self.next_temporary_register {
-            self.top_allocated_register = self.next_temporary_register;
-        }
-
-        if self.top_allocated_register < self.top_emitted_register {
-            self.top_allocated_register = self.top_emitted_register;
-        }
-    }
-
-    fn allocate_local_registers(&mut self, count: u16) -> TargetRegister {
-        let target = match count {
-            0 => panic!("Cannot allocate zero registers"),
-            1 => {
-                let index = self.next_local_register;
-                self.next_local_register += 1;
-
-                trace!("Allocating local reg_{}", index);
-
-                TargetRegister::Single {
-                    index,
-                    is_temporary: false,
-                }
-            }
-            2.. => {
-                let reference_index = self.next_local_register;
-                self.next_local_register += count;
-
-                trace!(
-                    "Allocating locals reg_{}..=reg_{}",
-                    reference_index,
-                    reference_index + count
-                );
-
-                TargetRegister::Compound {
-                    base_index: reference_index,
-                    length: count,
-                    is_temporary: false,
-                }
-            }
-        };
-
-        self.next_temporary_register = self.next_temporary_register.max(self.next_local_register);
-
-        if self.next_local_register > self.top_allocated_register {
-            self.top_allocated_register = self.next_local_register;
-        }
-        if self.next_temporary_register > self.top_allocated_register {
-            self.top_allocated_register = self.next_temporary_register;
-        }
-
-        target
+        tracker.next_temporary -= count;
     }
 
     fn enter_child_scope(&mut self, child_scope_id: ScopeId) {
@@ -415,12 +376,16 @@ impl<'a> Emitter<'a> {
     fn enter_parent_scope(
         &mut self,
         parent_scope_id: ScopeId,
-        next_local_register: u16,
-        next_temporary_register: u16,
+        integer_32_tracker: RegisterTracker,
+        integer_64_tracker: RegisterTracker,
+        float_64_tracker: RegisterTracker,
+        pointer_tracker: RegisterTracker,
     ) {
         self.current_scope_id = parent_scope_id;
-        self.next_local_register = next_local_register;
-        self.next_temporary_register = next_temporary_register;
+        self.integer_32_tracker = integer_32_tracker;
+        self.integer_64_tracker = integer_64_tracker;
+        self.float_64_tracker = float_64_tracker;
+        self.pointer_tracker = pointer_tracker;
     }
 
     fn add_drop(&mut self, register: u16) {
@@ -432,8 +397,8 @@ impl<'a> Emitter<'a> {
         let mut pending_drops_for_scope = self.pending_drops.pop().unwrap();
 
         for register in pending_drops_for_scope.drain(..) {
-            if let Some(target) = instructions.target
-                && register == target.index()
+            if let Some(target) = &instructions.target
+                && register == target.start_index
             {
                 continue;
             }
@@ -467,37 +432,29 @@ impl<'a> Emitter<'a> {
         }
     }
 
-    fn get_constant_address(&mut self, constant: ConstantEmission) -> (Address, u16) {
+    fn get_constant_address(&mut self, constant: ConstantEmission) -> Address {
         let constant_id = match constant {
-            ConstantEmission::Boolean(boolean) => return (Address::encoded_boolean(boolean), 0),
+            ConstantEmission::Boolean(boolean) => return Address::encoded_boolean(boolean),
             ConstantEmission::Character(character) => self.constants.add_character(character),
             ConstantEmission::String {
                 pool_start,
                 pool_end,
             } => self.constants.add_pooled_string(pool_start, pool_end),
-            ConstantEmission::U8(integer) => return (Address::encoded_u8(integer), 0),
-            ConstantEmission::I8(integer) => return (Address::encoded_i8(integer), 0),
-            ConstantEmission::U16(integer) => return (Address::encoded_u16(integer), 0),
-            ConstantEmission::I16(integer) => return (Address::encoded_i16(integer), 0),
+            ConstantEmission::U8(integer) => return Address::encoded_u8(integer),
+            ConstantEmission::I8(integer) => return Address::encoded_i8(integer),
+            ConstantEmission::U16(integer) => return Address::encoded_u16(integer),
+            ConstantEmission::I16(integer) => return Address::encoded_i16(integer),
             ConstantEmission::U32(integer) => self.constants.add_u32(integer),
             ConstantEmission::I32(integer) => self.constants.add_i32(integer),
             ConstantEmission::U64(integer) => self.constants.add_u64(integer),
             ConstantEmission::I64(integer) => self.constants.add_i64(integer),
-            ConstantEmission::U128(integer) => {
-                let (left_id, right_id) = self.constants.add_u128(integer);
-
-                return (Address::constant(left_id.0), right_id.0);
-            }
-            ConstantEmission::I128(integer) => {
-                let (left_id, right_id) = self.constants.add_i128(integer);
-
-                return (Address::constant(left_id.0), right_id.0);
-            }
+            ConstantEmission::U128(integer) => self.constants.add_u128(integer),
+            ConstantEmission::I128(integer) => self.constants.add_i128(integer),
             ConstantEmission::F32(float) => self.constants.add_f32(float),
             ConstantEmission::F64(float) => self.constants.add_f64(float),
         };
 
-        (Address::constant(constant_id.0), 0)
+        Address::constant(constant_id.0)
     }
 
     fn combine_constants(
@@ -550,7 +507,7 @@ impl<'a> Emitter<'a> {
 
         match operator.kind() {
             SyntaxKind::AdditionExpression => left_constant
-                .add(right_constant, self)
+                .add(right_constant, self)?
                 .ok_or_else(create_error),
             SyntaxKind::SubtractionExpression => left_constant
                 .subtract(right_constant)
@@ -601,27 +558,27 @@ impl<'a> Emitter<'a> {
     ) -> Result<(), ErrorKind> {
         match emission {
             Emission::Constant(constant) => {
-                let destination = self.allocate_temporary_registers(1);
+                let type_id = *self.resolver.get_type_binding(&node.id)?;
+                let register_classes = self.resolver.get_register_classes(type_id, &node)?;
+                let destination = self.allocate_temporary_registers(register_classes);
                 let operand_type = constant.small_type();
-                let (operand, secondary_index) = self.get_constant_address(constant);
-                let move_instruction = Instruction::r#move(
-                    destination.index(),
-                    operand_type,
-                    operand,
-                    secondary_index,
-                );
+                let operand = self.get_constant_address(constant);
+                let move_instruction =
+                    Instruction::r#move(destination.start_index, operand_type, operand, 0);
 
                 self.emit_instruction(move_instruction);
             }
             Emission::Place(place) => {
-                let destination = self.allocate_temporary_registers(1);
+                let type_id = *self.resolver.get_type_binding(&node.id)?;
+                let register_classes = self.resolver.get_register_classes(type_id, &node)?;
+                let destination = self.allocate_temporary_registers(register_classes);
                 let operand_type = self
                     .resolver
                     .get_type_binding(&node.id)
                     .and_then(|type_id| self.resolver.get_small_type(*type_id, &node))?;
-                let (operand, secondary_index) = place.address();
+                let (operand, secondary_index) = place.address_and_register_size();
                 let move_instruction = Instruction::r#move(
-                    destination.index(),
+                    destination.start_index,
                     operand_type,
                     operand,
                     secondary_index,
@@ -740,16 +697,17 @@ impl<'a> Emitter<'a> {
         node: &SyntaxReader,
     ) -> Result<Address, ErrorKind> {
         let (operand, secondary_operand) = match emission {
-            Emission::Constant(constant) => self.get_constant_address(constant),
-            Emission::Place(place) => place.address(),
+            Emission::Constant(constant) => (self.get_constant_address(constant), 0),
+            Emission::Place(place) => place.address_and_register_size(),
             Emission::Instructions(operand_instructions) => {
                 let destination = operand_instructions
                     .target
+                    .as_ref()
                     .ok_or(ErrorKind::Compile(CompileError::ExpectedValue {
                         node_kind: node.kind(),
                         position: node.position(),
                     }))?
-                    .index();
+                    .start_index;
 
                 instructions.merge(operand_instructions);
 
@@ -773,10 +731,10 @@ impl<'a> Emitter<'a> {
         if secondary_operand != 0 {
             let type_id = *self.resolver.get_type_binding(&node.id)?;
             let operand_type = self.resolver.get_small_type(type_id, node)?;
-            let register_size = self.resolver.get_register_size(type_id, node)?;
+            let register_size = self.resolver.get_register_classes(type_id, node)?;
             let temporary_target = self.allocate_temporary_registers(register_size);
             let move_instruction = Instruction::r#move(
-                temporary_target.index(),
+                temporary_target.start_index,
                 operand_type,
                 operand,
                 secondary_operand,
@@ -784,7 +742,7 @@ impl<'a> Emitter<'a> {
 
             instructions.push(move_instruction);
 
-            Ok(Address::register(temporary_target.index()))
+            Ok(Address::register(temporary_target.start_index))
         } else {
             Ok(operand)
         }
@@ -798,13 +756,13 @@ impl<'a> Emitter<'a> {
     ) -> Result<(), ErrorKind> {
         match emission {
             Emission::Constant(constant) => {
-                let (operand, _) = self.get_constant_address(constant);
+                let operand = self.get_constant_address(constant);
                 let test_instruction = Instruction::test(operand, true, 1);
 
                 instructions.push(test_instruction);
             }
             Emission::Place(place) => {
-                let (operand, _) = place.address();
+                let (operand, _) = place.address_and_register_size();
                 let test_instruction = Instruction::test(operand, true, 1);
 
                 instructions.push(test_instruction);
@@ -820,10 +778,10 @@ impl<'a> Emitter<'a> {
                         Operation::LESS | Operation::LESS_EQUAL | Operation::EQUAL => {
                             condition_instructions.instructions.truncate(length - 2);
 
-                            if let Some(target) = condition_instructions.target
-                                && target.is_temporary()
+                            if let Some(target) = &condition_instructions.target
+                                && target.is_temporary
                             {
-                                self.free_temporary_registers(target.destination_count());
+                                self.free_temporary_registers(target);
                             }
                         }
                         Operation::TEST => {
@@ -835,10 +793,10 @@ impl<'a> Emitter<'a> {
                             condition_instructions.instructions.truncate(length - 2);
                             condition_instructions.push(new_test_instruction);
 
-                            if let Some(target) = condition_instructions.target
-                                && target.is_temporary()
+                            if let Some(target) = &condition_instructions.target
+                                && target.is_temporary
                             {
-                                self.free_temporary_registers(target.destination_count());
+                                self.free_temporary_registers(target);
                             }
                         }
                         _ => {}
@@ -867,15 +825,15 @@ impl<'a> Emitter<'a> {
         &mut self,
         instructions_emission: &mut InstructionsEmission,
         emission: Emission,
-        target: TargetRegister,
+        target: &RegisterAllocation,
         node: SyntaxReader,
     ) -> Result<(), ErrorKind> {
         match emission {
             Emission::Constant(constant) => {
                 let operand_type = constant.small_type();
-                let (operand, secondary_operand) = self.get_constant_address(constant);
+                let operand = self.get_constant_address(constant);
                 let move_instruction =
-                    Instruction::r#move(target.index(), operand_type, operand, secondary_operand);
+                    Instruction::r#move(target.start_index, operand_type, operand, 0);
 
                 instructions_emission.push(move_instruction);
             }
@@ -884,15 +842,19 @@ impl<'a> Emitter<'a> {
                     .resolver
                     .get_type_binding(&node.id)
                     .and_then(|type_id| self.resolver.get_small_type(*type_id, &node))?;
-                let (operand, secondary_operand) = place.address();
-                let move_instruction =
-                    Instruction::r#move(target.index(), operand_type, operand, secondary_operand);
+                let (operand, secondary_operand) = place.address_and_register_size();
+                let move_instruction = Instruction::r#move(
+                    target.start_index,
+                    operand_type,
+                    operand,
+                    secondary_operand,
+                );
 
                 instructions_emission.push(move_instruction);
             }
             Emission::Instructions(branch_instructions) => {
                 instructions_emission.merge(branch_instructions);
-                instructions_emission.set_target(Some(target));
+                instructions_emission.set_target(Some(target.clone()));
             }
             Emission::NativeFunction(_) => {
                 return Err(ErrorKind::Compile(
@@ -917,18 +879,16 @@ impl<'a> Emitter<'a> {
             .resolver
             .get_type_binding(&node.id)
             .and_then(|type_id| self.resolver.get_small_type(*type_id, &node))?;
-        let (operand, secondary_index) = match emission {
-            Emission::Constant(constant) => self.get_constant_address(constant),
-            Emission::Place(place) => place.address(),
+        let (operand, register_size) = match emission {
+            Emission::Constant(constant) => (self.get_constant_address(constant), 0),
+            Emission::Place(place) => place.address_and_register_size(),
             Emission::Instructions(instructions) => {
-                if let Some(target) = instructions.target {
-                    return_instructions.merge(instructions);
+                return_instructions.merge(instructions);
 
-                    target.address()
+                if let Some(target) = &return_instructions.target {
+                    target.address_and_register_size()
                 } else {
                     debug_assert_eq!(operand_type, SmallType::UNIT);
-
-                    return_instructions.merge(instructions);
 
                     (Address::default(), 0)
                 }
@@ -942,7 +902,7 @@ impl<'a> Emitter<'a> {
             }
             Emission::None => (Address::default(), 0),
         };
-        let return_instruction = Instruction::r#return(operand_type, operand, secondary_index);
+        let return_instruction = Instruction::r#return(operand_type, operand, register_size);
 
         return_instructions.push(return_instruction);
 
@@ -952,7 +912,7 @@ impl<'a> Emitter<'a> {
     fn handle_implicit_return(
         &mut self,
         node: SyntaxReader,
-        target: Option<TargetRegister>,
+        target: Option<&RegisterAllocation>,
     ) -> Result<Emission, ErrorKind> {
         let mut return_emission = InstructionsEmission::new();
 
@@ -978,15 +938,11 @@ impl<'a> Emitter<'a> {
 
 impl SyntaxVisitor for Emitter<'_> {
     type RootOutput = Emission;
-
     type StatementOutput = InstructionsEmission;
-
-    type ExpressionInput = Option<TargetRegister>;
-
+    type ExpressionInput = RegisterAllocation;
     type ExpressionOutput = Emission;
-
     type TypeOutput = ();
-
+    type PathInput = ();
     type PathOutput = DeclarationId;
 
     fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, ErrorKind> {
@@ -1088,16 +1044,16 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let mut let_statement_instructions = InstructionsEmission::new();
 
-        let register_size = self.resolver.get_register_size(type_id, &expression)?;
+        let register_size = self.resolver.get_register_classes(type_id, &expression)?;
         let target = self.allocate_local_registers(register_size);
-        let expression_emission = self.visit_expression(expression, Some(target))?;
+        let destination = target.start_index;
+        let expression_emission = self.visit_expression(expression, Some(&target))?;
 
         match expression_emission {
             Emission::Constant(constant) => {
                 let operand_type = constant.small_type();
-                let (operand, secondary_operand) = self.get_constant_address(constant);
-                let move_instruction =
-                    Instruction::r#move(target.index(), operand_type, operand, secondary_operand);
+                let operand = self.get_constant_address(constant);
+                let move_instruction = Instruction::r#move(destination, operand_type, operand, 0);
 
                 let_statement_instructions.push(move_instruction);
             }
@@ -1106,9 +1062,9 @@ impl SyntaxVisitor for Emitter<'_> {
                     .resolver
                     .get_type_binding(&expression.id)
                     .and_then(|type_id| self.resolver.get_small_type(*type_id, &expression))?;
-                let (operand, secondary_operand) = place.address();
+                let (operand, secondary_operand) = place.address_and_register_size();
                 let move_instruction =
-                    Instruction::r#move(target.index(), operand_type, operand, secondary_operand);
+                    Instruction::r#move(destination, operand_type, operand, secondary_operand);
 
                 let_statement_instructions.push(move_instruction);
             }
@@ -1133,10 +1089,10 @@ impl SyntaxVisitor for Emitter<'_> {
         let declaration_id = *self.resolver.get_declaration_binding(&path.id)?;
 
         if type_id == TypeId::STRING {
-            self.add_drop(target.index());
+            self.add_drop(destination);
         }
 
-        self.locals.insert(declaration_id, Place::Target(target));
+        self.locals.insert(declaration_id, Place::Register(target));
         let_statement_instructions.set_target(None);
 
         Ok(let_statement_instructions)
@@ -1170,26 +1126,24 @@ impl SyntaxVisitor for Emitter<'_> {
         let expression = expression_statement.child()?;
 
         let declaration_id = self.resolver.get_declaration_binding(&path.id)?;
-        let target = self
-            .locals
-            .get(declaration_id)
-            .ok_or_else(|| {
-                ErrorKind::Compile(CompileError::OutOfScopeId {
-                    declaration_id: *declaration_id,
-                    usage_position: path.position(),
-                })
-            })?
-            .expect_target(&path)?;
+        let local = self.locals.get(declaration_id).ok_or_else(|| {
+            ErrorKind::Compile(CompileError::OutOfScopeId {
+                declaration_id: *declaration_id,
+                usage_position: path.position(),
+            })
+        })?;
+
+        let target = local.expect_register(&path)?.clone();
+        let destination = target.start_index;
 
         let mut reassignment_instructions = InstructionsEmission::new();
-        let expression_emission = self.visit_expression(expression, Some(target))?;
+        let expression_emission = self.visit_expression(expression, Some(&target))?;
 
         match expression_emission {
             Emission::Constant(constant) => {
                 let operand_type = constant.small_type();
-                let (address, secondary_address) = self.get_constant_address(constant);
-                let move_instruction =
-                    Instruction::r#move(target.index(), operand_type, address, secondary_address);
+                let operand = self.get_constant_address(constant);
+                let move_instruction = Instruction::r#move(destination, operand_type, operand, 0);
 
                 reassignment_instructions.push(move_instruction);
             }
@@ -1198,9 +1152,9 @@ impl SyntaxVisitor for Emitter<'_> {
                     .resolver
                     .get_type_binding(&expression.id)
                     .and_then(|type_id| self.resolver.get_small_type(*type_id, &expression))?;
-                let (address, secondary_address) = place.address();
+                let (address, secondary_address) = place.address_and_register_size();
                 let move_instruction =
-                    Instruction::r#move(target.index(), operand_type, address, secondary_address);
+                    Instruction::r#move(destination, operand_type, address, secondary_address);
 
                 reassignment_instructions.push(move_instruction);
             }
@@ -1229,7 +1183,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_boolean_expression(
         &mut self,
         node: SyntaxReader,
-        _: Self::ExpressionInput,
+        _: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting boolean expression");
 
@@ -1241,7 +1195,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_byte_expression(
         &mut self,
         node: SyntaxReader,
-        _: Self::ExpressionInput,
+        _: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting byte expression");
 
@@ -1253,7 +1207,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_character_expression(
         &mut self,
         node: SyntaxReader,
-        _: Self::ExpressionInput,
+        _: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting character expression");
 
@@ -1265,7 +1219,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_float_expression(
         &mut self,
         node: SyntaxReader,
-        _: Self::ExpressionInput,
+        _: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting float expression");
 
@@ -1277,7 +1231,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_integer_expression(
         &mut self,
         node: SyntaxReader,
-        _: Self::ExpressionInput,
+        _: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting integer expression");
 
@@ -1289,7 +1243,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_string_expression(
         &mut self,
         node: SyntaxReader,
-        _: Self::ExpressionInput,
+        _: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting string expression");
 
@@ -1297,7 +1251,7 @@ impl SyntaxVisitor for Emitter<'_> {
             .source
             .get_file(node.file_id())?
             .content_str(node.span().shrink(1))?;
-        let (pool_start, pool_end) = self.constants.push_str_to_string_pool(bytes);
+        let (pool_start, pool_end) = self.constants.push_str_to_string_pool(bytes)?;
 
         self.resolver.add_type_binding(node.id, TypeId::STRING);
 
@@ -1310,7 +1264,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_list_expression(
         &mut self,
         node: SyntaxReader,
-        target: Self::ExpressionInput,
+        target: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         fn handle_element_emission(
             emitter: &mut Emitter,
@@ -1326,43 +1280,39 @@ impl SyntaxVisitor for Emitter<'_> {
                         .and_then(|type_id| {
                             emitter.resolver.get_small_type(*type_id, &element_node)
                         })?;
-                    let (operand, secondary_index) = place.address();
+                    let (operand, size) = place.address_and_register_size();
 
-                    if secondary_index != 0 {
-                        let target = emitter.allocate_temporary_registers(2);
-                        let move_instruction = Instruction::r#move(
-                            target.index(),
-                            operand_type,
-                            operand,
-                            secondary_index,
-                        );
+                    if size != 0 {
+                        let type_id = *emitter.resolver.get_type_binding(&element_node.id)?;
+                        let register_classes = emitter
+                            .resolver
+                            .get_register_classes(type_id, &element_node)?;
+                        let target = emitter.allocate_temporary_registers(register_classes);
+                        let move_instruction =
+                            Instruction::r#move(target.start_index, operand_type, operand, size);
 
                         instructions.push(move_instruction);
 
-                        Ok(Address::register(target.index()))
+                        Ok(Address::register(target.start_index))
                     } else {
                         Ok(operand)
                     }
                 }
                 Emission::Constant(constant) => {
+                    let type_id = *emitter.resolver.get_type_binding(&element_node.id)?;
+                    let register_classes = emitter
+                        .resolver
+                        .get_register_classes(type_id, &element_node)?;
                     let operand_type = constant.small_type();
-                    let (operand, secondary_index) = emitter.get_constant_address(constant);
+                    let operand = emitter.get_constant_address(constant);
 
-                    if secondary_index != 0 {
-                        let target = emitter.allocate_temporary_registers(2);
-                        let move_instruction = Instruction::r#move(
-                            target.index(),
-                            operand_type,
-                            operand,
-                            secondary_index,
-                        );
+                    let target = emitter.allocate_temporary_registers(register_classes);
+                    let move_instruction =
+                        Instruction::r#move(target.start_index, operand_type, operand, 0);
 
-                        instructions.push(move_instruction);
+                    instructions.push(move_instruction);
 
-                        Ok(Address::register(target.index()))
-                    } else {
-                        Ok(operand)
-                    }
+                    Ok(Address::register(target.start_index))
                 }
                 Emission::Instructions(InstructionsEmission {
                     instructions: element_instructions,
@@ -1376,7 +1326,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
                     instructions.instructions.extend(element_instructions);
 
-                    Ok(Address::register(target.index()))
+                    Ok(Address::register(target.start_index))
                 }
                 Emission::NativeFunction(_) => Err(ErrorKind::Compile(
                     CompileError::ExpectedNativeFunctionCall {
@@ -1393,10 +1343,17 @@ impl SyntaxVisitor for Emitter<'_> {
         debug!("Visting list expression");
 
         let elements = node.children()?;
-        let (element_count_address, _) =
+        let element_count_address =
             self.get_constant_address(ConstantEmission::U64(elements.len() as u64));
 
-        let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
+        let target = if let Some(target) = target {
+            target.clone()
+        } else {
+            let type_id = *self.resolver.get_type_binding(&node.id)?;
+            let register_classes = self.resolver.get_register_classes(type_id, &node)?;
+
+            self.allocate_temporary_registers(register_classes)
+        };
         let mut list_emission = {
             let mut emission = InstructionsEmission::with_capacity(elements.len());
 
@@ -1409,14 +1366,14 @@ impl SyntaxVisitor for Emitter<'_> {
             let element_emission = self.visit_expression(element, None)?;
             let element_address =
                 handle_element_emission(self, &mut list_emission, element_emission, &element)?;
-            let (index_address, _) = self.get_constant_address(ConstantEmission::U64(index as u64));
+            let index_address = self.get_constant_address(ConstantEmission::U64(index as u64));
             let set_list_instruction =
-                Instruction::set_list(target.index(), element_address, index_address);
+                Instruction::set_list(target.start_index, element_address, index_address);
 
             list_emission.push(set_list_instruction);
         }
 
-        let new_list_instruction = Instruction::new_list(target.index(), element_count_address);
+        let new_list_instruction = Instruction::new_list(target.start_index, element_count_address);
 
         list_emission.instructions[0] = (new_list_instruction, Vec::new());
 
@@ -1428,7 +1385,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_index_expression(
         &mut self,
         node: SyntaxReader,
-        target: Self::ExpressionInput,
+        target: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting index expression");
 
@@ -1444,9 +1401,16 @@ impl SyntaxVisitor for Emitter<'_> {
         let index_address =
             self.handle_operand_emission(&mut index_emission, right_emission, &index_expression)?;
 
-        let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
+        let target = if let Some(target) = target {
+            target.clone()
+        } else {
+            let type_id = *self.resolver.get_type_binding(&node.id)?;
+            let register_classes = self.resolver.get_register_classes(type_id, &node)?;
+
+            self.allocate_temporary_registers(register_classes)
+        };
         let get_list_instruction =
-            Instruction::get_list(target.index(), list_address, index_address);
+            Instruction::get_list(target.start_index, list_address, index_address);
 
         index_emission.push(get_list_instruction);
         index_emission.set_target(Some(target));
@@ -1457,16 +1421,16 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_path_expression(
         &mut self,
         path_expression: SyntaxReader,
-        _: Self::ExpressionInput,
+        _: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting path expression");
 
         let path = path_expression.child()?;
 
-        let declaration_id = self.visit_path(path, Visibility::Block)?;
+        let declaration_id = self.visit_path(path, ())?;
 
         if let Some(local) = self.locals.get(&declaration_id) {
-            return Ok(Emission::Place(*local));
+            return Ok(Emission::Place(local.clone()));
         }
 
         let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
@@ -1484,24 +1448,23 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_struct_expression(
         &mut self,
         node: SyntaxReader,
-        target: Self::ExpressionInput,
+        target: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting struct expression");
 
         let (struct_name, struct_fields) = node.binary_children()?;
 
-        let type_id = *self.resolver.get_type_binding(&struct_name.id)?;
-        let register_count = self.resolver.get_register_size(type_id, &node)?;
-        let target = if let Some(target) = target
-            && target.destination_count() == register_count
-        {
-            target
+        let target = if let Some(target) = target {
+            target.clone()
         } else {
-            self.allocate_temporary_registers(register_count)
+            let type_id = *self.resolver.get_type_binding(&struct_name.id)?;
+            let register_classes = self.resolver.get_register_classes(type_id, &node)?;
+
+            self.allocate_temporary_registers(register_classes)
         };
 
         let mut struct_emission = InstructionsEmission::new();
-        let mut next_destination = target.index() + 1;
+        let mut next_destination = target.start_index + 1;
 
         for [_, field_expression] in struct_fields.children()?.array_chunks::<2>() {
             let field_emission = self.visit_expression(field_expression, None)?;
@@ -1522,13 +1485,6 @@ impl SyntaxVisitor for Emitter<'_> {
             struct_emission.push(field_move_instruction);
         }
 
-        if register_count > 0 {
-            let struct_reference_instruction =
-                Instruction::reference(target.index(), target.index() + 1, register_count);
-
-            struct_emission.push(struct_reference_instruction);
-        }
-
         struct_emission.set_target(Some(target));
 
         Ok(Emission::Instructions(struct_emission))
@@ -1537,7 +1493,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_block_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        target: Self::ExpressionInput,
+        target: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting block expression");
 
@@ -1545,8 +1501,10 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let block_scope_id = *self.resolver.get_scope_binding(&node.id)?;
         let parent_scope_id = self.current_scope_id;
-        let parent_scope_next_local_register = self.next_local_register;
-        let parent_scope_next_temporary_register = self.next_temporary_register;
+        let parent_scope_integer_32_tracker = self.integer_32_tracker;
+        let parent_scope_integer_64_tracker = self.integer_64_tracker;
+        let parent_scope_float_64_tracker = self.float_64_tracker;
+        let parent_scope_pointer_tracker = self.pointer_tracker;
 
         self.enter_child_scope(block_scope_id);
 
@@ -1555,7 +1513,8 @@ impl SyntaxVisitor for Emitter<'_> {
 
         for (index, child) in children.enumerate() {
             let is_last = index == child_count - 1;
-            let child_emission = if child.is_item() {
+
+            if child.is_item() {
                 self.visit_item(child);
 
                 continue;
@@ -1563,51 +1522,60 @@ impl SyntaxVisitor for Emitter<'_> {
                 self.visit_statement(child);
 
                 continue;
+            } else if !is_last {
+                let expression_emission = self.visit_expression(child, None)?;
+
+                if let Emission::Instructions(expression_instructions) = expression_emission {
+                    block_emission.merge(expression_instructions);
+                }
             } else {
-                let expression_target = if is_last { target } else { None };
+                let last_emission = self.visit_expression(child, target)?;
+                let target = last_emission.target().cloned();
 
-                self.visit_expression(child, expression_target)?
-            };
-
-            if is_last {
-                let child_target = child_emission.target();
-
-                match child_emission {
+                match last_emission {
                     Emission::Constant(constant) => {
                         if block_emission.is_empty() {
+                            block_emission.set_target(target);
+                            self.handle_drops(&mut block_emission);
                             self.enter_parent_scope(
                                 parent_scope_id,
-                                parent_scope_next_local_register,
-                                parent_scope_next_temporary_register,
+                                parent_scope_integer_32_tracker,
+                                parent_scope_integer_64_tracker,
+                                parent_scope_float_64_tracker,
+                                parent_scope_pointer_tracker,
                             );
-                            block_emission.set_target(child_target);
-                            self.handle_drops(&mut block_emission);
 
                             return Ok(Emission::Constant(constant));
                         }
 
-                        let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
+                        let target = if let Some(target) = target {
+                            target
+                        } else {
+                            let type_id = *self.resolver.get_type_binding(&child.id)?;
+                            let register_classes =
+                                self.resolver.get_register_classes(type_id, &child)?;
+
+                            self.allocate_temporary_registers(register_classes)
+                        };
                         let operand_type = constant.small_type();
-                        let (operand, secondary_operand) = self.get_constant_address(constant);
-                        let move_instruction = Instruction::r#move(
-                            target.index(),
-                            operand_type,
-                            operand,
-                            secondary_operand,
-                        );
+                        let operand = self.get_constant_address(constant);
+                        let move_instruction =
+                            Instruction::r#move(target.start_index, operand_type, operand, 0);
 
                         block_emission.push(move_instruction);
                         block_emission.set_target(Some(target));
                     }
                     Emission::Place(final_place) => {
                         if block_emission.is_empty() {
+                            block_emission.set_target(target);
+                            self.handle_drops(&mut block_emission);
                             self.enter_parent_scope(
                                 parent_scope_id,
-                                parent_scope_next_local_register,
-                                parent_scope_next_temporary_register,
+                                parent_scope_integer_32_tracker,
+                                parent_scope_integer_64_tracker,
+                                parent_scope_float_64_tracker,
+                                parent_scope_pointer_tracker,
                             );
-                            block_emission.set_target(child_target);
-                            self.handle_drops(&mut block_emission);
 
                             return Ok(Emission::Place(final_place));
                         }
@@ -1616,29 +1584,37 @@ impl SyntaxVisitor for Emitter<'_> {
                             .resolver
                             .get_type_binding(&child.id)
                             .and_then(|type_id| self.resolver.get_small_type(*type_id, &child))?;
-                        let (operand, secondary_operand) = final_place.address();
+                        let (operand, size) = final_place.address_and_register_size();
 
                         if let Some(block_target) = target {
                             let move_instruction = Instruction::r#move(
-                                block_target.index(),
+                                block_target.start_index,
                                 operand_type,
                                 operand,
-                                secondary_operand,
+                                size,
                             );
 
                             block_emission.push(move_instruction);
-                            block_emission.set_target(Some(block_target));
+                            block_emission.set_target(Some(block_target.clone()));
                         } else if operand.memory == MemoryKind::REGISTER {
-                            let target = final_place.expect_target(&child)?;
+                            let target = final_place.expect_register(&child)?.clone();
 
                             block_emission.set_target(Some(target));
                         } else {
-                            let target = self.allocate_temporary_registers(1);
+                            let target = if let Some(target) = target {
+                                target
+                            } else {
+                                let type_id = *self.resolver.get_type_binding(&child.id)?;
+                                let register_classes =
+                                    self.resolver.get_register_classes(type_id, &child)?;
+
+                                self.allocate_temporary_registers(register_classes)
+                            };
                             let move_instruction = Instruction::r#move(
-                                target.index(),
+                                target.start_index,
                                 operand_type,
                                 operand,
-                                secondary_operand,
+                                size,
                             );
 
                             block_emission.push(move_instruction);
@@ -1657,15 +1633,17 @@ impl SyntaxVisitor for Emitter<'_> {
                     }
                     Emission::None => {}
                 }
-            } else if let Emission::Instructions(child_instructions) = child_emission {
-                block_emission.merge(child_instructions);
-            }
+
+                break;
+            };
         }
 
         self.enter_parent_scope(
             parent_scope_id,
-            parent_scope_next_local_register,
-            parent_scope_next_temporary_register,
+            parent_scope_integer_32_tracker,
+            parent_scope_integer_64_tracker,
+            parent_scope_float_64_tracker,
+            parent_scope_pointer_tracker,
         );
         self.handle_drops(&mut block_emission);
 
@@ -1675,7 +1653,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_if_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        target: Self::ExpressionInput,
+        target: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting if expression");
 
@@ -1690,7 +1668,14 @@ impl SyntaxVisitor for Emitter<'_> {
 
         self.handle_condition_emission(&mut if_emission, condition_emission, &condition)?;
 
-        let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
+        let target = if let Some(target) = target {
+            target.clone()
+        } else {
+            let type_id = *self.resolver.get_type_binding(&node.id)?;
+            let register_classes = self.resolver.get_register_classes(type_id, &node)?;
+
+            self.allocate_temporary_registers(register_classes)
+        };
         let jump_over_then_id = self.create_jump_id();
         let start_else_anchor_count = self.jump_over_else_anchor_ids.len();
 
@@ -1698,16 +1683,16 @@ impl SyntaxVisitor for Emitter<'_> {
             id: jump_over_then_id,
         });
 
-        let then_emission = self.visit_block_expression(then_block, Some(target))?;
+        let then_emission = self.visit_block_expression(then_block, Some(&target))?;
 
-        self.handle_branch_emission(&mut if_emission, then_emission, target, then_block)?;
+        self.handle_branch_emission(&mut if_emission, then_emission, &target, then_block)?;
 
         if_emission.push_drop_anchor(JumpAnchor::ForwardToNext {
             id: jump_over_then_id,
         });
 
         if let Some(else_block) = else_block {
-            let else_emission = self.visit_block_expression(else_block, Some(target))?;
+            let else_emission = self.visit_block_expression(else_block, Some(&target))?;
             let jump_over_else_id = self.create_jump_id();
 
             self.jump_over_else_anchor_ids.push(jump_over_else_id);
@@ -1716,7 +1701,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 id: jump_over_else_id,
             });
 
-            self.handle_branch_emission(&mut if_emission, else_emission, target, else_block)?;
+            self.handle_branch_emission(&mut if_emission, else_emission, &target, else_block)?;
 
             if_emission.push_drop_anchor(JumpAnchor::ForwardToNext {
                 id: jump_over_else_id,
@@ -1739,7 +1724,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_math_binary_expression(
         &mut self,
         node: SyntaxReader,
-        target: Self::ExpressionInput,
+        target: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting math binary expression");
 
@@ -1765,26 +1750,36 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let mut math_emission = InstructionsEmission::new();
 
-        let left_target = left_emission.target();
+        let left_target = left_emission.target().cloned();
         let left_address =
             self.handle_operand_emission(&mut math_emission, left_emission, &left_expression)?;
         let right_address =
             self.handle_operand_emission(&mut math_emission, right_emission, &right_expression)?;
 
-        let math_expression_type = *self.resolver.get_type_binding(&node.id)?;
-        let needs_drop = math_expression_type == TypeId::STRING;
+        let type_id = *self.resolver.get_type_binding(&node.id)?;
+        let needs_drop = type_id == TypeId::STRING;
+        let mut get_target = || -> Result<RegisterAllocation, ErrorKind> {
+            if let Some(target) = target {
+                Ok(target.clone())
+            } else {
+                let register_classes = self.resolver.get_register_classes(type_id, &node)?;
+
+                Ok(self.allocate_temporary_registers(register_classes))
+            }
+        };
 
         let math_instruction = match node.kind() {
             SyntaxKind::AdditionExpression => {
-                let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
+                let target = get_target()?;
+                let destination = target.start_index;
 
                 math_emission.set_target(Some(target));
 
                 if needs_drop {
-                    self.pending_drops.last_mut().unwrap().push(target.index());
+                    self.pending_drops.last_mut().unwrap().push(destination);
                 }
 
-                Instruction::add(target.index(), left_address, right_address)
+                Instruction::add(destination, left_address, right_address)
             }
             SyntaxKind::AdditionAssignmentStatement => {
                 math_emission.set_target(left_target);
@@ -1792,11 +1787,12 @@ impl SyntaxVisitor for Emitter<'_> {
                 Instruction::add(left_address.index, left_address, right_address)
             }
             SyntaxKind::SubtractionExpression => {
-                let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
+                let target = get_target()?;
+                let destination = target.start_index;
 
                 math_emission.set_target(Some(target));
 
-                Instruction::subtract(target.index(), left_address, right_address)
+                Instruction::subtract(destination, left_address, right_address)
             }
             SyntaxKind::SubtractionAssignmentStatement => {
                 math_emission.set_target(left_target);
@@ -1804,11 +1800,12 @@ impl SyntaxVisitor for Emitter<'_> {
                 Instruction::subtract(left_address.index, left_address, right_address)
             }
             SyntaxKind::MultiplicationExpression => {
-                let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
+                let target = get_target()?;
+                let destination = target.start_index;
 
                 math_emission.set_target(Some(target));
 
-                Instruction::multiply(target.index(), left_address, right_address)
+                Instruction::multiply(destination, left_address, right_address)
             }
             SyntaxKind::MultiplicationAssignmentStatement => {
                 math_emission.set_target(left_target);
@@ -1816,11 +1813,12 @@ impl SyntaxVisitor for Emitter<'_> {
                 Instruction::multiply(left_address.index, left_address, right_address)
             }
             SyntaxKind::DivisionExpression => {
-                let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
+                let target = get_target()?;
+                let destination = target.start_index;
 
                 math_emission.set_target(Some(target));
 
-                Instruction::divide(target.index(), left_address, right_address)
+                Instruction::divide(destination, left_address, right_address)
             }
             SyntaxKind::DivisionAssignmentStatement => {
                 math_emission.set_target(left_target);
@@ -1828,11 +1826,12 @@ impl SyntaxVisitor for Emitter<'_> {
                 Instruction::divide(left_address.index, left_address, right_address)
             }
             SyntaxKind::ModuloExpression => {
-                let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
+                let target = get_target()?;
+                let destination = target.start_index;
 
                 math_emission.set_target(Some(target));
 
-                Instruction::modulo(target.index(), left_address, right_address)
+                Instruction::modulo(destination, left_address, right_address)
             }
             SyntaxKind::ModuloAssignmentStatement => {
                 math_emission.set_target(left_target);
@@ -1840,11 +1839,12 @@ impl SyntaxVisitor for Emitter<'_> {
                 Instruction::modulo(left_address.index, left_address, right_address)
             }
             SyntaxKind::ExponentExpression => {
-                let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
+                let target = get_target()?;
+                let destination = target.start_index;
 
                 math_emission.set_target(Some(target));
 
-                Instruction::power(target.index(), left_address, right_address)
+                Instruction::power(destination, left_address, right_address)
             }
             SyntaxKind::ExponentAssignmentStatement => {
                 math_emission.set_target(left_target);
@@ -1862,7 +1862,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_comparison_binary_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting comparison binary expression");
 
@@ -1898,7 +1898,13 @@ impl SyntaxVisitor for Emitter<'_> {
             &right_expression,
         )?;
 
-        let target = input.unwrap_or_else(|| self.allocate_temporary_registers(1));
+        let target = if let Some(target) = input {
+            target.clone()
+        } else {
+            let register_classes = self.resolver.get_register_classes(TypeId::BOOLEAN, &node)?;
+
+            self.allocate_temporary_registers(register_classes)
+        };
         let comparison_instruction = match node.kind() {
             SyntaxKind::EqualExpression => Instruction::equal(true, left_address, right_address),
             SyntaxKind::NotEqualExpression => {
@@ -1917,13 +1923,13 @@ impl SyntaxVisitor for Emitter<'_> {
             _ => unreachable!("Expected comparison expression, found {}", node.kind()),
         };
         let load_false_instruction = Instruction::r#move(
-            target.index(),
+            target.start_index,
             SmallType::BOOLEAN,
             Address::encoded_boolean(false),
             1,
         );
         let load_true_instruction = Instruction::r#move(
-            target.index(),
+            target.start_index,
             SmallType::BOOLEAN,
             Address::encoded_boolean(false),
             0,
@@ -1940,7 +1946,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_logical_binary_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        target: Self::ExpressionInput,
+        target: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting logical binary expression");
 
@@ -1970,7 +1976,13 @@ impl SyntaxVisitor for Emitter<'_> {
         let right_address =
             self.handle_operand_emission(&mut logical_emission, right_emission, &right_expression)?;
 
-        let target = target.unwrap_or_else(|| self.allocate_temporary_registers(1));
+        let target = if let Some(target) = target {
+            target.clone()
+        } else {
+            let register_classes = self.resolver.get_register_classes(TypeId::BOOLEAN, &node)?;
+
+            self.allocate_temporary_registers(register_classes)
+        };
 
         let test_instruction = match node.kind() {
             SyntaxKind::AndExpression => Instruction::test(left_address, false, 1),
@@ -1978,9 +1990,9 @@ impl SyntaxVisitor for Emitter<'_> {
             _ => unreachable!("Expected logical expression, found {}", node.kind()),
         };
         let right_move_instruction =
-            Instruction::r#move(target.index(), SmallType::BOOLEAN, right_address, 1);
+            Instruction::r#move(target.start_index, SmallType::BOOLEAN, right_address, 1);
         let left_move_instruction =
-            Instruction::r#move(target.index(), SmallType::BOOLEAN, left_address, 0);
+            Instruction::r#move(target.start_index, SmallType::BOOLEAN, left_address, 0);
 
         logical_emission.push(test_instruction);
         logical_emission.push(right_move_instruction);
@@ -1993,7 +2005,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_unary_negation_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting unary negation expression");
 
@@ -2017,8 +2029,15 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let child_address =
             self.handle_operand_emission(&mut negation_emission, expression_emission, &expression)?;
-        let target = input.unwrap_or_else(|| self.allocate_temporary_registers(1));
-        let negate_instruction = Instruction::negate(target.index(), child_address);
+        let target = if let Some(target) = input {
+            target.clone()
+        } else {
+            let type_id = *self.resolver.get_type_binding(&node.id)?;
+            let register_classes = self.resolver.get_register_classes(type_id, &node)?;
+
+            self.allocate_temporary_registers(register_classes)
+        };
+        let negate_instruction = Instruction::negate(target.start_index, child_address);
 
         negation_emission.push(negate_instruction);
         negation_emission.set_target(Some(target));
@@ -2029,7 +2048,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_while_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        _: Self::ExpressionInput,
+        _: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting while expression");
 
@@ -2062,7 +2081,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_function_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        _target: Self::ExpressionInput,
+        _target: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting function expression");
 
@@ -2111,7 +2130,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_call_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        target: Self::ExpressionInput,
+        target: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting call expression");
 
@@ -2143,23 +2162,18 @@ impl SyntaxVisitor for Emitter<'_> {
         let return_type_id = *self.resolver.get_type_binding(&node.id)?;
         let return_operand_type = self.resolver.get_small_type(return_type_id, &node)?;
 
-        let register_count = self.resolver.get_register_size(return_type_id, &node)?;
-        let target = if let Some(target) = target
-            && target.destination_count() == register_count
-        {
-            Some(target)
+        let register_count = self.resolver.get_register_classes(return_type_id, &node)?;
+        let target = if let Some(target) = target {
+            Some(target.clone())
         } else if return_operand_type != SmallType::UNIT {
             Some(self.allocate_temporary_registers(register_count))
         } else {
             None
         };
+        let destination = target.as_ref().map(|target| target.start_index);
 
-        let call_instruction = Instruction::call(
-            target.map(|target| target.index()),
-            callee_address,
-            arguments_start,
-            argument_count,
-        );
+        let call_instruction =
+            Instruction::call(destination, callee_address, arguments_start, argument_count);
 
         call_emission.push(call_instruction);
 
@@ -2177,12 +2191,23 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_path(
         &mut self,
         path: SyntaxReader,
-        _: Visibility,
+        _: Self::PathInput,
     ) -> Result<Self::PathOutput, ErrorKind> {
         debug!("Visting path");
         debug_assert_eq!(path.kind(), SyntaxKind::Path);
 
         self.resolver.get_declaration_binding(&path.id).copied()
+    }
+
+    fn visit_simple_path(
+        &mut self,
+        node: SyntaxReader,
+        _: Self::PathInput,
+    ) -> Result<Self::PathOutput, ErrorKind> {
+        debug!("Visting simple path");
+        debug_assert_eq!(node.kind(), SyntaxKind::SimplePath);
+
+        self.resolver.get_declaration_binding(&node.id).copied()
     }
 }
 
@@ -2196,10 +2221,10 @@ pub enum Emission {
 }
 
 impl Emission {
-    fn target(&self) -> Option<TargetRegister> {
+    fn target(&self) -> Option<&RegisterAllocation> {
         match self {
-            Emission::Place(Place::Target(target)) => Some(*target),
-            Emission::Instructions(emission) => emission.target,
+            Emission::Place(Place::Register(target)) => Some(target),
+            Emission::Instructions(emission) => emission.target.as_ref(),
             _ => None,
         }
     }
@@ -2208,7 +2233,7 @@ impl Emission {
 #[derive(Clone, Debug)]
 pub struct InstructionsEmission {
     instructions: Vec<(Instruction, Vec<JumpAnchor>)>,
-    target: Option<TargetRegister>,
+    target: Option<RegisterAllocation>,
 }
 
 impl InstructionsEmission {
@@ -2245,7 +2270,7 @@ impl InstructionsEmission {
         self.instructions.push((instruction, Vec::new()));
     }
 
-    fn set_target(&mut self, target: Option<TargetRegister>) {
+    fn set_target(&mut self, target: Option<RegisterAllocation>) {
         self.target = target;
     }
 
@@ -2261,85 +2286,45 @@ impl InstructionsEmission {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum Place {
-    Constant {
-        id: ConstantId,
-        secondary_id: Option<ConstantId>,
-    },
-    Prototype {
-        prototype_id: PrototypeId,
-    },
-    Target(TargetRegister),
+    Constant { id: ConstantId },
+    Prototype { prototype_id: PrototypeId },
+    Register(RegisterAllocation),
 }
 
 impl Place {
-    fn expect_target(self, node: &SyntaxReader) -> Result<TargetRegister, ErrorKind> {
+    fn expect_register(&self, node: &SyntaxReader) -> Result<&RegisterAllocation, ErrorKind> {
         match self {
-            Place::Target(target) => Ok(target),
+            Place::Register(target) => Ok(target),
             _ => Err(ErrorKind::Compile(CompileError::CannotMutate {
                 position: node.position(),
             })),
         }
     }
 
-    fn address(&self) -> (Address, u16) {
+    fn address_and_register_size(&self) -> (Address, u16) {
         match self {
-            Place::Constant { id, secondary_id } => (
-                Address::constant(id.0),
-                secondary_id.map_or_default(|id| id.0),
-            ),
+            Place::Constant { id } => (Address::constant(id.0), 0),
             Place::Prototype { prototype_id } => (Address::constant(prototype_id.index()), 0),
-            Place::Target(target) => target.address(),
+            Place::Register(register) => register.address_and_register_size(),
         }
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum TargetRegister {
-    Single {
-        index: u16,
-        is_temporary: bool,
-    },
-    Compound {
-        base_index: u16,
-        length: u16,
-        is_temporary: bool,
-    },
+#[derive(Clone, Debug)]
+pub struct RegisterAllocation {
+    classes: SmallVec<[RegisterClass; 8]>,
+    start_index: u16,
+    is_temporary: bool,
 }
 
-impl TargetRegister {
-    fn address(&self) -> (Address, u16) {
-        match self {
-            TargetRegister::Single { index, .. } => (Address::register(*index), 0),
-            TargetRegister::Compound {
-                base_index, length, ..
-            } => (Address::register(*base_index), base_index + length - 1),
-        }
-    }
+impl RegisterAllocation {
+    fn address_and_register_size(&self) -> (Address, u16) {
+        let address = Address::register(self.start_index);
+        let register_size = self.classes.len() as u16;
 
-    fn index(&self) -> u16 {
-        match self {
-            TargetRegister::Single { index, .. } => *index,
-            TargetRegister::Compound {
-                base_index: base_register,
-                ..
-            } => *base_register,
-        }
-    }
-
-    fn is_temporary(&self) -> bool {
-        match self {
-            TargetRegister::Single { is_temporary, .. }
-            | TargetRegister::Compound { is_temporary, .. } => *is_temporary,
-        }
-    }
-
-    fn destination_count(&self) -> u16 {
-        match self {
-            TargetRegister::Single { .. } => 1,
-            TargetRegister::Compound { length: count, .. } => *count,
-        }
+        (address, register_size)
     }
 }
 
@@ -2383,43 +2368,43 @@ impl ConstantEmission {
         }
     }
 
-    fn add(self, other: Self, emitter: &mut Emitter) -> Option<Self> {
-        match (self, other) {
+    fn add(self, other: Self, emitter: &mut Emitter) -> Result<Option<Self>, ErrorKind> {
+        let sum = match (self, other) {
             (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
-                Some(ConstantEmission::U8(left + right))
+                ConstantEmission::U8(left + right)
             }
             (ConstantEmission::I8(left), ConstantEmission::I8(right)) => {
-                Some(ConstantEmission::I8(left + right))
+                ConstantEmission::I8(left + right)
             }
             (ConstantEmission::U16(left), ConstantEmission::U16(right)) => {
-                Some(ConstantEmission::U16(left + right))
+                ConstantEmission::U16(left + right)
             }
             (ConstantEmission::I16(left), ConstantEmission::I16(right)) => {
-                Some(ConstantEmission::I16(left + right))
+                ConstantEmission::I16(left + right)
             }
             (ConstantEmission::U32(left), ConstantEmission::U32(right)) => {
-                Some(ConstantEmission::U32(left + right))
+                ConstantEmission::U32(left + right)
             }
             (ConstantEmission::I32(left), ConstantEmission::I32(right)) => {
-                Some(ConstantEmission::I32(left + right))
+                ConstantEmission::I32(left + right)
             }
             (ConstantEmission::U64(left), ConstantEmission::U64(right)) => {
-                Some(ConstantEmission::U64(left + right))
+                ConstantEmission::U64(left + right)
             }
             (ConstantEmission::I64(left), ConstantEmission::I64(right)) => {
-                Some(ConstantEmission::I64(left + right))
+                ConstantEmission::I64(left + right)
             }
             (ConstantEmission::U128(left), ConstantEmission::U128(right)) => {
-                Some(ConstantEmission::U128(left + right))
+                ConstantEmission::U128(left + right)
             }
             (ConstantEmission::I128(left), ConstantEmission::I128(right)) => {
-                Some(ConstantEmission::I128(left + right))
+                ConstantEmission::I128(left + right)
             }
             (ConstantEmission::F32(left), ConstantEmission::F32(right)) => {
-                Some(ConstantEmission::F32(left + right))
+                ConstantEmission::F32(left + right)
             }
             (ConstantEmission::F64(left), ConstantEmission::F64(right)) => {
-                Some(ConstantEmission::F64(left + right))
+                ConstantEmission::F64(left + right)
             }
             (
                 ConstantEmission::String {
@@ -2444,15 +2429,17 @@ impl ConstantEmission {
                 combined.push_str(right);
 
                 let (combined_pool_start, combined_pool_end) =
-                    emitter.constants.push_str_to_string_pool(&combined);
+                    emitter.constants.push_str_to_string_pool(&combined)?;
 
-                Some(ConstantEmission::String {
+                ConstantEmission::String {
                     pool_start: combined_pool_start,
                     pool_end: combined_pool_end,
-                })
+                }
             }
-            _ => None,
-        }
+            _ => return Ok(None),
+        };
+
+        Ok(Some(sum))
     }
 
     fn subtract(self, other: Self) -> Option<Self> {
@@ -2913,4 +2900,11 @@ struct JumpPlacement {
     distance: u16,
     forward: bool,
     coalesce: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct RegisterTracker {
+    next_local: u16,
+
+    next_temporary: u16,
 }

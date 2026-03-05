@@ -26,6 +26,7 @@ mod native_function;
 mod parser;
 mod project;
 mod prototype;
+mod register;
 mod resolver;
 mod source;
 mod syntax;

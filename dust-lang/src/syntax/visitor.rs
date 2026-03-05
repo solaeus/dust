@@ -1,7 +1,6 @@
 use crate::{
     compiler::error::CompileError,
     dust_error::ErrorKind,
-    resolver::declaration_graph::Visibility,
     syntax::{SyntaxKind, SyntaxReader},
 };
 
@@ -15,6 +14,8 @@ pub trait SyntaxVisitor {
     type ExpressionOutput;
 
     type TypeOutput;
+
+    type PathInput;
 
     type PathOutput;
 
@@ -59,7 +60,7 @@ pub trait SyntaxVisitor {
     fn visit_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         match node.kind() {
             SyntaxKind::PathExpression => self.visit_path_expression(node, input),
@@ -137,115 +138,115 @@ pub trait SyntaxVisitor {
     fn visit_boolean_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_byte_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_character_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_float_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_integer_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_string_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_list_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_index_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_path_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_struct_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_block_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_if_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_math_binary_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_comparison_binary_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_logical_binary_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_unary_negation_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_while_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_function_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_call_expression(
         &mut self,
         node: SyntaxReader,
-        input: Self::ExpressionInput,
+        input: Option<&Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_type(&mut self, node: SyntaxReader) -> Result<Self::TypeOutput, ErrorKind>;
@@ -253,6 +254,12 @@ pub trait SyntaxVisitor {
     fn visit_path(
         &mut self,
         node: SyntaxReader,
-        visibility: Visibility,
+        input: Self::PathInput,
+    ) -> Result<Self::PathOutput, ErrorKind>;
+
+    fn visit_simple_path(
+        &mut self,
+        node: SyntaxReader,
+        input: Self::PathInput,
     ) -> Result<Self::PathOutput, ErrorKind>;
 }

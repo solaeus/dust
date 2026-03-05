@@ -6,7 +6,7 @@ pub mod type_graph;
 use std::collections::{HashMap, HashSet};
 
 use rustc_hash::FxBuildHasher;
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 
 use crate::{
     compiler::error::CompileError,
@@ -14,6 +14,7 @@ use crate::{
     dust_type::{DustFunctionType, DustStructType, DustType},
     instruction::SmallType,
     native_function::NativeFunction,
+    register::RegisterClass,
     resolver::{
         declaration_graph::{
             Declaration, DeclarationGraph, DeclarationId, DeclarationKind, DeclarationMembers,
@@ -383,9 +384,8 @@ impl Resolver {
                     .copied()
                     .collect::<SmallVec<[TypeId; 8]>>();
 
-                for (left_type_id, right_type_id) in left_value_types
-                    .into_iter()
-                    .zip(right_value_types.into_iter())
+                for (left_type_id, right_type_id) in
+                    left_value_types.into_iter().zip(right_value_types)
                 {
                     self.unify_types(left_type_id, left_syntax, right_type_id, right_syntax)?;
                 }
@@ -792,14 +792,28 @@ impl Resolver {
         }
     }
 
-    pub fn get_register_size(
+    pub fn get_register_classes(
         &self,
         type_id: TypeId,
         node: &SyntaxReader,
-    ) -> Result<u16, ErrorKind> {
+    ) -> Result<SmallVec<[RegisterClass; 8]>, ErrorKind> {
         match self.types.get_type(type_id)? {
-            TypeNode::Unit => Ok(0),
-            TypeNode::U128 | TypeNode::I128 => Ok(2),
+            TypeNode::Unit => Ok(SmallVec::new()),
+            TypeNode::Boolean
+            | TypeNode::U8
+            | TypeNode::I8
+            | TypeNode::U16
+            | TypeNode::I16
+            | TypeNode::U32
+            | TypeNode::I32
+            | TypeNode::Character
+            | TypeNode::Function { .. } => Ok(smallvec![RegisterClass::Integer32]),
+            TypeNode::U64 | TypeNode::I64 => Ok(smallvec![RegisterClass::Integer64]),
+            TypeNode::U128 | TypeNode::I128 => Ok(smallvec![
+                RegisterClass::Integer64,
+                RegisterClass::Integer64
+            ]),
+            TypeNode::F32 | TypeNode::F64 => Ok(smallvec![RegisterClass::Float64]),
             TypeNode::Struct { declaration_id, .. } => {
                 let struct_declaration = self.declarations.get_declaration(*declaration_id)?;
                 let DeclarationKind::Type { members, .. } = struct_declaration.kind else {
@@ -807,44 +821,35 @@ impl Resolver {
                         *declaration_id,
                     )));
                 };
-                let mut leaf_count: u16 = 0;
+
+                let mut register_classes =
+                    SmallVec::<[RegisterClass; 8]>::with_capacity(members.count as usize);
 
                 for index in members.start..(members.start + members.count) {
                     let field_declaration_id = self.declarations.get_declaration_member(index)?;
                     let field_type_id = *self
                         .declarations
                         .get_declaration_type(field_declaration_id)?;
-                    let field_register_size = self.get_register_size(field_type_id, node)?;
+                    let field_register_classes = self.get_register_classes(field_type_id, node)?;
 
-                    let mut resolved_field_type_id = field_type_id;
-
-                    while let TypeNode::Inferred {
-                        resolved: Some(resolved),
-                        ..
-                    } = self.types.get_type(resolved_field_type_id)?
-                    {
-                        resolved_field_type_id = *resolved;
-                    }
-
-                    let field_leaf_count = match self.types.get_type(resolved_field_type_id)? {
-                        TypeNode::Unit => 0,
-                        TypeNode::Struct { .. } => field_register_size.saturating_sub(1),
-                        _ => 1,
-                    };
-
-                    leaf_count = leaf_count.saturating_add(field_leaf_count);
+                    register_classes.extend(field_register_classes);
                 }
 
-                Ok(leaf_count)
+                Ok(register_classes)
             }
+            TypeNode::Enum { declaration_id, .. } => {
+                let type_id = self.declarations.get_declaration_type(declaration_id)?;
+
+                self.get_register_classes(*type_id, node)
+            }
+            TypeNode::String | TypeNode::List { .. } => Ok(smallvec![RegisterClass::Pointer]),
             TypeNode::Inferred { resolved, .. } => match resolved {
-                Some(resolved) => self.get_register_size(*resolved, node),
+                Some(resolved) => self.get_register_classes(*resolved, node),
                 None => Err(ErrorKind::Compile(CompileError::CannotInferType {
                     type_id,
                     position: Some(node.position()),
                 })),
             },
-            _ => Ok(1),
         }
     }
 

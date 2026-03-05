@@ -159,6 +159,8 @@ impl<'a> AnnotatedError<'a> for ErrorKind {
 
 #[derive(Debug)]
 pub enum InternalError {
+    InvalidConstantTable,
+
     MissingSourceFile(SourceFileId),
     MissingSourceFileContent { span: Span, length: usize },
 
