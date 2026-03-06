@@ -19,7 +19,7 @@ impl From<&Instruction> for Move {
             operand_memory: instruction.b_memory(),
             operand_index: instruction.b_field(),
             jump_distance: instruction.c_field(),
-            jump_forward: instruction.e_field(),
+            jump_forward: instruction.c_memory().0 != 0,
         }
     }
 }
@@ -40,7 +40,7 @@ impl From<Move> for Instruction {
             .b_memory(operand_memory)
             .b_field(operand_index)
             .c_field(jump_distance)
-            .e_field(jump_forward)
+            .c_memory(MemoryKind(jump_forward as u8))
             .operand_type(operand_type)
             .build()
     }

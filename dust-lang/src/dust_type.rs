@@ -7,8 +7,6 @@ pub enum DustType {
     #[default]
     Unit,
     Boolean,
-    Character,
-    String,
     U8,
     I8,
     U16,
@@ -21,9 +19,11 @@ pub enum DustType {
     I128,
     F32,
     F64,
+    Character,
+    String,
     List(Box<DustType>),
-    Function(Box<DustFunctionType>),
     Struct(Box<DustStructType>),
+    Function(Box<DustFunctionType>),
 }
 
 impl DustType {
@@ -61,7 +61,7 @@ impl DustType {
 impl Display for DustType {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            DustType::Unit => write!(f, "none"),
+            DustType::Unit => write!(f, "()"),
             DustType::Boolean => write!(f, "bool"),
             DustType::Character => write!(f, "char"),
             DustType::String => write!(f, "str"),

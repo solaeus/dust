@@ -59,10 +59,8 @@ use crate::native_function::NativeFunction;
 /// Bits    | Description
 /// ------- | -----------
 /// 0..=5   | Operation
-/// 6       | B memory kind
-/// 7       | C memory kind
-/// 8       | E field
-/// 9       | F field
+/// 6..=7   | B memory kind
+/// 8..=9   | C memory kind
 /// 10..=15 | Type or D field
 /// 16..=31 | A field
 /// 32..=47 | B field
@@ -116,10 +114,6 @@ impl Instruction {
 
     pub fn d_field(&self) -> u16 {
         ((self.0 >> 10) & 0x1F) as u16
-    }
-
-    pub fn e_field(&self) -> bool {
-        ((self.0 >> 8) & 0x1) != 0
     }
 
     pub fn bc_field(&self) -> u32 {
@@ -542,7 +536,6 @@ pub struct InstructionBuilder {
     c_memory: Option<MemoryKind>,
     operand_type: Option<OperandType>,
     d_field: Option<u16>,
-    e_field: Option<bool>,
     a_field: Option<u16>,
     b_field: Option<u16>,
     c_field: Option<u16>,
@@ -557,7 +550,6 @@ impl InstructionBuilder {
             c_memory: None,
             operand_type: None,
             d_field: None,
-            e_field: None,
             a_field: None,
             b_field: None,
             c_field: None,
@@ -585,12 +577,6 @@ impl InstructionBuilder {
 
     pub fn d_field(mut self, d_field: u16) -> Self {
         self.d_field = Some(d_field);
-
-        self
-    }
-
-    pub fn e_field(mut self, e_field: bool) -> Self {
-        self.e_field = Some(e_field);
 
         self
     }
@@ -623,11 +609,11 @@ impl InstructionBuilder {
         let mut bits = self.operation.0 as u64;
 
         if let Some(b_memory) = self.b_memory {
-            bits |= ((b_memory.0 as u64) & 0x3) << 7;
+            bits |= ((b_memory.0 as u64) & 0x3) << 6;
         }
 
         if let Some(c_memory) = self.c_memory {
-            bits |= ((c_memory.0 as u64) & 0x3) << 9;
+            bits |= ((c_memory.0 as u64) & 0x3) << 8;
         }
 
         if let Some(operand_type) = self.operand_type {
@@ -636,10 +622,6 @@ impl InstructionBuilder {
 
         if let Some(d_field) = self.d_field {
             bits |= ((d_field as u64) & 0x1F) << 10;
-        }
-
-        if let Some(e_field) = self.e_field {
-            bits |= ((e_field as u64) & 0x1) << 8;
         }
 
         if let Some(a_field) = self.a_field {
@@ -665,7 +647,7 @@ impl InstructionBuilder {
 #[derive(
     Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
-pub struct MemoryKind(pub u8);
+pub struct MemoryKind(pub(super) u8);
 
 impl MemoryKind {
     pub const REGISTER: MemoryKind = MemoryKind(0);

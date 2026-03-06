@@ -9,9 +9,7 @@ use crate::{
     dust_error::{ErrorKind, InternalError},
     resolver::{
         Resolver,
-        declaration_graph::{
-            DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind, Visibility,
-        },
+        declaration_graph::{DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind},
         type_graph::{TypeId, TypeMembers, TypeNode},
     },
     syntax::{Syntax, SyntaxKind, SyntaxReader, SyntaxVisitor},
@@ -96,9 +94,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 file_id
             } else {
                 return Err(ErrorKind::Internal(
-                    InternalError::ExpectedModuleDeclaration {
-                        declaration_id: module_declaration_id,
-                    },
+                    InternalError::ExpectedModuleDeclaration(module_declaration_id),
                 ));
             };
             let module_root = self.syntax.get_tree(module_file_id)?.root()?;
@@ -810,7 +806,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             }
             _ => Err(ErrorKind::Compile(CompileError::CannotApplyUnaryOperator {
                 operator: node.kind(),
-                operand_type: self.resolver.get_small_type(child_type, &expression)?,
+                type_id: child_type,
                 operand_position: expression.position(),
             })),
         }

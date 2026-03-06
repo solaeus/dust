@@ -10,6 +10,7 @@ use crate::register::RegisterClass;
 pub struct OperandType(pub(super) u8);
 
 impl OperandType {
+    // RegisterClass::Integer32
     pub const BOOLEAN: OperandType = OperandType(0);
     pub const CHARACTER: OperandType = OperandType(1);
     pub const U_8: OperandType = OperandType(2);
@@ -18,15 +19,23 @@ impl OperandType {
     pub const I_16: OperandType = OperandType(5);
     pub const U_32: OperandType = OperandType(6);
     pub const I_32: OperandType = OperandType(7);
+    pub const FUNCTION: OperandType = OperandType(14);
+
+    // RegisterClass::Integer64
     pub const U_64: OperandType = OperandType(8);
     pub const I_64: OperandType = OperandType(9);
     pub const U_128: OperandType = OperandType(10);
     pub const I_128: OperandType = OperandType(11);
+
+    // RegisterClass::Float64
     pub const F_32: OperandType = OperandType(12);
     pub const F_64: OperandType = OperandType(13);
-    pub const FUNCTION: OperandType = OperandType(14);
+
+    // RegisterClass::Pointer
     pub const STRING: OperandType = OperandType(15);
     pub const LIST: OperandType = OperandType(16);
+
+    // Used for ADD instructions that concatenate strings with characters.
     pub const CHARACTER_STRING: OperandType = OperandType(17);
     pub const STRING_CHARACTER: OperandType = OperandType(18);
 

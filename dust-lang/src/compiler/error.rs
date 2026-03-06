@@ -17,7 +17,7 @@ use crate::{
 pub enum CompileError {
     CannotApplyUnaryOperator {
         operator: SyntaxKind,
-        operand_type: OperandType,
+        type_id: TypeId,
         operand_position: Position,
     },
     CannotApplyBinaryOperator {
@@ -412,7 +412,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::CannotApplyUnaryOperator {
                 operator,
-                operand_type,
+                type_id,
                 operand_position,
             } => {
                 let title = "Cannot apply operator".to_string();
@@ -424,11 +424,19 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         return;
                     }
                 };
+                let r#type = match resolver.get_full_type(*type_id, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
+                };
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
                             .span(operand_position.span.as_usize_range())
-                            .label(format!("Cannot apply {operator} to `{operand_type}`.")),
+                            .label(format!("Cannot apply {operator} to `{type}`.")),
                     ),
                 );
 
