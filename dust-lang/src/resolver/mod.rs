@@ -6,13 +6,12 @@ pub mod type_graph;
 use std::collections::{HashMap, HashSet};
 
 use rustc_hash::FxBuildHasher;
-use smallvec::{SmallVec, smallvec};
+use smallvec::SmallVec;
 
 use crate::{
     compiler::error::CompileError,
     dust_error::{ErrorKind, InternalError},
     dust_type::{DustFunctionType, DustStructType, DustType},
-    instruction::OperandType,
     native_function::NativeFunction,
     resolver::{
         declaration_graph::{
@@ -282,70 +281,6 @@ impl Resolver {
             Err(ErrorKind::Internal(InternalError::ExpectedListType {
                 found: *type_node,
             }))
-        }
-    }
-
-    pub fn get_operand_types(
-        &self,
-        type_id: TypeId,
-    ) -> Result<SmallVec<[OperandType; 8]>, ErrorKind> {
-        let type_node = self.types.get_type(type_id)?;
-
-        match type_node {
-            TypeNode::Unit => Ok(SmallVec::new()),
-            TypeNode::Boolean => Ok(smallvec![OperandType::BOOLEAN]),
-            TypeNode::Character => Ok(smallvec![OperandType::CHARACTER]),
-            TypeNode::String => Ok(smallvec![OperandType::STRING]),
-            TypeNode::U8 => Ok(smallvec![OperandType::U_8]),
-            TypeNode::I8 => Ok(smallvec![OperandType::I_8]),
-            TypeNode::U16 => Ok(smallvec![OperandType::U_16]),
-            TypeNode::I16 => Ok(smallvec![OperandType::I_16]),
-            TypeNode::U32 => Ok(smallvec![OperandType::U_32]),
-            TypeNode::I32 => Ok(smallvec![OperandType::I_32]),
-            TypeNode::U64 => Ok(smallvec![OperandType::U_64]),
-            TypeNode::I64 => Ok(smallvec![OperandType::I_64]),
-            TypeNode::U128 => Ok(smallvec![OperandType::U_128]),
-            TypeNode::I128 => Ok(smallvec![OperandType::I_128]),
-            TypeNode::F32 => Ok(smallvec![OperandType::F_32]),
-            TypeNode::F64 => Ok(smallvec![OperandType::F_64]),
-            TypeNode::List { .. } => Ok(smallvec![OperandType::LIST]),
-            TypeNode::Function { .. } => Ok(smallvec![OperandType::FUNCTION]),
-            TypeNode::Struct { declaration_id, .. } => {
-                let declaration = self.declarations.get_declaration(*declaration_id)?;
-                let members = if let DeclarationKind::Type { members, .. } = declaration.kind {
-                    self.declarations.get_declaration_members(members)?
-                } else {
-                    return Err(ErrorKind::Internal(InternalError::MissingDeclaration(
-                        *declaration_id,
-                    )));
-                };
-
-                let mut operand_types = SmallVec::<[OperandType; 8]>::with_capacity(members.len());
-
-                for member in members {
-                    let member_type_id = self.declarations.get_declaration_type(member)?;
-                    let member_operand_types = self.get_operand_types(*member_type_id)?;
-
-                    operand_types.extend(member_operand_types);
-                }
-
-                Ok(operand_types)
-            }
-            TypeNode::Enum { declaration_id, .. } => {
-                let type_id = self.declarations.get_declaration_type(declaration_id)?;
-
-                self.get_operand_types(*type_id)
-            }
-            TypeNode::Inferred { resolved, .. } => {
-                if let Some(resolved) = resolved {
-                    self.get_operand_types(*resolved)
-                } else {
-                    Err(ErrorKind::Compile(CompileError::CannotInferType {
-                        type_id,
-                        position: None,
-                    }))
-                }
-            }
         }
     }
 

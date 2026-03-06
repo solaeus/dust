@@ -164,10 +164,14 @@ impl Instruction {
         })
     }
 
-    pub fn new_list(destination: u16, list_type: OperandType, initial_length: u32) -> Instruction {
+    pub fn new_list(
+        destination: u16,
+        element_type: OperandType,
+        initial_length: u32,
+    ) -> Instruction {
         Instruction::from(NewList {
             destination,
-            element_type: list_type,
+            element_type,
             initial_length,
         })
     }

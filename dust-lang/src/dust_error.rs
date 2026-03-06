@@ -193,8 +193,10 @@ pub enum InternalError {
     UnhandledParseError(ParseError),
     UnhandledCompileError(CompileError),
 
-    InvalidRegisterAllocation { expected: usize, found: usize },
+    InvalidRegisterCount { expected: usize, found: usize },
     ExpectedListType { found: TypeNode },
+    ExpectedFloatRegister,
+    ExpectedIntegerRegister,
 }
 
 impl InternalError {

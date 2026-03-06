@@ -39,8 +39,11 @@ impl OperandType {
     pub const CHARACTER_STRING: OperandType = OperandType(17);
     pub const STRING_CHARACTER: OperandType = OperandType(18);
 
-    // Represents a compound type
-    pub const COMPOUND: OperandType = OperandType(19);
+    pub const STRUCT: OperandType = OperandType(19);
+
+    pub fn is_wide(self) -> bool {
+        matches!(self, Self::U_128 | Self::I_128)
+    }
 
     pub fn register_class(self) -> RegisterClass {
         match self {

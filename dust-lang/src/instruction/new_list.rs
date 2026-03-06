@@ -27,8 +27,8 @@ impl From<NewList> for Instruction {
         } = list;
 
         InstructionBuilder::new(Operation::NEW_LIST)
-            .a_field(destination)
             .operand_type(element_type)
+            .a_field(destination)
             .bc_field(initial_length)
             .build()
     }
