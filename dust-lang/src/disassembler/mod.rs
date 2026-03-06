@@ -371,7 +371,7 @@ impl<'a> Disassembler<'a> {
                 .iter()
                 .enumerate()
                 .map(|(index, call_argument)| {
-                    let r#type = call_argument.r#type;
+                    let r#type = call_argument.operand_type;
                     let argument_memory = call_argument.memory.as_string(r#type);
                     let argument_index = call_argument.index;
 

@@ -273,6 +273,18 @@ impl Resolver {
         }))
     }
 
+    pub fn get_element_type(&self, type_id: TypeId) -> Result<TypeId, ErrorKind> {
+        let type_node = self.types.get_type(type_id)?;
+
+        if let TypeNode::List { element_type } = type_node {
+            Ok(*element_type)
+        } else {
+            Err(ErrorKind::Internal(InternalError::ExpectedListType {
+                found: *type_node,
+            }))
+        }
+    }
+
     pub fn get_operand_types(
         &self,
         type_id: TypeId,

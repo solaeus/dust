@@ -15,7 +15,7 @@ use crate::{
 
 #[derive(Debug)]
 pub enum CompileError {
-    CannotApplyUnaryOperator {
+    CannotApplyOperator {
         operator: SyntaxKind,
         type_id: TypeId,
         operand_position: Position,
@@ -410,7 +410,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::CannotApplyUnaryOperator {
+            CompileError::CannotApplyOperator {
                 operator,
                 type_id,
                 operand_position,

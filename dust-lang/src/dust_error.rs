@@ -16,7 +16,7 @@ use crate::{
         declaration_graph::{DeclarationId, DeclarationMembers},
         scope_graph::ScopeId,
         symbol_table::SymbolId,
-        type_graph::{TypeId, TypeMembers},
+        type_graph::{TypeId, TypeMembers, TypeNode},
     },
     source::{Source, SourceError, SourceFileId, Span},
     syntax::{SyntaxId, SyntaxPayload},
@@ -192,6 +192,9 @@ pub enum InternalError {
     UnhandledSourceError(SourceError),
     UnhandledParseError(ParseError),
     UnhandledCompileError(CompileError),
+
+    InvalidRegisterAllocation { expected: usize, found: usize },
+    ExpectedListType { found: TypeNode },
 }
 
 impl InternalError {

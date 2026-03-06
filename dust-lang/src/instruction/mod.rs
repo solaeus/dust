@@ -72,8 +72,7 @@ use crate::native_function::NativeFunction;
 /// - B and C memory kind: Whether the B and C fields refer to a register or a constant
 /// - Type: Used by most instructions to indicate the type of the operand(s)
 /// - D field: Used for CALL instructions to store the argument count
-/// - E field: Boolean flag used by MOVE instructions that also jump to indicate the direction
-/// - F field: Unused
+/// - E field: Boolean flag used by MOVE instructions that jump to indicate the direction
 /// - BC field: Combined 32-bit field spanning the B and C fields
 #[derive(Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(C)]
@@ -93,11 +92,11 @@ impl Instruction {
     }
 
     pub fn b_memory(&self) -> MemoryKind {
-        MemoryKind(((self.0 >> 7) & 0x3) as u8)
+        MemoryKind(((self.0 >> 6) & 0x3) as u8)
     }
 
     pub fn c_memory(&self) -> MemoryKind {
-        MemoryKind(((self.0 >> 9) & 0x3) as u8)
+        MemoryKind(((self.0 >> 8) & 0x3) as u8)
     }
 
     pub fn a_field(&self) -> u16 {
@@ -450,19 +449,11 @@ impl Instruction {
         })
     }
 
-    pub fn r#return(
-        returns_value: bool,
-        operand_type: OperandType,
-        operand_memory: MemoryKind,
-        operand_index: u16,
-        additional_registers: u16,
-    ) -> Instruction {
+    pub fn r#return(returns_value: bool, arguments_start: u16, argument_count: u16) -> Instruction {
         Instruction::from(Return {
             returns_value,
-            operand_type,
-            operand_memory,
-            operand_index,
-            additional_registers,
+            arguments_start,
+            argument_count,
         })
     }
 
@@ -676,7 +667,7 @@ impl MemoryKind {
 pub struct CallArgument {
     pub index: u16,
     pub memory: MemoryKind,
-    pub r#type: OperandType,
+    pub operand_type: OperandType,
 }
 
 #[cfg(test)]

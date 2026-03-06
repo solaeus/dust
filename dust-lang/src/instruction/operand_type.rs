@@ -39,6 +39,9 @@ impl OperandType {
     pub const CHARACTER_STRING: OperandType = OperandType(17);
     pub const STRING_CHARACTER: OperandType = OperandType(18);
 
+    // Represents a compound type
+    pub const COMPOUND: OperandType = OperandType(19);
+
     pub fn register_class(self) -> RegisterClass {
         match self {
             Self::BOOLEAN
@@ -53,6 +56,25 @@ impl OperandType {
             Self::U_64 | Self::I_64 | Self::U_128 | Self::I_128 => RegisterClass::Integer64,
             Self::F_32 | Self::F_64 => RegisterClass::Float64,
             _ => RegisterClass::Pointer,
+        }
+    }
+
+    /// Returns the byte size of values of this type.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called on the `CHARACTER_STRING` or `STRING_CHARACTER` operand types. These types
+    /// are not returned by `Resolver::get_operand_type()`, so only a misuse of the API could cause
+    /// this.
+    pub fn size_in_bytes(self) -> usize {
+        match self {
+            Self::BOOLEAN | Self::CHARACTER | Self::U_8 | Self::I_8 => 1,
+            Self::U_16 | Self::I_16 | Self::FUNCTION => 2,
+            Self::U_32 | Self::I_32 | Self::F_32 => 4,
+            Self::U_64 | Self::I_64 | Self::F_64 => 8,
+            Self::U_128 | Self::I_128 => 16,
+            Self::STRING | Self::LIST => size_of::<usize>(),
+            _ => panic!("size_in_bytes() called on invalid operand type"),
         }
     }
 }
