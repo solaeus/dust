@@ -12,8 +12,5 @@ fn has_then_branch_type() {
         .find(|node| node.kind() == SyntaxKind::IfExpression)
         .unwrap();
 
-    assert_eq!(
-        *resolver.get_type_binding(&node.id).unwrap(),
-        TypeId::I_64
-    );
+    assert_eq!(*resolver.get_type_binding(&node.id).unwrap(), TypeId::I_64);
 }

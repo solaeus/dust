@@ -157,8 +157,7 @@ impl<'src> Compiler<'src> {
                     };
                     let parent_path = parent_file
                         .path()
-                        .map(|path| path.parent())
-                        .flatten()
+                        .and_then(|path| path.parent())
                         .unwrap_or_else(|| Path::new("."));
                     let module_path = parent_path.join(module_name_str).with_added_extension("ds");
                     let module_file = match SourceFile::file_from_path(&module_path) {

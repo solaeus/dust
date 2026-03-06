@@ -40,9 +40,9 @@ fn handle_output(
 
 pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
     let ParseCommand {
-        global: GlobalOptions { log, time, name },
+        global: GlobalOptions { log: _, time, name: _ },
         input: InputOptions {
-            mut eval,
+            eval,
             stdin,
             path,
         },

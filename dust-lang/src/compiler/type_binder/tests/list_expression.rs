@@ -53,8 +53,5 @@ fn index_has_element_type() {
         .find(|node| node.kind() == SyntaxKind::IndexExpression)
         .unwrap();
 
-    assert_eq!(
-        *resolver.get_type_binding(&node.id).unwrap(),
-        TypeId::I_64
-    );
+    assert_eq!(*resolver.get_type_binding(&node.id).unwrap(), TypeId::I_64);
 }

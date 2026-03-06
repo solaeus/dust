@@ -12,10 +12,7 @@ fn negation_has_integer_type() {
         .find(|node| node.kind() == SyntaxKind::NegationExpression)
         .unwrap();
 
-    assert_eq!(
-        *resolver.get_type_binding(&node.id).unwrap(),
-        TypeId::I_64
-    );
+    assert_eq!(*resolver.get_type_binding(&node.id).unwrap(), TypeId::I_64);
 }
 
 #[test]

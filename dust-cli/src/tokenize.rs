@@ -12,18 +12,18 @@ pub fn handle_tokenize_command(
     start_time: Instant,
 ) -> Result<(), ErrorKind> {
     let TokenizeCommand {
-        global: GlobalOptions { log, time, name },
+        global: GlobalOptions { log: _, time, name: _ },
         input: InputOptions {
-            mut eval,
+            eval,
             stdin,
             path,
         },
         output:
             OutputOptions {
                 no_output,
-                ron,
-                pretty_ron,
-                postcard,
+                ron: _,
+                pretty_ron: _,
+                postcard: _,
             },
     } = command;
 

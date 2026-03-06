@@ -12,8 +12,5 @@ fn has_declaration_type() {
         .find(|node| node.kind() == SyntaxKind::PathExpression)
         .unwrap();
 
-    assert_eq!(
-        *resolver.get_type_binding(&node.id).unwrap(),
-        TypeId::I_64
-    );
+    assert_eq!(*resolver.get_type_binding(&node.id).unwrap(), TypeId::I_64);
 }

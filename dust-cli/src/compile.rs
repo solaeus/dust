@@ -12,18 +12,18 @@ pub fn handle_compile_command(
     start_time: Instant,
 ) -> Result<(), ErrorKind> {
     let CompileCommand {
-        global: GlobalOptions { log, time, name },
+        global: GlobalOptions { log: _, time, name: _ },
         input: InputOptions {
-            mut eval,
-            stdin,
+            eval,
+            stdin: _,
             path,
         },
         output:
             OutputOptions {
                 no_output,
-                ron,
-                pretty_ron,
-                postcard,
+                ron: _,
+                pretty_ron: _,
+                postcard: _,
             },
         tui,
     } = command;

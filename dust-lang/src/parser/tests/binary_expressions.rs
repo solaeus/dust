@@ -63,11 +63,7 @@ fn subtraction() {
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 23), SyntaxId(9)),
-            SubtractionExpression.with_binary_children(
-                Span::new(16, 21),
-                SyntaxId(6),
-                SyntaxId(8)
-            ),
+            SubtractionExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
             PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
             PathExpression.with_child(Span::new(20, 21), SyntaxId(7)),
@@ -372,11 +368,7 @@ fn greater_than() {
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 23), SyntaxId(9)),
-            GreaterThanExpression.with_binary_children(
-                Span::new(16, 21),
-                SyntaxId(6),
-                SyntaxId(8)
-            ),
+            GreaterThanExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
             PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
             PathExpression.with_child(Span::new(20, 21), SyntaxId(7)),

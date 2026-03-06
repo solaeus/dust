@@ -92,4 +92,3 @@ fn shadowed_rhs_resolves_to_original() {
         "RHS 'x' in shadowing let must resolve to the original declaration"
     );
 }
-
