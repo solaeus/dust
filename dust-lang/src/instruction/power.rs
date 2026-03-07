@@ -56,12 +56,10 @@ impl Display for Power {
             exponent_memory,
             exponent_index,
         } = *self;
-        let base_memory = base_memory.as_string(operand_type);
-        let exponent_memory = exponent_memory.as_string(operand_type);
 
         write!(
             f,
-            "reg_{destination} = {base_memory}_{base_index} ^ {exponent_memory}_{exponent_index}"
+            "reg_{destination}: {operand_type} = {base_memory}_{base_index} ^ {exponent_memory}_{exponent_index}"
         )
     }
 }

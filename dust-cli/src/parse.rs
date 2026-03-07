@@ -40,12 +40,12 @@ fn handle_output(
 
 pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
     let ParseCommand {
-        global: GlobalOptions { log: _, time, name: _ },
-        input: InputOptions {
-            eval,
-            stdin,
-            path,
+        global: GlobalOptions {
+            log: _,
+            time,
+            name: _,
         },
+        input: InputOptions { eval, stdin, path },
         output:
             OutputOptions {
                 no_output,
@@ -65,7 +65,7 @@ pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
     let mut files_parsed = 0;
 
     while files_parsed < source.file_count() {
-        let (file_id, file) = source.files_iter().nth(files_parsed).unwrap();
+        let (file_id, file) = source.iter().nth(files_parsed).unwrap();
 
         let lexer = if file.is_utf8_validated() {
             Lexer::from_utf8(file.content_as_str())

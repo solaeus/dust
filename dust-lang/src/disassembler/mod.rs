@@ -7,16 +7,18 @@ use ratatui::{
     crossterm::event::{self, Event, KeyCode, KeyEventKind},
     layout::{Alignment, Constraint, Flex, Layout, Rect},
     style::{Style, Stylize},
-    text::Span,
+    text::{Line, Span},
     widgets::{Block, BorderType, Borders, Paragraph, Tabs, Widget, Wrap},
 };
 use tracing::error;
 
 use crate::{
+    instruction::OperandType,
+    prelude::PrototypeId,
     program::Program,
     prototype::Prototype,
     resolver::Resolver,
-    source::{Source, SourceFile},
+    source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, SyntaxTree},
 };
 
@@ -24,13 +26,12 @@ use block_table::BlockTable;
 
 pub struct Disassembler<'a> {
     program: &'a Program,
-    resolver: &'a Resolver,
     source: &'a Source<'a>,
     syntax: &'a Syntax,
+    resolver: &'a Resolver,
+    constant_tags: &'a [OperandType],
 
-    show_constants: bool,
-    show_arguments: bool,
-    show_drops: bool,
+    tabs: Vec<Tab<'a>>,
 
     state: TuiState,
     selection_state: SelectionState,
@@ -42,17 +43,55 @@ impl<'a> Disassembler<'a> {
         source: &'a Source,
         syntax: &'a Syntax,
         resolver: &'a Resolver,
+        constant_tags: &'a [OperandType],
     ) -> Self {
+        let mut tabs = Vec::with_capacity(source.file_count() + program.prototypes.len() + 1);
+
+        for (file_id, file) in source.iter() {
+            tabs.push(Tab::SourceFile {
+                file_name: file.file_name(),
+                file_id,
+            });
+        }
+
+        tabs.push(Tab::Declarations);
+
+        for (prototype_id, prototype) in program.prototypes.iter() {
+            let found_declaration = resolver
+                .declarations
+                .find_prototype_declaration(prototype_id)
+                .unwrap();
+            let function_name = if let Some(declaration) = found_declaration {
+                let symbol = resolver.symbols.get_symbol(&declaration.symbol_id).unwrap();
+
+                Some(symbol)
+            } else {
+                None
+            };
+            let source = if let Some(declaration) = found_declaration
+                && let Some((position, _)) = declaration.syntax
+            {
+                let content = source.get_file_content(&position).unwrap();
+
+                Some(content)
+            } else {
+                None
+            };
+
+            tabs.push(Tab::Prototype {
+                function_name,
+                prototype_id,
+                source,
+            });
+        }
+
         Self {
             program,
-            resolver,
             source,
             syntax,
-
-            show_constants: !program.constants.is_empty(),
-            show_arguments: false,
-            show_drops: false,
-
+            resolver,
+            constant_tags,
+            tabs,
             state: TuiState::Run,
             selection_state: SelectionState {
                 tab: source.file_count(),
@@ -66,8 +105,9 @@ impl<'a> Disassembler<'a> {
         let mut terminal = ratatui::init();
 
         while self.state == TuiState::Run {
-            if let Err(error) = terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))
-            {
+            let draw_result = terminal.draw(|frame| frame.render_widget(&mut self, frame.area()));
+
+            if let Err(error) = draw_result {
                 ratatui::restore();
 
                 return Err(error);
@@ -81,35 +121,13 @@ impl<'a> Disassembler<'a> {
         Ok(())
     }
 
-    fn tab_count(&self) -> usize {
-        self.source.file_count() + self.program.prototypes.len() + 1
-    }
-
-    fn get_tabs(&self) -> Vec<String> {
-        let mut tabs = Vec::with_capacity(self.tab_count());
-
-        for source_file in self.source.files() {
-            let file_name = source_file.file_name().to_string();
-
-            tabs.push(file_name);
-        }
-
-        for index in 0..self.program.prototypes.len() {
-            tabs.push(format!("proto_{index}"));
-        }
-
-        tabs.push("declarations".to_string());
-
-        tabs
-    }
-
     fn handle_events(&mut self) -> std::io::Result<()> {
         if let Event::Key(key) = event::read()?
             && key.kind == KeyEventKind::Press
         {
             match key.code {
                 KeyCode::Right | KeyCode::Char('l') => {
-                    if self.selection_state.tab < self.tab_count() - 1 {
+                    if self.selection_state.tab < self.tabs.len() - 1 {
                         self.selection_state.tab += 1;
                     } else {
                         self.selection_state.tab = 0;
@@ -121,7 +139,7 @@ impl<'a> Disassembler<'a> {
                     if self.selection_state.tab > 0 {
                         self.selection_state.tab -= 1;
                     } else {
-                        self.selection_state.tab = self.tab_count() - 1;
+                        self.selection_state.tab = self.tabs.len() - 1;
                     }
 
                     self.selection_state.section = None;
@@ -141,12 +159,7 @@ impl<'a> Disassembler<'a> {
                                     Some(PrototypeSection::Instructions) => {
                                         prototype.instructions.len()
                                     }
-                                    Some(PrototypeSection::Constants) => {
-                                        self.program.constants.len()
-                                    }
-                                    Some(PrototypeSection::CallArguments) => {
-                                        prototype.call_arguments.len()
-                                    }
+                                    Some(PrototypeSection::Constants) => self.constant_tags.len(),
                                     Some(PrototypeSection::Drops) => prototype.drops.len(),
                                     None => 0,
                                 };
@@ -176,8 +189,7 @@ impl<'a> Disassembler<'a> {
                     let prototype = &self.program.prototypes[prototype_index];
                     let section_length = match self.selection_state.section {
                         Some(PrototypeSection::Instructions) => prototype.instructions.len(),
-                        Some(PrototypeSection::Constants) => self.program.constants.len(),
-                        Some(PrototypeSection::CallArguments) => prototype.call_arguments.len(),
+                        Some(PrototypeSection::Constants) => self.constant_tags.len(),
                         Some(PrototypeSection::Drops) => prototype.drops.len(),
                         None => 0,
                     };
@@ -266,8 +278,6 @@ impl<'a> Disassembler<'a> {
             Constraint::Length(2),
             Constraint::Length(2),
             Constraint::Length(get_section_length(prototype.instructions.len())),
-            Constraint::Length(get_section_length(self.program.constants.len())),
-            Constraint::Length(get_section_length(prototype.call_arguments.len())),
             Constraint::Length(get_section_length(prototype.drops.len())),
         ]);
         let [
@@ -275,8 +285,6 @@ impl<'a> Disassembler<'a> {
             info_area,
             type_area,
             instructions_area,
-            constants_area,
-            arguments_area,
             drop_lists_area,
         ] = areas.flex(Flex::Start).areas(inner_area);
 
@@ -287,12 +295,9 @@ impl<'a> Disassembler<'a> {
             .render(prototype_area, buffer);
 
         Paragraph::new(format!(
-            "{} instructions, {} i32 registers, {} i64 registers, {} f64 registers, {} pointer registers",
+            "{} instructions, {} registers",
             prototype.instructions.len(),
-            prototype.i32_register_count,
-            prototype.i64_register_count,
-            prototype.f64_register_count,
-            prototype.pointer_register_count,
+            prototype.register_count
         ))
         .centered()
         .wrap(Wrap { trim: true })
@@ -333,72 +338,8 @@ impl<'a> Disassembler<'a> {
             instruction_section.render(instructions_area, buffer);
         }
 
-        // Constants section
-        if self.show_constants {
-            let constant_rows = self
-                .program
-                .constants
-                .display_iter()
-                .enumerate()
-                .map(|(index, (value, r#type))| {
-                    [
-                        format!("const_{index}"),
-                        value.to_string(),
-                        r#type.to_string(),
-                    ]
-                })
-                .collect::<Vec<_>>();
-            let selected_row = if self.selection_state.section == Some(PrototypeSection::Constants)
-            {
-                Some(self.selection_state.row)
-            } else {
-                None
-            };
-            let constants_section = BlockTable::new(
-                "Constants",
-                ["Address", "Value", "Type"],
-                constant_rows,
-                selected_row,
-            );
-
-            constants_section.render(constants_area, buffer);
-        }
-
-        // Arguments section
-        if self.show_arguments {
-            let argument_rows = prototype
-                .call_arguments
-                .iter()
-                .enumerate()
-                .map(|(index, call_argument)| {
-                    let r#type = call_argument.operand_type;
-                    let argument_memory = call_argument.memory.as_string(r#type);
-                    let argument_index = call_argument.index;
-
-                    [
-                        index.to_string(),
-                        format!("{type} @ {argument_memory}_{argument_index}"),
-                    ]
-                })
-                .collect::<Vec<_>>();
-            let selected_row =
-                if self.selection_state.section == Some(PrototypeSection::CallArguments) {
-                    Some(self.selection_state.row)
-                } else {
-                    None
-                };
-            let arguments_section = BlockTable::new(
-                "Call Arguments",
-                ["i", "Address"],
-                argument_rows,
-                selected_row,
-            );
-
-            arguments_section.render(arguments_area, buffer);
-        }
-
         // Drops section
-        if self.show_drops {
+        if !prototype.drops.is_empty() {
             let drop_list_rows = prototype
                 .drops
                 .iter()
@@ -485,7 +426,7 @@ impl Widget for &mut Disassembler<'_> {
         .wrap(Wrap { trim: true })
         .render(program_info_area, buffer);
 
-        Tabs::new(self.get_tabs())
+        Tabs::new(&self.tabs)
             .highlight_style(Style::default().cyan().bold())
             .select(self.selection_state.tab)
             .render(prototype_tabs_header_area, buffer);
@@ -500,9 +441,6 @@ impl Widget for &mut Disassembler<'_> {
         } else {
             let prototype_index = self.selection_state.tab - self.source.file_count();
             let prototype = &self.program.prototypes[prototype_index];
-
-            self.show_arguments = !prototype.call_arguments.is_empty();
-            self.show_drops = !prototype.drops.is_empty();
 
             self.draw_prototype_tab(prototype_index, prototype, tab_content_area, buffer);
         }
@@ -521,11 +459,47 @@ struct SelectionState {
     row: usize,
 }
 
+enum Tab<'src> {
+    SourceFile {
+        file_name: &'src str,
+        file_id: SourceFileId,
+    },
+    Declarations,
+    Prototype {
+        function_name: Option<&'src str>,
+        prototype_id: PrototypeId,
+        source: Option<&'src str>,
+    },
+}
+
+impl<'a> From<&'a Tab<'a>> for Line<'a> {
+    fn from(tab: &'a Tab) -> Self {
+        match tab {
+            Tab::SourceFile { file_name, .. } => {
+                let title = Span::raw("Source: ");
+                let file_name = Span::styled(*file_name, Style::default().bold());
+
+                Line::from(vec![title, file_name])
+            }
+            Tab::Declarations => Line::from("Declarations"),
+            Tab::Prototype { function_name, .. } => {
+                let title = Span::raw("Prototype: ");
+                let function_name = if let Some(function_name) = function_name {
+                    Span::styled(*function_name, Style::default().bold())
+                } else {
+                    Span::styled("anonymous", Style::default().bold())
+                };
+
+                Line::from(vec![title, function_name])
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum PrototypeSection {
     Instructions,
     Constants,
-    CallArguments,
     Drops,
 }
 
@@ -533,8 +507,7 @@ impl PrototypeSection {
     fn next(&self) -> PrototypeSection {
         match self {
             PrototypeSection::Instructions => PrototypeSection::Constants,
-            PrototypeSection::Constants => PrototypeSection::CallArguments,
-            PrototypeSection::CallArguments => PrototypeSection::Drops,
+            PrototypeSection::Constants => PrototypeSection::Drops,
             PrototypeSection::Drops => PrototypeSection::Instructions,
         }
     }
@@ -543,8 +516,7 @@ impl PrototypeSection {
         match self {
             PrototypeSection::Instructions => PrototypeSection::Drops,
             PrototypeSection::Constants => PrototypeSection::Instructions,
-            PrototypeSection::CallArguments => PrototypeSection::Constants,
-            PrototypeSection::Drops => PrototypeSection::CallArguments,
+            PrototypeSection::Drops => PrototypeSection::Constants,
         }
     }
 }

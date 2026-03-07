@@ -50,11 +50,10 @@ impl Display for Negate {
             OperandType::BOOLEAN => "!",
             _ => "-",
         };
-        let operand_memory = operand_memory.as_string(operand_type);
 
         write!(
             f,
-            "reg_{destination} = {operator}{operand_memory}_{operand_index}"
+            "reg_{destination}: {operand_type} = {operator}{operand_memory}_{operand_index}"
         )
     }
 }

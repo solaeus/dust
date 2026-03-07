@@ -1,9 +1,9 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, OperandType, Operation};
+use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, Operation};
 
 pub struct Call {
-    pub destination: Option<u16>,
+    pub destination: u16,
     pub callee_memory: MemoryKind,
     pub callee_index: u16,
     pub arguments_start: u16,
@@ -13,15 +13,7 @@ pub struct Call {
 impl From<&Instruction> for Call {
     fn from(instruction: &Instruction) -> Self {
         Call {
-            destination: {
-                let a_field = instruction.a_field();
-
-                if a_field == u16::MAX {
-                    None
-                } else {
-                    Some(a_field)
-                }
-            },
+            destination: instruction.a_field(),
             callee_memory: instruction.b_memory(),
             callee_index: instruction.b_field(),
             arguments_start: instruction.c_field(),
@@ -39,7 +31,6 @@ impl From<Call> for Instruction {
             arguments_start,
             argument_count,
         } = call;
-        let destination = destination.unwrap_or(u16::MAX);
 
         InstructionBuilder::new(Operation::CALL)
             .a_field(destination)
@@ -59,17 +50,15 @@ impl Display for Call {
             callee_index,
             arguments_start,
             argument_count,
-        } = self;
+        } = *self;
 
-        if let Some(destination) = destination {
+        if destination != u16::MAX {
             write!(f, "reg_{destination} = ")?;
         }
 
-        let callee_memory = callee_memory.as_string(OperandType::FUNCTION);
-
         write!(f, "{callee_memory}_{callee_index}")?;
 
-        if *argument_count == 0 {
+        if argument_count == 0 {
             write!(f, "()")
         } else {
             let arguments_end = arguments_start + argument_count;

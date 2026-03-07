@@ -112,7 +112,7 @@ impl Instruction {
     }
 
     pub fn d_field(&self) -> u16 {
-        ((self.0 >> 10) & 0x1F) as u16
+        ((self.0 >> 10) & 0x3F) as u16
     }
 
     pub fn bc_field(&self) -> u32 {
@@ -167,12 +167,16 @@ impl Instruction {
     pub fn new_list(
         destination: u16,
         element_type: OperandType,
-        initial_length: u32,
+        length_memory: MemoryKind,
+        length_index: u16,
+        element_size: u16,
     ) -> Instruction {
         Instruction::from(NewList {
             destination,
             element_type,
-            initial_length,
+            length_memory,
+            length_index,
+            element_size,
         })
     }
 
@@ -424,7 +428,7 @@ impl Instruction {
     }
 
     pub fn call(
-        destination: Option<u16>,
+        destination: u16,
         callee_memory: MemoryKind,
         callee_index: u16,
         arguments_start: u16,
@@ -534,7 +538,6 @@ pub struct InstructionBuilder {
     a_field: Option<u16>,
     b_field: Option<u16>,
     c_field: Option<u16>,
-    bc_field: Option<u32>,
 }
 
 impl InstructionBuilder {
@@ -548,7 +551,6 @@ impl InstructionBuilder {
             a_field: None,
             b_field: None,
             c_field: None,
-            bc_field: None,
         }
     }
 
@@ -594,12 +596,6 @@ impl InstructionBuilder {
         self
     }
 
-    pub fn bc_field(mut self, bc_field: u32) -> Self {
-        self.bc_field = Some(bc_field);
-
-        self
-    }
-
     pub fn build(self) -> Instruction {
         let mut bits = self.operation.0 as u64;
 
@@ -616,7 +612,7 @@ impl InstructionBuilder {
         }
 
         if let Some(d_field) = self.d_field {
-            bits |= ((d_field as u64) & 0x1F) << 10;
+            bits |= ((d_field as u64) & 0x3F) << 10;
         }
 
         if let Some(a_field) = self.a_field {
@@ -631,10 +627,6 @@ impl InstructionBuilder {
             bits |= ((c_field as u64) & 0xFFFF) << 48;
         }
 
-        if let Some(bc_field) = self.bc_field {
-            bits |= ((bc_field as u64) & 0xFFFFFFFF) << 32;
-        }
-
         Instruction(bits)
     }
 }
@@ -647,31 +639,16 @@ pub struct MemoryKind(pub(super) u8);
 impl MemoryKind {
     pub const REGISTER: MemoryKind = MemoryKind(0);
     pub const CONSTANT: MemoryKind = MemoryKind(1);
-
-    pub fn as_string(&self, r#type: OperandType) -> String {
-        let register_class = r#type.register_class().as_str();
-
-        match *self {
-            Self::REGISTER => format!("reg_{register_class}"),
-            Self::CONSTANT => match r#type {
-                OperandType::BOOLEAN
-                | OperandType::U_8
-                | OperandType::I_8
-                | OperandType::U_16
-                | OperandType::I_16 => "enc".to_string(),
-                OperandType::FUNCTION => "func".to_string(),
-                _ => "const".to_string(),
-            },
-            _ => "invalid".to_string(),
-        }
-    }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct CallArgument {
-    pub index: u16,
-    pub memory: MemoryKind,
-    pub operand_type: OperandType,
+impl Display for MemoryKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match *self {
+            Self::REGISTER => write!(f, "reg"),
+            Self::CONSTANT => write!(f, "const"),
+            _ => write!(f, "invalid"),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -679,7 +656,7 @@ mod tests {
     use super::*;
 
     fn create_instruction() -> Instruction {
-        Instruction::move_with_jump(42, OperandType::U_128, MemoryKind::CONSTANT, 666, 10, true)
+        Instruction::move_with_jump(42, OperandType::U_128, MemoryKind::CONSTANT, 666, 777, true)
     }
 
     #[test]
@@ -721,20 +698,20 @@ mod tests {
     fn decode_b_field() {
         let instruction = create_instruction();
 
-        assert_eq!(instruction.b_field(), 42);
+        assert_eq!(instruction.b_field(), 666);
     }
 
     #[test]
     fn decode_c_field() {
         let instruction = create_instruction();
 
-        assert_eq!(instruction.c_field(), 42);
+        assert_eq!(instruction.c_field(), 777);
     }
 
     #[test]
     fn decode_d_field() {
-        let instruction = Instruction::call(None, MemoryKind::REGISTER, 666, 30, 16);
+        let instruction = Instruction::call(u16::MAX, MemoryKind::REGISTER, 666, 30, 63);
 
-        assert_eq!(instruction.d_field(), 16);
+        assert_eq!(instruction.d_field(), 63);
     }
 }

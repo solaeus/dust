@@ -50,15 +50,13 @@ impl Display for Less {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Less {
             comparator,
-            operand_type,
+            operand_type: _,
             left_memory,
             left_index,
             right_memory,
             right_index,
         } = *self;
         let operator = if comparator { "<" } else { "≥" };
-        let left_memory = left_memory.as_string(operand_type);
-        let right_memory = right_memory.as_string(operand_type);
 
         write!(
             f,

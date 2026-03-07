@@ -214,13 +214,69 @@ impl Resolver {
         ))
     }
 
+    pub fn get_byte_size(&self, type_id: TypeId, node: &SyntaxReader) -> Result<usize, ErrorKind> {
+        let type_node = self.types.get_type(type_id)?;
+
+        match type_node {
+            TypeNode::Boolean | TypeNode::Character | TypeNode::U8 | TypeNode::I8 => Ok(1),
+            TypeNode::U16 | TypeNode::I16 | TypeNode::Function { .. } => Ok(2),
+            TypeNode::U32 | TypeNode::I32 | TypeNode::F32 => Ok(4),
+            TypeNode::U64 | TypeNode::I64 | TypeNode::F64 => Ok(8),
+            TypeNode::U128 | TypeNode::I128 => Ok(16),
+            TypeNode::String | TypeNode::List { .. } => Ok(std::mem::size_of::<usize>()),
+            TypeNode::Struct { declaration_id, .. } => {
+                let struct_declaration = self.declarations.get_declaration(*declaration_id)?;
+
+                let DeclarationKind::Type { members, .. } = struct_declaration.kind else {
+                    return Err(ErrorKind::Internal(InternalError::ExpectedTypeDeclaration(
+                        *declaration_id,
+                    )));
+                };
+                let field_ids = self.declarations.get_declaration_members(members)?;
+                let mut size = 0;
+
+                for field_id in field_ids {
+                    let field_type_id = self.declarations.get_declaration_type(field_id)?;
+                    size += self.get_byte_size(*field_type_id, node)?;
+                }
+
+                Ok(size)
+            }
+            TypeNode::Inferred { resolved, .. } => {
+                if let Some(resolved) = resolved {
+                    self.get_byte_size(*resolved, node)
+                } else {
+                    Err(ErrorKind::Compile(CompileError::CannotInferType {
+                        type_id,
+                        position: None,
+                    }))
+                }
+            }
+            TypeNode::Unit | TypeNode::Enum { .. } => {
+                return Err(ErrorKind::Compile(CompileError::ExpectedValue {
+                    node_kind: node.kind(),
+                    position: node.position(),
+                }));
+            }
+        }
+    }
+
+    pub fn get_register_size(
+        &self,
+        type_id: TypeId,
+        node: &SyntaxReader,
+    ) -> Result<usize, ErrorKind> {
+        self.get_byte_size(type_id, node)
+            .map(|byte_size| byte_size.div_ceil(4))
+    }
+
     pub fn find_declaration_in_scope(
         &mut self,
         symbol_id: SymbolId,
         target_scope_id: ScopeId,
         visibility: Visibility,
         path_segment: &SyntaxReader,
-    ) -> Result<(DeclarationId, Declaration), ErrorKind> {
+    ) -> Result<(DeclarationId, &Declaration), ErrorKind> {
         let mut current_scope_id = target_scope_id;
 
         loop {
@@ -303,8 +359,16 @@ impl Resolver {
         right: TypeId,
         right_syntax: SyntaxReader,
     ) -> Result<(), ErrorKind> {
+        if left == right {
+            return Ok(());
+        }
+
         let left_inferred = self.infer_type(left)?;
         let right_inferred = self.infer_type(right)?;
+
+        if left_inferred == right_inferred {
+            return Ok(());
+        }
 
         self.unify_inferred_types(left_inferred, left_syntax, right_inferred, right_syntax)
     }
@@ -316,10 +380,6 @@ impl Resolver {
         right: TypeId,
         right_syntax: SyntaxReader<'a>,
     ) -> Result<(), ErrorKind> {
-        if left == right {
-            return Ok(());
-        }
-
         let left_type_node = *self.types.get_type(left)?;
         let right_type_node = *self.types.get_type(right)?;
 

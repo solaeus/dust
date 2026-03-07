@@ -3,9 +3,6 @@ mod emitter;
 pub mod error;
 mod type_binder;
 
-// #[cfg(test)]
-// mod tests;
-
 use std::path::Path;
 
 use smallvec::SmallVec;
@@ -16,8 +13,9 @@ use crate::{
         declaration_binder::DeclarationBinder, emitter::Emitter, error::CompileError,
         type_binder::TypeBinder,
     },
-    constant_table::ConstantTable,
+    constant_list::ConstantListBuilder,
     dust_error::{Error, ErrorKind},
+    instruction::OperandType,
     lexer::Lexer,
     parser::{ParseResult, Parser},
     program::Program,
@@ -49,7 +47,7 @@ pub fn compile<'src>(source_files: &[(&'src str, &'src str)]) -> Result<Program,
 pub struct Compiler<'src> {
     syntax: Syntax,
     source: Source<'src>,
-    constants: ConstantTable,
+    constants: ConstantListBuilder,
     resolver: Resolver,
     prototypes: PrototypeList,
 }
@@ -59,7 +57,7 @@ impl<'src> Compiler<'src> {
         Self {
             syntax: Syntax::new(source.file_count()),
             source,
-            constants: ConstantTable::new(),
+            constants: ConstantListBuilder::new(),
             resolver: Resolver::new(),
             prototypes: PrototypeList::new(),
         }
@@ -72,7 +70,8 @@ impl<'src> Compiler<'src> {
     pub fn compile(mut self, program_name: Option<String>) -> Result<Program, Error<'src>> {
         match self.compile_inner() {
             Ok(()) => {
-                let program = Program::new(program_name, self.constants, self.prototypes);
+                let (constants, _) = self.constants.build();
+                let program = Program::new(program_name, constants, self.prototypes);
 
                 Ok(program)
             }
@@ -87,12 +86,19 @@ impl<'src> Compiler<'src> {
     pub fn compile_with_extras(
         mut self,
         program_name: Option<String>,
-    ) -> Result<(Program, Source<'src>, Syntax, Resolver), Error<'src>> {
+    ) -> Result<(Program, Source<'src>, Syntax, Resolver, Vec<OperandType>), Error<'src>> {
         match self.compile_inner() {
             Ok(()) => {
-                let program = Program::new(program_name, self.constants, self.prototypes);
+                let (constants, constant_tags) = self.constants.build();
+                let program = Program::new(program_name, constants, self.prototypes);
 
-                Ok((program, self.source, self.syntax, self.resolver))
+                Ok((
+                    program,
+                    self.source,
+                    self.syntax,
+                    self.resolver,
+                    constant_tags,
+                ))
             }
             Err(errors) => {
                 let errors = Error::with_source_and_resolver(errors, self.source, self.resolver);
@@ -116,7 +122,7 @@ impl<'src> Compiler<'src> {
             let mut files_parsed = 0;
 
             while files_parsed < self.source.file_count() {
-                let (file_id, file) = self.source.files_iter().nth(files_parsed).unwrap();
+                let (file_id, file) = self.source.iter().nth(files_parsed).unwrap();
 
                 let lexer = if file.is_utf8_validated() {
                     Lexer::from_utf8(file.content_as_str())
@@ -263,7 +269,7 @@ impl<'src> Compiler<'src> {
 
             match Emitter::new(
                 main_function,
-                main_declaration_id,
+                Some(main_declaration_id),
                 main_declaration.scope_id,
                 PrototypeId::MAIN,
                 None,

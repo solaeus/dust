@@ -8,7 +8,7 @@ pub struct Operation(pub u8);
 impl Operation {
     pub const NO_OP: Operation = Operation(0);
 
-    // Memory manipulation
+    // Memory manipulation (with optional control flow)
     pub const MOVE: Operation = Operation(1);
     pub const DROP: Operation = Operation(2);
 
@@ -25,12 +25,12 @@ impl Operation {
     pub const MODULO: Operation = Operation(10);
     pub const POWER: Operation = Operation(11);
 
-    // Comparison binary operations
+    // Comparison binary operations (with control flow)
     pub const EQUAL: Operation = Operation(12);
     pub const LESS: Operation = Operation(13);
     pub const LESS_EQUAL: Operation = Operation(14);
 
-    // Logical AND/OR operations
+    // Logical AND/OR operations (with control flow)
     pub const TEST: Operation = Operation(15);
 
     // Unary numeric negation and logical NOT
@@ -45,16 +45,11 @@ impl Operation {
     pub const RETURN: Operation = Operation(20);
 
     // Type conversions
-    pub const TO_BOOLEAN: Operation = Operation(21);
-    pub const TO_BYTE: Operation = Operation(22);
-    pub const TO_CHARACTER: Operation = Operation(23);
-    pub const TO_FLOAT: Operation = Operation(24);
-    pub const TO_INTEGER: Operation = Operation(25);
-    pub const TO_STRING: Operation = Operation(26);
+    pub const CONVERT: Operation = Operation(21);
 }
 
 impl Operation {
-    pub fn name(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match *self {
             Self::NO_OP => "NO_OP",
             Self::MOVE => "MOVE",
@@ -77,43 +72,20 @@ impl Operation {
             Self::CALL_NATIVE => "CALL_NATIVE",
             Self::JUMP => "JUMP",
             Self::RETURN => "RETURN",
-            Self::TO_BOOLEAN => "TO_BOOLEAN",
-            Self::TO_BYTE => "TO_BYTE",
-            Self::TO_CHARACTER => "TO_CHARACTER",
-            Self::TO_FLOAT => "TO_FLOAT",
-            Self::TO_INTEGER => "TO_INTEGER",
-            Self::TO_STRING => "TO_STRING",
+            Self::CONVERT => "CONVERT",
             _ => "UNKNOWN",
         }
-    }
-
-    pub fn is_math(self) -> bool {
-        matches!(
-            self,
-            Operation::ADD
-                | Operation::SUBTRACT
-                | Operation::MULTIPLY
-                | Operation::DIVIDE
-                | Operation::MODULO
-        )
-    }
-
-    pub fn is_comparison(self) -> bool {
-        matches!(
-            self,
-            Operation::EQUAL | Operation::LESS | Operation::LESS_EQUAL
-        )
     }
 }
 
 impl Debug for Operation {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.name())
+        write!(f, "{}", self.as_str())
     }
 }
 
 impl Display for Operation {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.name())
+        write!(f, "{}", self.as_str())
     }
 }

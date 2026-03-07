@@ -116,39 +116,29 @@ impl<'a> SyntaxReader<'a> {
         Ok((left_child, right_child))
     }
 
-    pub fn children(&'a self) -> Result<SyntaxReaderIterator<'a>, ErrorKind> {
+    pub fn children(&'a self) -> Result<SyntaxReaderIterator<'a>, InternalError> {
         match self.node.payload_kind {
             SyntaxPayloadKind::Empty => {}
             SyntaxPayloadKind::Value => {
-                return Err(ErrorKind::Internal(InternalError::InvalidSyntaxPayload(
-                    self.payload(),
-                )));
+                return Err(InternalError::InvalidSyntaxPayload(self.payload()));
             }
             SyntaxPayloadKind::SingleChild => {
                 if self.node.payload.left >= self.tree.node_count() as u32 {
-                    return Err(ErrorKind::Internal(InternalError::MissingSyntaxNode(
-                        self.payload().left_id(),
-                    )));
+                    return Err(InternalError::MissingSyntaxNode(self.payload().left_id()));
                 }
             }
             SyntaxPayloadKind::BinaryChildren => {
                 if self.node.payload.left >= self.tree.node_count() as u32 {
-                    return Err(ErrorKind::Internal(InternalError::MissingSyntaxNode(
-                        self.payload().left_id(),
-                    )));
+                    return Err(InternalError::MissingSyntaxNode(self.payload().left_id()));
                 }
 
                 if self.node.payload.right >= self.tree.node_count() as u32 {
-                    return Err(ErrorKind::Internal(InternalError::MissingSyntaxNode(
-                        self.payload().right_id(),
-                    )));
+                    return Err(InternalError::MissingSyntaxNode(self.payload().right_id()));
                 }
             }
             SyntaxPayloadKind::MultipleChildren => {
                 if self.node.payload.as_usize_range().end > self.tree.children.len() {
-                    return Err(ErrorKind::Internal(InternalError::InvalidSyntaxPayload(
-                        self.payload(),
-                    )));
+                    return Err(InternalError::InvalidSyntaxPayload(self.payload()));
                 }
             }
         }

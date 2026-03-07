@@ -129,23 +129,45 @@ pub struct TypeId(u32);
 impl TypeId {
     pub const UNIT: Self = TypeId(0);
     pub const BOOLEAN: Self = TypeId(1);
-    pub const CHARACTER: Self = TypeId(2);
-    pub const STRING: Self = TypeId(3);
-    pub const U_8: Self = TypeId(4);
-    pub const I_8: Self = TypeId(5);
-    pub const U_16: Self = TypeId(6);
-    pub const I_16: Self = TypeId(7);
-    pub const U_32: Self = TypeId(8);
-    pub const I_32: Self = TypeId(9);
-    pub const U_64: Self = TypeId(10);
-    pub const I_64: Self = TypeId(11);
-    pub const U_128: Self = TypeId(12);
-    pub const I_128: Self = TypeId(13);
-    pub const F_32: Self = TypeId(14);
-    pub const F_64: Self = TypeId(15);
+    pub const U_8: Self = TypeId(2);
+    pub const I_8: Self = TypeId(3);
+    pub const U_16: Self = TypeId(4);
+    pub const I_16: Self = TypeId(5);
+    pub const U_32: Self = TypeId(6);
+    pub const I_32: Self = TypeId(7);
+    pub const U_64: Self = TypeId(8);
+    pub const I_64: Self = TypeId(9);
+    pub const U_128: Self = TypeId(10);
+    pub const I_128: Self = TypeId(11);
+    pub const F_32: Self = TypeId(12);
+    pub const F_64: Self = TypeId(13);
+    pub const CHARACTER: Self = TypeId(14);
+    pub const STRING: Self = TypeId(15);
 
     pub fn inner(self) -> u32 {
         self.0
+    }
+
+    pub fn is_primitive(self) -> bool {
+        matches!(
+            self,
+            Self::UNIT
+                | Self::BOOLEAN
+                | Self::U_8
+                | Self::I_8
+                | Self::U_16
+                | Self::I_16
+                | Self::U_32
+                | Self::I_32
+                | Self::U_64
+                | Self::I_64
+                | Self::U_128
+                | Self::I_128
+                | Self::F_32
+                | Self::F_64
+                | Self::CHARACTER
+                | Self::STRING
+        )
     }
 }
 

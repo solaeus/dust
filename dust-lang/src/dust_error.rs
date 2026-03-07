@@ -19,7 +19,7 @@ use crate::{
         type_graph::{TypeId, TypeMembers, TypeNode},
     },
     source::{Source, SourceError, SourceFileId, Span},
-    syntax::{SyntaxId, SyntaxPayload},
+    syntax::{SyntaxId, SyntaxKind, SyntaxPayload},
 };
 
 #[derive(Debug)]
@@ -99,19 +99,6 @@ pub enum ErrorKind {
     Compile(CompileError),
 }
 
-impl ErrorKind {
-    pub fn into_internal(self) -> InternalError {
-        match self {
-            ErrorKind::Internal(internal_error) => internal_error,
-            ErrorKind::Source(source_error) => InternalError::UnhandledSourceError(source_error),
-            ErrorKind::Parse(parse_error) => InternalError::UnhandledParseError(parse_error),
-            ErrorKind::Compile(compile_error) => {
-                InternalError::UnhandledCompileError(compile_error)
-            }
-        }
-    }
-}
-
 impl From<InternalError> for ErrorKind {
     fn from(internal_error: InternalError) -> Self {
         ErrorKind::Internal(internal_error)
@@ -189,14 +176,11 @@ pub enum InternalError {
     MissingTypeMembers(TypeMembers),
     MissingTypeBinding(SyntaxId),
 
-    UnhandledSourceError(SourceError),
-    UnhandledParseError(ParseError),
-    UnhandledCompileError(CompileError),
-
     InvalidRegisterCount { expected: usize, found: usize },
     ExpectedListType { found: TypeNode },
     ExpectedFloatRegister,
     ExpectedIntegerRegister,
+    ExpectedEmissionTarget { node_kind: SyntaxKind },
 }
 
 impl InternalError {

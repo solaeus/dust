@@ -51,17 +51,15 @@ impl Display for Divide {
         let Divide {
             destination,
             operand_type,
-            left_memory: left_memory_kind,
+            left_memory,
             left_index,
-            right_memory: right_memory_kind,
+            right_memory,
             right_index,
         } = *self;
-        let left_memory = left_memory_kind.as_string(operand_type);
-        let right_memory = right_memory_kind.as_string(operand_type);
 
         write!(
             f,
-            "reg_{destination} = {left_memory}_{left_index} ÷ {right_memory}_{right_index}"
+            "reg_{destination}: {operand_type} = {left_memory}_{left_index} ÷ {right_memory}_{right_index}"
         )
     }
 }

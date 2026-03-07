@@ -46,16 +46,15 @@ impl Display for GetList {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let GetList {
             destination,
-            element_type: _,
+            element_type,
             list_index,
             index_memory,
             index_index,
         } = *self;
-        let index_memory = index_memory.as_string(OperandType::U_64);
 
         write!(
             f,
-            "reg_{destination} = reg_{list_index}[{index_memory}_{index_index}]"
+            "reg_{destination}: {element_type} = reg_{list_index}[{index_memory}_{index_index}]"
         )
     }
 }

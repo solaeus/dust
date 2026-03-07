@@ -50,14 +50,12 @@ impl Display for SetList {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let SetList {
             destination_list,
-            element_type,
+            element_type: _,
             source_memory,
             source_index,
             index_memory,
             index_index,
         } = *self;
-        let source_memory = source_memory.as_string(element_type);
-        let index_memory = index_memory.as_string(OperandType::U_64);
 
         write!(
             f,

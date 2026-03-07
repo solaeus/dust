@@ -130,7 +130,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         } else {
             let module_file_id = self
                 .source
-                .files_iter()
+                .iter()
                 .find_map(|(file_id, file)| {
                     if file
                         .path()?
@@ -281,6 +281,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         });
 
         debug_assert_eq!(declared_id, struct_declaration_id);
+
         self.resolver
             .add_declaration_binding(struct_name.id, struct_declaration_id);
 
@@ -725,10 +726,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let (signature, body) = node.binary_children()?;
         let mut signature_children = signature.children()?;
         let parameters = signature_children.expect_next()?;
-        let return_type = signature_children.next();
         let mut parameters_children = parameters.children()?;
         let value_parameters = parameters_children.expect_next()?;
-        let type_parameters = parameters_children.next();
 
         for [parameter_name, parameter_type] in value_parameters.children()?.array_chunks::<2>() {
             debug!("Visiting function parameter");
@@ -866,26 +865,16 @@ fn search_path_segments<'a>(
     let mut current_scope_id = binder.current_scope_id;
     let mut current_declaration_id = None;
     let mut parent_declaration_id = None;
-    let mut is_first = true;
 
     for segment in segments {
         let segment_str = file.content_str(segment.span())?;
         let symbol_id = binder.resolver.symbols.add_symbol(segment_str);
-        let (next_declaration_id, next_declaration) = binder
-            .resolver
-            .find_declaration_in_scope(symbol_id, current_scope_id, visibility, &segment)
-            .or_else(|error| {
-                if is_first {
-                    binder.resolver.find_declaration_in_scope(
-                        symbol_id,
-                        binder.crate_scope_id,
-                        visibility,
-                        &segment,
-                    )
-                } else {
-                    Err(error)
-                }
-            })?;
+        let (next_declaration_id, next_declaration) = binder.resolver.find_declaration_in_scope(
+            symbol_id,
+            current_scope_id,
+            visibility,
+            &segment,
+        )?;
 
         current_declaration_id = Some(next_declaration_id);
         current_scope_id =
@@ -894,7 +883,6 @@ fn search_path_segments<'a>(
             } else {
                 break;
             };
-        is_first = false;
 
         if let DeclarationKind::Type {
             parent: Some(next_parent_id),

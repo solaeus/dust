@@ -1,8 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::OperandType;
-
-use super::{Instruction, InstructionBuilder, MemoryKind, Operation};
+use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, Operation};
 
 pub struct Test {
     pub comparator: bool,
@@ -54,7 +52,6 @@ impl Display for Test {
             jump_distance,
         } = self;
         let bang = if *comparator { "" } else { "!" };
-        let operand_memory = operand_memory.as_string(OperandType::BOOLEAN);
 
         write!(
             f,

@@ -12,7 +12,11 @@ pub fn handle_compile_command(
     start_time: Instant,
 ) -> Result<(), ErrorKind> {
     let CompileCommand {
-        global: GlobalOptions { log: _, time, name: _ },
+        global: GlobalOptions {
+            log: _,
+            time,
+            name: _,
+        },
         input: InputOptions {
             eval,
             stdin: _,

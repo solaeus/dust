@@ -13,7 +13,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct DeclarationGraph {
-    declarations: Vec<(DeclarationKey, DeclarationValue)>,
+    declarations: Vec<Declaration>,
     declaration_lookup: HashMap<DeclarationKey, DeclarationId, FxBuildHasher>,
     declaration_members: Vec<DeclarationId>,
     declaration_types: HashMap<DeclarationId, TypeId, FxBuildHasher>,
@@ -45,22 +45,16 @@ impl DeclarationGraph {
         }
 
         let declaration_id = DeclarationId(self.declarations.len() as u32);
-        let value = DeclarationValue {
-            kind: declaration.kind,
-            is_public: declaration.is_public,
-            syntax: declaration.syntax,
-        };
 
-        self.declarations.push((key, value));
+        self.declarations.push(declaration);
         self.declaration_lookup.insert(key, declaration_id);
 
         declaration_id
     }
 
-    pub fn get_declaration(&self, id: DeclarationId) -> Result<Declaration, ErrorKind> {
+    pub fn get_declaration(&self, id: DeclarationId) -> Result<&Declaration, ErrorKind> {
         self.declarations
             .get(id.0 as usize)
-            .map(|(key, value)| Declaration::from_key_and_value(*key, *value))
             .ok_or(ErrorKind::Internal(InternalError::MissingDeclaration(id)))
     }
 
@@ -69,7 +63,7 @@ impl DeclarationGraph {
         symbol_id: SymbolId,
         scope_id: ScopeId,
         visibility: Visibility,
-    ) -> Option<(DeclarationId, Declaration)> {
+    ) -> Option<(DeclarationId, &Declaration)> {
         let key = DeclarationKey {
             symbol: symbol_id,
             scope_id,
@@ -77,9 +71,44 @@ impl DeclarationGraph {
         };
 
         self.declaration_lookup.get(&key).map(|&id| {
-            let (key, value) = &self.declarations[id.0 as usize];
-            (id, Declaration::from_key_and_value(*key, *value))
+            let delcaration = &self.declarations[id.0 as usize];
+
+            (id, delcaration)
         })
+    }
+
+    /// Finds the declaration with the given type ID, if it exists. This is O(n) and should only be
+    /// used for error reporting or debugging.
+    pub fn find_type_declaration(
+        &self,
+        type_id: TypeId,
+    ) -> Result<Option<&Declaration>, ErrorKind> {
+        for (declaration_id, declaration_type_id) in &self.declaration_types {
+            if *declaration_type_id == type_id {
+                let declaration = self.get_declaration(*declaration_id)?;
+
+                return Ok(Some(declaration));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Finds the declaration with the given prototype ID, if it exists. This is O(n) and should
+    /// only be used for error reporting or debugging.
+    pub fn find_prototype_declaration(
+        &self,
+        prototype_id: PrototypeId,
+    ) -> Result<Option<&Declaration>, ErrorKind> {
+        for (declaration_id, declaration_prototype_id) in &self.declaration_prototypes {
+            if *declaration_prototype_id == prototype_id {
+                let declaration = self.get_declaration(*declaration_id)?;
+
+                return Ok(Some(declaration));
+            }
+        }
+
+        Ok(None)
     }
 
     pub fn next_declaration_id(&self) -> DeclarationId {
@@ -148,16 +177,11 @@ impl DeclarationGraph {
         self.declaration_prototypes.get(declaration_id)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (DeclarationId, Declaration)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (DeclarationId, &Declaration)> + '_ {
         self.declarations
             .iter()
             .enumerate()
-            .map(|(index, (key, value))| {
-                (
-                    DeclarationId(index as u32),
-                    Declaration::from_key_and_value(*key, *value),
-                )
-            })
+            .map(|(index, declaration)| (DeclarationId(index as u32), declaration))
     }
 }
 
@@ -181,18 +205,6 @@ pub struct Declaration {
     pub scope_id: ScopeId,
     pub is_public: bool,
     pub syntax: Option<(Position, SyntaxId)>,
-}
-
-impl Declaration {
-    fn from_key_and_value(key: DeclarationKey, value: DeclarationValue) -> Self {
-        Self {
-            symbol_id: key.symbol,
-            syntax: value.syntax,
-            kind: value.kind,
-            scope_id: key.scope_id,
-            is_public: value.is_public,
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -266,11 +278,4 @@ struct DeclarationKey {
     symbol: SymbolId,
     scope_id: ScopeId,
     visibility: Visibility,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct DeclarationValue {
-    kind: DeclarationKind,
-    is_public: bool,
-    syntax: Option<(Position, SyntaxId)>,
 }

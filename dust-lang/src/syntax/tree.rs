@@ -79,7 +79,7 @@ impl SyntaxTree {
             let children = match node.children() {
                 Ok(children) => children,
                 Err(error) => {
-                    error!("{}", error.into_internal());
+                    error!("{}", error);
 
                     return;
                 }

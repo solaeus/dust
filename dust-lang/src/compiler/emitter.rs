@@ -9,11 +9,9 @@ use tracing::{debug, trace};
 
 use crate::{
     compiler::error::CompileError,
-    constant_table::ConstantTable,
+    constant_list::ConstantListBuilder,
     dust_error::{ErrorKind, InternalError},
-    instruction::{
-        CallArgument, Drop, Instruction, Jump, MemoryKind, Move, OperandType, Operation, Test,
-    },
+    instruction::{Drop, Instruction, Jump, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
     prototype::{Prototype, PrototypeId, PrototypeList},
     resolver::{
@@ -34,11 +32,15 @@ pub struct Emitter<'a> {
 
     syntax: &'a Syntax,
 
-    constants: &'a mut ConstantTable,
+    constants: &'a mut ConstantListBuilder,
 
     resolver: &'a mut Resolver,
 
     prototypes: &'a mut PrototypeList,
+
+    argument_count: u16,
+
+    return_count: u16,
 
     /// Emitted bytecode instructions, filled during compilation.
     instructions: Vec<Instruction>,
@@ -46,14 +48,13 @@ pub struct Emitter<'a> {
     /// Local variables declared in the function.
     locals: HashMap<DeclarationId, Place, FxBuildHasher>,
 
-    /// Concatenated list of arguments referenced by CALL instructions.
-    call_arguments: Vec<CallArgument>,
-
     /// Concatenated list of register indices that are referenced by DROP and JUMP instructions.
     drop_lists: Vec<u16>,
 
     /// Stack of register index lists that need to be dropped when exiting scopes.
     pending_drops: Vec<SmallVec<[u16; 8]>>,
+
+    register_tracker: RegisterTracker,
 
     jump_placements: HashMap<u16, JumpPlacement>,
 
@@ -62,29 +63,51 @@ pub struct Emitter<'a> {
     current_scope_id: ScopeId,
 
     next_jump_id: u16,
-
-    integer_32_tracker: RegisterTracker,
-    integer_64_tracker: RegisterTracker,
-    float_64_tracker: RegisterTracker,
-    pointer_tracker: RegisterTracker,
 }
 
 impl<'a> Emitter<'a> {
     pub fn new(
         function: SyntaxReader<'a>,
-        declaration_id: DeclarationId,
+        declaration_id: Option<DeclarationId>,
         starting_scope_id: ScopeId,
         prototype_id: PrototypeId,
-        parameters: Option<SyntaxReaderIterator<'a>>,
+        arguments: Option<SyntaxReaderIterator<'a>>,
         (source, syntax, constants, resolver, prototypes): (
             &'a Source,
             &'a Syntax,
-            &'a mut ConstantTable,
+            &'a mut ConstantListBuilder,
             &'a mut Resolver,
             &'a mut PrototypeList,
         ),
     ) -> Result<Self, ErrorKind> {
-        let parameter_count = parameters.as_ref().map_or(0, |parameters| parameters.len());
+        let mut locals = HashMap::default();
+
+        if let Some(declaration_id) = declaration_id {
+            locals.insert(
+                declaration_id,
+                Place::Constant {
+                    operand_type: OperandType::FUNCTION,
+                    index: prototype_id.inner(),
+                },
+            );
+        }
+
+        let argument_count = arguments.as_ref().map_or(0, |arguments| arguments.len());
+        let type_id = *resolver.get_type_binding(&function.id)?;
+        let type_node = *resolver.types.get_type(type_id)?;
+        let TypeNode::Function {
+            value_parameters,
+            return_type_id,
+            ..
+        } = type_node
+        else {
+            return Err(ErrorKind::Compile(CompileError::ExpectedFunctionType {
+                found: type_id,
+                position: function.position(),
+            }));
+        };
+        let return_count = resolver.get_register_size(type_id, &function)?;
+
         let mut emitter = Self {
             function,
             source,
@@ -92,60 +115,34 @@ impl<'a> Emitter<'a> {
             constants,
             resolver,
             prototypes,
+            argument_count: argument_count as u16,
+            return_count: return_count as u16,
             instructions: Vec::new(),
-            locals: HashMap::with_capacity_and_hasher(parameter_count + 1, FxBuildHasher),
-            call_arguments: Vec::new(),
+            locals,
             drop_lists: Vec::new(),
-            pending_drops: vec![SmallVec::new()],
-            jump_placements: HashMap::new(),
+            pending_drops: Vec::new(),
+            register_tracker: RegisterTracker::new(),
+            jump_placements: HashMap::default(),
             jump_over_else_anchor_ids: Vec::new(),
             current_scope_id: starting_scope_id,
             next_jump_id: 0,
-            integer_32_tracker: RegisterTracker::default(),
-            integer_64_tracker: RegisterTracker::default(),
-            float_64_tracker: RegisterTracker::default(),
-            pointer_tracker: RegisterTracker::default(),
         };
 
-        emitter.locals.insert(
-            declaration_id,
-            Place::Constant {
-                operand_type: OperandType::FUNCTION,
-                index: prototype_id.inner(),
-            },
-        );
-
-        if let Some(parameters) = parameters {
-            let type_id = *emitter
-                .resolver
-                .declarations
-                .get_declaration_type(&declaration_id)?;
-            let type_node = *emitter.resolver.types.get_type(type_id)?;
-            let TypeNode::Function {
-                value_parameters, ..
-            } = type_node
-            else {
-                return Err(ErrorKind::Compile(CompileError::ExpectedFunctionType {
-                    found: type_id,
-                    position: function.position(),
-                }));
-            };
-            let value_parameter_types = emitter
-                .resolver
+        if let Some(arguments) = arguments {
+            let argument_types = resolver
                 .types
                 .get_type_members(value_parameters)?
                 .iter()
                 .copied()
                 .collect::<SmallVec<[TypeId; 8]>>();
 
-            for (parameter, expected_type_id) in parameters.into_iter().zip(value_parameter_types) {
-                let parameter_id = *emitter.resolver.get_declaration_binding(&parameter.id)?;
-                let allocations =
-                    emitter.allocate_registers(expected_type_id, false, &parameter)?;
+            for (argument, expected_type_id) in arguments.into_iter().zip(argument_types) {
+                let argument_id = *resolver.get_declaration_binding(&argument.id)?;
+                let allocations = emitter.allocate_registers(expected_type_id, false, &argument)?;
 
                 emitter
                     .locals
-                    .insert(parameter_id, Place::Register(allocations));
+                    .insert(argument_id, Place::Register(allocations));
             }
         }
 
@@ -155,95 +152,86 @@ impl<'a> Emitter<'a> {
     pub fn emit(mut self) -> Result<Prototype, ErrorKind> {
         let function_body = self.function.binary_children()?.1.binary_children()?.1;
 
-        match function_body.kind() {
-            SyntaxKind::BlockExpression => {
-                let children = function_body.children()?;
-                let last_index = children.len().saturating_sub(1);
+        let children = function_body.children()?;
+        let last_index = children.len().saturating_sub(1);
 
-                for (index, child) in children.enumerate() {
-                    let child_emission = if index == last_index {
-                        self.handle_implicit_return(child, None)?
-                    } else if child.is_expression() {
-                        self.visit_expression(child, None)?
-                    } else if child.is_statement() {
-                        let instructions = self.visit_statement(child)?;
+        for (index, child) in children.enumerate() {
+            let child_emission = if index == last_index {
+                self.handle_implicit_return(child, None)?
+            } else if child.is_expression() {
+                self.visit_expression(child, None)?
+            } else if child.is_statement() {
+                let instructions = self.visit_statement(child)?;
 
-                        Emission::Instructions(instructions)
-                    } else {
-                        self.visit_item(child)?;
+                Emission::Instructions(instructions)
+            } else {
+                self.visit_item(child)?;
 
-                        continue;
-                    };
+                continue;
+            };
 
-                    self.handle_top_emission(child_emission, child)?;
-                }
-            }
-            _ => {
-                return Err(ErrorKind::Compile(CompileError::Unimplemented {
-                    syntax_kind: function_body.kind(),
-                    position: function_body.position(),
-                }));
-            }
+            self.handle_top_emission(child_emission, child)?;
         }
 
         self.finish()
     }
 
     pub fn finish(mut self) -> Result<Prototype, ErrorKind> {
-        // self.context.constants.finalize_string_pool();
+        for jump in self.jump_placements.into_values() {
+            let JumpPlacement {
+                index,
+                distance,
+                forward,
+                coalesce,
+            } = jump;
 
-        for JumpPlacement {
-            index,
-            distance,
-            forward,
-            coalesce,
-        } in self.jump_placements.into_values()
-        {
-            if coalesce {
-                let instruction = &mut self.instructions[index];
-
-                match instruction.operation() {
-                    Operation::DROP => {
-                        let Drop {
-                            drop_list_start,
-                            drop_list_end,
-                        } = Drop::from(&*instruction);
-
-                        *instruction = Instruction::jump_with_drops(
-                            distance,
-                            forward,
-                            drop_list_start,
-                            drop_list_end,
-                        )
-                    }
-                    Operation::TEST => {
-                        let Test {
-                            comparator,
-                            operand_memory,
-                            operand_index,
-                            jump_distance,
-                            ..
-                        } = Test::from(&*instruction);
-                        let total_distance = jump_distance + distance;
-
-                        *instruction = Instruction::test(
-                            comparator,
-                            operand_memory,
-                            operand_index,
-                            total_distance,
-                        );
-                    }
-                    _ => {
-                        unreachable!(
-                            "Invalid jump anchor instruction: {:?}",
-                            instruction.operation()
-                        );
-                    }
-                }
-            } else {
+            if !coalesce {
                 let jump_instruction = Instruction::jump(distance, forward);
 
                 self.instructions[index] = jump_instruction;
+
+                continue;
+            }
+
+            let instruction = &mut self.instructions[index];
+
+            match instruction.operation() {
+                Operation::DROP => {
+                    let Drop {
+                        drop_list_start,
+                        drop_list_end,
+                    } = Drop::from(&*instruction);
+
+                    *instruction = Instruction::jump_with_drops(
+                        distance,
+                        forward,
+                        drop_list_start,
+                        drop_list_end,
+                    )
+                }
+                Operation::TEST => {
+                    let Test {
+                        comparator,
+                        operand_memory,
+                        operand_index,
+                        jump_distance,
+                        ..
+                    } = Test::from(&*instruction);
+                    let total_distance = jump_distance + distance;
+
+                    *instruction = Instruction::test(
+                        comparator,
+                        operand_memory,
+                        operand_index,
+                        total_distance,
+                    );
+                }
+                _ => {
+                    unreachable!(
+                        "Invalid jump anchor instruction: {:?}",
+                        instruction.operation()
+                    );
+                }
             }
         }
 
@@ -284,13 +272,10 @@ impl<'a> Emitter<'a> {
 
         Ok(Prototype {
             instructions: self.instructions,
-            call_arguments: self.call_arguments,
             drops: self.drop_lists,
             return_type,
-            i32_register_count: self.integer_32_tracker.max,
-            i64_register_count: self.integer_64_tracker.max,
-            f64_register_count: self.float_64_tracker.max,
-            pointer_register_count: self.pointer_tracker.max,
+            register_count: self.register_tracker.max,
+            argument_count: self.argument_count,
         })
     }
 
@@ -314,41 +299,33 @@ impl<'a> Emitter<'a> {
         temporary: bool,
         node: &SyntaxReader,
     ) -> Result<RegisterSpan, ErrorKind> {
-        fn collect_allocations(
+        fn collect_registers(
             emitter: &mut Emitter,
             type_id: TypeId,
             temporary: bool,
-            allocations: &mut SmallVec<[RegisterAllocation; 8]>,
+            registers: &mut SmallVec<[Register; 8]>,
         ) -> Result<(), ErrorKind> {
             let type_node = emitter.resolver.types.get_type(type_id)?;
 
-            let (operand_type, tracker, wide) = match type_node {
+            let (operand_type, width) = match type_node {
                 TypeNode::Unit => return Ok(()),
-                TypeNode::Boolean => (OperandType::BOOLEAN, &mut emitter.integer_32_tracker, false),
-                TypeNode::Character => (
-                    OperandType::CHARACTER,
-                    &mut emitter.integer_32_tracker,
-                    false,
-                ),
-                TypeNode::String => (OperandType::STRING, &mut emitter.pointer_tracker, false),
-                TypeNode::U8 => (OperandType::U_8, &mut emitter.integer_32_tracker, false),
-                TypeNode::I8 => (OperandType::I_8, &mut emitter.integer_32_tracker, false),
-                TypeNode::U16 => (OperandType::U_16, &mut emitter.integer_32_tracker, false),
-                TypeNode::I16 => (OperandType::I_16, &mut emitter.integer_32_tracker, false),
-                TypeNode::U32 => (OperandType::U_32, &mut emitter.integer_32_tracker, false),
-                TypeNode::I32 => (OperandType::I_32, &mut emitter.integer_32_tracker, false),
-                TypeNode::U64 => (OperandType::U_64, &mut emitter.integer_64_tracker, false),
-                TypeNode::I64 => (OperandType::I_64, &mut emitter.integer_64_tracker, false),
-                TypeNode::U128 => (OperandType::U_128, &mut emitter.integer_64_tracker, true),
-                TypeNode::I128 => (OperandType::I_128, &mut emitter.integer_64_tracker, true),
-                TypeNode::F32 => (OperandType::F_32, &mut emitter.float_64_tracker, false),
-                TypeNode::F64 => (OperandType::F_64, &mut emitter.float_64_tracker, false),
-                TypeNode::List { .. } => (OperandType::LIST, &mut emitter.pointer_tracker, false),
-                TypeNode::Function { .. } => (
-                    OperandType::FUNCTION,
-                    &mut emitter.integer_32_tracker,
-                    false,
-                ),
+                TypeNode::Boolean => (OperandType::BOOLEAN, RegisterWidth::Single),
+                TypeNode::Character => (OperandType::CHARACTER, RegisterWidth::Single),
+                TypeNode::String => (OperandType::STRING, RegisterWidth::Double),
+                TypeNode::U8 => (OperandType::U_8, RegisterWidth::Single),
+                TypeNode::I8 => (OperandType::I_8, RegisterWidth::Single),
+                TypeNode::U16 => (OperandType::U_16, RegisterWidth::Single),
+                TypeNode::I16 => (OperandType::I_16, RegisterWidth::Single),
+                TypeNode::U32 => (OperandType::U_32, RegisterWidth::Single),
+                TypeNode::I32 => (OperandType::I_32, RegisterWidth::Single),
+                TypeNode::U64 => (OperandType::U_64, RegisterWidth::Double),
+                TypeNode::I64 => (OperandType::I_64, RegisterWidth::Double),
+                TypeNode::U128 => (OperandType::U_128, RegisterWidth::Quad),
+                TypeNode::I128 => (OperandType::I_128, RegisterWidth::Quad),
+                TypeNode::F32 => (OperandType::F_32, RegisterWidth::Single),
+                TypeNode::F64 => (OperandType::F_64, RegisterWidth::Double),
+                TypeNode::List { .. } => (OperandType::LIST, RegisterWidth::Double),
+                TypeNode::Function { .. } => (OperandType::FUNCTION, RegisterWidth::Single),
                 TypeNode::Struct { declaration_id, .. } => {
                     let declaration = emitter
                         .resolver
@@ -374,7 +351,7 @@ impl<'a> Emitter<'a> {
                             .declarations
                             .get_declaration_type(&member)?;
 
-                        collect_allocations(emitter, member_type_id, temporary, allocations)?;
+                        collect_registers(emitter, member_type_id, temporary, registers)?;
                     }
 
                     return Ok(());
@@ -385,13 +362,13 @@ impl<'a> Emitter<'a> {
                         .declarations
                         .get_declaration_type(declaration_id)?;
 
-                    collect_allocations(emitter, *type_id, temporary, allocations)?;
+                    collect_registers(emitter, *type_id, temporary, registers)?;
 
                     return Ok(());
                 }
                 TypeNode::Inferred { resolved, .. } => {
                     if let Some(resolved) = resolved {
-                        collect_allocations(emitter, *resolved, temporary, allocations)?;
+                        collect_registers(emitter, *resolved, temporary, registers)?;
 
                         return Ok(());
                     } else {
@@ -404,12 +381,12 @@ impl<'a> Emitter<'a> {
             };
 
             let next_register_index = if temporary {
-                tracker.next_temporary(wide)
+                emitter.register_tracker.allocate_next_temporary(width)
             } else {
-                tracker.next_local(wide)
+                emitter.register_tracker.allocate_next_local(width)
             };
 
-            allocations.push(RegisterAllocation {
+            registers.push(Register {
                 operand_type,
                 index: next_register_index,
             });
@@ -419,7 +396,7 @@ impl<'a> Emitter<'a> {
 
         let mut allocations = SmallVec::new();
 
-        collect_allocations(self, type_id, temporary, &mut allocations)?;
+        collect_registers(self, type_id, temporary, &mut allocations)?;
 
         match allocations.len() {
             0 => Err(ErrorKind::Compile(CompileError::ExpectedValue {
@@ -443,41 +420,7 @@ impl<'a> Emitter<'a> {
             "Cannot free local registers mid-scope"
         );
 
-        match registers {
-            RegisterSpan::Single { register, .. } => {
-                self.free_temporary_register(register);
-            }
-            RegisterSpan::Multiple { registers, .. } => {
-                for allocation in registers {
-                    self.free_temporary_register(allocation);
-                }
-            }
-        }
-    }
-
-    fn free_temporary_register(&mut self, allocation: &RegisterAllocation) {
-        let tracker = self.get_tracker_mut(allocation.operand_type);
-
-        tracker.free_temporary(allocation.index);
-    }
-
-    fn get_tracker_mut(&mut self, operand_type: OperandType) -> &mut RegisterTracker {
-        match operand_type {
-            OperandType::BOOLEAN
-            | OperandType::CHARACTER
-            | OperandType::U_8
-            | OperandType::I_8
-            | OperandType::U_16
-            | OperandType::I_16
-            | OperandType::U_32
-            | OperandType::I_32
-            | OperandType::FUNCTION => &mut self.integer_32_tracker,
-            OperandType::U_64 | OperandType::I_64 | OperandType::U_128 | OperandType::I_128 => {
-                &mut self.integer_64_tracker
-            }
-            OperandType::F_32 | OperandType::F_64 => &mut self.float_64_tracker,
-            _ => &mut self.pointer_tracker,
-        }
+        self.register_tracker.free_temporary(registers);
     }
 
     fn enter_child_scope(&mut self, child_scope_id: ScopeId) {
@@ -486,27 +429,9 @@ impl<'a> Emitter<'a> {
         self.pending_drops.push(SmallVec::new());
     }
 
-    fn enter_parent_scope(
-        &mut self,
-        parent_scope_id: ScopeId,
-        integer_32_tracker: RegisterTracker,
-        integer_64_tracker: RegisterTracker,
-        float_64_tracker: RegisterTracker,
-        pointer_tracker: RegisterTracker,
-    ) {
+    fn enter_parent_scope(&mut self, parent_scope_id: ScopeId, register_tracker: RegisterTracker) {
         self.current_scope_id = parent_scope_id;
-
-        self.integer_32_tracker.next_local = integer_32_tracker.next_local;
-        self.integer_32_tracker.next_temporary = integer_32_tracker.next_temporary;
-
-        self.integer_64_tracker.next_local = integer_64_tracker.next_local;
-        self.integer_64_tracker.next_temporary = integer_64_tracker.next_temporary;
-
-        self.float_64_tracker.next_local = float_64_tracker.next_local;
-        self.float_64_tracker.next_temporary = float_64_tracker.next_temporary;
-
-        self.pointer_tracker.next_local = pointer_tracker.next_local;
-        self.pointer_tracker.next_temporary = pointer_tracker.next_temporary;
+        self.register_tracker = register_tracker;
     }
 
     fn add_drop(&mut self, register: u16) {
@@ -567,13 +492,6 @@ impl<'a> Emitter<'a> {
             ConstantEmission::Character(character) => {
                 self.constants.add_character(character).inner()
             }
-            ConstantEmission::String {
-                pool_start,
-                pool_end,
-            } => self
-                .constants
-                .add_pooled_string(pool_start, pool_end)
-                .inner(),
             ConstantEmission::U8(integer) => integer as u16,
             ConstantEmission::I8(integer) => integer as u16,
             ConstantEmission::U16(integer) => integer,
@@ -638,9 +556,9 @@ impl<'a> Emitter<'a> {
         };
 
         match operator.kind() {
-            SyntaxKind::AdditionExpression => left_constant
-                .add(right_constant, self)?
-                .ok_or_else(create_error),
+            SyntaxKind::AdditionExpression => {
+                left_constant.add(right_constant)?.ok_or_else(create_error)
+            }
             SyntaxKind::SubtractionExpression => left_constant
                 .subtract(right_constant)
                 .ok_or_else(create_error),
@@ -661,23 +579,28 @@ impl<'a> Emitter<'a> {
                     .modulo(right_constant)
                     .ok_or_else(create_error)
             }
-            SyntaxKind::EqualExpression => left_constant
-                .equal(right_constant, self)
-                .ok_or_else(create_error),
+            SyntaxKind::ExponentExpression => {
+                check_for_division_by_zero()?;
+
+                left_constant.power(right_constant).ok_or_else(create_error)
+            }
+            SyntaxKind::EqualExpression => {
+                left_constant.equal(right_constant).ok_or_else(create_error)
+            }
             SyntaxKind::NotEqualExpression => left_constant
-                .not_equal(right_constant, self)
+                .not_equal(right_constant)
                 .ok_or_else(create_error),
-            SyntaxKind::LessThanExpression => left_constant
-                .less(right_constant, self)
-                .ok_or_else(create_error),
+            SyntaxKind::LessThanExpression => {
+                left_constant.less(right_constant).ok_or_else(create_error)
+            }
             SyntaxKind::GreaterThanExpression => left_constant
-                .greater(right_constant, self)
+                .greater(right_constant)
                 .ok_or_else(create_error),
             SyntaxKind::LessThanOrEqualExpression => left_constant
-                .less_equal(right_constant, self)
+                .less_equal(right_constant)
                 .ok_or_else(create_error),
             SyntaxKind::GreaterThanOrEqualExpression => left_constant
-                .greater_equal(right_constant, self)
+                .greater_equal(right_constant)
                 .ok_or_else(create_error),
             _ => unreachable!("Invalid binary operator: {:?}", operator.kind()),
         }
@@ -720,8 +643,9 @@ impl<'a> Emitter<'a> {
             }
             Emission::Place(Place::Register(RegisterSpan::Multiple { registers, .. })) => {
                 for register in registers {
-                    let tracker = self.get_tracker_mut(register.operand_type);
-                    let destination = tracker.next_local(register.operand_type.is_wide());
+                    let destination = self
+                        .register_tracker
+                        .allocate_next_local(RegisterWidth::from(register.operand_type));
 
                     let move_instruction = Instruction::r#move(
                         destination,
@@ -976,11 +900,14 @@ impl<'a> Emitter<'a> {
                 let length = condition_instructions.length();
 
                 if condition_instructions.length() >= 3 {
-                    let possible_condition_instruction =
+                    let condition_instruction =
                         &mut condition_instructions.instructions[length - 3].0;
 
-                    match possible_condition_instruction.operation() {
+                    match condition_instruction.operation() {
                         Operation::LESS | Operation::LESS_EQUAL | Operation::EQUAL => {
+                            // Remove the MOVE instructions, leaving only the comparison to act as
+                            // control flow.
+
                             condition_instructions.instructions.truncate(length - 2);
 
                             if let Some(registers) = &condition_instructions.target
@@ -990,6 +917,8 @@ impl<'a> Emitter<'a> {
                             }
                         }
                         Operation::TEST => {
+                            //
+
                             let first_move_instruction =
                                 condition_instructions.instructions[length - 2].0;
 
@@ -1002,7 +931,7 @@ impl<'a> Emitter<'a> {
                             let new_test_instruction =
                                 Instruction::test(true, operand_memory, operand_index, 1);
 
-                            condition_instructions.instructions.truncate(length - 2);
+                            condition_instructions.instructions.truncate(length - 3);
                             condition_instructions.push(new_test_instruction);
 
                             if let Some(registers) = &condition_instructions.target
@@ -1011,18 +940,39 @@ impl<'a> Emitter<'a> {
                                 self.free_temporary_registers(registers);
                             }
                         }
-                        _ => {}
+                        _ => {
+                            let target_register =
+                                if let Some(RegisterSpan::Single { register, .. }) =
+                                    &condition_instructions.target
+                                {
+                                    register
+                                } else {
+                                    return Err(ErrorKind::Compile(
+                                        CompileError::ExpectedBooleanExpression {
+                                            found: *self.resolver.get_type_binding(&node.id)?,
+                                            node_kind: node.kind(),
+                                            position: node.position(),
+                                        },
+                                    ));
+                                };
+                            let test_instruction = Instruction::test(
+                                true,
+                                MemoryKind::REGISTER,
+                                target_register.index,
+                                1,
+                            );
+
+                            condition_instructions.push(test_instruction);
+                        }
                     }
                 }
 
                 instructions.merge(condition_instructions);
             }
             _ => {
-                let found = *self.resolver.get_type_binding(&node.id)?;
-
                 return Err(ErrorKind::Compile(
                     CompileError::ExpectedBooleanExpression {
-                        found,
+                        found: *self.resolver.get_type_binding(&node.id)?,
                         node_kind: node.kind(),
                         position: node.position(),
                     },
@@ -1042,7 +992,7 @@ impl<'a> Emitter<'a> {
     ) -> Result<(), ErrorKind> {
         match branch_emission {
             Emission::Constant(constant) => {
-                let (destination, _) = target.expect_single()?;
+                let destination = target.expect_single()?;
                 let operand_index = self.add_constant(constant);
                 let move_instruction = Instruction::r#move(
                     destination.index,
@@ -1057,7 +1007,7 @@ impl<'a> Emitter<'a> {
                 operand_type: r#type,
                 index,
             }) => {
-                let (destination, _) = target.expect_single()?;
+                let destination = target.expect_single()?;
                 let move_instruction =
                     Instruction::r#move(destination.index, r#type, MemoryKind::CONSTANT, index);
 
@@ -1333,7 +1283,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
         match expression_emission {
             Emission::Constant(constant) => {
-                let (destination, _) = target.expect_single()?;
+                let destination = target.expect_single()?;
                 let operand_index = self.add_constant(constant);
                 let move_instruction = Instruction::r#move(
                     destination.index,
@@ -1497,7 +1447,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 operand_type,
                 index,
             }) => {
-                let (destination, _) = expression_emission
+                let destination = expression_emission
                     .target()
                     .expect("Failed to set provided target")
                     .expect_single()?;
@@ -1512,7 +1462,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 reassignment_instructions.push(move_instruction);
             }
             Emission::Place(Place::Register(RegisterSpan::Single { register, .. })) => {
-                let (destination, _) = expression_emission
+                let destination = expression_emission
                     .target()
                     .expect("Failed to set provided target")
                     .expect_single()?;
@@ -1788,17 +1738,17 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting string expression");
 
-        let bytes = self
+        let str = self
             .source
             .get_file(node.file_id())?
             .content_str(node.span().shrink(1))?;
-        let (pool_start, pool_end) = self.constants.push_str_to_string_pool(bytes)?;
+        let constant_id = self.constants.add_string(str);
 
         self.resolver.add_type_binding(node.id, TypeId::STRING);
 
-        Ok(Emission::Constant(ConstantEmission::String {
-            pool_start,
-            pool_end,
+        Ok(Emission::Place(Place::Constant {
+            operand_type: OperandType::STRING,
+            index: constant_id.inner(),
         }))
     }
 
@@ -1818,7 +1768,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
             self.allocate_registers(type_id, true, &node)?
         };
-        let (destination, _) = target.expect_single()?;
+        let destination = target.expect_single()?;
         let mut list_instructions = {
             let mut emission = InstructionsEmission::with_capacity(elements.len());
 
@@ -1829,11 +1779,12 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let mut element_count = 0;
         let mut element_type = None;
+        let mut element_size = 0;
 
         let mut handle_element_emission =
             |emitter: &mut Emitter,
              element_emission: Emission,
-             element_index: u16,
+             element_index: usize,
              element_node: &SyntaxReader| {
                 match element_emission {
                     Emission::Constant(constant) => {
@@ -1892,23 +1843,22 @@ impl SyntaxVisitor for Emitter<'_> {
                     Emission::Place(Place::Register(RegisterSpan::Multiple {
                         registers, ..
                     })) => {
-                        let element_size = registers
+                        element_size = registers
                             .iter()
-                            .map(|allocation| allocation.operand_type.size_in_bytes())
-                            .sum::<usize>();
-                        let mut offset = element_count * element_size;
-                        element_count += registers.len();
+                            .map(|register| register.operand_type.size_in_bytes())
+                            .sum();
+                        let mut offset = element_index * element_size;
 
-                        for allocation in registers {
+                        for register in registers {
                             let field_offset_index =
                                 emitter.constants.add_u64(offset as u64).inner();
-                            offset += allocation.operand_type.size_in_bytes();
+                            offset += register.operand_type.size_in_bytes();
 
                             let set_list_instruction = Instruction::set_list(
                                 destination.index,
-                                allocation.operand_type,
+                                register.operand_type,
                                 MemoryKind::REGISTER,
-                                allocation.index,
+                                register.index,
                                 MemoryKind::CONSTANT,
                                 field_offset_index,
                             );
@@ -1917,10 +1867,31 @@ impl SyntaxVisitor for Emitter<'_> {
                         }
 
                         element_type = Some(OperandType::STRUCT);
+                        element_count += 1;
                     }
                     Emission::Instructions(element_instructions) => {
-                        list_instructions.merge(element_instructions);
+                        let target_register = if let Some(target) = &element_instructions.target {
+                            target.expect_single()?
+                        } else {
+                            return Err(ErrorKind::Internal(
+                                InternalError::ExpectedEmissionTarget {
+                                    node_kind: element_node.kind(),
+                                },
+                            ));
+                        };
+                        let set_list_instruction = Instruction::set_list(
+                            destination.index,
+                            target_register.operand_type,
+                            MemoryKind::REGISTER,
+                            target.index(),
+                            MemoryKind::CONSTANT,
+                            emitter.constants.add_u64(element_index as u64).inner(),
+                        );
 
+                        list_instructions.merge(element_instructions);
+                        list_instructions.push(set_list_instruction);
+
+                        element_type = Some(target_register.operand_type);
                         element_count += 1;
                     }
                     Emission::NativeFunction(_) => {
@@ -1944,13 +1915,34 @@ impl SyntaxVisitor for Emitter<'_> {
         for (index, element) in elements.enumerate() {
             let element_emission = self.visit_expression(element, None)?;
 
-            handle_element_emission(self, element_emission, index as u16, &element)?;
+            handle_element_emission(self, element_emission, index, &element)?;
         }
+
+        let element_operand_type = if let Some(element_type) = element_type {
+            element_type
+        } else {
+            destination.operand_type
+        };
+        let element_size: u16 = if let Ok(size) = u16::try_from(element_size) {
+            size
+        } else {
+            let first_element = node.children()?.next().unwrap();
+            let type_id = *self.resolver.get_type_binding(&first_element.id)?;
+
+            return Err(ErrorKind::Compile(CompileError::ListElementSizeOverflow {
+                type_id,
+                size: element_size,
+                position: first_element.position(),
+            }));
+        };
+        let element_count_index = self.constants.add_u64(element_count as u64).inner();
 
         let new_list_instruction = Instruction::new_list(
             destination.index,
-            element_type.unwrap(),
-            element_count as u32,
+            element_operand_type,
+            MemoryKind::CONSTANT,
+            element_count_index,
+            element_size,
         );
 
         list_instructions.instructions[0] = (new_list_instruction, Vec::new());
@@ -2009,7 +2001,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
             self.allocate_registers(type_id, true, &node)?
         };
-        let (register, _) = target.expect_single()?;
+        let register = target.expect_single()?;
         let get_list_instruction = Instruction::get_list(
             register.index,
             register.operand_type,
@@ -2134,10 +2126,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let block_scope_id = *self.resolver.get_scope_binding(&node.id)?;
         let parent_scope_id = self.current_scope_id;
-        let parent_scope_integer_32_tracker = self.integer_32_tracker;
-        let parent_scope_integer_64_tracker = self.integer_64_tracker;
-        let parent_scope_float_64_tracker = self.float_64_tracker;
-        let parent_scope_pointer_tracker = self.pointer_tracker;
+        let parent_scope_tracker = self.register_tracker;
 
         self.enter_child_scope(block_scope_id);
 
@@ -2178,7 +2167,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
                 match last_emission {
                     Emission::Constant(constant) => {
-                        let (destination, _) = target.expect_single()?;
+                        let destination = target.expect_single()?;
                         let operand_type = constant.operand_type();
                         let operand_index = self.add_constant(constant);
                         let move_instruction = Instruction::r#move(
@@ -2195,7 +2184,7 @@ impl SyntaxVisitor for Emitter<'_> {
                         operand_type: r#type,
                         index,
                     }) => {
-                        let (destination, _) = target.expect_single()?;
+                        let destination = target.expect_single()?;
                         let move_instruction = Instruction::r#move(
                             destination.index,
                             r#type,
@@ -2210,7 +2199,7 @@ impl SyntaxVisitor for Emitter<'_> {
                         register: operand_register,
                         ..
                     })) => {
-                        let (destination, _) = target.expect_single()?;
+                        let destination = target.expect_single()?;
                         let move_instruction = Instruction::r#move(
                             destination.index,
                             destination.operand_type,
@@ -2257,13 +2246,7 @@ impl SyntaxVisitor for Emitter<'_> {
             };
         }
 
-        self.enter_parent_scope(
-            parent_scope_id,
-            parent_scope_integer_32_tracker,
-            parent_scope_integer_64_tracker,
-            parent_scope_float_64_tracker,
-            parent_scope_pointer_tracker,
-        );
+        self.enter_parent_scope(parent_scope_id, self.register_tracker);
         self.handle_drops(&mut block_instructions);
 
         Ok(Emission::Instructions(block_instructions))
@@ -2392,14 +2375,14 @@ impl SyntaxVisitor for Emitter<'_> {
         )?;
 
         let type_id = *self.resolver.get_type_binding(&node.id)?;
-        let mut handle_target_register = |target, node| -> Result<RegisterAllocation, ErrorKind> {
+        let mut handle_target_register = |target, node| -> Result<Register, ErrorKind> {
             let target = if let Some(target) = target {
                 target
             } else {
                 self.allocate_registers(type_id, true, node)?
             };
 
-            let register = *target.expect_single().map(|(register, _)| register)?;
+            let register = target.expect_single()?;
 
             math_emission.set_target(Some(target));
 
@@ -2611,7 +2594,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
             self.allocate_registers(type_id, true, &node)?
         };
-        let (register, _) = target.expect_single()?;
+        let register = target.expect_single()?;
         let comparison_instruction = match node.kind() {
             SyntaxKind::EqualExpression => Instruction::equal(
                 true,
@@ -2712,16 +2695,16 @@ impl SyntaxVisitor for Emitter<'_> {
             return Ok(Emission::Constant(combined));
         }
 
-        let mut logical_emission = InstructionsEmission::new();
+        let mut logic_instructions = InstructionsEmission::new();
 
         let (left_memory, left_index, _) = self.handle_operand_emission(
-            &mut logical_emission,
+            &mut logic_instructions,
             left_emission,
             node.kind(),
             &left_expression,
         )?;
         let (right_memory, right_index, _) = self.handle_operand_emission(
-            &mut logical_emission,
+            &mut logic_instructions,
             right_emission,
             node.kind(),
             &right_expression,
@@ -2734,7 +2717,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
             self.allocate_registers(type_id, true, &node)?
         };
-        let (register, _) = target.expect_single()?;
+        let register = target.expect_single()?;
 
         let test_instruction = match node.kind() {
             SyntaxKind::AndExpression => Instruction::test(false, left_memory, left_index, 1),
@@ -2756,12 +2739,12 @@ impl SyntaxVisitor for Emitter<'_> {
             left_index,
         );
 
-        logical_emission.push(test_instruction);
-        logical_emission.push(right_move_instruction);
-        logical_emission.push(left_move_instruction);
-        logical_emission.set_target(Some(target));
+        logic_instructions.push(test_instruction);
+        logic_instructions.push(right_move_instruction);
+        logic_instructions.push(left_move_instruction);
+        logic_instructions.set_target(Some(target));
 
-        Ok(Emission::Instructions(logical_emission))
+        Ok(Emission::Instructions(logic_instructions))
     }
 
     fn visit_unary_negation_expression(
@@ -2802,7 +2785,8 @@ impl SyntaxVisitor for Emitter<'_> {
 
             self.allocate_registers(type_id, true, &node)?
         };
-        let (register, _) = target.expect_single()?;
+        let register = target.expect_single()?;
+
         let negate_instruction = Instruction::negate(
             register.index,
             register.operand_type,
@@ -2856,31 +2840,29 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting function expression");
 
-        let declaration_id = *self.resolver.get_declaration_binding(&node.id)?;
-
-        if let Some(prototype_id) = self
-            .resolver
-            .declarations
-            .get_declaration_prototype(&declaration_id)
-        {
-            return Ok(Emission::Place(Place::Constant {
-                index: prototype_id.inner(),
-                operand_type: OperandType::FUNCTION,
-            }));
-        }
-
         let (signature, body) = node.binary_children()?;
-        let (parameters, _) = signature.binary_children()?;
+        let mut singature_children = signature.children()?;
+        let parameters = singature_children.expect_next()?;
         let function_scope_id = *self.resolver.get_scope_binding(&body.id)?;
         let prototype_id = self.prototypes.reserve_slot();
 
-        self.resolver
-            .declarations
-            .set_declaration_prototype(declaration_id, prototype_id);
+        let type_id = *self.resolver.get_type_binding(&node.id)?;
+        let return_count = if let TypeNode::Function {
+            type_parameters,
+            value_parameters,
+            return_type_id,
+        } = self.resolver.types.get_type(type_id)?
+        {
+        } else {
+            return Err(ErrorKind::Compile(CompileError::ExpectedFunctionType {
+                found: type_id,
+                position: node.position(),
+            }));
+        };
 
         let function_emitter = Emitter::new(
             node,
-            declaration_id,
+            None,
             function_scope_id,
             prototype_id,
             Some(parameters.children()?),
@@ -2912,9 +2894,24 @@ impl SyntaxVisitor for Emitter<'_> {
         let (callee, argument_list) = node.binary_children()?;
         let arguments = argument_list.children()?;
 
-        let mut call_emission = InstructionsEmission::new();
+        let return_type_id = *self.resolver.get_type_binding(&node.id)?;
+        let target = if target.is_some() {
+            target
+        } else if return_type_id != TypeId::UNIT {
+            Some(self.allocate_registers(return_type_id, true, &node)?)
+        } else {
+            None
+        };
+        let destination = target
+            .as_ref()
+            .map(|target| target.index())
+            .unwrap_or(u16::MAX);
 
-        let arguments_start = self.call_arguments.len() as u16;
+        let mut call_instructions = InstructionsEmission::new();
+
+        let callee_emission = self.visit_expression(callee, None)?;
+
+        let arguments_start = self.register_tracker.next_temporary;
         let mut argument_count = 0u16;
 
         for argument in arguments {
@@ -2926,30 +2923,44 @@ impl SyntaxVisitor for Emitter<'_> {
                     operand_type,
                     index,
                 } => {
-                    self.call_arguments.push(CallArgument {
-                        index,
-                        memory: MemoryKind::CONSTANT,
-                        operand_type,
-                    });
+                    let destination = self
+                        .register_tracker
+                        .allocate_next_temporary(RegisterWidth::from(operand_type));
+                    let move_instruction =
+                        Instruction::r#move(destination, operand_type, MemoryKind::CONSTANT, index);
+
+                    call_instructions.push(move_instruction);
 
                     argument_count += 1;
                 }
                 Place::Register(RegisterSpan::Single { register, .. }) => {
-                    self.call_arguments.push(CallArgument {
-                        index: register.index,
-                        memory: MemoryKind::REGISTER,
-                        operand_type: register.operand_type,
-                    });
+                    let destination = self
+                        .register_tracker
+                        .allocate_next_temporary(RegisterWidth::from(register.operand_type));
+                    let move_instruction = Instruction::r#move(
+                        destination,
+                        register.operand_type,
+                        MemoryKind::REGISTER,
+                        register.index,
+                    );
+
+                    call_instructions.push(move_instruction);
 
                     argument_count += 1;
                 }
                 Place::Register(RegisterSpan::Multiple { registers, .. }) => {
                     for register in registers {
-                        self.call_arguments.push(CallArgument {
-                            index: register.index,
-                            memory: MemoryKind::REGISTER,
-                            operand_type: register.operand_type,
-                        });
+                        let destination = self
+                            .register_tracker
+                            .allocate_next_temporary(RegisterWidth::from(register.operand_type));
+                        let move_instruction = Instruction::r#move(
+                            destination,
+                            register.operand_type,
+                            MemoryKind::REGISTER,
+                            register.index,
+                        );
+
+                        call_instructions.push(move_instruction);
 
                         argument_count += 1;
                     }
@@ -2957,9 +2968,45 @@ impl SyntaxVisitor for Emitter<'_> {
             }
         }
 
-        let callee_emission = self.visit_expression(callee, None)?;
-        let callee_place = self.handle_member_emission(callee_emission, &callee)?;
+        let callee_place = match callee_emission {
+            Emission::Constant(constant) => {
+                let operand_index = self.add_constant(constant);
 
+                Place::Constant {
+                    operand_type: constant.operand_type(),
+                    index: operand_index,
+                }
+            }
+            Emission::Place(place) => place,
+            Emission::Instructions(instructions) => {
+                let Some(registers) = instructions.target else {
+                    return Err(ErrorKind::Compile(CompileError::ExpectedValue {
+                        node_kind: node.kind(),
+                        position: node.position(),
+                    }));
+                };
+
+                Place::Register(registers)
+            }
+            Emission::NativeFunction(native_function) => {
+                let call_native_instruction = Instruction::call_native(
+                    destination,
+                    native_function,
+                    arguments_start,
+                    argument_count,
+                );
+
+                call_instructions.push(call_native_instruction);
+
+                return Ok(Emission::Instructions(call_instructions));
+            }
+            _ => {
+                return Err(ErrorKind::Compile(CompileError::ExpectedValue {
+                    node_kind: node.kind(),
+                    position: node.position(),
+                }));
+            }
+        };
         let (callee_memory, callee_index) = match callee_place {
             Place::Constant { index, .. } => (MemoryKind::CONSTANT, index),
             Place::Register(RegisterSpan::Single { register, .. }) => {
@@ -2973,17 +3020,6 @@ impl SyntaxVisitor for Emitter<'_> {
             }
         };
 
-        let return_type_id = *self.resolver.get_type_binding(&node.id)?;
-
-        let target = if target.is_some() {
-            target
-        } else if return_type_id != TypeId::UNIT {
-            Some(self.allocate_registers(return_type_id, true, &node)?)
-        } else {
-            None
-        };
-        let destination = target.as_ref().map(|target| target.index());
-
         let call_instruction = Instruction::call(
             destination,
             callee_memory,
@@ -2992,13 +3028,10 @@ impl SyntaxVisitor for Emitter<'_> {
             argument_count,
         );
 
-        call_emission.push(call_instruction);
+        call_instructions.push(call_instruction);
+        call_instructions.set_target(target);
 
-        if return_type_id != TypeId::UNIT {
-            call_emission.set_target(target);
-        }
-
-        Ok(Emission::Instructions(call_emission))
+        Ok(Emission::Instructions(call_instructions))
     }
 
     fn visit_type(&mut self, _: SyntaxReader) -> Result<Self::TypeOutput, ErrorKind> {
@@ -3136,11 +3169,11 @@ impl Place {
 #[derive(Clone, Debug)]
 pub enum RegisterSpan {
     Single {
-        register: RegisterAllocation,
+        register: Register,
         temporary: bool,
     },
     Multiple {
-        registers: SmallVec<[RegisterAllocation; 8]>,
+        registers: SmallVec<[Register; 8]>,
         temporary: bool,
     },
 }
@@ -3175,12 +3208,9 @@ impl RegisterSpan {
         }
     }
 
-    fn expect_single(&self) -> Result<(&RegisterAllocation, bool), ErrorKind> {
+    fn expect_single(&self) -> Result<Register, ErrorKind> {
         match self {
-            RegisterSpan::Single {
-                register,
-                temporary,
-            } => Ok((register, *temporary)),
+            RegisterSpan::Single { register, .. } => Ok(*register),
             _ => Err(ErrorKind::Internal(InternalError::InvalidRegisterCount {
                 expected: 1,
                 found: self.len(),
@@ -3191,7 +3221,7 @@ impl RegisterSpan {
     fn expect_multiple(
         &self,
         expected: usize,
-    ) -> Result<(&SmallVec<[RegisterAllocation; 8]>, bool), ErrorKind> {
+    ) -> Result<(&SmallVec<[Register; 8]>, bool), ErrorKind> {
         match self {
             RegisterSpan::Multiple {
                 registers,
@@ -3211,7 +3241,7 @@ struct RegisterSpanIterator<'a> {
 }
 
 impl<'a> Iterator for RegisterSpanIterator<'a> {
-    type Item = &'a RegisterAllocation;
+    type Item = &'a Register;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.span {
@@ -3235,7 +3265,7 @@ impl<'a> Iterator for RegisterSpanIterator<'a> {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct RegisterAllocation {
+pub struct Register {
     operand_type: OperandType,
     index: u16,
 }
@@ -3244,7 +3274,6 @@ pub struct RegisterAllocation {
 pub enum ConstantEmission {
     Boolean(bool),
     Character(char),
-    String { pool_start: u32, pool_end: u32 },
     U8(u8),
     I8(i8),
     U16(u16),
@@ -3264,7 +3293,6 @@ impl ConstantEmission {
         match self {
             ConstantEmission::Boolean(_) => OperandType::BOOLEAN,
             ConstantEmission::Character(_) => OperandType::CHARACTER,
-            ConstantEmission::String { .. } => OperandType::STRING,
             ConstantEmission::U8(_) => OperandType::U_8,
             ConstantEmission::I8(_) => OperandType::I_8,
             ConstantEmission::U16(_) => OperandType::U_16,
@@ -3284,7 +3312,6 @@ impl ConstantEmission {
         match self {
             ConstantEmission::Boolean(_) => TypeId::BOOLEAN,
             ConstantEmission::Character(_) => TypeId::CHARACTER,
-            ConstantEmission::String { .. } => TypeId::STRING,
             ConstantEmission::U8(_) => TypeId::U_8,
             ConstantEmission::I8(_) => TypeId::I_8,
             ConstantEmission::U16(_) => TypeId::U_16,
@@ -3300,7 +3327,7 @@ impl ConstantEmission {
         }
     }
 
-    fn add(self, other: Self, emitter: &mut Emitter) -> Result<Option<Self>, ErrorKind> {
+    fn add(self, other: Self) -> Result<Option<Self>, ErrorKind> {
         let sum = match (self, other) {
             (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
                 ConstantEmission::U8(left + right)
@@ -3337,36 +3364,6 @@ impl ConstantEmission {
             }
             (ConstantEmission::F64(left), ConstantEmission::F64(right)) => {
                 ConstantEmission::F64(left + right)
-            }
-            (
-                ConstantEmission::String {
-                    pool_start: left_start,
-                    pool_end: left_end,
-                },
-                ConstantEmission::String {
-                    pool_start: right_start,
-                    pool_end: right_end,
-                },
-            ) => {
-                let left = emitter
-                    .constants
-                    .get_string_pool_range(left_start as usize..left_end as usize);
-                let right = emitter
-                    .constants
-                    .get_string_pool_range(right_start as usize..right_end as usize);
-
-                let mut combined = String::with_capacity(left.len() + right.len());
-
-                combined.push_str(left);
-                combined.push_str(right);
-
-                let (combined_pool_start, combined_pool_end) =
-                    emitter.constants.push_str_to_string_pool(&combined)?;
-
-                ConstantEmission::String {
-                    pool_start: combined_pool_start,
-                    pool_end: combined_pool_end,
-                }
             }
             _ => return Ok(None),
         };
@@ -3584,7 +3581,7 @@ impl ConstantEmission {
         }
     }
 
-    fn equal(self, other: Self, emitter: &Emitter) -> Option<Self> {
+    fn equal(self, other: Self) -> Option<Self> {
         match (self, other) {
             (ConstantEmission::Boolean(left), ConstantEmission::Boolean(right)) => {
                 Some(ConstantEmission::Boolean(left == right))
@@ -3592,25 +3589,6 @@ impl ConstantEmission {
             (ConstantEmission::Character(left), ConstantEmission::Character(right)) => {
                 Some(ConstantEmission::Boolean(left == right))
             }
-            (
-                ConstantEmission::String {
-                    pool_start: left_start,
-                    pool_end: left_end,
-                },
-                ConstantEmission::String {
-                    pool_start: right_start,
-                    pool_end: right_end,
-                },
-            ) => {
-                let left = emitter
-                    .constants
-                    .get_string_pool_range(left_start as usize..left_end as usize);
-                let right = emitter
-                    .constants
-                    .get_string_pool_range(right_start as usize..right_end as usize);
-
-                Some(ConstantEmission::Boolean(left == right))
-            }
             (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
                 Some(ConstantEmission::Boolean(left == right))
             }
@@ -3651,35 +3629,16 @@ impl ConstantEmission {
         }
     }
 
-    fn not_equal(self, other: Self, emitter: &Emitter) -> Option<Self> {
-        self.equal(other, emitter).map(|equality| match equality {
+    fn not_equal(self, other: Self) -> Option<Self> {
+        self.equal(other).map(|equality| match equality {
             ConstantEmission::Boolean(value) => ConstantEmission::Boolean(!value),
             _ => unreachable!("Expected boolean constant from equality comparison"),
         })
     }
 
-    fn less(self, other: Self, emitter: &Emitter) -> Option<Self> {
+    fn less(self, other: Self) -> Option<Self> {
         match (self, other) {
             (ConstantEmission::Character(left), ConstantEmission::Character(right)) => {
-                Some(ConstantEmission::Boolean(left < right))
-            }
-            (
-                ConstantEmission::String {
-                    pool_start: left_start,
-                    pool_end: left_end,
-                },
-                ConstantEmission::String {
-                    pool_start: right_start,
-                    pool_end: right_end,
-                },
-            ) => {
-                let left = emitter
-                    .constants
-                    .get_string_pool_range(left_start as usize..left_end as usize);
-                let right = emitter
-                    .constants
-                    .get_string_pool_range(right_start as usize..right_end as usize);
-
                 Some(ConstantEmission::Boolean(left < right))
             }
             (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
@@ -3722,35 +3681,16 @@ impl ConstantEmission {
         }
     }
 
-    fn greater(self, other: Self, emitter: &Emitter) -> Option<Self> {
-        self.less_equal(other, emitter).map(|less| match less {
+    fn greater(self, other: Self) -> Option<Self> {
+        self.less_equal(other).map(|less| match less {
             ConstantEmission::Boolean(value) => ConstantEmission::Boolean(!value),
             _ => unreachable!("Expected boolean constant from less comparison"),
         })
     }
 
-    fn less_equal(self, other: Self, emitter: &Emitter) -> Option<Self> {
+    fn less_equal(self, other: Self) -> Option<Self> {
         match (self, other) {
             (ConstantEmission::Character(left), ConstantEmission::Character(right)) => {
-                Some(ConstantEmission::Boolean(left <= right))
-            }
-            (
-                ConstantEmission::String {
-                    pool_start: left_start,
-                    pool_end: left_end,
-                },
-                ConstantEmission::String {
-                    pool_start: right_start,
-                    pool_end: right_end,
-                },
-            ) => {
-                let left = emitter
-                    .constants
-                    .get_string_pool_range(left_start as usize..left_end as usize);
-                let right = emitter
-                    .constants
-                    .get_string_pool_range(right_start as usize..right_end as usize);
-
                 Some(ConstantEmission::Boolean(left <= right))
             }
             (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
@@ -3793,8 +3733,8 @@ impl ConstantEmission {
         }
     }
 
-    fn greater_equal(self, other: Self, emitter: &Emitter) -> Option<Self> {
-        self.less(other, emitter).map(|less| match less {
+    fn greater_equal(self, other: Self) -> Option<Self> {
+        self.less(other).map(|less| match less {
             ConstantEmission::Boolean(value) => ConstantEmission::Boolean(!value),
             _ => unreachable!("Expected boolean constant from less comparison"),
         })
@@ -3842,25 +3782,56 @@ struct RegisterTracker {
 }
 
 impl RegisterTracker {
-    fn next_local(&mut self, wide: bool) -> u16 {
+    fn allocate_next_local(&mut self, width: RegisterWidth) -> u16 {
         let next = self.next_local;
-        self.next_local += if wide { 2 } else { 1 };
+        self.next_local += u16::from(width);
+        self.next_temporary = self.next_temporary.max(self.next_local);
         self.max = self.max.max(self.next_local);
 
         next
     }
 
-    fn next_temporary(&mut self, wide: bool) -> u16 {
+    fn allocate_next_temporary(&mut self, width: RegisterWidth) -> u16 {
         let next = self.next_temporary;
-        self.next_temporary += if wide { 2 } else { 1 };
+        self.next_temporary += u16::from(width);
         self.max = self.max.max(self.next_temporary);
 
         next
     }
 
-    fn free_temporary(&mut self, index: u16) {
-        debug_assert!(index < self.next_temporary);
+    fn free_temporary(&mut self, registers: &RegisterSpan) {
+        debug_assert!(registers.temporary());
 
-        self.next_temporary = self.next_temporary.min(index);
+        for register in registers.iter() {
+            debug_assert!(register.index < self.next_temporary);
+
+            self.next_temporary = self.next_temporary.min(register.index);
+        }
+    }
+}
+
+enum RegisterWidth {
+    Single,
+    Double,
+    Quad,
+}
+
+impl From<OperandType> for RegisterWidth {
+    fn from(operand_type: OperandType) -> Self {
+        match operand_type {
+            OperandType::U_64 | OperandType::I_64 | OperandType::F_64 => RegisterWidth::Double,
+            OperandType::U_128 | OperandType::I_128 => RegisterWidth::Quad,
+            _ => RegisterWidth::Single,
+        }
+    }
+}
+
+impl From<RegisterWidth> for u16 {
+    fn from(width: RegisterWidth) -> Self {
+        match width {
+            RegisterWidth::Single => 1,
+            RegisterWidth::Double => 2,
+            RegisterWidth::Quad => 4,
+        }
     }
 }

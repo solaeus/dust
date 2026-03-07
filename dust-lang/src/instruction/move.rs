@@ -56,9 +56,11 @@ impl Display for Move {
             jump_distance,
             jump_forward,
         } = *self;
-        let operand_memory = operand_memory.as_string(operand_type);
 
-        write!(f, "reg_{destination} = {operand_memory}_{operand_index}")?;
+        write!(
+            f,
+            "reg_{destination}: {operand_type} = {operand_memory}_{operand_index}"
+        )?;
 
         if jump_distance > 0 {
             let direction = if jump_forward { "+" } else { "-" };

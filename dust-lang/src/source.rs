@@ -3,7 +3,6 @@ use std::{
     fmt::{self, Display, Formatter},
     fs::File,
     io,
-    ops::Range,
     path::{Path, PathBuf},
 };
 
@@ -67,8 +66,15 @@ impl<'src> Source<'src> {
         }
     }
 
-    pub fn files_iter(&self) -> SourceIterator<'_> {
-        SourceIterator::new(self)
+    pub fn ids(&self) -> impl Iterator<Item = SourceFileId> {
+        (0..self.files.len() as u32).map(SourceFileId)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (SourceFileId, &SourceFile<'src>)> {
+        self.files
+            .iter()
+            .enumerate()
+            .map(|(index, file)| (SourceFileId(index as u32), file))
     }
 }
 
@@ -335,10 +341,7 @@ impl Span {
     }
 
     pub fn as_usize_range(&self) -> Range<usize> {
-        Range {
-            start: self.0 as usize,
-            end: self.1 as usize,
-        }
+        (self.0 as usize)..(self.1 as usize)
     }
 
     pub fn start(&self) -> u32 {
@@ -370,41 +373,6 @@ impl Display for Span {
         write!(f, "{}..{}", self.0, self.1)
     }
 }
-
-pub struct SourceIterator<'a> {
-    source: &'a Source<'a>,
-    position: usize,
-}
-
-impl<'a> SourceIterator<'a> {
-    pub fn new(source: &'a Source) -> Self {
-        Self {
-            source,
-            position: 0,
-        }
-    }
-}
-
-impl<'a> Iterator for SourceIterator<'a> {
-    type Item = (SourceFileId, &'a SourceFile<'a>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let file_id = SourceFileId(self.position as u32);
-        let file = self.source.files.get(self.position)?;
-
-        self.position += 1;
-
-        Some((file_id, file))
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.source.files.len() - self.position;
-
-        (remaining, Some(remaining))
-    }
-}
-
-impl ExactSizeIterator for SourceIterator<'_> {}
 
 #[derive(Debug)]
 pub enum SourceError {

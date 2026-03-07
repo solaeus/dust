@@ -11,35 +11,26 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    dust_type::DustType,
-    instruction::{CallArgument, Instruction},
-};
+use crate::{dust_type::DustType, instruction::Instruction};
 
 /// Compiled representation of a Dust function.
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Prototype {
     pub(crate) instructions: Vec<Instruction>,
-    pub(crate) call_arguments: Vec<CallArgument>,
     pub(crate) drops: Vec<u16>,
     pub(crate) return_type: DustType,
-    pub(crate) i32_register_count: u16,
-    pub(crate) i64_register_count: u16,
-    pub(crate) f64_register_count: u16,
-    pub(crate) pointer_register_count: u16,
+    pub(crate) register_count: u16,
+    pub(crate) argument_count: u16,
 }
 
 impl Prototype {
     pub(crate) fn placeholder() -> Self {
         Self {
             instructions: Vec::new(),
-            call_arguments: Vec::new(),
             drops: Vec::new(),
             return_type: DustType::Unit,
-            i32_register_count: 0,
-            i64_register_count: 0,
-            f64_register_count: 0,
-            pointer_register_count: 0,
+            register_count: 0,
+            argument_count: 0,
         }
     }
 }
@@ -72,8 +63,11 @@ impl PrototypeList {
         &self.prototypes
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Prototype> {
-        self.prototypes.iter()
+    pub fn iter(&self) -> impl Iterator<Item = (PrototypeId, &Prototype)> {
+        self.prototypes
+            .iter()
+            .enumerate()
+            .map(|(index, prototype)| (PrototypeId(index as u16), prototype))
     }
 
     pub fn reserve_slot(&mut self) -> PrototypeId {

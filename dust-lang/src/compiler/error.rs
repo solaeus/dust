@@ -107,6 +107,11 @@ pub enum CompileError {
         syntax_kind: SyntaxKind,
         position: Position,
     },
+    ListElementSizeOverflow {
+        size: usize,
+        type_id: TypeId,
+        position: Position,
+    },
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
@@ -759,9 +764,8 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         return error.add_report((), groups);
                     }
                 };
-                let group =
 
-                Group::with_title(Level::ERROR.primary_title(title)).element(
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
@@ -769,7 +773,8 @@ impl<'a> AnnotatedError<'a> for CompileError {
                                 "Native functions cannot be used as values, they must be called.",
                             ),
                     )
-                ).element(Level::HELP.message("To call this native function, add `()` after it."))
+                )
+                .element(Level::HELP.message("To call this native function, add `()` after it."))
                 .element(Level::HELP.message("If you wanted to use a function value, declare a function that wraps the native function and use that instead."));
 
                 groups.push(group);
@@ -800,6 +805,71 @@ impl<'a> AnnotatedError<'a> for CompileError {
                             .label(format!("The use of {syntax_kind} here is not implemented.")),
                     ),
                 );
+
+                groups.push(group);
+            }
+            CompileError::ListElementSizeOverflow {
+                size,
+                type_id,
+                position,
+            } => {
+                let title = "List element too large".to_string();
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let element_type = match resolver.get_full_type(*type_id, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
+                };
+                let found_type_declaration_position = match resolver
+                    .declarations
+                    .find_type_declaration(*type_id)
+                    .map(|found| {
+                        found.and_then(|declaration| {
+                            declaration.syntax.map(|(position, _)| position)
+                        })
+                    }) {
+                    Ok(found) => found,
+                    Err(error) => {
+                        error.add_report((source, Some(resolver)), groups);
+
+                        return;
+                    }
+                };
+
+                let mut group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!(
+                                "Type `{element_type}` is {size} bytes, the maximum for list elements is {}.", u16::MAX - 1
+                            )),
+                    ),
+                );
+
+                if let Some(position) = found_type_declaration_position {
+                    let file_content = match source.get_file(position.file_id) {
+                        Ok(file) => file.content_as_str(),
+                        Err(error) => {
+                            return error.add_report((), groups);
+                        }
+                    };
+
+                    group = group.element(
+                        Snippet::source(file_content).annotation(
+                            AnnotationKind::Context
+                                .span(position.span.as_usize_range())
+                                .label(format!("Type `{element_type}` was declared here.")),
+                        ),
+                    );
+                }
 
                 groups.push(group);
             }

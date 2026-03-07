@@ -131,8 +131,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         let (struct_name, struct_fields) = node.binary_children()?;
 
-        let mut fields = SmallVec::<[DeclarationId; 8]>::new();
-
         for [field_name, field_type] in struct_fields.children()?.array_chunks::<2>() {
             let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
             let field_type_id = self.visit_type(field_type)?;
@@ -140,7 +138,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
             self.resolver
                 .declarations
                 .set_declaration_type(field_declaration_id, field_type_id);
-            fields.push(field_declaration_id);
         }
 
         let declaration_id = *self.resolver.get_declaration_binding(&struct_name.id)?;
@@ -507,7 +504,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             .get_declaration(*declaration_id)?;
 
         let type_id = match declaration.kind {
-            DeclarationKind::Local { .. }
+            DeclarationKind::Local
             | DeclarationKind::Function
             | DeclarationKind::NativeFunction(_) => *self
                 .resolver
