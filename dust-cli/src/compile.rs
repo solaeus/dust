@@ -1,22 +1,13 @@
-use std::time::Instant;
-
 use dust_lang::prelude::*;
 
 use crate::{
     cli::{CompileCommand, GlobalOptions, InputOptions, OutputOptions},
-    handle_source, print_times,
+    handle_source,
 };
 
-pub fn handle_compile_command(
-    command: CompileCommand,
-    start_time: Instant,
-) -> Result<(), ErrorKind> {
+pub fn handle_compile_command(command: CompileCommand) {
     let CompileCommand {
-        global: GlobalOptions {
-            log: _,
-            time,
-            name: _,
-        },
+        global: GlobalOptions { log: _, name: _ },
         input: InputOptions {
             eval,
             stdin: _,
@@ -24,7 +15,6 @@ pub fn handle_compile_command(
         },
         output:
             OutputOptions {
-                no_output,
                 ron: _,
                 pretty_ron: _,
                 postcard: _,
@@ -32,27 +22,21 @@ pub fn handle_compile_command(
         tui,
     } = command;
 
-    let source = handle_source(&eval, path, false)?;
+    let source = match handle_source(&eval, path, false) {
+        Ok(source) => source,
+        Err(error) => error.print_and_exit(),
+    };
     let compiler = Compiler::new(source);
-    let (program, source, syntax, resolver) = match compiler.compile_with_extras(None) {
+    let (program, source, syntax, resolver, constants) = match compiler.compile_with_extras(None) {
         Ok(result) => result,
         Err(errors) => errors.print_and_exit(),
     };
-    let compile_time = start_time.elapsed();
 
-    if !no_output {
-        if tui {
-            let disassembler = Disassembler::new(&program, &source, &syntax, &resolver);
+    if tui {
+        let disassembler = Disassembler::new(&program, &source, &syntax, &resolver, &constants);
 
-            disassembler.disassemble().unwrap();
-        } else {
-            println!("{program:#?}");
-        }
+        disassembler.disassemble().unwrap();
+    } else {
+        println!("{program:#?}");
     }
-
-    if time {
-        print_times(&[("Compile Time", compile_time, None)]);
-    }
-
-    Ok(())
 }

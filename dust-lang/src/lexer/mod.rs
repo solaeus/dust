@@ -4,7 +4,7 @@ mod tests;
 use std::hint::cold_path;
 
 use crate::{
-    dust_error::ErrorKind,
+    error::ErrorKind,
     parser::ParseError,
     source::{Position, Source, SourceFile, Span},
     token::{Token, TokenKind},

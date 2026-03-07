@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
 
 use crate::{
-    dust_error::{ErrorKind, InternalError},
+    error::{ErrorKind, InternalError},
     source::Span,
 };
 

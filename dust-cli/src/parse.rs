@@ -1,54 +1,19 @@
-use std::{
-    io::{Write, stdout},
-    time::Instant,
-};
+use std::io::{Write, stdout};
 
 use dust_lang::prelude::*;
 use ron::ser::PrettyConfig;
 
 use crate::{
     cli::{GlobalOptions, InputOptions, OutputOptions, ParseCommand},
-    handle_source, print_times,
+    handle_source,
 };
 
-fn handle_output(
-    syntax_tree: &SyntaxTree,
-    no_output: bool,
-    ron: bool,
-    pretty_ron: bool,
-    postcard: bool,
-    trees: bool,
-) {
-    if !no_output {
-        if ron {
-            println!("{}", ron::to_string(syntax_tree).unwrap());
-        } else if pretty_ron {
-            println!(
-                "{}",
-                ron::ser::to_string_pretty(syntax_tree, PrettyConfig::new().struct_names(true))
-                    .unwrap()
-            );
-        } else if postcard {
-            let postcard = postcard::to_extend(syntax_tree, Vec::new()).unwrap();
-
-            stdout().write_all(&postcard).unwrap();
-        } else if trees {
-            println!("{syntax_tree}");
-        }
-    }
-}
-
-pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
+pub fn handle_parse_command(command: ParseCommand) {
     let ParseCommand {
-        global: GlobalOptions {
-            log: _,
-            time,
-            name: _,
-        },
+        global: GlobalOptions { log: _, name: _ },
         input: InputOptions { eval, stdin, path },
         output:
             OutputOptions {
-                no_output,
                 ron,
                 pretty_ron,
                 postcard,
@@ -62,11 +27,8 @@ pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
     };
 
     let mut parse_errors = Vec::new();
-    let mut files_parsed = 0;
 
-    while files_parsed < source.file_count() {
-        let (file_id, file) = source.iter().nth(files_parsed).unwrap();
-
+    for (file_id, file) in source.iter() {
         let lexer = if file.is_utf8_validated() {
             Lexer::from_utf8(file.content_as_str())
         } else {
@@ -79,21 +41,35 @@ pub fn handle_parse_command(command: ParseCommand, start_time: Instant) {
             ..
         } = parser.parse();
 
-        handle_output(&syntax_tree, no_output, ron, pretty_ron, postcard, trees);
+        handle_output(&syntax_tree, ron, pretty_ron, postcard, trees);
         parse_errors.extend(errors);
-
-        files_parsed += 1;
     }
 
     if !parse_errors.is_empty() {
-        let error = Error::with_source(parse_errors, source);
-
-        eprintln!("{error}");
+        Error::with_source(parse_errors, source).print_and_exit();
     }
+}
 
-    if time {
-        let parse_time = start_time.elapsed();
+fn handle_output(
+    syntax_tree: &SyntaxTree,
+    ron: bool,
+    pretty_ron: bool,
+    postcard: bool,
+    trees: bool,
+) {
+    if ron {
+        println!("{}", ron::to_string(syntax_tree).unwrap());
+    } else if pretty_ron {
+        println!(
+            "{}",
+            ron::ser::to_string_pretty(syntax_tree, PrettyConfig::new().struct_names(true))
+                .unwrap()
+        );
+    } else if postcard {
+        let postcard = postcard::to_extend(syntax_tree, Vec::new()).unwrap();
 
-        print_times(&[("Parse Time", parse_time, None)]);
+        stdout().write_all(&postcard).unwrap();
+    } else if trees {
+        println!("{syntax_tree}");
     }
 }

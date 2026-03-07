@@ -17,8 +17,8 @@
 mod compiler;
 mod constant_list;
 mod disassembler;
-mod dust_error;
 mod dust_type;
+mod error;
 mod instruction;
 mod program;
 // mod jit_vm;
@@ -37,8 +37,8 @@ pub mod prelude {
     pub use crate::{
         compiler::{Compiler, compile},
         disassembler::Disassembler,
-        dust_error::{Error, ErrorKind},
         dust_type::DustType,
+        error::{Error, ErrorKind},
         instruction::Instruction,
         lexer::{Lexer, tokenize_bytes, tokenize_str},
         native_function::NativeFunction,

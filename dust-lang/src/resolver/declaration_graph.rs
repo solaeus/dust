@@ -3,7 +3,7 @@ use std::{collections::HashMap, ops::Range};
 use rustc_hash::FxBuildHasher;
 
 use crate::{
-    dust_error::{ErrorKind, InternalError},
+    error::{ErrorKind, InternalError},
     native_function::NativeFunction,
     prototype::PrototypeId,
     resolver::{TypeId, scope_graph::ScopeId, symbol_table::SymbolId},

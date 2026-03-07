@@ -6,7 +6,7 @@ use std::{
 use indexmap::{IndexSet, set::MutableValues};
 
 use crate::{
-    dust_error::{ErrorKind, InternalError},
+    error::{ErrorKind, InternalError},
     resolver::declaration_graph::{DeclarationId, DeclarationMembers},
 };
 
@@ -27,8 +27,6 @@ impl TypeGraph {
 
         let _unit_type_id = type_graph.add_type(TypeNode::Unit);
         let _boolean_type_id = type_graph.add_type(TypeNode::Boolean);
-        let _character_type_id = type_graph.add_type(TypeNode::Character);
-        let _string_type_id = type_graph.add_type(TypeNode::String);
         let _u8_type_id = type_graph.add_type(TypeNode::U8);
         let _i8_type_id = type_graph.add_type(TypeNode::I8);
         let _u16_type_id = type_graph.add_type(TypeNode::U16);
@@ -41,6 +39,8 @@ impl TypeGraph {
         let _i128_type_id = type_graph.add_type(TypeNode::I128);
         let _f32_type_id = type_graph.add_type(TypeNode::F32);
         let _f64_type_id = type_graph.add_type(TypeNode::F64);
+        let _character_type_id = type_graph.add_type(TypeNode::Character);
+        let _string_type_id = type_graph.add_type(TypeNode::String);
 
         debug_assert_eq!(_unit_type_id, TypeId::UNIT);
         debug_assert_eq!(_boolean_type_id, TypeId::BOOLEAN);

@@ -1,7 +1,7 @@
 use smallvec::SmallVec;
 
 use crate::{
-    dust_error::{ErrorKind, InternalError},
+    error::{ErrorKind, InternalError},
     resolver::declaration_graph::DeclarationId,
 };
 

@@ -1,7 +1,7 @@
 use tracing::error;
 
 use crate::{
-    dust_error::{ErrorKind, InternalError},
+    error::{ErrorKind, InternalError},
     source::{Position, SourceFileId, Span},
     syntax::{
         SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree, node::SyntaxPayloadKind,

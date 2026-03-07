@@ -21,6 +21,7 @@ pub struct Prototype {
     pub(crate) return_type: DustType,
     pub(crate) register_count: u16,
     pub(crate) argument_count: u16,
+    pub(crate) return_count: u16,
 }
 
 impl Prototype {
@@ -31,6 +32,7 @@ impl Prototype {
             return_type: DustType::Unit,
             register_count: 0,
             argument_count: 0,
+            return_count: 0,
         }
     }
 }

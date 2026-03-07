@@ -43,10 +43,6 @@ pub struct GlobalOptions {
     #[arg(short, long, value_name = "LEVEL", env = "DUST_LOG")]
     pub log: Option<LevelFilter>,
 
-    /// Display the time taken for each operation
-    #[arg(short, long)]
-    pub time: bool,
-
     /// Custom program name, overrides the file name
     #[arg(short, long)]
     pub name: Option<String>,
@@ -55,7 +51,6 @@ pub struct GlobalOptions {
 impl GlobalOptions {
     pub fn join(&mut self, other: GlobalOptions) {
         self.log = self.log.take().or(other.log);
-        self.time = self.time || other.time;
         self.name = self.name.take().or(other.name);
     }
 }
@@ -109,10 +104,6 @@ impl InputOptions {
 #[derive(Args)]
 #[group(multiple = true)]
 pub struct OutputOptions {
-    /// Disable all output
-    #[arg(long)]
-    pub no_output: bool,
-
     /// Print output in Rusty Object Notation
     #[arg(long, group = "format")]
     pub ron: bool,
@@ -128,7 +119,6 @@ pub struct OutputOptions {
 
 impl OutputOptions {
     pub fn join(&mut self, other: OutputOptions) {
-        self.no_output = self.no_output || other.no_output;
         self.ron = self.ron || other.ron;
         self.pretty_ron = self.pretty_ron || other.pretty_ron;
         self.postcard = self.postcard || other.postcard;

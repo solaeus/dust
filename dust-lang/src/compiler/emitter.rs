@@ -10,7 +10,7 @@ use tracing::{debug, trace};
 use crate::{
     compiler::error::CompileError,
     constant_list::ConstantListBuilder,
-    dust_error::{ErrorKind, InternalError},
+    error::{ErrorKind, InternalError},
     instruction::{Drop, Instruction, Jump, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
     prototype::{Prototype, PrototypeId, PrototypeList},
@@ -92,7 +92,6 @@ impl<'a> Emitter<'a> {
             );
         }
 
-        let argument_count = arguments.as_ref().map_or(0, |arguments| arguments.len());
         let type_id = *resolver.get_type_binding(&function.id)?;
         let type_node = *resolver.types.get_type(type_id)?;
         let TypeNode::Function {
@@ -106,7 +105,8 @@ impl<'a> Emitter<'a> {
                 position: function.position(),
             }));
         };
-        let return_count = resolver.get_register_size(type_id, &function)?;
+        let argument_count = arguments.as_ref().map_or(0, |arguments| arguments.len()) as u16;
+        let return_count = resolver.get_register_size(return_type_id, &function)? as u16;
 
         let mut emitter = Self {
             function,
@@ -115,13 +115,13 @@ impl<'a> Emitter<'a> {
             constants,
             resolver,
             prototypes,
-            argument_count: argument_count as u16,
-            return_count: return_count as u16,
+            argument_count,
+            return_count,
             instructions: Vec::new(),
             locals,
             drop_lists: Vec::new(),
             pending_drops: Vec::new(),
-            register_tracker: RegisterTracker::new(),
+            register_tracker: RegisterTracker::new(argument_count, return_count),
             jump_placements: HashMap::default(),
             jump_over_else_anchor_ids: Vec::new(),
             current_scope_id: starting_scope_id,
@@ -129,7 +129,8 @@ impl<'a> Emitter<'a> {
         };
 
         if let Some(arguments) = arguments {
-            let argument_types = resolver
+            let argument_types = emitter
+                .resolver
                 .types
                 .get_type_members(value_parameters)?
                 .iter()
@@ -137,7 +138,7 @@ impl<'a> Emitter<'a> {
                 .collect::<SmallVec<[TypeId; 8]>>();
 
             for (argument, expected_type_id) in arguments.into_iter().zip(argument_types) {
-                let argument_id = *resolver.get_declaration_binding(&argument.id)?;
+                let argument_id = *emitter.resolver.get_declaration_binding(&argument.id)?;
                 let allocations = emitter.allocate_registers(expected_type_id, false, &argument)?;
 
                 emitter
@@ -240,35 +241,17 @@ impl<'a> Emitter<'a> {
             .resolver
             .declarations
             .get_declaration_type(declaration_id)?;
-        let return_type = {
-            let get_type = self
-                .resolver
-                .get_full_type(type_id, self.source)?
-                .into_function_type()
-                .map(|function_type| function_type.return_type);
-
-            if let Some(function_type) = get_type {
-                function_type
-            } else {
-                let function_declaration_id =
-                    *self.resolver.get_declaration_binding(&self.function.id)?;
-                let function_declaration = self
-                    .resolver
-                    .declarations
-                    .get_declaration(function_declaration_id)?;
-                let position = function_declaration
-                    .syntax
-                    .ok_or(ErrorKind::Internal(InternalError::MissingDeclaration(
-                        function_declaration_id,
-                    )))?
-                    .0;
-
-                return Err(ErrorKind::Compile(CompileError::ExpectedFunctionType {
+        let return_type = self
+            .resolver
+            .get_full_type(type_id, self.source)?
+            .into_function_type()
+            .map(|function_type| function_type.return_type)
+            .ok_or_else(|| {
+                ErrorKind::Compile(CompileError::ExpectedFunctionType {
                     found: type_id,
-                    position,
-                }));
-            }
-        };
+                    position: self.function.position(),
+                })
+            })?;
 
         Ok(Prototype {
             instructions: self.instructions,
@@ -276,6 +259,7 @@ impl<'a> Emitter<'a> {
             return_type,
             register_count: self.register_tracker.max,
             argument_count: self.argument_count,
+            return_count: self.return_count,
         })
     }
 
@@ -1051,91 +1035,113 @@ impl<'a> Emitter<'a> {
         emission: Emission,
         node: SyntaxReader,
     ) -> Result<(), ErrorKind> {
-        let return_instruction = match emission {
+        match emission {
             Emission::Constant(constant) => {
-                let operand_type = constant.operand_type();
-                let operand_index = self.add_constant(constant);
-                let arguments_start = self.call_arguments.len() as u16;
+                let destination = self.register_tracker.allocate_next_reserved();
+                let move_instruction = Instruction::r#move(
+                    destination,
+                    constant.operand_type(),
+                    MemoryKind::CONSTANT,
+                    self.add_constant(constant),
+                );
+                let return_instruction = Instruction::r#return(true, 1);
 
-                self.call_arguments.push(CallArgument {
-                    index: operand_index,
-                    memory: MemoryKind::CONSTANT,
-                    operand_type,
-                });
+                return_instructions.push(move_instruction);
+                return_instructions.push(return_instruction);
 
-                Instruction::r#return(true, arguments_start, 1)
+                Ok(())
             }
             Emission::Place(Place::Constant {
                 operand_type,
                 index,
             }) => {
-                let arguments_start = self.call_arguments.len() as u16;
+                let destination = self.register_tracker.allocate_next_reserved();
+                let move_instruction =
+                    Instruction::r#move(destination, operand_type, MemoryKind::CONSTANT, index);
+                let return_instruction = Instruction::r#return(true, 1);
 
-                self.call_arguments.push(CallArgument {
-                    index,
-                    memory: MemoryKind::CONSTANT,
-                    operand_type,
-                });
+                return_instructions.push(move_instruction);
+                return_instructions.push(return_instruction);
 
-                Instruction::r#return(true, arguments_start, 1)
+                Ok(())
             }
             Emission::Place(Place::Register(RegisterSpan::Single { register, .. })) => {
-                let arguments_start = self.call_arguments.len() as u16;
+                let destination = self.register_tracker.allocate_next_reserved();
+                let move_instruction = Instruction::r#move(
+                    destination,
+                    register.operand_type,
+                    MemoryKind::REGISTER,
+                    register.index,
+                );
+                let return_instruction = Instruction::r#return(true, 1);
 
-                self.call_arguments.push(CallArgument {
-                    index: register.index,
-                    memory: MemoryKind::REGISTER,
-                    operand_type: register.operand_type,
-                });
+                return_instructions.push(move_instruction);
+                return_instructions.push(return_instruction);
 
-                Instruction::r#return(true, arguments_start, 1)
+                Ok(())
             }
             Emission::Place(Place::Register(RegisterSpan::Multiple { registers, .. })) => {
-                let arguments_start = self.call_arguments.len() as u16;
-                let argument_count = registers.len() as u16;
+                let return_instruction = Instruction::r#return(true, registers.len() as u16);
 
-                for allocation in registers {
-                    self.call_arguments.push(CallArgument {
-                        index: allocation.index,
-                        memory: MemoryKind::REGISTER,
-                        operand_type: allocation.operand_type,
-                    });
+                for register in registers {
+                    let destination = self.register_tracker.allocate_next_reserved();
+                    let move_instruction = Instruction::r#move(
+                        destination,
+                        register.operand_type,
+                        MemoryKind::REGISTER,
+                        register.index,
+                    );
+
+                    return_instructions.push(move_instruction);
                 }
 
-                Instruction::r#return(true, arguments_start, argument_count)
+                return_instructions.push(return_instruction);
+
+                Ok(())
             }
-            Emission::Instructions(instructions) => {
-                return_instructions.merge(instructions);
-
+            Emission::Instructions(mut instructions) => {
                 if let Some(registers) = &return_instructions.target {
-                    let arguments_start = self.call_arguments.len() as u16;
-
                     for allocation in registers.iter() {
-                        self.call_arguments.push(CallArgument {
-                            index: allocation.index,
-                            memory: MemoryKind::REGISTER,
-                            operand_type: allocation.operand_type,
-                        });
+                        let destination = self.register_tracker.allocate_next_reserved();
+
+                        let move_instruction = Instruction::r#move(
+                            destination,
+                            allocation.operand_type,
+                            MemoryKind::REGISTER,
+                            allocation.index,
+                        );
+
+                        instructions.push(move_instruction);
                     }
 
-                    Instruction::r#return(true, arguments_start, registers.len() as u16)
+                    let return_instruction = Instruction::r#return(true, registers.len() as u16);
+
+                    return_instructions.merge(instructions);
+                    return_instructions.push(return_instruction);
+
+                    Ok(())
                 } else {
-                    Instruction::r#return(false, 0, 0)
+                    let return_instruction = Instruction::r#return(false, 0);
+
+                    return_instructions.merge(instructions);
+                    return_instructions.push(return_instruction);
+
+                    Ok(())
                 }
             }
-            Emission::None => Instruction::r#return(false, 0, 0),
-            Emission::NativeFunction(_) => {
-                return Err(ErrorKind::Compile(
-                    CompileError::ExpectedNativeFunctionCall {
-                        position: node.position(),
-                    },
-                ));
+            Emission::None => {
+                let return_instruction = Instruction::r#return(false, 0);
+
+                return_instructions.push(return_instruction);
+
+                Ok(())
             }
-        };
-
-        return_instructions.push(return_instruction);
-
-        Ok(())
+            Emission::NativeFunction(_) => Err(ErrorKind::Compile(
+                CompileError::ExpectedNativeFunctionCall {
+                    position: node.position(),
+                },
+            )),
+        }
     }
 
     fn handle_implicit_return(
@@ -1156,7 +1162,7 @@ impl<'a> Emitter<'a> {
                 self.visit_statement(node)?;
             }
 
-            let return_instruction = Instruction::r#return(false, 0, 0);
+            let return_instruction = Instruction::r#return(false, 0);
 
             return_emission.push(return_instruction);
         }
@@ -1205,25 +1211,38 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_function_item(&mut self, node: SyntaxReader<'_>) -> Result<(), ErrorKind> {
         debug!("Visting function item");
 
-        let (_, function_expression) = node.binary_children()?;
+        let (function_name, function_expression) = node.binary_children()?;
+        let (signature, body) = function_expression.binary_children()?;
+        let mut singature_children = signature.children()?;
+        let parameters = singature_children.expect_next()?;
 
-        let function_emission = self.visit_function_expression(function_expression, None)?;
+        let function_scope_id = *self.resolver.get_scope_binding(&body.id)?;
+        let prototype_id = self.prototypes.reserve_slot();
+        let declaration_id = *self.resolver.get_declaration_binding(&function_name.id)?;
 
-        let Emission::Place(Place::Constant { index, .. }) = function_emission else {
-            return Err(ErrorKind::Compile(CompileError::ExpectedFunction {
-                node_kind: function_expression.kind(),
-                position: function_expression.position(),
-            }));
-        };
-        let declaration_id = *self
-            .resolver
-            .get_declaration_binding(&function_expression.id)?;
+        let function_emitter = Emitter::new(
+            node,
+            Some(declaration_id),
+            function_scope_id,
+            prototype_id,
+            Some(parameters.children()?),
+            (
+                self.source,
+                self.syntax,
+                self.constants,
+                self.resolver,
+                self.prototypes,
+            ),
+        )?;
+        let prototype = function_emitter.emit()?;
+
+        self.prototypes.set_slot(prototype_id, prototype);
 
         self.locals.insert(
             declaration_id,
             Place::Constant {
                 operand_type: OperandType::FUNCTION,
-                index,
+                index: prototype_id.inner(),
             },
         );
 
@@ -2846,20 +2865,6 @@ impl SyntaxVisitor for Emitter<'_> {
         let function_scope_id = *self.resolver.get_scope_binding(&body.id)?;
         let prototype_id = self.prototypes.reserve_slot();
 
-        let type_id = *self.resolver.get_type_binding(&node.id)?;
-        let return_count = if let TypeNode::Function {
-            type_parameters,
-            value_parameters,
-            return_type_id,
-        } = self.resolver.types.get_type(type_id)?
-        {
-        } else {
-            return Err(ErrorKind::Compile(CompileError::ExpectedFunctionType {
-                found: type_id,
-                position: node.position(),
-            }));
-        };
-
         let function_emitter = Emitter::new(
             node,
             None,
@@ -3776,12 +3781,28 @@ struct JumpPlacement {
 
 #[derive(Clone, Copy, Debug, Default)]
 struct RegisterTracker {
+    reserved: u16,
+
     next_local: u16,
     next_temporary: u16,
+    next_reserved: u16,
+
     max: u16,
 }
 
 impl RegisterTracker {
+    fn new(argument_count: u16, return_count: u16) -> Self {
+        let reserved = argument_count.max(return_count);
+
+        Self {
+            reserved,
+            next_local: reserved,
+            next_temporary: reserved,
+            next_reserved: 0,
+            max: reserved,
+        }
+    }
+
     fn allocate_next_local(&mut self, width: RegisterWidth) -> u16 {
         let next = self.next_local;
         self.next_local += u16::from(width);
@@ -3795,6 +3816,15 @@ impl RegisterTracker {
         let next = self.next_temporary;
         self.next_temporary += u16::from(width);
         self.max = self.max.max(self.next_temporary);
+
+        next
+    }
+
+    fn allocate_next_reserved(&mut self) -> u16 {
+        let next = self.next_reserved.min(self.reserved);
+        self.next_reserved += 1;
+
+        debug_assert!(self.next_reserved <= self.reserved);
 
         next
     }

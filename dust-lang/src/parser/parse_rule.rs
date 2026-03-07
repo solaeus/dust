@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{dust_error::ErrorKind, parser::Parser, syntax::SyntaxNode, token::TokenKind};
+use crate::{error::ErrorKind, parser::Parser, syntax::SyntaxNode, token::TokenKind};
 
 pub type PrefixParser<'a> = fn(&mut Parser<'a>) -> Result<SyntaxNode, ErrorKind>;
 pub type InfixParser<'a> = fn(&mut Parser<'a>, SyntaxNode) -> Result<SyntaxNode, ErrorKind>;

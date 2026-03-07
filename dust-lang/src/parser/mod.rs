@@ -15,7 +15,7 @@ use smallvec::SmallVec;
 use tracing::{debug, error};
 
 use crate::{
-    dust_error::ErrorKind,
+    error::ErrorKind,
     lexer::Lexer,
     parser::parse_rule::{Associativity, ParseRule, Precedence},
     source::{Position, Source, SourceFile, SourceFileId, Span},

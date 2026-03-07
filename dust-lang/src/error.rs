@@ -6,7 +6,6 @@ use std::{
 };
 
 use annotate_snippets::{Group, Level, Renderer};
-use tracing::error;
 
 use crate::{
     compiler::error::CompileError,
@@ -25,15 +24,23 @@ use crate::{
 #[derive(Debug)]
 pub struct Error<'src> {
     errors: Vec<ErrorKind>,
-    source: Source<'src>,
+    source: Option<Source<'src>>,
     resolver: Option<Box<Resolver>>,
 }
 
 impl<'src> Error<'src> {
+    pub fn without_context(errors: Vec<ErrorKind>) -> Self {
+        Self {
+            errors,
+            source: None,
+            resolver: None,
+        }
+    }
+
     pub fn with_source(errors: Vec<ErrorKind>, source: Source<'src>) -> Self {
         Self {
             errors,
-            source,
+            source: Some(source),
             resolver: None,
         }
     }
@@ -45,7 +52,7 @@ impl<'src> Error<'src> {
     ) -> Self {
         Self {
             errors,
-            source,
+            source: Some(source),
             resolver: Some(Box::new(resolver)),
         }
     }
@@ -75,7 +82,10 @@ impl<'a> Display for Error<'a> {
         for (index, error) in self.errors.iter().enumerate() {
             let start = groups.len();
 
-            error.add_report((&self.source, self.resolver.as_deref()), &mut groups);
+            error.add_report(
+                (self.source.as_ref(), self.resolver.as_deref()),
+                &mut groups,
+            );
 
             let display = renderer.render(&groups[start..]);
 
@@ -124,7 +134,7 @@ impl From<CompileError> for ErrorKind {
 }
 
 impl<'a> AnnotatedError<'a> for ErrorKind {
-    type Context = (&'a Source<'a>, Option<&'a Resolver>);
+    type Context = (Option<&'a Source<'a>>, Option<&'a Resolver>);
 
     fn add_report(&self, context: Self::Context, groups: &mut Vec<Group<'a>>) {
         let (source, resolver) = context;
@@ -132,12 +142,20 @@ impl<'a> AnnotatedError<'a> for ErrorKind {
         match self {
             ErrorKind::Internal(internal_error) => internal_error.add_report((), groups),
             ErrorKind::Source(source_error) => source_error.add_report((), groups),
-            ErrorKind::Parse(parse_error) => parse_error.add_report(source, groups),
+            ErrorKind::Parse(parse_error) => {
+                if let Some(source) = source {
+                    parse_error.add_report(source, groups)
+                } else {
+                    InternalError::MissingErrorContext.add_report((), groups);
+                }
+            }
             ErrorKind::Compile(compile_error) => {
-                if let Some(resolver) = resolver {
+                if let Some(resolver) = resolver
+                    && let Some(source) = source
+                {
                     compile_error.add_report((source, resolver), groups)
                 } else {
-                    error!("Missing error messages due to incomplete error context.");
+                    InternalError::MissingErrorContext.add_report((), groups);
                 }
             }
         }
@@ -146,17 +164,28 @@ impl<'a> AnnotatedError<'a> for ErrorKind {
 
 #[derive(Debug)]
 pub enum InternalError {
+    /// Meta error for when an error occurs but the context needed to generate a report is missing.
+    MissingErrorContext,
+
     InvalidConstantTable,
 
     MissingSourceFile(SourceFileId),
-    MissingSourceFileContent { span: Span, length: usize },
+    MissingSourceFileContent {
+        span: Span,
+        length: usize,
+    },
 
     MissingSyntaxTree(SourceFileId),
     MissingSyntaxNode(SyntaxId),
-    MissingSyntaxChild { total_children: usize },
+    MissingSyntaxChild {
+        total_children: usize,
+    },
     MissingSyntaxChildren(SyntaxPayload),
     InvalidSyntaxPayload(SyntaxPayload),
-    ExpectedSyntaxChildren { expected: usize, actual: usize },
+    ExpectedSyntaxChildren {
+        expected: usize,
+        actual: usize,
+    },
 
     MissingSymbol(SymbolId),
 
@@ -176,11 +205,18 @@ pub enum InternalError {
     MissingTypeMembers(TypeMembers),
     MissingTypeBinding(SyntaxId),
 
-    InvalidRegisterCount { expected: usize, found: usize },
-    ExpectedListType { found: TypeNode },
+    InvalidRegisterCount {
+        expected: usize,
+        found: usize,
+    },
+    ExpectedListType {
+        found: TypeNode,
+    },
     ExpectedFloatRegister,
     ExpectedIntegerRegister,
-    ExpectedEmissionTarget { node_kind: SyntaxKind },
+    ExpectedEmissionTarget {
+        node_kind: SyntaxKind,
+    },
 }
 
 impl InternalError {

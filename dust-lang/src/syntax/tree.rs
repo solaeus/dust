@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 
 use crate::{
-    dust_error::{ErrorKind, InternalError},
+    error::{ErrorKind, InternalError},
     source::SourceFileId,
     syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxReader},
 };

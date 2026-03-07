@@ -1,44 +1,33 @@
-use std::{fmt::Display, time::Instant};
+use std::fmt::Display;
 
 use dust_lang::prelude::*;
 
 use crate::{
     cli::{GlobalOptions, InputOptions, OutputOptions, TokenizeCommand},
-    handle_source, print_times,
+    handle_source,
 };
 
-pub fn handle_tokenize_command(
-    command: TokenizeCommand,
-    start_time: Instant,
-) -> Result<(), ErrorKind> {
+pub fn handle_tokenize_command(command: TokenizeCommand) {
     let TokenizeCommand {
-        global: GlobalOptions {
-            log: _,
-            time,
-            name: _,
-        },
+        global: GlobalOptions { log: _, name: _ },
         input: InputOptions { eval, stdin, path },
         output:
             OutputOptions {
-                no_output,
                 ron: _,
                 pretty_ron: _,
                 postcard: _,
             },
     } = command;
 
-    fn print(message: impl Display, no_output: bool) {
-        if !no_output {
-            println!("{message}");
-        }
-    }
+    let source = match handle_source(&eval, path, stdin) {
+        Ok(source) => source,
+        Err(error) => error.print_and_exit(),
+    };
 
-    let source = handle_source(&eval, path, stdin)?;
-
-    print("# Dust Tokens", no_output);
+    println!("# Dust Tokens");
 
     for file in source.files() {
-        print(format!("\n## {}\n", file.file_name()), no_output);
+        println!("\n## {}\n", file.file_name());
 
         let lexer = if file.is_utf8_validated() {
             Lexer::from_utf8(file.content_as_str())
@@ -47,15 +36,7 @@ pub fn handle_tokenize_command(
         };
 
         for token in lexer {
-            print(format!("  - {} at {}", token.kind, token.span), no_output);
+            println!("  - {} at {}", token.kind, token.span);
         }
     }
-
-    if time {
-        let end = start_time.elapsed();
-
-        print_times(&[("Tokenization", end, None)]);
-    }
-
-    Ok(())
 }

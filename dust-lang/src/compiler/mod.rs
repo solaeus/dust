@@ -14,7 +14,7 @@ use crate::{
         type_binder::TypeBinder,
     },
     constant_list::ConstantListBuilder,
-    dust_error::{Error, ErrorKind},
+    error::{Error, ErrorKind},
     instruction::OperandType,
     lexer::Lexer,
     parser::{ParseResult, Parser},

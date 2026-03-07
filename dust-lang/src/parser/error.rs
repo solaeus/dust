@@ -1,7 +1,7 @@
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
-    dust_error::AnnotatedError,
+    error::AnnotatedError,
     source::{Position, Source},
     syntax::SyntaxKind,
     token::TokenKind,

@@ -3,6 +3,7 @@ use std::{
     fmt::{self, Display, Formatter},
     fs::File,
     io,
+    ops::Range,
     path::{Path, PathBuf},
 };
 
@@ -11,7 +12,7 @@ use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-use crate::dust_error::{AnnotatedError, InternalError};
+use crate::error::{AnnotatedError, InternalError};
 
 #[derive(Debug)]
 pub struct Source<'src> {

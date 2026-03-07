@@ -457,10 +457,9 @@ impl Instruction {
         })
     }
 
-    pub fn r#return(returns_value: bool, arguments_start: u16, argument_count: u16) -> Instruction {
+    pub fn r#return(returns_value: bool, argument_count: u16) -> Instruction {
         Instruction::from(Return {
             returns_value,
-            arguments_start,
             argument_count,
         })
     }

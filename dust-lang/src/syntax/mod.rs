@@ -11,7 +11,7 @@ pub use visitor::SyntaxVisitor;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    dust_error::{ErrorKind, InternalError},
+    error::{ErrorKind, InternalError},
     source::SourceFileId,
 };
 

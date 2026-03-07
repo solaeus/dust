@@ -59,7 +59,7 @@ fn main() {
         command.output.join(output);
 
         handle_logging(command.global.log, start_time);
-        handle_parse_command(command, start_time);
+        handle_parse_command(command);
 
         return;
     }
@@ -70,7 +70,7 @@ fn main() {
         command.output.join(output);
 
         handle_logging(command.global.log, start_time);
-        handle_compile_command(command, start_time);
+        handle_compile_command(command);
 
         return;
     }
@@ -81,7 +81,7 @@ fn main() {
         command.output.join(output);
 
         handle_logging(command.global.log, start_time);
-        handle_tokenize_command(command, start_time);
+        handle_tokenize_command(command);
 
         return;
     }
@@ -186,16 +186,8 @@ where
     }
 }
 
-fn print_times(times: &[(&str, Duration, Option<Duration>)]) {
-    for (source_name, compile_time, run_time) in times {
-        let total_time = run_time
-            .map(|run_time| run_time + *compile_time)
-            .unwrap_or(*compile_time);
-        let compile_time_display = format!("{}ms", compile_time.as_millis_f64());
-        let total_time_display = format!("{}ms", total_time.as_millis_f64());
-
-        println!("{source_name}: {compile_time_display}, {total_time_display} total");
-    }
+fn print_times(name: &str, duration: Duration) {
+    println!("{name}: {}ms", duration.as_millis());
 }
 
 fn handle_source<'src>(

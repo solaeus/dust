@@ -10,8 +10,8 @@ use smallvec::SmallVec;
 
 use crate::{
     compiler::error::CompileError,
-    dust_error::{ErrorKind, InternalError},
     dust_type::{DustFunctionType, DustStructType, DustType},
+    error::{ErrorKind, InternalError},
     native_function::NativeFunction,
     resolver::{
         declaration_graph::{
@@ -253,10 +253,10 @@ impl Resolver {
                 }
             }
             TypeNode::Unit | TypeNode::Enum { .. } => {
-                return Err(ErrorKind::Compile(CompileError::ExpectedValue {
+                Err(ErrorKind::Compile(CompileError::ExpectedValue {
                     node_kind: node.kind(),
                     position: node.position(),
-                }));
+                }))
             }
         }
     }

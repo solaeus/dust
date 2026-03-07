@@ -2,13 +2,12 @@ use std::{
     char,
     collections::HashMap,
     hash::{Hash, Hasher},
-    ops::Range,
 };
 
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::{dust_error::InternalError, instruction::OperandType};
+use crate::{error::InternalError, instruction::OperandType};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ConstantList {
@@ -161,35 +160,10 @@ impl ConstantListBuilder {
         )
     }
 
-    pub fn len(&self) -> usize {
-        self.payloads.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.payloads.is_empty()
-    }
-
-    pub fn tag_count(&self) -> usize {
-        self.tags.len()
-    }
-
-    pub fn get_string_pool_range(&self, range: Range<usize>) -> &str {
-        self.string_pool.get(range).unwrap_or_default()
-    }
-
     pub fn add_character(&mut self, character: char) -> ConstantId {
         let payload = character as u64;
 
         self.add_payload(payload, OperandType::CHARACTER)
-    }
-
-    pub fn get_character(&self, id: ConstantId) -> Result<char, InternalError> {
-        let payload = *self
-            .payloads
-            .get(id.0 as usize)
-            .ok_or(InternalError::InvalidConstantTable)?;
-
-        char::from_u32(payload as u32).ok_or(InternalError::InvalidConstantTable)
     }
 
     pub fn add_u32(&mut self, integer: u32) -> ConstantId {

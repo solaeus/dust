@@ -6,7 +6,7 @@ use tracing::debug;
 
 use crate::{
     compiler::error::CompileError,
-    dust_error::{ErrorKind, InternalError},
+    error::{ErrorKind, InternalError},
     resolver::{
         Resolver,
         declaration_graph::{DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind},
