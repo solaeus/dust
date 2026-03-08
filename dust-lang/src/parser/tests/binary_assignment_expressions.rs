@@ -35,7 +35,7 @@ fn add_assign() {
                 SyntaxId(6),
                 SyntaxId(7)
             ),
-            Path.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
         ]
@@ -71,7 +71,7 @@ fn subtract_assign() {
                 SyntaxId(6),
                 SyntaxId(7)
             ),
-            Path.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
         ]
@@ -107,7 +107,7 @@ fn multiply_assign() {
                 SyntaxId(6),
                 SyntaxId(7)
             ),
-            Path.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
         ]
@@ -143,7 +143,7 @@ fn divide_assign() {
                 SyntaxId(6),
                 SyntaxId(7)
             ),
-            Path.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
         ]
@@ -179,7 +179,7 @@ fn modulo_assign() {
                 SyntaxId(6),
                 SyntaxId(7)
             ),
-            Path.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
         ]
@@ -215,7 +215,7 @@ fn power_assign() {
                 SyntaxId(6),
                 SyntaxId(7)
             ),
-            Path.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(21, 23), SyntaxPayload::encode_integer(42)),
         ]
