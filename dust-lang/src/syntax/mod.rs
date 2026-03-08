@@ -65,7 +65,7 @@ impl Syntax {
 
 /// A unique identifier for a syntax node within a syntax tree.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct SyntaxId(pub(super) u32);
+pub struct SyntaxId(#[cfg(test)] pub(super) u32, #[cfg(not(test))] u32);
 
 impl SyntaxId {
     /// ID of the root node of a syntax tree, which is always 0 because nodes are added in lexical

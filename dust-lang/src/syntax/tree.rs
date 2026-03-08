@@ -19,7 +19,7 @@ pub struct SyntaxTree {
 
     /// Concatenated list of node indexes that represent children for nodes with more than two
     /// children.
-    pub(crate) children: Vec<SyntaxId>,
+    pub(super) children: Vec<SyntaxId>,
 }
 
 impl SyntaxTree {

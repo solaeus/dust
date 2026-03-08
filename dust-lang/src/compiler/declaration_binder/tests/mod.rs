@@ -17,6 +17,7 @@ mod while_expression;
 use smallvec::SmallVec;
 
 use crate::{
+    compiler::declaration_binder::DeclarationBinder,
     lexer::Lexer,
     parser::Parser,
     resolver::{
@@ -28,9 +29,7 @@ use crate::{
     syntax::{Syntax, SyntaxVisitor},
 };
 
-use super::DeclarationBinder;
-
-pub fn bind_declarations(source_code: &str) -> (Syntax, Resolver) {
+fn bind_declarations(source_code: &str) -> (Syntax, Resolver) {
     let mut source = Source::new();
 
     source.add_file(SourceFile::validated("test", source_code));
@@ -72,7 +71,7 @@ pub fn bind_declarations(source_code: &str) -> (Syntax, Resolver) {
     (syntax, resolver)
 }
 
-pub fn find_declaration(
+fn find_declaration(
     resolver: &mut Resolver,
     name: &str,
 ) -> Option<(DeclarationId, DeclarationKind)> {

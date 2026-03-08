@@ -69,8 +69,9 @@ impl Display for SyntaxNode {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum SyntaxKind {
-    // Items
     Root,
+
+    // Items
     ModuleItem,
     PublicModuleItem,
     UseItem,
@@ -87,7 +88,6 @@ pub enum SyntaxKind {
     LetStatement,
     LetMutStatement,
     ReassignmentStatement,
-    SemicolonStatement,
     AdditionAssignmentStatement,
     SubtractionAssignmentStatement,
     MultiplicationAssignmentStatement,
@@ -290,7 +290,6 @@ impl SyntaxKind {
                 | SyntaxKind::LetStatement
                 | SyntaxKind::LetMutStatement
                 | SyntaxKind::ReassignmentStatement
-                | SyntaxKind::SemicolonStatement
                 | SyntaxKind::AdditionAssignmentStatement
                 | SyntaxKind::SubtractionAssignmentStatement
                 | SyntaxKind::MultiplicationAssignmentStatement
@@ -430,7 +429,6 @@ impl SyntaxKind {
             SyntaxKind::ReassignmentStatement => "reassignment statement",
             SyntaxKind::ReturnExpression => "return expression",
             SyntaxKind::Root => "root",
-            SyntaxKind::SemicolonStatement => "semicolon statement",
             SyntaxKind::SimplePath => "simple path",
             SyntaxKind::StringExpression => "string expression",
             SyntaxKind::StringType => "string type",
