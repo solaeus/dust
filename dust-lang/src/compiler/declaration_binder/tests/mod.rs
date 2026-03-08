@@ -11,7 +11,6 @@ mod module_item;
 mod path_expression;
 mod struct_expression;
 mod struct_item;
-mod use_item;
 mod while_expression;
 
 use smallvec::SmallVec;

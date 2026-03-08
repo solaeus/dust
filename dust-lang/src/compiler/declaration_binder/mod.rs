@@ -96,7 +96,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             modules: SmallVec::new(),
             imports: SmallVec::new(),
         });
-        let is_public = module_item.kind() == SyntaxKind::PublicModuleItem;
         let syntax = Some((module_name.position(), module_item.id));
 
         if let Some(module_body) = module_body {
@@ -107,7 +106,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     inner_scope_id: module_scope_id,
                 },
                 scope_id: self.current_scope_id,
-                is_public,
+                is_public: module_item.kind() == SyntaxKind::PublicModuleItem,
                 syntax,
             });
 
@@ -156,7 +155,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     inner_scope_id: module_scope_id,
                 },
                 scope_id: self.current_scope_id,
-                is_public,
+                is_public: module_item.kind() == SyntaxKind::PublicModuleItem,
                 syntax,
             });
 
@@ -188,12 +187,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let function_name_str = self.source.get_file_content(&function_name.position())?;
         let function_symbol_id = self.resolver.symbols.add_symbol(function_name_str);
 
-        let is_public = function_item.kind() == SyntaxKind::PublicFunctionItem;
         let function_declaration_id = self.resolver.declarations.add_declaration(Declaration {
             symbol_id: function_symbol_id,
             kind: DeclarationKind::Function,
             scope_id: self.current_scope_id,
-            is_public,
+            is_public: function_item.kind() == SyntaxKind::PublicFunctionItem,
             syntax: Some((function_name.position(), function_item.id)),
         });
 
@@ -212,11 +210,22 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         ),);
 
         let path = use_item.child()?;
+        let path_declaration_id = self.visit_path(path, Visibility::Module)?;
+        let path_declaration = self
+            .resolver
+            .declarations
+            .get_declaration(path_declaration_id)?;
 
-        let declaration_id = self.visit_path(path, Visibility::Module)?;
+        let use_declaration_id = self.resolver.declarations.add_declaration(Declaration {
+            symbol_id: path_declaration.symbol_id,
+            kind: path_declaration.kind,
+            scope_id: self.current_scope_id,
+            is_public: use_item.kind() == SyntaxKind::PublicUseItem,
+            syntax: Some((use_item.position(), use_item.id)),
+        });
 
         self.resolver
-            .add_declaration_binding(use_item.id, declaration_id);
+            .add_declaration_binding(use_item.id, use_declaration_id);
 
         Ok(())
     }
@@ -276,7 +285,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 members,
             },
             scope_id: self.current_scope_id,
-            is_public: false,
+            is_public: struct_item.kind() == SyntaxKind::PublicStructItem,
             syntax: Some((struct_item.position(), struct_item.id)),
         });
 
@@ -346,7 +355,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 members,
             },
             scope_id: self.current_scope_id,
-            is_public: false,
+            is_public: enum_item.kind() == SyntaxKind::PublicEnumItem,
             syntax: Some((enum_item.position(), enum_item.id)),
         });
 
@@ -393,7 +402,25 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_binary_assignment_statement(
+    fn visit_assignment_expression(
+        &mut self,
+        reassignment_statement: SyntaxReader,
+    ) -> Result<(), ErrorKind> {
+        debug!("Visiting reassignment statement");
+        debug_assert_eq!(
+            reassignment_statement.kind(),
+            SyntaxKind::AssignmentExpression
+        );
+
+        let (left, right) = reassignment_statement.binary_children()?;
+
+        self.visit_expression(left, None)?;
+        self.visit_expression(right, None)?;
+
+        Ok(())
+    }
+
+    fn visit_compound_assignment_expression(
         &mut self,
         binary_assignment_statement: SyntaxReader,
     ) -> Result<(), ErrorKind> {
@@ -407,34 +434,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 | SyntaxKind::ModuloAssignmentExpression
         ),);
 
-        let (simple_path, expression) = binary_assignment_statement.binary_children()?;
+        let (left, right) = binary_assignment_statement.binary_children()?;
 
-        let declaration_id = self.visit_simple_path(simple_path, Visibility::Block)?;
-
-        self.resolver
-            .add_declaration_binding(simple_path.id, declaration_id);
-        self.visit_expression(expression, None)?;
-
-        Ok(())
-    }
-
-    fn visit_reassignment_statement(
-        &mut self,
-        reassignment_statement: SyntaxReader,
-    ) -> Result<(), ErrorKind> {
-        debug!("Visiting reassignment statement");
-        debug_assert_eq!(
-            reassignment_statement.kind(),
-            SyntaxKind::AssignmentExpression
-        );
-
-        let (simple_path, expression) = reassignment_statement.binary_children()?;
-
-        let declaration_id = self.visit_simple_path(simple_path, Visibility::Block)?;
-
-        self.resolver
-            .add_declaration_binding(simple_path.id, declaration_id);
-        self.visit_expression(expression, None)?;
+        self.visit_expression(left, None)?;
+        self.visit_expression(right, None)?;
 
         Ok(())
     }
@@ -549,7 +552,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         for field in fields.children()? {
             let (field_path, field_expression) = field.binary_children()?;
 
-            self.visit_path(field_path, Visibility::Module)?;
+            self.visit_simple_path(field_path, Visibility::Block)?;
             self.visit_expression(field_expression, None)?;
         }
 
@@ -615,7 +618,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_math_binary_expression(
+    fn visit_math_expression(
         &mut self,
         math_expression: SyntaxReader,
         _: Option<Self::ExpressionInput>,
@@ -638,7 +641,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_comparison_binary_expression(
+    fn visit_comparison_expression(
         &mut self,
         comparison_expression: SyntaxReader,
         _: Option<Self::ExpressionInput>,
@@ -662,7 +665,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_logical_binary_expression(
+    fn visit_logic_expression(
         &mut self,
         logical_expression: SyntaxReader,
         _: Option<Self::ExpressionInput>,
@@ -681,7 +684,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_unary_negation_expression(
+    fn visit_negation_expression(
         &mut self,
         negation_expression: SyntaxReader,
         _: Option<Self::ExpressionInput>,
@@ -724,6 +727,13 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let mut parameters_children = parameters.children()?;
         let value_parameters = parameters_children.expect_next()?;
 
+        let function_scope_id = self.resolver.scopes.add_scope(Scope {
+            kind: ScopeKind::Function,
+            parent: self.current_scope_id,
+            modules: SmallVec::new(),
+            imports: SmallVec::new(),
+        });
+
         for [parameter_name, parameter_type] in value_parameters.children()?.array_chunks::<2>() {
             debug!("Visiting function parameter");
 
@@ -733,7 +743,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 self.resolver.declarations.add_declaration(Declaration {
                     symbol_id: parameter_symbol_id,
                     kind: DeclarationKind::Local,
-                    scope_id: self.current_scope_id,
+                    scope_id: function_scope_id,
                     is_public: false,
                     syntax: Some((parameter_name.position(), parameter_name.id)),
                 });
@@ -742,13 +752,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 .add_declaration_binding(parameter_name.id, parameter_declaration_id);
             self.visit_type(parameter_type)?;
         }
-
-        let function_scope_id = self.resolver.scopes.add_scope(Scope {
-            kind: ScopeKind::Function,
-            parent: self.current_scope_id,
-            modules: SmallVec::new(),
-            imports: SmallVec::new(),
-        });
 
         self.resolver.add_scope_binding(body.id, function_scope_id);
 

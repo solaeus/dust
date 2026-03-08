@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 use tracing::debug;
 
 use crate::{
-    compiler::error::CompileError,
+    compiler::{emitter::Emission, error::CompileError},
     error::{ErrorKind, InternalError},
     resolver::{
         Resolver,
@@ -201,17 +201,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(())
     }
 
-    fn visit_expression_statement(
-        &mut self,
-        node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, ErrorKind> {
-        debug!("Visting expression statement");
-
-        self.visit_expression(node.child()?, None)?;
-
-        Ok(())
-    }
-
     fn visit_let_statement(
         &mut self,
         node: SyntaxReader,
@@ -255,81 +244,73 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(())
     }
 
-    fn visit_binary_assignment_statement(
+    fn visit_expression_statement(
         &mut self,
         node: SyntaxReader,
     ) -> Result<Self::StatementOutput, ErrorKind> {
-        debug!("Visting binary assignment statement");
+        debug!("Visting expression statement");
 
-        let (simple_path, expression) = node.binary_children()?;
-
-        let path_type = {
-            let raw = self.visit_simple_path(simple_path, ())?;
-
-            self.resolver.infer_type(raw)?
-        };
-        let expression_type = {
-            let raw = self.visit_expression(expression, None)?;
-
-            self.resolver.infer_type(raw)?
-        };
-
-        let is_character_concatenation = matches!(
-            node.kind(),
-            SyntaxKind::AdditionAssignmentExpression
-                if (path_type == TypeId::STRING && expression_type == TypeId::CHARACTER)
-            || (path_type == TypeId::CHARACTER && expression_type == TypeId::STRING)
-            || (path_type == TypeId::CHARACTER && expression_type == TypeId::CHARACTER)
-        );
-
-        let unified = self.resolver.unify_inferred_types(
-            path_type,
-            Some(simple_path),
-            expression_type,
-            expression,
-        );
-
-        if unified.is_err() && is_character_concatenation {
-            self.resolver
-                .add_type_binding(simple_path.id, TypeId::STRING);
-            self.resolver
-                .add_type_binding(expression.id, TypeId::CHARACTER);
-
-            return Ok(());
-        }
-
-        match unified {
-            Ok(()) => {}
-            Err(error) => {
-                self.errors.push(error);
-
-                return Ok(());
-            }
-        }
+        self.visit_expression(node.child()?, None)?;
 
         Ok(())
     }
 
-    fn visit_reassignment_statement(
+    fn visit_compound_assignment_expression(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+        debug!("Visting binary assignment statement");
+
+        let (left, right) = node.binary_children()?;
+
+        let left_type = {
+            let raw = self.visit_expression(left, None)?;
+
+            self.resolver.infer_type(raw)?
+        };
+        let right_type = {
+            let raw = self.visit_expression(right, None)?;
+
+            self.resolver.infer_type(raw)?
+        };
+
+        let is_character_concatenation = node.kind() == SyntaxKind::AdditionAssignmentExpression
+            && ((left_type == TypeId::STRING && right_type == TypeId::CHARACTER)
+                || (left_type == TypeId::CHARACTER && right_type == TypeId::STRING)
+                || (left_type == TypeId::CHARACTER && right_type == TypeId::CHARACTER));
+
+        if is_character_concatenation {
+            return Ok(TypeId::UNIT);
+        }
+
+        if let Err(error) =
+            self.resolver
+                .unify_inferred_types(left_type, Some(left), right_type, right)
+        {
+            self.errors.push(error);
+        }
+
+        Ok(TypeId::UNIT)
+    }
+
+    fn visit_assignment_expression(
+        &mut self,
+        node: SyntaxReader,
+    ) -> Result<Self::ExpressionOutput, ErrorKind> {
         debug!("Visting reassignment statement");
 
-        let (simple_path, expression_statement) = node.binary_children()?;
-        let expression = expression_statement.child()?;
+        let (left, right) = node.binary_children()?;
 
-        let path_type = self.visit_simple_path(simple_path, ())?;
-        let expression_type = self.visit_expression(expression, None)?;
+        let left_type = self.visit_expression(left, None)?;
+        let right_type = self.visit_expression(right, None)?;
 
         self.resolver
-            .unify_types(path_type, Some(simple_path), expression_type, expression)?;
-        self.resolver.add_type_binding(simple_path.id, path_type);
-        self.resolver
-            .add_type_binding(expression.id, expression_type);
+            .unify_types(left_type, Some(left), right_type, right)?;
+        self.resolver.add_type_binding(left.id, left_type);
+        self.resolver.add_type_binding(right.id, right_type);
         self.resolver.add_type_binding(node.id, TypeId::UNIT);
 
-        Ok(())
+        Ok(TypeId::UNIT)
     }
 
     fn visit_boolean_expression(
@@ -645,7 +626,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(then_type)
     }
 
-    fn visit_math_binary_expression(
+    fn visit_math_expression(
         &mut self,
         node: SyntaxReader,
         _: Option<Self::ExpressionInput>,
@@ -692,7 +673,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(math_expression_type)
     }
 
-    fn visit_comparison_binary_expression(
+    fn visit_comparison_expression(
         &mut self,
         node: SyntaxReader,
         _: Option<Self::ExpressionInput>,
@@ -715,7 +696,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(TypeId::BOOLEAN)
     }
 
-    fn visit_logical_binary_expression(
+    fn visit_logic_expression(
         &mut self,
         node: SyntaxReader,
         input: Option<Self::ExpressionInput>,
@@ -760,7 +741,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(TypeId::BOOLEAN)
     }
 
-    fn visit_unary_negation_expression(
+    fn visit_negation_expression(
         &mut self,
         node: SyntaxReader,
         _: Option<Self::ExpressionInput>,

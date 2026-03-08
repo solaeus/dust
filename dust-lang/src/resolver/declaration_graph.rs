@@ -33,9 +33,8 @@ impl DeclarationGraph {
 
     pub fn add_declaration(&mut self, declaration: Declaration) -> DeclarationId {
         let key = DeclarationKey {
-            symbol: declaration.symbol_id,
+            symbol_id: declaration.symbol_id,
             scope_id: declaration.scope_id,
-            visibility: declaration.kind.visibility(),
         };
 
         if declaration.kind != DeclarationKind::Local
@@ -65,15 +64,20 @@ impl DeclarationGraph {
         visibility: Visibility,
     ) -> Option<(DeclarationId, &Declaration)> {
         let key = DeclarationKey {
-            symbol: symbol_id,
+            symbol_id,
             scope_id,
-            visibility,
         };
 
-        self.declaration_lookup.get(&key).map(|&id| {
+        self.declaration_lookup.get(&key).and_then(|&id| {
             let delcaration = &self.declarations[id.0 as usize];
 
-            (id, delcaration)
+            match (visibility, delcaration.kind.visibility()) {
+                (Visibility::Block, _) => {}
+                (Visibility::Module, Visibility::Module) => {}
+                _ => return None,
+            }
+
+            Some((id, delcaration))
         })
     }
 
@@ -275,7 +279,6 @@ pub enum ModuleKind {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct DeclarationKey {
-    symbol: SymbolId,
+    symbol_id: SymbolId,
     scope_id: ScopeId,
-    visibility: Visibility,
 }

@@ -72,6 +72,15 @@ pub trait SyntaxVisitor {
         input: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind> {
         match node.kind() {
+            SyntaxKind::AssignmentExpression => self.visit_assignment_expression(node),
+            SyntaxKind::AdditionAssignmentExpression
+            | SyntaxKind::SubtractionAssignmentExpression
+            | SyntaxKind::MultiplicationAssignmentExpression
+            | SyntaxKind::DivisionAssignmentExpression
+            | SyntaxKind::ModuloAssignmentExpression
+            | SyntaxKind::ExponentAssignmentExpression => {
+                self.visit_compound_assignment_expression(node)
+            }
             SyntaxKind::PathExpression => self.visit_path_expression(node, input),
             SyntaxKind::BooleanExpression => self.visit_boolean_expression(node, input),
             SyntaxKind::ByteExpression => self.visit_byte_expression(node, input),
@@ -87,17 +96,17 @@ pub trait SyntaxVisitor {
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression
-            | SyntaxKind::ExponentExpression => self.visit_math_binary_expression(node, input),
+            | SyntaxKind::ExponentExpression => self.visit_math_expression(node, input),
             SyntaxKind::EqualExpression
             | SyntaxKind::NotEqualExpression
             | SyntaxKind::LessThanExpression
             | SyntaxKind::LessThanOrEqualExpression
             | SyntaxKind::GreaterThanExpression
             | SyntaxKind::GreaterThanOrEqualExpression => {
-                self.visit_comparison_binary_expression(node, input)
+                self.visit_comparison_expression(node, input)
             }
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
-                self.visit_logical_binary_expression(node, input)
+                self.visit_logic_expression(node, input)
             }
             SyntaxKind::BlockExpression => self.visit_block_expression(node, input),
             SyntaxKind::IfExpression => self.visit_if_expression(node, input),
@@ -129,20 +138,20 @@ pub trait SyntaxVisitor {
         node: SyntaxReader,
     ) -> Result<Self::StatementOutput, ErrorKind>;
 
-    fn visit_reassignment_statement(
-        &mut self,
-        node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, ErrorKind>;
-
     fn visit_let_statement(
         &mut self,
         node: SyntaxReader,
     ) -> Result<Self::StatementOutput, ErrorKind>;
 
-    fn visit_binary_assignment_statement(
+    fn visit_assignment_expression(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, ErrorKind>;
+    ) -> Result<Self::ExpressionOutput, ErrorKind>;
+
+    fn visit_compound_assignment_expression(
+        &mut self,
+        node: SyntaxReader,
+    ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
     fn visit_boolean_expression(
         &mut self,
@@ -216,25 +225,25 @@ pub trait SyntaxVisitor {
         input: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
-    fn visit_math_binary_expression(
+    fn visit_math_expression(
         &mut self,
         node: SyntaxReader,
         input: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
-    fn visit_comparison_binary_expression(
+    fn visit_comparison_expression(
         &mut self,
         node: SyntaxReader,
         input: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
-    fn visit_logical_binary_expression(
+    fn visit_logic_expression(
         &mut self,
         node: SyntaxReader,
         input: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, ErrorKind>;
 
-    fn visit_unary_negation_expression(
+    fn visit_negation_expression(
         &mut self,
         node: SyntaxReader,
         input: Option<Self::ExpressionInput>,

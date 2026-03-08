@@ -74,9 +74,9 @@ pub enum SyntaxKind {
     PublicEnumItem,
 
     // Statements
-    ExpressionStatement,
     LetStatement,
     LetMutStatement,
+    ExpressionStatement,
 
     // Assignment expressions
     AssignmentExpression,
@@ -278,16 +278,9 @@ impl SyntaxKind {
         self.is_item()
             || matches!(
                 self,
-                SyntaxKind::ExpressionStatement
-                    | SyntaxKind::LetStatement
+                SyntaxKind::LetStatement
                     | SyntaxKind::LetMutStatement
-                    | SyntaxKind::AssignmentExpression
-                    | SyntaxKind::AdditionAssignmentExpression
-                    | SyntaxKind::SubtractionAssignmentExpression
-                    | SyntaxKind::MultiplicationAssignmentExpression
-                    | SyntaxKind::DivisionAssignmentExpression
-                    | SyntaxKind::ModuloAssignmentExpression
-                    | SyntaxKind::ExponentAssignmentExpression
+                    | SyntaxKind::ExpressionStatement
             )
     }
 
@@ -352,7 +345,7 @@ impl SyntaxKind {
 
     pub fn as_str(&self) -> &str {
         match self {
-            SyntaxKind::AdditionAssignmentExpression => "addition assignment statement",
+            SyntaxKind::AdditionAssignmentExpression => "addition assignment expression",
             SyntaxKind::AdditionExpression => "addition expression",
             SyntaxKind::AndExpression => "and expression",
             SyntaxKind::AnyType => "any type",
@@ -365,13 +358,13 @@ impl SyntaxKind {
             SyntaxKind::CallExpression => "call expression",
             SyntaxKind::CharacterExpression => "character expression",
             SyntaxKind::CharacterType => "character type",
-            SyntaxKind::DivisionAssignmentExpression => "division assignment statement",
+            SyntaxKind::DivisionAssignmentExpression => "division assignment expression",
             SyntaxKind::DivisionExpression => "division expression",
             SyntaxKind::EnumItem => "enum item",
             SyntaxKind::EnumVariant => "enum variant",
             SyntaxKind::EnumVariants => "enum variants",
             SyntaxKind::EqualExpression => "equal expression",
-            SyntaxKind::ExponentAssignmentExpression => "exponent assignment statement",
+            SyntaxKind::ExponentAssignmentExpression => "exponent assignment expression",
             SyntaxKind::ExponentExpression => "exponent expression",
             SyntaxKind::ExpressionStatement => "expression statement",
             SyntaxKind::F32Type => "f32 type",
@@ -401,9 +394,11 @@ impl SyntaxKind {
             SyntaxKind::ListType => "list type",
             SyntaxKind::ModuleBody => "module body",
             SyntaxKind::ModuleItem => "module item",
-            SyntaxKind::ModuloAssignmentExpression => "modulo assignment statement",
+            SyntaxKind::ModuloAssignmentExpression => "modulo assignment expression",
             SyntaxKind::ModuloExpression => "modulo expression",
-            SyntaxKind::MultiplicationAssignmentExpression => "multiplication assignment statement",
+            SyntaxKind::MultiplicationAssignmentExpression => {
+                "multiplication assignment expression"
+            }
             SyntaxKind::MultiplicationExpression => "multiplication expression",
             SyntaxKind::NegationExpression => "negation expression",
             SyntaxKind::NotEqualExpression => "not equal expression",
@@ -417,7 +412,7 @@ impl SyntaxKind {
             SyntaxKind::PublicModuleItem => "public module item",
             SyntaxKind::PublicStructItem => "public struct item",
             SyntaxKind::PublicUseItem => "public use item",
-            SyntaxKind::AssignmentExpression => "reassignment statement",
+            SyntaxKind::AssignmentExpression => "reassignment expression",
             SyntaxKind::ReturnExpression => "return expression",
             SyntaxKind::Root => "root",
             SyntaxKind::SimplePath => "simple path",
@@ -428,7 +423,7 @@ impl SyntaxKind {
             SyntaxKind::StructFields => "struct fields",
             SyntaxKind::StructFieldsDeclaration => "struct fields declaration",
             SyntaxKind::StructItem => "struct item",
-            SyntaxKind::SubtractionAssignmentExpression => "subtraction assignment statement",
+            SyntaxKind::SubtractionAssignmentExpression => "subtraction assignment expression",
             SyntaxKind::SubtractionExpression => "subtraction expression",
             SyntaxKind::Trivia => "trivia",
             SyntaxKind::TupleFields => "tuple fields",

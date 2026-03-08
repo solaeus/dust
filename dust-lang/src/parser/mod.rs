@@ -903,28 +903,7 @@ impl<'src> Parser<'src> {
         &mut self,
         left: SyntaxNode,
     ) -> Result<SyntaxNode, ErrorKind> {
-        let simple_path_id = if left.kind == SyntaxKind::PathExpression {
-            if left.payload_kind != SyntaxPayloadKind::SingleChild {
-                return Err(ErrorKind::Parse(ParseError::ExpectedSyntax {
-                    found: left.kind,
-                    expected: SyntaxKind::SimplePath,
-                    position: Position::new(self.tree_builder.file_id(), left.span),
-                }));
-            }
-
-            let id = left.payload.left_id();
-
-            self.tree_builder
-                .replace_node(id, SyntaxKind::SimplePath.empty(left.span));
-
-            id
-        } else {
-            return Err(ErrorKind::Parse(ParseError::ExpectedSyntax {
-                found: left.kind,
-                expected: SyntaxKind::PathExpression,
-                position: Position::new(self.tree_builder.file_id(), left.span),
-            }));
-        };
+        let left_id = self.tree_builder.add_node(left);
 
         self.advance();
 
@@ -935,7 +914,7 @@ impl<'src> Parser<'src> {
 
         Ok(SyntaxKind::AssignmentExpression.with_binary_children(
             Span::new(left.span.start(), self.previous_token.span.end()),
-            simple_path_id,
+            left_id,
             expression_id,
         ))
     }
@@ -1137,26 +1116,7 @@ impl<'src> Parser<'src> {
             }
         };
 
-        let left_id = if is_statement {
-            if left.kind == SyntaxKind::PathExpression {
-                let path_node = SyntaxNode {
-                    kind: SyntaxKind::Path,
-                    payload: left.payload,
-                    payload_kind: left.payload_kind,
-                    span: left.span,
-                };
-
-                self.tree_builder.add_node(path_node)
-            } else {
-                return Err(ErrorKind::Parse(ParseError::ExpectedSyntax {
-                    found: left.kind,
-                    expected: SyntaxKind::Path,
-                    position: Position::new(self.tree_builder.file_id(), left.span),
-                }));
-            }
-        } else {
-            self.tree_builder.add_node(left)
-        };
+        let left_id = self.tree_builder.add_node(left);
 
         let parse_rule = ParseRule::from(operator);
         let operator_precedence = parse_rule.precedence;
