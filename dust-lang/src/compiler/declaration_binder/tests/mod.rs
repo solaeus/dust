@@ -1,4 +1,5 @@
-mod binary_assignment_statement;
+mod assignment_expression;
+mod binary_assignment_expressions;
 mod block_expression;
 mod call_expression;
 mod enum_item;
@@ -8,7 +9,6 @@ mod if_expression;
 mod let_statement;
 mod module_item;
 mod path_expression;
-mod reassignment_statement;
 mod struct_expression;
 mod struct_item;
 mod use_item;

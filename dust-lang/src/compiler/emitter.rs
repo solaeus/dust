@@ -151,9 +151,9 @@ impl<'a> Emitter<'a> {
     }
 
     pub fn emit(mut self) -> Result<Prototype, ErrorKind> {
-        let function_body = self.function.binary_children()?.1.binary_children()?.1;
-
+        let (_, function_body) = self.function.binary_children()?;
         let children = function_body.children()?;
+
         let last_index = children.len().saturating_sub(1);
 
         for (index, child) in children.enumerate() {
@@ -161,12 +161,10 @@ impl<'a> Emitter<'a> {
                 self.handle_implicit_return(child, None)?
             } else if child.is_expression() {
                 self.visit_expression(child, None)?
-            } else if child.is_statement() {
-                let instructions = self.visit_statement(child)?;
-
-                Emission::Instructions(instructions)
             } else {
-                self.visit_item(child)?;
+                if let Some(instructions) = self.visit_statement(child)? {
+                    self.handle_top_emission(Emission::Instructions(instructions), child)?;
+                }
 
                 continue;
             };
@@ -2155,117 +2153,115 @@ impl SyntaxVisitor for Emitter<'_> {
         for (index, child) in children.enumerate() {
             let is_last = index == child_count - 1;
 
-            if child.is_item() {
-                self.visit_item(child)?;
+            if child.is_statement() {
+                if let Some(instructions) = self.visit_statement(child)? {
+                    block_instructions.merge(instructions);
+                }
 
                 continue;
-            } else if child.is_statement() {
-                self.visit_statement(child)?;
+            }
 
-                continue;
-            } else if !is_last {
+            if !is_last {
                 let expression_emission = self.visit_expression(child, None)?;
 
                 if let Emission::Instructions(expression_instructions) = expression_emission {
                     block_instructions.merge(expression_instructions);
                 }
+
+                continue;
+            }
+
+            let mut last_emission = self.visit_expression(child, target)?;
+
+            if block_instructions.is_empty() {
+                return Ok(last_emission);
+            }
+
+            let target = if let Some(target) = last_emission.take_target() {
+                target
             } else {
-                let mut last_emission = self.visit_expression(child, target)?;
+                let type_id = *self.resolver.get_type_binding(&child.id)?;
 
-                if block_instructions.is_empty() {
-                    return Ok(last_emission);
+                self.allocate_registers(type_id, true, &child)?
+            };
+
+            match last_emission {
+                Emission::Constant(constant) => {
+                    let destination = target.expect_single()?;
+                    let operand_type = constant.operand_type();
+                    let operand_index = self.add_constant(constant);
+                    let move_instruction = Instruction::r#move(
+                        destination.index,
+                        operand_type,
+                        MemoryKind::CONSTANT,
+                        operand_index,
+                    );
+
+                    block_instructions.push(move_instruction);
+                    block_instructions.set_target(Some(target));
                 }
+                Emission::Place(Place::Constant {
+                    operand_type: r#type,
+                    index,
+                }) => {
+                    let destination = target.expect_single()?;
+                    let move_instruction =
+                        Instruction::r#move(destination.index, r#type, MemoryKind::CONSTANT, index);
 
-                let target = if let Some(target) = last_emission.take_target() {
-                    target
-                } else {
-                    let type_id = *self.resolver.get_type_binding(&child.id)?;
+                    block_instructions.push(move_instruction);
+                    block_instructions.set_target(Some(target));
+                }
+                Emission::Place(Place::Register(RegisterSpan::Single {
+                    register: operand_register,
+                    ..
+                })) => {
+                    let destination = target.expect_single()?;
+                    let move_instruction = Instruction::r#move(
+                        destination.index,
+                        destination.operand_type,
+                        MemoryKind::REGISTER,
+                        operand_register.index,
+                    );
 
-                    self.allocate_registers(type_id, true, &child)?
-                };
+                    block_instructions.push(move_instruction);
+                    block_instructions.set_target(Some(target));
+                }
+                Emission::Place(Place::Register(RegisterSpan::Multiple {
+                    registers: operand_registers,
+                    ..
+                })) => {
+                    let (destinations, _) = target.expect_multiple(operand_registers.len())?;
 
-                match last_emission {
-                    Emission::Constant(constant) => {
-                        let destination = target.expect_single()?;
-                        let operand_type = constant.operand_type();
-                        let operand_index = self.add_constant(constant);
-                        let move_instruction = Instruction::r#move(
-                            destination.index,
-                            operand_type,
-                            MemoryKind::CONSTANT,
-                            operand_index,
-                        );
-
-                        block_instructions.push(move_instruction);
-                        block_instructions.set_target(Some(target));
-                    }
-                    Emission::Place(Place::Constant {
-                        operand_type: r#type,
-                        index,
-                    }) => {
-                        let destination = target.expect_single()?;
-                        let move_instruction = Instruction::r#move(
-                            destination.index,
-                            r#type,
-                            MemoryKind::CONSTANT,
-                            index,
-                        );
-
-                        block_instructions.push(move_instruction);
-                        block_instructions.set_target(Some(target));
-                    }
-                    Emission::Place(Place::Register(RegisterSpan::Single {
-                        register: operand_register,
-                        ..
-                    })) => {
-                        let destination = target.expect_single()?;
+                    for (destination, operand) in destinations.iter().zip(operand_registers) {
                         let move_instruction = Instruction::r#move(
                             destination.index,
                             destination.operand_type,
                             MemoryKind::REGISTER,
-                            operand_register.index,
+                            operand.index,
                         );
 
                         block_instructions.push(move_instruction);
-                        block_instructions.set_target(Some(target));
                     }
-                    Emission::Place(Place::Register(RegisterSpan::Multiple {
-                        registers: operand_registers,
-                        ..
-                    })) => {
-                        let (destinations, _) = target.expect_multiple(operand_registers.len())?;
 
-                        for (destination, operand) in destinations.iter().zip(operand_registers) {
-                            let move_instruction = Instruction::r#move(
-                                destination.index,
-                                destination.operand_type,
-                                MemoryKind::REGISTER,
-                                operand.index,
-                            );
-
-                            block_instructions.push(move_instruction);
-                        }
-
-                        block_instructions.set_target(Some(target));
-                    }
-                    Emission::Instructions(instructions) => {
-                        block_instructions.merge(instructions);
-                    }
-                    Emission::NativeFunction(_) => {
-                        return Err(ErrorKind::Compile(
-                            CompileError::ExpectedNativeFunctionCall {
-                                position: node.position(),
-                            },
-                        ));
-                    }
-                    Emission::None => {}
+                    block_instructions.set_target(Some(target));
                 }
+                Emission::Instructions(instructions) => {
+                    block_instructions.merge(instructions);
+                }
+                Emission::NativeFunction(_) => {
+                    return Err(ErrorKind::Compile(
+                        CompileError::ExpectedNativeFunctionCall {
+                            position: node.position(),
+                        },
+                    ));
+                }
+                Emission::None => {}
+            }
 
-                break;
-            };
+            break;
         }
 
-        self.enter_parent_scope(parent_scope_id, self.register_tracker);
+        self.enter_parent_scope(parent_scope_id, parent_scope_tracker);
         self.handle_drops(&mut block_instructions);
 
         Ok(Emission::Instructions(block_instructions))
@@ -2425,7 +2421,7 @@ impl SyntaxVisitor for Emitter<'_> {
                     right_index,
                 )
             }
-            SyntaxKind::AdditionAssignmentStatement => {
+            SyntaxKind::AdditionAssignmentExpression => {
                 let regsiter = handle_target_register(left_target, &left_expression)?;
 
                 Instruction::add(
@@ -2449,7 +2445,7 @@ impl SyntaxVisitor for Emitter<'_> {
                     right_index,
                 )
             }
-            SyntaxKind::SubtractionAssignmentStatement => {
+            SyntaxKind::SubtractionAssignmentExpression => {
                 let register = handle_target_register(left_target, &left_expression)?;
 
                 Instruction::subtract(
@@ -2473,7 +2469,7 @@ impl SyntaxVisitor for Emitter<'_> {
                     right_index,
                 )
             }
-            SyntaxKind::MultiplicationAssignmentStatement => {
+            SyntaxKind::MultiplicationAssignmentExpression => {
                 let register = handle_target_register(left_target, &left_expression)?;
 
                 Instruction::multiply(
@@ -2497,7 +2493,7 @@ impl SyntaxVisitor for Emitter<'_> {
                     right_index,
                 )
             }
-            SyntaxKind::DivisionAssignmentStatement => {
+            SyntaxKind::DivisionAssignmentExpression => {
                 let register = handle_target_register(left_target, &left_expression)?;
 
                 Instruction::divide(
@@ -2521,7 +2517,7 @@ impl SyntaxVisitor for Emitter<'_> {
                     right_index,
                 )
             }
-            SyntaxKind::ModuloAssignmentStatement => {
+            SyntaxKind::ModuloAssignmentExpression => {
                 let register = handle_target_register(left_target, &left_expression)?;
 
                 Instruction::modulo(
@@ -2545,7 +2541,7 @@ impl SyntaxVisitor for Emitter<'_> {
                     right_index,
                 )
             }
-            SyntaxKind::ExponentAssignmentStatement => {
+            SyntaxKind::ExponentAssignmentExpression => {
                 let register = handle_target_register(left_target, &left_expression)?;
 
                 Instruction::power(
@@ -2866,7 +2862,7 @@ impl SyntaxVisitor for Emitter<'_> {
         let prototype_id = self.prototypes.reserve_slot();
 
         let function_emitter = Emitter::new(
-            node,
+            body,
             None,
             function_scope_id,
             prototype_id,

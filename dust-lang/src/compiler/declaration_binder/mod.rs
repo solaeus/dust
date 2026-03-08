@@ -400,11 +400,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         debug!("Visiting binary assignment statement");
         debug_assert!(matches!(
             binary_assignment_statement.kind(),
-            SyntaxKind::AdditionAssignmentStatement
-                | SyntaxKind::SubtractionAssignmentStatement
-                | SyntaxKind::MultiplicationAssignmentStatement
-                | SyntaxKind::DivisionAssignmentStatement
-                | SyntaxKind::ModuloAssignmentStatement
+            SyntaxKind::AdditionAssignmentExpression
+                | SyntaxKind::SubtractionAssignmentExpression
+                | SyntaxKind::MultiplicationAssignmentExpression
+                | SyntaxKind::DivisionAssignmentExpression
+                | SyntaxKind::ModuloAssignmentExpression
         ),);
 
         let (simple_path, expression) = binary_assignment_statement.binary_children()?;
@@ -425,7 +425,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         debug!("Visiting reassignment statement");
         debug_assert_eq!(
             reassignment_statement.kind(),
-            SyntaxKind::ReassignmentStatement
+            SyntaxKind::AssignmentExpression
         );
 
         let (simple_path, expression) = reassignment_statement.binary_children()?;
@@ -574,14 +574,9 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         self.current_scope_id = block_scope_id;
 
         for child in block_expression.children()? {
-            if child.kind().is_item() {
-                match self.visit_item(child) {
-                    Ok(()) => {}
-                    Err(error) => self.errors.push(error),
-                }
-            } else if child.kind().is_statement() {
+            if child.kind().is_statement() {
                 match self.visit_statement(child) {
-                    Ok(()) => {}
+                    Ok(_) => {}
                     Err(error) => self.errors.push(error),
                 }
             } else {

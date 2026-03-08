@@ -276,7 +276,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         let is_character_concatenation = matches!(
             node.kind(),
-            SyntaxKind::AdditionAssignmentStatement
+            SyntaxKind::AdditionAssignmentExpression
                 if (path_type == TypeId::STRING && expression_type == TypeId::CHARACTER)
             || (path_type == TypeId::CHARACTER && expression_type == TypeId::STRING)
             || (path_type == TypeId::CHARACTER && expression_type == TypeId::CHARACTER)
@@ -576,18 +576,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let mut block_type_id = TypeId::UNIT;
 
         for child in children {
-            let child_type = if child.is_item() {
-                match self.visit_item(child) {
-                    Ok(()) => {}
-                    Err(error) => {
-                        self.errors.push(error);
-                    }
-                }
-
-                TypeId::UNIT
-            } else if child.is_statement() {
+            let child_type = if child.is_statement() {
                 match self.visit_statement(child) {
-                    Ok(()) => {}
+                    Ok(_) => {}
                     Err(error) => {
                         self.errors.push(error);
                     }
@@ -676,7 +667,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         let is_character_concatenation = matches!(
             node.kind(),
-            SyntaxKind::AdditionExpression | SyntaxKind::AdditionAssignmentStatement
+            SyntaxKind::AdditionExpression | SyntaxKind::AdditionAssignmentExpression
                 if (left_type == TypeId::STRING && right_type == TypeId::CHARACTER)
             || (left_type == TypeId::CHARACTER && right_type == TypeId::STRING)
             || (left_type == TypeId::CHARACTER && right_type == TypeId::CHARACTER)

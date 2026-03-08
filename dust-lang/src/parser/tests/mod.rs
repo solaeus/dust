@@ -1,6 +1,6 @@
-mod binary_assignment_statements;
+mod binary_assignment_expressions;
 mod binary_expressions;
-mod block_expressions;
+mod block_expression;
 mod enum_item;
 mod function_item;
 mod if_expression;
@@ -49,7 +49,7 @@ fn reassignment_statement() {
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 25), SyntaxId(7)),
-            ReassignmentStatement.with_binary_children(Span::new(16, 23), SyntaxId(5), SyntaxId(6)),
+            AssignmentExpression.with_binary_children(Span::new(16, 23), SyntaxId(5), SyntaxId(6)),
             SimplePath.empty(Span::new(16, 17)),
             IntegerExpression.with_value(Span::new(20, 22), SyntaxPayload::encode_integer(42)),
         ]

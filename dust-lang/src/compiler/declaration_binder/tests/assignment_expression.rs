@@ -11,7 +11,7 @@ fn resolves_path() {
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let reassignment = tree
         .iter()
-        .find(|node| node.kind() == SyntaxKind::ReassignmentStatement)
+        .find(|node| node.kind() == SyntaxKind::AssignmentExpression)
         .unwrap();
     let (path, _) = reassignment.binary_children().unwrap();
 

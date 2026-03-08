@@ -30,7 +30,7 @@ fn add_assign() {
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
-            AdditionAssignmentStatement.with_binary_children(
+            AdditionAssignmentExpression.with_binary_children(
                 Span::new(16, 24),
                 SyntaxId(6),
                 SyntaxId(7)
@@ -66,7 +66,7 @@ fn subtract_assign() {
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
-            SubtractionAssignmentStatement.with_binary_children(
+            SubtractionAssignmentExpression.with_binary_children(
                 Span::new(16, 24),
                 SyntaxId(6),
                 SyntaxId(7)
@@ -102,7 +102,7 @@ fn multiply_assign() {
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
-            MultiplicationAssignmentStatement.with_binary_children(
+            MultiplicationAssignmentExpression.with_binary_children(
                 Span::new(16, 24),
                 SyntaxId(6),
                 SyntaxId(7)
@@ -138,7 +138,7 @@ fn divide_assign() {
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
-            DivisionAssignmentStatement.with_binary_children(
+            DivisionAssignmentExpression.with_binary_children(
                 Span::new(16, 24),
                 SyntaxId(6),
                 SyntaxId(7)
@@ -174,7 +174,7 @@ fn modulo_assign() {
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
-            ModuloAssignmentStatement.with_binary_children(
+            ModuloAssignmentExpression.with_binary_children(
                 Span::new(16, 24),
                 SyntaxId(6),
                 SyntaxId(7)
@@ -210,7 +210,7 @@ fn power_assign() {
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 26), SyntaxId(8)),
-            ExponentAssignmentStatement.with_binary_children(
+            ExponentAssignmentExpression.with_binary_children(
                 Span::new(16, 24),
                 SyntaxId(6),
                 SyntaxId(7)

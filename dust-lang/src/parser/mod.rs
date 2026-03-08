@@ -933,7 +933,7 @@ impl<'src> Parser<'src> {
 
         self.expect(TokenKind::Semicolon)?;
 
-        Ok(SyntaxKind::ReassignmentStatement.with_binary_children(
+        Ok(SyntaxKind::AssignmentExpression.with_binary_children(
             Span::new(left.span.start(), self.previous_token.span.end()),
             simple_path_id,
             expression_id,
@@ -1089,17 +1089,17 @@ impl<'src> Parser<'src> {
         let operator = self.current_token.kind;
         let (node_kind, is_statement) = match operator {
             TokenKind::Plus => (SyntaxKind::AdditionExpression, false),
-            TokenKind::PlusEqual => (SyntaxKind::AdditionAssignmentStatement, true),
+            TokenKind::PlusEqual => (SyntaxKind::AdditionAssignmentExpression, true),
             TokenKind::Minus => (SyntaxKind::SubtractionExpression, false),
-            TokenKind::MinusEqual => (SyntaxKind::SubtractionAssignmentStatement, true),
+            TokenKind::MinusEqual => (SyntaxKind::SubtractionAssignmentExpression, true),
             TokenKind::Asterisk => (SyntaxKind::MultiplicationExpression, false),
-            TokenKind::AsteriskEqual => (SyntaxKind::MultiplicationAssignmentStatement, true),
+            TokenKind::AsteriskEqual => (SyntaxKind::MultiplicationAssignmentExpression, true),
             TokenKind::Slash => (SyntaxKind::DivisionExpression, false),
-            TokenKind::SlashEqual => (SyntaxKind::DivisionAssignmentStatement, true),
+            TokenKind::SlashEqual => (SyntaxKind::DivisionAssignmentExpression, true),
             TokenKind::Percent => (SyntaxKind::ModuloExpression, false),
-            TokenKind::PercentEqual => (SyntaxKind::ModuloAssignmentStatement, true),
+            TokenKind::PercentEqual => (SyntaxKind::ModuloAssignmentExpression, true),
             TokenKind::Caret => (SyntaxKind::ExponentExpression, false),
-            TokenKind::CaretEqual => (SyntaxKind::ExponentAssignmentStatement, true),
+            TokenKind::CaretEqual => (SyntaxKind::ExponentAssignmentExpression, true),
             TokenKind::DoubleEqual => (SyntaxKind::EqualExpression, false),
             TokenKind::BangEqual => (SyntaxKind::NotEqualExpression, false),
             TokenKind::Greater => (SyntaxKind::GreaterThanExpression, false),

@@ -9,7 +9,7 @@ fn has_unit_type() {
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let node = tree
         .iter()
-        .find(|node| node.kind() == SyntaxKind::ReassignmentStatement)
+        .find(|node| node.kind() == SyntaxKind::AssignmentExpression)
         .unwrap();
 
     assert_eq!(*resolver.get_type_binding(&node.id).unwrap(), TypeId::UNIT);

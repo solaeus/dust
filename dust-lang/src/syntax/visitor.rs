@@ -35,21 +35,30 @@ pub trait SyntaxVisitor {
         }
     }
 
-    fn visit_statement(&mut self, node: SyntaxReader) -> Result<Self::StatementOutput, ErrorKind> {
+    fn visit_statement(
+        &mut self,
+        node: SyntaxReader,
+    ) -> Result<Option<Self::StatementOutput>, ErrorKind> {
         match node.kind() {
-            SyntaxKind::ExpressionStatement => self.visit_expression_statement(node),
-            SyntaxKind::ReassignmentStatement => self.visit_reassignment_statement(node),
+            SyntaxKind::ModuleItem | SyntaxKind::PublicModuleItem => {
+                self.visit_module_item(node).map(|_| None)
+            }
+            SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem => {
+                self.visit_function_item(node).map(|_| None)
+            }
+            SyntaxKind::UseItem | SyntaxKind::PublicUseItem => {
+                self.visit_use_item(node).map(|_| None)
+            }
+            SyntaxKind::StructItem | SyntaxKind::PublicStructItem => {
+                self.visit_struct_item(node).map(|_| None)
+            }
+            SyntaxKind::EnumItem | SyntaxKind::PublicEnumItem => {
+                self.visit_enum_item(node).map(|_| None)
+            }
             SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
-                self.visit_let_statement(node)
+                self.visit_let_statement(node).map(Some)
             }
-            SyntaxKind::AdditionAssignmentStatement
-            | SyntaxKind::SubtractionAssignmentStatement
-            | SyntaxKind::MultiplicationAssignmentStatement
-            | SyntaxKind::DivisionAssignmentStatement
-            | SyntaxKind::ModuloAssignmentStatement
-            | SyntaxKind::ExponentAssignmentStatement => {
-                self.visit_binary_assignment_statement(node)
-            }
+            SyntaxKind::ExpressionStatement => self.visit_expression_statement(node).map(Some),
             _ => Err(ErrorKind::Compile(CompileError::Unimplemented {
                 syntax_kind: node.kind(),
                 position: node.position(),

@@ -15,16 +15,6 @@ pub struct SyntaxNode {
     pub(crate) span: Span,
 }
 
-impl SyntaxNode {
-    pub fn set_kind(&mut self, kind: SyntaxKind) {
-        self.kind = kind;
-    }
-
-    pub fn set_start(&mut self, start: u32) {
-        self.span = Span::new(start, self.span.end());
-    }
-}
-
 impl Display for SyntaxNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.kind)?;
@@ -87,21 +77,17 @@ pub enum SyntaxKind {
     ExpressionStatement,
     LetStatement,
     LetMutStatement,
-    ReassignmentStatement,
-    AdditionAssignmentStatement,
-    SubtractionAssignmentStatement,
-    MultiplicationAssignmentStatement,
-    DivisionAssignmentStatement,
-    ModuloAssignmentStatement,
-    ExponentAssignmentStatement,
 
-    // Paths
-    Path,
-    PathSegment,
-    SimplePath,
-    PathExpression,
+    // Assignment expressions
+    AssignmentExpression,
+    AdditionAssignmentExpression,
+    SubtractionAssignmentExpression,
+    MultiplicationAssignmentExpression,
+    DivisionAssignmentExpression,
+    ModuloAssignmentExpression,
+    ExponentAssignmentExpression,
 
-    // Literal Expressions
+    // Literal expressions
     BooleanExpression,
     ByteExpression,
     CharacterExpression,
@@ -109,7 +95,7 @@ pub enum SyntaxKind {
     IntegerExpression,
     StringExpression,
 
-    // Binary Math Expressions
+    // Binary math expressions
     AdditionExpression,
     SubtractionExpression,
     MultiplicationExpression,
@@ -117,11 +103,11 @@ pub enum SyntaxKind {
     ModuloExpression,
     ExponentExpression,
 
-    // Binary Logic Expressions
+    // Binary logic expressions
     AndExpression,
     OrExpression,
 
-    // Binary Comparison Expressions
+    // Binary comparison expressions
     GreaterThanExpression,
     LessThanExpression,
     GreaterThanOrEqualExpression,
@@ -129,23 +115,22 @@ pub enum SyntaxKind {
     EqualExpression,
     NotEqualExpression,
 
-    // Unary Expressions
+    // Unary expressions
     NegationExpression,
     NotExpression,
 
-    // List Expressions
+    // List expressions
     ListExpression,
     IndexExpression,
 
-    // Function Expressions
+    // Function expressions
     FunctionExpression,
-    NativeFunctionExpression,
     CallExpression,
 
-    // Control Flow Expressions
+    // Control flow expressions
     IfExpression,
 
-    // Loop Expressions
+    // Loop expressions
     WhileExpression,
 
     ReturnExpression,
@@ -154,6 +139,12 @@ pub enum SyntaxKind {
     StructExpression,
     GroupedExpression,
     BlockExpression,
+
+    // Paths
+    Path,
+    PathSegment,
+    SimplePath,
+    PathExpression,
 
     // Sub-Syntax
     ModuleBody,
@@ -284,19 +275,20 @@ impl SyntaxKind {
     }
 
     pub fn is_statement(&self) -> bool {
-        matches!(
-            self,
-            SyntaxKind::ExpressionStatement
-                | SyntaxKind::LetStatement
-                | SyntaxKind::LetMutStatement
-                | SyntaxKind::ReassignmentStatement
-                | SyntaxKind::AdditionAssignmentStatement
-                | SyntaxKind::SubtractionAssignmentStatement
-                | SyntaxKind::MultiplicationAssignmentStatement
-                | SyntaxKind::DivisionAssignmentStatement
-                | SyntaxKind::ModuloAssignmentStatement
-                | SyntaxKind::ExponentAssignmentStatement
-        )
+        self.is_item()
+            || matches!(
+                self,
+                SyntaxKind::ExpressionStatement
+                    | SyntaxKind::LetStatement
+                    | SyntaxKind::LetMutStatement
+                    | SyntaxKind::AssignmentExpression
+                    | SyntaxKind::AdditionAssignmentExpression
+                    | SyntaxKind::SubtractionAssignmentExpression
+                    | SyntaxKind::MultiplicationAssignmentExpression
+                    | SyntaxKind::DivisionAssignmentExpression
+                    | SyntaxKind::ModuloAssignmentExpression
+                    | SyntaxKind::ExponentAssignmentExpression
+            )
     }
 
     pub fn is_expression(&self) -> bool {
@@ -360,7 +352,7 @@ impl SyntaxKind {
 
     pub fn as_str(&self) -> &str {
         match self {
-            SyntaxKind::AdditionAssignmentStatement => "addition assignment statement",
+            SyntaxKind::AdditionAssignmentExpression => "addition assignment statement",
             SyntaxKind::AdditionExpression => "addition expression",
             SyntaxKind::AndExpression => "and expression",
             SyntaxKind::AnyType => "any type",
@@ -373,13 +365,13 @@ impl SyntaxKind {
             SyntaxKind::CallExpression => "call expression",
             SyntaxKind::CharacterExpression => "character expression",
             SyntaxKind::CharacterType => "character type",
-            SyntaxKind::DivisionAssignmentStatement => "division assignment statement",
+            SyntaxKind::DivisionAssignmentExpression => "division assignment statement",
             SyntaxKind::DivisionExpression => "division expression",
             SyntaxKind::EnumItem => "enum item",
             SyntaxKind::EnumVariant => "enum variant",
             SyntaxKind::EnumVariants => "enum variants",
             SyntaxKind::EqualExpression => "equal expression",
-            SyntaxKind::ExponentAssignmentStatement => "exponent assignment statement",
+            SyntaxKind::ExponentAssignmentExpression => "exponent assignment statement",
             SyntaxKind::ExponentExpression => "exponent expression",
             SyntaxKind::ExpressionStatement => "expression statement",
             SyntaxKind::F32Type => "f32 type",
@@ -409,11 +401,10 @@ impl SyntaxKind {
             SyntaxKind::ListType => "list type",
             SyntaxKind::ModuleBody => "module body",
             SyntaxKind::ModuleItem => "module item",
-            SyntaxKind::ModuloAssignmentStatement => "modulo assignment statement",
+            SyntaxKind::ModuloAssignmentExpression => "modulo assignment statement",
             SyntaxKind::ModuloExpression => "modulo expression",
-            SyntaxKind::MultiplicationAssignmentStatement => "multiplication assignment statement",
+            SyntaxKind::MultiplicationAssignmentExpression => "multiplication assignment statement",
             SyntaxKind::MultiplicationExpression => "multiplication expression",
-            SyntaxKind::NativeFunctionExpression => "native function expression",
             SyntaxKind::NegationExpression => "negation expression",
             SyntaxKind::NotEqualExpression => "not equal expression",
             SyntaxKind::NotExpression => "not expression",
@@ -426,7 +417,7 @@ impl SyntaxKind {
             SyntaxKind::PublicModuleItem => "public module item",
             SyntaxKind::PublicStructItem => "public struct item",
             SyntaxKind::PublicUseItem => "public use item",
-            SyntaxKind::ReassignmentStatement => "reassignment statement",
+            SyntaxKind::AssignmentExpression => "reassignment statement",
             SyntaxKind::ReturnExpression => "return expression",
             SyntaxKind::Root => "root",
             SyntaxKind::SimplePath => "simple path",
@@ -437,7 +428,7 @@ impl SyntaxKind {
             SyntaxKind::StructFields => "struct fields",
             SyntaxKind::StructFieldsDeclaration => "struct fields declaration",
             SyntaxKind::StructItem => "struct item",
-            SyntaxKind::SubtractionAssignmentStatement => "subtraction assignment statement",
+            SyntaxKind::SubtractionAssignmentExpression => "subtraction assignment statement",
             SyntaxKind::SubtractionExpression => "subtraction expression",
             SyntaxKind::Trivia => "trivia",
             SyntaxKind::TupleFields => "tuple fields",
