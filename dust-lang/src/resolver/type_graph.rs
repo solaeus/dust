@@ -175,8 +175,6 @@ impl TypeId {
 pub enum TypeNode {
     Unit,
     Boolean,
-    Character,
-    String,
     U8,
     I8,
     U16,
@@ -189,9 +187,14 @@ pub enum TypeNode {
     I128,
     F32,
     F64,
+    Character,
     List {
-        element_type: TypeId,
+        element_type_id: TypeId,
     },
+    Vec {
+        element_type_id: TypeId,
+    },
+    String,
     Function {
         type_parameters: DeclarationMembers,
         value_parameters: TypeMembers,
@@ -216,30 +219,34 @@ impl Hash for TypeNode {
         match self {
             TypeNode::Unit => state.write_u8(0),
             TypeNode::Boolean => state.write_u8(1),
-            TypeNode::Character => state.write_u8(2),
-            TypeNode::String => state.write_u8(3),
-            TypeNode::U8 => state.write_u8(4),
-            TypeNode::I8 => state.write_u8(5),
-            TypeNode::U16 => state.write_u8(6),
-            TypeNode::I16 => state.write_u8(7),
-            TypeNode::U32 => state.write_u8(8),
-            TypeNode::I32 => state.write_u8(9),
-            TypeNode::U64 => state.write_u8(10),
-            TypeNode::I64 => state.write_u8(11),
-            TypeNode::U128 => state.write_u8(12),
-            TypeNode::I128 => state.write_u8(13),
-            TypeNode::F32 => state.write_u8(14),
-            TypeNode::F64 => state.write_u8(15),
-            TypeNode::List { element_type } => {
-                state.write_u8(16);
-                element_type.hash(state);
+            TypeNode::U8 => state.write_u8(2),
+            TypeNode::I8 => state.write_u8(3),
+            TypeNode::U16 => state.write_u8(4),
+            TypeNode::I16 => state.write_u8(5),
+            TypeNode::U32 => state.write_u8(6),
+            TypeNode::I32 => state.write_u8(7),
+            TypeNode::U64 => state.write_u8(8),
+            TypeNode::I64 => state.write_u8(9),
+            TypeNode::U128 => state.write_u8(10),
+            TypeNode::I128 => state.write_u8(11),
+            TypeNode::F32 => state.write_u8(12),
+            TypeNode::F64 => state.write_u8(13),
+            TypeNode::Character => state.write_u8(14),
+            TypeNode::List { element_type_id } => {
+                state.write_u8(15);
+                element_type_id.hash(state);
             }
+            TypeNode::Vec { element_type_id } => {
+                state.write_u8(16);
+                element_type_id.hash(state);
+            }
+            TypeNode::String => state.write_u8(17),
             TypeNode::Function {
                 type_parameters,
                 value_parameters,
                 return_type_id,
             } => {
-                state.write_u8(17);
+                state.write_u8(18);
                 type_parameters.hash(state);
                 value_parameters.hash(state);
                 return_type_id.hash(state);
@@ -248,7 +255,7 @@ impl Hash for TypeNode {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(18);
+                state.write_u8(19);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }
@@ -256,12 +263,15 @@ impl Hash for TypeNode {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(19);
+                state.write_u8(20);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }
-            TypeNode::Inferred { inferred_id, .. } => {
-                state.write_u8(20);
+            TypeNode::Inferred {
+                inferred_id,
+                resolved: _,
+            } => {
+                state.write_u8(21);
                 inferred_id.hash(state);
             }
         }

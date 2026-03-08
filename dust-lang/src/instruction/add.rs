@@ -56,18 +56,10 @@ impl Display for Add {
             right_index,
             right_memory,
         } = *self;
-        let sum_type = if matches!(
-            operand_type,
-            OperandType::CHARACTER_STRING | OperandType::STRING_CHARACTER
-        ) {
-            OperandType::STRING
-        } else {
-            operand_type
-        };
 
         write!(
             f,
-            "reg_{destination}: {sum_type} = {left_memory}_{left_index} + {right_memory}_{right_index}"
+            "reg_{destination}: {operand_type} = {left_memory}_{left_index} + {right_memory}_{right_index}"
         )
     }
 }

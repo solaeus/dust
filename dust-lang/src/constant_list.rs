@@ -126,10 +126,6 @@ impl ConstantList {
     ) -> Result<(*const u8, usize), InternalError> {
         self.get_string(id).map(|str| (str.as_ptr(), str.len()))
     }
-
-    pub fn payloads(&self) -> &Vec<u64> {
-        &self.payloads
-    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -228,7 +224,7 @@ impl ConstantListBuilder {
 
             hasher.finish()
         };
-        let found = self.interner.get(&(OperandType::STRING, hash));
+        let found = self.interner.get(&(OperandType::POINTER, hash));
 
         if let Some(id) = found {
             return *id;
@@ -240,9 +236,9 @@ impl ConstantListBuilder {
         let id = ConstantId(self.payloads.len() as u16);
 
         self.string_pool.push_str(str);
-        self.add_payload(payload, OperandType::STRING);
+        self.add_payload(payload, OperandType::POINTER);
         self.interner.insert(
-            (OperandType::STRING, hash),
+            (OperandType::POINTER, hash),
             ConstantId(self.payloads.len() as u16 - 1),
         );
 

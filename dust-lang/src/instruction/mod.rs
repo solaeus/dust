@@ -451,7 +451,7 @@ impl Instruction {
     ) -> Instruction {
         Instruction::from(CallNative {
             destination,
-            function_id: function.id,
+            function,
             arguments_start,
             argument_count,
         })

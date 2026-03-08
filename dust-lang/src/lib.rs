@@ -41,7 +41,6 @@ pub mod prelude {
         error::{Error, ErrorKind},
         instruction::Instruction,
         lexer::{Lexer, tokenize_bytes, tokenize_str},
-        native_function::NativeFunction,
         parser::{ParseError, ParseResult, Parser, parse},
         program::Program,
         project::{

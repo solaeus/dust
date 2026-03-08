@@ -11,14 +11,13 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{dust_type::DustType, instruction::Instruction};
+use crate::instruction::Instruction;
 
 /// Compiled representation of a Dust function.
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Prototype {
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) drops: Vec<u16>,
-    pub(crate) return_type: DustType,
     pub(crate) register_count: u16,
     pub(crate) argument_count: u16,
     pub(crate) return_count: u16,
@@ -29,7 +28,6 @@ impl Prototype {
         Self {
             instructions: Vec::new(),
             drops: Vec::new(),
-            return_type: DustType::Unit,
             register_count: 0,
             argument_count: 0,
             return_count: 0,

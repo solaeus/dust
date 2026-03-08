@@ -20,7 +20,7 @@ fn creates_list_type() {
     let type_node = *resolver.types.get_type(type_id).unwrap();
 
     let element_type = match type_node {
-        TypeNode::List { element_type } => element_type,
+        TypeNode::List { element_type_id } => element_type_id,
         other => panic!("expected List type, got {other:?}"),
     };
 

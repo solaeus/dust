@@ -27,7 +27,7 @@ fn creates_declaration() {
         .expect("expected a bar declaration in crate scope");
 
     assert_eq!(use_declaration.1.kind, DeclarationKind::Function);
-    assert!(!use_declaration.1.is_public);
+    assert!(!use_declaration.1.public);
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let use_item = tree
@@ -82,5 +82,5 @@ fn is_public_when_pub() {
         })
         .expect("expected a bar declaration in crate scope");
 
-    assert!(use_declaration.1.is_public);
+    assert!(use_declaration.1.public);
 }

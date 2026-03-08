@@ -59,8 +59,7 @@ impl Resolver {
     }
 
     fn add_core(&mut self) {
-        let mut core_items =
-            SmallVec::<[DeclarationId; 4]>::with_capacity(NativeFunction::ALL.len());
+        let mut core_items = SmallVec::<[DeclarationId; 4]>::with_capacity(4);
 
         let option_declaration_id = self.declarations.next_declaration_id();
         let none_declaration_id = option_declaration_id.offset(1);
@@ -86,7 +85,7 @@ impl Resolver {
                     members,
                 },
                 scope_id: ScopeId::CORE,
-                is_public: true,
+                public: true,
             })
         };
         let _none_declaration_id = self.declarations.add_declaration(Declaration {
@@ -98,7 +97,7 @@ impl Resolver {
                 members: DeclarationMembers::default(),
             },
             scope_id: ScopeId::CORE,
-            is_public: true,
+            public: true,
         });
         let _some_field_declaration_id = self.declarations.add_declaration(Declaration {
             symbol_id: some_field_symbol,
@@ -109,7 +108,7 @@ impl Resolver {
                 members: DeclarationMembers::default(),
             },
             scope_id: ScopeId::CORE,
-            is_public: true,
+            public: true,
         });
         let _some_declaration_id = {
             let members = self
@@ -125,34 +124,75 @@ impl Resolver {
                     members,
                 },
                 scope_id: ScopeId::CORE,
-                is_public: true,
+                public: true,
             })
         };
+
+        let vec_declaration_id = self.declarations.next_declaration_id();
+        let with_capacity_declaration_id = vec_declaration_id.offset(1);
+
+        let vec_symbol_id = self.symbols.add_symbol("Vec");
+        let with_capacity_symbol_id = self.symbols.add_symbol("with_capacity");
+
+        let _vec_declaration_id = {
+            let element_type_parameter_symbol = self.symbols.add_symbol("T");
+            let element_type_parameter_declaration_id =
+                self.declarations.add_declaration(Declaration {
+                    symbol_id: element_type_parameter_symbol,
+                    syntax: None,
+                    kind: DeclarationKind::Type {
+                        parent: Some(vec_declaration_id),
+                        type_parameters: DeclarationMembers::default(),
+                        members: DeclarationMembers::default(),
+                    },
+                    scope_id: ScopeId::CORE,
+                    public: false,
+                });
+            let element_type_parameter_type_id = self.types.create_inferred_type();
+
+            self.declarations.set_declaration_type(
+                element_type_parameter_declaration_id,
+                element_type_parameter_type_id,
+            );
+
+            let type_parameters = self
+                .declarations
+                .add_declaration_members(&[element_type_parameter_declaration_id]);
+            let members = self
+                .declarations
+                .add_declaration_members(&[with_capacity_declaration_id]);
+
+            self.declarations.add_declaration(Declaration {
+                symbol_id: vec_symbol_id,
+                syntax: None,
+                kind: DeclarationKind::Type {
+                    parent: None,
+                    type_parameters,
+                    members,
+                },
+                scope_id: ScopeId::CORE,
+                public: true,
+            })
+        };
+        let _with_capacity_declaration_id = self.declarations.add_declaration(Declaration {
+            symbol_id: with_capacity_symbol_id,
+            syntax: None,
+            kind: DeclarationKind::NativeFunction(NativeFunction::VEC_WITH_CAPACITY),
+            scope_id: ScopeId::CORE,
+            public: true,
+        });
+
+        core_items.push(option_declaration_id);
+        core_items.push(none_declaration_id);
+        core_items.push(some_declaration_id);
+        core_items.push(vec_declaration_id);
 
         debug_assert_eq!(option_declaration_id, _option_declaration_id);
         debug_assert_eq!(none_declaration_id, _none_declaration_id);
         debug_assert_eq!(some_field_declaration_id, _some_field_declaration_id);
         debug_assert_eq!(some_declaration_id, _some_declaration_id);
-
-        core_items.push(option_declaration_id);
-        core_items.push(none_declaration_id);
-        core_items.push(some_declaration_id);
-
-        for native_function in NativeFunction::ALL {
-            let function_symbol = self.symbols.add_symbol(native_function.name());
-            let declaration_id = self.declarations.add_declaration(Declaration {
-                symbol_id: function_symbol,
-                syntax: None,
-                kind: DeclarationKind::NativeFunction(native_function),
-                scope_id: ScopeId::CORE,
-                is_public: true,
-            });
-            let type_id = native_function.signature(&mut self.types);
-
-            self.declarations
-                .set_declaration_type(declaration_id, type_id);
-            core_items.push(declaration_id);
-        }
+        debug_assert_eq!(vec_declaration_id, _vec_declaration_id);
+        debug_assert_eq!(with_capacity_declaration_id, _with_capacity_declaration_id);
 
         let core_scope_id = self.scopes.add_scope(Scope {
             kind: ScopeKind::Module,
@@ -173,7 +213,7 @@ impl Resolver {
                 inner_scope_id: core_scope_id,
             },
             scope_id: ScopeId::NONE,
-            is_public: true,
+            public: true,
         });
     }
 
@@ -223,7 +263,9 @@ impl Resolver {
             TypeNode::U32 | TypeNode::I32 | TypeNode::F32 => Ok(4),
             TypeNode::U64 | TypeNode::I64 | TypeNode::F64 => Ok(8),
             TypeNode::U128 | TypeNode::I128 => Ok(16),
-            TypeNode::String | TypeNode::List { .. } => Ok(std::mem::size_of::<usize>()),
+            TypeNode::Vec { .. } | TypeNode::String | TypeNode::List { .. } => {
+                Ok(std::mem::size_of::<usize>())
+            }
             TypeNode::Struct { declaration_id, .. } => {
                 let struct_declaration = self.declarations.get_declaration(*declaration_id)?;
 
@@ -331,8 +373,8 @@ impl Resolver {
     pub fn get_element_type(&self, type_id: TypeId) -> Result<TypeId, ErrorKind> {
         let type_node = self.types.get_type(type_id)?;
 
-        if let TypeNode::List { element_type } = type_node {
-            Ok(*element_type)
+        if let TypeNode::List { element_type_id } = type_node {
+            Ok(*element_type_id)
         } else {
             Err(ErrorKind::Internal(InternalError::ExpectedListType {
                 found: *type_node,
@@ -418,10 +460,10 @@ impl Resolver {
             }
             (
                 TypeNode::List {
-                    element_type: left_element_type,
+                    element_type_id: left_element_type,
                 },
                 TypeNode::List {
-                    element_type: right_element_type,
+                    element_type_id: right_element_type,
                 },
             ) => self.unify_types(
                 left_element_type,
@@ -550,8 +592,6 @@ impl Resolver {
         let node = match new_type {
             DustType::Unit => TypeNode::Unit,
             DustType::Boolean => TypeNode::Boolean,
-            DustType::Character => TypeNode::Character,
-            DustType::String => TypeNode::String,
             DustType::U8 => TypeNode::U8,
             DustType::I8 => TypeNode::I8,
             DustType::U16 => TypeNode::U16,
@@ -564,10 +604,21 @@ impl Resolver {
             DustType::I128 => TypeNode::I128,
             DustType::F32 => TypeNode::F32,
             DustType::F64 => TypeNode::F64,
+            DustType::Character => TypeNode::Character,
+            DustType::Vec(element_type) => {
+                let element_type = self.add_external_type(element_type);
+
+                TypeNode::Vec {
+                    element_type_id: element_type,
+                }
+            }
+            DustType::String => TypeNode::String,
             DustType::List(element_type) => {
                 let element_type = self.add_external_type(element_type);
 
-                TypeNode::List { element_type }
+                TypeNode::List {
+                    element_type_id: element_type,
+                }
             }
             DustType::Function(function_type) => {
                 let mut type_parameters = SmallVec::<[DeclarationId; 4]>::with_capacity(
@@ -584,7 +635,7 @@ impl Resolver {
                             members: DeclarationMembers::default(),
                         },
                         scope_id: ScopeId::NONE,
-                        is_public: false,
+                        public: false,
                         syntax: None,
                     });
                     let type_parameter_type_id = self.types.create_inferred_type();
@@ -626,7 +677,7 @@ impl Resolver {
                             members: DeclarationMembers::default(),
                         },
                         scope_id: ScopeId::NONE,
-                        is_public: false,
+                        public: false,
                         syntax: None,
                     });
                     let type_id = self.add_external_type(field_type);
@@ -647,7 +698,7 @@ impl Resolver {
                         members,
                     },
                     scope_id: ScopeId::NONE,
-                    is_public: false,
+                    public: false,
                     syntax: None,
                 });
 
@@ -669,8 +720,6 @@ impl Resolver {
         match type_node {
             TypeNode::Unit => Ok(DustType::Unit),
             TypeNode::Boolean => Ok(DustType::Boolean),
-            TypeNode::Character => Ok(DustType::Character),
-            TypeNode::String => Ok(DustType::String),
             TypeNode::U8 => Ok(DustType::U8),
             TypeNode::I8 => Ok(DustType::I8),
             TypeNode::U16 => Ok(DustType::U16),
@@ -683,8 +732,15 @@ impl Resolver {
             TypeNode::I128 => Ok(DustType::I128),
             TypeNode::F32 => Ok(DustType::F32),
             TypeNode::F64 => Ok(DustType::F64),
-            TypeNode::List { element_type } => {
-                let element_type = self.get_full_type(*element_type, source)?;
+            TypeNode::Character => Ok(DustType::Character),
+            TypeNode::Vec { element_type_id } => {
+                let element_type = self.get_full_type(*element_type_id, source)?;
+
+                Ok(DustType::Vec(Box::new(element_type)))
+            }
+            TypeNode::String => Ok(DustType::String),
+            TypeNode::List { element_type_id } => {
+                let element_type = self.get_full_type(*element_type_id, source)?;
 
                 Ok(DustType::list(element_type))
             }

@@ -76,24 +76,20 @@ impl<'src> Error<'src> {
 
 impl<'a> Display for Error<'a> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let mut groups = Vec::with_capacity(self.errors.len());
+        let mut report = Vec::with_capacity(self.errors.len());
         let renderer = Renderer::styled();
 
-        for (index, error) in self.errors.iter().enumerate() {
-            let start = groups.len();
-
+        for error in &self.errors {
             error.add_report(
                 (self.source.as_ref(), self.resolver.as_deref()),
-                &mut groups,
+                &mut report,
             );
 
-            let display = renderer.render(&groups[start..]);
+            let display = renderer.render(&report);
+
+            report.clear();
 
             writeln!(f, "{display}")?;
-
-            if index < self.errors.len() - 1 {
-                writeln!(f)?;
-            }
         }
 
         Ok(())
@@ -164,7 +160,7 @@ impl<'a> AnnotatedError<'a> for ErrorKind {
 
 #[derive(Debug)]
 pub enum InternalError {
-    /// Meta error for when an error occurs but the context needed to generate a report is missing.
+    /// An error occured but the context needed to generate a report is missing.
     MissingErrorContext,
 
     InvalidConstantTable,
@@ -257,6 +253,10 @@ impl Display for InternalError {
 
 pub trait AnnotatedError<'a> {
     type Context;
+
+    fn error_count(&self) -> usize {
+        1
+    }
 
     fn add_report(&self, context: Self::Context, groups: &mut Vec<Group<'a>>);
 }

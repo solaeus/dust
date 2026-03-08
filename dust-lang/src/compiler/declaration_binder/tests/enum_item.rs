@@ -22,7 +22,7 @@ fn creates_type_declaration() {
 
     let color_declaration = resolver.declarations.get_declaration(color_id).unwrap();
 
-    assert!(!color_declaration.is_public);
+    assert!(!color_declaration.public);
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let item = tree
@@ -69,5 +69,5 @@ fn is_public_when_pub() {
         .find(|(_, declaration)| declaration.symbol_id == color_symbol_id)
         .unwrap();
 
-    assert!(color_declaration.is_public);
+    assert!(color_declaration.public);
 }

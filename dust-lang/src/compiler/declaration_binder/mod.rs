@@ -106,7 +106,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     inner_scope_id: module_scope_id,
                 },
                 scope_id: self.current_scope_id,
-                is_public: module_item.kind() == SyntaxKind::PublicModuleItem,
+                public: module_item.kind() == SyntaxKind::PublicModuleItem,
                 syntax,
             });
 
@@ -155,7 +155,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     inner_scope_id: module_scope_id,
                 },
                 scope_id: self.current_scope_id,
-                is_public: module_item.kind() == SyntaxKind::PublicModuleItem,
+                public: module_item.kind() == SyntaxKind::PublicModuleItem,
                 syntax,
             });
 
@@ -191,7 +191,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             symbol_id: function_symbol_id,
             kind: DeclarationKind::Function,
             scope_id: self.current_scope_id,
-            is_public: function_item.kind() == SyntaxKind::PublicFunctionItem,
+            public: function_item.kind() == SyntaxKind::PublicFunctionItem,
             syntax: Some((function_name.position(), function_item.id)),
         });
 
@@ -220,7 +220,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             symbol_id: path_declaration.symbol_id,
             kind: path_declaration.kind,
             scope_id: self.current_scope_id,
-            is_public: use_item.kind() == SyntaxKind::PublicUseItem,
+            public: use_item.kind() == SyntaxKind::PublicUseItem,
             syntax: Some((use_item.position(), use_item.id)),
         });
 
@@ -263,7 +263,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     members: DeclarationMembers::default(),
                 },
                 scope_id: self.current_scope_id,
-                is_public: false,
+                public: false,
                 syntax: Some((field_name.position(), field_name.id)),
             });
 
@@ -285,7 +285,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 members,
             },
             scope_id: self.current_scope_id,
-            is_public: struct_item.kind() == SyntaxKind::PublicStructItem,
+            public: struct_item.kind() == SyntaxKind::PublicStructItem,
             syntax: Some((struct_item.position(), struct_item.id)),
         });
 
@@ -334,7 +334,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     members: DeclarationMembers::default(),
                 },
                 scope_id: self.current_scope_id,
-                is_public: false,
+                public: false,
                 syntax: Some((variant.position(), variant.id)),
             });
 
@@ -355,7 +355,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 members,
             },
             scope_id: self.current_scope_id,
-            is_public: enum_item.kind() == SyntaxKind::PublicEnumItem,
+            public: enum_item.kind() == SyntaxKind::PublicEnumItem,
             syntax: Some((enum_item.position(), enum_item.id)),
         });
 
@@ -392,7 +392,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             symbol_id,
             kind: DeclarationKind::Local,
             scope_id: self.current_scope_id,
-            is_public: false,
+            public: false,
             syntax: Some((simple_path.position(), simple_path.id)),
         });
 
@@ -744,7 +744,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     symbol_id: parameter_symbol_id,
                     kind: DeclarationKind::Local,
                     scope_id: function_scope_id,
-                    is_public: false,
+                    public: false,
                     syntax: Some((parameter_name.position(), parameter_name.id)),
                 });
 

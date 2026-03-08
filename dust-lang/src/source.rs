@@ -46,13 +46,13 @@ impl<'src> Source<'src> {
         id
     }
 
-    pub fn get_file(&self, file_id: SourceFileId) -> Result<&SourceFile<'src>, InternalError> {
+    pub fn get_file(&self, file_id: SourceFileId) -> Result<&SourceFile<'src>, SourceError> {
         self.files
             .get(file_id.0 as usize)
-            .ok_or(InternalError::MissingSourceFile(file_id))
+            .ok_or(SourceError::MissingSourceFile(file_id))
     }
 
-    pub fn get_file_content(&self, position: &Position) -> Result<&str, InternalError> {
+    pub fn get_file_content(&self, position: &Position) -> Result<&str, SourceError> {
         self.get_file(position.file_id)?.content_str(position.span)
     }
 
@@ -219,13 +219,12 @@ impl<'src> SourceFile<'src> {
             })
     }
 
-    pub fn content_str(&self, span: Span) -> Result<&str, InternalError> {
+    pub fn content_str(&self, span: Span) -> Result<&str, SourceError> {
         let full_source = self.content_as_str();
-        let range = span.as_usize_range();
 
         full_source
-            .get(range)
-            .ok_or(InternalError::MissingSourceFileContent {
+            .get(span.as_usize_range())
+            .ok_or(SourceError::FileContentOutOfBounds {
                 span,
                 length: full_source.len(),
             })
@@ -381,6 +380,8 @@ pub enum SourceError {
     ExpectedFilePath { found: String },
     ExpectedUtf8Path { found: String },
     InvalidPath { found: String },
+    MissingSourceFile(SourceFileId),
+    FileContentOutOfBounds { span: Span, length: usize },
 }
 
 impl SourceError {
@@ -441,6 +442,21 @@ impl<'src> AnnotatedError<'src> for SourceError {
             SourceError::InvalidPath { found } => {
                 let title = "Invalid file path".to_string();
                 let message = format!("\"{found}\" is not a valid path.");
+
+                Group::with_title(Level::ERROR.primary_title(title))
+                    .element(Level::ERROR.message(message))
+            }
+            SourceError::MissingSourceFile(file_id) => {
+                let title = "Missing source file".to_string();
+                let message = format!("Source file with ID {file_id:?} does not exist.");
+
+                Group::with_title(Level::ERROR.primary_title(title))
+                    .element(Level::ERROR.message(message))
+            }
+            SourceError::FileContentOutOfBounds { span, length } => {
+                let title = "File content out of bounds".to_string();
+                let message =
+                    format!("Span {span} is out of bounds for file content with length {length}.");
 
                 Group::with_title(Level::ERROR.primary_title(title))
                     .element(Level::ERROR.message(message))

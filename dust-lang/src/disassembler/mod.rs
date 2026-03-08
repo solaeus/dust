@@ -276,14 +276,12 @@ impl<'a> Disassembler<'a> {
         let areas = Layout::vertical([
             Constraint::Length(2),
             Constraint::Length(2),
-            Constraint::Length(2),
             Constraint::Length(get_section_length(prototype.instructions.len())),
             Constraint::Length(get_section_length(prototype.drops.len())),
         ]);
         let [
             prototype_area,
             info_area,
-            type_area,
             instructions_area,
             drop_lists_area,
         ] = areas.flex(Flex::Start).areas(inner_area);
@@ -302,11 +300,6 @@ impl<'a> Disassembler<'a> {
         .centered()
         .wrap(Wrap { trim: true })
         .render(info_area, buffer);
-
-        Paragraph::new(format!("Return type: {}", prototype.return_type))
-            .centered()
-            .wrap(Wrap { trim: true })
-            .render(type_area, buffer);
 
         // Instructions section
         {
@@ -409,18 +402,14 @@ impl Widget for &mut Disassembler<'_> {
             .wrap(Wrap { trim: true })
             .render(title_area, buffer);
 
-        let main_prototype = &self.program.prototypes[0];
-        let program_name = self.program.name();
-
-        Paragraph::new(format!("program: {program_name}",))
+        Paragraph::new(self.program.name().as_str())
             .centered()
             .wrap(Wrap { trim: true })
             .render(program_name_area, buffer);
 
         Paragraph::new(format!(
-            "main function type: {} ({} other prototypes)",
-            main_prototype.return_type,
-            self.program.prototypes.len() - 1,
+            "main function returns {}",
+            self.program.return_type()
         ))
         .centered()
         .wrap(Wrap { trim: true })

@@ -24,7 +24,7 @@ fn declares_module() {
         other => panic!("expected inline Module declaration, got {other:?}"),
     };
 
-    assert!(!foo_declaration.is_public);
+    assert!(!foo_declaration.public);
 
     let inner_scope = resolver.scopes.get_scope(inner_scope_id).unwrap();
 
@@ -71,5 +71,5 @@ fn is_public_when_pub() {
         .find(|(_, declaration)| declaration.symbol_id == foo_symbol_id)
         .unwrap();
 
-    assert!(foo_declaration.is_public);
+    assert!(foo_declaration.public);
 }

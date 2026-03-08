@@ -9,16 +9,55 @@ use crate::resolver::{
     type_graph::{TypeGraph, TypeId, TypeMembers, TypeNode},
 };
 
-/// A Dust-native function.
-///
-/// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct NativeFunction {
-    pub id: u16,
-}
+pub struct NativeFunction(pub u16);
 
 impl NativeFunction {
-    pub fn no_op_signature(types: &mut TypeGraph) -> TypeId {
+    pub const NO_OP: Self = Self(0);
+
+    // `Vec`
+    pub const VEC_WITH_CAPACITY: Self = Self(1);
+    pub const VEC_LENGTH: Self = Self(2);
+    pub const VEC_INSERT: Self = Self(3);
+    pub const VEC_REMOVE: Self = Self(4);
+    pub const VEC_CLEAR: Self = Self(5);
+
+    // I/O
+    pub const READ_LINE: Self = Self(100);
+    pub const WRITE_LINE: Self = Self(101);
+
+    // Threads
+    pub const SPAWN_THREAD: Self = Self(200);
+
+    pub fn display_name(self) -> &'static str {
+        match self {
+            Self::VEC_WITH_CAPACITY => "Vec::with_capacity",
+            Self::VEC_LENGTH => "Vec::len",
+            Self::VEC_INSERT => "Vec::insert",
+            Self::VEC_REMOVE => "Vec::remove",
+            Self::VEC_CLEAR => "Vec::clear",
+            Self::READ_LINE => "io::read_line",
+            Self::WRITE_LINE => "io::write_line",
+            Self::SPAWN_THREAD => "io::spawn_thread",
+            _ => "no_op",
+        }
+    }
+
+    pub fn signature(self, types: &mut TypeGraph) -> TypeId {
+        match self {
+            Self::VEC_WITH_CAPACITY => Self::vec_with_capacity_signature(types),
+            Self::VEC_LENGTH => todo!(),
+            Self::VEC_INSERT => todo!(),
+            Self::VEC_REMOVE => todo!(),
+            Self::VEC_CLEAR => todo!(),
+            Self::READ_LINE => Self::read_line_signature(types),
+            Self::WRITE_LINE => Self::write_line_signature(types),
+            Self::SPAWN_THREAD => Self::spawn_thread_signature(types),
+            _ => Self::no_op_signature(types),
+        }
+    }
+
+    fn no_op_signature(types: &mut TypeGraph) -> TypeId {
         types.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters: TypeMembers::default(),
@@ -26,7 +65,19 @@ impl NativeFunction {
         })
     }
 
-    pub fn read_line_signature(types: &mut TypeGraph) -> TypeId {
+    fn vec_with_capacity_signature(types: &mut TypeGraph) -> TypeId {
+        let value_parameters = types.add_type_members(&[TypeId::U_64]);
+        let element_type_id = types.create_inferred_type();
+        let return_type_id = types.add_type(TypeNode::Vec { element_type_id });
+
+        types.add_type(TypeNode::Function {
+            type_parameters: DeclarationMembers::default(),
+            value_parameters,
+            return_type_id,
+        })
+    }
+
+    fn read_line_signature(types: &mut TypeGraph) -> TypeId {
         types.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters: TypeMembers::default(),
@@ -34,7 +85,7 @@ impl NativeFunction {
         })
     }
 
-    pub fn write_line_signature(types: &mut TypeGraph) -> TypeId {
+    fn write_line_signature(types: &mut TypeGraph) -> TypeId {
         let value_parameters = types.add_type_members(&[TypeId::STRING]);
 
         types.add_type(TypeNode::Function {
@@ -44,7 +95,7 @@ impl NativeFunction {
         })
     }
 
-    pub fn spawn_thread_signature(types: &mut TypeGraph) -> TypeId {
+    fn spawn_thread_signature(types: &mut TypeGraph) -> TypeId {
         let argument_type_id = types.add_type(TypeNode::Function {
             type_parameters: DeclarationMembers::default(),
             value_parameters: TypeMembers::default(),
@@ -60,109 +111,8 @@ impl NativeFunction {
     }
 }
 
-macro_rules! define_native_functions {
-    (
-        $count: literal,
-        $((
-            id: $id: literal,
-            name: $name: expr,
-            identifier: $const_name: ident,
-            signature: $signature: ident
-            argument_count: $argument_count: literal,
-        )),*
-    ) => {
-        impl NativeFunction {
-            pub const ALL: [NativeFunction; $count] = [
-                $(
-                    NativeFunction { id: $id },
-                )*
-            ];
-
-            $(
-                pub const $const_name: NativeFunction = NativeFunction { id: $id };
-            )*
-
-            #[allow(clippy::should_implement_trait)]
-            pub fn from_str(string: &str) -> Option<Self> {
-                match string {
-                    $(
-                        $name => Some(NativeFunction {
-                            id: $id,
-                        }),
-                    )*
-                    _ => None,
-                }
-            }
-
-            pub fn name(&self) -> &'static str {
-                match self.id {
-                    $(
-                        $id => $name,
-                    )*
-                    _ => unreachable!(),
-                }
-            }
-
-            pub fn signature(&self, types: &mut TypeGraph) -> TypeId {
-                match self.id {
-                    $(
-                        $id => Self::$signature(types),
-                    )*
-                    _ => unreachable!(),
-                }
-            }
-
-            pub fn argument_count(&self) -> u16 {
-                match self.id {
-                    $(
-                        $id => $argument_count,
-                    )*
-                    _ => unreachable!(),
-                }
-            }
-        }
-
-        impl Display for NativeFunction {
-            fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-                match self.id {
-                    $(
-                        $id => write!(f, "{}", $name),
-                    )*
-                    _ => unreachable!(),
-                }
-            }
-        }
+impl Display for NativeFunction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.display_name())
     }
-}
-
-define_native_functions! {
-    4,
-    (
-        id: 0,
-        name: "no_op",
-        identifier: NO_OP,
-        signature: no_op_signature
-        argument_count: 0,
-    ),
-    (
-        id: 1,
-        name: "read_line",
-        identifier: READ_LINE,
-        signature: read_line_signature
-        argument_count: 0,
-    ),
-    (
-        id: 2,
-        name: "write_line",
-        identifier: WRITE_LINE,
-        signature: write_line_signature
-        argument_count: 1,
-    ),
-    (
-        id: 4,
-        name: "spawn_thread",
-        identifier: SPAWN_THREAD,
-        signature: spawn_thread_signature
-        argument_count: 1,
-    )
 }

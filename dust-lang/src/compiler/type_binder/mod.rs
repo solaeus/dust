@@ -407,7 +407,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             }
         }
 
-        let element_type = if let Some((element_type, _)) = first_type {
+        let element_type_id = if let Some((element_type, _)) = first_type {
             element_type
         } else {
             self.resolver.types.create_inferred_type()
@@ -415,7 +415,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let list_type = self
             .resolver
             .types
-            .add_type(TypeNode::List { element_type });
+            .add_type(TypeNode::List { element_type_id });
 
         self.resolver.add_type_binding(node.id, list_type);
 
@@ -451,7 +451,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         let list_type = *self.resolver.types.get_type(list_type_id)?;
         let element_type = match list_type {
-            TypeNode::List { element_type } => {
+            TypeNode::List {
+                element_type_id: element_type,
+            } => {
                 self.resolver.add_type_binding(node.id, element_type);
 
                 element_type
@@ -964,9 +966,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
             SyntaxKind::ListType => {
                 let element_type_node = node.child()?;
                 let element_type_id = self.visit_type(element_type_node)?;
-                let list_type_id = self.resolver.types.add_type(TypeNode::List {
-                    element_type: element_type_id,
-                });
+                let list_type_id = self
+                    .resolver
+                    .types
+                    .add_type(TypeNode::List { element_type_id });
 
                 Ok(list_type_id)
             }

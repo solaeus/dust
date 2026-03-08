@@ -14,16 +14,19 @@ use crate::{
         type_binder::TypeBinder,
     },
     constant_list::ConstantListBuilder,
+    dust_type::DustFunctionType,
     error::{Error, ErrorKind},
     instruction::OperandType,
     lexer::Lexer,
     parser::{ParseResult, Parser},
+    prelude::DustType,
     program::Program,
     prototype::{PrototypeId, PrototypeList},
     resolver::{
         Resolver,
         declaration_graph::Visibility,
         scope_graph::{Scope, ScopeId, ScopeKind},
+        type_graph::{TypeId, TypeNode},
     },
     source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, SyntaxVisitor},
@@ -69,9 +72,9 @@ impl<'src> Compiler<'src> {
 
     pub fn compile(mut self, program_name: Option<String>) -> Result<Program, Error<'src>> {
         match self.compile_inner() {
-            Ok(()) => {
+            Ok(return_type) => {
                 let (constants, _) = self.constants.build();
-                let program = Program::new(program_name, constants, self.prototypes);
+                let program = Program::new(program_name, return_type, constants, self.prototypes);
 
                 Ok(program)
             }
@@ -88,9 +91,9 @@ impl<'src> Compiler<'src> {
         program_name: Option<String>,
     ) -> Result<(Program, Source<'src>, Syntax, Resolver, Vec<OperandType>), Error<'src>> {
         match self.compile_inner() {
-            Ok(()) => {
+            Ok(return_type) => {
                 let (constants, constant_tags) = self.constants.build();
-                let program = Program::new(program_name, constants, self.prototypes);
+                let program = Program::new(program_name, return_type, constants, self.prototypes);
 
                 Ok((
                     program,
@@ -108,11 +111,24 @@ impl<'src> Compiler<'src> {
         }
     }
 
-    fn compile_inner(&mut self) -> Result<(), Vec<ErrorKind>> {
+    fn compile_inner(&mut self) -> Result<DustType, Vec<ErrorKind>> {
         let span = span!(Level::INFO, "compile");
         let _enter = span.enter();
 
         let mut errors = Vec::new();
+
+        macro_rules! unwrap_or_return {
+            ($result: expr) => {
+                match $result {
+                    Ok(value) => value,
+                    Err(error) => {
+                        errors.push(error);
+
+                        return Err(errors);
+                    }
+                }
+            };
+        }
 
         // Parsing phase
         {
@@ -145,18 +161,12 @@ impl<'src> Compiler<'src> {
                 files_parsed += 1;
 
                 for span in file_module_names {
-                    let parent_file = match self.source.get_file(file_id) {
-                        Ok(file) => file,
-                        Err(error) => {
-                            errors.push(ErrorKind::Internal(error));
-
-                            return Err(errors);
-                        }
-                    };
+                    let parent_file =
+                        unwrap_or_return!(self.source.get_file(file_id).map_err(ErrorKind::Source));
                     let module_name_str = match parent_file.content_str(span) {
                         Ok(name) => name,
                         Err(error) => {
-                            errors.push(ErrorKind::Internal(error));
+                            errors.push(ErrorKind::Source(error));
 
                             return Err(errors);
                         }
@@ -186,18 +196,11 @@ impl<'src> Compiler<'src> {
             modules: SmallVec::new(),
             imports: SmallVec::new(),
         });
-        let main_root = match self
-            .syntax
-            .get_tree(SourceFileId::MAIN)
-            .and_then(|tree| tree.root())
-        {
-            Ok(root) => root,
-            Err(error) => {
-                errors.push(error);
-
-                return Err(errors);
-            }
-        };
+        let main_root = unwrap_or_return!(
+            self.syntax
+                .get_tree(SourceFileId::MAIN)
+                .and_then(|tree| tree.root())
+        );
 
         // Declaration binding phase
         {
@@ -231,6 +234,31 @@ impl<'src> Compiler<'src> {
             }
         }
 
+        let main_symbol_id = self.resolver.symbols.add_symbol("main");
+        let (main_declaration_id, main_declaration) = match self
+            .resolver
+            .declarations
+            .find_declaration(main_symbol_id, crate_scope_id, Visibility::Module)
+        {
+            Some(declaration) => declaration,
+            None => {
+                errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
+
+                return Err(errors);
+            }
+        };
+        let main_syntax_id = main_declaration.syntax.unwrap().1;
+        let main_function_item = unwrap_or_return!(
+            self.syntax
+                .get_tree(SourceFileId::MAIN)
+                .and_then(|tree| tree.get_node(main_syntax_id))
+        );
+        let main_function_type_id = *unwrap_or_return!(
+            self.resolver
+                .declarations
+                .get_declaration_type(&main_declaration_id)
+        );
+
         // Emission phase
         {
             let span = span!(Level::INFO, "emit");
@@ -240,60 +268,40 @@ impl<'src> Compiler<'src> {
 
             debug_assert_eq!(_main_prototype_id, PrototypeId::MAIN);
 
-            let main_symbol_id = self.resolver.symbols.add_symbol("main");
-            let (main_declaration_id, main_declaration) = match self
-                .resolver
-                .declarations
-                .find_declaration(main_symbol_id, crate_scope_id, Visibility::Module)
-            {
-                Some(declaration) => declaration,
-                None => {
-                    errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
+            let main_prototype = unwrap_or_return!(
+                Emitter::new(
+                    main_function_item,
+                    Some(main_declaration_id),
+                    PrototypeId::MAIN,
+                    (
+                        &self.source,
+                        &self.syntax,
+                        &mut self.constants,
+                        &mut self.resolver,
+                        &mut self.prototypes,
+                    ),
+                )
+                .and_then(|emitter| emitter.emit())
+            );
 
-                    return Err(errors);
-                }
-            };
-            let main_syntax_id = main_declaration.syntax.unwrap().1;
-            let main_function = match self
-                .syntax
-                .get_tree(SourceFileId::MAIN)
-                .and_then(|tree| tree.get_node(main_syntax_id))
-            {
-                Ok(node) => node,
-                Err(error) => {
-                    errors.push(error);
-
-                    return Err(errors);
-                }
-            };
-
-            match Emitter::new(
-                main_function,
-                Some(main_declaration_id),
-                main_declaration.scope_id,
-                PrototypeId::MAIN,
-                None,
-                (
-                    &self.source,
-                    &self.syntax,
-                    &mut self.constants,
-                    &mut self.resolver,
-                    &mut self.prototypes,
-                ),
-            )
-            .and_then(|emitter| emitter.emit())
-            {
-                Ok(prototype) => self.prototypes.set_slot(PrototypeId::MAIN, prototype),
-                Err(error) => {
-                    errors.push(error);
-
-                    return Err(errors);
-                }
-            }
+            self.prototypes.set_slot(PrototypeId::MAIN, main_prototype);
         }
 
+        let main_function_type = unwrap_or_return!(
+            self.resolver
+                .get_full_type(main_function_type_id, &self.source)
+        );
+        let main_function_return_type_id =
+            if let DustType::Function(function_type) = main_function_type {
+                function_type.return_type
+            } else {
+                errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
+
+                return Err(errors);
+            };
+
         if errors.is_empty() {
-            Ok(())
+            Ok(main_function_return_type_id)
         } else {
             Err(errors)
         }

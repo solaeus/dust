@@ -197,7 +197,7 @@ impl DeclarationId {
         self.0
     }
 
-    pub fn offset(self, offset: u32) -> Self {
+    pub(crate) fn offset(self, offset: u32) -> Self {
         DeclarationId(self.0 + offset)
     }
 }
@@ -207,12 +207,13 @@ pub struct Declaration {
     pub symbol_id: SymbolId,
     pub kind: DeclarationKind,
     pub scope_id: ScopeId,
-    pub is_public: bool,
+    pub public: bool,
     pub syntax: Option<(Position, SyntaxId)>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DeclarationKind {
+    Local,
     Function,
     NativeFunction(NativeFunction),
     Module {
@@ -224,7 +225,6 @@ pub enum DeclarationKind {
         type_parameters: DeclarationMembers,
         members: DeclarationMembers,
     },
-    Local,
 }
 
 impl DeclarationKind {

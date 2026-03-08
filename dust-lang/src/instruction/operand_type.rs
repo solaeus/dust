@@ -4,9 +4,8 @@ use serde::{Deserialize, Serialize};
 
 /// A small (32-bit) type representation used to encode the types of instruction operands.
 ///
-/// `OperandType` can represent any type, but it does not always represent a single type with full
-/// specificity. It provides just enough information to determine how to interpret and/or manipulate
-/// an operand.
+/// `OperandType` can represent any type, but it not always with full specificity. It provides just
+/// enough information to determine how to interpret an instruction's operands at runtime.
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
@@ -27,24 +26,10 @@ impl OperandType {
     pub const F_32: OperandType = OperandType(11);
     pub const F_64: OperandType = OperandType(12);
     pub const CHARACTER: OperandType = OperandType(13);
-    pub const STRING: OperandType = OperandType(14);
+    pub const POINTER: OperandType = OperandType(14);
     pub const FUNCTION: OperandType = OperandType(15);
-    pub const LIST: OperandType = OperandType(16);
 
-    // Used only for ADD instructions that concatenate strings with characters.
-    pub const CHARACTER_STRING: OperandType = OperandType(17);
-    pub const STRING_CHARACTER: OperandType = OperandType(18);
-
-    // Used only for NEW_LIST instructions that create lists of structs.
-    pub const STRUCT: OperandType = OperandType(19);
-
-    /// Returns the byte size of values of this type.
-    ///
-    /// # Panics
-    ///
-    /// Panics if called on the `CHARACTER_STRING` or `STRING_CHARACTER` operand types. These types
-    /// are not returned by `Resolver::get_operand_type()`, so only a misuse of the API could cause
-    /// this.
+    /// Returns the byte size of values of this type or `None`
     pub fn size_in_bytes(self) -> usize {
         match self {
             Self::BOOLEAN | Self::CHARACTER | Self::U_8 | Self::I_8 => 1,
@@ -52,8 +37,8 @@ impl OperandType {
             Self::U_32 | Self::I_32 | Self::F_32 => 4,
             Self::U_64 | Self::I_64 | Self::F_64 => 8,
             Self::U_128 | Self::I_128 => 16,
-            Self::STRING | Self::LIST => size_of::<usize>(),
-            _ => panic!("size_in_bytes() called on invalid operand type"),
+            Self::POINTER => size_of::<usize>(),
+            _ => panic!("Invalid operand type: {self:?}"),
         }
     }
 }
@@ -62,7 +47,6 @@ impl Display for OperandType {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match *self {
             Self::BOOLEAN => write!(f, "bool"),
-            Self::CHARACTER => write!(f, "char"),
             Self::U_8 => write!(f, "u8"),
             Self::I_8 => write!(f, "i8"),
             Self::U_16 => write!(f, "u16"),
@@ -75,10 +59,9 @@ impl Display for OperandType {
             Self::I_128 => write!(f, "i128"),
             Self::F_32 => write!(f, "f32"),
             Self::F_64 => write!(f, "f64"),
+            Self::CHARACTER => write!(f, "char"),
+            Self::POINTER => write!(f, "*mut T"),
             Self::FUNCTION => write!(f, "fn"),
-            Self::STRING => write!(f, "str"),
-            Self::LIST => write!(f, "[T]"),
-            Self::STRUCT => write!(f, "struct"),
             _ => write!(f, "<invalid operand type>"),
         }
     }

@@ -16,7 +16,7 @@ fn creates_local_declaration() {
 
     let x_declaration = resolver.declarations.get_declaration(x_id).unwrap();
 
-    assert!(!x_declaration.is_public);
+    assert!(!x_declaration.public);
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let let_stmt = tree

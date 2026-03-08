@@ -16,7 +16,7 @@ fn creates_function_declaration() {
 
     let foo_declaration = resolver.declarations.get_declaration(foo_id).unwrap();
 
-    assert!(!foo_declaration.is_public);
+    assert!(!foo_declaration.public);
 
     let declaration_scope = resolver.scopes.get_scope(foo_declaration.scope_id).unwrap();
 
@@ -43,5 +43,5 @@ fn is_public_when_pub() {
         .find(|(_, declaration)| declaration.symbol_id == foo_symbol_id)
         .unwrap();
 
-    assert!(foo_declaration.is_public);
+    assert!(foo_declaration.public);
 }
