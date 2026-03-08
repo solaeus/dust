@@ -1,18 +1,14 @@
 use dust_lang::prelude::*;
 
 use crate::{
+    build_source,
     cli::{CompileCommand, GlobalOptions, InputOptions, OutputOptions},
-    handle_source,
 };
 
 pub fn handle_compile_command(command: CompileCommand) {
     let CompileCommand {
         global: GlobalOptions { log: _, name: _ },
-        input: InputOptions {
-            eval,
-            stdin: _,
-            path,
-        },
+        input: InputOptions { eval, stdin, path },
         output:
             OutputOptions {
                 ron: _,
@@ -22,10 +18,7 @@ pub fn handle_compile_command(command: CompileCommand) {
         tui,
     } = command;
 
-    let source = match handle_source(&eval, path, false) {
-        Ok(source) => source,
-        Err(error) => error.print_and_exit(),
-    };
+    let source = build_source(&eval, path, stdin);
     let compiler = Compiler::new(source);
     let (program, source, syntax, resolver, constants) = match compiler.compile_with_extras(None) {
         Ok(result) => result,

@@ -44,8 +44,6 @@ impl TypeGraph {
 
         debug_assert_eq!(_unit_type_id, TypeId::UNIT);
         debug_assert_eq!(_boolean_type_id, TypeId::BOOLEAN);
-        debug_assert_eq!(_character_type_id, TypeId::CHARACTER);
-        debug_assert_eq!(_string_type_id, TypeId::STRING);
         debug_assert_eq!(_u8_type_id, TypeId::U_8);
         debug_assert_eq!(_i8_type_id, TypeId::I_8);
         debug_assert_eq!(_u16_type_id, TypeId::U_16);
@@ -58,6 +56,8 @@ impl TypeGraph {
         debug_assert_eq!(_i128_type_id, TypeId::I_128);
         debug_assert_eq!(_f32_type_id, TypeId::F_32);
         debug_assert_eq!(_f64_type_id, TypeId::F_64);
+        debug_assert_eq!(_character_type_id, TypeId::CHARACTER);
+        debug_assert_eq!(_string_type_id, TypeId::STRING);
 
         type_graph
     }

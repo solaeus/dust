@@ -61,10 +61,6 @@ pub enum Command {
     #[command(alias = "i")]
     Init(InputOptions),
 
-    /// Lex the source code and print the tokens
-    #[command(alias = "t")]
-    Tokenize(TokenizeCommand),
-
     /// Parse the source code and print the syntax tree
     #[command(alias = "p")]
     Parse(ParseCommand),
@@ -81,7 +77,7 @@ pub enum Command {
 #[derive(Args)]
 #[group()]
 pub struct InputOptions {
-    /// Source code to run instead of a file
+    /// Evaluate source code as a command-line argument
     #[arg(short, long, value_name = "INPUT")]
     pub eval: Option<String>,
 
@@ -123,18 +119,6 @@ impl OutputOptions {
         self.pretty_ron = self.pretty_ron || other.pretty_ron;
         self.postcard = self.postcard || other.postcard;
     }
-}
-
-#[derive(Args)]
-pub struct TokenizeCommand {
-    #[command(flatten)]
-    pub global: GlobalOptions,
-
-    #[command(flatten)]
-    pub input: InputOptions,
-
-    #[command(flatten)]
-    pub output: OutputOptions,
 }
 
 #[derive(Args)]

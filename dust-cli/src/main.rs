@@ -9,14 +9,13 @@ mod cli;
 mod compile;
 mod parse;
 // mod run;
-mod tokenize;
 
 use std::{
     fmt,
     fs::{File, create_dir, create_dir_all},
     io::{self, Read, Write},
     path::PathBuf,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use clap::Parser as CliParser;
@@ -32,7 +31,6 @@ use crate::{
     compile::handle_compile_command,
     parse::handle_parse_command,
     // run::handle_run_command,
-    tokenize::handle_tokenize_command,
 };
 
 fn main() {
@@ -71,17 +69,6 @@ fn main() {
 
         handle_logging(command.global.log, start_time);
         handle_compile_command(command);
-
-        return;
-    }
-
-    if let Some(Command::Tokenize(mut command)) = command {
-        command.global.join(global);
-        command.input.join(input);
-        command.output.join(output);
-
-        handle_logging(command.global.log, start_time);
-        handle_tokenize_command(command);
 
         return;
     }
@@ -186,15 +173,11 @@ where
     }
 }
 
-fn print_times(name: &str, duration: Duration) {
-    println!("{name}: {}ms", duration.as_millis());
-}
-
-fn handle_source<'src>(
+fn build_source<'src>(
     eval: &'src Option<String>,
     path: Option<PathBuf>,
     stdin: bool,
-) -> Result<Source<'src>, SourceError> {
+) -> Source<'src> {
     let mut source = Source::new();
 
     if let Some(input) = eval {
@@ -230,19 +213,22 @@ fn handle_source<'src>(
             } else {
                 path.join("src").join("main.ds")
             };
-            let file = SourceFile::file_from_path(&main_file_path)?;
+            let file = SourceFile::file_from_path(&main_file_path)
+                .unwrap_or_else(|error| error.print_and_exit());
 
             source.add_file(file);
 
             let lib_file_path = path.join("src").join("lib.ds");
 
             if lib_file_path.exists() {
-                let file = SourceFile::file_from_path(&lib_file_path)?;
+                let file = SourceFile::file_from_path(&lib_file_path)
+                    .unwrap_or_else(|error| error.print_and_exit());
 
                 source.add_file(file);
             }
         } else {
-            let file = SourceFile::file_from_path(&path)?;
+            let file =
+                SourceFile::file_from_path(&path).unwrap_or_else(|error| error.print_and_exit());
 
             source.add_file(file);
         }
@@ -260,7 +246,7 @@ fn handle_source<'src>(
         source.add_file(file);
     }
 
-    Ok(source)
+    source
 }
 
 #[cfg(test)]

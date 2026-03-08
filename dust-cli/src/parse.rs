@@ -4,8 +4,8 @@ use dust_lang::prelude::*;
 use ron::ser::PrettyConfig;
 
 use crate::{
+    build_source,
     cli::{GlobalOptions, InputOptions, OutputOptions, ParseCommand},
-    handle_source,
 };
 
 pub fn handle_parse_command(command: ParseCommand) {
@@ -21,10 +21,7 @@ pub fn handle_parse_command(command: ParseCommand) {
         trees,
     } = command;
 
-    let source = match handle_source(&eval, path, stdin) {
-        Ok(source) => source,
-        Err(error) => error.print_and_exit(),
-    };
+    let source = build_source(&eval, path, stdin);
 
     let mut parse_errors = Vec::new();
 
