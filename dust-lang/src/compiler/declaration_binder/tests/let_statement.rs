@@ -8,31 +8,15 @@ use super::{bind_declarations, find_declaration};
 
 #[test]
 fn creates_local_declaration() {
-    let (_syntax, mut resolver) = bind_declarations("fn main() { let x = 42; }");
+    let (syntax, mut resolver) = bind_declarations("fn main() { let x = 42; }");
 
-    let (_, x_kind) = find_declaration(&mut resolver, "x").unwrap();
+    let (x_id, x_kind) = find_declaration(&mut resolver, "x").unwrap();
 
     assert!(matches!(x_kind, DeclarationKind::Local));
-}
 
-#[test]
-fn creates_non_public_declaration() {
-    let (_syntax, mut resolver) = bind_declarations("fn main() { let x = 42; }");
-
-    let x_symbol_id = resolver.symbols.add_symbol("x");
-    let (_, x_declaration) = resolver
-        .declarations
-        .iter()
-        .find(|(_, declaration)| declaration.symbol_id == x_symbol_id)
-        .unwrap();
+    let x_declaration = resolver.declarations.get_declaration(x_id).unwrap();
 
     assert!(!x_declaration.is_public);
-}
-
-#[test]
-fn binds_identifier_to_declaration() {
-    let (syntax, mut resolver) = bind_declarations("fn main() { let x = 42; }");
-    let (x_id, _) = find_declaration(&mut resolver, "x").unwrap();
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let let_stmt = tree

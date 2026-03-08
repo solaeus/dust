@@ -11,6 +11,7 @@ mod module_item;
 mod path_expression;
 mod struct_expression;
 mod struct_item;
+mod use_item;
 mod while_expression;
 
 use smallvec::SmallVec;
@@ -18,7 +19,7 @@ use smallvec::SmallVec;
 use crate::{
     compiler::declaration_binder::DeclarationBinder,
     lexer::Lexer,
-    parser::Parser,
+    parser::{ParseResult, Parser},
     resolver::{
         Resolver,
         declaration_graph::{DeclarationId, DeclarationKind},
@@ -35,11 +36,15 @@ fn bind_declarations(source_code: &str) -> (Syntax, Resolver) {
 
     let lexer = Lexer::from_utf8(source_code);
     let parser = Parser::new(SourceFileId::MAIN, lexer);
-    let parse_result = parser.parse();
+    let ParseResult {
+        syntax_tree,
+        mut errors,
+        ..
+    } = parser.parse();
 
     let mut syntax = Syntax::new(source.file_count());
 
-    syntax.add_tree(parse_result.syntax_tree).unwrap();
+    syntax.add_tree(syntax_tree).unwrap();
 
     let mut resolver = Resolver::new();
     let program_scope_id = resolver.scopes.add_scope(Scope {
@@ -51,7 +56,6 @@ fn bind_declarations(source_code: &str) -> (Syntax, Resolver) {
 
     let main_root = syntax.get_tree(SourceFileId::MAIN).unwrap().root().unwrap();
 
-    let mut errors = Vec::new();
     let mut declaration_binder = DeclarationBinder::new(
         &source,
         &syntax,

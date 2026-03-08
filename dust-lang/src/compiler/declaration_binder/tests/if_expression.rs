@@ -3,25 +3,6 @@ use crate::{resolver::scope_graph::ScopeKind, source::SourceFileId, syntax::Synt
 use super::bind_declarations;
 
 #[test]
-fn then_block_creates_scope() {
-    let (syntax, resolver) = bind_declarations("fn main() { if true { let a = 1; } }");
-
-    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
-    let if_expr = tree
-        .iter()
-        .find(|node| node.kind() == SyntaxKind::IfExpression)
-        .unwrap();
-    let mut children = if_expr.children().unwrap();
-    let _condition = children.next().unwrap();
-    let then_block = children.next().unwrap();
-
-    let scope_id = resolver.get_scope_binding(&then_block.id).unwrap();
-    let scope = resolver.scopes.get_scope(*scope_id).unwrap();
-
-    assert_eq!(scope.kind, ScopeKind::Block);
-}
-
-#[test]
 fn creates_scopes_for_both_branches() {
     let (syntax, resolver) =
         bind_declarations("fn main() { if true { let a = 1; } else { let b = 2; } }");
@@ -43,4 +24,6 @@ fn creates_scopes_for_both_branches() {
     let else_scope_id = resolver.get_scope_binding(&else_block.id).unwrap();
     let else_scope = resolver.scopes.get_scope(*else_scope_id).unwrap();
     assert_eq!(else_scope.kind, ScopeKind::Block);
+
+    assert_ne!(then_scope_id, else_scope_id);
 }

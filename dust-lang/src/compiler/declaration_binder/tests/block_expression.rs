@@ -44,7 +44,7 @@ fn nested_blocks_create_scope_chain() {
 
 #[test]
 fn binds_to_block_scope() {
-    let (syntax, resolver) = bind_declarations("fn main() { let x = 1; { let y = 2; } }");
+    let (syntax, mut resolver) = bind_declarations("fn main() { { let x = 1; } }");
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let blocks = tree
@@ -57,11 +57,6 @@ fn binds_to_block_scope() {
     let scope = resolver.scopes.get_scope(*scope_id).unwrap();
 
     assert_eq!(scope.kind, ScopeKind::Block);
-}
-
-#[test]
-fn variables_have_block_scope() {
-    let (_syntax, mut resolver) = bind_declarations("fn main() { { let x = 1; } }");
 
     let x_symbol_id = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
@@ -69,8 +64,7 @@ fn variables_have_block_scope() {
         .iter()
         .find(|(_, declaration)| declaration.symbol_id == x_symbol_id)
         .unwrap();
+    let x_scope = resolver.scopes.get_scope(x_declaration.scope_id).unwrap();
 
-    let scope = resolver.scopes.get_scope(x_declaration.scope_id).unwrap();
-
-    assert_eq!(scope.kind, ScopeKind::Block);
+    assert_eq!(x_scope.kind, ScopeKind::Block);
 }

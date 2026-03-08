@@ -11,60 +11,24 @@ use super::{bind_declarations, find_declaration};
 
 #[test]
 fn declares_module() {
-    let (_syntax, mut resolver) = bind_declarations("mod foo { fn bar() {} }");
+    let (syntax, mut resolver) = bind_declarations("mod foo { fn bar() {} }");
 
-    let foo_symbol_id = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
-        .declarations
-        .iter()
-        .find(|(_, declaration)| declaration.symbol_id == foo_symbol_id)
-        .unwrap();
-
-    assert!(matches!(
-        foo_declaration.kind,
-        DeclarationKind::Module {
-            kind: ModuleKind::Inline,
-            ..
-        }
-    ));
-}
-
-#[test]
-fn creates_module_scope() {
-    let (_syntax, mut resolver) = bind_declarations("mod foo { fn bar() {} }");
-
-    let foo_symbol_id = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
-        .declarations
-        .iter()
-        .find(|(_, declaration)| declaration.symbol_id == foo_symbol_id)
-        .unwrap();
+    let (foo_id, _) = find_declaration(&mut resolver, "foo").unwrap();
+    let foo_declaration = resolver.declarations.get_declaration(foo_id).unwrap();
 
     let inner_scope_id = match foo_declaration.kind {
-        DeclarationKind::Module { inner_scope_id, .. } => inner_scope_id,
-        other => panic!("expected Module declaration, got {other:?}"),
+        DeclarationKind::Module {
+            kind: ModuleKind::Inline,
+            inner_scope_id,
+        } => inner_scope_id,
+        other => panic!("expected inline Module declaration, got {other:?}"),
     };
+
+    assert!(!foo_declaration.is_public);
 
     let inner_scope = resolver.scopes.get_scope(inner_scope_id).unwrap();
 
     assert_eq!(inner_scope.kind, ScopeKind::Module);
-}
-
-#[test]
-fn items_declared_in_module_scope() {
-    let (_syntax, mut resolver) = bind_declarations("mod foo { fn bar() {} }");
-
-    let foo_symbol_id = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
-        .declarations
-        .iter()
-        .find(|(_, declaration)| declaration.symbol_id == foo_symbol_id)
-        .unwrap();
-
-    let module_scope_id = match foo_declaration.kind {
-        DeclarationKind::Module { inner_scope_id, .. } => inner_scope_id,
-        other => panic!("expected Module declaration, got {other:?}"),
-    };
 
     let bar_symbol_id = resolver.symbols.add_symbol("bar");
     let (_, bar_declaration) = resolver
@@ -73,13 +37,7 @@ fn items_declared_in_module_scope() {
         .find(|(_, declaration)| declaration.symbol_id == bar_symbol_id)
         .unwrap();
 
-    assert_eq!(bar_declaration.scope_id, module_scope_id);
-}
-
-#[test]
-fn binds_to_module_declaration() {
-    let (syntax, mut resolver) = bind_declarations("mod foo { fn bar() {} }");
-    let (foo_id, _) = find_declaration(&mut resolver, "foo").unwrap();
+    assert_eq!(bar_declaration.scope_id, inner_scope_id);
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let module = tree
@@ -91,36 +49,15 @@ fn binds_to_module_declaration() {
         *resolver.get_declaration_binding(&module.id).unwrap(),
         foo_id
     );
-}
 
-#[test]
-fn body_binds_to_module_scope() {
-    let (syntax, resolver) = bind_declarations("mod foo { fn bar() {} }");
-
-    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let body = tree
         .iter()
         .find(|node| node.kind() == SyntaxKind::ModuleBody)
         .unwrap();
+    let body_scope_id = resolver.get_scope_binding(&body.id).unwrap();
+    let body_scope = resolver.scopes.get_scope(*body_scope_id).unwrap();
 
-    let scope_id = resolver.get_scope_binding(&body.id).unwrap();
-    let scope = resolver.scopes.get_scope(*scope_id).unwrap();
-
-    assert_eq!(scope.kind, ScopeKind::Module);
-}
-
-#[test]
-fn is_not_public_by_default() {
-    let (_syntax, mut resolver) = bind_declarations("mod foo { fn bar() {} }");
-
-    let foo_symbol_id = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
-        .declarations
-        .iter()
-        .find(|(_, declaration)| declaration.symbol_id == foo_symbol_id)
-        .unwrap();
-
-    assert!(!foo_declaration.is_public);
+    assert_eq!(body_scope.kind, ScopeKind::Module);
 }
 
 #[test]

@@ -1182,7 +1182,7 @@ impl<'src> Parser<'src> {
 
             match self.pratt(Precedence::None) {
                 Ok(node) => {
-                    if is_last_child && !node.kind.is_expression() {
+                    if is_last_child && node.kind.is_expression() {
                         is_expression_statement = true;
                     }
 
@@ -1194,22 +1194,21 @@ impl<'src> Parser<'src> {
             }
         }
 
-        is_expression_statement = self.allow(TokenKind::Semicolon)? || is_expression_statement;
-        let block_expressio_node = self.create_node_with_children(
+        let block_expression_node = self.create_node_with_children(
             SyntaxKind::BlockExpression,
             Span::new(start, self.previous_token.span.end()),
             &children,
         );
 
         if is_expression_statement {
-            let block_expression_id = self.tree_builder.add_node(block_expressio_node);
+            let block_expression_id = self.tree_builder.add_node(block_expression_node);
 
             Ok(SyntaxKind::ExpressionStatement.with_child(
                 Span::new(start, self.previous_token.span.end()),
                 block_expression_id,
             ))
         } else {
-            Ok(block_expressio_node)
+            Ok(block_expression_node)
         }
     }
 
