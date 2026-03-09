@@ -1,9 +1,4 @@
-#![feature(
-    duration_millis_float,
-    formatting_options,
-    iter_intersperse,
-    iterator_try_collect
-)]
+#![feature(duration_millis_float)]
 
 mod cli;
 mod compile;
@@ -15,13 +10,16 @@ use std::{
     fs::{File, create_dir, create_dir_all},
     io::{self, Read, Write},
     path::PathBuf,
+    str::FromStr,
     time::Instant,
 };
 
 use clap::Parser as CliParser;
 use dust_lang::prelude::*;
-use tracing::{Event, Level, Subscriber, level_filters::LevelFilter};
+use tracing::{Event, Level, Subscriber, info, level_filters::LevelFilter, trace};
 use tracing_subscriber::{
+    EnvFilter,
+    filter::Directive,
     fmt::{FmtContext, FormatEvent, FormatFields, format::Writer},
     registry::LookupSpan,
 };
@@ -116,12 +114,14 @@ fn main() {
 }
 
 fn handle_logging(level: Option<LevelFilter>, start_time: Instant) {
-    if let Some(level) = level {
-        tracing_subscriber::fmt()
-            .with_env_filter(format!("none,dust_lang={level}"))
-            .event_format(LogFormatter { start_time })
-            .init();
-    }
+    let level = level.unwrap_or(LevelFilter::OFF);
+
+    tracing_subscriber::fmt()
+        .with_env_filter(format!("none,dust={level},dust_lang={level}"))
+        .event_format(LogFormatter { start_time })
+        .init();
+
+    info!("Finished parsing CLI arguments and initializing logger");
 }
 
 struct LogFormatter {
@@ -143,31 +143,44 @@ where
 
         let elapsed = self.start_time.elapsed().as_millis_f64();
         let level = event.metadata().level();
-        let scopes = context
-            .event_scope()
-            .map(|scope| scope.from_root().collect::<Vec<_>>())
-            .unwrap_or_default();
+        let scopes = context.event_scope().map(|scope| scope.from_root());
 
-        let colorized_level = match *level {
-            Level::ERROR => "ERROR".red().bold(),
-            Level::WARN => "WARN".yellow().bold(),
-            Level::INFO => "INFO".blue().bold(),
-            Level::DEBUG => "DEBUG".green().bold(),
-            Level::TRACE => "TRACE".cyan().bold(),
+        let (symbol, level) = match *level {
+            Level::ERROR => ("‼️", "ERROR".red()),
+            Level::WARN => ("⚠️", "WARN".yellow()),
+            Level::INFO => ("ℹ️", "INFO".blue()),
+            Level::DEBUG => ("🐛", "DEBUG".green()),
+            Level::TRACE => ("🔎", "TRACE".magenta()),
         };
         let time = format!("{elapsed:.5}ms").dimmed();
 
-        write!(writer, "{colorized_level:5} {time}",)?;
+        write!(writer, "{symbol} ┊ {level:5} {time} ┊ ")?;
 
-        if !scopes.is_empty() {
-            let span_names = scopes
-                .iter()
-                .map(|span| span.metadata().name())
-                .collect::<Vec<_>>();
-            write!(writer, " {}", span_names.join("::").bold())?;
+        let mut scope_length = 0;
+
+        if let Some(scopes) = scopes {
+            for (index, span) in scopes.enumerate() {
+                let span_name = span.metadata().name().bold();
+                let mut span_length = span_name.len();
+
+                if index > 0 {
+                    write!(writer, "::")?;
+
+                    span_length += 2;
+                }
+
+                scope_length += span_length;
+
+                write!(writer, "{span_name}")?;
+            }
+
+            for _ in 0..(17 - scope_length) {
+                write!(writer, " ")?;
+            }
+
+            write!(writer, "┊ ")?;
         }
 
-        write!(writer, " ")?;
         context.format_fields(writer.by_ref(), event)?;
         writeln!(writer)
     }
@@ -213,22 +226,21 @@ fn build_source<'src>(
             } else {
                 path.join("src").join("main.ds")
             };
-            let file = SourceFile::file_from_path(&main_file_path)
-                .unwrap_or_else(|error| error.print_and_exit());
+            let file =
+                SourceFile::file(&main_file_path).unwrap_or_else(|error| error.print_and_exit());
 
             source.add_file(file);
 
             let lib_file_path = path.join("src").join("lib.ds");
 
             if lib_file_path.exists() {
-                let file = SourceFile::file_from_path(&lib_file_path)
-                    .unwrap_or_else(|error| error.print_and_exit());
+                let file =
+                    SourceFile::file(&lib_file_path).unwrap_or_else(|error| error.print_and_exit());
 
                 source.add_file(file);
             }
         } else {
-            let file =
-                SourceFile::file_from_path(&path).unwrap_or_else(|error| error.print_and_exit());
+            let file = SourceFile::file(&path).unwrap_or_else(|error| error.print_and_exit());
 
             source.add_file(file);
         }
@@ -241,7 +253,7 @@ fn build_source<'src>(
             .read_to_end(&mut buffer)
             .expect("Failed to read from stdin");
 
-        let file = SourceFile::non_validated_owned("stdin", buffer);
+        let file = SourceFile::owned("stdin", buffer);
 
         source.add_file(file);
     }

@@ -874,3 +874,13 @@ impl Default for Resolver {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolver_size() {
+        assert_eq!(size_of::<Resolver>(), 0);
+    }
+}

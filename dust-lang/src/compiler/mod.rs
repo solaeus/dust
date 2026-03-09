@@ -34,7 +34,7 @@ pub fn compile<'src>(source_files: &[(&'src str, &'src str)]) -> Result<Program,
     let mut source = Source::new();
 
     for (name, source_code) in source_files {
-        let file = SourceFile::validated(name, source_code);
+        let file = SourceFile::validated_borrowed(name, source_code);
 
         source.add_file(file);
     }
@@ -177,7 +177,7 @@ impl<'src> Compiler<'src> {
                         .and_then(|path| path.parent())
                         .unwrap_or_else(|| Path::new("."));
                     let module_path = parent_path.join(module_name_str).with_added_extension("ds");
-                    let module_file = match SourceFile::file_from_path(&module_path) {
+                    let module_file = match SourceFile::file(&module_path) {
                         Ok(file) => file,
                         Err(error) => {
                             errors.push(ErrorKind::Compile(CompileError::Source(error)));

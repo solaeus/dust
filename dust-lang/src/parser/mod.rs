@@ -28,7 +28,7 @@ use crate::{
 
 pub fn parse(source_code: &str) -> (SyntaxTree, Vec<ErrorKind>) {
     let mut source = Source::new();
-    let file = SourceFile::validated("parse", source_code);
+    let file = SourceFile::validated_borrowed("parse", source_code);
     let file_id = source.add_file(file);
     let file_str = source.get_file(file_id).unwrap().content_as_str();
 

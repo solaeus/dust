@@ -18,7 +18,7 @@ fn creates_type_declaration() {
     };
 
     assert_eq!(parent, None);
-    assert_eq!(members.count, 3);
+    assert_eq!(members.len(), 3);
 
     let color_declaration = resolver.declarations.get_declaration(color_id).unwrap();
 

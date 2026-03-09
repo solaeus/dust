@@ -1,17 +1,10 @@
 //! The Dust programming language library.
 #![expect(incomplete_features)]
 #![feature(
-    formatting_options,
     generic_const_exprs,
     int_from_ascii,
     iter_array_chunks,
-    iterator_try_collect,
-    new_range_api,
-    result_option_map_or_default,
-    string_into_chars,
-    thread_id_value,
-    trim_prefix_suffix,
-    uint_bit_width
+    iterator_try_collect
 )]
 
 mod compiler;

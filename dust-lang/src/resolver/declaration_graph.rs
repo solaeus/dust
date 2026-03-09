@@ -123,11 +123,12 @@ impl DeclarationGraph {
         parameter_ids: &[DeclarationId],
     ) -> DeclarationMembers {
         let start = self.declaration_members.len() as u32;
-        let count = parameter_ids.len() as u32;
 
         self.declaration_members.extend(parameter_ids);
 
-        DeclarationMembers { start, count }
+        let end = self.declaration_members.len() as u32;
+
+        DeclarationMembers { start, end }
     }
 
     pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, ResolverError> {
@@ -248,23 +249,21 @@ pub enum Visibility {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DeclarationMembers {
-    pub start: u32,
-    pub count: u32,
+    start: u32,
+    end: u32,
 }
 
 impl DeclarationMembers {
-    pub fn as_range(&self) -> Range<u32> {
-        let start = self.start;
-        let end = start.saturating_add(self.count);
+    pub fn len(&self) -> u32 {
+        self.end - self.start
+    }
 
-        Range { start, end }
+    pub fn as_range(&self) -> Range<u32> {
+        self.start..self.end
     }
 
     pub fn as_usize_range(&self) -> Range<usize> {
-        let start = self.start as usize;
-        let end = start.saturating_add(self.count as usize);
-
-        start..end
+        self.start as usize..self.end as usize
     }
 }
 

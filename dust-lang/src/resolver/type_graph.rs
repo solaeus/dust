@@ -1,3 +1,5 @@
+//! Type instance collection that stores every type known to the `Compiler`.
+
 use std::{
     hash::{Hash, Hasher},
     ops::Range,
@@ -5,10 +7,15 @@ use std::{
 
 use indexmap::{IndexSet, set::MutableValues};
 
-use crate::{
-    resolver::{declaration_graph::{DeclarationId, DeclarationMembers}, error::ResolverError},
+use crate::resolver::{
+    declaration_graph::{DeclarationId, DeclarationMembers},
+    error::ResolverError,
 };
 
+/// Type instance collection that stores every type known to the `Compiler`.
+///
+/// The `TypeGraph`'s methods handle adding and retrieving type instances. Type unification and
+/// inference is handled by `Resolver::unify_types` and `Resolver::infer_type`.
 #[derive(Debug)]
 pub struct TypeGraph {
     types: IndexSet<TypeNode>,
@@ -79,21 +86,20 @@ impl TypeGraph {
             .ok_or(ResolverError::MissingType(id))
     }
 
-    pub fn get_type_mut(&mut self, id: TypeId) -> Result<&mut TypeNode, ResolverError> {
+    pub(super) fn get_type_mut(&mut self, id: TypeId) -> Result<&mut TypeNode, ResolverError> {
         self.types
             .get_index_mut2(id.0 as usize)
             .ok_or(ResolverError::MissingType(id))
     }
 
     pub fn add_type_members(&mut self, types: &[TypeId]) -> TypeMembers {
-        let members = TypeMembers {
-            start: self.members.len() as u32,
-            count: types.len() as u32,
-        };
+        let start = self.members.len() as u32;
 
         self.members.extend_from_slice(types);
 
-        members
+        let end = self.members.len() as u32;
+
+        TypeMembers { start, end }
     }
 
     pub fn get_type_members(&self, members: TypeMembers) -> Result<&[TypeId], ResolverError> {
@@ -120,6 +126,7 @@ impl TypeGraph {
     }
 }
 
+/// Type instance identifier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypeId(u32);
 
@@ -168,6 +175,7 @@ impl TypeId {
     }
 }
 
+/// Type instance that can be stored in the `TypeGraph` and referenced by a `TypeId`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TypeNode {
     Unit,
@@ -277,23 +285,17 @@ impl Hash for TypeNode {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypeMembers {
-    pub start: u32,
-    pub count: u32,
+    start: u32,
+    end: u32,
 }
 
 impl TypeMembers {
     pub fn as_range(&self) -> Range<u32> {
-        let start = self.start;
-        let end = start.saturating_add(self.count);
-
-        Range { start, end }
+        self.start..self.end
     }
 
     pub fn as_usize_range(&self) -> Range<usize> {
-        let start = self.start as usize;
-        let end = start.saturating_add(self.count as usize);
-
-        Range { start, end }
+        self.start as usize..self.end as usize
     }
 }
 

@@ -15,7 +15,7 @@ use crate::{
 pub struct Error<'src> {
     errors: Vec<ErrorKind>,
     source: Option<Source<'src>>,
-    resolver: Option<Resolver>,
+    resolver: Option<Box<Resolver>>,
 }
 
 impl<'src> Error<'src> {
@@ -43,7 +43,7 @@ impl<'src> Error<'src> {
         Self {
             errors,
             source: Some(source),
-            resolver: Some(resolver),
+            resolver: Some(Box::new(resolver)),
         }
     }
 
@@ -70,7 +70,10 @@ impl<'a> Display for Error<'a> {
         let renderer = Renderer::styled();
 
         for error in &self.errors {
-            error.add_report((self.source.as_ref(), self.resolver.as_ref()), &mut report);
+            error.add_report(
+                (self.source.as_ref(), self.resolver.as_deref()),
+                &mut report,
+            );
 
             let display = renderer.render(&report);
 

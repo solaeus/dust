@@ -38,7 +38,7 @@ use super::TypeBinder;
 pub fn bind_types(source_code: &str) -> (Syntax, Resolver) {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated("test", source_code));
+    source.add_file(SourceFile::validated_borrowed("test", source_code));
 
     let lexer = Lexer::from_utf8(source_code);
     let parser = Parser::new(SourceFileId::MAIN, lexer);

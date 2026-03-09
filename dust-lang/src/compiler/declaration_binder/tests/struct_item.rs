@@ -18,7 +18,7 @@ fn creates_type_declaration() {
     };
 
     assert_eq!(parent, None);
-    assert_eq!(members.count, 2);
+    assert_eq!(members.len(), 2);
 
     let foo_declaration = resolver.declarations.get_declaration(foo_id).unwrap();
 

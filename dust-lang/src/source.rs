@@ -59,8 +59,8 @@ impl<'src> Source<'src> {
     pub fn set_utf8_validated(&mut self, file_id: SourceFileId) {
         if let Some(
             SourceFile::File { utf8_validated, .. }
-            | SourceFile::Embedded { utf8_validated, .. }
-            | SourceFile::EmbeddedOwned { utf8_validated, .. },
+            | SourceFile::Borrowed { utf8_validated, .. }
+            | SourceFile::Owned { utf8_validated, .. },
         ) = self.files.get_mut(file_id.0 as usize)
         {
             *utf8_validated = true;
@@ -103,12 +103,12 @@ pub enum SourceFile<'src> {
         mmap: Mmap,
         utf8_validated: bool,
     },
-    Embedded {
+    Borrowed {
         name: &'src str,
         content: &'src [u8],
         utf8_validated: bool,
     },
-    EmbeddedOwned {
+    Owned {
         name: &'src str,
         content: Vec<u8>,
         utf8_validated: bool,
@@ -116,39 +116,7 @@ pub enum SourceFile<'src> {
 }
 
 impl<'src> SourceFile<'src> {
-    pub fn non_validated(name: &'src str, content: &'src [u8]) -> Self {
-        SourceFile::Embedded {
-            name,
-            content,
-            utf8_validated: false,
-        }
-    }
-
-    pub const fn validated(name: &'src str, content: &'src str) -> Self {
-        SourceFile::Embedded {
-            name,
-            content: content.as_bytes(),
-            utf8_validated: true,
-        }
-    }
-
-    pub fn non_validated_owned(name: &'src str, content: Vec<u8>) -> Self {
-        SourceFile::EmbeddedOwned {
-            name,
-            content,
-            utf8_validated: false,
-        }
-    }
-
-    pub fn validated_owned(name: &'src str, content: String) -> Self {
-        SourceFile::EmbeddedOwned {
-            name,
-            content: content.into_bytes(),
-            utf8_validated: true,
-        }
-    }
-
-    pub fn file_from_path(path: &Path) -> Result<Self, SourceError> {
+    pub fn file(path: &Path) -> Result<Self, SourceError> {
         let Ok(path) = path.canonicalize() else {
             return Err(SourceError::InvalidPath {
                 found: path.display().to_string(),
@@ -175,6 +143,38 @@ impl<'src> SourceFile<'src> {
         })
     }
 
+    pub fn borrowed(name: &'src str, content: &'src [u8]) -> Self {
+        SourceFile::Borrowed {
+            name,
+            content,
+            utf8_validated: false,
+        }
+    }
+
+    pub const fn validated_borrowed(name: &'src str, content: &'src str) -> Self {
+        SourceFile::Borrowed {
+            name,
+            content: content.as_bytes(),
+            utf8_validated: true,
+        }
+    }
+
+    pub fn owned(name: &'src str, content: Vec<u8>) -> Self {
+        SourceFile::Owned {
+            name,
+            content,
+            utf8_validated: false,
+        }
+    }
+
+    pub fn validated_owned(name: &'src str, content: String) -> Self {
+        SourceFile::Owned {
+            name,
+            content: content.into_bytes(),
+            utf8_validated: true,
+        }
+    }
+
     pub fn path(&self) -> Option<&Path> {
         match self {
             Self::File { path, .. } => Some(path.as_path()),
@@ -184,7 +184,7 @@ impl<'src> SourceFile<'src> {
 
     pub fn file_name(&self) -> &str {
         match self {
-            Self::Embedded { name, .. } | Self::EmbeddedOwned { name, .. } => name,
+            Self::Borrowed { name, .. } | Self::Owned { name, .. } => name,
             Self::File { path, .. } => path
                 .file_name()
                 .and_then(|name| name.to_str())
@@ -194,15 +194,15 @@ impl<'src> SourceFile<'src> {
 
     pub fn path_or_name(&self) -> Cow<'_, str> {
         match self {
-            Self::Embedded { name, .. } | Self::EmbeddedOwned { name, .. } => Cow::Borrowed(name),
+            Self::Borrowed { name, .. } | Self::Owned { name, .. } => Cow::Borrowed(name),
             Self::File { path, .. } => path.to_string_lossy(),
         }
     }
 
     pub fn is_utf8_validated(&self) -> bool {
         match self {
-            Self::Embedded { utf8_validated, .. }
-            | Self::EmbeddedOwned { utf8_validated, .. }
+            Self::Borrowed { utf8_validated, .. }
+            | Self::Owned { utf8_validated, .. }
             | Self::File { utf8_validated, .. } => *utf8_validated,
         }
     }
@@ -232,8 +232,8 @@ impl<'src> SourceFile<'src> {
 
     pub fn content_as_bytes(&self) -> &[u8] {
         match self {
-            Self::Embedded { content, .. } => content,
-            Self::EmbeddedOwned { content, .. } => content,
+            Self::Borrowed { content, .. } => content,
+            Self::Owned { content, .. } => content,
             Self::File { mmap, .. } => mmap,
         }
     }
@@ -264,7 +264,7 @@ impl<'src> SourceFile<'src> {
         }
 
         match self {
-            Self::Embedded {
+            Self::Borrowed {
                 name: path,
                 content: source_bytes,
                 utf8_validated,
@@ -275,7 +275,7 @@ impl<'src> SourceFile<'src> {
                     handle_utf8_validation(path, source_bytes)
                 }
             }
-            Self::EmbeddedOwned {
+            Self::Owned {
                 name: path,
                 content: source_bytes,
                 utf8_validated,
@@ -301,6 +301,7 @@ impl<'src> SourceFile<'src> {
     }
 }
 
+/// Represents a slice of a file's content that can be read from the `Source`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Position {
     pub file_id: SourceFileId,
@@ -320,6 +321,9 @@ impl Position {
     }
 }
 
+/// Half-open range of byte indices in a source file.
+///
+/// A `Span` is alway a valid range: the end is always greater than or equal to the start.
 #[derive(
     Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
@@ -331,13 +335,6 @@ impl Span {
         let end = end.try_into().unwrap_or_default().max(start);
 
         Self(start, end)
-    }
-
-    pub fn join(&self, other: &Span) -> Span {
-        let new_start = self.0.min(other.0);
-        let new_end = self.1.max(other.1);
-
-        Span(new_start, new_end)
     }
 
     pub fn as_usize_range(&self) -> Range<usize> {
@@ -353,18 +350,21 @@ impl Span {
     }
 
     pub fn length(&self) -> u32 {
-        self.1.saturating_sub(self.0)
+        self.1 - self.0
+    }
+
+    pub fn join(&self, other: &Span) -> Span {
+        let new_start = self.0.min(other.0);
+        let new_end = self.1.max(other.1).max(new_start);
+
+        Span(new_start, new_end)
     }
 
     pub fn shrink(&self, offset: u32) -> Span {
         let new_start = self.0.saturating_add(offset);
-        let new_end = self.1.saturating_sub(offset);
+        let new_end = self.1.saturating_sub(offset).max(new_start);
 
-        if new_start > new_end {
-            Span(new_start, new_start)
-        } else {
-            Span(new_start, new_end)
-        }
+        Span(new_start, new_end)
     }
 }
 
