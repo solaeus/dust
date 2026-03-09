@@ -13,9 +13,6 @@ use crate::resolver::{
 };
 
 /// Type instance collection that stores every type known to the `Compiler`.
-///
-/// The `TypeGraph`'s methods handle adding and retrieving type instances. Type unification and
-/// inference is handled by `Resolver::unify_types` and `Resolver::infer_type`.
 #[derive(Debug)]
 pub struct TypeGraph {
     types: IndexSet<TypeNode>,
@@ -86,7 +83,7 @@ impl TypeGraph {
             .ok_or(ResolverError::MissingType(id))
     }
 
-    pub(super) fn get_type_mut(&mut self, id: TypeId) -> Result<&mut TypeNode, ResolverError> {
+    pub fn get_type_mut(&mut self, id: TypeId) -> Result<&mut TypeNode, ResolverError> {
         self.types
             .get_index_mut2(id.0 as usize)
             .ok_or(ResolverError::MissingType(id))

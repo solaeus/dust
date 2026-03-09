@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 use tracing::debug;
 
 use crate::{
-    compiler::{emitter::Emission, error::CompileError},
+    compiler::error::CompileError,
     error::ErrorKind,
     resolver::{
         Resolver,
@@ -34,6 +34,216 @@ impl<'a> TypeBinder<'a> {
             syntax,
             resolver,
             errors,
+        }
+    }
+
+    pub fn infer_type(&self, type_id: TypeId) -> Result<TypeId, ErrorKind> {
+        if let TypeNode::Inferred {
+            resolved: Some(resolved),
+            ..
+        } = self.resolver.types.get_type(type_id)?
+        {
+            self.infer_type(*resolved)
+        } else {
+            Ok(type_id)
+        }
+    }
+
+    pub fn unify_types(
+        &mut self,
+        left: TypeId,
+        left_syntax: Option<SyntaxReader>,
+        right: TypeId,
+        right_syntax: SyntaxReader,
+    ) -> Result<(), ErrorKind> {
+        if left == right {
+            return Ok(());
+        }
+
+        let left_inferred = self.infer_type(left)?;
+        let right_inferred = self.infer_type(right)?;
+
+        if left_inferred == right_inferred {
+            return Ok(());
+        }
+
+        self.unify_inferred_types(left_inferred, left_syntax, right_inferred, right_syntax)
+    }
+
+    pub fn unify_inferred_types<'b>(
+        &'b mut self,
+        left: TypeId,
+        left_syntax: Option<SyntaxReader<'b>>,
+        right: TypeId,
+        right_syntax: SyntaxReader<'b>,
+    ) -> Result<(), ErrorKind> {
+        let left_type_node = *self.resolver.types.get_type(left)?;
+        let right_type_node = *self.resolver.types.get_type(right)?;
+
+        match (left_type_node, right_type_node) {
+            (
+                TypeNode::Inferred {
+                    inferred_id,
+                    resolved: None,
+                },
+                _,
+            ) => {
+                let left_node = self.resolver.types.get_type_mut(left)?;
+
+                *left_node = TypeNode::Inferred {
+                    inferred_id,
+                    resolved: Some(right),
+                };
+
+                Ok(())
+            }
+            (
+                _,
+                TypeNode::Inferred {
+                    inferred_id,
+                    resolved: None,
+                },
+            ) => {
+                let right_node = self.resolver.types.get_type_mut(right)?;
+
+                *right_node = TypeNode::Inferred {
+                    inferred_id,
+                    resolved: Some(left),
+                };
+
+                Ok(())
+            }
+            (
+                TypeNode::List {
+                    element_type_id: left_element_type,
+                },
+                TypeNode::List {
+                    element_type_id: right_element_type,
+                },
+            ) => self.unify_types(
+                left_element_type,
+                left_syntax,
+                right_element_type,
+                right_syntax,
+            ),
+            (
+                TypeNode::Function {
+                    type_parameters: _left_type_parameters,
+                    value_parameters: left_value_parameters,
+                    return_type_id: left_return_type,
+                },
+                TypeNode::Function {
+                    type_parameters: _right_type_parameters,
+                    value_parameters: right_value_parameters,
+                    return_type_id: right_return_type,
+                },
+            ) => {
+                let left_value_types = self
+                    .resolver
+                    .types
+                    .get_type_members(left_value_parameters)?
+                    .iter()
+                    .copied()
+                    .collect::<SmallVec<[TypeId; 8]>>();
+                let right_value_types = self
+                    .resolver
+                    .types
+                    .get_type_members(right_value_parameters)?
+                    .iter()
+                    .copied()
+                    .collect::<SmallVec<[TypeId; 8]>>();
+
+                for (left_type_id, right_type_id) in
+                    left_value_types.into_iter().zip(right_value_types)
+                {
+                    self.unify_types(left_type_id, left_syntax, right_type_id, right_syntax)?;
+                }
+
+                self.unify_types(
+                    left_return_type,
+                    left_syntax,
+                    right_return_type,
+                    right_syntax,
+                )?;
+
+                Ok(())
+            }
+            (
+                TypeNode::Struct {
+                    declaration_id: left_declaration_id,
+                    type_arguments: left_type_arguments,
+                    ..
+                },
+                TypeNode::Struct {
+                    declaration_id: right_declaration_id,
+                    type_arguments: right_type_arguments,
+                    ..
+                },
+            ) => {
+                if left_declaration_id != right_declaration_id {
+                    let expected_position = if let Some(left) = left_syntax {
+                        left.children()?.next_back().map(|child| child.position())
+                    } else {
+                        None
+                    };
+                    let found_position = right_syntax
+                        .children()?
+                        .next_back()
+                        .unwrap_or(right_syntax)
+                        .position();
+
+                    return Err(ErrorKind::Compile(CompileError::TypeConflict {
+                        expected_type: left,
+                        expected_position,
+                        found_type: right,
+                        found_position,
+                    }));
+                }
+
+                let left_args = self
+                    .resolver
+                    .types
+                    .get_type_members(left_type_arguments)?
+                    .iter()
+                    .copied()
+                    .collect::<SmallVec<[TypeId; 8]>>();
+                let right_args = self
+                    .resolver
+                    .types
+                    .get_type_members(right_type_arguments)?
+                    .iter()
+                    .copied()
+                    .collect::<SmallVec<[TypeId; 8]>>();
+
+                for (left_arg, right_arg) in left_args.iter().zip(right_args.iter()) {
+                    self.unify_types(*left_arg, left_syntax, *right_arg, right_syntax)?;
+                }
+
+                Ok(())
+            }
+            (left_type_node, right_type_node) => {
+                if left_type_node == right_type_node {
+                    Ok(())
+                } else {
+                    let expected_position = if let Some(left) = left_syntax {
+                        left.children()?.next_back().map(|child| child.position())
+                    } else {
+                        None
+                    };
+                    let found_position = right_syntax
+                        .children()?
+                        .next_back()
+                        .unwrap_or(right_syntax)
+                        .position();
+
+                    Err(ErrorKind::Compile(CompileError::TypeConflict {
+                        expected_type: left,
+                        expected_position,
+                        found_type: right,
+                        found_position,
+                    }))
+                }
+            }
         }
     }
 }
@@ -217,7 +427,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         if let Some(type_notation) = type_notation {
             let explicit_type = self.visit_type(type_notation)?;
 
-            match self.resolver.unify_types(
+            match self.unify_types(
                 explicit_type,
                 Some(type_notation),
                 expression_type_id,
@@ -266,12 +476,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let left_type = {
             let raw = self.visit_expression(left, None)?;
 
-            self.resolver.infer_type(raw)?
+            self.infer_type(raw)?
         };
         let right_type = {
             let raw = self.visit_expression(right, None)?;
 
-            self.resolver.infer_type(raw)?
+            self.infer_type(raw)?
         };
 
         let is_character_concatenation = node.kind() == SyntaxKind::AdditionAssignmentExpression
@@ -283,10 +493,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             return Ok(TypeId::UNIT);
         }
 
-        if let Err(error) =
-            self.resolver
-                .unify_inferred_types(left_type, Some(left), right_type, right)
-        {
+        if let Err(error) = self.unify_inferred_types(left_type, Some(left), right_type, right) {
             self.errors.push(error);
         }
 
@@ -304,8 +511,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let left_type = self.visit_expression(left, None)?;
         let right_type = self.visit_expression(right, None)?;
 
-        self.resolver
-            .unify_types(left_type, Some(left), right_type, right)?;
+        self.unify_types(left_type, Some(left), right_type, right)?;
         self.resolver.add_type_binding(left.id, left_type);
         self.resolver.add_type_binding(right.id, right_type);
         self.resolver.add_type_binding(node.id, TypeId::UNIT);
@@ -400,8 +606,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             let child_type = self.visit_expression(child, None)?;
 
             if let Some((previous_type, previous)) = first_type {
-                self.resolver
-                    .unify_types(previous_type, Some(previous), child_type, child)?;
+                self.unify_types(previous_type, Some(previous), child_type, child)?;
             } else {
                 first_type = Some((child_type, child));
             }
@@ -434,12 +639,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let list_type_id = {
             let raw = self.visit_expression(list_expression, input)?;
 
-            self.resolver.infer_type(raw)?
+            self.infer_type(raw)?
         };
         let index_type_id = {
             let raw = self.visit_expression(index_expression, input)?;
 
-            self.resolver.infer_type(raw)?
+            self.infer_type(raw)?
         };
 
         if index_type_id != TypeId::U_64 {
@@ -531,7 +736,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 .get_declaration_type(&field_declaration_id)?;
             let actual_field_type_id = self.visit_expression(field_expression, None)?;
 
-            self.resolver.unify_types(
+            self.unify_types(
                 declared_field_type_id,
                 Some(field_name),
                 actual_field_type_id,
@@ -597,7 +802,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let condition_type = {
             let raw = self.visit_expression(condition, None)?;
 
-            self.resolver.infer_type(raw)?
+            self.infer_type(raw)?
         };
 
         if condition_type != TypeId::BOOLEAN {
@@ -615,12 +820,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         if let Some(else_block) = else_block {
             let else_type = self.visit_block_expression(else_block, None)?;
 
-            self.resolver.unify_types(
-                then_type,
-                Some(then_block),
-                else_type,
-                else_block.child()?,
-            )?;
+            self.unify_types(then_type, Some(then_block), else_type, else_block.child()?)?;
         }
 
         self.resolver.add_type_binding(node.id, then_type);
@@ -640,12 +840,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let left_type = {
             let raw = self.visit_expression(left_expression, None)?;
 
-            self.resolver.infer_type(raw)?
+            self.infer_type(raw)?
         };
         let right_type = {
             let raw = self.visit_expression(right_expression, None)?;
 
-            self.resolver.infer_type(raw)?
+            self.infer_type(raw)?
         };
 
         let is_character_concatenation = matches!(
@@ -659,7 +859,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let math_expression_type = if is_character_concatenation {
             TypeId::STRING
         } else {
-            self.resolver.unify_inferred_types(
+            self.unify_inferred_types(
                 left_type,
                 Some(left_expression),
                 right_type,
@@ -687,7 +887,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let left_type = self.visit_expression(left_expression, None)?;
         let right_type = self.visit_expression(right_expression, None)?;
 
-        self.resolver.unify_types(
+        self.unify_types(
             left_type,
             Some(left_expression),
             right_type,
@@ -710,12 +910,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let left_type = {
             let raw = self.visit_expression(left_expression, input)?;
 
-            self.resolver.infer_type(raw)?
+            self.infer_type(raw)?
         };
         let right_type = {
             let raw = self.visit_expression(right_expression, input)?;
 
-            self.resolver.infer_type(raw)?
+            self.infer_type(raw)?
         };
 
         if left_type != TypeId::BOOLEAN {
@@ -754,7 +954,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let child_type = {
             let raw = self.visit_expression(expression, None)?;
 
-            self.resolver.infer_type(raw)?
+            self.infer_type(raw)?
         };
 
         match child_type {
@@ -795,7 +995,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let condition_type = {
             let raw = self.visit_expression(condition, None)?;
 
-            self.resolver.infer_type(raw)?
+            self.infer_type(raw)?
         };
 
         if condition_type != TypeId::BOOLEAN {
@@ -870,14 +1070,14 @@ impl SyntaxVisitor for TypeBinder<'_> {
             if let Some(return_type_node) = return_type {
                 let raw = self.visit_type(return_type_node)?;
 
-                self.resolver.infer_type(raw)?
+                self.infer_type(raw)?
             } else {
                 TypeId::UNIT
             }
         };
         let actual_return_type_id = self.visit_block_expression(body, None)?;
 
-        self.resolver.unify_types(
+        self.unify_types(
             expected_return_type_id,
             return_type,
             actual_return_type_id,
@@ -910,7 +1110,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let callee_type = {
             let raw = self.visit_expression(callee, None)?;
 
-            self.resolver.infer_type(raw)?
+            self.infer_type(raw)?
         };
 
         let TypeNode::Function {
@@ -945,8 +1145,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         for (argument, expected_type_id) in arguments.zip(expected_parameters.into_iter()) {
             let argument_type = self.visit_expression(argument, None)?;
 
-            self.resolver
-                .unify_types(expected_type_id, None, argument_type, argument)?;
+            self.unify_types(expected_type_id, None, argument_type, argument)?;
         }
 
         self.resolver.add_type_binding(node.id, return_type_id);
