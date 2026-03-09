@@ -1,8 +1,7 @@
 use smallvec::SmallVec;
 
 use crate::{
-    error::{ErrorKind, InternalError},
-    resolver::declaration_graph::DeclarationId,
+    resolver::{declaration_graph::DeclarationId, error::ResolverError},
 };
 
 #[derive(Debug, Default)]
@@ -25,10 +24,10 @@ impl ScopeGraph {
         id
     }
 
-    pub fn get_scope(&self, id: ScopeId) -> Result<&Scope, ErrorKind> {
+    pub fn get_scope(&self, id: ScopeId) -> Result<&Scope, ResolverError> {
         self.scopes
             .get(id.0 as usize)
-            .ok_or(ErrorKind::Internal(InternalError::MissingScope(id)))
+            .ok_or(ResolverError::MissingScope(id))
     }
 }
 

@@ -1,31 +1,21 @@
 //! Top-level error for the Dust language API that can create detailed reports with source code
 //! annotations.
 use std::{
-    fmt::{self, Display, Formatter},
+    fmt::{self, Debug, Display, Formatter},
     process,
 };
 
 use annotate_snippets::{Group, Level, Renderer};
 
 use crate::{
-    compiler::error::CompileError,
-    parser::ParseError,
-    resolver::{
-        Resolver,
-        declaration_graph::{DeclarationId, DeclarationMembers},
-        scope_graph::ScopeId,
-        symbol_table::SymbolId,
-        type_graph::{TypeId, TypeMembers, TypeNode},
-    },
-    source::{Source, SourceError, SourceFileId, Span},
-    syntax::{SyntaxId, SyntaxKind, SyntaxPayload},
+    compiler::error::CompileError, parser::ParseError, resolver::Resolver, source::Source,
 };
 
 #[derive(Debug)]
 pub struct Error<'src> {
     errors: Vec<ErrorKind>,
     source: Option<Source<'src>>,
-    resolver: Option<Box<Resolver>>,
+    resolver: Option<Resolver>,
 }
 
 impl<'src> Error<'src> {
@@ -53,7 +43,7 @@ impl<'src> Error<'src> {
         Self {
             errors,
             source: Some(source),
-            resolver: Some(Box::new(resolver)),
+            resolver: Some(resolver),
         }
     }
 
@@ -80,10 +70,7 @@ impl<'a> Display for Error<'a> {
         let renderer = Renderer::styled();
 
         for error in &self.errors {
-            error.add_report(
-                (self.source.as_ref(), self.resolver.as_deref()),
-                &mut report,
-            );
+            error.add_report((self.source.as_ref(), self.resolver.as_ref()), &mut report);
 
             let display = renderer.render(&report);
 
@@ -99,22 +86,8 @@ impl<'a> Display for Error<'a> {
 /// An error that can occur during the interpretation of Dust code.
 #[derive(Debug)]
 pub enum ErrorKind {
-    Internal(InternalError),
-    Source(SourceError),
     Parse(ParseError),
     Compile(CompileError),
-}
-
-impl From<InternalError> for ErrorKind {
-    fn from(internal_error: InternalError) -> Self {
-        ErrorKind::Internal(internal_error)
-    }
-}
-
-impl From<SourceError> for ErrorKind {
-    fn from(source_error: SourceError) -> Self {
-        ErrorKind::Source(source_error)
-    }
 }
 
 impl From<ParseError> for ErrorKind {
@@ -129,20 +102,49 @@ impl From<CompileError> for ErrorKind {
     }
 }
 
+impl From<crate::syntax::error::SyntaxError> for ErrorKind {
+    fn from(error: crate::syntax::error::SyntaxError) -> Self {
+        ErrorKind::Compile(CompileError::Syntax(error))
+    }
+}
+
+impl From<crate::resolver::error::ResolverError> for ErrorKind {
+    fn from(error: crate::resolver::error::ResolverError) -> Self {
+        ErrorKind::Compile(CompileError::Resolver(error))
+    }
+}
+
+impl From<crate::constant_list::ConstantListError> for ErrorKind {
+    fn from(error: crate::constant_list::ConstantListError) -> Self {
+        ErrorKind::Compile(CompileError::ConstantList(error))
+    }
+}
+
+impl From<crate::source::SourceError> for ErrorKind {
+    fn from(error: crate::source::SourceError) -> Self {
+        ErrorKind::Compile(CompileError::Source(error))
+    }
+}
+
 impl<'a> AnnotatedError<'a> for ErrorKind {
     type Context = (Option<&'a Source<'a>>, Option<&'a Resolver>);
+
+    fn is_internal(&self) -> bool {
+        match self {
+            ErrorKind::Parse(parse_error) => parse_error.is_internal(),
+            ErrorKind::Compile(compile_error) => compile_error.is_internal(),
+        }
+    }
 
     fn add_report(&self, context: Self::Context, groups: &mut Vec<Group<'a>>) {
         let (source, resolver) = context;
 
         match self {
-            ErrorKind::Internal(internal_error) => internal_error.add_report((), groups),
-            ErrorKind::Source(source_error) => source_error.add_report((), groups),
             ErrorKind::Parse(parse_error) => {
                 if let Some(source) = source {
                     parse_error.add_report(source, groups)
                 } else {
-                    InternalError::MissingErrorContext.add_report((), groups);
+                    MissingErrorContext.add_report((), groups);
                 }
             }
             ErrorKind::Compile(compile_error) => {
@@ -151,112 +153,46 @@ impl<'a> AnnotatedError<'a> for ErrorKind {
                 {
                     compile_error.add_report((source, resolver), groups)
                 } else {
-                    InternalError::MissingErrorContext.add_report((), groups);
+                    MissingErrorContext.add_report((), groups);
                 }
             }
         }
     }
 }
 
+/// An error occurred but the context needed to generate a report is missing.
 #[derive(Debug)]
-pub enum InternalError {
-    /// An error occured but the context needed to generate a report is missing.
-    MissingErrorContext,
+pub struct MissingErrorContext;
 
-    InvalidConstantTable,
-
-    MissingSourceFile(SourceFileId),
-    MissingSourceFileContent {
-        span: Span,
-        length: usize,
-    },
-
-    MissingSyntaxTree(SourceFileId),
-    MissingSyntaxNode(SyntaxId),
-    MissingSyntaxChild {
-        total_children: usize,
-    },
-    MissingSyntaxChildren(SyntaxPayload),
-    InvalidSyntaxPayload(SyntaxPayload),
-    ExpectedSyntaxChildren {
-        expected: usize,
-        actual: usize,
-    },
-
-    MissingSymbol(SymbolId),
-
-    MissingDeclaration(DeclarationId),
-    MissingDeclarationMember(u32),
-    MissingDeclarationMembers(DeclarationMembers),
-    MissingDeclarationType(DeclarationId),
-    MissingDeclarationBinding(SyntaxId),
-    ExpectedModuleDeclaration(DeclarationId),
-    ExpectedTypeDeclaration(DeclarationId),
-
-    MissingScope(ScopeId),
-    MissingScopeBinding(SyntaxId),
-
-    MissingType(TypeId),
-    MissingTypeMember(u32),
-    MissingTypeMembers(TypeMembers),
-    MissingTypeBinding(SyntaxId),
-
-    InvalidRegisterCount {
-        expected: usize,
-        found: usize,
-    },
-    ExpectedListType {
-        found: TypeNode,
-    },
-    ExpectedFloatRegister,
-    ExpectedIntegerRegister,
-    ExpectedEmissionTarget {
-        node_kind: SyntaxKind,
-    },
-}
-
-impl InternalError {
-    pub fn print_and_exit(&self) -> ! {
-        eprintln!("{self}");
-
-        process::exit(1);
-    }
-}
-
-impl<'a> AnnotatedError<'a> for InternalError {
+impl<'a> AnnotatedError<'a> for MissingErrorContext {
     type Context = ();
 
-    fn add_report(&self, _: Self::Context, groups: &mut Vec<Group<'a>>) {
-        let title = "Internal error".to_string();
-        let message = format!("{self:?}");
-        let help = "This is a bug. 🐛 If this is a released version of Dust, please report this to the developers.".to_string();
-        let group = Group::with_title(Level::ERROR.primary_title(title))
-            .element(Level::ERROR.message(message))
-            .element(Level::NOTE.message(help));
-
-        groups.push(group);
+    fn is_internal(&self) -> bool {
+        true
     }
-}
 
-impl Display for InternalError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let mut groups = Vec::with_capacity(1);
-
-        self.add_report((), &mut groups);
-
-        let renderer = Renderer::styled();
-        let display = renderer.render(&groups);
-
-        write!(f, "{display}")
+    fn add_report(&self, _: Self::Context, groups: &mut Vec<Group<'a>>) {
+        self.add_internal_report(groups);
     }
 }
 
 pub trait AnnotatedError<'a> {
     type Context;
 
-    fn error_count(&self) -> usize {
-        1
-    }
+    fn is_internal(&self) -> bool;
 
     fn add_report(&self, context: Self::Context, groups: &mut Vec<Group<'a>>);
+
+    fn add_internal_report(&self, groups: &mut Vec<Group<'a>>)
+    where
+        Self: Debug,
+    {
+        let group = Group::with_title(Level::ERROR.primary_title("Internal error"))
+            .element(Level::ERROR.message(format!("{self:?}")))
+            .element(Level::NOTE.message(
+                "Woops! This is a bug. 🐛 If this is a released version of Dust, please report this to the developers.",
+            ));
+
+        groups.push(group);
+    }
 }

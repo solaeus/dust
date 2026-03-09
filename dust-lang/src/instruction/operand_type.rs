@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-/// A small (32-bit) type representation used to encode the types of instruction operands.
+/// A small (4-bit) type representation used to encode the types of instruction operands.
 ///
 /// `OperandType` can represent any type, but it not always with full specificity. It provides just
 /// enough information to determine how to interpret an instruction's operands at runtime.
@@ -60,7 +60,7 @@ impl Display for OperandType {
             Self::F_32 => write!(f, "f32"),
             Self::F_64 => write!(f, "f64"),
             Self::CHARACTER => write!(f, "char"),
-            Self::POINTER => write!(f, "*mut T"),
+            Self::POINTER => write!(f, "*T"),
             Self::FUNCTION => write!(f, "fn"),
             _ => write!(f, "<invalid operand type>"),
         }

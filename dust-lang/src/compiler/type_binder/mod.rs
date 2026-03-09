@@ -6,7 +6,7 @@ use tracing::debug;
 
 use crate::{
     compiler::{emitter::Emission, error::CompileError},
-    error::{ErrorKind, InternalError},
+    error::ErrorKind,
     resolver::{
         Resolver,
         declaration_graph::{DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind},
@@ -93,8 +93,8 @@ impl SyntaxVisitor for TypeBinder<'_> {
             {
                 file_id
             } else {
-                return Err(ErrorKind::Internal(
-                    InternalError::ExpectedModuleDeclaration(module_declaration_id),
+                return Err(ErrorKind::Compile(
+                    CompileError::ExpectedModuleDeclaration(module_declaration_id),
                 ));
             };
             let module_root = self.syntax.get_tree(module_file_id)?.root()?;
@@ -1007,6 +1007,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                     .get_declaration_type(declaration_id)
             })
             .copied()
+            .map_err(ErrorKind::from)
     }
 
     fn visit_simple_path(
@@ -1025,5 +1026,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
                     .get_declaration_type(declaration_id)
             })
             .copied()
+            .map_err(ErrorKind::from)
     }
 }

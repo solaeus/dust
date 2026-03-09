@@ -192,7 +192,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             kind: DeclarationKind::Function,
             scope_id: self.current_scope_id,
             public: function_item.kind() == SyntaxKind::PublicFunctionItem,
-            syntax: Some((function_name.position(), function_item.id)),
+            syntax: Some((function_item.position(), function_item.id)),
         });
 
         self.resolver

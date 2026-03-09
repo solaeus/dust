@@ -1,4 +1,5 @@
 pub mod declaration_graph;
+pub mod error;
 pub mod scope_graph;
 pub mod symbol_table;
 pub mod type_graph;
@@ -11,13 +12,14 @@ use smallvec::SmallVec;
 use crate::{
     compiler::error::CompileError,
     dust_type::{DustFunctionType, DustStructType, DustType},
-    error::{ErrorKind, InternalError},
+    error::ErrorKind,
     native_function::NativeFunction,
     resolver::{
         declaration_graph::{
             Declaration, DeclarationGraph, DeclarationId, DeclarationKind, DeclarationMembers,
             ModuleKind, Visibility,
         },
+        error::ResolverError,
         scope_graph::{Scope, ScopeGraph, ScopeId, ScopeKind},
         symbol_table::{SymbolId, SymbolTable},
         type_graph::{TypeGraph, TypeId, TypeMembers, TypeNode},
@@ -129,32 +131,14 @@ impl Resolver {
         };
 
         let vec_declaration_id = self.declarations.next_declaration_id();
-        let with_capacity_declaration_id = vec_declaration_id.offset(1);
+        let element_type_parameter_declaration_id = vec_declaration_id.offset(1);
+        let with_capacity_declaration_id = vec_declaration_id.offset(2);
 
         let vec_symbol_id = self.symbols.add_symbol("Vec");
+        let element_type_parameter_symbol = self.symbols.add_symbol("T");
         let with_capacity_symbol_id = self.symbols.add_symbol("with_capacity");
 
         let _vec_declaration_id = {
-            let element_type_parameter_symbol = self.symbols.add_symbol("T");
-            let element_type_parameter_declaration_id =
-                self.declarations.add_declaration(Declaration {
-                    symbol_id: element_type_parameter_symbol,
-                    syntax: None,
-                    kind: DeclarationKind::Type {
-                        parent: Some(vec_declaration_id),
-                        type_parameters: DeclarationMembers::default(),
-                        members: DeclarationMembers::default(),
-                    },
-                    scope_id: ScopeId::CORE,
-                    public: false,
-                });
-            let element_type_parameter_type_id = self.types.create_inferred_type();
-
-            self.declarations.set_declaration_type(
-                element_type_parameter_declaration_id,
-                element_type_parameter_type_id,
-            );
-
             let type_parameters = self
                 .declarations
                 .add_declaration_members(&[element_type_parameter_declaration_id]);
@@ -174,6 +158,26 @@ impl Resolver {
                 public: true,
             })
         };
+
+        let _element_type_parameter_declaration_id =
+            self.declarations.add_declaration(Declaration {
+                symbol_id: element_type_parameter_symbol,
+                syntax: None,
+                kind: DeclarationKind::Type {
+                    parent: Some(vec_declaration_id),
+                    type_parameters: DeclarationMembers::default(),
+                    members: DeclarationMembers::default(),
+                },
+                scope_id: ScopeId::CORE,
+                public: false,
+            });
+        let element_type_parameter_type_id = self.types.create_inferred_type();
+
+        self.declarations.set_declaration_type(
+            element_type_parameter_declaration_id,
+            element_type_parameter_type_id,
+        );
+
         let _with_capacity_declaration_id = self.declarations.add_declaration(Declaration {
             symbol_id: with_capacity_symbol_id,
             syntax: None,
@@ -192,6 +196,10 @@ impl Resolver {
         debug_assert_eq!(some_field_declaration_id, _some_field_declaration_id);
         debug_assert_eq!(some_declaration_id, _some_declaration_id);
         debug_assert_eq!(vec_declaration_id, _vec_declaration_id);
+        debug_assert_eq!(
+            element_type_parameter_declaration_id,
+            _element_type_parameter_declaration_id
+        );
         debug_assert_eq!(with_capacity_declaration_id, _with_capacity_declaration_id);
 
         let core_scope_id = self.scopes.add_scope(Scope {
@@ -224,34 +232,30 @@ impl Resolver {
     pub fn get_declaration_binding(
         &self,
         syntax_id: &SyntaxId,
-    ) -> Result<&DeclarationId, ErrorKind> {
+    ) -> Result<&DeclarationId, ResolverError> {
         self.declaration_bindings
             .get(syntax_id)
-            .ok_or(ErrorKind::Internal(
-                InternalError::MissingDeclarationBinding(*syntax_id),
-            ))
+            .ok_or(ResolverError::MissingDeclarationBinding(*syntax_id))
     }
 
     pub fn add_scope_binding(&mut self, syntax_id: SyntaxId, scope_id: ScopeId) {
         self.scope_bindings.insert(syntax_id, scope_id);
     }
 
-    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Result<&ScopeId, ErrorKind> {
+    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Result<&ScopeId, ResolverError> {
         self.scope_bindings
             .get(syntax_id)
-            .ok_or(ErrorKind::Internal(InternalError::MissingScopeBinding(
-                *syntax_id,
-            )))
+            .ok_or(ResolverError::MissingScopeBinding(*syntax_id))
     }
 
     pub fn add_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {
         self.type_bindings.insert(syntax_id, type_id);
     }
 
-    pub fn get_type_binding(&self, syntax_id: &SyntaxId) -> Result<&TypeId, ErrorKind> {
-        self.type_bindings.get(syntax_id).ok_or(ErrorKind::Internal(
-            InternalError::MissingTypeBinding(*syntax_id),
-        ))
+    pub fn get_type_binding(&self, syntax_id: &SyntaxId) -> Result<&TypeId, ResolverError> {
+        self.type_bindings
+            .get(syntax_id)
+            .ok_or(ResolverError::MissingTypeBinding(*syntax_id))
     }
 
     pub fn get_byte_size(&self, type_id: TypeId, node: &SyntaxReader) -> Result<usize, ErrorKind> {
@@ -270,8 +274,8 @@ impl Resolver {
                 let struct_declaration = self.declarations.get_declaration(*declaration_id)?;
 
                 let DeclarationKind::Type { members, .. } = struct_declaration.kind else {
-                    return Err(ErrorKind::Internal(InternalError::ExpectedTypeDeclaration(
-                        *declaration_id,
+                    return Err(ErrorKind::Compile(CompileError::Resolver(
+                        ResolverError::ExpectedTypeDeclaration(*declaration_id),
                     )));
                 };
                 let field_ids = self.declarations.get_declaration_members(members)?;
@@ -376,9 +380,9 @@ impl Resolver {
         if let TypeNode::List { element_type_id } = type_node {
             Ok(*element_type_id)
         } else {
-            Err(ErrorKind::Internal(InternalError::ExpectedListType {
-                found: *type_node,
-            }))
+            Err(ErrorKind::Compile(CompileError::Resolver(
+                ResolverError::ExpectedListType { found: *type_node },
+            )))
         }
     }
 
@@ -781,8 +785,8 @@ impl Resolver {
                     .to_string();
 
                 let DeclarationKind::Type { members, .. } = struct_declaration.kind else {
-                    return Err(ErrorKind::Internal(InternalError::MissingDeclaration(
-                        *declaration_id,
+                    return Err(ErrorKind::Compile(CompileError::Resolver(
+                        ResolverError::MissingDeclaration(*declaration_id),
                     )));
                 };
                 let field_ids = self.declarations.get_declaration_members(members)?;

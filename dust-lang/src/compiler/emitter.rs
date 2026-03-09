@@ -10,7 +10,7 @@ use tracing::{debug, trace};
 use crate::{
     compiler::error::CompileError,
     constant_list::ConstantListBuilder,
-    error::{ErrorKind, InternalError},
+    error::ErrorKind,
     instruction::{Drop, Instruction, Jump, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
     prototype::{Prototype, PrototypeId, PrototypeList},
@@ -78,6 +78,8 @@ impl<'a> Emitter<'a> {
             &'a mut PrototypeList,
         ),
     ) -> Result<Self, ErrorKind> {
+        debug_assert_eq!(function_expression.kind(), SyntaxKind::FunctionExpression);
+
         let (signature, body) = function_expression.binary_children()?;
         let mut signature_children = signature.children()?;
         let value_arguments = signature_children.expect_next()?;
@@ -310,7 +312,7 @@ impl<'a> Emitter<'a> {
                             .copied()
                             .collect::<SmallVec<[DeclarationId; 4]>>()
                     } else {
-                        return Err(ErrorKind::Internal(InternalError::ExpectedTypeDeclaration(
+                        return Err(ErrorKind::Compile(CompileError::ExpectedTypeDeclaration(
                             *declaration_id,
                         )));
                     };
@@ -1298,7 +1300,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 index,
             }) => {
                 if target.len() != 1 {
-                    return Err(ErrorKind::Internal(InternalError::InvalidRegisterCount {
+                    return Err(ErrorKind::Compile(CompileError::InvalidRegisterCount {
                         expected: 1,
                         found: target.len(),
                     }));
@@ -1312,7 +1314,7 @@ impl SyntaxVisitor for Emitter<'_> {
             }
             Emission::Place(Place::Register(RegisterAllocation::Single { register, .. })) => {
                 if target.len() != 1 {
-                    return Err(ErrorKind::Internal(InternalError::InvalidRegisterCount {
+                    return Err(ErrorKind::Compile(CompileError::InvalidRegisterCount {
                         expected: 1,
                         found: target.len(),
                     }));
@@ -1333,7 +1335,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 ..
             })) => {
                 if target.len() != operand_registers.len() {
-                    return Err(ErrorKind::Internal(InternalError::InvalidRegisterCount {
+                    return Err(ErrorKind::Compile(CompileError::InvalidRegisterCount {
                         expected: operand_registers.len(),
                         found: target.len(),
                     }));
@@ -1578,7 +1580,7 @@ impl SyntaxVisitor for Emitter<'_> {
             Some(RegisterAllocation::Single { register, .. })
                 if register.operand_type != OperandType::F_64 =>
             {
-                return Err(ErrorKind::Internal(InternalError::ExpectedFloatRegister));
+                return Err(ErrorKind::Compile(CompileError::ExpectedFloatRegister));
             }
             _ => {
                 let float = parse_with_options::<f64, RUST_LITERAL>(
@@ -1723,7 +1725,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 ConstantEmission::I32(integer)
             }
             _ => {
-                return Err(ErrorKind::Internal(InternalError::ExpectedIntegerRegister));
+                return Err(ErrorKind::Compile(CompileError::ExpectedIntegerRegister));
             }
         };
 
@@ -1871,11 +1873,9 @@ impl SyntaxVisitor for Emitter<'_> {
                         let target_register = if let Some(target) = &element_instructions.target {
                             target.expect_single()?
                         } else {
-                            return Err(ErrorKind::Internal(
-                                InternalError::ExpectedEmissionTarget {
-                                    node_kind: element_node.kind(),
-                                },
-                            ));
+                            return Err(ErrorKind::Compile(CompileError::ExpectedEmissionTarget {
+                                node_kind: element_node.kind(),
+                            }));
                         };
                         let set_list_instruction = Instruction::set_list(
                             destination.index,
@@ -3007,7 +3007,10 @@ impl SyntaxVisitor for Emitter<'_> {
         debug!("Visting path");
         debug_assert_eq!(path.kind(), SyntaxKind::Path);
 
-        self.resolver.get_declaration_binding(&path.id).copied()
+        self.resolver
+            .get_declaration_binding(&path.id)
+            .copied()
+            .map_err(ErrorKind::from)
     }
 
     fn visit_simple_path(
@@ -3018,7 +3021,10 @@ impl SyntaxVisitor for Emitter<'_> {
         debug!("Visting simple path");
         debug_assert_eq!(node.kind(), SyntaxKind::SimplePath);
 
-        self.resolver.get_declaration_binding(&node.id).copied()
+        self.resolver
+            .get_declaration_binding(&node.id)
+            .copied()
+            .map_err(ErrorKind::from)
     }
 }
 
@@ -3171,7 +3177,7 @@ impl RegisterAllocation {
     fn expect_single(&self) -> Result<Register, ErrorKind> {
         match self {
             RegisterAllocation::Single { register, .. } => Ok(*register),
-            _ => Err(ErrorKind::Internal(InternalError::InvalidRegisterCount {
+            _ => Err(ErrorKind::Compile(CompileError::InvalidRegisterCount {
                 expected: 1,
                 found: self.len(),
             })),
@@ -3187,7 +3193,7 @@ impl RegisterAllocation {
                 registers,
                 temporary,
             } if registers.len() == expected => Ok((registers, *temporary)),
-            _ => Err(ErrorKind::Internal(InternalError::InvalidRegisterCount {
+            _ => Err(ErrorKind::Compile(CompileError::InvalidRegisterCount {
                 expected: 2,
                 found: self.len(),
             })),

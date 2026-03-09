@@ -14,7 +14,6 @@ use crate::{
         type_binder::TypeBinder,
     },
     constant_list::ConstantListBuilder,
-    dust_type::DustFunctionType,
     error::{Error, ErrorKind},
     instruction::OperandType,
     lexer::Lexer,
@@ -26,7 +25,6 @@ use crate::{
         Resolver,
         declaration_graph::Visibility,
         scope_graph::{Scope, ScopeId, ScopeKind},
-        type_graph::{TypeId, TypeNode},
     },
     source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, SyntaxVisitor},
@@ -122,7 +120,7 @@ impl<'src> Compiler<'src> {
                 match $result {
                     Ok(value) => value,
                     Err(error) => {
-                        errors.push(error);
+                        errors.push(error.into());
 
                         return Err(errors);
                     }
@@ -161,12 +159,15 @@ impl<'src> Compiler<'src> {
                 files_parsed += 1;
 
                 for span in file_module_names {
-                    let parent_file =
-                        unwrap_or_return!(self.source.get_file(file_id).map_err(ErrorKind::Source));
+                    let parent_file = unwrap_or_return!(
+                        self.source
+                            .get_file(file_id)
+                            .map_err(|e| ErrorKind::Compile(CompileError::Source(e)))
+                    );
                     let module_name_str = match parent_file.content_str(span) {
                         Ok(name) => name,
                         Err(error) => {
-                            errors.push(ErrorKind::Source(error));
+                            errors.push(ErrorKind::Compile(CompileError::Source(error)));
 
                             return Err(errors);
                         }
@@ -179,7 +180,7 @@ impl<'src> Compiler<'src> {
                     let module_file = match SourceFile::file_from_path(&module_path) {
                         Ok(file) => file,
                         Err(error) => {
-                            errors.push(ErrorKind::Source(error));
+                            errors.push(ErrorKind::Compile(CompileError::Source(error)));
 
                             return Err(errors);
                         }
@@ -248,10 +249,11 @@ impl<'src> Compiler<'src> {
             }
         };
         let main_syntax_id = main_declaration.syntax.unwrap().1;
-        let main_function_item = unwrap_or_return!(
+        let main_function_expression = unwrap_or_return!(
             self.syntax
                 .get_tree(SourceFileId::MAIN)
                 .and_then(|tree| tree.get_node(main_syntax_id))
+                .and_then(|node| node.binary_children().map(|(_, expression)| expression))
         );
         let main_function_type_id = *unwrap_or_return!(
             self.resolver
@@ -270,7 +272,7 @@ impl<'src> Compiler<'src> {
 
             let main_prototype = unwrap_or_return!(
                 Emitter::new(
-                    main_function_item,
+                    main_function_expression,
                     Some(main_declaration_id),
                     PrototypeId::MAIN,
                     (
@@ -285,6 +287,9 @@ impl<'src> Compiler<'src> {
             );
 
             self.prototypes.set_slot(PrototypeId::MAIN, main_prototype);
+            self.resolver
+                .declarations
+                .set_declaration_prototype(main_declaration_id, PrototypeId::MAIN);
         }
 
         let main_function_type = unwrap_or_return!(

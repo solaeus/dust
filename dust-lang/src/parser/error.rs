@@ -2,7 +2,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     error::AnnotatedError,
-    source::{Position, Source},
+    source::{Position, Source, SourceError},
     syntax::SyntaxKind,
     token::TokenKind,
 };
@@ -46,10 +46,25 @@ pub enum ParseError {
         found: TokenKind,
         position: Position,
     },
+    Source(SourceError),
+}
+
+impl From<SourceError> for ParseError {
+    fn from(error: SourceError) -> Self {
+        ParseError::Source(error)
+    }
 }
 
 impl<'src> AnnotatedError<'src> for ParseError {
     type Context = &'src Source<'src>;
+
+    fn is_internal(&self) -> bool {
+        if let ParseError::Source(error) = self {
+            error.is_internal()
+        } else {
+            false
+        }
+    }
 
     fn add_report(&self, source: Self::Context, groups: &mut Vec<Group<'src>>) {
         match self {
@@ -277,6 +292,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
 
                 groups.push(group);
             }
+            ParseError::Source(error) => error.add_report((), groups),
         }
     }
 }

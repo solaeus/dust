@@ -12,7 +12,7 @@ use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-use crate::error::{AnnotatedError, InternalError};
+use crate::error::AnnotatedError;
 
 #[derive(Debug)]
 pub struct Source<'src> {
@@ -207,13 +207,13 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn content_bytes(&self, span: Span) -> Result<&[u8], InternalError> {
+    pub fn content_bytes(&self, span: Span) -> Result<&[u8], SourceError> {
         let full_source = self.content_as_bytes();
         let range = span.as_usize_range();
 
         full_source
             .get(range)
-            .ok_or(InternalError::MissingSourceFileContent {
+            .ok_or(SourceError::FileContentOutOfBounds {
                 span,
                 length: full_source.len(),
             })
@@ -380,6 +380,7 @@ pub enum SourceError {
     ExpectedFilePath { found: String },
     ExpectedUtf8Path { found: String },
     InvalidPath { found: String },
+
     MissingSourceFile(SourceFileId),
     FileContentOutOfBounds { span: Span, length: usize },
 }
@@ -407,6 +408,13 @@ impl Display for SourceError {
 
 impl<'src> AnnotatedError<'src> for SourceError {
     type Context = ();
+
+    fn is_internal(&self) -> bool {
+        matches!(
+            self,
+            SourceError::MissingSourceFile(_) | SourceError::FileContentOutOfBounds { .. }
+        )
+    }
 
     fn add_report(&self, _: Self::Context, reports: &mut Vec<Group<'src>>) {
         let group = match self {
@@ -446,20 +454,10 @@ impl<'src> AnnotatedError<'src> for SourceError {
                 Group::with_title(Level::ERROR.primary_title(title))
                     .element(Level::ERROR.message(message))
             }
-            SourceError::MissingSourceFile(file_id) => {
-                let title = "Missing source file".to_string();
-                let message = format!("Source file with ID {file_id:?} does not exist.");
+            SourceError::MissingSourceFile(_) | SourceError::FileContentOutOfBounds { .. } => {
+                self.add_internal_report(reports);
 
-                Group::with_title(Level::ERROR.primary_title(title))
-                    .element(Level::ERROR.message(message))
-            }
-            SourceError::FileContentOutOfBounds { span, length } => {
-                let title = "File content out of bounds".to_string();
-                let message =
-                    format!("Span {span} is out of bounds for file content with length {length}.");
-
-                Group::with_title(Level::ERROR.primary_title(title))
-                    .element(Level::ERROR.message(message))
+                return;
             }
         };
 

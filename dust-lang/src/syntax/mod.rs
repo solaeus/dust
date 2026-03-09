@@ -1,19 +1,18 @@
+pub mod error;
 mod node;
 mod reader;
 mod tree;
 mod visitor;
 
+pub use error::SyntaxError;
 pub use node::{SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxPayloadKind};
-pub use reader::{SyntaxReader, SyntaxReaderIterator};
+pub use reader::SyntaxReader;
 pub use tree::{SyntaxTree, SyntaxTreeBuilder};
 pub use visitor::SyntaxVisitor;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    error::{ErrorKind, InternalError},
-    source::SourceFileId,
-};
+use crate::source::SourceFileId;
 
 #[derive(Debug)]
 pub struct Syntax {
@@ -51,15 +50,13 @@ impl Syntax {
         }
     }
 
-    pub fn get_tree(&self, file_id: SourceFileId) -> Result<&SyntaxTree, ErrorKind> {
+    pub fn get_tree(&self, file_id: SourceFileId) -> Result<&SyntaxTree, SyntaxError> {
         let index = file_id.inner() as usize;
 
         self.trees
             .get(index)
             .and_then(|tree| tree.as_ref())
-            .ok_or(ErrorKind::Internal(InternalError::MissingSyntaxTree(
-                file_id,
-            )))
+            .ok_or(SyntaxError::MissingSyntaxTree(file_id))
     }
 }
 

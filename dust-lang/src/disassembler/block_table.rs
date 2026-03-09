@@ -46,7 +46,7 @@ where
 
         for row in &self.rows {
             for (index, cell) in row.iter().enumerate() {
-                column_widths[index] = column_widths[index].max(cell.chars().count() + 2);
+                column_widths[index] = column_widths[index].max(cell.chars().count() + 10);
             }
         }
 

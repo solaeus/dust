@@ -4,9 +4,8 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 
 use crate::{
-    error::{ErrorKind, InternalError},
     source::SourceFileId,
-    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxReader},
+    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxReader, error::SyntaxError},
 };
 
 /// A parsed Dust source code file.
@@ -45,22 +44,20 @@ impl SyntaxTree {
         self.nodes.is_empty()
     }
 
-    pub fn root(&self) -> Result<SyntaxReader<'_>, ErrorKind> {
+    pub fn root(&self) -> Result<SyntaxReader<'_>, SyntaxError> {
         let root_node =
             self.nodes
                 .first()
-                .ok_or(ErrorKind::Internal(InternalError::MissingSyntaxNode(
-                    SyntaxId::ROOT,
-                )))?;
+                .ok_or(SyntaxError::MissingSyntaxNode(SyntaxId::ROOT))?;
 
         Ok(SyntaxReader::new(SyntaxId::ROOT, root_node, self))
     }
 
-    pub fn get_node(&self, id: SyntaxId) -> Result<SyntaxReader<'_>, ErrorKind> {
+    pub fn get_node(&self, id: SyntaxId) -> Result<SyntaxReader<'_>, SyntaxError> {
         let node = self
             .nodes
             .get(id.0 as usize)
-            .ok_or(ErrorKind::Internal(InternalError::MissingSyntaxNode(id)))?;
+            .ok_or(SyntaxError::MissingSyntaxNode(id))?;
 
         Ok(SyntaxReader::new(id, node, self))
     }

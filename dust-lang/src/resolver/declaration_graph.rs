@@ -3,10 +3,9 @@ use std::{collections::HashMap, ops::Range};
 use rustc_hash::FxBuildHasher;
 
 use crate::{
-    error::{ErrorKind, InternalError},
     native_function::NativeFunction,
     prototype::PrototypeId,
-    resolver::{TypeId, scope_graph::ScopeId, symbol_table::SymbolId},
+    resolver::{TypeId, error::ResolverError, scope_graph::ScopeId, symbol_table::SymbolId},
     source::{Position, SourceFileId},
     syntax::SyntaxId,
 };
@@ -51,10 +50,10 @@ impl DeclarationGraph {
         declaration_id
     }
 
-    pub fn get_declaration(&self, id: DeclarationId) -> Result<&Declaration, ErrorKind> {
+    pub fn get_declaration(&self, id: DeclarationId) -> Result<&Declaration, ResolverError> {
         self.declarations
             .get(id.0 as usize)
-            .ok_or(ErrorKind::Internal(InternalError::MissingDeclaration(id)))
+            .ok_or(ResolverError::MissingDeclaration(id))
     }
 
     pub fn find_declaration(
@@ -86,7 +85,7 @@ impl DeclarationGraph {
     pub fn find_type_declaration(
         &self,
         type_id: TypeId,
-    ) -> Result<Option<&Declaration>, ErrorKind> {
+    ) -> Result<Option<&Declaration>, ResolverError> {
         for (declaration_id, declaration_type_id) in &self.declaration_types {
             if *declaration_type_id == type_id {
                 let declaration = self.get_declaration(*declaration_id)?;
@@ -103,7 +102,7 @@ impl DeclarationGraph {
     pub fn find_prototype_declaration(
         &self,
         prototype_id: PrototypeId,
-    ) -> Result<Option<&Declaration>, ErrorKind> {
+    ) -> Result<Option<&Declaration>, ResolverError> {
         for (declaration_id, declaration_prototype_id) in &self.declaration_prototypes {
             if *declaration_prototype_id == prototype_id {
                 let declaration = self.get_declaration(*declaration_id)?;
@@ -131,23 +130,19 @@ impl DeclarationGraph {
         DeclarationMembers { start, count }
     }
 
-    pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, ErrorKind> {
+    pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, ResolverError> {
         self.declaration_members
             .get(index as usize)
-            .ok_or(ErrorKind::Internal(
-                InternalError::MissingDeclarationMember(index),
-            ))
+            .ok_or(ResolverError::MissingDeclarationMember(index))
     }
 
     pub fn get_declaration_members(
         &self,
         members: DeclarationMembers,
-    ) -> Result<&[DeclarationId], ErrorKind> {
+    ) -> Result<&[DeclarationId], ResolverError> {
         self.declaration_members
             .get(members.as_usize_range())
-            .ok_or(ErrorKind::Internal(
-                InternalError::MissingDeclarationMembers(members),
-            ))
+            .ok_or(ResolverError::MissingDeclarationMembers(members))
     }
 
     pub fn set_declaration_type(&mut self, declaration_id: DeclarationId, type_id: TypeId) {
@@ -157,12 +152,10 @@ impl DeclarationGraph {
     pub fn get_declaration_type(
         &self,
         declaration_id: &DeclarationId,
-    ) -> Result<&TypeId, ErrorKind> {
+    ) -> Result<&TypeId, ResolverError> {
         self.declaration_types
             .get(declaration_id)
-            .ok_or(ErrorKind::Internal(InternalError::MissingDeclarationType(
-                *declaration_id,
-            )))
+            .ok_or(ResolverError::MissingDeclarationType(*declaration_id))
     }
 
     pub fn set_declaration_prototype(

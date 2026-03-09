@@ -1,6 +1,6 @@
 mod block_table;
 
-use std::io;
+use std::{cmp::Ordering, io};
 
 use ratatui::{
     buffer::Buffer,
@@ -56,10 +56,10 @@ impl<'a> Disassembler<'a> {
 
         tabs.push(Tab::Declarations);
 
-        for (prototype_id, prototype) in program.prototypes.iter() {
+        for (id, prototype) in program.prototypes.iter() {
             let found_declaration = resolver
                 .declarations
-                .find_prototype_declaration(prototype_id)
+                .find_prototype_declaration(id)
                 .unwrap();
             let function_name = if let Some(declaration) = found_declaration {
                 let symbol = resolver.symbols.get_symbol(&declaration.symbol_id).unwrap();
@@ -68,21 +68,31 @@ impl<'a> Disassembler<'a> {
             } else {
                 None
             };
-            let source = if let Some(declaration) = found_declaration
+            let (source, source_lines, source_width) = if let Some(declaration) = found_declaration
                 && let Some((position, _)) = declaration.syntax
             {
                 let content = source.get_file_content(&position).unwrap();
+                let mut line_count = 0;
+                let mut max_width = 0;
 
-                Some(content)
+                for line in content.lines() {
+                    line_count += 1;
+                    max_width = max_width.max(line.chars().count() as u16);
+                }
+
+                (Some(content), line_count, max_width)
             } else {
-                None
+                (None, 0, 0)
             };
 
-            tabs.push(Tab::Prototype {
+            tabs.push(Tab::Prototype(PrototypeTab {
+                id,
+                prototype,
                 function_name,
-                prototype_id,
                 source,
-            });
+                source_lines,
+                source_width,
+            }));
         }
 
         Self {
@@ -91,13 +101,14 @@ impl<'a> Disassembler<'a> {
             syntax,
             resolver,
             constant_tags,
-            tabs,
             state: TuiState::Run,
             selection_state: SelectionState {
-                tab: source.file_count(),
-                section: None,
-                row: 0,
+                current_tab: 0,
+                tab_count: tabs.len(),
+                current_row: None,
+                row_count: 0,
             },
+            tabs,
         }
     }
 
@@ -127,89 +138,17 @@ impl<'a> Disassembler<'a> {
         {
             match key.code {
                 KeyCode::Right | KeyCode::Char('l') => {
-                    if self.selection_state.tab < self.tabs.len() - 1 {
-                        self.selection_state.tab += 1;
-                    } else {
-                        self.selection_state.tab = 0;
-                    }
-
-                    self.selection_state.section = None;
+                    self.selection_state.next_tab();
                 }
                 KeyCode::Left | KeyCode::Char('h') => {
-                    if self.selection_state.tab > 0 {
-                        self.selection_state.tab -= 1;
-                    } else {
-                        self.selection_state.tab = self.tabs.len() - 1;
-                    }
-
-                    self.selection_state.section = None;
+                    self.selection_state.previous_tab();
                 }
-                KeyCode::Up | KeyCode::Char('k')
-                    if self.selection_state.tab >= self.syntax.len() =>
-                {
-                    let prototype_index = self.selection_state.tab - self.syntax.len();
-                    let prototype = &self.program.prototypes[prototype_index];
-                    if self.selection_state.row > 0 {
-                        self.selection_state.row -= 1;
-                    } else {
-                        match self.selection_state.section {
-                            Some(section) => {
-                                self.selection_state.section = Some(section.previous());
-                                let section_length = match self.selection_state.section {
-                                    Some(PrototypeSection::Instructions) => {
-                                        prototype.instructions.len()
-                                    }
-                                    Some(PrototypeSection::Constants) => self.constant_tags.len(),
-                                    Some(PrototypeSection::Drops) => prototype.drops.len(),
-                                    None => 0,
-                                };
-                                if section_length > 0 {
-                                    self.selection_state.row = section_length - 1;
-                                } else {
-                                    self.selection_state.row = 0;
-                                }
-                            }
-                            None => {
-                                self.selection_state.section = Some(PrototypeSection::Drops);
-                                let section_length = prototype.drops.len();
-                                if section_length > 0 {
-                                    self.selection_state.row = section_length - 1;
-                                } else {
-                                    self.selection_state.row = 0;
-                                }
-                            }
-                        }
-                    }
+                KeyCode::Up | KeyCode::Char('k') => {
+                    self.selection_state.previous_row();
                 }
-                KeyCode::Up | KeyCode::Char('k') => {}
-                KeyCode::Down | KeyCode::Char('j')
-                    if self.selection_state.tab >= self.syntax.len() =>
-                {
-                    let prototype_index = self.selection_state.tab - self.syntax.len();
-                    let prototype = &self.program.prototypes[prototype_index];
-                    let section_length = match self.selection_state.section {
-                        Some(PrototypeSection::Instructions) => prototype.instructions.len(),
-                        Some(PrototypeSection::Constants) => self.constant_tags.len(),
-                        Some(PrototypeSection::Drops) => prototype.drops.len(),
-                        None => 0,
-                    };
-
-                    if self.selection_state.row + 1 < section_length {
-                        self.selection_state.row += 1;
-                    } else {
-                        match self.selection_state.section {
-                            Some(section) => {
-                                self.selection_state.section = Some(section.next());
-                                self.selection_state.row = 0;
-                            }
-                            None => {
-                                self.selection_state.section = Some(PrototypeSection::Instructions);
-                                self.selection_state.row = 0;
-                            }
-                        }
-                    }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    self.selection_state.next_row();
                 }
-                KeyCode::Down | KeyCode::Char('j') => {}
                 KeyCode::Esc | KeyCode::Char('q') => {
                     self.state = TuiState::Quit;
                 }
@@ -255,15 +194,22 @@ impl<'a> Disassembler<'a> {
         paragraph.render(syntax_area, buffer);
     }
 
-    fn draw_prototype_tab(
-        &self,
-        index: usize,
-        prototype: &Prototype,
-        area: Rect,
-        buffer: &mut Buffer,
-    ) {
-        fn get_section_length(count: usize) -> u16 {
-            if count == 0 { 0 } else { count as u16 + 3 }
+    fn draw_prototype_tab(&self, tab: &PrototypeTab, area: Rect, buffer: &mut Buffer) {
+        let PrototypeTab {
+            id,
+            prototype,
+            function_name,
+            source,
+            source_lines,
+            source_width,
+        } = tab;
+
+        fn get_section_length(line_count: usize) -> u16 {
+            if line_count == 0 {
+                0
+            } else {
+                line_count as u16 + 3
+            }
         }
 
         let block = Block::new()
@@ -276,21 +222,44 @@ impl<'a> Disassembler<'a> {
         let areas = Layout::vertical([
             Constraint::Length(2),
             Constraint::Length(2),
+            Constraint::Length(source_lines + 1),
+            Constraint::Length(2),
             Constraint::Length(get_section_length(prototype.instructions.len())),
             Constraint::Length(get_section_length(prototype.drops.len())),
         ]);
         let [
-            prototype_area,
+            name_area,
+            id_area,
+            source_area,
             info_area,
             instructions_area,
             drop_lists_area,
         ] = areas.flex(Flex::Start).areas(inner_area);
 
-        Paragraph::new(format!("proto_{}", index))
+        Paragraph::new(function_name.unwrap_or("anonymous"))
             .centered()
             .wrap(Wrap { trim: true })
             .bold()
-            .render(prototype_area, buffer);
+            .render(name_area, buffer);
+
+        Paragraph::new(id.to_string())
+            .centered()
+            .wrap(Wrap { trim: true })
+            .render(id_area, buffer);
+
+        if let Some(source) = source {
+            let areas = Layout::horizontal([
+                Constraint::Fill(1),
+                Constraint::Length(*source_width),
+                Constraint::Fill(1),
+            ])
+            .areas(source_area);
+            let [_, source_area, _] = areas;
+
+            Paragraph::new(*source)
+                .wrap(Wrap { trim: false })
+                .render(source_area, buffer);
+        }
 
         Paragraph::new(format!(
             "{} instructions, {} registers",
@@ -301,58 +270,26 @@ impl<'a> Disassembler<'a> {
         .wrap(Wrap { trim: true })
         .render(info_area, buffer);
 
-        // Instructions section
-        {
-            let instruction_rows = prototype
-                .instructions
-                .iter()
-                .enumerate()
-                .map(|(index, instruction)| {
-                    [
-                        index.to_string(),
-                        instruction.operation().to_string(),
-                        instruction.disassembly_info(),
-                    ]
-                })
-                .collect::<Vec<_>>();
-            let selected_row =
-                if self.selection_state.section == Some(PrototypeSection::Instructions) {
-                    Some(self.selection_state.row)
-                } else {
-                    None
-                };
-            let instruction_section = BlockTable::new(
-                "Instructions",
-                ["IP", "Operation", "Info"],
-                instruction_rows,
-                selected_row,
-            );
+        let instruction_rows = prototype
+            .instructions
+            .iter()
+            .enumerate()
+            .map(|(index, instruction)| {
+                [
+                    index.to_string(),
+                    instruction.operation().to_string(),
+                    instruction.disassembly_info(),
+                ]
+            })
+            .collect::<Vec<_>>();
+        let instruction_section = BlockTable::new(
+            "Instructions",
+            ["IP", "Operation", "Info"],
+            instruction_rows,
+            self.selection_state.current_row,
+        );
 
-            instruction_section.render(instructions_area, buffer);
-        }
-
-        // Drops section
-        if !prototype.drops.is_empty() {
-            let drop_list_rows = prototype
-                .drops
-                .iter()
-                .enumerate()
-                .map(|(index, register)| [index.to_string(), format!("reg_{register}")])
-                .collect::<Vec<_>>();
-            let selected_row = if self.selection_state.section == Some(PrototypeSection::Drops) {
-                Some(self.selection_state.row)
-            } else {
-                None
-            };
-            let drop_lists_section = BlockTable::new(
-                "Drop List",
-                ["i", "Drop List"],
-                drop_list_rows,
-                selected_row,
-            );
-
-            drop_lists_section.render(drop_lists_area, buffer);
-        }
+        instruction_section.render(instructions_area, buffer);
     }
 
     fn draw_declaration_tab(&self, resolver: &'a Resolver, area: Rect, buffer: &mut Buffer) {
@@ -393,7 +330,7 @@ impl Widget for &mut Disassembler<'_> {
             program_name_area,
             program_info_area,
             _,
-            prototype_tabs_header_area,
+            tab_header_area,
             tab_content_area,
         ] = frame_areas.areas(area);
 
@@ -417,21 +354,22 @@ impl Widget for &mut Disassembler<'_> {
 
         Tabs::new(&self.tabs)
             .highlight_style(Style::default().cyan().bold())
-            .select(self.selection_state.tab)
-            .render(prototype_tabs_header_area, buffer);
+            .select(self.selection_state.current_tab)
+            .render(tab_header_area, buffer);
 
-        if self.selection_state.tab == self.source.file_count() + self.program.prototypes.len() {
-            self.draw_declaration_tab(self.resolver, tab_content_area, buffer);
-        } else if self.selection_state.tab < self.source.file_count() {
-            let source_file = self.source.files().get(self.selection_state.tab).unwrap();
-            let syntax_tree = self.syntax.iter().nth(self.selection_state.tab).unwrap();
+        match &self.tabs[self.selection_state.current_tab] {
+            Tab::SourceFile { file_name, file_id } => {
+                let source_file = self.source.get_file(*file_id).unwrap();
+                let syntax_tree = self.syntax.get_tree(*file_id).unwrap();
 
-            self.draw_source_tab(source_file, syntax_tree, tab_content_area, buffer);
-        } else {
-            let prototype_index = self.selection_state.tab - self.source.file_count();
-            let prototype = &self.program.prototypes[prototype_index];
+                self.draw_source_tab(source_file, syntax_tree, tab_content_area, buffer);
+            }
+            Tab::Declarations => self.draw_declaration_tab(self.resolver, tab_content_area, buffer),
+            Tab::Prototype(tab) => {
+                self.selection_state.row_count = tab.prototype.instructions.len();
 
-            self.draw_prototype_tab(prototype_index, prototype, tab_content_area, buffer);
+                self.draw_prototype_tab(tab, tab_content_area, buffer);
+            }
         }
     }
 }
@@ -443,22 +381,70 @@ enum TuiState {
 }
 
 struct SelectionState {
-    tab: usize,
-    section: Option<PrototypeSection>,
-    row: usize,
+    tab_count: usize,
+    current_tab: usize,
+
+    row_count: usize,
+    current_row: Option<usize>,
 }
 
-enum Tab<'src> {
+impl SelectionState {
+    fn next_tab(&mut self) {
+        if self.current_tab < self.tab_count - 1 {
+            self.current_tab += 1;
+        } else {
+            self.current_tab = 0;
+        }
+
+        self.current_row = None;
+    }
+
+    fn previous_tab(&mut self) {
+        if self.current_tab > 0 {
+            self.current_tab -= 1;
+        } else {
+            self.current_tab = self.tab_count - 1;
+        }
+
+        self.current_row = None;
+    }
+
+    fn next_row(&mut self) {
+        if let Some(current_row) = self.current_row {
+            let last_row = self.row_count.saturating_sub(1);
+
+            if current_row == last_row {
+                self.current_row = None;
+            } else {
+                let next_row = (current_row + 1).min(last_row);
+
+                self.current_row = Some(next_row);
+            }
+        } else {
+            self.current_row = Some(0);
+        }
+    }
+
+    fn previous_row(&mut self) {
+        if let Some(current_row) = self.current_row {
+            if current_row > 0 {
+                self.current_row = Some(current_row.saturating_sub(1));
+            } else {
+                self.current_row = None;
+            }
+        } else {
+            self.current_row = Some(self.row_count.saturating_sub(1));
+        }
+    }
+}
+
+enum Tab<'a> {
     SourceFile {
-        file_name: &'src str,
+        file_name: &'a str,
         file_id: SourceFileId,
     },
     Declarations,
-    Prototype {
-        function_name: Option<&'src str>,
-        prototype_id: PrototypeId,
-        source: Option<&'src str>,
-    },
+    Prototype(PrototypeTab<'a>),
 }
 
 impl<'a> From<&'a Tab<'a>> for Line<'a> {
@@ -471,7 +457,7 @@ impl<'a> From<&'a Tab<'a>> for Line<'a> {
                 Line::from(vec![title, file_name])
             }
             Tab::Declarations => Line::from("Declarations"),
-            Tab::Prototype { function_name, .. } => {
+            Tab::Prototype(PrototypeTab { function_name, .. }) => {
                 let title = Span::raw("Prototype: ");
                 let function_name = if let Some(function_name) = function_name {
                     Span::styled(*function_name, Style::default().bold())
@@ -485,27 +471,11 @@ impl<'a> From<&'a Tab<'a>> for Line<'a> {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum PrototypeSection {
-    Instructions,
-    Constants,
-    Drops,
-}
-
-impl PrototypeSection {
-    fn next(&self) -> PrototypeSection {
-        match self {
-            PrototypeSection::Instructions => PrototypeSection::Constants,
-            PrototypeSection::Constants => PrototypeSection::Drops,
-            PrototypeSection::Drops => PrototypeSection::Instructions,
-        }
-    }
-
-    fn previous(&self) -> PrototypeSection {
-        match self {
-            PrototypeSection::Instructions => PrototypeSection::Drops,
-            PrototypeSection::Constants => PrototypeSection::Instructions,
-            PrototypeSection::Drops => PrototypeSection::Constants,
-        }
-    }
+struct PrototypeTab<'a> {
+    id: PrototypeId,
+    prototype: &'a Prototype,
+    function_name: Option<&'a str>,
+    source: Option<&'a str>,
+    source_lines: u16,
+    source_width: u16,
 }

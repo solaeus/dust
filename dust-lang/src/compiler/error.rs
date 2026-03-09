@@ -1,16 +1,18 @@
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
+    constant_list::ConstantListError,
     error::AnnotatedError,
     instruction::OperandType,
     resolver::{
         Resolver,
         declaration_graph::DeclarationId,
+        error::ResolverError,
         symbol_table::SymbolId,
         type_graph::{TypeId, TypeNode},
     },
-    source::{Position, Source},
-    syntax::SyntaxKind,
+    source::{Position, Source, SourceError},
+    syntax::{SyntaxKind, error::SyntaxError},
 };
 
 #[derive(Debug)]
@@ -112,10 +114,43 @@ pub enum CompileError {
         type_id: TypeId,
         position: Position,
     },
+
+    ExpectedModuleDeclaration(DeclarationId),
+    ExpectedTypeDeclaration(DeclarationId),
+    InvalidRegisterCount {
+        expected: usize,
+        found: usize,
+    },
+    ExpectedFloatRegister,
+    ExpectedIntegerRegister,
+    ExpectedEmissionTarget {
+        node_kind: SyntaxKind,
+    },
+
+    Syntax(SyntaxError),
+    Resolver(ResolverError),
+    ConstantList(ConstantListError),
+    Source(SourceError),
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
     type Context = (&'a Source<'a>, &'a Resolver);
+
+    fn is_internal(&self) -> bool {
+        matches!(
+            self,
+            CompileError::ExpectedModuleDeclaration(_)
+                | CompileError::ExpectedTypeDeclaration(_)
+                | CompileError::InvalidRegisterCount { .. }
+                | CompileError::ExpectedFloatRegister
+                | CompileError::ExpectedIntegerRegister
+                | CompileError::ExpectedEmissionTarget { .. }
+                | CompileError::Syntax(_)
+                | CompileError::Resolver(_)
+                | CompileError::ConstantList(_)
+                | CompileError::Source(_)
+        )
+    }
 
     fn add_report(&self, (source, resolver): Self::Context, groups: &mut Vec<Group<'a>>) {
         match self {
@@ -217,7 +252,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let declaration = match resolver.declarations.get_declaration(*declaration_id) {
                     Ok(declaration) => declaration,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((), groups);
 
                         return;
                     }
@@ -225,7 +260,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let name = match resolver.symbols.get_symbol(&declaration.symbol_id) {
                     Ok(name) => name,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((), groups);
 
                         return;
                     }
@@ -268,7 +303,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let type_node = match resolver.types.get_type(*type_id) {
                     Ok(type_node) => type_node,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((), groups);
 
                         return;
                     }
@@ -284,7 +319,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     let declaration = match resolver.declarations.get_declaration(declaration_id) {
                         Ok(declaration) => declaration,
                         Err(error) => {
-                            error.add_report((Some(source), Some(resolver)), groups);
+                            error.add_report((), groups);
 
                             return;
                         }
@@ -532,7 +567,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let name_str = match resolver.symbols.get_symbol(symbol_id) {
                     Ok(name) => name,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((), groups);
 
                         return;
                     }
@@ -552,7 +587,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let symbol = match resolver.symbols.get_symbol(symbol_id) {
                     Ok(symbol) => symbol,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((), groups);
 
                         return;
                     }
@@ -838,7 +873,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     }) {
                     Ok(found) => found,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((), groups);
 
                         return;
                     }
@@ -873,6 +908,44 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
+
+            CompileError::ExpectedModuleDeclaration(_)
+            | CompileError::ExpectedTypeDeclaration(_)
+            | CompileError::InvalidRegisterCount { .. }
+            | CompileError::ExpectedFloatRegister
+            | CompileError::ExpectedIntegerRegister
+            | CompileError::ExpectedEmissionTarget { .. } => {
+                self.add_internal_report(groups);
+            }
+
+            CompileError::Syntax(error) => error.add_report((), groups),
+            CompileError::Resolver(error) => error.add_report((), groups),
+            CompileError::ConstantList(error) => error.add_report((), groups),
+            CompileError::Source(error) => error.add_report((), groups),
         }
+    }
+}
+
+impl From<SyntaxError> for CompileError {
+    fn from(error: SyntaxError) -> Self {
+        CompileError::Syntax(error)
+    }
+}
+
+impl From<ResolverError> for CompileError {
+    fn from(error: ResolverError) -> Self {
+        CompileError::Resolver(error)
+    }
+}
+
+impl From<ConstantListError> for CompileError {
+    fn from(error: ConstantListError) -> Self {
+        CompileError::ConstantList(error)
+    }
+}
+
+impl From<SourceError> for CompileError {
+    fn from(error: SourceError) -> Self {
+        CompileError::Source(error)
     }
 }
