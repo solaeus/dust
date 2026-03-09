@@ -12,7 +12,7 @@ fn creates_local_declaration() {
 
     let (x_id, x_kind) = find_declaration(&mut resolver, "x").unwrap();
 
-    assert!(matches!(x_kind, DeclarationKind::Local));
+    assert!(matches!(x_kind, DeclarationKind::Local { .. }));
 
     let x_declaration = resolver.declarations.get_declaration(x_id).unwrap();
 

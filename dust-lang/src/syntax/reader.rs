@@ -3,8 +3,7 @@ use tracing::error;
 use crate::{
     source::{Position, SourceFileId, Span},
     syntax::{
-        SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree,
-        error::SyntaxError,
+        SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree, error::SyntaxError,
         node::SyntaxPayloadKind,
     },
 };
@@ -290,10 +289,8 @@ impl<'a> SyntaxReaderIterator<'a> {
     }
 
     pub fn expect_next(&mut self) -> Result<SyntaxReader<'a>, SyntaxError> {
-        self.next().ok_or_else(|| {
-            SyntaxError::MissingSyntaxChild {
-                total_children: self.parent.child_count(),
-            }
+        self.next().ok_or_else(|| SyntaxError::MissingSyntaxChild {
+            total_children: self.parent.child_count(),
         })
     }
 }
@@ -309,11 +306,13 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
 
                 child_id
             }
-            SyntaxPayloadKind::BinaryChildren if self.current_index < 2 => {
+            SyntaxPayloadKind::BinaryChildren => {
                 let child_id = if self.current_index == 0 {
                     self.parent.node.payload.left_id()
-                } else {
+                } else if self.current_index == 1 {
                     self.parent.node.payload.right_id()
+                } else {
+                    return None;
                 };
                 self.current_index += 1;
 
@@ -322,7 +321,7 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
             SyntaxPayloadKind::MultipleChildren
                 if self.current_index < self.parent.child_count() =>
             {
-                let child_index = self.parent.payload().as_usize_range().start + self.current_index;
+                let child_index = self.parent.payload().left as usize + self.current_index;
                 self.current_index += 1;
 
                 self.parent.tree.children[child_index]

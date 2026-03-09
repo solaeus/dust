@@ -4,7 +4,7 @@ use crate::{
     syntax::SyntaxKind,
 };
 
-use super::{bind_declarations, find_declaration};
+use super::bind_declarations;
 
 #[test]
 fn creates_declaration() {
@@ -26,7 +26,10 @@ fn creates_declaration() {
         })
         .expect("expected a bar declaration in crate scope");
 
-    assert_eq!(use_declaration.1.kind, DeclarationKind::Function);
+    assert!(matches!(
+        use_declaration.1.kind,
+        DeclarationKind::Function { .. }
+    ));
     assert!(!use_declaration.1.public);
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();

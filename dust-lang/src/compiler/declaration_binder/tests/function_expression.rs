@@ -8,8 +8,7 @@ use super::{bind_declarations, find_declaration};
 
 #[test]
 fn creates_function_scope_and_binds_body() {
-    let (syntax, mut resolver) =
-        bind_declarations("fn main() { let f = fn () { let y = 1; }; }");
+    let (syntax, mut resolver) = bind_declarations("fn main() { let f = fn () { let y = 1; }; }");
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let fn_exprs = tree
@@ -46,8 +45,8 @@ fn parameters_are_local_in_function_scope() {
     let (x_id, x_kind) = find_declaration(&mut resolver, "x").unwrap();
     let (_, y_kind) = find_declaration(&mut resolver, "y").unwrap();
 
-    assert!(matches!(x_kind, DeclarationKind::Local));
-    assert!(matches!(y_kind, DeclarationKind::Local));
+    assert!(matches!(x_kind, DeclarationKind::Local { .. }));
+    assert!(matches!(y_kind, DeclarationKind::Local { .. }));
 
     let x_declaration = resolver.declarations.get_declaration(x_id).unwrap();
     let x_scope = resolver.scopes.get_scope(x_declaration.scope_id).unwrap();

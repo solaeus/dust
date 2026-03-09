@@ -36,7 +36,7 @@ impl DeclarationGraph {
             scope_id: declaration.scope_id,
         };
 
-        if declaration.kind != DeclarationKind::Local
+        if !matches!(declaration.kind, DeclarationKind::Local { .. })
             && let Some(existing_id) = self.declaration_lookup.get(&key)
         {
             return *existing_id;
@@ -206,8 +206,12 @@ pub struct Declaration {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DeclarationKind {
-    Local,
-    Function,
+    Local {
+        type_id: TypeId,
+    },
+    Function {
+        type_id: TypeId,
+    },
     NativeFunction(NativeFunction),
     Module {
         kind: ModuleKind,
@@ -223,14 +227,14 @@ pub enum DeclarationKind {
 impl DeclarationKind {
     fn visibility(&self) -> Visibility {
         match self {
-            DeclarationKind::Function
+            DeclarationKind::Function { .. }
             | DeclarationKind::NativeFunction(_)
             | DeclarationKind::Module { .. }
             | DeclarationKind::Type { parent: None, .. } => Visibility::Module,
             DeclarationKind::Type {
                 parent: Some(_), ..
             } => Visibility::Type,
-            DeclarationKind::Local => Visibility::Block,
+            DeclarationKind::Local { .. } => Visibility::Block,
         }
     }
 }

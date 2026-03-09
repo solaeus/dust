@@ -93,9 +93,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
             {
                 file_id
             } else {
-                return Err(ErrorKind::Compile(
-                    CompileError::ExpectedModuleDeclaration(module_declaration_id),
-                ));
+                return Err(ErrorKind::Compile(CompileError::ExpectedModuleDeclaration(
+                    module_declaration_id,
+                )));
             };
             let module_root = self.syntax.get_tree(module_file_id)?.root()?;
 
@@ -487,8 +487,8 @@ impl SyntaxVisitor for TypeBinder<'_> {
             .get_declaration(*declaration_id)?;
 
         let type_id = match declaration.kind {
-            DeclarationKind::Local
-            | DeclarationKind::Function
+            DeclarationKind::Local { .. }
+            | DeclarationKind::Function { .. }
             | DeclarationKind::NativeFunction(_) => *self
                 .resolver
                 .declarations

@@ -17,15 +17,6 @@ pub struct ConstantList {
 }
 
 impl ConstantList {
-    pub fn get_character(&self, id: ConstantId) -> Result<char, ConstantListError> {
-        let payload = *self
-            .payloads
-            .get(id.0 as usize)
-            .ok_or(ConstantListError::MissingConstant(id))?;
-
-        char::from_u32(payload).ok_or(ConstantListError::InvalidConstantPayload)
-    }
-
     pub fn get_u32(&self, id: ConstantId) -> Result<u32, ConstantListError> {
         let payload = *self
             .payloads
@@ -114,6 +105,15 @@ impl ConstantList {
         Ok(f64::from_bits(payload))
     }
 
+    pub fn get_character(&self, id: ConstantId) -> Result<char, ConstantListError> {
+        let payload = *self
+            .payloads
+            .get(id.0 as usize)
+            .ok_or(ConstantListError::MissingConstant(id))?;
+
+        char::from_u32(payload).ok_or(ConstantListError::InvalidConstantPayload)
+    }
+
     pub fn get_string(&self, id: ConstantId) -> Result<&str, ConstantListError> {
         let payload = *self
             .payloads
@@ -162,25 +162,6 @@ impl ConstantListBuilder {
             },
             self.tags,
         )
-    }
-
-    pub fn add_character(&mut self, character: char) -> ConstantId {
-        let key = {
-            let mut hasher = FxHasher::default();
-
-            OperandType::CHARACTER.hash(&mut hasher);
-            character.hash(&mut hasher);
-
-            hasher.finish()
-        };
-
-        if let Some(id) = self.interner.get(&key) {
-            return *id;
-        }
-
-        let payload = character as u32;
-
-        self.add_payloads([payload], key, OperandType::CHARACTER)
     }
 
     pub fn add_u32(&mut self, integer: u32) -> ConstantId {
@@ -346,6 +327,25 @@ impl ConstantListBuilder {
         let high_payload = ((bits >> 32) & 0xFFFFFFFF) as u32;
 
         self.add_payloads([low_payload, high_payload], key, OperandType::F_64)
+    }
+
+    pub fn add_character(&mut self, character: char) -> ConstantId {
+        let key = {
+            let mut hasher = FxHasher::default();
+
+            OperandType::CHARACTER.hash(&mut hasher);
+            character.hash(&mut hasher);
+
+            hasher.finish()
+        };
+
+        if let Some(id) = self.interner.get(&key) {
+            return *id;
+        }
+
+        let payload = character as u32;
+
+        self.add_payloads([payload], key, OperandType::CHARACTER)
     }
 
     pub fn add_string(&mut self, str: &str) -> ConstantId {

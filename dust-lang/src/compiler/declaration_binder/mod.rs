@@ -13,6 +13,7 @@ use crate::{
             Declaration, DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind, Visibility,
         },
         scope_graph::{Scope, ScopeId, ScopeKind},
+        type_graph::{TypeId, TypeNode},
     },
     source::Source,
     syntax::{Syntax, SyntaxKind, SyntaxReader, SyntaxVisitor},
@@ -56,7 +57,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     type StatementOutput = ();
     type ExpressionInput = ();
     type ExpressionOutput = ();
-    type TypeOutput = ();
+    type TypeOutput = TypeId;
     type PathInput = Visibility;
     type PathOutput = DeclarationId;
 
@@ -183,13 +184,100 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         ),);
 
         let (function_name, function_expression) = function_item.binary_children()?;
+        let (signature, body) = function_expression.binary_children()?;
+        let mut signature_children = signature.children()?;
+        let parameters = signature_children.expect_next()?;
+        let mut parameters_children = parameters.children()?;
+        let value_parameters = parameters_children.expect_next()?;
+        let type_parameters = parameters_children.next();
+
+        let function_scope_id = self.resolver.scopes.add_scope(Scope {
+            kind: ScopeKind::Function,
+            parent: self.current_scope_id,
+            modules: SmallVec::new(),
+            imports: SmallVec::new(),
+        });
+        let mut value_parameter_ids =
+            SmallVec::<[TypeId; 4]>::with_capacity(value_parameters.child_count() / 2);
+
+        for [parameter_name, parameter_type] in value_parameters.children()?.array_chunks::<2>() {
+            debug!("Visiting function parameter");
+
+            let name_str = self.source.get_file_content(&parameter_name.position())?;
+            let symbol_id = self.resolver.symbols.add_symbol(name_str);
+            let type_id = self.visit_type(parameter_type)?;
+            let declaration_id = self.resolver.declarations.add_declaration(Declaration {
+                symbol_id,
+                kind: DeclarationKind::Local { type_id },
+                scope_id: function_scope_id,
+                public: false,
+                syntax: Some((parameter_name.position(), parameter_name.id)),
+            });
+
+            self.resolver
+                .add_declaration_binding(parameter_name.id, declaration_id);
+            value_parameter_ids.push(type_id);
+        }
+
+        let type_parameter_ids = if let Some(type_parameters) = type_parameters {
+            type_parameters
+                .children()?
+                .map(|type_parameter| -> Result<DeclarationId, ErrorKind> {
+                    let type_parameter_name = type_parameter.child()?;
+
+                    let type_parameter_name_str = self
+                        .source
+                        .get_file_content(&type_parameter_name.position())?;
+                    let type_parameter_symbol_id =
+                        self.resolver.symbols.add_symbol(type_parameter_name_str);
+                    let type_parameter_declaration_id =
+                        self.resolver.declarations.add_declaration(Declaration {
+                            symbol_id: type_parameter_symbol_id,
+                            kind: DeclarationKind::Type {
+                                parent: None,
+                                type_parameters: DeclarationMembers::default(),
+                                members: DeclarationMembers::default(),
+                            },
+                            scope_id: self.current_scope_id,
+                            public: false,
+                            syntax: Some((type_parameter_name.position(), type_parameter_name.id)),
+                        });
+
+                    self.resolver.add_declaration_binding(
+                        type_parameter_name.id,
+                        type_parameter_declaration_id,
+                    );
+
+                    Ok(type_parameter_declaration_id)
+                })
+                .try_collect::<SmallVec<[DeclarationId; 4]>>()?
+        } else {
+            SmallVec::new()
+        };
+
+        let function_type_id = {
+            let type_parameters = self
+                .resolver
+                .declarations
+                .add_declaration_members(&type_parameter_ids);
+            let value_parameters = self.resolver.types.add_type_members(&value_parameter_ids);
+            let return_type_id = self.resolver.types.create_inferred_type();
+
+            self.resolver.types.add_type(TypeNode::Function {
+                type_parameters,
+                value_parameters,
+                return_type_id,
+            })
+        };
 
         let function_name_str = self.source.get_file_content(&function_name.position())?;
         let function_symbol_id = self.resolver.symbols.add_symbol(function_name_str);
 
         let function_declaration_id = self.resolver.declarations.add_declaration(Declaration {
             symbol_id: function_symbol_id,
-            kind: DeclarationKind::Function,
+            kind: DeclarationKind::Function {
+                type_id: function_type_id,
+            },
             scope_id: self.current_scope_id,
             public: function_item.kind() == SyntaxKind::PublicFunctionItem,
             syntax: Some((function_item.position(), function_item.id)),
@@ -197,7 +285,14 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.resolver
             .add_declaration_binding(function_name.id, function_declaration_id);
-        self.visit_function_expression(function_expression, None)?;
+        self.resolver.add_scope_binding(body.id, function_scope_id);
+
+        let starting_scope_id = self.current_scope_id;
+        self.current_scope_id = function_scope_id;
+
+        self.visit_block_expression(body, None)?;
+
+        self.current_scope_id = starting_scope_id;
 
         Ok(())
     }
@@ -366,6 +461,42 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
+    fn visit_let_statement(&mut self, let_statement: SyntaxReader) -> Result<(), ErrorKind> {
+        debug!("Visiting let statement");
+        debug_assert!(matches!(
+            let_statement.kind(),
+            SyntaxKind::LetStatement | SyntaxKind::LetMutStatement
+        ),);
+
+        let mut children = let_statement.children()?;
+        let simple_path = children.expect_next()?;
+        let expression = children.expect_next()?;
+        let type_notation = children.next();
+
+        self.visit_expression(expression, None)?;
+
+        let identifier = self.source.get_file_content(&simple_path.position())?;
+        let symbol_id = self.resolver.symbols.add_symbol(identifier);
+        let type_id = if let Some(type_notation) = type_notation {
+            self.visit_type(type_notation)?
+        } else {
+            self.resolver.types.create_inferred_type()
+        };
+
+        let declaration_id = self.resolver.declarations.add_declaration(Declaration {
+            symbol_id,
+            kind: DeclarationKind::Local { type_id },
+            scope_id: self.current_scope_id,
+            public: false,
+            syntax: Some((simple_path.position(), simple_path.id)),
+        });
+
+        self.resolver
+            .add_declaration_binding(simple_path.id, declaration_id);
+
+        Ok(())
+    }
+
     fn visit_expression_statement(
         &mut self,
         expression_statement: SyntaxReader,
@@ -374,30 +505,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         debug_assert_eq!(expression_statement.kind(), SyntaxKind::ExpressionStatement);
 
         self.visit_expression(expression_statement.child()?, None)?;
-
-        Ok(())
-    }
-
-    fn visit_let_statement(&mut self, let_statement: SyntaxReader) -> Result<(), ErrorKind> {
-        debug!("Visiting let statement");
-        debug_assert_eq!(let_statement.kind(), SyntaxKind::LetStatement);
-
-        let (simple_path, expression) = let_statement.binary_children()?;
-
-        self.visit_expression(expression, None)?;
-
-        let identifier = self.source.get_file_content(&simple_path.position())?;
-        let symbol_id = self.resolver.symbols.add_symbol(identifier);
-        let declaration_id = self.resolver.declarations.add_declaration(Declaration {
-            symbol_id,
-            kind: DeclarationKind::Local,
-            scope_id: self.current_scope_id,
-            public: false,
-            syntax: Some((simple_path.position(), simple_path.id)),
-        });
-
-        self.resolver
-            .add_declaration_binding(simple_path.id, declaration_id);
 
         Ok(())
     }
@@ -737,19 +844,19 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         for [parameter_name, parameter_type] in value_parameters.children()?.array_chunks::<2>() {
             debug!("Visiting function parameter");
 
-            let parameter_name_str = self.source.get_file_content(&parameter_name.position())?;
-            let parameter_symbol_id = self.resolver.symbols.add_symbol(parameter_name_str);
-            let parameter_declaration_id =
-                self.resolver.declarations.add_declaration(Declaration {
-                    symbol_id: parameter_symbol_id,
-                    kind: DeclarationKind::Local,
-                    scope_id: function_scope_id,
-                    public: false,
-                    syntax: Some((parameter_name.position(), parameter_name.id)),
-                });
+            let name_str = self.source.get_file_content(&parameter_name.position())?;
+            let symbol_id = self.resolver.symbols.add_symbol(name_str);
+            let type_id = self.visit_type(parameter_type)?;
+            let declaration_id = self.resolver.declarations.add_declaration(Declaration {
+                symbol_id,
+                kind: DeclarationKind::Local { type_id },
+                scope_id: function_scope_id,
+                public: false,
+                syntax: Some((parameter_name.position(), parameter_name.id)),
+            });
 
             self.resolver
-                .add_declaration_binding(parameter_name.id, parameter_declaration_id);
+                .add_declaration_binding(parameter_name.id, declaration_id);
             self.visit_type(parameter_type)?;
         }
 
@@ -801,14 +908,98 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 | SyntaxKind::TypePath
         ),);
 
-        if node.kind() == SyntaxKind::TypePath {
-            let declaration_id = search_path_segments(self, node, Visibility::Module)?;
+        let type_id = match node.kind() {
+            SyntaxKind::AnyType => self.resolver.types.create_inferred_type(),
+            SyntaxKind::BooleanType => TypeId::BOOLEAN,
+            SyntaxKind::U8Type => TypeId::U_8,
+            SyntaxKind::CharacterType => TypeId::CHARACTER,
+            SyntaxKind::F64Type => TypeId::F_64,
+            SyntaxKind::I64Type => TypeId::I_64,
+            SyntaxKind::StringType => TypeId::STRING,
+            SyntaxKind::ListType => {
+                let element_type = node.child()?;
 
-            self.resolver
-                .add_declaration_binding(node.id, declaration_id);
-        }
+                self.visit_type(element_type)?
+            }
+            SyntaxKind::FunctionType => {
+                let mut children = node.children()?;
+                let parameters = children.expect_next()?;
+                let mut parameters_children = parameters.children()?;
+                let value_parameters = parameters_children.expect_next()?;
+                let type_parameters = parameters_children.next();
+                let return_type = children.expect_next()?;
 
-        Ok(())
+                let value_parameter_ids = value_parameters
+                    .children()?
+                    .map(|parameter| {
+                        let parameter_type = parameter.child()?;
+
+                        self.visit_type(parameter_type)
+                    })
+                    .try_collect::<SmallVec<[TypeId; 4]>>()?;
+                let type_parameter_ids = if let Some(type_parameters) = type_parameters {
+                    type_parameters
+                        .children()?
+                        .map(|type_parameter| -> Result<DeclarationId, ErrorKind> {
+                            let type_parameter_name = type_parameter.child()?;
+
+                            let type_parameter_name_str = self
+                                .source
+                                .get_file_content(&type_parameter_name.position())?;
+                            let type_parameter_symbol_id =
+                                self.resolver.symbols.add_symbol(type_parameter_name_str);
+                            let type_parameter_declaration_id =
+                                self.resolver.declarations.add_declaration(Declaration {
+                                    symbol_id: type_parameter_symbol_id,
+                                    kind: DeclarationKind::Type {
+                                        parent: None,
+                                        type_parameters: DeclarationMembers::default(),
+                                        members: DeclarationMembers::default(),
+                                    },
+                                    scope_id: self.current_scope_id,
+                                    public: false,
+                                    syntax: Some((
+                                        type_parameter_name.position(),
+                                        type_parameter_name.id,
+                                    )),
+                                });
+
+                            self.resolver.add_declaration_binding(
+                                type_parameter_name.id,
+                                type_parameter_declaration_id,
+                            );
+
+                            Ok(type_parameter_declaration_id)
+                        })
+                        .try_collect::<SmallVec<[DeclarationId; 4]>>()?
+                } else {
+                    SmallVec::new()
+                };
+
+                let type_parameters = self
+                    .resolver
+                    .declarations
+                    .add_declaration_members(&type_parameter_ids);
+                let value_parameters = self.resolver.types.add_type_members(&value_parameter_ids);
+                let return_type_id = self.visit_type(return_type)?;
+
+                self.resolver.types.add_type(TypeNode::Function {
+                    type_parameters,
+                    value_parameters,
+                    return_type_id,
+                })
+            }
+            SyntaxKind::TypePath => {
+                let declaration_id = search_path_segments(self, node, Visibility::Module)?;
+
+                self.resolver
+                    .add_declaration_binding(node.id, declaration_id);
+                self.resolver.types.create_inferred_type()
+            }
+            _ => unreachable!(),
+        };
+
+        Ok(type_id)
     }
 
     fn visit_path(

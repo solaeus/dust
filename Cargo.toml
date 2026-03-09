@@ -7,19 +7,13 @@ resolver = "2"
 authors = ["Jeff Anderson"]
 license = "GPL-3.0"
 readme = "README.md"
-repository = "https://git.jeffa.io/jeff/dust.git"
+repository = "https://github.com/solaeus/dust"
 version = "0.5.0"
 edition = "2024"
-
-[profile.dev]
-opt-level = 1
-[profile.dev.package."*"]
-opt-level = 3
 
 [profile.release]
 opt-level = 3
 debug = false
-split-debuginfo = "off"
 strip = "symbols"
 debug-assertions = false
 overflow-checks = false
@@ -31,4 +25,5 @@ rpath = false
 
 [profile.perf]
 inherits = "release"
-strip = false
+debug = true
+strip = "none"

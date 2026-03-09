@@ -10,7 +10,7 @@ fn resolves_to_local_declaration() {
 
     let (x_id, x_kind) = find_declaration(&mut resolver, "x").unwrap();
 
-    assert!(matches!(x_kind, DeclarationKind::Local));
+    assert!(matches!(x_kind, DeclarationKind::Local { .. }));
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let path_expr = tree
@@ -36,7 +36,10 @@ fn qualified_path_resolves_through_module() {
         .find(|(_, declaration)| declaration.symbol_id == bar_symbol_id)
         .unwrap();
 
-    assert_eq!(bar_declaration.kind, DeclarationKind::Function);
+    assert!(matches!(
+        bar_declaration.kind,
+        DeclarationKind::Function { .. }
+    ));
 }
 
 #[test]

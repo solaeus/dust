@@ -12,7 +12,7 @@ fn creates_function_declaration() {
 
     let (foo_id, foo_kind) = find_declaration(&mut resolver, "foo").unwrap();
 
-    assert_eq!(foo_kind, DeclarationKind::Function);
+    assert!(matches!(foo_kind, DeclarationKind::Function { .. }));
 
     let foo_declaration = resolver.declarations.get_declaration(foo_id).unwrap();
 

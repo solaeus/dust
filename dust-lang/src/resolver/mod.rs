@@ -854,17 +854,14 @@ impl Resolver {
                         let parent_symbol =
                             self.symbols.get_symbol(&parent_declaration.symbol_id)?;
 
-                        return Ok(format!(
-                            "ID {}: {symbol} type (parent: {parent_symbol})",
-                            id.inner()
-                        ));
+                        &format!("type ({}::{})", parent_symbol, symbol)
                     } else {
                         "type"
                     }
                 }
                 DeclarationKind::NativeFunction(_) => "native function",
-                DeclarationKind::Function => "function",
-                DeclarationKind::Local => "local",
+                DeclarationKind::Function { .. } => "function",
+                DeclarationKind::Local { .. } => "local",
             };
 
             Ok(format!("ID {}: {symbol} {kind_str}", id.inner()))
