@@ -382,7 +382,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
             let variant_declaration_id =
                 *self.resolver.get_declaration_binding(&variant_name.id)?;
-            let variant_type_id = if let Some(variant_fields) = variant_fields {
+            let variant_type_id = if let Some(_variant_fields) = variant_fields {
                 self.resolver.types.add_type(TypeNode::Struct {
                     declaration_id: variant_declaration_id,
                     type_arguments: TypeMembers::default(),
@@ -1134,7 +1134,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             });
         }
 
-        for (argument, expected_type_id) in arguments.zip(expected_parameters.into_iter()) {
+        for (argument, expected_type_id) in arguments.zip(expected_parameters) {
             let argument_type = self.visit_expression(argument, None)?;
 
             self.unify_types(expected_type_id, None, argument_type, argument)?;
@@ -1165,10 +1165,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 Ok(list_type_id)
             }
             SyntaxKind::FunctionType => {
-                let type_node = todo!();
-                let function_type_id = self.resolver.types.add_type(type_node);
-
-                Ok(function_type_id)
+                todo!()
             }
             SyntaxKind::TypePath => {
                 let declaration_id = self.resolver.get_declaration_binding(&node.id)?;

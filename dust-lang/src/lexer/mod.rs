@@ -888,7 +888,7 @@ fn decode_utf8_code_point(first: u8, tail: &[u8]) -> char {
     if first & 0xE0 == 0xC0 {
         let bytes = ((first as u32 & 0x1F) << 6) | (tail[0] as u32 & 0x3F);
 
-        return char::from_u32(bytes).unwrap();
+        return char::from_u32(bytes).unwrap_or_default();
     }
 
     if first & 0xF0 == 0xE0 {
@@ -896,7 +896,7 @@ fn decode_utf8_code_point(first: u8, tail: &[u8]) -> char {
             | ((tail[0] as u32 & 0x3F) << 6)
             | (tail[1] as u32 & 0x3F);
 
-        return char::from_u32(bytes).unwrap();
+        return char::from_u32(bytes).unwrap_or_default();
     }
 
     let bytes = ((first as u32 & 0x07) << 18)
@@ -904,7 +904,7 @@ fn decode_utf8_code_point(first: u8, tail: &[u8]) -> char {
         | ((tail[1] as u32 & 0x3F) << 6)
         | (tail[2] as u32 & 0x3F);
 
-    char::from_u32(bytes).unwrap()
+    char::from_u32(bytes).unwrap_or_default()
 }
 
 #[derive(Clone, Copy)]

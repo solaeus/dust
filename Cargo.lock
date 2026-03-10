@@ -773,15 +773,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dust-gc"
-version = "0.5.0"
-dependencies = [
- "crossbeam-epoch",
- "memmap2",
- "parking_lot",
-]
-
-[[package]]
 name = "dust-lang"
 version = "0.5.0"
 dependencies = [

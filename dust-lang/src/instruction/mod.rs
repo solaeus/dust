@@ -77,46 +77,6 @@ use crate::native_function::NativeFunction;
 pub struct Instruction(u64);
 
 impl Instruction {
-    pub fn inner(&self) -> u64 {
-        self.0
-    }
-
-    pub fn operation(&self) -> Operation {
-        Operation(self.0 as u8 & 0x1F)
-    }
-
-    pub fn operand_type(&self) -> OperandType {
-        OperandType(((self.0 >> 10) & 0x1F) as u8)
-    }
-
-    pub fn b_memory(&self) -> MemoryKind {
-        MemoryKind(((self.0 >> 6) & 0x3) as u8)
-    }
-
-    pub fn c_memory(&self) -> MemoryKind {
-        MemoryKind(((self.0 >> 8) & 0x3) as u8)
-    }
-
-    pub fn a_field(&self) -> u16 {
-        ((self.0 >> 16) & 0xFFFF) as u16
-    }
-
-    pub fn b_field(&self) -> u16 {
-        ((self.0 >> 32) & 0xFFFF) as u16
-    }
-
-    pub fn c_field(&self) -> u16 {
-        ((self.0 >> 48) & 0xFFFF) as u16
-    }
-
-    pub fn d_field(&self) -> u16 {
-        ((self.0 >> 10) & 0x3F) as u16
-    }
-
-    pub fn bc_field(&self) -> u32 {
-        ((self.0 >> 32) & 0xFFFFFFFF) as u32
-    }
-
     pub fn no_op() -> Instruction {
         Instruction(0)
     }
@@ -460,6 +420,38 @@ impl Instruction {
             returns_value,
             argument_count,
         })
+    }
+
+    pub fn operation(&self) -> Operation {
+        Operation(self.0 as u8 & 0x1F)
+    }
+
+    pub fn operand_type(&self) -> OperandType {
+        OperandType(((self.0 >> 10) & 0x1F) as u8)
+    }
+
+    pub fn b_memory(&self) -> MemoryKind {
+        MemoryKind(((self.0 >> 6) & 0x3) as u8)
+    }
+
+    pub fn c_memory(&self) -> MemoryKind {
+        MemoryKind(((self.0 >> 8) & 0x3) as u8)
+    }
+
+    pub fn a_field(&self) -> u16 {
+        ((self.0 >> 16) & 0xFFFF) as u16
+    }
+
+    pub fn b_field(&self) -> u16 {
+        ((self.0 >> 32) & 0xFFFF) as u16
+    }
+
+    pub fn c_field(&self) -> u16 {
+        ((self.0 >> 48) & 0xFFFF) as u16
+    }
+
+    pub fn d_field(&self) -> u16 {
+        ((self.0 >> 10) & 0x3F) as u16
     }
 
     pub fn is_coallescible_with_jump(&self, forward: bool) -> bool {

@@ -98,8 +98,11 @@ impl InputOptions {
 }
 
 #[derive(Args)]
-#[group(multiple = true)]
 pub struct OutputOptions {
+    /// Print output in Rust debug format
+    #[arg(long, group = "format")]
+    pub debug: bool,
+
     /// Print output in Rusty Object Notation
     #[arg(long, group = "format")]
     pub ron: bool,
@@ -132,7 +135,7 @@ pub struct ParseCommand {
     #[command(flatten)]
     pub output: OutputOptions,
 
-    /// Print syntax trees as human-readable structured text trees (default: true)
+    /// Print syntax trees as human-readable text trees (default: true)
     #[arg(long, default_value = "true", group = "format")]
     pub trees: bool,
 }
@@ -148,7 +151,7 @@ pub struct CompileCommand {
     #[command(flatten)]
     pub output: OutputOptions,
 
-    /// Launch the TUI disassembler instead of printing the compiled program to stdout (default: true)
+    /// Launch the TUI disassembler (default: true)
     #[arg(long, default_value = "true", group = "format")]
     pub tui: bool,
 }

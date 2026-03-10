@@ -10,7 +10,6 @@ use std::{
     fs::{File, create_dir, create_dir_all},
     io::{self, Read, Write},
     path::PathBuf,
-    str::FromStr,
     time::Instant,
 };
 
@@ -19,10 +18,8 @@ use dust_lang::{
     project::{EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
     source::{Source, SourceFile},
 };
-use tracing::{Event, Level, Subscriber, info, level_filters::LevelFilter, trace};
+use tracing::{Event, Level, Subscriber, info, level_filters::LevelFilter};
 use tracing_subscriber::{
-    EnvFilter,
-    filter::Directive,
     fmt::{FmtContext, FormatEvent, FormatFields, format::Writer},
     registry::LookupSpan,
 };
@@ -148,40 +145,29 @@ where
         let level = event.metadata().level();
         let scopes = context.event_scope().map(|scope| scope.from_root());
 
-        let (symbol, level) = match *level {
-            Level::ERROR => ("‼️", "ERROR".red()),
-            Level::WARN => ("⚠️", "WARN".yellow()),
-            Level::INFO => ("ℹ️", "INFO".blue()),
-            Level::DEBUG => ("🐛", "DEBUG".green()),
-            Level::TRACE => ("🔎", "TRACE".magenta()),
+        let level = match *level {
+            Level::INFO => "INFO".blue().bold(),
+            Level::DEBUG => "DEBUG".green().bold(),
+            Level::TRACE => "TRACE".magenta().bold(),
+            Level::WARN => "WARN".yellow().bold(),
+            Level::ERROR => "ERROR".red().bold(),
         };
         let time = format!("{elapsed:.5}ms").dimmed();
 
-        write!(writer, "{symbol} ┊ {level:5} {time} ┊ ")?;
-
-        let mut scope_length = 0;
+        write!(writer, "{level:5} {time} ")?;
 
         if let Some(scopes) = scopes {
             for (index, span) in scopes.enumerate() {
                 let span_name = span.metadata().name().bold();
-                let mut span_length = span_name.len();
 
                 if index > 0 {
                     write!(writer, "::")?;
-
-                    span_length += 2;
                 }
-
-                scope_length += span_length;
 
                 write!(writer, "{span_name}")?;
             }
 
-            for _ in 0..(17 - scope_length) {
-                write!(writer, " ")?;
-            }
-
-            write!(writer, "┊ ")?;
+            write!(writer, " ")?;
         }
 
         context.format_fields(writer.by_ref(), event)?;

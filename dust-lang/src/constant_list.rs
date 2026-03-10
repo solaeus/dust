@@ -414,8 +414,9 @@ impl<'a> AnnotatedError<'a> for ConstantListError {
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)]
 mod tests {
-    use crate::constant_list::*;
+    use super::*;
 
     fn create_test_table(
         op: fn(&mut ConstantListBuilder) -> ConstantId,

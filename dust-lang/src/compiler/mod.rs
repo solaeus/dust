@@ -3,8 +3,6 @@ mod emitter;
 pub mod error;
 mod type_binder;
 
-use std::path::Path;
-
 use smallvec::SmallVec;
 use tracing::{Level, span};
 
@@ -143,7 +141,7 @@ impl<'src> Compiler<'src> {
                 let ParseResult {
                     syntax_tree,
                     errors: parse_errors,
-                    file_module_names,
+                    file_module_names: _,
                 } = parser.parse();
 
                 file.set_utf8_validated(true);

@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_methods)]
+
 use crate::{
     lexer::Lexer,
     source::Span,

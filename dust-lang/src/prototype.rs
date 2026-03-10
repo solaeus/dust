@@ -47,6 +47,10 @@ impl PrototypeList {
         }
     }
 
+    pub fn into_inner(self) -> Vec<Prototype> {
+        self.prototypes
+    }
+
     pub fn len(&self) -> usize {
         self.prototypes.len()
     }
@@ -79,12 +83,6 @@ impl PrototypeList {
     }
 
     pub fn set(&mut self, id: PrototypeId, prototype: Prototype) {
-        assert!(
-            (id.0 as usize) < self.prototypes.len(),
-            "Logic error: misuse of prototype ID {id}. When used correctly, prototype IDs are always\
-            reserved before being set, so this should never happen.",
-        );
-
         self.prototypes[id.0 as usize] = prototype;
     }
 }

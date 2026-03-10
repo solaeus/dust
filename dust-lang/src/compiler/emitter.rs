@@ -137,9 +137,7 @@ impl<'a> Emitter<'a> {
                 .resolver
                 .types
                 .get_type_members(value_parameters)?
-                .iter()
-                .copied()
-                .collect::<SmallVec<[TypeId; 8]>>();
+                .to_vec();
 
             for (argument, expected_type_id) in value_arguments.children()?.zip(argument_types) {
                 let argument_id = *emitter.resolver.get_declaration_binding(&argument.id)?;
@@ -1194,12 +1192,12 @@ impl SyntaxVisitor for Emitter<'_> {
         let (function_name, function_expression) = node.binary_children()?;
         let (signature, body) = function_expression.binary_children()?;
         let mut singature_children = signature.children()?;
-        let parameters = singature_children.expect_next()?;
+        let _parameters = singature_children.expect_next()?;
 
-        let function_scope_id = *self.resolver.get_scope_binding(&body.id)?;
+        let _function_scope_id = *self.resolver.get_scope_binding(&body.id)?;
         let prototype_id = self.prototypes.reserve();
         let declaration_id = *self.resolver.get_declaration_binding(&function_name.id)?;
-        let type_id = *self.resolver.get_type_binding(&function_expression.id)?;
+        let _type_id = *self.resolver.get_type_binding(&function_expression.id)?;
 
         let function_emitter = Emitter::new(
             node,
@@ -2599,7 +2597,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 right_memory,
                 right_index,
             ),
-            SyntaxKind::GreaterThanExpression => Instruction::less(
+            SyntaxKind::GreaterThanExpression => Instruction::less_equal(
                 false,
                 register.operand_type,
                 left_memory,
@@ -2607,7 +2605,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 right_memory,
                 right_index,
             ),
-            SyntaxKind::LessThanOrEqualExpression => Instruction::less(
+            SyntaxKind::LessThanOrEqualExpression => Instruction::less_equal(
                 true,
                 register.operand_type,
                 left_memory,

@@ -260,20 +260,18 @@ impl<'src> SourceFile<'src> {
     }
 
     pub fn content_as_str(&self) -> &str {
-        fn handle_utf8_validation<'a>(path: &str, source_bytes: &'a [u8]) -> &'a str {
+        fn handle_utf8_validation<'a>(path_or_name: &str, source_bytes: &'a [u8]) -> &'a str {
             warn!(
-                "Source file {} is being accessed before UTF-8 validation. Doing immediate \
-                validation now. All files should be validated by the lexer before being accessed \
-                to avoid this warning.",
-                Path::new(path).file_name().unwrap().display()
+                "Source file {path_or_name} is being accessed before UTF-8 validation. Doing \
+                immediate validation now. All files should be validated by the lexer before being \
+                accessed to avoid this warning.",
             );
 
             let utf8_bytes = match str::from_utf8(source_bytes) {
                 Ok(str) => return str,
                 Err(error) => {
                     error!(
-                        "Source file {} contains invalid UTF-8 at byte index {}.",
-                        Path::new(path).display(),
+                        "Source file {path_or_name} contains invalid UTF-8 at byte index {}.",
                         error.valid_up_to()
                     );
 
@@ -286,25 +284,25 @@ impl<'src> SourceFile<'src> {
 
         match self {
             Self::Borrowed {
-                name: path,
+                name,
                 content: source_bytes,
                 utf8_validated,
             } => {
                 if *utf8_validated {
                     unsafe { str::from_utf8_unchecked(source_bytes) }
                 } else {
-                    handle_utf8_validation(path, source_bytes)
+                    handle_utf8_validation(name, source_bytes)
                 }
             }
             Self::Owned {
-                name: path,
+                name,
                 content: source_bytes,
                 utf8_validated,
             } => {
                 if *utf8_validated {
                     unsafe { str::from_utf8_unchecked(source_bytes) }
                 } else {
-                    handle_utf8_validation(path, source_bytes)
+                    handle_utf8_validation(name, source_bytes)
                 }
             }
             Self::File {

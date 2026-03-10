@@ -21,8 +21,7 @@ pub struct SyntaxTree {
     /// Append-only list of syntax nodes. Each node's ID is its index in this list.
     nodes: Vec<SyntaxNode>,
 
-    /// Concatenated list of node indexes that represent children for nodes with more than two
-    /// children.
+    /// Concatenated list of node IDs for nodes with more than two children.
     pub(super) children: Vec<SyntaxId>,
 }
 
@@ -102,28 +101,19 @@ impl SyntaxTree {
 
         nodes
     }
+}
 
-    fn as_text_tree(&self) -> String {
+impl Display for SyntaxTree {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let root = match self.root() {
             Ok(root) => root,
-            Err(_) => return "<empty>".to_string(),
+            Err(_) => return write!(f, "Syntax Tree: <empty>"),
         };
         let mut buffer = String::new();
 
         root.draw_text_tree(&mut buffer);
 
-        buffer
-    }
-}
-
-impl Display for SyntaxTree {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Syntax Tree: {} nodes\n{}",
-            self.node_count(),
-            self.as_text_tree()
-        )
+        write!(f, "Syntax Tree: {} nodes\n{buffer}", self.node_count())
     }
 }
 

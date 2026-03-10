@@ -8,7 +8,7 @@ pub struct Program {
     return_type: DustType,
 
     pub prototypes: PrototypeList,
-    pub(crate) constants: ConstantList,
+    pub constants: ConstantList,
 }
 
 impl Program {

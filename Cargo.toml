@@ -1,5 +1,5 @@
 [workspace]
-members = ["dust-lang", "dust-cli", "dust-gc"]
+members = ["dust-lang", "dust-cli"]
 default-members = ["dust-lang", "dust-cli"]
 resolver = "2"
 

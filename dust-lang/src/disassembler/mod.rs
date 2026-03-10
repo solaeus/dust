@@ -1,6 +1,6 @@
 mod block_table;
 
-use std::{cmp::Ordering, io};
+use std::io;
 
 use ratatui::{
     buffer::Buffer,
@@ -233,7 +233,7 @@ impl<'a> Disassembler<'a> {
             source_area,
             info_area,
             instructions_area,
-            drop_lists_area,
+            _drop_lists_area,
         ] = areas.flex(Flex::Start).areas(inner_area);
 
         Paragraph::new(function_name.unwrap_or("anonymous"))
@@ -358,7 +358,10 @@ impl Widget for &mut Disassembler<'_> {
             .render(tab_header_area, buffer);
 
         match &self.tabs[self.selection_state.current_tab] {
-            Tab::SourceFile { file_name, file_id } => {
+            Tab::SourceFile {
+                file_name: _,
+                file_id,
+            } => {
                 let source_file = self.source.get_file(*file_id).unwrap();
                 let syntax_tree = self.syntax.get_tree(*file_id).unwrap();
 

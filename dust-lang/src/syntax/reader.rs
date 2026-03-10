@@ -380,6 +380,7 @@ impl DoubleEndedIterator for SyntaxReaderIterator<'_> {
 impl ExactSizeIterator for SyntaxReaderIterator<'_> {}
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)]
 mod tests {
     use crate::parser::parse;
 

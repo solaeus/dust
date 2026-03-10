@@ -17,7 +17,7 @@ use crate::{
     },
     source::Source,
     syntax::{
-        Syntax, error::SyntaxError, node::SyntaxKind, reader::SyntaxReader, visitor::SyntaxVisitor,
+        Syntax, node::SyntaxKind, reader::SyntaxReader, visitor::SyntaxVisitor,
     },
 };
 

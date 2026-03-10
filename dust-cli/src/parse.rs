@@ -19,6 +19,7 @@ pub fn handle_parse_command(command: ParseCommand) {
         input: InputOptions { eval, stdin, path },
         output:
             OutputOptions {
+                debug,
                 ron,
                 pretty_ron,
                 postcard,
@@ -43,7 +44,7 @@ pub fn handle_parse_command(command: ParseCommand) {
             ..
         } = parser.parse();
 
-        handle_output(&syntax_tree, ron, pretty_ron, postcard, trees);
+        handle_output(&syntax_tree, debug, ron, pretty_ron, postcard, trees);
         parse_errors.extend(errors);
     }
 
@@ -54,23 +55,35 @@ pub fn handle_parse_command(command: ParseCommand) {
 
 fn handle_output(
     syntax_tree: &SyntaxTree,
+    debug: bool,
     ron: bool,
     pretty_ron: bool,
     postcard: bool,
     trees: bool,
 ) {
-    if ron {
-        println!("{}", ron::to_string(syntax_tree).unwrap());
-    } else if pretty_ron {
-        println!(
-            "{}",
-            ron::ser::to_string_pretty(syntax_tree, PrettyConfig::new().struct_names(true))
-                .unwrap()
-        );
-    } else if postcard {
-        let postcard = postcard::to_extend(syntax_tree, Vec::new()).unwrap();
+    if debug {
+        println!("{syntax_tree:#?}");
+    } else if ron {
+        let ron_string = ron::to_string(syntax_tree).expect("Failed to serialize program to RON");
 
-        stdout().write_all(&postcard).unwrap();
+        stdout()
+            .write_all(ron_string.as_bytes())
+            .expect("Failed to write RON output to stdout");
+    } else if pretty_ron {
+        let ron_string =
+            ron::ser::to_string_pretty(syntax_tree, PrettyConfig::default().struct_names(true))
+                .expect("Failed to serialize program to pretty RON");
+
+        stdout()
+            .write_all(ron_string.as_bytes())
+            .expect("Failed to write pretty RON output to stdout");
+    } else if postcard {
+        let bytes = postcard::to_extend(syntax_tree, Vec::new())
+            .expect("Failed to serialize program to Postcard");
+
+        stdout()
+            .write_all(&bytes)
+            .expect("Failed to write Postcard output to stdout");
     } else if trees {
         println!("{syntax_tree}");
     }

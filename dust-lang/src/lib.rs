@@ -24,7 +24,6 @@ mod resolver;
 pub mod source;
 pub mod syntax;
 mod token;
-mod value;
 
 #[cfg(feature = "mimalloc")]
 mod allocator {
