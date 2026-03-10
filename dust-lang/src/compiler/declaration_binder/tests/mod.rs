@@ -18,6 +18,7 @@ use smallvec::SmallVec;
 
 use crate::{
     compiler::declaration_binder::DeclarationBinder,
+    error::ErrorKind,
     lexer::Lexer,
     parser::{ParseResult, Parser},
     resolver::{
@@ -66,7 +67,7 @@ fn bind_declarations(source_code: &str) -> (Syntax, Resolver) {
 
     match declaration_binder.visit_root(main_root) {
         Ok(()) => {}
-        Err(error) => errors.push(error),
+        Err(error) => errors.push(ErrorKind::Compile(error)),
     }
 
     assert!(errors.is_empty(), "{errors:#?}");

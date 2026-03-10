@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// A small (4-bit) type representation used to encode the types of instruction operands.
 ///
-/// `OperandType` can represent any type, but it not always with full specificity. It provides just
+/// `OperandType` can represent any type, but not always with full specificity. It provides just
 /// enough information to determine how to interpret an instruction's operands at runtime.
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
@@ -26,8 +26,8 @@ impl OperandType {
     pub const F_32: OperandType = OperandType(11);
     pub const F_64: OperandType = OperandType(12);
     pub const CHARACTER: OperandType = OperandType(13);
-    pub const POINTER: OperandType = OperandType(14);
-    pub const FUNCTION: OperandType = OperandType(15);
+    pub const FUNCTION: OperandType = OperandType(14);
+    pub const POINTER: OperandType = OperandType(15);
 
     /// Returns the byte size of values of this type or `None`
     pub fn size_in_bytes(self) -> usize {
@@ -60,8 +60,8 @@ impl Display for OperandType {
             Self::F_32 => write!(f, "f32"),
             Self::F_64 => write!(f, "f64"),
             Self::CHARACTER => write!(f, "char"),
-            Self::POINTER => write!(f, "*T"),
             Self::FUNCTION => write!(f, "fn"),
+            Self::POINTER => write!(f, "*T"),
             _ => write!(f, "<invalid operand type>"),
         }
     }

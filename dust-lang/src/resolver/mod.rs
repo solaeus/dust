@@ -12,7 +12,6 @@ use smallvec::SmallVec;
 use crate::{
     compiler::error::CompileError,
     dust_type::{DustFunctionType, DustStructType, DustType},
-    error::ErrorKind,
     native_function::NativeFunction,
     resolver::{
         declaration_graph::{
@@ -258,7 +257,11 @@ impl Resolver {
             .ok_or(ResolverError::MissingTypeBinding(*syntax_id))
     }
 
-    pub fn get_byte_size(&self, type_id: TypeId, node: &SyntaxReader) -> Result<usize, ErrorKind> {
+    pub fn get_byte_size(
+        &self,
+        type_id: TypeId,
+        node: &SyntaxReader,
+    ) -> Result<usize, CompileError> {
         let type_node = self.types.get_type(type_id)?;
 
         match type_node {
@@ -274,9 +277,9 @@ impl Resolver {
                 let struct_declaration = self.declarations.get_declaration(*declaration_id)?;
 
                 let DeclarationKind::Type { members, .. } = struct_declaration.kind else {
-                    return Err(ErrorKind::Compile(CompileError::Resolver(
+                    return Err(CompileError::Resolver(
                         ResolverError::ExpectedTypeDeclaration(*declaration_id),
-                    )));
+                    ));
                 };
                 let field_ids = self.declarations.get_declaration_members(members)?;
                 let mut size = 0;
@@ -292,18 +295,16 @@ impl Resolver {
                 if let Some(resolved) = resolved {
                     self.get_byte_size(*resolved, node)
                 } else {
-                    Err(ErrorKind::Compile(CompileError::CannotInferType {
+                    Err(CompileError::CannotInferType {
                         type_id,
                         position: None,
-                    }))
+                    })
                 }
             }
-            TypeNode::Unit | TypeNode::Enum { .. } => {
-                Err(ErrorKind::Compile(CompileError::ExpectedValue {
-                    node_kind: node.kind(),
-                    position: node.position(),
-                }))
-            }
+            TypeNode::Unit | TypeNode::Enum { .. } => Err(CompileError::ExpectedValue {
+                node_kind: node.kind(),
+                position: node.position(),
+            }),
         }
     }
 
@@ -311,7 +312,7 @@ impl Resolver {
         &self,
         type_id: TypeId,
         node: &SyntaxReader,
-    ) -> Result<usize, ErrorKind> {
+    ) -> Result<usize, CompileError> {
         self.get_byte_size(type_id, node)
             .map(|byte_size| byte_size.div_ceil(4))
     }
@@ -322,7 +323,7 @@ impl Resolver {
         target_scope_id: ScopeId,
         visibility: Visibility,
         path_segment: &SyntaxReader,
-    ) -> Result<(DeclarationId, &Declaration), ErrorKind> {
+    ) -> Result<(DeclarationId, &Declaration), CompileError> {
         let mut current_scope_id = target_scope_id;
 
         loop {
@@ -368,10 +369,10 @@ impl Resolver {
 
         self.scope_search.clear();
 
-        Err(ErrorKind::Compile(CompileError::Undeclared {
+        Err(CompileError::Undeclared {
             symbol_id,
             usage_position: path_segment.position(),
-        }))
+        })
     }
 
     pub fn add_external_type(&mut self, new_type: &DustType) -> TypeId {
@@ -500,7 +501,7 @@ impl Resolver {
         self.types.add_type(node)
     }
 
-    pub fn get_full_type(&self, id: TypeId, source: &Source) -> Result<DustType, ErrorKind> {
+    pub fn get_full_type(&self, id: TypeId, source: &Source) -> Result<DustType, CompileError> {
         let type_node = self.types.get_type(id)?;
 
         match type_node {
@@ -553,10 +554,10 @@ impl Resolver {
                 if let Some(resolved) = resolved {
                     self.get_full_type(*resolved, source)
                 } else {
-                    Err(ErrorKind::Compile(CompileError::CannotInferType {
+                    Err(CompileError::CannotInferType {
                         type_id: id,
                         position: None,
-                    }))
+                    })
                 }
             }
             TypeNode::Struct { declaration_id, .. } => {
@@ -567,8 +568,8 @@ impl Resolver {
                     .to_string();
 
                 let DeclarationKind::Type { members, .. } = struct_declaration.kind else {
-                    return Err(ErrorKind::Compile(CompileError::Resolver(
-                        ResolverError::MissingDeclaration(*declaration_id),
+                    return Err(CompileError::Resolver(ResolverError::MissingDeclaration(
+                        *declaration_id,
                     )));
                 };
                 let field_ids = self.declarations.get_declaration_members(members)?;
@@ -601,7 +602,7 @@ impl Resolver {
     fn get_declaration_member_names(
         &self,
         members: DeclarationMembers,
-    ) -> impl Iterator<Item = Result<String, ErrorKind>> {
+    ) -> impl Iterator<Item = Result<String, CompileError>> {
         members.as_range().map(|member_index| {
             let declaration_id = self.declarations.get_declaration_member(member_index)?;
             let declaration = self.declarations.get_declaration(*declaration_id)?;
@@ -615,7 +616,7 @@ impl Resolver {
         &self,
         members: TypeMembers,
         source: &Source,
-    ) -> impl Iterator<Item = Result<DustType, ErrorKind>> {
+    ) -> impl Iterator<Item = Result<DustType, CompileError>> {
         members.as_range().map(|member_index| {
             let type_id = *self.types.get_type_member(member_index)?;
 
@@ -625,7 +626,7 @@ impl Resolver {
 
     pub fn declaration_display_iterator<'a>(
         &'a self,
-    ) -> impl Iterator<Item = Result<String, ErrorKind>> + 'a {
+    ) -> impl Iterator<Item = Result<String, CompileError>> + 'a {
         self.declarations.iter().map(|(id, declaration)| {
             let symbol = self.symbols.get_symbol(&declaration.symbol_id)?;
             let kind_str = match declaration.kind {

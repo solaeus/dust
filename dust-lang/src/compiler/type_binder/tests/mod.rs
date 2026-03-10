@@ -20,6 +20,7 @@ mod while_expression;
 use smallvec::SmallVec;
 
 use crate::{
+    error::ErrorKind,
     lexer::Lexer,
     parser::Parser,
     resolver::{
@@ -71,7 +72,7 @@ pub fn bind_types(source_code: &str) -> (Syntax, Resolver) {
 
         match declaration_binder.visit_root(main_root) {
             Ok(()) => {}
-            Err(error) => errors.push(error),
+            Err(error) => errors.push(ErrorKind::Compile(error)),
         }
     }
 
@@ -83,7 +84,7 @@ pub fn bind_types(source_code: &str) -> (Syntax, Resolver) {
 
         match type_binder.visit_root(main_root) {
             Ok(()) => {}
-            Err(error) => errors.push(error),
+            Err(error) => errors.push(ErrorKind::Compile(error)),
         }
     }
 

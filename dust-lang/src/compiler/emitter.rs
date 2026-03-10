@@ -10,7 +10,6 @@ use tracing::{debug, trace};
 use crate::{
     compiler::error::CompileError,
     constant_list::ConstantListBuilder,
-    error::ErrorKind,
     instruction::{Drop, Instruction, Jump, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
     prototype::{Prototype, PrototypeId, PrototypeList},
@@ -77,7 +76,7 @@ impl<'a> Emitter<'a> {
             &'a mut Resolver,
             &'a mut PrototypeList,
         ),
-    ) -> Result<Self, ErrorKind> {
+    ) -> Result<Self, CompileError> {
         debug_assert_eq!(function_expression.kind(), SyntaxKind::FunctionExpression);
 
         let (signature, body) = function_expression.binary_children()?;
@@ -104,10 +103,10 @@ impl<'a> Emitter<'a> {
             ..
         } = type_node
         else {
-            return Err(ErrorKind::Compile(CompileError::ExpectedFunctionType {
+            return Err(CompileError::ExpectedFunctionType {
                 found: type_id,
                 position: function_expression.position(),
-            }));
+            });
         };
         let starting_scope_id = *resolver.get_scope_binding(&body.id)?;
         let argument_count = value_arguments.child_count() as u16;
@@ -155,7 +154,7 @@ impl<'a> Emitter<'a> {
         Ok(emitter)
     }
 
-    pub fn emit(mut self) -> Result<Prototype, ErrorKind> {
+    pub fn emit(mut self) -> Result<Prototype, CompileError> {
         let (_, function_body) = self.function.binary_children()?;
         let children = function_body.children()?;
 
@@ -182,7 +181,7 @@ impl<'a> Emitter<'a> {
         self.finish()
     }
 
-    pub fn finish(mut self) -> Result<Prototype, ErrorKind> {
+    pub fn finish(mut self) -> Result<Prototype, CompileError> {
         for jump in self.jump_placements.into_values() {
             let JumpPlacement {
                 index,
@@ -269,13 +268,13 @@ impl<'a> Emitter<'a> {
         type_id: TypeId,
         temporary: bool,
         node: &SyntaxReader,
-    ) -> Result<RegisterAllocation, ErrorKind> {
+    ) -> Result<RegisterAllocation, CompileError> {
         fn collect_registers(
             emitter: &mut Emitter,
             type_id: TypeId,
             temporary: bool,
             registers: &mut SmallVec<[Register; 8]>,
-        ) -> Result<(), ErrorKind> {
+        ) -> Result<(), CompileError> {
             let type_node = emitter.resolver.types.get_type(type_id)?;
 
             let (operand_type, width) = match type_node {
@@ -312,9 +311,7 @@ impl<'a> Emitter<'a> {
                             .copied()
                             .collect::<SmallVec<[DeclarationId; 4]>>()
                     } else {
-                        return Err(ErrorKind::Compile(CompileError::ExpectedTypeDeclaration(
-                            *declaration_id,
-                        )));
+                        return Err(CompileError::ExpectedTypeDeclaration(*declaration_id));
                     };
 
                     for member in members {
@@ -344,10 +341,10 @@ impl<'a> Emitter<'a> {
 
                         return Ok(());
                     } else {
-                        return Err(ErrorKind::Compile(CompileError::CannotInferType {
+                        return Err(CompileError::CannotInferType {
                             type_id,
                             position: None,
-                        }));
+                        });
                     }
                 }
             };
@@ -371,10 +368,10 @@ impl<'a> Emitter<'a> {
         collect_registers(self, type_id, temporary, &mut allocations)?;
 
         match allocations.len() {
-            0 => Err(ErrorKind::Compile(CompileError::ExpectedValue {
+            0 => Err(CompileError::ExpectedValue {
                 node_kind: node.kind(),
                 position: node.position(),
-            })),
+            }),
             1 => Ok(RegisterAllocation::Single {
                 register: allocations[0],
                 temporary,
@@ -486,7 +483,7 @@ impl<'a> Emitter<'a> {
         left_node: &SyntaxReader,
         right_constant: ConstantEmission,
         right_node: &SyntaxReader,
-    ) -> Result<ConstantEmission, ErrorKind> {
+    ) -> Result<ConstantEmission, CompileError> {
         let check_for_division_by_zero = || {
             if matches!(
                 right_constant,
@@ -503,12 +500,12 @@ impl<'a> Emitter<'a> {
                     | ConstantEmission::F32(0.0)
                     | ConstantEmission::F64(0.0)
             ) {
-                Err(ErrorKind::Compile(CompileError::DivisionByZero {
+                Err(CompileError::DivisionByZero {
                     position: Position::new(
                         left_node.file_id(),
                         Span::join(&left_node.span(), &right_node.span()),
                     ),
-                }))
+                })
             } else {
                 Ok(())
             }
@@ -517,14 +514,14 @@ impl<'a> Emitter<'a> {
             let left_type = left_constant.operand_type();
             let right_type = right_constant.operand_type();
 
-            ErrorKind::Compile(CompileError::CannotApplyBinaryOperator {
+            CompileError::CannotApplyBinaryOperator {
                 operator: operator.kind(),
                 operand_position: operator.position(),
                 left_type,
                 left_position: left_node.position(),
                 right_type,
                 right_position: right_node.position(),
-            })
+            }
         };
 
         match operator.kind() {
@@ -582,7 +579,7 @@ impl<'a> Emitter<'a> {
         &mut self,
         emission: Emission,
         node: SyntaxReader,
-    ) -> Result<(), ErrorKind> {
+    ) -> Result<(), CompileError> {
         match emission {
             Emission::Constant(constant) => {
                 let operand_index = self.add_constant(constant);
@@ -723,11 +720,9 @@ impl<'a> Emitter<'a> {
                 }
             }
             Emission::NativeFunction(_) => {
-                return Err(ErrorKind::Compile(
-                    CompileError::ExpectedNativeFunctionCall {
-                        position: node.position(),
-                    },
-                ));
+                return Err(CompileError::ExpectedNativeFunctionCall {
+                    position: node.position(),
+                });
             }
             Emission::None => {}
         }
@@ -741,7 +736,7 @@ impl<'a> Emitter<'a> {
         emission: Emission,
         operator: SyntaxKind,
         node: &SyntaxReader,
-    ) -> Result<(MemoryKind, u16, OperandType), ErrorKind> {
+    ) -> Result<(MemoryKind, u16, OperandType), CompileError> {
         match emission {
             Emission::Constant(constant) => Ok((
                 MemoryKind::CONSTANT,
@@ -771,40 +766,38 @@ impl<'a> Emitter<'a> {
                     Some(RegisterAllocation::Multiple { .. }) => {
                         let type_id = *self.resolver.get_type_binding(&node.id)?;
 
-                        return Err(ErrorKind::Compile(CompileError::CannotApplyOperator {
+                        return Err(CompileError::CannotApplyOperator {
                             operator,
                             type_id,
                             operand_position: node.position(),
-                        }));
+                        });
                     }
                     None => {
-                        return Err(ErrorKind::Compile(CompileError::ExpectedValue {
+                        return Err(CompileError::ExpectedValue {
                             node_kind: node.kind(),
                             position: node.position(),
-                        }));
+                        });
                     }
                 };
 
                 Ok((MemoryKind::REGISTER, index, operand_type))
             }
-            Emission::NativeFunction(_) => Err(ErrorKind::Compile(
-                CompileError::ExpectedNativeFunctionCall {
-                    position: node.position(),
-                },
-            )),
+            Emission::NativeFunction(_) => Err(CompileError::ExpectedNativeFunctionCall {
+                position: node.position(),
+            }),
             Emission::Place(Place::Register(RegisterAllocation::Multiple { .. })) => {
                 let type_id = *self.resolver.get_type_binding(&node.id)?;
 
-                Err(ErrorKind::Compile(CompileError::CannotApplyOperator {
+                Err(CompileError::CannotApplyOperator {
                     operator,
                     type_id,
                     operand_position: node.position(),
-                }))
+                })
             }
-            Emission::None => Err(ErrorKind::Compile(CompileError::ExpectedValue {
+            Emission::None => Err(CompileError::ExpectedValue {
                 node_kind: node.kind(),
                 position: node.position(),
-            })),
+            }),
         }
     }
 
@@ -812,7 +805,7 @@ impl<'a> Emitter<'a> {
         &mut self,
         emission: Emission,
         node: &SyntaxReader,
-    ) -> Result<Place, ErrorKind> {
+    ) -> Result<Place, CompileError> {
         match emission {
             Emission::Constant(constant) => {
                 let operand_index = self.add_constant(constant);
@@ -825,23 +818,21 @@ impl<'a> Emitter<'a> {
             Emission::Place(place) => Ok(place),
             Emission::Instructions(instructions) => {
                 let Some(registers) = instructions.target else {
-                    return Err(ErrorKind::Compile(CompileError::ExpectedValue {
+                    return Err(CompileError::ExpectedValue {
                         node_kind: node.kind(),
                         position: node.position(),
-                    }));
+                    });
                 };
 
                 Ok(Place::Register(registers))
             }
-            Emission::NativeFunction(_) => Err(ErrorKind::Compile(
-                CompileError::ExpectedNativeFunctionCall {
-                    position: node.position(),
-                },
-            )),
-            _ => Err(ErrorKind::Compile(CompileError::ExpectedValue {
+            Emission::NativeFunction(_) => Err(CompileError::ExpectedNativeFunctionCall {
+                position: node.position(),
+            }),
+            _ => Err(CompileError::ExpectedValue {
                 node_kind: node.kind(),
                 position: node.position(),
-            })),
+            }),
         }
     }
 
@@ -850,7 +841,7 @@ impl<'a> Emitter<'a> {
         instructions: &mut InstructionsEmission,
         emission: Emission,
         node: &SyntaxReader,
-    ) -> Result<(), ErrorKind> {
+    ) -> Result<(), CompileError> {
         match emission {
             Emission::Constant(constant) => {
                 let operand_index = self.add_constant(constant);
@@ -921,13 +912,11 @@ impl<'a> Emitter<'a> {
                                 {
                                     register
                                 } else {
-                                    return Err(ErrorKind::Compile(
-                                        CompileError::ExpectedBooleanExpression {
-                                            found: *self.resolver.get_type_binding(&node.id)?,
-                                            node_kind: node.kind(),
-                                            position: node.position(),
-                                        },
-                                    ));
+                                    return Err(CompileError::ExpectedBooleanExpression {
+                                        found: *self.resolver.get_type_binding(&node.id)?,
+                                        node_kind: node.kind(),
+                                        position: node.position(),
+                                    });
                                 };
                             let test_instruction = Instruction::test(
                                 true,
@@ -944,13 +933,11 @@ impl<'a> Emitter<'a> {
                 instructions.merge(condition_instructions);
             }
             _ => {
-                return Err(ErrorKind::Compile(
-                    CompileError::ExpectedBooleanExpression {
-                        found: *self.resolver.get_type_binding(&node.id)?,
-                        node_kind: node.kind(),
-                        position: node.position(),
-                    },
-                ));
+                return Err(CompileError::ExpectedBooleanExpression {
+                    found: *self.resolver.get_type_binding(&node.id)?,
+                    node_kind: node.kind(),
+                    position: node.position(),
+                });
             }
         }
 
@@ -963,7 +950,7 @@ impl<'a> Emitter<'a> {
         instructions: &mut InstructionsEmission,
         target: &RegisterAllocation,
         node: SyntaxReader,
-    ) -> Result<(), ErrorKind> {
+    ) -> Result<(), CompileError> {
         match branch_emission {
             Emission::Constant(constant) => {
                 let destination = target.expect_single()?;
@@ -1007,11 +994,9 @@ impl<'a> Emitter<'a> {
                 instructions.merge(branch_instructions);
             }
             Emission::NativeFunction(_) => {
-                return Err(ErrorKind::Compile(
-                    CompileError::ExpectedNativeFunctionCall {
-                        position: node.position(),
-                    },
-                ));
+                return Err(CompileError::ExpectedNativeFunctionCall {
+                    position: node.position(),
+                });
             }
             Emission::None => {}
         }
@@ -1024,7 +1009,7 @@ impl<'a> Emitter<'a> {
         return_instructions: &mut InstructionsEmission,
         emission: Emission,
         node: SyntaxReader,
-    ) -> Result<(), ErrorKind> {
+    ) -> Result<(), CompileError> {
         match emission {
             Emission::Constant(constant) => {
                 let operand_type = constant.operand_type();
@@ -1139,11 +1124,9 @@ impl<'a> Emitter<'a> {
 
                 Ok(())
             }
-            Emission::NativeFunction(_) => Err(ErrorKind::Compile(
-                CompileError::ExpectedNativeFunctionCall {
-                    position: node.position(),
-                },
-            )),
+            Emission::NativeFunction(_) => Err(CompileError::ExpectedNativeFunctionCall {
+                position: node.position(),
+            }),
         }
     }
 
@@ -1151,7 +1134,7 @@ impl<'a> Emitter<'a> {
         &mut self,
         node: SyntaxReader,
         target: Option<RegisterAllocation>,
-    ) -> Result<Emission, ErrorKind> {
+    ) -> Result<Emission, CompileError> {
         let mut return_emission = InstructionsEmission::new();
 
         if node.is_expression() {
@@ -1183,15 +1166,15 @@ impl SyntaxVisitor for Emitter<'_> {
     type PathInput = ();
     type PathOutput = DeclarationId;
 
-    fn visit_root(&mut self, _: SyntaxReader) -> Result<Self::RootOutput, ErrorKind> {
+    fn visit_root(&mut self, _: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
         unreachable!("Emitter should never visit root nodes");
     }
 
-    fn visit_module_item(&mut self, _: SyntaxReader<'_>) -> Result<(), ErrorKind> {
+    fn visit_module_item(&mut self, _: SyntaxReader<'_>) -> Result<(), CompileError> {
         Ok(())
     }
 
-    fn visit_function_item(&mut self, node: SyntaxReader<'_>) -> Result<(), ErrorKind> {
+    fn visit_function_item(&mut self, node: SyntaxReader<'_>) -> Result<(), CompileError> {
         debug!("Visting function item");
 
         let (function_name, function_expression) = node.binary_children()?;
@@ -1200,7 +1183,7 @@ impl SyntaxVisitor for Emitter<'_> {
         let parameters = singature_children.expect_next()?;
 
         let function_scope_id = *self.resolver.get_scope_binding(&body.id)?;
-        let prototype_id = self.prototypes.reserve_slot();
+        let prototype_id = self.prototypes.reserve();
         let declaration_id = *self.resolver.get_declaration_binding(&function_name.id)?;
         let type_id = *self.resolver.get_type_binding(&function_expression.id)?;
 
@@ -1218,7 +1201,7 @@ impl SyntaxVisitor for Emitter<'_> {
         )?;
         let prototype = function_emitter.emit()?;
 
-        self.prototypes.set_slot(prototype_id, prototype);
+        self.prototypes.set(prototype_id, prototype);
 
         self.locals.insert(
             declaration_id,
@@ -1231,22 +1214,22 @@ impl SyntaxVisitor for Emitter<'_> {
         Ok(())
     }
 
-    fn visit_use_item(&mut self, _: SyntaxReader<'_>) -> Result<(), ErrorKind> {
+    fn visit_use_item(&mut self, _: SyntaxReader<'_>) -> Result<(), CompileError> {
         todo!()
     }
 
-    fn visit_struct_item(&mut self, _: SyntaxReader) -> Result<(), ErrorKind> {
+    fn visit_struct_item(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
         Ok(())
     }
 
-    fn visit_enum_item(&mut self, _: SyntaxReader) -> Result<(), ErrorKind> {
+    fn visit_enum_item(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
         Ok(())
     }
 
     fn visit_expression_statement(
         &mut self,
         node: SyntaxReader<'_>,
-    ) -> Result<Self::StatementOutput, ErrorKind> {
+    ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Visting expression statement");
 
         let expression = node.child()?;
@@ -1265,7 +1248,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_let_statement(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::StatementOutput, ErrorKind> {
+    ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Visting let statement");
 
         let mut children = node.children()?;
@@ -1300,10 +1283,10 @@ impl SyntaxVisitor for Emitter<'_> {
                 index,
             }) => {
                 if target.len() != 1 {
-                    return Err(ErrorKind::Compile(CompileError::InvalidRegisterCount {
+                    return Err(CompileError::InvalidRegisterCount {
                         expected: 1,
                         found: target.len(),
-                    }));
+                    });
                 }
 
                 let destination = target.index();
@@ -1314,10 +1297,10 @@ impl SyntaxVisitor for Emitter<'_> {
             }
             Emission::Place(Place::Register(RegisterAllocation::Single { register, .. })) => {
                 if target.len() != 1 {
-                    return Err(ErrorKind::Compile(CompileError::InvalidRegisterCount {
+                    return Err(CompileError::InvalidRegisterCount {
                         expected: 1,
                         found: target.len(),
-                    }));
+                    });
                 }
 
                 let destination = target.index();
@@ -1335,10 +1318,10 @@ impl SyntaxVisitor for Emitter<'_> {
                 ..
             })) => {
                 if target.len() != operand_registers.len() {
-                    return Err(ErrorKind::Compile(CompileError::InvalidRegisterCount {
+                    return Err(CompileError::InvalidRegisterCount {
                         expected: operand_registers.len(),
                         found: target.len(),
-                    }));
+                    });
                 }
 
                 for (destination, operand) in target.iter().zip(operand_registers.iter()) {
@@ -1356,17 +1339,15 @@ impl SyntaxVisitor for Emitter<'_> {
                 let_statement_instructions.merge(expression_instructions);
             }
             Emission::NativeFunction(_) => {
-                return Err(ErrorKind::Compile(
-                    CompileError::ExpectedNativeFunctionCall {
-                        position: node.position(),
-                    },
-                ));
+                return Err(CompileError::ExpectedNativeFunctionCall {
+                    position: node.position(),
+                });
             }
             Emission::None => {
-                return Err(ErrorKind::Compile(CompileError::ExpectedValue {
+                return Err(CompileError::ExpectedValue {
                     node_kind: expression.kind(),
                     position: expression.position(),
-                }));
+                });
             }
         };
 
@@ -1381,7 +1362,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_assignment_expression(
         &mut self,
         node: SyntaxReader<'_>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting reassignment statement");
 
         let (path, expression_statement) = node.binary_children()?;
@@ -1391,11 +1372,9 @@ impl SyntaxVisitor for Emitter<'_> {
         let local = self
             .locals
             .get(declaration_id)
-            .ok_or_else(|| {
-                ErrorKind::Compile(CompileError::OutOfScopeId {
-                    declaration_id: *declaration_id,
-                    usage_position: path.position(),
-                })
+            .ok_or_else(|| CompileError::OutOfScopeId {
+                declaration_id: *declaration_id,
+                usage_position: path.position(),
             })?
             .clone();
 
@@ -1486,17 +1465,15 @@ impl SyntaxVisitor for Emitter<'_> {
                 reassignment_instructions.set_target(None);
             }
             Emission::NativeFunction(_) => {
-                return Err(ErrorKind::Compile(
-                    CompileError::ExpectedNativeFunctionCall {
-                        position: node.position(),
-                    },
-                ));
+                return Err(CompileError::ExpectedNativeFunctionCall {
+                    position: node.position(),
+                });
             }
             Emission::None => {
-                return Err(ErrorKind::Compile(CompileError::ExpectedValue {
+                return Err(CompileError::ExpectedValue {
                     node_kind: expression.kind(),
                     position: expression.position(),
-                }));
+                });
             }
         }
 
@@ -1506,7 +1483,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_compound_assignment_expression(
         &mut self,
         node: SyntaxReader,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting binary assignment statement");
 
         let emission = self.visit_math_expression(node, None)?;
@@ -1525,7 +1502,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
         _: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting boolean expression");
 
         Ok(Emission::Constant(ConstantEmission::Boolean(
@@ -1537,7 +1514,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
         _: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting byte expression");
 
         Ok(Emission::Constant(ConstantEmission::U8(
@@ -1549,7 +1526,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
         _: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting character expression");
 
         Ok(Emission::Constant(ConstantEmission::Character(
@@ -1561,7 +1538,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
         target: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting float expression");
 
         let float_str = self.source.get_file_content(&node.position())?;
@@ -1580,7 +1557,7 @@ impl SyntaxVisitor for Emitter<'_> {
             Some(RegisterAllocation::Single { register, .. })
                 if register.operand_type != OperandType::F_64 =>
             {
-                return Err(ErrorKind::Compile(CompileError::ExpectedFloatRegister));
+                return Err(CompileError::ExpectedFloatRegister);
             }
             _ => {
                 let float = parse_with_options::<f64, RUST_LITERAL>(
@@ -1600,7 +1577,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
         target: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting integer expression");
 
         let integer_str = self.source.get_file_content(&node.position())?;
@@ -1725,7 +1702,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 ConstantEmission::I32(integer)
             }
             _ => {
-                return Err(ErrorKind::Compile(CompileError::ExpectedIntegerRegister));
+                return Err(CompileError::ExpectedIntegerRegister);
             }
         };
 
@@ -1736,7 +1713,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
         _: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting string expression");
 
         let str = self
@@ -1757,7 +1734,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
         target: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting list expression");
 
         let elements = node.children()?;
@@ -1873,9 +1850,9 @@ impl SyntaxVisitor for Emitter<'_> {
                         let target_register = if let Some(target) = &element_instructions.target {
                             target.expect_single()?
                         } else {
-                            return Err(ErrorKind::Compile(CompileError::ExpectedEmissionTarget {
+                            return Err(CompileError::ExpectedEmissionTarget {
                                 node_kind: element_node.kind(),
-                            }));
+                            });
                         };
                         let set_list_instruction = Instruction::set_list(
                             destination.index,
@@ -1892,17 +1869,15 @@ impl SyntaxVisitor for Emitter<'_> {
                         element_count += 1;
                     }
                     Emission::NativeFunction(_) => {
-                        return Err(ErrorKind::Compile(
-                            CompileError::ExpectedNativeFunctionCall {
-                                position: element_node.position(),
-                            },
-                        ));
+                        return Err(CompileError::ExpectedNativeFunctionCall {
+                            position: element_node.position(),
+                        });
                     }
                     Emission::None => {
-                        return Err(ErrorKind::Compile(CompileError::ExpectedValue {
+                        return Err(CompileError::ExpectedValue {
                             node_kind: element_node.kind(),
                             position: element_node.position(),
-                        }));
+                        });
                     }
                 }
 
@@ -1921,11 +1896,11 @@ impl SyntaxVisitor for Emitter<'_> {
             let first_element = node.children()?.next().unwrap();
             let type_id = *self.resolver.get_type_binding(&first_element.id)?;
 
-            return Err(ErrorKind::Compile(CompileError::ListElementSizeOverflow {
+            return Err(CompileError::ListElementSizeOverflow {
                 type_id,
                 size: element_size,
                 position: first_element.position(),
-            }));
+            });
         };
         let element_count_index = self.constants.add_u64(element_count as u64).inner();
 
@@ -1948,7 +1923,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
         target: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting index expression");
 
         let (list_expression, index_expression) = node.binary_children()?;
@@ -1964,10 +1939,10 @@ impl SyntaxVisitor for Emitter<'_> {
             _ => {
                 let type_id = *self.resolver.get_type_binding(&list_expression.id)?;
 
-                return Err(ErrorKind::Compile(CompileError::CannotIndex {
+                return Err(CompileError::CannotIndex {
                     type_id,
                     position: list_expression.position(),
-                }));
+                });
             }
         };
         let index_place = self.handle_member_emission(right_emission, &index_expression)?;
@@ -1979,10 +1954,10 @@ impl SyntaxVisitor for Emitter<'_> {
             _ => {
                 let type_id = *self.resolver.get_type_binding(&index_expression.id)?;
 
-                return Err(ErrorKind::Compile(CompileError::ExpectedIntegerIndex {
+                return Err(CompileError::ExpectedIntegerIndex {
                     found: type_id,
                     position: index_expression.position(),
-                }));
+                });
             }
         };
 
@@ -2012,7 +1987,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         path_expression: SyntaxReader,
         _: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting path expression");
 
         let path = path_expression.child()?;
@@ -2028,10 +2003,10 @@ impl SyntaxVisitor for Emitter<'_> {
         if let DeclarationKind::NativeFunction(function) = declaration.kind {
             Ok(Emission::NativeFunction(function))
         } else {
-            Err(ErrorKind::Compile(CompileError::OutOfScopeId {
+            Err(CompileError::OutOfScopeId {
                 declaration_id,
                 usage_position: path_expression.position(),
-            }))
+            })
         }
     }
 
@@ -2039,7 +2014,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
         target: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting struct expression");
 
         let (_, struct_fields) = node.binary_children()?;
@@ -2111,7 +2086,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader<'_>,
         target: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting block expression");
 
         let children = node.children()?;
@@ -2224,11 +2199,9 @@ impl SyntaxVisitor for Emitter<'_> {
                     block_instructions.merge(instructions);
                 }
                 Emission::NativeFunction(_) => {
-                    return Err(ErrorKind::Compile(
-                        CompileError::ExpectedNativeFunctionCall {
-                            position: node.position(),
-                        },
-                    ));
+                    return Err(CompileError::ExpectedNativeFunctionCall {
+                        position: node.position(),
+                    });
                 }
                 Emission::None => {}
             }
@@ -2246,7 +2219,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader<'_>,
         target: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting if expression");
 
         let mut children = node.children()?;
@@ -2325,7 +2298,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
         target: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting math binary expression");
 
         let (left_expression, right_expression) = node.binary_children()?;
@@ -2365,7 +2338,7 @@ impl SyntaxVisitor for Emitter<'_> {
         )?;
 
         let type_id = *self.resolver.get_type_binding(&node.id)?;
-        let mut handle_target_register = |target, node| -> Result<Register, ErrorKind> {
+        let mut handle_target_register = |target, node| -> Result<Register, CompileError> {
             let target = if let Some(target) = target {
                 target
             } else {
@@ -2540,7 +2513,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
         target: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting comparison binary expression");
 
         let (left_expression, right_expression) = node.binary_children()?;
@@ -2663,7 +2636,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader<'_>,
         target: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting logical binary expression");
 
         let (left_expression, right_expression) = node.binary_children()?;
@@ -2741,7 +2714,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader,
         input: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting unary negation expression");
 
         let expression = node.child()?;
@@ -2749,13 +2722,13 @@ impl SyntaxVisitor for Emitter<'_> {
         let expression_emission = self.visit_expression(expression, None)?;
 
         if let Emission::Constant(constant) = expression_emission {
-            let negated = constant.negate().ok_or_else(|| {
-                ErrorKind::Compile(CompileError::CannotApplyOperator {
+            let negated = constant
+                .negate()
+                .ok_or_else(|| CompileError::CannotApplyOperator {
                     operator: node.kind(),
                     type_id: constant.type_id(),
                     operand_position: expression.position(),
-                })
-            })?;
+                })?;
 
             return Ok(Emission::Constant(negated));
         }
@@ -2794,7 +2767,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader<'_>,
         _: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting while expression");
 
         let (condition, body) = node.binary_children()?;
@@ -2827,10 +2800,10 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader<'_>,
         _target: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting function expression");
 
-        let prototype_id = self.prototypes.reserve_slot();
+        let prototype_id = self.prototypes.reserve();
         let function_emitter = Emitter::new(
             node,
             None,
@@ -2845,7 +2818,7 @@ impl SyntaxVisitor for Emitter<'_> {
         )?;
         let prototype = function_emitter.emit()?;
 
-        self.prototypes.set_slot(prototype_id, prototype);
+        self.prototypes.set(prototype_id, prototype);
 
         Ok(Emission::Place(Place::Constant {
             index: prototype_id.inner(),
@@ -2857,7 +2830,7 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         node: SyntaxReader<'_>,
         target: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, ErrorKind> {
+    ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting call expression");
 
         let (callee, argument_list) = node.binary_children()?;
@@ -2941,10 +2914,10 @@ impl SyntaxVisitor for Emitter<'_> {
             Emission::Place(place) => place,
             Emission::Instructions(instructions) => {
                 let Some(registers) = instructions.target else {
-                    return Err(ErrorKind::Compile(CompileError::ExpectedValue {
+                    return Err(CompileError::ExpectedValue {
                         node_kind: node.kind(),
                         position: node.position(),
-                    }));
+                    });
                 };
 
                 Place::Register(registers)
@@ -2962,10 +2935,10 @@ impl SyntaxVisitor for Emitter<'_> {
                 return Ok(Emission::Instructions(call_instructions));
             }
             _ => {
-                return Err(ErrorKind::Compile(CompileError::ExpectedValue {
+                return Err(CompileError::ExpectedValue {
                     node_kind: node.kind(),
                     position: node.position(),
-                }));
+                });
             }
         };
         let (callee_memory, callee_index) = match callee_place {
@@ -2974,10 +2947,10 @@ impl SyntaxVisitor for Emitter<'_> {
                 (MemoryKind::REGISTER, register.index)
             }
             Place::Register(RegisterAllocation::Multiple { .. }) => {
-                return Err(ErrorKind::Compile(CompileError::ExpectedFunction {
+                return Err(CompileError::ExpectedFunction {
                     node_kind: callee.kind(),
                     position: callee.position(),
-                }));
+                });
             }
         };
 
@@ -2995,7 +2968,7 @@ impl SyntaxVisitor for Emitter<'_> {
         Ok(Emission::Instructions(call_instructions))
     }
 
-    fn visit_type(&mut self, _: SyntaxReader) -> Result<Self::TypeOutput, ErrorKind> {
+    fn visit_type(&mut self, _: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
         Ok(())
     }
 
@@ -3003,28 +2976,28 @@ impl SyntaxVisitor for Emitter<'_> {
         &mut self,
         path: SyntaxReader,
         _: Self::PathInput,
-    ) -> Result<Self::PathOutput, ErrorKind> {
+    ) -> Result<Self::PathOutput, CompileError> {
         debug!("Visting path");
         debug_assert_eq!(path.kind(), SyntaxKind::Path);
 
         self.resolver
             .get_declaration_binding(&path.id)
             .copied()
-            .map_err(ErrorKind::from)
+            .map_err(CompileError::from)
     }
 
     fn visit_simple_path(
         &mut self,
         node: SyntaxReader,
         _: Self::PathInput,
-    ) -> Result<Self::PathOutput, ErrorKind> {
+    ) -> Result<Self::PathOutput, CompileError> {
         debug!("Visting simple path");
         debug_assert_eq!(node.kind(), SyntaxKind::SimplePath);
 
         self.resolver
             .get_declaration_binding(&node.id)
             .copied()
-            .map_err(ErrorKind::from)
+            .map_err(CompileError::from)
     }
 }
 
@@ -3123,12 +3096,12 @@ pub enum Place {
 }
 
 impl Place {
-    fn expect_register(self, node: &SyntaxReader) -> Result<RegisterAllocation, ErrorKind> {
+    fn expect_register(self, node: &SyntaxReader) -> Result<RegisterAllocation, CompileError> {
         match self {
             Place::Register(target) => Ok(target),
-            _ => Err(ErrorKind::Compile(CompileError::CannotMutate {
+            _ => Err(CompileError::CannotMutate {
                 position: node.position(),
-            })),
+            }),
         }
     }
 }
@@ -3174,29 +3147,29 @@ impl RegisterAllocation {
         }
     }
 
-    fn expect_single(&self) -> Result<Register, ErrorKind> {
+    fn expect_single(&self) -> Result<Register, CompileError> {
         match self {
             RegisterAllocation::Single { register, .. } => Ok(*register),
-            _ => Err(ErrorKind::Compile(CompileError::InvalidRegisterCount {
+            _ => Err(CompileError::InvalidRegisterCount {
                 expected: 1,
                 found: self.len(),
-            })),
+            }),
         }
     }
 
     fn expect_multiple(
         &self,
         expected: usize,
-    ) -> Result<(&SmallVec<[Register; 8]>, bool), ErrorKind> {
+    ) -> Result<(&SmallVec<[Register; 8]>, bool), CompileError> {
         match self {
             RegisterAllocation::Multiple {
                 registers,
                 temporary,
             } if registers.len() == expected => Ok((registers, *temporary)),
-            _ => Err(ErrorKind::Compile(CompileError::InvalidRegisterCount {
+            _ => Err(CompileError::InvalidRegisterCount {
                 expected: 2,
                 found: self.len(),
-            })),
+            }),
         }
     }
 }
@@ -3293,7 +3266,7 @@ impl ConstantEmission {
         }
     }
 
-    fn add(self, other: Self) -> Result<Option<Self>, ErrorKind> {
+    fn add(self, other: Self) -> Result<Option<Self>, CompileError> {
         let sum = match (self, other) {
             (ConstantEmission::U8(left), ConstantEmission::U8(right)) => {
                 ConstantEmission::U8(left + right)

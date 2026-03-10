@@ -1,3 +1,4 @@
+mod component;
 pub mod error;
 mod node;
 mod reader;

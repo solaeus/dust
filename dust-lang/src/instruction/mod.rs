@@ -72,8 +72,6 @@ use crate::native_function::NativeFunction;
 /// - B and C memory kind: Whether the B and C fields refer to a register or a constant
 /// - Type: Used by most instructions to indicate the type of the operand(s)
 /// - D field: Used for CALL instructions to store the argument count
-/// - E field: Boolean flag used by MOVE instructions that jump to indicate the direction
-/// - BC field: Combined 32-bit field spanning the B and C fields
 #[derive(Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(C)]
 pub struct Instruction(u64);
@@ -638,6 +636,7 @@ pub struct MemoryKind(pub(super) u8);
 impl MemoryKind {
     pub const REGISTER: MemoryKind = MemoryKind(0);
     pub const CONSTANT: MemoryKind = MemoryKind(1);
+    pub const STATIC: MemoryKind = MemoryKind(2);
 }
 
 impl Display for MemoryKind {
@@ -645,6 +644,7 @@ impl Display for MemoryKind {
         match *self {
             Self::REGISTER => write!(f, "reg"),
             Self::CONSTANT => write!(f, "const"),
+            Self::STATIC => write!(f, "static"),
             _ => write!(f, "invalid"),
         }
     }

@@ -8,7 +8,12 @@ use std::{
 use annotate_snippets::{Group, Level, Renderer};
 
 use crate::{
-    compiler::error::CompileError, parser::ParseError, resolver::Resolver, source::Source,
+    compiler::error::CompileError,
+    constant_list::ConstantListError,
+    parser::ParseError,
+    resolver::{Resolver, error::ResolverError},
+    source::{Source, SourceError},
+    syntax::SyntaxError,
 };
 
 #[derive(Debug)]
@@ -105,26 +110,26 @@ impl From<CompileError> for ErrorKind {
     }
 }
 
-impl From<crate::syntax::error::SyntaxError> for ErrorKind {
-    fn from(error: crate::syntax::error::SyntaxError) -> Self {
+impl From<SyntaxError> for ErrorKind {
+    fn from(error: SyntaxError) -> Self {
         ErrorKind::Compile(CompileError::Syntax(error))
     }
 }
 
-impl From<crate::resolver::error::ResolverError> for ErrorKind {
-    fn from(error: crate::resolver::error::ResolverError) -> Self {
+impl From<ResolverError> for ErrorKind {
+    fn from(error: ResolverError) -> Self {
         ErrorKind::Compile(CompileError::Resolver(error))
     }
 }
 
-impl From<crate::constant_list::ConstantListError> for ErrorKind {
-    fn from(error: crate::constant_list::ConstantListError) -> Self {
+impl From<ConstantListError> for ErrorKind {
+    fn from(error: ConstantListError) -> Self {
         ErrorKind::Compile(CompileError::ConstantList(error))
     }
 }
 
-impl From<crate::source::SourceError> for ErrorKind {
-    fn from(error: crate::source::SourceError) -> Self {
+impl From<SourceError> for ErrorKind {
+    fn from(error: SourceError) -> Self {
         ErrorKind::Compile(CompileError::Source(error))
     }
 }

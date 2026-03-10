@@ -209,7 +209,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let found_type = match resolver.get_full_type(*found_type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((source, resolver), groups);
 
                         return;
                     }
@@ -334,7 +334,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     match resolver.get_full_type(*type_id, source) {
                         Ok(r#type) => r#type.to_string(),
                         Err(error) => {
-                            error.add_report((Some(source), Some(resolver)), groups);
+                            error.add_report((source, resolver), groups);
 
                             return;
                         }
@@ -379,7 +379,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let expected_type_string = match resolver.get_full_type(*expected_type, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((source, resolver), groups);
 
                         return;
                     }
@@ -387,7 +387,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let found_type_string = match resolver.get_full_type(*found_type, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((source, resolver), groups);
 
                         return;
                     }
@@ -467,7 +467,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let r#type = match resolver.get_full_type(*type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((source, resolver), groups);
 
                         return;
                     }
@@ -531,7 +531,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let r#type = match resolver.get_full_type(*type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((source, resolver), groups);
 
                         return;
                     }
@@ -651,7 +651,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let found_type = match resolver.get_full_type(*found, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((source, resolver), groups);
 
                         return;
                     }
@@ -684,7 +684,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let function_type = match resolver.get_full_type(*function_type, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((source, resolver), groups);
 
                         return;
                     }
@@ -757,7 +757,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let r#type = match resolver.get_full_type(*type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((source, resolver), groups);
 
                         return;
                     }
@@ -858,7 +858,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let element_type = match resolver.get_full_type(*type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((Some(source), Some(resolver)), groups);
+                        error.add_report((source, resolver), groups);
 
                         return;
                     }

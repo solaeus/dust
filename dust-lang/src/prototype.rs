@@ -70,7 +70,7 @@ impl PrototypeList {
             .map(|(index, prototype)| (PrototypeId(index as u16), prototype))
     }
 
-    pub fn reserve_slot(&mut self) -> PrototypeId {
+    pub fn reserve(&mut self) -> PrototypeId {
         let id = PrototypeId(self.prototypes.len() as u16);
 
         self.prototypes.push(Prototype::placeholder());
@@ -78,7 +78,7 @@ impl PrototypeList {
         id
     }
 
-    pub fn set_slot(&mut self, id: PrototypeId, prototype: Prototype) {
+    pub fn set(&mut self, id: PrototypeId, prototype: Prototype) {
         assert!(
             (id.0 as usize) < self.prototypes.len(),
             "Logic error: misuse of prototype ID {id}. When used correctly, prototype IDs are always\

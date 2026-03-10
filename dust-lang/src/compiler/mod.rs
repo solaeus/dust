@@ -14,7 +14,7 @@ use crate::{
         type_binder::TypeBinder,
     },
     constant_list::ConstantListBuilder,
-    error::{Error, ErrorKind},
+    error::{AnnotatedError, Error, ErrorKind},
     instruction::OperandType,
     lexer::Lexer,
     parser::{ParseResult, Parser},
@@ -159,32 +159,14 @@ impl<'src> Compiler<'src> {
                 files_parsed += 1;
 
                 for span in file_module_names {
-                    let parent_file = unwrap_or_return!(
-                        self.source
-                            .get_file(file_id)
-                            .map_err(|e| ErrorKind::Compile(CompileError::Source(e)))
-                    );
-                    let module_name_str = match parent_file.content_str(span) {
-                        Ok(name) => name,
-                        Err(error) => {
-                            errors.push(ErrorKind::Compile(CompileError::Source(error)));
-
-                            return Err(errors);
-                        }
-                    };
+                    let parent_file = unwrap_or_return!(self.source.get_file(file_id));
+                    let module_name_str = unwrap_or_return!(parent_file.content_str(span));
                     let parent_path = parent_file
                         .path()
                         .and_then(|path| path.parent())
                         .unwrap_or_else(|| Path::new("."));
                     let module_path = parent_path.join(module_name_str).with_added_extension("ds");
-                    let module_file = match SourceFile::file(&module_path) {
-                        Ok(file) => file,
-                        Err(error) => {
-                            errors.push(ErrorKind::Compile(CompileError::Source(error)));
-
-                            return Err(errors);
-                        }
-                    };
+                    let module_file = unwrap_or_return!(SourceFile::file(&module_path));
 
                     self.source.add_file(module_file);
                 }
@@ -218,7 +200,7 @@ impl<'src> Compiler<'src> {
 
             match declaration_binder.visit_root(main_root) {
                 Ok(()) => {}
-                Err(error) => errors.push(error),
+                Err(error) => errors.push(ErrorKind::Compile(error)),
             }
         }
 
@@ -231,7 +213,7 @@ impl<'src> Compiler<'src> {
 
             match type_binder.visit_root(main_root) {
                 Ok(()) => {}
-                Err(error) => errors.push(error),
+                Err(error) => errors.push(ErrorKind::Compile(error)),
             }
         }
 
@@ -266,7 +248,7 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "emit");
             let _enter = span.enter();
 
-            let _main_prototype_id = self.prototypes.reserve_slot();
+            let _main_prototype_id = self.prototypes.reserve();
 
             debug_assert_eq!(_main_prototype_id, PrototypeId::MAIN);
 
@@ -286,7 +268,7 @@ impl<'src> Compiler<'src> {
                 .and_then(|emitter| emitter.emit())
             );
 
-            self.prototypes.set_slot(PrototypeId::MAIN, main_prototype);
+            self.prototypes.set(PrototypeId::MAIN, main_prototype);
             self.resolver
                 .declarations
                 .set_declaration_prototype(main_declaration_id, PrototypeId::MAIN);
