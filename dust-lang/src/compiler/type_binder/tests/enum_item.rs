@@ -1,6 +1,7 @@
-use crate::resolver::type_graph::{TypeId, TypeNode};
-
-use super::{bind_types, find_declaration};
+use crate::{
+    compiler::type_binder::tests::{bind_types, find_declaration},
+    resolver::type_graph::{TypeId, TypeNode},
+};
 
 #[test]
 fn creates_enum_type() {

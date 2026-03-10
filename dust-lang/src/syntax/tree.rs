@@ -5,7 +5,12 @@ use tracing::error;
 
 use crate::{
     source::SourceFileId,
-    syntax::{SyntaxId, SyntaxKind, SyntaxNode, SyntaxReader, error::SyntaxError},
+    syntax::{
+        SyntaxId,
+        error::SyntaxError,
+        node::{SyntaxKind, SyntaxNode},
+        reader::SyntaxReader,
+    },
 };
 
 /// A parsed Dust source code file.
@@ -45,10 +50,10 @@ impl SyntaxTree {
     }
 
     pub fn root(&self) -> Result<SyntaxReader<'_>, SyntaxError> {
-        let root_node =
-            self.nodes
-                .first()
-                .ok_or(SyntaxError::MissingSyntaxNode(SyntaxId::ROOT))?;
+        let root_node = self
+            .nodes
+            .first()
+            .ok_or(SyntaxError::MissingSyntaxNode(SyntaxId::ROOT))?;
 
         Ok(SyntaxReader::new(SyntaxId::ROOT, root_node, self))
     }

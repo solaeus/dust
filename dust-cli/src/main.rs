@@ -15,7 +15,10 @@ use std::{
 };
 
 use clap::Parser as CliParser;
-use dust_lang::prelude::*;
+use dust_lang::{
+    project::{EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
+    source::{Source, SourceFile},
+};
 use tracing::{Event, Level, Subscriber, info, level_filters::LevelFilter, trace};
 use tracing_subscriber::{
     EnvFilter,

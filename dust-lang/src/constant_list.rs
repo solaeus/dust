@@ -415,7 +415,7 @@ impl<'a> AnnotatedError<'a> for ConstantListError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::constant_list::*;
 
     fn create_test_table(
         op: fn(&mut ConstantListBuilder) -> ConstantId,

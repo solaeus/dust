@@ -3,7 +3,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use crate::{
     error::AnnotatedError,
     source::{Position, Source, SourceError},
-    syntax::SyntaxKind,
+    syntax::node::SyntaxKind,
     token::TokenKind,
 };
 

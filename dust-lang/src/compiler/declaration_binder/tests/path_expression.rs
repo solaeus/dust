@@ -1,8 +1,9 @@
 use crate::{
-    resolver::declaration_graph::DeclarationKind, source::SourceFileId, syntax::SyntaxKind,
+    compiler::declaration_binder::tests::{bind_declarations, find_declaration},
+    resolver::declaration_graph::DeclarationKind,
+    source::SourceFileId,
+    syntax::node::SyntaxKind,
 };
-
-use super::{bind_declarations, find_declaration};
 
 #[test]
 fn resolves_to_local_declaration() {

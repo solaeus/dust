@@ -1,19 +1,16 @@
-mod component;
+pub mod components;
 pub mod error;
-mod node;
-mod reader;
-mod tree;
-mod visitor;
-
-pub use error::SyntaxError;
-pub use node::{SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxPayloadKind};
-pub use reader::SyntaxReader;
-pub use tree::{SyntaxTree, SyntaxTreeBuilder};
-pub use visitor::SyntaxVisitor;
+pub mod node;
+pub mod reader;
+pub mod tree;
+pub mod visitor;
 
 use serde::{Deserialize, Serialize};
 
 use crate::source::SourceFileId;
+
+use error::SyntaxError;
+use tree::SyntaxTree;
 
 #[derive(Debug)]
 pub struct Syntax {
@@ -39,15 +36,11 @@ impl Syntax {
         self.trees.iter().filter_map(|tree| tree.as_ref())
     }
 
-    pub fn add_tree(&mut self, tree: SyntaxTree) -> Result<(), usize> {
+    pub fn add_tree(&mut self, tree: SyntaxTree) {
         let index = tree.file_id.inner() as usize;
 
         if index < self.trees.len() {
             self.trees[index] = Some(tree);
-
-            Ok(())
-        } else {
-            Err(self.trees.len())
         }
     }
 

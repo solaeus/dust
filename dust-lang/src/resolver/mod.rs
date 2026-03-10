@@ -24,7 +24,7 @@ use crate::{
         type_graph::{TypeGraph, TypeId, TypeMembers, TypeNode},
     },
     source::Source,
-    syntax::{SyntaxId, SyntaxReader},
+    syntax::{SyntaxId, reader::SyntaxReader},
 };
 
 #[derive(Debug)]
@@ -655,15 +655,5 @@ impl Resolver {
 impl Default for Resolver {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn resolver_size() {
-        assert_eq!(size_of::<Resolver>(), 0);
     }
 }

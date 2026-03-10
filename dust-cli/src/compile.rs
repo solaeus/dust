@@ -1,4 +1,4 @@
-use dust_lang::prelude::*;
+use dust_lang::{compiler::Compiler, disassembler::Disassembler};
 
 use crate::{
     build_source,

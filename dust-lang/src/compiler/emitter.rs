@@ -20,7 +20,7 @@ use crate::{
         type_graph::{TypeId, TypeNode},
     },
     source::{Position, Source, Span},
-    syntax::{Syntax, SyntaxKind, SyntaxReader, SyntaxVisitor},
+    syntax::{Syntax, node::SyntaxKind, reader::SyntaxReader, visitor::SyntaxVisitor},
 };
 
 #[derive(Debug)]
@@ -55,13 +55,13 @@ pub struct Emitter<'a> {
 
     register_tracker: RegisterTracker,
 
-    jump_placements: HashMap<u16, JumpPlacement>,
+    jump_placements: HashMap<JumpId, JumpPlacement, FxBuildHasher>,
 
-    jump_over_else_anchor_ids: Vec<u16>,
+    jump_over_branch_ids: Vec<JumpId>,
 
     current_scope_id: ScopeId,
 
-    next_jump_id: u16,
+    next_jump_id: JumpId,
 }
 
 impl<'a> Emitter<'a> {
@@ -127,9 +127,9 @@ impl<'a> Emitter<'a> {
             pending_drops: Vec::new(),
             register_tracker: RegisterTracker::new(argument_count, return_count),
             jump_placements: HashMap::default(),
-            jump_over_else_anchor_ids: Vec::new(),
+            jump_over_branch_ids: Vec::new(),
             current_scope_id: starting_scope_id,
-            next_jump_id: 0,
+            next_jump_id: JumpId(0),
         };
 
         if argument_count > 0 {
@@ -255,12 +255,12 @@ impl<'a> Emitter<'a> {
         self.instructions.push(instruction);
     }
 
-    fn create_jump_id(&mut self) -> u16 {
-        let anchor_id = self.next_jump_id;
+    fn create_jump_id(&mut self) -> JumpId {
+        let next = self.next_jump_id;
 
-        self.next_jump_id += 1;
+        self.next_jump_id.0 += 1;
 
-        anchor_id
+        next
     }
 
     fn allocate_registers(
@@ -404,12 +404,16 @@ impl<'a> Emitter<'a> {
     }
 
     fn add_drop(&mut self, register: u16) {
-        self.pending_drops.last_mut().unwrap().push(register);
+        if let Some(drops) = self.pending_drops.last_mut() {
+            drops.push(register)
+        }
     }
 
     fn handle_drops(&mut self, instructions: &mut InstructionsEmission) {
         let start = self.drop_lists.len() as u16;
-        let mut pending_drops_for_scope = self.pending_drops.pop().unwrap();
+        let Some(pending_drops_for_scope) = self.pending_drops.last_mut() else {
+            return;
+        };
 
         for register in pending_drops_for_scope.drain(..) {
             self.drop_lists.push(register);
@@ -656,7 +660,10 @@ impl<'a> Emitter<'a> {
                                 );
                             }
                             JumpAnchor::ForwardToNext { id } => {
-                                let placement = self.jump_placements.get_mut(&id).unwrap();
+                                let placement = self
+                                    .jump_placements
+                                    .get_mut(&id)
+                                    .ok_or(CompileError::ExpectedJumpPlacement(id))?;
                                 let next_index = self.instructions.len();
 
                                 placement.distance = (next_index - placement.index - 1) as u16;
@@ -685,8 +692,11 @@ impl<'a> Emitter<'a> {
                                 backward_id,
                             } => {
                                 let next_index = self.instructions.len();
-                                let forward_index =
-                                    self.jump_placements.get(&forward_id).unwrap().index;
+                                let forward_index = self
+                                    .jump_placements
+                                    .get(&forward_id)
+                                    .ok_or(CompileError::ExpectedJumpPlacement(forward_id))?
+                                    .index;
                                 let coalesce = if instruction.is_coallescible_with_jump(false) {
                                     true
                                 } else {
@@ -701,8 +711,12 @@ impl<'a> Emitter<'a> {
                                     (next_index - forward_index) as u16
                                 };
 
-                                self.jump_placements.get_mut(&forward_id).unwrap().distance =
-                                    forward_distance;
+                                let forward_placement =
+                                    self.jump_placements
+                                        .get_mut(&forward_id)
+                                        .ok_or(CompileError::ExpectedJumpPlacement(forward_id))?;
+
+                                forward_placement.distance = forward_distance;
 
                                 let backward_distance =
                                     (self.instructions.len() - forward_index - 1) as u16;
@@ -2241,7 +2255,7 @@ impl SyntaxVisitor for Emitter<'_> {
             self.allocate_registers(type_id, true, &node)?
         };
         let jump_over_then_id = self.create_jump_id();
-        let start_else_anchor_count = self.jump_over_else_anchor_ids.len();
+        let start_else_anchor_count = self.jump_over_branch_ids.len();
 
         if_instructions.push_drop_anchor(JumpAnchor::ForwardFromHere {
             id: jump_over_then_id,
@@ -2266,7 +2280,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
             let jump_over_else_id = self.create_jump_id();
 
-            self.jump_over_else_anchor_ids.push(jump_over_else_id);
+            self.jump_over_branch_ids.push(jump_over_else_id);
 
             if_instructions.push_drop_anchor(JumpAnchor::ForwardFromHere {
                 id: jump_over_else_id,
@@ -2283,10 +2297,10 @@ impl SyntaxVisitor for Emitter<'_> {
             if_instructions.set_target(Some(target));
         }
 
-        let end_else_anchor_count = self.jump_over_else_anchor_ids.len();
+        let end_else_anchor_count = self.jump_over_branch_ids.len();
 
         for index in start_else_anchor_count..end_else_anchor_count {
-            let jump_id = self.jump_over_else_anchor_ids[index];
+            let jump_id = self.jump_over_branch_ids[index];
 
             if_instructions.push_drop_anchor(JumpAnchor::ForwardToNext { id: jump_id });
         }
@@ -2356,8 +2370,10 @@ impl SyntaxVisitor for Emitter<'_> {
             SyntaxKind::AdditionExpression => {
                 let register = handle_target_register(target, &node)?;
 
-                if type_id == TypeId::STRING {
-                    self.pending_drops.last_mut().unwrap().push(register.index);
+                if type_id == TypeId::STRING
+                    && let Some(drops) = self.pending_drops.last_mut()
+                {
+                    drops.push(register.index);
                 }
 
                 Instruction::add(
@@ -3699,10 +3715,19 @@ impl ConstantEmission {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum JumpAnchor {
-    ForwardFromHere { id: u16 },
-    LoopStartHere { forward_id: u16 },
-    ForwardToNext { id: u16 },
-    LoopEndOnNext { forward_id: u16, backward_id: u16 },
+    ForwardFromHere {
+        id: JumpId,
+    },
+    LoopStartHere {
+        forward_id: JumpId,
+    },
+    ForwardToNext {
+        id: JumpId,
+    },
+    LoopEndOnNext {
+        forward_id: JumpId,
+        backward_id: JumpId,
+    },
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -3712,6 +3737,9 @@ struct JumpPlacement {
     forward: bool,
     coalesce: bool,
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct JumpId(u16);
 
 #[derive(Clone, Copy, Debug, Default)]
 struct RegisterTracker {

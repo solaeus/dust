@@ -1,6 +1,9 @@
-use crate::{resolver::scope_graph::ScopeKind, source::SourceFileId, syntax::SyntaxKind};
-
-use super::bind_declarations;
+use crate::{
+    compiler::declaration_binder::tests::bind_declarations,
+    resolver::scope_graph::ScopeKind,
+    source::SourceFileId,
+    syntax::node::SyntaxKind,
+};
 
 #[test]
 fn nested_blocks_create_scope_chain() {

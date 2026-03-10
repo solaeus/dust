@@ -1,10 +1,9 @@
 use crate::{
+    compiler::type_binder::tests::bind_types,
     resolver::type_graph::{TypeId, TypeNode},
     source::SourceFileId,
-    syntax::SyntaxKind,
+    syntax::node::SyntaxKind,
 };
-
-use super::bind_types;
 
 #[test]
 fn creates_list_type() {

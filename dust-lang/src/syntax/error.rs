@@ -5,21 +5,16 @@ use annotate_snippets::Renderer;
 use crate::{
     error::AnnotatedError,
     source::SourceFileId,
-    syntax::{SyntaxId, SyntaxPayload},
+    syntax::{SyntaxId, node::SyntaxPayload},
 };
 
 #[derive(Debug)]
 pub enum SyntaxError {
     MissingSyntaxTree(SourceFileId),
     MissingSyntaxNode(SyntaxId),
-    MissingSyntaxChild {
-        total_children: usize,
-    },
+    MissingSyntaxChild { total_children: usize },
     InvalidSyntaxPayload(SyntaxPayload),
-    ExpectedSyntaxChildren {
-        expected: usize,
-        actual: usize,
-    },
+    ExpectedSyntaxChildren { expected: usize, actual: usize },
 }
 
 impl Display for SyntaxError {

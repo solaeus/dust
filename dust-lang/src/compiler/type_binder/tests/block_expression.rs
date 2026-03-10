@@ -1,6 +1,9 @@
-use crate::{resolver::type_graph::TypeId, source::SourceFileId, syntax::SyntaxKind};
-
-use super::bind_types;
+use crate::{
+    compiler::type_binder::tests::bind_types,
+    resolver::type_graph::TypeId,
+    source::SourceFileId,
+    syntax::node::SyntaxKind,
+};
 
 #[test]
 fn empty_has_unit_type() {

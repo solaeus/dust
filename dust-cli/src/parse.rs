@@ -1,6 +1,11 @@
 use std::io::{Write, stdout};
 
-use dust_lang::prelude::*;
+use dust_lang::{
+    error::Error,
+    lexer::Lexer,
+    parser::{ParseResult, Parser},
+    syntax::tree::SyntaxTree,
+};
 use ron::ser::PrettyConfig;
 
 use crate::{
@@ -26,7 +31,7 @@ pub fn handle_parse_command(command: ParseCommand) {
     let mut parse_errors = Vec::new();
 
     for (file_id, file) in source.iter() {
-        let lexer = if file.is_utf8_validated() {
+        let lexer = if file.utf8_validated() {
             Lexer::from_utf8(file.content_as_str())
         } else {
             Lexer::from_bytes(file.content_as_bytes())

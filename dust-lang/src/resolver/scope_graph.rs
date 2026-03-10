@@ -1,8 +1,6 @@
 use smallvec::SmallVec;
 
-use crate::{
-    resolver::{declaration_graph::DeclarationId, error::ResolverError},
-};
+use crate::resolver::{declaration_graph::DeclarationId, error::ResolverError};
 
 #[derive(Debug, Default)]
 pub struct ScopeGraph {

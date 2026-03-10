@@ -18,22 +18,18 @@ use crate::{
     error::ErrorKind,
     lexer::Lexer,
     parser::parse_rule::{Associativity, ParseRule, Precedence},
-    source::{Position, Source, SourceFile, SourceFileId, Span},
+    source::{Position, SourceFileId, Span},
     syntax::{
-        SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxPayloadKind, SyntaxTree,
-        SyntaxTreeBuilder,
+        SyntaxId,
+        node::{SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxPayloadKind},
+        tree::{SyntaxTree, SyntaxTreeBuilder},
     },
     token::{Token, TokenKind},
 };
 
 pub fn parse(source_code: &str) -> (SyntaxTree, Vec<ErrorKind>) {
-    let mut source = Source::new();
-    let file = SourceFile::validated_borrowed("parse", source_code);
-    let file_id = source.add_file(file);
-    let file_str = source.get_file(file_id).unwrap().content_as_str();
-
-    let lexer = Lexer::from_utf8(file_str);
-    let parser = Parser::new(file_id, lexer);
+    let lexer = Lexer::from_utf8(source_code);
+    let parser = Parser::new(SourceFileId::MAIN, lexer);
     let ParseResult {
         syntax_tree,
         errors,

@@ -13,7 +13,7 @@ use crate::{
     parser::ParseError,
     resolver::{Resolver, error::ResolverError},
     source::{Source, SourceError},
-    syntax::SyntaxError,
+    syntax::error::SyntaxError,
 };
 
 #[derive(Debug)]

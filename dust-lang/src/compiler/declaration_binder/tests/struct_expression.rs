@@ -1,7 +1,8 @@
-use crate::source::SourceFileId;
-use crate::syntax::SyntaxKind;
-
-use super::{bind_declarations, find_declaration};
+use crate::{
+    compiler::declaration_binder::tests::{bind_declarations, find_declaration},
+    source::SourceFileId,
+    syntax::node::SyntaxKind,
+};
 
 #[test]
 fn resolves_field_paths() {
@@ -19,10 +20,7 @@ fn resolves_field_paths() {
     let field = fields.children().unwrap().next().unwrap();
     let (field_path, _) = field.binary_children().unwrap();
 
-    assert_eq!(
-        *resolver.get_declaration_binding(&path.id).unwrap(),
-        foo_id
-    );
+    assert_eq!(*resolver.get_declaration_binding(&path.id).unwrap(), foo_id);
     assert_eq!(
         *resolver.get_declaration_binding(&field_path.id).unwrap(),
         x_id

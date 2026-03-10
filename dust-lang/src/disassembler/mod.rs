@@ -14,12 +14,12 @@ use tracing::error;
 
 use crate::{
     instruction::OperandType,
-    prelude::PrototypeId,
     program::Program,
     prototype::Prototype,
+    prototype::PrototypeId,
     resolver::Resolver,
     source::{Source, SourceFile, SourceFileId},
-    syntax::{Syntax, SyntaxTree},
+    syntax::{Syntax, tree::SyntaxTree},
 };
 
 use block_table::BlockTable;

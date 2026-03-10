@@ -1,10 +1,9 @@
 use crate::{
+    compiler::declaration_binder::tests::{bind_declarations, find_declaration},
     resolver::declaration_graph::{DeclarationId, DeclarationKind},
     source::SourceFileId,
-    syntax::SyntaxKind,
+    syntax::node::SyntaxKind,
 };
-
-use super::{bind_declarations, find_declaration};
 
 #[test]
 fn creates_local_declaration() {

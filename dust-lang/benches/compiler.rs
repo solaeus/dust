@@ -1,7 +1,7 @@
 use std::{hint::black_box, time::Duration};
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use dust_lang::prelude::*;
+use dust_lang::compiler::compile;
 
 const SOURCE_FILES: &[(&str, &str)] = &[(
     "main.ds",

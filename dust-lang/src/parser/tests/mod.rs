@@ -15,7 +15,10 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
-    syntax::{SyntaxId, SyntaxKind::*, SyntaxPayload},
+    syntax::{
+        SyntaxId,
+        node::{SyntaxKind::*, SyntaxPayload},
+    },
 };
 
 #[macro_export]

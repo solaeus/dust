@@ -652,7 +652,7 @@ impl Display for MemoryKind {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::instruction::*;
 
     fn create_instruction() -> Instruction {
         Instruction::move_with_jump(42, OperandType::U_128, MemoryKind::CONSTANT, 666, 777, true)

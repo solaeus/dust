@@ -3,7 +3,7 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
-    syntax::{SyntaxId, SyntaxKind::*},
+    syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]

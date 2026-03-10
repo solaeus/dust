@@ -1,10 +1,9 @@
 use crate::{
+    compiler::declaration_binder::tests::bind_declarations,
     resolver::{declaration_graph::DeclarationKind, scope_graph::ScopeKind},
     source::SourceFileId,
-    syntax::SyntaxKind,
+    syntax::node::SyntaxKind,
 };
-
-use super::bind_declarations;
 
 #[test]
 fn creates_declaration() {

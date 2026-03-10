@@ -12,7 +12,7 @@ use crate::{
         declaration_graph::{DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind},
         type_graph::{TypeId, TypeMembers, TypeNode},
     },
-    syntax::{Syntax, SyntaxKind, SyntaxReader, SyntaxVisitor},
+    syntax::{Syntax, node::SyntaxKind, reader::SyntaxReader, visitor::SyntaxVisitor},
 };
 
 #[derive(Debug)]
@@ -807,11 +807,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         if condition_type != TypeId::BOOLEAN {
             return Err(CompileError::ExpectedBooleanExpression {
-                    found: condition_type,
-                    node_kind: node.kind(),
-                    position: condition.position(),
-                },
-            );
+                found: condition_type,
+                node_kind: node.kind(),
+                position: condition.position(),
+            });
         }
 
         let then_type = self.visit_block_expression(then_block, None)?;
@@ -919,20 +918,18 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         if left_type != TypeId::BOOLEAN {
             return Err(CompileError::ExpectedBooleanExpression {
-                    found: left_type,
-                    node_kind: left_expression.kind(),
-                    position: left_expression.position(),
-                },
-            );
+                found: left_type,
+                node_kind: left_expression.kind(),
+                position: left_expression.position(),
+            });
         }
 
         if right_type != TypeId::BOOLEAN {
             return Err(CompileError::ExpectedBooleanExpression {
-                    found: right_type,
-                    node_kind: right_expression.kind(),
-                    position: right_expression.position(),
-                },
-            );
+                found: right_type,
+                node_kind: right_expression.kind(),
+                position: right_expression.position(),
+            });
         }
 
         self.resolver.add_type_binding(node.id, TypeId::BOOLEAN);
@@ -997,11 +994,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         if condition_type != TypeId::BOOLEAN {
             return Err(CompileError::ExpectedBooleanExpression {
-                    found: condition_type,
-                    node_kind: condition.kind(),
-                    position: condition.position(),
-                },
-            );
+                found: condition_type,
+                node_kind: condition.kind(),
+                position: condition.position(),
+            });
         }
 
         self.visit_block_expression(body, None)?;

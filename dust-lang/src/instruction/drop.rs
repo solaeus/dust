@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use super::{Instruction, InstructionBuilder, Operation};
+use crate::instruction::{Instruction, InstructionBuilder, Operation};
 
 pub struct Drop {
     pub drop_list_start: u16,

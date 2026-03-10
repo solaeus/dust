@@ -16,7 +16,9 @@ use crate::{
         type_graph::{TypeId, TypeNode},
     },
     source::Source,
-    syntax::{Syntax, SyntaxKind, SyntaxReader, SyntaxVisitor},
+    syntax::{
+        Syntax, error::SyntaxError, node::SyntaxKind, reader::SyntaxReader, visitor::SyntaxVisitor,
+    },
 };
 
 pub struct DeclarationBinder<'a> {
@@ -1047,51 +1049,56 @@ fn search_path_segments<'a>(
     path_expression: SyntaxReader,
     visibility: Visibility,
 ) -> Result<DeclarationId, CompileError> {
-    let segments = path_expression.children()?;
+    let mut segments = path_expression.children()?;
+    let first_segment = segments.expect_next()?;
 
     let file = binder.source.get_file(path_expression.file_id())?;
 
     let mut current_scope_id = binder.current_scope_id;
-    let mut current_declaration_id = None;
     let mut parent_declaration_id = None;
 
-    for segment in segments {
-        let segment_str = file.content_str(segment.span())?;
-        let symbol_id = binder.resolver.symbols.add_symbol(segment_str);
-        let (next_declaration_id, next_declaration) = binder.resolver.find_declaration_in_scope(
-            symbol_id,
-            current_scope_id,
-            visibility,
-            &segment,
-        )?;
+    let mut search =
+        |segment: SyntaxReader| {
+            let segment_str = file.content_str(segment.span())?;
+            let symbol_id = binder.resolver.symbols.add_symbol(segment_str);
 
-        current_declaration_id = Some(next_declaration_id);
-        current_scope_id =
+            let (next_declaration_id, next_declaration) = binder
+                .resolver
+                .find_declaration_in_scope(symbol_id, current_scope_id, visibility, &segment)?;
+
             if let DeclarationKind::Module { inner_scope_id, .. } = next_declaration.kind {
-                inner_scope_id
-            } else {
-                break;
-            };
-
-        if let DeclarationKind::Type {
-            parent: Some(next_parent_id),
-            ..
-        } = next_declaration.kind
-        {
-            if let Some(target_parent_id) = parent_declaration_id
-                && next_parent_id != target_parent_id
-            {
-                return Err(CompileError::Undeclared {
-                    symbol_id,
-                    usage_position: segment.position(),
-                });
+                current_scope_id = inner_scope_id;
             }
 
-            parent_declaration_id = Some(next_parent_id);
-        } else {
-            parent_declaration_id = None;
-        }
+            if let DeclarationKind::Type {
+                parent: Some(next_parent_id),
+                ..
+            } = next_declaration.kind
+            {
+                if let Some(target_parent_id) = parent_declaration_id
+                    && next_parent_id != target_parent_id
+                {
+                    return Err(CompileError::Undeclared {
+                        symbol_id,
+                        usage_position: segment.position(),
+                    });
+                }
+
+                parent_declaration_id = Some(next_parent_id);
+            } else {
+                parent_declaration_id = None;
+            }
+
+            Ok(next_declaration_id)
+        };
+
+    let mut current_declaration_id = search(first_segment)?;
+
+    for segment in segments {
+        let next_declaration_id = search(segment)?;
+
+        current_declaration_id = next_declaration_id;
     }
 
-    Ok(current_declaration_id.unwrap())
+    Ok(current_declaration_id)
 }

@@ -1,7 +1,8 @@
-use crate::source::SourceFileId;
-use crate::syntax::SyntaxKind;
-
-use super::{bind_declarations, find_declaration};
+use crate::{
+    compiler::declaration_binder::tests::{bind_declarations, find_declaration},
+    source::SourceFileId,
+    syntax::node::SyntaxKind,
+};
 
 #[test]
 fn resolves_path() {

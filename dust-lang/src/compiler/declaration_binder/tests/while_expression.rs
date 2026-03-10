@@ -1,6 +1,9 @@
-use crate::{resolver::scope_graph::ScopeKind, source::SourceFileId, syntax::SyntaxKind};
-
-use super::{bind_declarations, find_declaration};
+use crate::{
+    compiler::declaration_binder::tests::{bind_declarations, find_declaration},
+    resolver::scope_graph::ScopeKind,
+    source::SourceFileId,
+    syntax::node::SyntaxKind,
+};
 
 #[test]
 fn body_creates_block_scope() {

@@ -1,13 +1,12 @@
 use crate::{
+    compiler::declaration_binder::tests::{bind_declarations, find_declaration},
     resolver::{
         declaration_graph::{DeclarationKind, ModuleKind},
         scope_graph::ScopeKind,
     },
     source::SourceFileId,
-    syntax::SyntaxKind,
+    syntax::node::SyntaxKind,
 };
-
-use super::{bind_declarations, find_declaration};
 
 #[test]
 fn declares_module() {

@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_methods)]
+
 mod assignment_expression;
 mod binary_assignment_expressions;
 mod block_expression;
@@ -27,7 +29,7 @@ use crate::{
         scope_graph::{Scope, ScopeId, ScopeKind},
     },
     source::{Source, SourceFile, SourceFileId},
-    syntax::{Syntax, SyntaxVisitor},
+    syntax::{Syntax, visitor::SyntaxVisitor},
 };
 
 fn bind_declarations(source_code: &str) -> (Syntax, Resolver) {
@@ -45,7 +47,7 @@ fn bind_declarations(source_code: &str) -> (Syntax, Resolver) {
 
     let mut syntax = Syntax::new(source.file_count());
 
-    syntax.add_tree(syntax_tree).unwrap();
+    syntax.add_tree(syntax_tree);
 
     let mut resolver = Resolver::new();
     let program_scope_id = resolver.scopes.add_scope(Scope {

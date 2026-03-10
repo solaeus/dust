@@ -3,9 +3,7 @@ use std::hash::{Hash, Hasher};
 use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
 
-use crate::{
-    source::Span,
-};
+use crate::source::Span;
 
 #[derive(Debug)]
 pub struct SymbolTable {

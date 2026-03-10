@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_methods)]
+
 mod arithmetic_expressions;
 mod block_expression;
 mod call_expression;
@@ -20,6 +22,7 @@ mod while_expression;
 use smallvec::SmallVec;
 
 use crate::{
+    compiler::{declaration_binder::DeclarationBinder, type_binder::TypeBinder},
     error::ErrorKind,
     lexer::Lexer,
     parser::Parser,
@@ -29,12 +32,8 @@ use crate::{
         scope_graph::{Scope, ScopeId, ScopeKind},
     },
     source::{Source, SourceFile, SourceFileId},
-    syntax::{Syntax, SyntaxVisitor},
+    syntax::{Syntax, visitor::SyntaxVisitor},
 };
-
-use crate::compiler::declaration_binder::DeclarationBinder;
-
-use super::TypeBinder;
 
 pub fn bind_types(source_code: &str) -> (Syntax, Resolver) {
     let mut source = Source::new();
@@ -47,7 +46,7 @@ pub fn bind_types(source_code: &str) -> (Syntax, Resolver) {
 
     let mut syntax = Syntax::new(source.file_count());
 
-    syntax.add_tree(parse_result.syntax_tree).unwrap();
+    syntax.add_tree(parse_result.syntax_tree);
 
     let mut resolver = Resolver::new();
     let program_scope_id = resolver.scopes.add_scope(Scope {

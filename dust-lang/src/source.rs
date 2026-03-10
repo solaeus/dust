@@ -56,6 +56,12 @@ impl<'src> Source<'src> {
         self.get_file(position.file_id)?.content_str(position.span)
     }
 
+    pub fn get_by_index(&self, index: usize) -> Option<(SourceFileId, &SourceFile<'src>)> {
+        self.files
+            .get(index)
+            .map(|file| (SourceFileId(index as u32), file))
+    }
+
     pub fn set_utf8_validated(&mut self, file_id: SourceFileId) {
         if let Some(
             SourceFile::File { utf8_validated, .. }
@@ -74,6 +80,13 @@ impl<'src> Source<'src> {
     pub fn iter(&self) -> impl Iterator<Item = (SourceFileId, &SourceFile<'src>)> {
         self.files
             .iter()
+            .enumerate()
+            .map(|(index, file)| (SourceFileId(index as u32), file))
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (SourceFileId, &mut SourceFile<'src>)> {
+        self.files
+            .iter_mut()
             .enumerate()
             .map(|(index, file)| (SourceFileId(index as u32), file))
     }
@@ -199,11 +212,19 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn is_utf8_validated(&self) -> bool {
+    pub fn utf8_validated(&self) -> bool {
         match self {
             Self::Borrowed { utf8_validated, .. }
             | Self::Owned { utf8_validated, .. }
             | Self::File { utf8_validated, .. } => *utf8_validated,
+        }
+    }
+
+    pub fn set_utf8_validated(&mut self, validated: bool) {
+        match self {
+            Self::Borrowed { utf8_validated, .. }
+            | Self::Owned { utf8_validated, .. }
+            | Self::File { utf8_validated, .. } => *utf8_validated = validated,
         }
     }
 

@@ -1,6 +1,6 @@
 use tracing::debug;
 
-use crate::syntax::{SyntaxError, SyntaxKind, SyntaxReader};
+use crate::syntax::{error::SyntaxError, node::SyntaxKind, reader::SyntaxReader};
 
 pub trait Component<'src>: Sized {
     fn from_reader(reader: &'src SyntaxReader<'src>) -> Result<Self, SyntaxError>;

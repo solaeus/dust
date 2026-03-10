@@ -14,11 +14,11 @@ use crate::{
         type_binder::TypeBinder,
     },
     constant_list::ConstantListBuilder,
-    error::{AnnotatedError, Error, ErrorKind},
+    dust_type::DustType,
+    error::{Error, ErrorKind},
     instruction::OperandType,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    prelude::DustType,
     program::Program,
     prototype::{PrototypeId, PrototypeList},
     resolver::{
@@ -27,7 +27,7 @@ use crate::{
         scope_graph::{Scope, ScopeId, ScopeKind},
     },
     source::{Source, SourceFile, SourceFileId},
-    syntax::{Syntax, SyntaxVisitor},
+    syntax::{Syntax, visitor::SyntaxVisitor},
 };
 
 pub fn compile<'src>(source_files: &[(&'src str, &'src str)]) -> Result<Program, Error<'src>> {
@@ -133,12 +133,8 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "parse");
             let _enter = span.enter();
 
-            let mut files_parsed = 0;
-
-            while files_parsed < self.source.file_count() {
-                let (file_id, file) = self.source.iter().nth(files_parsed).unwrap();
-
-                let lexer = if file.is_utf8_validated() {
+            for (file_id, file) in self.source.iter_mut() {
+                let lexer = if file.utf8_validated() {
                     Lexer::from_utf8(file.content_as_str())
                 } else {
                     Lexer::from_bytes(file.content_as_bytes())
@@ -150,26 +146,9 @@ impl<'src> Compiler<'src> {
                     file_module_names,
                 } = parser.parse();
 
-                self.source.set_utf8_validated(file_id);
-                self.syntax.add_tree(syntax_tree).map_err(|max| {
-                    panic!("The compiler expected {max} syntax trees in total.");
-                });
+                file.set_utf8_validated(true);
+                self.syntax.add_tree(syntax_tree);
                 errors.extend(parse_errors);
-
-                files_parsed += 1;
-
-                for span in file_module_names {
-                    let parent_file = unwrap_or_return!(self.source.get_file(file_id));
-                    let module_name_str = unwrap_or_return!(parent_file.content_str(span));
-                    let parent_path = parent_file
-                        .path()
-                        .and_then(|path| path.parent())
-                        .unwrap_or_else(|| Path::new("."));
-                    let module_path = parent_path.join(module_name_str).with_added_extension("ds");
-                    let module_file = unwrap_or_return!(SourceFile::file(&module_path));
-
-                    self.source.add_file(module_file);
-                }
             }
         }
 

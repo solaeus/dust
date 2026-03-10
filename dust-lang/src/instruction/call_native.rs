@@ -1,8 +1,9 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::native_function::NativeFunction;
-
-use super::{Instruction, InstructionBuilder, Operation};
+use crate::{
+    instruction::{Instruction, InstructionBuilder, Operation},
+    native_function::NativeFunction,
+};
 
 pub struct CallNative {
     pub destination: u16,

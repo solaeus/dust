@@ -2,7 +2,7 @@ mod instruction_compiler;
 
 use std::mem::transmute;
 
-use super::thread_pool::JitPrototype;
+use crate::jit_vm::thread_pool::JitPrototype;
 use crate::dust_type::{DustStructType, DustType};
 use crate::prototype::{PrototypeCompileInfo, PrototypeId};
 use crate::{jit_vm::RegisterTag, prototype::Prototype};

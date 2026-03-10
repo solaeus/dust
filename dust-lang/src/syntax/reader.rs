@@ -3,8 +3,10 @@ use tracing::error;
 use crate::{
     source::{Position, SourceFileId, Span},
     syntax::{
-        SyntaxId, SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxTree, error::SyntaxError,
-        node::SyntaxPayloadKind,
+        SyntaxId,
+        error::SyntaxError,
+        node::{SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxPayloadKind},
+        tree::SyntaxTree,
     },
 };
 
@@ -379,7 +381,7 @@ impl ExactSizeIterator for SyntaxReaderIterator<'_> {}
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::parse;
+    use crate::parser::parse;
 
     #[test]
     fn double_ended_iterator() {

@@ -1,6 +1,7 @@
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
+    compiler::emitter::JumpId,
     constant_list::ConstantListError,
     error::AnnotatedError,
     instruction::OperandType,
@@ -12,7 +13,7 @@ use crate::{
         type_graph::{TypeId, TypeNode},
     },
     source::{Position, Source, SourceError},
-    syntax::{SyntaxKind, error::SyntaxError},
+    syntax::{error::SyntaxError, node::SyntaxKind},
 };
 
 #[derive(Debug)]
@@ -126,6 +127,7 @@ pub enum CompileError {
     ExpectedEmissionTarget {
         node_kind: SyntaxKind,
     },
+    ExpectedJumpPlacement(JumpId),
 
     Syntax(SyntaxError),
     Resolver(ResolverError),
@@ -145,6 +147,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 | CompileError::ExpectedFloatRegister
                 | CompileError::ExpectedIntegerRegister
                 | CompileError::ExpectedEmissionTarget { .. }
+                | CompileError::ExpectedJumpPlacement(_)
                 | CompileError::Syntax(_)
                 | CompileError::Resolver(_)
                 | CompileError::ConstantList(_)
@@ -908,16 +911,15 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
-
             CompileError::ExpectedModuleDeclaration(_)
             | CompileError::ExpectedTypeDeclaration(_)
             | CompileError::InvalidRegisterCount { .. }
             | CompileError::ExpectedFloatRegister
             | CompileError::ExpectedIntegerRegister
-            | CompileError::ExpectedEmissionTarget { .. } => {
+            | CompileError::ExpectedEmissionTarget { .. }
+            | CompileError::ExpectedJumpPlacement(_) => {
                 self.add_internal_report(groups);
             }
-
             CompileError::Syntax(error) => error.add_report((), groups),
             CompileError::Resolver(error) => error.add_report((), groups),
             CompileError::ConstantList(error) => error.add_report((), groups),

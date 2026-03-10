@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{constant_list::ConstantList, prelude::DustType, prototype::PrototypeList};
+use crate::{constant_list::ConstantList, dust_type::DustType, prototype::PrototypeList};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Program {
