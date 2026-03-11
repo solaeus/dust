@@ -21,11 +21,12 @@ use crate::{
     prototype::{PrototypeId, PrototypeList},
     resolver::{
         Resolver,
-        declaration_graph::Visibility,
+        declaration_graph::{DeclarationKind, Visibility},
         scope_graph::{Scope, ScopeId, ScopeKind},
+        type_graph::TypeNode,
     },
     source::{Source, SourceFile, SourceFileId},
-    syntax::{Syntax, visitor::SyntaxVisitor},
+    syntax::{Syntax, components::FunctionItem, visitor::SyntaxVisitor},
 };
 
 pub fn compile<'src>(source_files: &[(&'src str, &'src str)]) -> Result<Program, Error<'src>> {
@@ -156,7 +157,7 @@ impl<'src> Compiler<'src> {
             modules: SmallVec::new(),
             imports: SmallVec::new(),
         });
-        let main_root = unwrap_or_return!(
+        let main_file_root = unwrap_or_return!(
             self.syntax
                 .get_tree(SourceFileId::MAIN)
                 .and_then(|tree| tree.root())
@@ -171,11 +172,12 @@ impl<'src> Compiler<'src> {
                 &self.source,
                 &self.syntax,
                 &mut self.resolver,
+                &mut self.prototypes,
                 &mut errors,
                 crate_scope_id,
             );
 
-            match declaration_binder.visit_root(main_root) {
+            match declaration_binder.visit_root(main_file_root) {
                 Ok(()) => {}
                 Err(error) => errors.push(ErrorKind::Compile(error)),
             }
@@ -188,7 +190,7 @@ impl<'src> Compiler<'src> {
 
             let mut type_binder = TypeBinder::new(&self.syntax, &mut self.resolver, &mut errors);
 
-            match type_binder.visit_root(main_root) {
+            match type_binder.visit_root(main_file_root) {
                 Ok(()) => {}
                 Err(error) => errors.push(ErrorKind::Compile(error)),
             }
@@ -207,17 +209,16 @@ impl<'src> Compiler<'src> {
                 return Err(errors);
             }
         };
+        let DeclarationKind::Function { return_type_id, .. } = main_declaration.kind else {
+            errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
+
+            return Err(errors);
+        };
         let main_syntax_id = main_declaration.syntax.unwrap().1;
-        let main_function_expression = unwrap_or_return!(
+        let main_function_item = unwrap_or_return!(
             self.syntax
                 .get_tree(SourceFileId::MAIN)
                 .and_then(|tree| tree.get_node(main_syntax_id))
-                .and_then(|node| node.binary_children().map(|(_, expression)| expression))
-        );
-        let main_function_type_id = *unwrap_or_return!(
-            self.resolver
-                .declarations
-                .get_declaration_type(&main_declaration_id)
         );
 
         // Emission phase
@@ -229,40 +230,15 @@ impl<'src> Compiler<'src> {
 
             debug_assert_eq!(_main_prototype_id, PrototypeId::MAIN);
 
-            let main_prototype = unwrap_or_return!(
-                Emitter::new(
-                    main_function_expression,
-                    Some(main_declaration_id),
-                    PrototypeId::MAIN,
-                    (
-                        &self.source,
-                        &self.syntax,
-                        &mut self.constants,
-                        &mut self.resolver,
-                        &mut self.prototypes,
-                    ),
-                )
-                .and_then(|emitter| emitter.emit())
-            );
+            let main_prototype = todo!();
 
             self.prototypes.set(PrototypeId::MAIN, main_prototype);
-            self.resolver
-                .declarations
-                .set_declaration_prototype(main_declaration_id, PrototypeId::MAIN);
         }
 
-        let main_function_type = unwrap_or_return!(
+        let main_function_return_type_id = unwrap_or_return!(
             self.resolver
-                .get_full_type(main_function_type_id, &self.source)
+                .get_external_type(return_type_id, &self.source)
         );
-        let main_function_return_type_id =
-            if let DustType::Function(function_type) = main_function_type {
-                function_type.return_type
-            } else {
-                errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
-
-                return Err(errors);
-            };
 
         if errors.is_empty() {
             Ok(main_function_return_type_id)

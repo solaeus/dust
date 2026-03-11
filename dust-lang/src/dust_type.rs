@@ -7,50 +7,28 @@ pub enum DustType {
     #[default]
     Unit,
     Boolean,
+    Character,
     U8,
-    I8,
     U16,
-    I16,
     U32,
-    I32,
     U64,
-    I64,
     U128,
+    I8,
+    I16,
+    I32,
+    I64,
     I128,
     F32,
     F64,
-    Character,
-    Vec(Box<DustType>),
-    String,
-    List(Box<DustType>),
-    Struct(Box<DustStructType>),
+    Tuple(Box<DustType>),
+    Array(Box<DustType>, usize),
+    Slice(Box<DustType>),
     Function(Box<DustFunctionType>),
+    Struct(Box<DustStructType>),
+    Enum(String, Vec<DustStructType>),
 }
 
 impl DustType {
-    pub fn list(element_type: DustType) -> Self {
-        DustType::List(Box::new(element_type))
-    }
-
-    pub fn function<T: Into<Vec<String>>, U: Into<Vec<DustType>>>(
-        type_parameters: T,
-        value_parameters: U,
-        return_type: DustType,
-    ) -> Self {
-        DustType::Function(Box::new(DustFunctionType {
-            type_parameters: type_parameters.into(),
-            value_parameters: value_parameters.into(),
-            return_type,
-        }))
-    }
-
-    pub fn as_element_type(&self) -> Option<&DustType> {
-        match self {
-            DustType::List(item_type) => Some(item_type.as_ref()),
-            _ => None,
-        }
-    }
-
     pub fn into_function_type(self) -> Option<DustFunctionType> {
         match self {
             DustType::Function(function_type) => Some(*function_type),
@@ -64,24 +42,37 @@ impl Display for DustType {
         match self {
             DustType::Unit => write!(f, "()"),
             DustType::Boolean => write!(f, "bool"),
-            DustType::U8 => write!(f, "u8"),
+            DustType::Character => write!(f, "char"),
             DustType::I8 => write!(f, "i8"),
-            DustType::U16 => write!(f, "u16"),
             DustType::I16 => write!(f, "i16"),
-            DustType::U32 => write!(f, "u32"),
             DustType::I32 => write!(f, "i32"),
-            DustType::U64 => write!(f, "u64"),
             DustType::I64 => write!(f, "i64"),
-            DustType::U128 => write!(f, "u128"),
             DustType::I128 => write!(f, "i128"),
+            DustType::U8 => write!(f, "u8"),
+            DustType::U16 => write!(f, "u16"),
+            DustType::U32 => write!(f, "u32"),
+            DustType::U64 => write!(f, "u64"),
+            DustType::U128 => write!(f, "u128"),
             DustType::F32 => write!(f, "f32"),
             DustType::F64 => write!(f, "f64"),
-            DustType::Character => write!(f, "char"),
-            DustType::Vec(item_type) => write!(f, "Vec<{item_type}>"),
-            DustType::String => write!(f, "str"),
+            DustType::Tuple(item_type) => write!(f, "Vec<{item_type}>"),
+            DustType::Array(item_type, size) => write!(f, "[{item_type}; {size}]"),
+            DustType::Slice(item_type) => write!(f, "[{item_type}]"),
             DustType::Function(function_type) => write!(f, "{function_type}"),
-            DustType::List(item_type) => write!(f, "[{item_type}]"),
             DustType::Struct(struct_type) => write!(f, "{struct_type}"),
+            DustType::Enum(name, variants) => {
+                write!(f, "enum {name} {{")?;
+
+                for (index, variant) in variants.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{variant}")?;
+                }
+
+                write!(f, "}}")
+            }
         }
     }
 }
@@ -149,6 +140,16 @@ pub struct DustStructType {
 
 impl Display for DustStructType {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.name)
+        write!(f, "struct {} {{", self.name)?;
+
+        for (index, (field_name, field_type)) in self.fields.iter().enumerate() {
+            if index > 0 {
+                write!(f, ", ")?;
+            }
+
+            write!(f, "{field_name}: {field_type}")?;
+        }
+
+        write!(f, "}}")
     }
 }

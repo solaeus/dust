@@ -1,8 +1,6 @@
 use crate::{
-    compiler::declaration_binder::tests::bind_declarations,
-    resolver::scope_graph::ScopeKind,
-    source::SourceFileId,
-    syntax::node::SyntaxKind,
+    compiler::declaration_binder::tests::bind_declarations, resolver::scope_graph::ScopeKind,
+    source::SourceFileId, syntax::node::SyntaxKind,
 };
 
 #[test]
@@ -15,7 +13,7 @@ fn creates_scopes_for_both_branches() {
         .iter()
         .find(|node| node.kind() == SyntaxKind::IfExpression)
         .unwrap();
-    let mut children = if_expression.children().unwrap();
+    let mut children = if_expression.children();
     let _condition = children.next().unwrap();
     let then_block = children.next().unwrap();
     let else_block = children.next().unwrap();

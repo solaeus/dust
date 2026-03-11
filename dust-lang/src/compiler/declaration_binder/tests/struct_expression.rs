@@ -17,7 +17,7 @@ fn resolves_field_paths() {
         .find(|node| node.kind() == SyntaxKind::StructExpression)
         .unwrap();
     let (path, fields) = struct_expr.binary_children().unwrap();
-    let field = fields.children().unwrap().next().unwrap();
+    let field = fields.children().next().unwrap();
     let (field_path, _) = field.binary_children().unwrap();
 
     assert_eq!(*resolver.get_declaration_binding(&path.id).unwrap(), foo_id);

@@ -124,7 +124,6 @@ pub enum SyntaxKind {
     IndexExpression,
 
     // Function expressions
-    FunctionExpression,
     CallExpression,
 
     // Control flow expressions
@@ -229,19 +228,11 @@ impl SyntaxKind {
         }
     }
 
-    pub fn with_multiple_children(
-        self,
-        span: Span,
-        start_index: u32,
-        child_count: u32,
-    ) -> SyntaxNode {
+    pub fn with_multiple_children(self, span: Span, payload: SyntaxPayload) -> SyntaxNode {
         {
             SyntaxNode {
                 kind: self,
-                payload: SyntaxPayload {
-                    left: start_index,
-                    right: child_count,
-                },
+                payload,
                 payload_kind: SyntaxPayloadKind::MultipleChildren,
                 span,
             }
@@ -312,7 +303,6 @@ impl SyntaxKind {
                 | SyntaxKind::IndexExpression
                 | SyntaxKind::BlockExpression
                 | SyntaxKind::CallExpression
-                | SyntaxKind::FunctionExpression
                 | SyntaxKind::GroupedExpression
                 | SyntaxKind::PathExpression
                 | SyntaxKind::WhileExpression
@@ -370,7 +360,6 @@ impl SyntaxKind {
             SyntaxKind::F32Type => "f32 type",
             SyntaxKind::F64Type => "f64 type",
             SyntaxKind::FloatExpression => "float expression",
-            SyntaxKind::FunctionExpression => "function expression",
             SyntaxKind::FunctionItem => "function item",
             SyntaxKind::FunctionParameters => "function parameters",
             SyntaxKind::FunctionSignature => "function signature",

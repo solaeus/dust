@@ -46,7 +46,7 @@ fn creates_type_declaration() {
         .iter()
         .find(|node| node.kind() == SyntaxKind::StructFieldsDeclaration)
         .unwrap();
-    let field_name = fields.children().unwrap().next().unwrap();
+    let field_name = fields.children().next().unwrap();
 
     assert_eq!(
         *resolver.get_declaration_binding(&field_name.id).unwrap(),

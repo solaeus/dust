@@ -25,7 +25,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Emitter<'a> {
-    function: SyntaxReader<'a>,
+    body: SyntaxReader<'a>,
 
     source: &'a Source<'a>,
 
@@ -66,9 +66,12 @@ pub struct Emitter<'a> {
 
 impl<'a> Emitter<'a> {
     pub fn new(
-        function_expression: SyntaxReader<'a>,
+        body: SyntaxReader<'a>,
         declaration_id: Option<DeclarationId>,
         prototype_id: PrototypeId,
+        return_type_id: TypeId,
+        value_arguments: SyntaxReader<'a>,
+        argument_types: &[TypeId],
         (source, syntax, constants, resolver, prototypes): (
             &'a Source,
             &'a Syntax,
@@ -77,12 +80,6 @@ impl<'a> Emitter<'a> {
             &'a mut PrototypeList,
         ),
     ) -> Result<Self, CompileError> {
-        debug_assert_eq!(function_expression.kind(), SyntaxKind::FunctionExpression);
-
-        let (signature, body) = function_expression.binary_children()?;
-        let mut signature_children = signature.children()?;
-        let value_arguments = signature_children.expect_next()?;
-
         let mut locals = HashMap::default();
 
         if let Some(declaration_id) = declaration_id {
@@ -95,25 +92,12 @@ impl<'a> Emitter<'a> {
             );
         }
 
-        let type_id = *resolver.get_type_binding(&function_expression.id)?;
-        let type_node = *resolver.types.get_type(type_id)?;
-        let TypeNode::Function {
-            value_parameters,
-            return_type_id,
-            ..
-        } = type_node
-        else {
-            return Err(CompileError::ExpectedFunctionType {
-                found: type_id,
-                position: function_expression.position(),
-            });
-        };
         let starting_scope_id = *resolver.get_scope_binding(&body.id)?;
         let argument_count = value_arguments.child_count() as u16;
-        let return_count = resolver.get_register_size(return_type_id, &function_expression)? as u16;
+        let return_count = resolver.get_register_size(return_type_id, &body)? as u16;
 
         let mut emitter = Self {
-            function: function_expression,
+            body,
             source,
             syntax,
             constants,
@@ -133,15 +117,10 @@ impl<'a> Emitter<'a> {
         };
 
         if argument_count > 0 {
-            let argument_types = emitter
-                .resolver
-                .types
-                .get_type_members(value_parameters)?
-                .to_vec();
-
-            for (argument, expected_type_id) in value_arguments.children()?.zip(argument_types) {
+            for (argument, expected_type_id) in value_arguments.children().zip(argument_types) {
                 let argument_id = *emitter.resolver.get_declaration_binding(&argument.id)?;
-                let allocations = emitter.allocate_registers(expected_type_id, false, &argument)?;
+                let allocations =
+                    emitter.allocate_registers(*expected_type_id, false, &argument)?;
 
                 emitter
                     .locals
@@ -153,8 +132,8 @@ impl<'a> Emitter<'a> {
     }
 
     pub fn emit(mut self) -> Result<Prototype, CompileError> {
-        let (_, function_body) = self.function.binary_children()?;
-        let children = function_body.children()?;
+        let (_, function_body) = self.body.binary_children()?;
+        let children = function_body.children();
 
         let last_index = children.len().saturating_sub(1);
 
@@ -294,7 +273,9 @@ impl<'a> Emitter<'a> {
                 TypeNode::Vec { .. } => (OperandType::POINTER, RegisterWidth::Double),
                 TypeNode::String => (OperandType::POINTER, RegisterWidth::Double),
                 TypeNode::List { .. } => (OperandType::POINTER, RegisterWidth::Double),
-                TypeNode::Function { .. } => (OperandType::FUNCTION, RegisterWidth::Single),
+                TypeNode::FunctionDefinition { .. } => {
+                    (OperandType::FUNCTION, RegisterWidth::Single)
+                }
                 TypeNode::Struct { declaration_id, .. } => {
                     let declaration = emitter
                         .resolver
@@ -1189,41 +1170,33 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_function_item(&mut self, node: SyntaxReader<'_>) -> Result<(), CompileError> {
         debug!("Visting function item");
 
-        let (function_name, function_expression) = node.binary_children()?;
-        let (signature, body) = function_expression.binary_children()?;
-        let mut singature_children = signature.children()?;
-        let _parameters = singature_children.expect_next()?;
+        todo!()
 
-        let _function_scope_id = *self.resolver.get_scope_binding(&body.id)?;
-        let prototype_id = self.prototypes.reserve();
-        let declaration_id = *self.resolver.get_declaration_binding(&function_name.id)?;
-        let _type_id = *self.resolver.get_type_binding(&function_expression.id)?;
+        // let function_emitter = Emitter::new(
+        //     node,
+        //     Some(declaration_id),
+        //     prototype_id,
+        //     (
+        //         self.source,
+        //         self.syntax,
+        //         self.constants,
+        //         self.resolver,
+        //         self.prototypes,
+        //     ),
+        // )?;
+        // let prototype = function_emitter.emit()?;
 
-        let function_emitter = Emitter::new(
-            node,
-            Some(declaration_id),
-            prototype_id,
-            (
-                self.source,
-                self.syntax,
-                self.constants,
-                self.resolver,
-                self.prototypes,
-            ),
-        )?;
-        let prototype = function_emitter.emit()?;
+        // self.prototypes.set(prototype_id, prototype);
 
-        self.prototypes.set(prototype_id, prototype);
+        // self.locals.insert(
+        //     declaration_id,
+        //     Place::Constant {
+        //         operand_type: OperandType::FUNCTION,
+        //         index: prototype_id.inner(),
+        //     },
+        // );
 
-        self.locals.insert(
-            declaration_id,
-            Place::Constant {
-                operand_type: OperandType::FUNCTION,
-                index: prototype_id.inner(),
-            },
-        );
-
-        Ok(())
+        // Ok(())
     }
 
     fn visit_use_item(&mut self, _: SyntaxReader<'_>) -> Result<(), CompileError> {
@@ -1263,7 +1236,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Visting let statement");
 
-        let mut children = node.children()?;
+        let mut children = node.children();
         let path = children.expect_next()?;
         let expression = children.expect_next()?;
 
@@ -1749,7 +1722,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting list expression");
 
-        let elements = node.children()?;
+        let elements = node.children();
 
         let target = if let Some(target) = target {
             target
@@ -1905,7 +1878,7 @@ impl SyntaxVisitor for Emitter<'_> {
         let element_size: u16 = if let Ok(size) = u16::try_from(element_size) {
             size
         } else {
-            let first_element = node.children()?.next().unwrap();
+            let first_element = node.children().next().unwrap();
             let type_id = *self.resolver.get_type_binding(&first_element.id)?;
 
             return Err(CompileError::ListElementSizeOverflow {
@@ -2042,7 +2015,7 @@ impl SyntaxVisitor for Emitter<'_> {
         let mut struct_instructions = InstructionsEmission::new();
 
         let fields_and_registers = struct_fields
-            .children()?
+            .children()
             .array_chunks::<2>()
             .zip(target.iter());
 
@@ -2101,7 +2074,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting block expression");
 
-        let children = node.children()?;
+        let children = node.children();
 
         let block_scope_id = *self.resolver.get_scope_binding(&node.id)?;
         let parent_scope_id = self.current_scope_id;
@@ -2234,7 +2207,7 @@ impl SyntaxVisitor for Emitter<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting if expression");
 
-        let mut children = node.children()?;
+        let mut children = node.children();
         let condition = children.expect_next()?;
         let then_block = children.expect_next()?;
         let else_block = children.next();
@@ -2810,36 +2783,6 @@ impl SyntaxVisitor for Emitter<'_> {
         Ok(Emission::Instructions(while_emission))
     }
 
-    fn visit_function_expression(
-        &mut self,
-        node: SyntaxReader<'_>,
-        _target: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Visting function expression");
-
-        let prototype_id = self.prototypes.reserve();
-        let function_emitter = Emitter::new(
-            node,
-            None,
-            prototype_id,
-            (
-                self.source,
-                self.syntax,
-                self.constants,
-                self.resolver,
-                self.prototypes,
-            ),
-        )?;
-        let prototype = function_emitter.emit()?;
-
-        self.prototypes.set(prototype_id, prototype);
-
-        Ok(Emission::Place(Place::Constant {
-            index: prototype_id.inner(),
-            operand_type: OperandType::FUNCTION,
-        }))
-    }
-
     fn visit_call_expression(
         &mut self,
         node: SyntaxReader<'_>,
@@ -2848,7 +2791,7 @@ impl SyntaxVisitor for Emitter<'_> {
         debug!("Visting call expression");
 
         let (callee, argument_list) = node.binary_children()?;
-        let arguments = argument_list.children()?;
+        let arguments = argument_list.children();
 
         let return_type_id = *self.resolver.get_type_binding(&node.id)?;
         let target = if target.is_some() {

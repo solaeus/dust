@@ -25,6 +25,9 @@ pub enum ResolverError {
     MissingTypeMembers(TypeMembers),
     MissingTypeBinding(SyntaxId),
     ExpectedListType { found: TypeNode },
+    ExpectedFunctionDeclaration(DeclarationId),
+    ExpectedFieldDeclaration(DeclarationId),
+    ExpectedAlgebraicTypeDeclaration(DeclarationId),
 }
 
 impl<'a> AnnotatedError<'a> for ResolverError {

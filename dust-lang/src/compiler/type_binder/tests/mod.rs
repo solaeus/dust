@@ -5,7 +5,6 @@ mod block_expression;
 mod call_expression;
 mod comparison_expressions;
 mod enum_item;
-mod function_expression;
 mod function_item;
 mod if_expression;
 mod let_statement;

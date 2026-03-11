@@ -5,7 +5,6 @@ mod binary_assignment_expressions;
 mod block_expression;
 mod call_expression;
 mod enum_item;
-mod function_expression;
 mod function_item;
 mod if_expression;
 mod let_statement;

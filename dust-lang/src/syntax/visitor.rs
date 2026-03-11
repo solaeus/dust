@@ -110,7 +110,6 @@ pub trait SyntaxVisitor {
             SyntaxKind::BlockExpression => self.visit_block_expression(node, input),
             SyntaxKind::IfExpression => self.visit_if_expression(node, input),
             SyntaxKind::WhileExpression => self.visit_while_expression(node, input),
-            SyntaxKind::FunctionExpression => self.visit_function_expression(node, input),
             SyntaxKind::CallExpression => self.visit_call_expression(node, input),
             SyntaxKind::GroupedExpression => self.visit_expression(node.child()?, input),
             _ => Err(CompileError::Unimplemented {
@@ -249,12 +248,6 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_while_expression(
-        &mut self,
-        node: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
-
-    fn visit_function_expression(
         &mut self,
         node: SyntaxReader,
         input: Option<Self::ExpressionInput>,

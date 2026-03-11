@@ -1,5 +1,3 @@
-use tracing::error;
-
 use crate::{
     source::{Position, SourceFileId, Span},
     syntax::{
@@ -118,34 +116,8 @@ impl<'a> SyntaxReader<'a> {
         Ok((left_child, right_child))
     }
 
-    pub fn children(&'a self) -> Result<SyntaxReaderIterator<'a>, SyntaxError> {
-        match self.node.payload_kind {
-            SyntaxPayloadKind::Empty => {}
-            SyntaxPayloadKind::Value => {
-                return Err(SyntaxError::InvalidSyntaxPayload(self.payload()));
-            }
-            SyntaxPayloadKind::SingleChild => {
-                if self.node.payload.left >= self.tree.node_count() as u32 {
-                    return Err(SyntaxError::MissingSyntaxNode(self.payload().left_id()));
-                }
-            }
-            SyntaxPayloadKind::BinaryChildren => {
-                if self.node.payload.left >= self.tree.node_count() as u32 {
-                    return Err(SyntaxError::MissingSyntaxNode(self.payload().left_id()));
-                }
-
-                if self.node.payload.right >= self.tree.node_count() as u32 {
-                    return Err(SyntaxError::MissingSyntaxNode(self.payload().right_id()));
-                }
-            }
-            SyntaxPayloadKind::MultipleChildren => {
-                if self.node.payload.as_usize_range().end > self.tree.children.len() {
-                    return Err(SyntaxError::InvalidSyntaxPayload(self.payload()));
-                }
-            }
-        }
-
-        Ok(SyntaxReaderIterator::new(self))
+    pub fn children(&'a self) -> SyntaxReaderIterator<'a> {
+        SyntaxReaderIterator::new(self)
     }
 
     pub fn last_child(&'a self) -> Result<Option<Self>, SyntaxError> {
@@ -170,15 +142,7 @@ impl<'a> SyntaxReader<'a> {
         let size = self.child_count();
 
         if size > 0 {
-            let children = match self.children() {
-                Ok(children) => children,
-                Err(error) => {
-                    error!("{error:?}");
-                    return;
-                }
-            };
-
-            for (index, child) in children.enumerate() {
+            for (index, child) in self.children().enumerate() {
                 let child_is_last = index == size.saturating_sub(1);
 
                 child.draw_text_tree_line(buffer, &mut ancestors, child_is_last);
@@ -248,16 +212,7 @@ impl<'a> SyntaxReader<'a> {
             return;
         }
 
-        let children = match self.children() {
-            Ok(children) => children,
-            Err(error) => {
-                error!("{error:?}");
-
-                return;
-            }
-        };
-
-        for (index, child) in children.enumerate() {
+        for (index, child) in self.children().enumerate() {
             let child_is_last = index == size.saturating_sub(1);
 
             child.draw_text_tree_line(buffer, ancestors, child_is_last);
@@ -301,7 +256,7 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
     type Item = SyntaxReader<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let child_id = match self.parent.node.payload_kind {
+        let id = match self.parent.node.payload_kind {
             SyntaxPayloadKind::SingleChild if self.current_index == 0 => {
                 let child_id = self.parent.node.payload.left_id();
                 self.current_index += 1;
@@ -330,8 +285,9 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
             }
             _ => return None,
         };
+        let node = &self.parent.tree.nodes[id.0 as usize];
 
-        self.parent.tree.get_node(child_id).ok()
+        Some(SyntaxReader::new(id, node, self.parent.tree))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -386,24 +342,23 @@ mod tests {
 
     #[test]
     fn double_ended_iterator() {
-        let (syntax_tree, errors) = parse("fn main() { 1 + 2 * 3 }");
+        let (syntax_tree, errors) = parse(
+            "fn main() -> i32 { 1 + 2 * 3 } fn foo() -> i32 { 4 - 5 / 6 } fn bar() -> i32 { 7 % 8 }",
+        );
 
         assert!(errors.is_empty());
 
         let root = syntax_tree.root().unwrap();
 
-        let forward = root
-            .children()
-            .unwrap()
-            .map(|node| node.inner())
-            .collect::<Vec<_>>();
+        let forward = root.children().map(|node| node.inner()).collect::<Vec<_>>();
         let backward = root
             .children()
-            .unwrap()
             .rev()
             .map(|node| node.inner())
             .collect::<Vec<_>>();
 
-        assert_eq!(forward, backward);
+        for (forward_node, backward_node) in forward.iter().zip(backward.iter().rev()) {
+            assert_eq!(forward_node, backward_node);
+        }
     }
 }

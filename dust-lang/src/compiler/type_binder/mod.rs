@@ -127,12 +127,12 @@ impl<'a> TypeBinder<'a> {
                 right_syntax,
             ),
             (
-                TypeNode::Function {
+                TypeNode::FunctionDefinition {
                     type_parameters: _left_type_parameters,
                     value_parameters: left_value_parameters,
                     return_type_id: left_return_type,
                 },
-                TypeNode::Function {
+                TypeNode::FunctionDefinition {
                     type_parameters: _right_type_parameters,
                     value_parameters: right_value_parameters,
                     return_type_id: right_return_type,
@@ -182,12 +182,12 @@ impl<'a> TypeBinder<'a> {
             ) => {
                 if left_declaration_id != right_declaration_id {
                     let expected_position = if let Some(left) = left_syntax {
-                        left.children()?.next_back().map(|child| child.position())
+                        left.children().next_back().map(|child| child.position())
                     } else {
                         None
                     };
                     let found_position = right_syntax
-                        .children()?
+                        .children()
                         .next_back()
                         .unwrap_or(right_syntax)
                         .position();
@@ -226,12 +226,12 @@ impl<'a> TypeBinder<'a> {
                     Ok(())
                 } else {
                     let expected_position = if let Some(left) = left_syntax {
-                        left.children()?.next_back().map(|child| child.position())
+                        left.children().next_back().map(|child| child.position())
                     } else {
                         None
                     };
                     let found_position = right_syntax
-                        .children()?
+                        .children()
                         .next_back()
                         .unwrap_or(right_syntax)
                         .position();
@@ -260,7 +260,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_root(&mut self, node: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
         debug!("Visting root");
 
-        let children = node.children()?;
+        let children = node.children();
 
         for child in children {
             match self.visit_item(child) {
@@ -277,12 +277,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_module_item(&mut self, module_item: SyntaxReader) -> Result<(), CompileError> {
         debug!("Visting module item");
 
-        let mut children = module_item.children()?;
+        let mut children = module_item.children();
         let module_name = children.expect_next()?;
         let module_body = children.next();
 
         if let Some(module_body) = module_body {
-            for child in module_body.children()? {
+            for child in module_body.children() {
                 match self.visit_item(child) {
                     Ok(()) => {}
                     Err(error) => {
@@ -321,13 +321,8 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let (function_name, function_expression) = function_item.binary_children()?;
 
         let function_declaration_id = *self.resolver.get_declaration_binding(&function_name.id)?;
-        let function_type_id = self.visit_function_expression(function_expression, None)?;
 
-        self.resolver
-            .declarations
-            .set_declaration_type(function_declaration_id, function_type_id);
-
-        Ok(())
+        todo!();
     }
 
     fn visit_use_item(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
@@ -341,7 +336,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         let (struct_name, struct_fields) = node.binary_children()?;
 
-        for [field_name, field_type] in struct_fields.children()?.array_chunks::<2>() {
+        for [field_name, field_type] in struct_fields.children().array_chunks::<2>() {
             let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
             let field_type_id = self.visit_type(field_type)?;
 
@@ -367,16 +362,16 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_enum_item(&mut self, node: SyntaxReader) -> Result<(), CompileError> {
         debug!("Visting enum item");
 
-        let mut children = node.children()?;
+        let mut children = node.children();
         let enum_name = children.expect_next()?;
         let enum_variants = children.expect_next()?;
 
         let mut variants = SmallVec::<[DeclarationId; 8]>::new();
 
-        for variant in enum_variants.children()? {
+        for variant in enum_variants.children() {
             debug!("Visting enum variant");
 
-            let mut variant_children = variant.children()?;
+            let mut variant_children = variant.children();
             let variant_name = variant_children.expect_next()?;
             let variant_fields = variant_children.next();
 
@@ -417,7 +412,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Visting let statement");
 
-        let mut children = node.children()?;
+        let mut children = node.children();
         let path = children.expect_next()?;
         let expression = children.expect_next()?;
         let type_notation = children.next();
@@ -598,7 +593,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting list expression");
 
-        let children = node.children()?;
+        let children = node.children();
 
         let mut first_type = None;
 
@@ -726,7 +721,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             .declarations
             .get_declaration_type(&declaration_id)?;
 
-        for field in fields.children()? {
+        for field in fields.children() {
             let (field_name, field_expression) = field.binary_children()?;
 
             let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
@@ -759,7 +754,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting block expression");
 
-        let children = node.children()?;
+        let children = node.children();
 
         let mut block_type_id = TypeId::UNIT;
 
@@ -793,7 +788,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting if expression");
 
-        let mut children = node.children()?;
+        let mut children = node.children();
 
         let condition = children.expect_next()?;
         let then_block = children.expect_next()?;
@@ -1005,90 +1000,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(TypeId::UNIT)
     }
 
-    fn visit_function_expression(
-        &mut self,
-        node: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
-    ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Visting function expression");
-
-        let (signature, body) = node.binary_children()?;
-        let mut signature_children = signature.children()?;
-        let parameters = signature_children.expect_next()?;
-        let return_type = signature_children.next();
-        let mut parameter_children = parameters.children()?;
-        let value_parameters = parameter_children.expect_next()?;
-        let type_parameters = parameter_children.next();
-
-        let mut value_parameter_type_ids = SmallVec::<[TypeId; 8]>::new();
-
-        for [parameter_name, parameter_type] in value_parameters.children()?.array_chunks::<2>() {
-            let parameter_declaration_id =
-                *self.resolver.get_declaration_binding(&parameter_name.id)?;
-            let parameter_type_id = self.visit_type(parameter_type)?;
-
-            value_parameter_type_ids.push(parameter_type_id);
-            self.resolver
-                .declarations
-                .set_declaration_type(parameter_declaration_id, parameter_type_id);
-        }
-
-        let type_parameters = if let Some(type_parameters) = type_parameters {
-            let mut type_parameter_declaration_ids = SmallVec::<[DeclarationId; 8]>::new();
-
-            for type_parameter in type_parameters.children()? {
-                let type_parameter_declaration_id =
-                    *self.resolver.get_declaration_binding(&type_parameter.id)?;
-                let type_parameter_type_id = self.resolver.types.create_inferred_type();
-
-                type_parameter_declaration_ids.push(type_parameter_declaration_id);
-                self.resolver
-                    .declarations
-                    .set_declaration_type(type_parameter_declaration_id, type_parameter_type_id);
-            }
-
-            self.resolver
-                .declarations
-                .add_declaration_members(&type_parameter_declaration_ids)
-        } else {
-            DeclarationMembers::default()
-        };
-
-        let value_parameters = self
-            .resolver
-            .types
-            .add_type_members(&value_parameter_type_ids);
-        let expected_return_type_id = {
-            if let Some(return_type_node) = return_type {
-                let raw = self.visit_type(return_type_node)?;
-
-                self.infer_type(raw)?
-            } else {
-                TypeId::UNIT
-            }
-        };
-        let actual_return_type_id = self.visit_block_expression(body, None)?;
-
-        self.unify_types(
-            expected_return_type_id,
-            return_type,
-            actual_return_type_id,
-            body,
-        )?;
-
-        let function_type_id = self.resolver.types.add_type(TypeNode::Function {
-            type_parameters,
-            value_parameters,
-            return_type_id: expected_return_type_id,
-        });
-
-        self.resolver.add_type_binding(node.id, function_type_id);
-        self.resolver
-            .add_type_binding(body.id, expected_return_type_id);
-
-        Ok(function_type_id)
-    }
-
     fn visit_call_expression(
         &mut self,
         node: SyntaxReader,
@@ -1097,7 +1008,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         debug!("Visting call expression");
 
         let (callee, arguments_list) = node.binary_children()?;
-        let arguments = arguments_list.children()?;
+        let arguments = arguments_list.children();
 
         let callee_type = {
             let raw = self.visit_expression(callee, None)?;
@@ -1105,7 +1016,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             self.infer_type(raw)?
         };
 
-        let TypeNode::Function {
+        let TypeNode::FunctionDefinition {
             value_parameters,
             return_type_id,
             ..

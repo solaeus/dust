@@ -1,14 +1,13 @@
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
-use tracing::error;
 
 use crate::{
     source::SourceFileId,
     syntax::{
         SyntaxId,
         error::SyntaxError,
-        node::{SyntaxKind, SyntaxNode},
+        node::{SyntaxKind, SyntaxNode, SyntaxPayload},
         reader::SyntaxReader,
     },
 };
@@ -19,7 +18,7 @@ pub struct SyntaxTree {
     pub file_id: SourceFileId,
 
     /// Append-only list of syntax nodes. Each node's ID is its index in this list.
-    nodes: Vec<SyntaxNode>,
+    pub(super) nodes: Vec<SyntaxNode>,
 
     /// Concatenated list of node IDs for nodes with more than two children.
     pub(super) children: Vec<SyntaxId>,
@@ -77,16 +76,7 @@ impl SyntaxTree {
         fn collect_depth_first(node: SyntaxReader, nodes: &mut Vec<SyntaxNode>) {
             nodes.push(*node.inner());
 
-            let children = match node.children() {
-                Ok(children) => children,
-                Err(error) => {
-                    error!("{}", error);
-
-                    return;
-                }
-            };
-
-            for child in children {
+            for child in node.children() {
                 collect_depth_first(child, nodes);
             }
         }
@@ -144,13 +134,16 @@ impl SyntaxTreeBuilder {
         self.tree.nodes[id.0 as usize] = node;
     }
 
-    pub fn add_children(&mut self, children: &[SyntaxId]) -> (u32, u32) {
+    pub fn add_children(&mut self, children: &[SyntaxId]) -> SyntaxPayload {
         let start_index = self.tree.children.len() as u32;
         let length = children.len() as u32;
 
         self.tree.children.extend_from_slice(children);
 
-        (start_index, length)
+        SyntaxPayload {
+            left: start_index,
+            right: length,
+        }
     }
 
     pub fn build(self) -> SyntaxTree {

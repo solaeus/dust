@@ -5,7 +5,10 @@ use rustc_hash::FxBuildHasher;
 use crate::{
     native_function::NativeFunction,
     prototype::PrototypeId,
-    resolver::{TypeId, error::ResolverError, scope_graph::ScopeId, symbol_table::SymbolId},
+    resolver::{
+        TypeId, error::ResolverError, scope_graph::ScopeId, symbol_table::SymbolId,
+        type_graph::TypeMembers,
+    },
     source::{Position, SourceFileId},
     syntax::SyntaxId,
 };
@@ -16,7 +19,6 @@ pub struct DeclarationGraph {
     declaration_lookup: HashMap<DeclarationKey, DeclarationId, FxBuildHasher>,
     declaration_members: Vec<DeclarationId>,
     declaration_types: HashMap<DeclarationId, TypeId, FxBuildHasher>,
-    declaration_prototypes: HashMap<DeclarationId, PrototypeId, FxBuildHasher>,
 }
 
 impl DeclarationGraph {
@@ -26,7 +28,6 @@ impl DeclarationGraph {
             declaration_lookup: HashMap::default(),
             declaration_members: Vec::new(),
             declaration_types: HashMap::default(),
-            declaration_prototypes: HashMap::default(),
         }
     }
 
@@ -103,10 +104,13 @@ impl DeclarationGraph {
         &self,
         prototype_id: PrototypeId,
     ) -> Result<Option<&Declaration>, ResolverError> {
-        for (declaration_id, declaration_prototype_id) in &self.declaration_prototypes {
-            if *declaration_prototype_id == prototype_id {
-                let declaration = self.get_declaration(*declaration_id)?;
-
+        for declaration in &self.declarations {
+            if let DeclarationKind::Function {
+                prototype_id: declaration_prototype_id,
+                ..
+            } = declaration.kind
+                && prototype_id == declaration_prototype_id
+            {
                 return Ok(Some(declaration));
             }
         }
@@ -139,40 +143,11 @@ impl DeclarationGraph {
 
     pub fn get_declaration_members(
         &self,
-        members: DeclarationMembers,
+        members: &DeclarationMembers,
     ) -> Result<&[DeclarationId], ResolverError> {
         self.declaration_members
             .get(members.as_usize_range())
-            .ok_or(ResolverError::MissingDeclarationMembers(members))
-    }
-
-    pub fn set_declaration_type(&mut self, declaration_id: DeclarationId, type_id: TypeId) {
-        self.declaration_types.insert(declaration_id, type_id);
-    }
-
-    pub fn get_declaration_type(
-        &self,
-        declaration_id: &DeclarationId,
-    ) -> Result<&TypeId, ResolverError> {
-        self.declaration_types
-            .get(declaration_id)
-            .ok_or(ResolverError::MissingDeclarationType(*declaration_id))
-    }
-
-    pub fn set_declaration_prototype(
-        &mut self,
-        declaration_id: DeclarationId,
-        prototype_id: PrototypeId,
-    ) {
-        self.declaration_prototypes
-            .insert(declaration_id, prototype_id);
-    }
-
-    pub fn get_declaration_prototype(
-        &self,
-        declaration_id: &DeclarationId,
-    ) -> Option<&PrototypeId> {
-        self.declaration_prototypes.get(declaration_id)
+            .ok_or(ResolverError::MissingDeclarationMembers(*members))
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (DeclarationId, &Declaration)> + '_ {
@@ -184,7 +159,7 @@ impl DeclarationGraph {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DeclarationId(u32);
+pub struct DeclarationId(#[cfg(test)] pub(crate) u32, #[cfg(not(test))] u32);
 
 impl DeclarationId {
     pub fn inner(self) -> u32 {
@@ -201,41 +176,82 @@ pub struct Declaration {
     pub symbol_id: SymbolId,
     pub kind: DeclarationKind,
     pub scope_id: ScopeId,
-    pub public: bool,
     pub syntax: Option<(Position, SyntaxId)>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DeclarationKind {
-    Local {
-        type_id: TypeId,
-    },
-    Function {
-        type_id: TypeId,
-    },
-    NativeFunction(NativeFunction),
+    /// `let x: f64 = 42.0;`
+    ///
+    /// Block-scoped variable declaration. Must have an associated type ID.
+    Local,
+
+    /// `mod foo { ... }` or `mod foo;`
     Module {
+        public: bool,
         kind: ModuleKind,
         inner_scope_id: ScopeId,
     },
-    Type {
-        parent: Option<DeclarationId>,
+
+    /// `fn foo<T>(x: T) -> T { ... }`
+    ///
+    /// Function declarations represent a unique function type. Must have an associated type ID.
+    Function {
+        public: bool,
+        prototype_id: PrototypeId,
         type_parameters: DeclarationMembers,
-        members: DeclarationMembers,
+        value_parameters: TypeMembers,
+        return_type_id: TypeId,
     },
+
+    /// A Rust function that the user can treat as any other function type or value. Must have an
+    /// associated type ID.
+    NativeFunction {
+        function: NativeFunction,
+        type_parameters: DeclarationMembers,
+        value_parameters: TypeMembers,
+        return_type: TypeId,
+    },
+
+    /// `struct Foo<T>(T);` or `struct Foo { x: f32 }`
+    ///
+    /// Composite type declaration.
+    StructType {
+        public: bool,
+        type_parameters: DeclarationMembers,
+        fields: DeclarationMembers,
+    },
+
+    /// `enum Foo<T> { Bar(T), Baz { x: f32 } }`
+    ///
+    /// Sum type declaration.
+    EnumType {
+        public: bool,
+        type_parameters: DeclarationMembers,
+        variants: DeclarationMembers,
+    },
+
+    /// `T` in `fn foo<T>(x: T) -> T { ... }`
+    ///
+    /// Type parameters on a declaration represent generic types that are substituted with concrete
+    /// types when the type is instantiated. Must have an associated type ID.
+    TypeParameter { owner: DeclarationId },
+
+    /// `foo: f32` in `struct Bar { foo: f32 }`
+    Field { public: bool, parent: DeclarationId },
 }
 
 impl DeclarationKind {
     fn visibility(&self) -> Visibility {
         match self {
-            DeclarationKind::Function { .. }
-            | DeclarationKind::NativeFunction(_)
-            | DeclarationKind::Module { .. }
-            | DeclarationKind::Type { parent: None, .. } => Visibility::Module,
-            DeclarationKind::Type {
-                parent: Some(_), ..
-            } => Visibility::Type,
             DeclarationKind::Local { .. } => Visibility::Block,
+            DeclarationKind::Module { .. }
+            | DeclarationKind::Function { .. }
+            | DeclarationKind::NativeFunction { .. }
+            | DeclarationKind::StructType { .. }
+            | DeclarationKind::EnumType { .. }
+            | DeclarationKind::TypeParameter { .. } => Visibility::Module,
+            DeclarationKind::Field { .. } => Visibility::Type,
         }
     }
 }

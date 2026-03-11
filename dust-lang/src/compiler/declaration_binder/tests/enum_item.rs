@@ -30,7 +30,7 @@ fn creates_type_declaration() {
         .iter()
         .find(|node| node.kind() == SyntaxKind::EnumItem)
         .unwrap();
-    let mut children = item.children().unwrap();
+    let mut children = item.children();
     let name = children.next().unwrap();
 
     assert_eq!(

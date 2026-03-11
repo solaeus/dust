@@ -120,8 +120,7 @@ impl ConstantList {
             .get(id.0 as usize)
             .ok_or(ConstantListError::MissingConstant(id))?;
         let start = (payload >> 16) as usize;
-        let length = (payload & 0xFFFF) as usize;
-        let end = start + length;
+        let end = (payload & 0xFFFF) as usize;
 
         self.string_pool
             .get(start..end)
@@ -363,10 +362,12 @@ impl ConstantListBuilder {
         }
 
         let start = self.string_pool.len() as u16;
-        let length = str.len() as u16;
-        let payload = ((start as u32) << 16) | (length as u32);
 
         self.string_pool.push_str(str);
+
+        let end = self.string_pool.len() as u16;
+        let payload = ((start as u32) << 16) | (end as u32);
+
         self.add_payloads([payload], key, OperandType::POINTER)
     }
 
