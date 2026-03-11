@@ -1,6 +1,6 @@
 use crate::{
     compiler::type_binder::tests::bind_types,
-    resolver::type_graph::{TypeId, TypeNode},
+    resolver::type_graph::{TypeId, Type},
     source::SourceFileId,
     syntax::node::SyntaxKind,
 };
@@ -19,7 +19,7 @@ fn creates_list_type() {
     let type_node = *resolver.types.get_type(type_id).unwrap();
 
     let element_type = match type_node {
-        TypeNode::List { element_type_id } => element_type_id,
+        Type::List { element_type_id } => element_type_id,
         other => panic!("expected List type, got {other:?}"),
     };
 
@@ -39,7 +39,7 @@ fn empty_list_creates_inferred_type() {
     let type_id = *resolver.get_type_binding(&node.id).unwrap();
     let type_node = *resolver.types.get_type(type_id).unwrap();
 
-    assert!(matches!(type_node, TypeNode::List { .. }));
+    assert!(matches!(type_node, Type::List { .. }));
 }
 
 #[test]

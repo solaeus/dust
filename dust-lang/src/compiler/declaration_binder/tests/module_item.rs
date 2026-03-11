@@ -1,7 +1,7 @@
 use crate::{
     compiler::declaration_binder::tests::{bind_declarations, find_declaration},
     resolver::{
-        declaration_graph::{DeclarationKind, ModuleKind},
+        declaration_graph::{Definition, ModuleKind},
         scope_graph::ScopeKind,
     },
     source::SourceFileId,
@@ -15,8 +15,8 @@ fn declares_module() {
     let (foo_id, _) = find_declaration(&mut resolver, "foo").unwrap();
     let foo_declaration = resolver.declarations.get_declaration(foo_id).unwrap();
 
-    let inner_scope_id = match foo_declaration.kind {
-        DeclarationKind::Module {
+    let inner_scope_id = match foo_declaration.definition {
+        Definition::Module {
             kind: ModuleKind::Inline,
             inner_scope_id,
         } => inner_scope_id,

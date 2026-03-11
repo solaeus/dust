@@ -9,8 +9,8 @@ use crate::{
     error::ErrorKind,
     resolver::{
         Resolver,
-        declaration_graph::{DeclarationId, DeclarationKind, DeclarationMembers, ModuleKind},
-        type_graph::{TypeId, TypeMembers, TypeNode},
+        declaration_graph::{DeclarationId, DeclarationMembers, Definition, ModuleKind},
+        type_graph::{TypeId, TypeMembers, Type},
     },
     syntax::{Syntax, node::SyntaxKind, reader::SyntaxReader, visitor::SyntaxVisitor},
 };
@@ -38,7 +38,7 @@ impl<'a> TypeBinder<'a> {
     }
 
     pub fn infer_type(&self, type_id: TypeId) -> Result<TypeId, CompileError> {
-        if let TypeNode::Inferred {
+        if let Type::Inferred {
             resolved: Some(resolved),
             ..
         } = self.resolver.types.get_type(type_id)?
@@ -82,7 +82,7 @@ impl<'a> TypeBinder<'a> {
 
         match (left_type_node, right_type_node) {
             (
-                TypeNode::Inferred {
+                Type::Inferred {
                     inferred_id,
                     resolved: None,
                 },
@@ -90,7 +90,7 @@ impl<'a> TypeBinder<'a> {
             ) => {
                 let left_node = self.resolver.types.get_type_mut(left)?;
 
-                *left_node = TypeNode::Inferred {
+                *left_node = Type::Inferred {
                     inferred_id,
                     resolved: Some(right),
                 };
@@ -99,14 +99,14 @@ impl<'a> TypeBinder<'a> {
             }
             (
                 _,
-                TypeNode::Inferred {
+                Type::Inferred {
                     inferred_id,
                     resolved: None,
                 },
             ) => {
                 let right_node = self.resolver.types.get_type_mut(right)?;
 
-                *right_node = TypeNode::Inferred {
+                *right_node = Type::Inferred {
                     inferred_id,
                     resolved: Some(left),
                 };
@@ -114,10 +114,10 @@ impl<'a> TypeBinder<'a> {
                 Ok(())
             }
             (
-                TypeNode::List {
+                Type::List {
                     element_type_id: left_element_type,
                 },
-                TypeNode::List {
+                Type::List {
                     element_type_id: right_element_type,
                 },
             ) => self.unify_types(
@@ -127,12 +127,12 @@ impl<'a> TypeBinder<'a> {
                 right_syntax,
             ),
             (
-                TypeNode::FunctionDefinition {
+                Type::Function {
                     type_parameters: _left_type_parameters,
                     value_parameters: left_value_parameters,
                     return_type_id: left_return_type,
                 },
-                TypeNode::FunctionDefinition {
+                Type::Function {
                     type_parameters: _right_type_parameters,
                     value_parameters: right_value_parameters,
                     return_type_id: right_return_type,
@@ -169,12 +169,12 @@ impl<'a> TypeBinder<'a> {
                 Ok(())
             }
             (
-                TypeNode::Struct {
+                Type::Struct {
                     declaration_id: left_declaration_id,
                     type_arguments: left_type_arguments,
                     ..
                 },
-                TypeNode::Struct {
+                Type::Struct {
                     declaration_id: right_declaration_id,
                     type_arguments: right_type_arguments,
                     ..
@@ -296,10 +296,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 .resolver
                 .declarations
                 .get_declaration(module_declaration_id)?;
-            let module_file_id = if let DeclarationKind::Module {
+            let module_file_id = if let Definition::Module {
                 kind: ModuleKind::File { file_id },
                 ..
-            } = module_declaration.kind
+            } = module_declaration.definition
             {
                 file_id
             } else {
@@ -346,7 +346,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         }
 
         let declaration_id = *self.resolver.get_declaration_binding(&struct_name.id)?;
-        let struct_type = TypeNode::Struct {
+        let struct_type = Type::Struct {
             declaration_id,
             type_arguments: TypeMembers::default(),
         };
@@ -378,7 +378,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             let variant_declaration_id =
                 *self.resolver.get_declaration_binding(&variant_name.id)?;
             let variant_type_id = if let Some(_variant_fields) = variant_fields {
-                self.resolver.types.add_type(TypeNode::Struct {
+                self.resolver.types.add_type(Type::Struct {
                     declaration_id: variant_declaration_id,
                     type_arguments: TypeMembers::default(),
                 })
@@ -393,7 +393,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         }
 
         let declaration_id = *self.resolver.get_declaration_binding(&enum_name.id)?;
-        let enum_type = TypeNode::Enum {
+        let enum_type = Type::Enum {
             declaration_id,
             type_arguments: TypeMembers::default(),
         };
@@ -615,7 +615,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let list_type = self
             .resolver
             .types
-            .add_type(TypeNode::List { element_type_id });
+            .add_type(Type::List { element_type_id });
 
         self.resolver.add_type_binding(node.id, list_type);
 
@@ -651,7 +651,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         let list_type = *self.resolver.types.get_type(list_type_id)?;
         let element_type = match list_type {
-            TypeNode::List {
+            Type::List {
                 element_type_id: element_type,
             } => {
                 self.resolver.add_type_binding(node.id, element_type);
@@ -686,10 +686,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
             .declarations
             .get_declaration(*declaration_id)?;
 
-        let type_id = match declaration.kind {
-            DeclarationKind::Local { .. }
-            | DeclarationKind::Function { .. }
-            | DeclarationKind::NativeFunction(_) => *self
+        let type_id = match declaration.definition {
+            Definition::Local { .. }
+            | Definition::Function { .. }
+            | Definition::NativeFunction(_) => *self
                 .resolver
                 .declarations
                 .get_declaration_type(declaration_id)?,
@@ -1016,7 +1016,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             self.infer_type(raw)?
         };
 
-        let TypeNode::FunctionDefinition {
+        let Type::Function {
             value_parameters,
             return_type_id,
             ..
@@ -1071,7 +1071,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 let list_type_id = self
                     .resolver
                     .types
-                    .add_type(TypeNode::List { element_type_id });
+                    .add_type(Type::List { element_type_id });
 
                 Ok(list_type_id)
             }

@@ -4,7 +4,7 @@ use crate::{
         declaration_graph::{DeclarationId, DeclarationMembers},
         scope_graph::ScopeId,
         symbol_table::SymbolId,
-        type_graph::{TypeId, TypeMembers, TypeNode},
+        type_graph::{TypeId, TypeMembers, Type},
     },
     syntax::SyntaxId,
 };
@@ -24,7 +24,7 @@ pub enum ResolverError {
     MissingTypeMember(u32),
     MissingTypeMembers(TypeMembers),
     MissingTypeBinding(SyntaxId),
-    ExpectedListType { found: TypeNode },
+    ExpectedListType { found: Type },
     ExpectedFunctionDeclaration(DeclarationId),
     ExpectedFieldDeclaration(DeclarationId),
     ExpectedAlgebraicTypeDeclaration(DeclarationId),

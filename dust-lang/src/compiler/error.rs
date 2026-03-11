@@ -10,7 +10,7 @@ use crate::{
         declaration_graph::DeclarationId,
         error::ResolverError,
         symbol_table::SymbolId,
-        type_graph::{TypeId, TypeNode},
+        type_graph::{Type, TypeId},
     },
     source::{Position, Source, SourceError},
     syntax::{error::SyntaxError, node::SyntaxKind},
@@ -312,10 +312,10 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     }
                 };
                 let type_declaration_id = match type_node {
-                    TypeNode::Algebraic { declaration_id, .. }
-                    | TypeNode::FunctionDefinition { declaration_id, .. }
-                    | TypeNode::Closure { declaration_id, .. }
-                    | TypeNode::Generic { declaration_id } => Some(*declaration_id),
+                    Type::Algebraic { declaration_id, .. }
+                    | Type::Function { declaration_id, .. }
+                    | Type::Closure { declaration_id, .. }
+                    | Type::Generic { declaration_id } => Some(*declaration_id),
                     _ => None,
                 };
                 let type_string = if let Some(declaration_id) = type_declaration_id {

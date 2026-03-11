@@ -27,7 +27,7 @@ use crate::{
     parser::Parser,
     resolver::{
         Resolver,
-        declaration_graph::{DeclarationId, DeclarationKind},
+        declaration_graph::{DeclarationId, Definition},
         scope_graph::{Scope, ScopeId, ScopeKind},
     },
     source::{Source, SourceFile, SourceFileId},
@@ -94,12 +94,12 @@ pub fn bind_types(source_code: &str) -> (Syntax, Resolver) {
 pub fn find_declaration(
     resolver: &mut Resolver,
     name: &str,
-) -> Option<(DeclarationId, DeclarationKind)> {
+) -> Option<(DeclarationId, Definition)> {
     let symbol_id = resolver.symbols.add_symbol(name);
 
     resolver
         .declarations
         .iter()
         .find(|(_, declaration)| declaration.symbol_id == symbol_id)
-        .map(|(id, declaration)| (id, declaration.kind))
+        .map(|(id, declaration)| (id, declaration.definition))
 }

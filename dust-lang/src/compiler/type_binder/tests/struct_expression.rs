@@ -1,7 +1,5 @@
 use crate::{
-    compiler::type_binder::tests::bind_types,
-    resolver::type_graph::TypeNode,
-    source::SourceFileId,
+    compiler::type_binder::tests::bind_types, resolver::type_graph::Type, source::SourceFileId,
     syntax::node::SyntaxKind,
 };
 
@@ -18,5 +16,5 @@ fn has_struct_type() {
     let type_id = *resolver.get_type_binding(&node.id).unwrap();
     let type_node = *resolver.types.get_type(type_id).unwrap();
 
-    assert!(matches!(type_node, TypeNode::Struct { .. }));
+    assert!(matches!(type_node, Type::Struct { .. }));
 }

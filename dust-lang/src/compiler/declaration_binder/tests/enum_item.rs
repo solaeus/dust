@@ -1,6 +1,6 @@
 use crate::{
     compiler::declaration_binder::tests::{bind_declarations, find_declaration},
-    resolver::declaration_graph::DeclarationKind,
+    resolver::declaration_graph::Definition,
     source::SourceFileId,
     syntax::node::SyntaxKind,
 };
@@ -12,7 +12,7 @@ fn creates_type_declaration() {
     let (color_id, color_kind) = find_declaration(&mut resolver, "Color").unwrap();
 
     let (parent, members) = match color_kind {
-        DeclarationKind::Type {
+        Definition::Type {
             parent, members, ..
         } => (parent, members),
         other => panic!("expected Type declaration, got {other:?}"),
@@ -40,7 +40,7 @@ fn creates_type_declaration() {
 
     let (_, red_kind) = find_declaration(&mut resolver, "Red").unwrap();
     let red_parent = match red_kind {
-        DeclarationKind::Type { parent, .. } => parent,
+        Definition::Type { parent, .. } => parent,
         other => panic!("expected Type declaration for variant, got {other:?}"),
     };
 

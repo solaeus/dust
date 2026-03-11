@@ -1,6 +1,6 @@
 use crate::{
     compiler::declaration_binder::tests::{bind_declarations, find_declaration},
-    resolver::declaration_graph::{DeclarationId, DeclarationKind},
+    resolver::declaration_graph::{DeclarationId, Definition},
     source::SourceFileId,
     syntax::node::SyntaxKind,
 };
@@ -11,7 +11,7 @@ fn creates_local_declaration() {
 
     let (x_id, x_kind) = find_declaration(&mut resolver, "x").unwrap();
 
-    assert!(matches!(x_kind, DeclarationKind::Local { .. }));
+    assert!(matches!(x_kind, Definition::Local { .. }));
 
     let x_declaration = resolver.declarations.get_declaration(x_id).unwrap();
 

@@ -1,6 +1,6 @@
 use crate::{
     compiler::declaration_binder::tests::{bind_declarations, find_declaration},
-    resolver::declaration_graph::DeclarationKind,
+    resolver::declaration_graph::Definition,
     source::SourceFileId,
     syntax::node::SyntaxKind,
 };
@@ -12,7 +12,7 @@ fn creates_type_declaration() {
     let (foo_id, foo_kind) = find_declaration(&mut resolver, "Foo").unwrap();
 
     let (parent, members) = match foo_kind {
-        DeclarationKind::Type {
+        Definition::Type {
             parent, members, ..
         } => (parent, members),
         other => panic!("expected Type declaration, got {other:?}"),
@@ -36,7 +36,7 @@ fn creates_type_declaration() {
 
     let (x_id, x_kind) = find_declaration(&mut resolver, "x").unwrap();
     let x_parent = match x_kind {
-        DeclarationKind::Type { parent, .. } => parent,
+        Definition::Type { parent, .. } => parent,
         other => panic!("expected Type declaration for field, got {other:?}"),
     };
 

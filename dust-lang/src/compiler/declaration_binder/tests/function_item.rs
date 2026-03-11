@@ -1,6 +1,6 @@
 use crate::{
     compiler::declaration_binder::tests::{bind_declarations, find_declaration},
-    resolver::{declaration_graph::DeclarationKind, scope_graph::ScopeKind},
+    resolver::{declaration_graph::Definition, scope_graph::ScopeKind},
     source::SourceFileId,
     syntax::node::SyntaxKind,
 };
@@ -11,7 +11,7 @@ fn creates_function_declaration() {
 
     let (foo_id, foo_kind) = find_declaration(&mut resolver, "foo").unwrap();
 
-    assert!(matches!(foo_kind, DeclarationKind::Function { .. }));
+    assert!(matches!(foo_kind, Definition::Function { .. }));
 
     let foo_declaration = resolver.declarations.get_declaration(foo_id).unwrap();
 

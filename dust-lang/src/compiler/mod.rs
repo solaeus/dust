@@ -21,9 +21,9 @@ use crate::{
     prototype::{PrototypeId, PrototypeList},
     resolver::{
         Resolver,
-        declaration_graph::{DeclarationKind, Visibility},
+        declaration_graph::{Definition, Visibility},
         scope_graph::{Scope, ScopeId, ScopeKind},
-        type_graph::TypeNode,
+        type_graph::Type,
     },
     source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, components::FunctionItem, visitor::SyntaxVisitor},
@@ -209,7 +209,7 @@ impl<'src> Compiler<'src> {
                 return Err(errors);
             }
         };
-        let DeclarationKind::Function { return_type_id, .. } = main_declaration.kind else {
+        let Definition::Function { return_type_id, .. } = main_declaration.definition else {
             errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
 
             return Err(errors);

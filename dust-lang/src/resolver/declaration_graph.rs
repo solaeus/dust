@@ -1,6 +1,7 @@
 use std::{collections::HashMap, ops::Range};
 
 use rustc_hash::FxBuildHasher;
+use smallvec::SmallVec;
 
 use crate::{
     native_function::NativeFunction,
@@ -37,7 +38,7 @@ impl DeclarationGraph {
             scope_id: declaration.scope_id,
         };
 
-        if !matches!(declaration.kind, DeclarationKind::Local { .. })
+        if !matches!(declaration.definition, Definition::Local { .. })
             && let Some(existing_id) = self.declaration_lookup.get(&key)
         {
             return *existing_id;
@@ -57,6 +58,17 @@ impl DeclarationGraph {
             .ok_or(ResolverError::MissingDeclaration(id))
     }
 
+    pub fn set_declaration_type(&mut self, id: DeclarationId, type_id: TypeId) {
+        self.declaration_types.insert(id, type_id);
+    }
+
+    pub fn get_declaration_type(&self, id: DeclarationId) -> Result<TypeId, ResolverError> {
+        self.declaration_types
+            .get(&id)
+            .copied()
+            .ok_or(ResolverError::MissingDeclarationType(id))
+    }
+
     pub fn find_declaration(
         &self,
         symbol_id: SymbolId,
@@ -71,7 +83,7 @@ impl DeclarationGraph {
         self.declaration_lookup.get(&key).and_then(|&id| {
             let delcaration = &self.declarations[id.0 as usize];
 
-            match (visibility, delcaration.kind.visibility()) {
+            match (visibility, delcaration.definition.visibility()) {
                 (Visibility::Block, _) => {}
                 (Visibility::Module, Visibility::Module) => {}
                 _ => return None,
@@ -105,10 +117,10 @@ impl DeclarationGraph {
         prototype_id: PrototypeId,
     ) -> Result<Option<&Declaration>, ResolverError> {
         for declaration in &self.declarations {
-            if let DeclarationKind::Function {
+            if let Definition::Function {
                 prototype_id: declaration_prototype_id,
                 ..
-            } = declaration.kind
+            } = declaration.definition
                 && prototype_id == declaration_prototype_id
             {
                 return Ok(Some(declaration));
@@ -124,7 +136,7 @@ impl DeclarationGraph {
 
     pub fn add_declaration_members(
         &mut self,
-        parameter_ids: &[DeclarationId],
+        parameter_ids: SmallVec<[DeclarationId; 4]>,
     ) -> DeclarationMembers {
         let start = self.declaration_members.len() as u32;
 
@@ -174,28 +186,38 @@ impl DeclarationId {
 #[derive(Clone, Copy, Debug)]
 pub struct Declaration {
     pub symbol_id: SymbolId,
-    pub kind: DeclarationKind,
+    pub definition: Definition,
     pub scope_id: ScopeId,
     pub syntax: Option<(Position, SyntaxId)>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum DeclarationKind {
-    /// `let x: f64 = 42.0;`
+#[derive(Clone, Copy, Debug)]
+pub enum Definition {
+    /// A block-scoped variable created by a `let` statement or a function parameter. Must have an
+    /// associated type ID.
     ///
-    /// Block-scoped variable declaration. Must have an associated type ID.
-    Local,
+    /// - `let mut x: f64 = 42;`
+    /// - `a: f64` in `fn foo(a: f64) { ... }`
+    Local {
+        mutable: bool,
+        shadowed: Option<DeclarationId>,
+    },
 
-    /// `mod foo { ... }` or `mod foo;`
+    /// A namespace that can contain other declarations, either inline or in another file.
+    ///
+    /// - `mod foo { mod bar { ... } }`
+    /// - `mod foo;`
     Module {
         public: bool,
         kind: ModuleKind,
         inner_scope_id: ScopeId,
     },
 
-    /// `fn foo<T>(x: T) -> T { ... }`
+    /// A function definition describes the function's type and metadata. This type definition can
+    /// be instantiated as a `TypeNode::Function`.
     ///
-    /// Function declarations represent a unique function type. Must have an associated type ID.
+    /// - `fn yo() { ... }`
+    /// - `fn foo<T>(x: T) -> T { ... }`
     Function {
         public: bool,
         prototype_id: PrototypeId,
@@ -204,54 +226,73 @@ pub enum DeclarationKind {
         return_type_id: TypeId,
     },
 
-    /// A Rust function that the user can treat as any other function type or value. Must have an
-    /// associated type ID.
+    /// The definition of a [`NativeFunction`][] includes its type, allowing it to be used like any
+    /// other function declaration.
+    ///
+    /// Native functions include:
+    ///
+    /// - `core::io::print_line`
+    /// - `core::vec::Vec::with_capacity`
+    /// - `core::string::String::join`
     NativeFunction {
         function: NativeFunction,
         type_parameters: DeclarationMembers,
         value_parameters: TypeMembers,
-        return_type: TypeId,
+        return_type_id: TypeId,
     },
 
-    /// `struct Foo<T>(T);` or `struct Foo { x: f32 }`
+    /// Definition of a declared product type. This type definition can be instantiated as
+    /// `Type::Algebraic`.
     ///
-    /// Composite type declaration.
+    /// - `struct Foo<T>(T);`
+    /// - `struct Foo { x: f32 }`
     StructType {
         public: bool,
         type_parameters: DeclarationMembers,
         fields: DeclarationMembers,
     },
 
-    /// `enum Foo<T> { Bar(T), Baz { x: f32 } }`
+    /// Definition of a declared sum type. This type definition can be instantiated as
+    /// `Type::Algebraic`.
     ///
-    /// Sum type declaration.
+    /// ```
+    /// enum Foo<T> {
+    ///     Bar(T),
+    ///     Baz { x: f32 }
+    ///     Qux,
+    /// }
+    /// ```
     EnumType {
         public: bool,
         type_parameters: DeclarationMembers,
         variants: DeclarationMembers,
     },
 
-    /// `T` in `fn foo<T>(x: T) -> T { ... }`
+    /// Type parameters have a `Type::Generic` type that is unique to this parameter. When a type is
+    /// instantiated, the type instance is given a type argument for each type parameter. Must have
+    /// an associated type ID.
     ///
-    /// Type parameters on a declaration represent generic types that are substituted with concrete
-    /// types when the type is instantiated. Must have an associated type ID.
-    TypeParameter { owner: DeclarationId },
+    /// `T` in `fn foo<T>(x: T) -> T { ... }`
+    TypeParameter,
 
+    /// Fields are the individual components of a product (`struct`) type. Must have an associated
+    /// type ID.
+    ///
     /// `foo: f32` in `struct Bar { foo: f32 }`
-    Field { public: bool, parent: DeclarationId },
+    Field { public: bool },
 }
 
-impl DeclarationKind {
+impl Definition {
     fn visibility(&self) -> Visibility {
         match self {
-            DeclarationKind::Local { .. } => Visibility::Block,
-            DeclarationKind::Module { .. }
-            | DeclarationKind::Function { .. }
-            | DeclarationKind::NativeFunction { .. }
-            | DeclarationKind::StructType { .. }
-            | DeclarationKind::EnumType { .. }
-            | DeclarationKind::TypeParameter { .. } => Visibility::Module,
-            DeclarationKind::Field { .. } => Visibility::Type,
+            Definition::Local { .. } => Visibility::Block,
+            Definition::Module { .. }
+            | Definition::Function { .. }
+            | Definition::NativeFunction { .. }
+            | Definition::StructType { .. }
+            | Definition::EnumType { .. }
+            | Definition::TypeParameter { .. } => Visibility::Module,
+            Definition::Field { .. } => Visibility::Type,
         }
     }
 }

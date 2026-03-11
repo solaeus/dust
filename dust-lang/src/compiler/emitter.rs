@@ -15,9 +15,9 @@ use crate::{
     prototype::{Prototype, PrototypeId, PrototypeList},
     resolver::{
         Resolver,
-        declaration_graph::{DeclarationId, DeclarationKind},
+        declaration_graph::{DeclarationId, Definition},
         scope_graph::ScopeId,
-        type_graph::{TypeId, TypeNode},
+        type_graph::{Type, TypeId},
     },
     source::{Position, Source, Span},
     syntax::{Syntax, node::SyntaxKind, reader::SyntaxReader, visitor::SyntaxVisitor},
@@ -255,33 +255,31 @@ impl<'a> Emitter<'a> {
             let type_node = emitter.resolver.types.get_type(type_id)?;
 
             let (operand_type, width) = match type_node {
-                TypeNode::Unit => return Ok(()),
-                TypeNode::Boolean => (OperandType::BOOLEAN, RegisterWidth::Single),
-                TypeNode::U8 => (OperandType::U_8, RegisterWidth::Single),
-                TypeNode::I8 => (OperandType::I_8, RegisterWidth::Single),
-                TypeNode::U16 => (OperandType::U_16, RegisterWidth::Single),
-                TypeNode::I16 => (OperandType::I_16, RegisterWidth::Single),
-                TypeNode::U32 => (OperandType::U_32, RegisterWidth::Single),
-                TypeNode::I32 => (OperandType::I_32, RegisterWidth::Single),
-                TypeNode::U64 => (OperandType::U_64, RegisterWidth::Double),
-                TypeNode::I64 => (OperandType::I_64, RegisterWidth::Double),
-                TypeNode::U128 => (OperandType::U_128, RegisterWidth::Quad),
-                TypeNode::I128 => (OperandType::I_128, RegisterWidth::Quad),
-                TypeNode::F32 => (OperandType::F_32, RegisterWidth::Single),
-                TypeNode::F64 => (OperandType::F_64, RegisterWidth::Double),
-                TypeNode::Character => (OperandType::CHARACTER, RegisterWidth::Single),
-                TypeNode::Vec { .. } => (OperandType::POINTER, RegisterWidth::Double),
-                TypeNode::String => (OperandType::POINTER, RegisterWidth::Double),
-                TypeNode::List { .. } => (OperandType::POINTER, RegisterWidth::Double),
-                TypeNode::FunctionDefinition { .. } => {
-                    (OperandType::FUNCTION, RegisterWidth::Single)
-                }
-                TypeNode::Struct { declaration_id, .. } => {
+                Type::Unit => return Ok(()),
+                Type::Boolean => (OperandType::BOOLEAN, RegisterWidth::Single),
+                Type::U8 => (OperandType::U_8, RegisterWidth::Single),
+                Type::I8 => (OperandType::I_8, RegisterWidth::Single),
+                Type::U16 => (OperandType::U_16, RegisterWidth::Single),
+                Type::I16 => (OperandType::I_16, RegisterWidth::Single),
+                Type::U32 => (OperandType::U_32, RegisterWidth::Single),
+                Type::I32 => (OperandType::I_32, RegisterWidth::Single),
+                Type::U64 => (OperandType::U_64, RegisterWidth::Double),
+                Type::I64 => (OperandType::I_64, RegisterWidth::Double),
+                Type::U128 => (OperandType::U_128, RegisterWidth::Quad),
+                Type::I128 => (OperandType::I_128, RegisterWidth::Quad),
+                Type::F32 => (OperandType::F_32, RegisterWidth::Single),
+                Type::F64 => (OperandType::F_64, RegisterWidth::Double),
+                Type::Character => (OperandType::CHARACTER, RegisterWidth::Single),
+                Type::Vec { .. } => (OperandType::POINTER, RegisterWidth::Double),
+                Type::String => (OperandType::POINTER, RegisterWidth::Double),
+                Type::List { .. } => (OperandType::POINTER, RegisterWidth::Double),
+                Type::Function { .. } => (OperandType::FUNCTION, RegisterWidth::Single),
+                Type::Struct { declaration_id, .. } => {
                     let declaration = emitter
                         .resolver
                         .declarations
                         .get_declaration(*declaration_id)?;
-                    let members = if let DeclarationKind::Type { members, .. } = declaration.kind {
+                    let members = if let Definition::Type { members, .. } = declaration.definition {
                         emitter
                             .resolver
                             .declarations
@@ -304,7 +302,7 @@ impl<'a> Emitter<'a> {
 
                     return Ok(());
                 }
-                TypeNode::Enum { declaration_id, .. } => {
+                Type::Enum { declaration_id, .. } => {
                     let type_id = emitter
                         .resolver
                         .declarations
@@ -314,7 +312,7 @@ impl<'a> Emitter<'a> {
 
                     return Ok(());
                 }
-                TypeNode::Inferred { resolved, .. } => {
+                Type::Inferred { resolved, .. } => {
                     if let Some(resolved) = resolved {
                         collect_registers(emitter, *resolved, temporary, registers)?;
 
@@ -1985,7 +1983,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
 
-        if let DeclarationKind::NativeFunction(function) = declaration.kind {
+        if let Definition::NativeFunction(function) = declaration.definition {
             Ok(Emission::NativeFunction(function))
         } else {
             Err(CompileError::OutOfScopeId {

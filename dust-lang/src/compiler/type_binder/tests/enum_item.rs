@@ -1,6 +1,6 @@
 use crate::{
     compiler::type_binder::tests::{bind_types, find_declaration},
-    resolver::type_graph::{TypeId, TypeNode},
+    resolver::type_graph::{TypeId, Type},
 };
 
 #[test]
@@ -14,7 +14,7 @@ fn creates_enum_type() {
         .unwrap();
     let color_type = *resolver.types.get_type(color_type_id).unwrap();
 
-    assert!(matches!(color_type, TypeNode::Enum { .. }));
+    assert!(matches!(color_type, Type::Enum { .. }));
 }
 
 #[test]

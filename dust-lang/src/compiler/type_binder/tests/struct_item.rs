@@ -1,6 +1,6 @@
 use crate::{
     compiler::type_binder::tests::{bind_types, find_declaration},
-    resolver::type_graph::{TypeId, TypeNode},
+    resolver::type_graph::{TypeId, Type},
 };
 
 #[test]
@@ -11,7 +11,7 @@ fn creates_struct_type() {
     let foo_type_id = *resolver.declarations.get_declaration_type(&foo_id).unwrap();
     let foo_type = *resolver.types.get_type(foo_type_id).unwrap();
 
-    assert!(matches!(foo_type, TypeNode::Struct { .. }));
+    assert!(matches!(foo_type, Type::Struct { .. }));
 }
 
 #[test]

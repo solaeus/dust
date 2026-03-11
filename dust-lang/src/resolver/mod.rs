@@ -15,14 +15,14 @@ use crate::{
     native_function::NativeFunction,
     resolver::{
         declaration_graph::{
-            Declaration, DeclarationGraph, DeclarationId, DeclarationKind, DeclarationMembers,
+            Declaration, DeclarationGraph, DeclarationId, DeclarationMembers, Definition,
             ModuleKind, Visibility,
         },
         error::ResolverError,
         scope_graph::{Scope, ScopeGraph, ScopeId, ScopeKind},
         symbol_table::{SymbolId, SymbolTable},
         type_graph::{
-            FloatType, SignedIntegerType, TypeGraph, TypeId, TypeMembers, TypeNode,
+            FloatType, SignedIntegerType, TypeGraph, TypeId, TypeMembers, Type,
             UnsignedIntegerType,
         },
     },
@@ -107,25 +107,25 @@ impl Resolver {
         let type_node = self.types.get_type(type_id)?;
 
         match type_node {
-            TypeNode::Never => Ok(0),
-            TypeNode::Boolean
-            | TypeNode::SignedInteger(SignedIntegerType::I8)
-            | TypeNode::UnsignedInteger(UnsignedIntegerType::U8) => Ok(1),
-            TypeNode::SignedInteger(SignedIntegerType::I16)
-            | TypeNode::UnsignedInteger(UnsignedIntegerType::U16) => Ok(2),
-            TypeNode::Character
-            | TypeNode::SignedInteger(SignedIntegerType::I32)
-            | TypeNode::UnsignedInteger(UnsignedIntegerType::U32)
-            | TypeNode::Float(FloatType::F32)
-            | TypeNode::FunctionDefinition { .. }
-            | TypeNode::Closure { .. }
-            | TypeNode::FunctionPointer { .. } => Ok(4),
-            TypeNode::SignedInteger(SignedIntegerType::I64)
-            | TypeNode::UnsignedInteger(UnsignedIntegerType::U64)
-            | TypeNode::Float(FloatType::F64) => Ok(8),
-            TypeNode::SignedInteger(SignedIntegerType::I128)
-            | TypeNode::UnsignedInteger(UnsignedIntegerType::U128) => Ok(16),
-            TypeNode::Tuple { element_type_ids } => {
+            Type::Never => Ok(0),
+            Type::Boolean
+            | Type::SignedInteger(SignedIntegerType::I8)
+            | Type::UnsignedInteger(UnsignedIntegerType::U8) => Ok(1),
+            Type::SignedInteger(SignedIntegerType::I16)
+            | Type::UnsignedInteger(UnsignedIntegerType::U16) => Ok(2),
+            Type::Character
+            | Type::SignedInteger(SignedIntegerType::I32)
+            | Type::UnsignedInteger(UnsignedIntegerType::U32)
+            | Type::Float(FloatType::F32)
+            | Type::Function { .. }
+            | Type::Closure { .. }
+            | Type::FunctionPointer { .. } => Ok(4),
+            Type::SignedInteger(SignedIntegerType::I64)
+            | Type::UnsignedInteger(UnsignedIntegerType::U64)
+            | Type::Float(FloatType::F64) => Ok(8),
+            Type::SignedInteger(SignedIntegerType::I128)
+            | Type::UnsignedInteger(UnsignedIntegerType::U128) => Ok(16),
+            Type::Tuple { element_type_ids } => {
                 let type_ids = self.types.get_type_members(*element_type_ids)?;
                 let mut total_size = 0;
 
@@ -135,7 +135,7 @@ impl Resolver {
 
                 Ok(total_size)
             }
-            TypeNode::Array {
+            Type::Array {
                 element_type_id,
                 length,
             } => {
@@ -143,17 +143,17 @@ impl Resolver {
 
                 Ok(element_size * (*length as usize))
             }
-            TypeNode::Slice { element_type_id } => {
+            Type::Slice { element_type_id } => {
                 todo!()
             }
-            TypeNode::Algebraic {
+            Type::Algebraic {
                 declaration_id,
                 type_arguments,
             } => {
                 let declaration = self.declarations.get_declaration(*declaration_id)?;
 
-                match &declaration.kind {
-                    DeclarationKind::StructType { fields, .. } => {
+                match &declaration.definition {
+                    Definition::StructType { fields, .. } => {
                         let field_declaration_ids =
                             self.declarations.get_declaration_members(fields)?;
                         let mut total_size = 0;
@@ -161,8 +161,7 @@ impl Resolver {
                         for field_declaration_id in field_declaration_ids {
                             let field_declaration =
                                 self.declarations.get_declaration(*field_declaration_id)?;
-                            let DeclarationKind::Field { public, parent } = field_declaration.kind
-                            else {
+                            let Definition::Field { public } = field_declaration.definition else {
                                 return Err(CompileError::Resolver(
                                     ResolverError::ExpectedFieldDeclaration(*field_declaration_id),
                                 ));

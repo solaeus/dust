@@ -1,6 +1,6 @@
 use crate::{
     compiler::declaration_binder::tests::{bind_declarations, find_declaration},
-    resolver::declaration_graph::DeclarationKind,
+    resolver::declaration_graph::Definition,
     source::SourceFileId,
     syntax::node::SyntaxKind,
 };
@@ -11,7 +11,7 @@ fn resolves_to_local_declaration() {
 
     let (x_id, x_kind) = find_declaration(&mut resolver, "x").unwrap();
 
-    assert!(matches!(x_kind, DeclarationKind::Local { .. }));
+    assert!(matches!(x_kind, Definition::Local { .. }));
 
     let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
     let path_expr = tree
@@ -37,10 +37,7 @@ fn qualified_path_resolves_through_module() {
         .find(|(_, declaration)| declaration.symbol_id == bar_symbol_id)
         .unwrap();
 
-    assert!(matches!(
-        bar_declaration.kind,
-        DeclarationKind::Function { .. }
-    ));
+    assert!(matches!(bar_declaration.defin Definition::Function { .. }));
 }
 
 #[test]

@@ -1,6 +1,6 @@
 use crate::{
     compiler::declaration_binder::tests::bind_declarations,
-    resolver::{declaration_graph::DeclarationKind, scope_graph::ScopeKind},
+    resolver::{declaration_graph::Definition, scope_graph::ScopeKind},
     source::SourceFileId,
     syntax::node::SyntaxKind,
 };
@@ -26,8 +26,8 @@ fn creates_declaration() {
         .expect("expected a bar declaration in crate scope");
 
     assert!(matches!(
-        use_declaration.1.kind,
-        DeclarationKind::Function { .. }
+        use_declaration.1.definition,
+        Definition::Function { .. }
     ));
     assert!(!use_declaration.1.public);
 
