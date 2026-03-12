@@ -37,7 +37,10 @@ fn qualified_path_resolves_through_module() {
         .find(|(_, declaration)| declaration.symbol_id == bar_symbol_id)
         .unwrap();
 
-    assert!(matches!(bar_declaration.defin Definition::Function { .. }));
+    assert!(matches!(
+        bar_declaration.definition,
+        Definition::Function { .. }
+    ));
 }
 
 #[test]

@@ -7,7 +7,6 @@ pub struct Call {
     pub callee_memory: MemoryKind,
     pub callee_index: u16,
     pub arguments_start: u16,
-    pub argument_count: u16,
 }
 
 impl From<&Instruction> for Call {
@@ -17,7 +16,6 @@ impl From<&Instruction> for Call {
             callee_memory: instruction.b_memory(),
             callee_index: instruction.b_field(),
             arguments_start: instruction.c_field(),
-            argument_count: instruction.d_field(),
         }
     }
 }
@@ -29,7 +27,6 @@ impl From<Call> for Instruction {
             callee_memory,
             callee_index,
             arguments_start,
-            argument_count,
         } = call;
 
         InstructionBuilder::new(Operation::CALL)
@@ -37,7 +34,6 @@ impl From<Call> for Instruction {
             .b_memory(callee_memory)
             .b_field(callee_index)
             .c_field(arguments_start)
-            .d_field(argument_count)
             .build()
     }
 }
@@ -49,7 +45,6 @@ impl Display for Call {
             callee_memory,
             callee_index,
             arguments_start,
-            argument_count,
         } = *self;
 
         if destination != u16::MAX {
@@ -58,12 +53,10 @@ impl Display for Call {
 
         write!(f, "{callee_memory}_{callee_index}")?;
 
-        if argument_count == 0 {
+        if arguments_start == u16::MAX {
             write!(f, "()")
         } else {
-            let arguments_end = arguments_start + argument_count;
-
-            write!(f, "(args_{arguments_start}..args_{arguments_end})")
+            write!(f, "(reg_{arguments_start}...)")
         }
     }
 }

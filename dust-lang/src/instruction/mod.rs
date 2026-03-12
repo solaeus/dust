@@ -59,19 +59,20 @@ use crate::native_function::NativeFunction;
 /// Bits    | Description
 /// ------- | -----------
 /// 0..=5   | Operation
-/// 6..=7   | B memory kind
-/// 8..=9   | C memory kind
-/// 10..=15 | Type or D field
+/// 6..=7   | Memory kind for the B field
+/// 8..=9   | Memory kind for the C field
+/// 10..=15 | Operand type
 /// 16..=31 | A field
 /// 32..=47 | B field
 /// 48..=63 | C field
 ///
 /// - Operation: The opcode of the instruction, which determines how the other fields are interpreted
+/// - Memory kinds: Whether each operand refers to a register, constant, static or encoded value
+/// - Operand type: Used by most instructions to indicate the type of the operand(s)
 /// - A field: Usually the destination register index
-/// - B and C fields: Usually indices for source registers or constants
-/// - B and C memory kind: Whether the B and C fields refer to a register or a constant
-/// - Type: Used by most instructions to indicate the type of the operand(s)
-/// - D field: Used for CALL instructions to store the argument count
+/// - B and C fields: Usually operands: indices for registers, constants, statics or encoded values
+///
+/// * These fields can also be used for booleans
 #[derive(Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(C)]
 pub struct Instruction(u64);
@@ -390,12 +391,10 @@ impl Instruction {
         callee_memory: MemoryKind,
         callee_index: u16,
         arguments_start: u16,
-        argument_count: u16,
     ) -> Instruction {
         Instruction::from(Call {
             destination,
             arguments_start,
-            argument_count,
             callee_memory,
             callee_index,
         })
@@ -404,22 +403,19 @@ impl Instruction {
     pub fn call_native(
         destination: u16,
         function: NativeFunction,
+        argument_type: Option<OperandType>,
         arguments_start: u16,
-        argument_count: u16,
     ) -> Instruction {
         Instruction::from(CallNative {
             destination,
             function,
+            argument_type: argument_type.unwrap_or(OperandType::BOOLEAN),
             arguments_start,
-            argument_count,
         })
     }
 
-    pub fn r#return(returns_value: bool, argument_count: u16) -> Instruction {
-        Instruction::from(Return {
-            returns_value,
-            argument_count,
-        })
+    pub fn r#return() -> Instruction {
+        Instruction::from(Return)
     }
 
     pub fn operation(&self) -> Operation {
@@ -620,15 +616,14 @@ impl InstructionBuilder {
     }
 }
 
-#[derive(
-    Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct MemoryKind(pub(super) u8);
 
 impl MemoryKind {
     pub const REGISTER: MemoryKind = MemoryKind(0);
     pub const CONSTANT: MemoryKind = MemoryKind(1);
     pub const STATIC: MemoryKind = MemoryKind(2);
+    pub const ENCODED: MemoryKind = MemoryKind(3);
 }
 
 impl Display for MemoryKind {
@@ -637,6 +632,7 @@ impl Display for MemoryKind {
             Self::REGISTER => write!(f, "reg"),
             Self::CONSTANT => write!(f, "const"),
             Self::STATIC => write!(f, "static"),
+            Self::ENCODED => write!(f, "enc"),
             _ => write!(f, "invalid"),
         }
     }
@@ -655,6 +651,13 @@ mod tests {
         let instruction = create_instruction();
 
         assert_eq!(instruction.operation(), Operation::MOVE);
+    }
+
+    #[test]
+    fn decode_operand_type() {
+        let instruction = create_instruction();
+
+        assert_eq!(instruction.operand_type(), OperandType::U_128);
     }
 
     #[test]
@@ -697,12 +700,5 @@ mod tests {
         let instruction = create_instruction();
 
         assert_eq!(instruction.c_field(), 777);
-    }
-
-    #[test]
-    fn decode_d_field() {
-        let instruction = Instruction::call(u16::MAX, MemoryKind::REGISTER, 666, 30, 63);
-
-        assert_eq!(instruction.d_field(), 63);
     }
 }

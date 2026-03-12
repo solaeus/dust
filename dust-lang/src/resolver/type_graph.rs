@@ -240,8 +240,8 @@ pub enum Type {
 
     /// `fn foo<T>(x: T) -> T`
     ///
-    /// An instance of a function type.
-    Function {
+    /// An instance of a function definition type.
+    FunctionDefinition {
         declaration_id: DeclarationId,
         type_arguments: TypeMembers,
     },
@@ -256,8 +256,8 @@ pub enum Type {
 
     /// `fn(T) -> T`
     ///
-    /// A common type to which function definitions and closures can be coerced.
-    FunctionPointer {
+    /// A common type to which function definition types and closure types can be coerced.
+    Function {
         value_parameters: TypeMembers,
         return_type: TypeId,
     },
@@ -289,14 +289,17 @@ pub enum Type {
     ///
     /// - The user does not specify a type for a value, e.g. `let x = 5;`
     /// - When instantiating a type with type parameters the, `type_arguments` field is populated with
-    /// concrete or inferred types.
-    ///
-    /// ```
-    /// Type Definition + Type Arguments = Type Instance
-    /// ```
+    /// types that may be inferred.
     Inferred {
         inferred_id: InferredTypeId,
         resolved: Option<TypeId>,
+    },
+
+    /// An internal type used to represent types like `Vec<T>` and `String`. The type arguments make
+    /// each instance unique but the size is always the size of a pointer.
+    Heap {
+        declaration_id: DeclarationId,
+        type_arguments: TypeMembers,
     },
 }
 
@@ -346,11 +349,11 @@ impl PartialEq for Type {
                 },
             ) => left_element_type_id == right_element_type_id,
             (
-                Type::Function {
+                Type::FunctionDefinition {
                     declaration_id: left_declaration_id,
                     type_arguments: left_type_arguments,
                 },
-                Type::Function {
+                Type::FunctionDefinition {
                     declaration_id: right_declaration_id,
                     type_arguments: right_type_arguments,
                 },
@@ -382,11 +385,11 @@ impl PartialEq for Type {
                     && left_return_type_id == right_return_type_id
             }
             (
-                Type::FunctionPointer {
+                Type::Function {
                     value_parameters: left_parameter_types,
                     return_type: left_return_type,
                 },
-                Type::FunctionPointer {
+                Type::Function {
                     value_parameters: right_parameter_types,
                     return_type: right_return_type,
                 },
@@ -473,18 +476,18 @@ impl Ord for Type {
             ) => left_element_type_id.cmp(right_element_type_id),
             (Type::Slice { .. }, _) => Ordering::Less,
             (
-                Type::Function {
+                Type::FunctionDefinition {
                     declaration_id: left_declaration_id,
                     type_arguments: left_type_arguments,
                 },
-                Type::Function {
+                Type::FunctionDefinition {
                     declaration_id: right_declaration_id,
                     type_arguments: right_type_arguments,
                 },
             ) => left_declaration_id
                 .cmp(right_declaration_id)
                 .then_with(|| left_type_arguments.cmp(right_type_arguments)),
-            (Type::Function { .. }, _) => Ordering::Less,
+            (Type::FunctionDefinition { .. }, _) => Ordering::Less,
             (
                 Type::Closure {
                     value_parameters: left_value_parameters,
@@ -499,18 +502,18 @@ impl Ord for Type {
                 .then_with(|| left_return_type_id.cmp(right_return_type_id)),
             (Type::Closure { .. }, _) => Ordering::Less,
             (
-                Type::FunctionPointer {
+                Type::Function {
                     value_parameters: left_parameter_types,
                     return_type: left_return_type,
                 },
-                Type::FunctionPointer {
+                Type::Function {
                     value_parameters: right_parameter_types,
                     return_type: right_return_type,
                 },
             ) => left_parameter_types
                 .cmp(right_parameter_types)
                 .then_with(|| left_return_type.cmp(right_return_type)),
-            (Type::FunctionPointer { .. }, _) => Ordering::Less,
+            (Type::Function { .. }, _) => Ordering::Less,
             (
                 Type::Algebraic {
                     declaration_id: left_declaration_id,
@@ -544,6 +547,19 @@ impl Ord for Type {
                 },
             ) => a_inferred_id.cmp(b_inferred_id),
             (Type::Inferred { .. }, _) => Ordering::Less,
+            (
+                Type::Heap {
+                    declaration_id: left_declaration_id,
+                    type_arguments: left_type_arguments,
+                },
+                Type::Heap {
+                    declaration_id: right_declaration_id,
+                    type_arguments: right_type_arguments,
+                },
+            ) => left_declaration_id
+                .cmp(right_declaration_id)
+                .then_with(|| left_type_arguments.cmp(right_type_arguments)),
+            (Type::Heap { .. }, _) => Ordering::Less,
         }
     }
 }
@@ -595,29 +611,29 @@ impl Hash for Type {
                 state.write_u8(13);
             }
             Type::Never => {
-                state.write_u8(23);
+                state.write_u8(14);
             }
             Type::Tuple { element_type_ids } => {
-                state.write_u8(14);
+                state.write_u8(15);
                 element_type_ids.hash(state);
             }
             Type::Array {
                 element_type_id,
                 length,
             } => {
-                state.write_u8(15);
+                state.write_u8(16);
                 element_type_id.hash(state);
                 length.hash(state);
             }
             Type::Slice { element_type_id } => {
-                state.write_u8(16);
+                state.write_u8(17);
                 element_type_id.hash(state);
             }
-            Type::Function {
+            Type::FunctionDefinition {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(17);
+                state.write_u8(18);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }
@@ -625,15 +641,15 @@ impl Hash for Type {
                 value_parameters,
                 return_type_id,
             } => {
-                state.write_u8(18);
+                state.write_u8(19);
                 value_parameters.hash(state);
                 return_type_id.hash(state);
             }
-            Type::FunctionPointer {
+            Type::Function {
                 value_parameters: parameter_types,
                 return_type,
             } => {
-                state.write_u8(19);
+                state.write_u8(20);
                 parameter_types.hash(state);
                 return_type.hash(state);
             }
@@ -641,20 +657,28 @@ impl Hash for Type {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(20);
+                state.write_u8(21);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }
             Type::Generic { declaration_id } => {
-                state.write_u8(21);
+                state.write_u8(22);
                 declaration_id.hash(state);
             }
             Type::Inferred {
                 inferred_id,
                 resolved: _,
             } => {
-                state.write_u8(22);
+                state.write_u8(23);
                 inferred_id.hash(state);
+            }
+            Type::Heap {
+                declaration_id,
+                type_arguments,
+            } => {
+                state.write_u8(24);
+                declaration_id.hash(state);
+                type_arguments.hash(state);
             }
         }
     }
@@ -727,7 +751,7 @@ mod tests {
     }
 
     fn function(decl: u32, start: u32, end: u32) -> Type {
-        Type::Function {
+        Type::FunctionDefinition {
             declaration_id: DeclarationId(decl),
             type_arguments: TypeMembers { start, end },
         }

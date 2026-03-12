@@ -1,7 +1,7 @@
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
-    compiler::emitter::JumpId,
+    // compiler::emitter::JumpId,
     constant_list::ConstantListError,
     error::AnnotatedError,
     instruction::OperandType,
@@ -127,8 +127,7 @@ pub enum CompileError {
     ExpectedEmissionTarget {
         node_kind: SyntaxKind,
     },
-    ExpectedJumpPlacement(JumpId),
-
+    // ExpectedJumpPlacement(JumpId),
     Syntax(SyntaxError),
     Resolver(ResolverError),
     ConstantList(ConstantListError),
@@ -147,7 +146,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 | CompileError::ExpectedFloatRegister
                 | CompileError::ExpectedIntegerRegister
                 | CompileError::ExpectedEmissionTarget { .. }
-                | CompileError::ExpectedJumpPlacement(_)
+                // | CompileError::ExpectedJumpPlacement(_)
                 | CompileError::Syntax(_)
                 | CompileError::Resolver(_)
                 | CompileError::ConstantList(_)
@@ -313,8 +312,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 };
                 let type_declaration_id = match type_node {
                     Type::Algebraic { declaration_id, .. }
-                    | Type::Function { declaration_id, .. }
-                    | Type::Closure { declaration_id, .. }
+                    | Type::FunctionDefinition { declaration_id, .. }
                     | Type::Generic { declaration_id } => Some(*declaration_id),
                     _ => None,
                 };
@@ -921,7 +919,8 @@ impl<'a> AnnotatedError<'a> for CompileError {
             | CompileError::ExpectedFloatRegister
             | CompileError::ExpectedIntegerRegister
             | CompileError::ExpectedEmissionTarget { .. }
-            | CompileError::ExpectedJumpPlacement(_) => {
+            // | CompileError::ExpectedJumpPlacement(_)
+            => {
                 self.add_internal_report(groups);
             }
             CompileError::Syntax(error) => error.add_report((), groups),

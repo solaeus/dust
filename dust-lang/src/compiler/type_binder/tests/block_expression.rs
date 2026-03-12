@@ -1,7 +1,5 @@
 use crate::{
-    compiler::type_binder::tests::bind_types,
-    resolver::type_graph::TypeId,
-    source::SourceFileId,
+    compiler::type_binder::tests::bind_types, resolver::type_graph::TypeId, source::SourceFileId,
     syntax::node::SyntaxKind,
 };
 

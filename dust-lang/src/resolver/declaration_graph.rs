@@ -5,7 +5,6 @@ use smallvec::SmallVec;
 
 use crate::{
     native_function::NativeFunction,
-    prototype::PrototypeId,
     resolver::{
         TypeId, error::ResolverError, scope_graph::ScopeId, symbol_table::SymbolId,
         type_graph::TypeMembers,
@@ -110,26 +109,6 @@ impl DeclarationGraph {
         Ok(None)
     }
 
-    /// Finds the declaration with the given prototype ID, if it exists. This is O(n) and should
-    /// only be used for error reporting or debugging.
-    pub fn find_prototype_declaration(
-        &self,
-        prototype_id: PrototypeId,
-    ) -> Result<Option<&Declaration>, ResolverError> {
-        for declaration in &self.declarations {
-            if let Definition::Function {
-                prototype_id: declaration_prototype_id,
-                ..
-            } = declaration.definition
-                && prototype_id == declaration_prototype_id
-            {
-                return Ok(Some(declaration));
-            }
-        }
-
-        Ok(None)
-    }
-
     pub fn next_declaration_id(&self) -> DeclarationId {
         DeclarationId(self.declarations.len() as u32)
     }
@@ -213,21 +192,20 @@ pub enum Definition {
         inner_scope_id: ScopeId,
     },
 
-    /// A function definition describes the function's type and metadata. This type definition can
-    /// be instantiated as a `TypeNode::Function`.
+    /// Definition of a declared function that stores its type and metadata. This type definition
+    /// can be instantiated as a [`Type::FunctionDefinition`][].
     ///
     /// - `fn yo() { ... }`
     /// - `fn foo<T>(x: T) -> T { ... }`
     Function {
         public: bool,
-        prototype_id: PrototypeId,
         type_parameters: DeclarationMembers,
         value_parameters: TypeMembers,
         return_type_id: TypeId,
     },
 
-    /// The definition of a [`NativeFunction`][] includes its type, allowing it to be used like any
-    /// other function declaration.
+    /// Definition of a function declared within the resolver (not by the user) that stores its
+    /// type, allowing it to be used like any other function declaration.
     ///
     /// Native functions include:
     ///
@@ -268,15 +246,13 @@ pub enum Definition {
         variants: DeclarationMembers,
     },
 
-    /// Type parameters have a `Type::Generic` type that is unique to this parameter. When a type is
-    /// instantiated, the type instance is given a type argument for each type parameter. Must have
-    /// an associated type ID.
+    /// Type parameters have a unique `Type::Generic` type. When a type is instantiated, the type
+    /// instance is given a type argument for each type parameter. Must have an associated type ID.
     ///
     /// `T` in `fn foo<T>(x: T) -> T { ... }`
     TypeParameter,
 
-    /// Fields are the individual components of a product (`struct`) type. Must have an associated
-    /// type ID.
+    /// Fields are the members of a product (`struct`) type. Must have an associated type ID.
     ///
     /// `foo: f32` in `struct Bar { foo: f32 }`
     Field { public: bool },

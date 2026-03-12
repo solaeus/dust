@@ -10,7 +10,7 @@ use crate::{
     resolver::{
         Resolver,
         declaration_graph::{DeclarationId, DeclarationMembers, Definition, ModuleKind},
-        type_graph::{TypeId, TypeMembers, Type},
+        type_graph::{Type, TypeId, TypeMembers},
     },
     syntax::{Syntax, node::SyntaxKind, reader::SyntaxReader, visitor::SyntaxVisitor},
 };
@@ -127,12 +127,12 @@ impl<'a> TypeBinder<'a> {
                 right_syntax,
             ),
             (
-                Type::Function {
+                Type::FunctionDefinition {
                     type_parameters: _left_type_parameters,
                     value_parameters: left_value_parameters,
                     return_type_id: left_return_type,
                 },
-                Type::Function {
+                Type::FunctionDefinition {
                     type_parameters: _right_type_parameters,
                     value_parameters: right_value_parameters,
                     return_type_id: right_return_type,
@@ -612,10 +612,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         } else {
             self.resolver.types.create_inferred_type()
         };
-        let list_type = self
-            .resolver
-            .types
-            .add_type(Type::List { element_type_id });
+        let list_type = self.resolver.types.add_type(Type::List { element_type_id });
 
         self.resolver.add_type_binding(node.id, list_type);
 
@@ -1016,7 +1013,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             self.infer_type(raw)?
         };
 
-        let Type::Function {
+        let Type::FunctionDefinition {
             value_parameters,
             return_type_id,
             ..
@@ -1068,10 +1065,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             SyntaxKind::ListType => {
                 let element_type_node = node.child()?;
                 let element_type_id = self.visit_type(element_type_node)?;
-                let list_type_id = self
-                    .resolver
-                    .types
-                    .add_type(Type::List { element_type_id });
+                let list_type_id = self.resolver.types.add_type(Type::List { element_type_id });
 
                 Ok(list_type_id)
             }

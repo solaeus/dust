@@ -1,6 +1,6 @@
 use crate::{
     compiler::type_binder::tests::{bind_types, find_declaration},
-    resolver::type_graph::{TypeId, Type},
+    resolver::type_graph::{Type, TypeId},
 };
 
 #[test]
@@ -11,7 +11,7 @@ fn creates_function_type() {
     let foo_type_id = *resolver.declarations.get_declaration_type(&foo_id).unwrap();
     let foo_type = *resolver.types.get_type(foo_type_id).unwrap();
 
-    assert!(matches!(foo_type, Type::Function { .. }));
+    assert!(matches!(foo_type, Type::FunctionDefinition { .. }));
 }
 
 #[test]
@@ -23,7 +23,7 @@ fn return_type_matches_annotation() {
     let foo_type = *resolver.types.get_type(foo_type_id).unwrap();
 
     let return_type_id = match foo_type {
-        Type::Function { return_type_id, .. } => return_type_id,
+        Type::FunctionDefinition { return_type_id, .. } => return_type_id,
         other => panic!("expected Function type, got {other:?}"),
     };
 
@@ -53,7 +53,7 @@ fn without_return_type_has_unit_return() {
     let foo_type = *resolver.types.get_type(foo_type_id).unwrap();
 
     let return_type_id = match foo_type {
-        Type::Function { return_type_id, .. } => return_type_id,
+        Type::FunctionDefinition { return_type_id, .. } => return_type_id,
         other => panic!("expected Function type, got {other:?}"),
     };
 

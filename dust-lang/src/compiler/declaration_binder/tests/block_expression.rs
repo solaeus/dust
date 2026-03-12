@@ -1,8 +1,6 @@
 use crate::{
-    compiler::declaration_binder::tests::bind_declarations,
-    resolver::scope_graph::ScopeKind,
-    source::SourceFileId,
-    syntax::node::SyntaxKind,
+    compiler::declaration_binder::tests::bind_declarations, resolver::scope_graph::ScopeKind,
+    source::SourceFileId, syntax::node::SyntaxKind,
 };
 
 #[test]

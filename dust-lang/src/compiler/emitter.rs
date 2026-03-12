@@ -273,7 +273,7 @@ impl<'a> Emitter<'a> {
                 Type::Vec { .. } => (OperandType::POINTER, RegisterWidth::Double),
                 Type::String => (OperandType::POINTER, RegisterWidth::Double),
                 Type::List { .. } => (OperandType::POINTER, RegisterWidth::Double),
-                Type::Function { .. } => (OperandType::FUNCTION, RegisterWidth::Single),
+                Type::FunctionDefinition { .. } => (OperandType::FUNCTION, RegisterWidth::Single),
                 Type::Struct { declaration_id, .. } => {
                     let declaration = emitter
                         .resolver

@@ -1,15 +1,17 @@
 mod declaration_binder;
-mod emitter;
+// mod emitter;
 pub mod error;
-mod type_binder;
+// mod type_binder;
 
 use smallvec::SmallVec;
 use tracing::{Level, span};
 
 use crate::{
     compiler::{
-        declaration_binder::DeclarationBinder, emitter::Emitter, error::CompileError,
-        type_binder::TypeBinder,
+        declaration_binder::DeclarationBinder,
+        // emitter::Emitter,
+        error::CompileError,
+        // type_binder::TypeBinder,
     },
     constant_list::ConstantListBuilder,
     dust_type::DustType,
@@ -23,10 +25,9 @@ use crate::{
         Resolver,
         declaration_graph::{Definition, Visibility},
         scope_graph::{Scope, ScopeId, ScopeKind},
-        type_graph::Type,
     },
     source::{Source, SourceFile, SourceFileId},
-    syntax::{Syntax, components::FunctionItem, visitor::SyntaxVisitor},
+    syntax::{Syntax, visitor::SyntaxVisitor},
 };
 
 pub fn compile<'src>(source_files: &[(&'src str, &'src str)]) -> Result<Program, Error<'src>> {
@@ -188,12 +189,7 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "type");
             let _enter = span.enter();
 
-            let mut type_binder = TypeBinder::new(&self.syntax, &mut self.resolver, &mut errors);
-
-            match type_binder.visit_root(main_file_root) {
-                Ok(()) => {}
-                Err(error) => errors.push(ErrorKind::Compile(error)),
-            }
+            let mut type_binder = todo!();
         }
 
         let main_symbol_id = self.resolver.symbols.add_symbol("main");

@@ -16,7 +16,7 @@ use crate::{
         scope_graph::{Scope, ScopeId, ScopeKind},
         type_graph::{Type, TypeId},
     },
-    source::{Position, Source},
+    source::Source,
     syntax::{
         Syntax,
         components::{FunctionItem, FunctionParameters, ModuleItem},
@@ -231,7 +231,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 let parameter_declaration_id =
                     self.resolver.declarations.add_declaration(Declaration {
                         symbol_id: parameter_symbol_id,
-                        definition: Definition::Local,
+                        definition: Definition::Local {
+                            mutable: false,
+                            shadowed: None,
+                        },
                         scope_id: self.current_scope_id,
                         syntax: Some((parameter_name.position(), parameter_name.id)),
                     });
@@ -252,7 +255,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         };
         let function_name_str = self.source.get_file_content(&name.position())?;
         let function_symbol_id = self.resolver.symbols.add_symbol(function_name_str);
-        let prototype_id = self.prototypes.reserve();
         let function_declaration_id = self.resolver.declarations.add_declaration(Declaration {
             symbol_id: function_symbol_id,
             definition: Definition::Function {
@@ -260,11 +262,14 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 type_parameters,
                 value_parameters,
                 return_type_id,
-                prototype_id,
             },
             scope_id: self.current_scope_id,
             syntax: Some((name.position(), name.id)),
         });
+
+        self.resolver
+            .add_declaration_binding(name.id, function_declaration_id);
+        self.visit_block_expression(body, None)?;
 
         Ok(())
     }
@@ -287,7 +292,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             symbol_id: path_declaration.symbol_id,
             definition: path_declaration.definition,
             scope_id: self.current_scope_id,
-            public: use_item.kind() == SyntaxKind::PublicUseItem,
             syntax: Some((use_item.position(), use_item.id)),
         });
 
@@ -903,7 +907,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 let value_parameters = self.resolver.types.add_type_members(&value_parameter_ids);
                 let return_type_id = self.visit_type(return_type)?;
 
-                self.resolver.types.add_type(Type::Function {
+                self.resolver.types.add_type(Type::FunctionDefinition {
                     type_parameters,
                     value_parameters,
                     return_type_id,

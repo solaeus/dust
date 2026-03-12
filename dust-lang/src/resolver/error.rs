@@ -4,7 +4,7 @@ use crate::{
         declaration_graph::{DeclarationId, DeclarationMembers},
         scope_graph::ScopeId,
         symbol_table::SymbolId,
-        type_graph::{TypeId, TypeMembers, Type},
+        type_graph::{TypeId, TypeMembers},
     },
     syntax::SyntaxId,
 };
@@ -17,17 +17,17 @@ pub enum ResolverError {
     MissingDeclarationMembers(DeclarationMembers),
     MissingDeclarationType(DeclarationId),
     MissingDeclarationBinding(SyntaxId),
-    ExpectedTypeDeclaration(DeclarationId),
+    MissingTypeDeclaration(DeclarationId),
     MissingScope(ScopeId),
     MissingScopeBinding(SyntaxId),
     MissingType(TypeId),
     MissingTypeMember(u32),
     MissingTypeMembers(TypeMembers),
     MissingTypeBinding(SyntaxId),
-    ExpectedListType { found: Type },
-    ExpectedFunctionDeclaration(DeclarationId),
-    ExpectedFieldDeclaration(DeclarationId),
-    ExpectedAlgebraicTypeDeclaration(DeclarationId),
+    MissingFunctionDeclaration(DeclarationId),
+    MissingFieldDeclaration(DeclarationId),
+    MissingAlgebraicTypeDeclaration(DeclarationId),
+    MissingTypeArgument(DeclarationId),
 }
 
 impl<'a> AnnotatedError<'a> for ResolverError {

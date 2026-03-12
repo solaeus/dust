@@ -1,6 +1,6 @@
 use crate::{
     compiler::type_binder::tests::{bind_types, find_declaration},
-    resolver::type_graph::{TypeId, Type},
+    resolver::type_graph::{Type, TypeId},
 };
 
 #[test]

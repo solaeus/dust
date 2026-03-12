@@ -11,19 +11,17 @@ use smallvec::SmallVec;
 
 use crate::{
     compiler::error::CompileError,
-    dust_type::{DustFunctionType, DustStructType, DustType},
-    native_function::NativeFunction,
+    dust_type::DustType,
     resolver::{
         declaration_graph::{
             Declaration, DeclarationGraph, DeclarationId, DeclarationMembers, Definition,
-            ModuleKind, Visibility,
+            Visibility,
         },
         error::ResolverError,
-        scope_graph::{Scope, ScopeGraph, ScopeId, ScopeKind},
+        scope_graph::{ScopeGraph, ScopeId},
         symbol_table::{SymbolId, SymbolTable},
         type_graph::{
-            FloatType, SignedIntegerType, TypeGraph, TypeId, TypeMembers, Type,
-            UnsignedIntegerType,
+            FloatType, SignedIntegerType, Type, TypeGraph, TypeId, TypeMembers, UnsignedIntegerType,
         },
     },
     source::Source,
@@ -104,9 +102,9 @@ impl Resolver {
         type_id: TypeId,
         node: &SyntaxReader,
     ) -> Result<usize, CompileError> {
-        let type_node = self.types.get_type(type_id)?;
+        let r#type = self.types.get_type(type_id)?;
 
-        match type_node {
+        match r#type {
             Type::Never => Ok(0),
             Type::Boolean
             | Type::SignedInteger(SignedIntegerType::I8)
@@ -117,9 +115,10 @@ impl Resolver {
             | Type::SignedInteger(SignedIntegerType::I32)
             | Type::UnsignedInteger(UnsignedIntegerType::U32)
             | Type::Float(FloatType::F32)
-            | Type::Function { .. }
+            | Type::FunctionDefinition { .. }
             | Type::Closure { .. }
-            | Type::FunctionPointer { .. } => Ok(4),
+            | Type::Function { .. } => Ok(4),
+            Type::Slice { .. } | Type::Heap { .. } => Ok(8),
             Type::SignedInteger(SignedIntegerType::I64)
             | Type::UnsignedInteger(UnsignedIntegerType::U64)
             | Type::Float(FloatType::F64) => Ok(8),
@@ -141,16 +140,20 @@ impl Resolver {
             } => {
                 let element_size = self.get_byte_size(*element_type_id, node)?;
 
-                Ok(element_size * (*length as usize))
-            }
-            Type::Slice { element_type_id } => {
-                todo!()
+                Ok(element_size * (*length))
             }
             Type::Algebraic {
                 declaration_id,
                 type_arguments,
             } => {
                 let declaration = self.declarations.get_declaration(*declaration_id)?;
+                let mut type_arguments = self
+                    .types
+                    .get_type_members(*type_arguments)?
+                    .iter()
+                    .rev()
+                    .copied()
+                    .collect::<SmallVec<[TypeId; 4]>>();
 
                 match &declaration.definition {
                     Definition::StructType { fields, .. } => {
@@ -159,21 +162,27 @@ impl Resolver {
                         let mut total_size = 0;
 
                         for field_declaration_id in field_declaration_ids {
-                            let field_declaration =
-                                self.declarations.get_declaration(*field_declaration_id)?;
-                            let Definition::Field { public } = field_declaration.definition else {
-                                return Err(CompileError::Resolver(
-                                    ResolverError::ExpectedFieldDeclaration(*field_declaration_id),
-                                ));
-                            };
+                            let field_type_id = self
+                                .declarations
+                                .get_declaration_type(*field_declaration_id)?;
+                            let field_type = self.types.get_type(field_type_id)?;
 
-                            total_size += self.get_byte_size(type_id, node)?;
+                            if let Type::Generic { .. } = field_type {
+                                let type_argument_id =
+                                    type_arguments.pop().ok_or(CompileError::Resolver(
+                                        ResolverError::MissingTypeArgument(*declaration_id),
+                                    ))?;
+
+                                total_size += self.get_byte_size(type_argument_id, node)?;
+                            } else {
+                                total_size += self.get_byte_size(field_type_id, node)?;
+                            }
                         }
 
                         Ok(total_size)
                     }
                     _ => Err(CompileError::Resolver(
-                        ResolverError::ExpectedAlgebraicTypeDeclaration(*declaration_id),
+                        ResolverError::MissingAlgebraicTypeDeclaration(*declaration_id),
                     )),
                 }
             }

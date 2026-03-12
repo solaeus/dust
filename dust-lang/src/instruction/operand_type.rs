@@ -6,9 +6,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// `OperandType` can represent any type, but not always with full specificity. It provides just
 /// enough information to determine how to interpret an instruction's operands at runtime.
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct OperandType(pub(super) u8);
 
 impl OperandType {
