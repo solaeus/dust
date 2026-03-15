@@ -2,6 +2,7 @@ use crate::{
     source::{Position, SourceFileId, Span},
     syntax::{
         SyntaxId,
+        components::SyntaxComponent,
         error::SyntaxError,
         node::{SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxPayloadKind},
         tree::SyntaxTree,
@@ -12,7 +13,7 @@ use crate::{
 pub struct SyntaxReader<'a> {
     pub id: SyntaxId,
     tree: &'a SyntaxTree,
-    node: &'a SyntaxNode,
+    pub node: &'a SyntaxNode,
 }
 
 impl<'a> SyntaxReader<'a> {
@@ -24,7 +25,7 @@ impl<'a> SyntaxReader<'a> {
         self.tree.root()
     }
 
-    pub fn inner(&self) -> &'a SyntaxNode {
+    pub fn node(&self) -> &'a SyntaxNode {
         self.node
     }
 
@@ -32,12 +33,16 @@ impl<'a> SyntaxReader<'a> {
         self.node.kind
     }
 
-    pub fn payload(&self) -> SyntaxPayload {
-        self.node.payload
+    pub fn children_payload(&self) -> SyntaxPayload {
+        self.node.children
     }
 
     pub fn span(&self) -> Span {
         self.node.span
+    }
+
+    pub fn modifier(&self) -> bool {
+        self.node.modifier
     }
 
     pub fn is_item(&self) -> bool {
@@ -61,17 +66,17 @@ impl<'a> SyntaxReader<'a> {
     }
 
     pub fn child_count(&self) -> usize {
-        match self.node.payload_kind {
+        match self.node.children_kind {
             SyntaxPayloadKind::SingleChild => 1,
             SyntaxPayloadKind::BinaryChildren => 2,
-            SyntaxPayloadKind::MultipleChildren => self.node.payload.right as usize,
+            SyntaxPayloadKind::MultipleChildren => self.node.children.right as usize,
             _ => 0,
         }
     }
 
     pub fn has_left_child(&self) -> bool {
         matches!(
-            self.node.payload_kind,
+            self.node.children_kind,
             SyntaxPayloadKind::SingleChild
                 | SyntaxPayloadKind::BinaryChildren
                 | SyntaxPayloadKind::MultipleChildren
@@ -80,38 +85,47 @@ impl<'a> SyntaxReader<'a> {
 
     pub fn has_right_child(&self) -> bool {
         matches!(
-            self.node.payload_kind,
+            self.node.children_kind,
             SyntaxPayloadKind::BinaryChildren | SyntaxPayloadKind::MultipleChildren
         )
     }
 
-    pub fn child(&self) -> Result<Self, SyntaxError> {
-        if self.node.payload_kind != SyntaxPayloadKind::SingleChild {
-            return Err(SyntaxError::ExpectedSyntaxChildren {
-                expected: 1,
-                actual: self.child_count(),
-            });
-        }
+    pub fn single_child(&self) -> Result<Self, SyntaxError> {
+        debug_assert!(self.node.children_kind == SyntaxPayloadKind::SingleChild);
 
-        let left_id = self.node.payload.left_id();
+        let left_id = self.node.children.left_id();
         let left = self.tree.get_node(left_id)?;
 
         Ok(left)
     }
 
     pub fn binary_children(&self) -> Result<(Self, Self), SyntaxError> {
-        if self.node.payload_kind != SyntaxPayloadKind::BinaryChildren {
-            return Err(SyntaxError::ExpectedSyntaxChildren {
-                expected: 2,
-                actual: self.child_count(),
-            });
-        }
+        debug_assert!(self.node.children_kind == SyntaxPayloadKind::BinaryChildren);
 
-        let left_id = self.node.payload.left_id();
-        let right_id = self.node.payload.right_id();
+        let left_id = self.node.children.left_id();
+        let right_id = self.node.children.right_id();
 
         let left_child = self.tree.get_node(left_id)?;
         let right_child = self.tree.get_node(right_id)?;
+
+        Ok((left_child, right_child))
+    }
+
+    pub fn single_or_binary_children(&self) -> Result<(Self, Option<Self>), SyntaxError> {
+        debug_assert!(matches!(
+            self.node.children_kind,
+            SyntaxPayloadKind::SingleChild | SyntaxPayloadKind::BinaryChildren
+        ));
+
+        let left_id = self.node.children.left_id();
+        let left_child = self.tree.get_node(left_id)?;
+
+        let right_id = self.node.children.right_id();
+        let right_child = if right_id == SyntaxId::NONE {
+            None
+        } else {
+            Some(self.tree.get_node(right_id)?)
+        };
 
         Ok((left_child, right_child))
     }
@@ -121,16 +135,20 @@ impl<'a> SyntaxReader<'a> {
     }
 
     pub fn last_child(&'a self) -> Result<Option<Self>, SyntaxError> {
-        match self.node.payload_kind {
-            SyntaxPayloadKind::SingleChild => self.child().map(Some),
+        match self.node.children_kind {
+            SyntaxPayloadKind::SingleChild => self.single_child().map(Some),
             SyntaxPayloadKind::BinaryChildren => {
-                let right_id = self.node.payload.right_id();
+                let right_id = self.node.children.right_id();
 
                 self.tree.get_node(right_id).map(Some)
             }
             SyntaxPayloadKind::MultipleChildren => Ok(SyntaxReaderIterator::new(self).next_back()),
             _ => Ok(None),
         }
+    }
+
+    pub fn as_component<T: SyntaxComponent<'a>>(&'a self) -> Result<T, SyntaxError> {
+        T::from_reader(self)
     }
 
     pub fn draw_text_tree(&self, buffer: &mut String) {
@@ -161,45 +179,6 @@ impl<'a> SyntaxReader<'a> {
 
         buffer.push_str(connector);
         buffer.push_str(self.node.kind.as_str());
-
-        if self.node.payload_kind == SyntaxPayloadKind::Value {
-            buffer.push_str(": ");
-
-            match self.node.kind {
-                SyntaxKind::BooleanExpression => {
-                    let boolean = self.node.payload.decode_boolean();
-
-                    buffer.push_str(&boolean.to_string());
-                }
-                SyntaxKind::ByteExpression => {
-                    let byte = self.node.payload.decode_byte();
-
-                    buffer.push_str(&byte.to_string());
-                }
-                SyntaxKind::CharacterExpression => {
-                    let character = self.node.payload.decode_character();
-
-                    buffer.push(character);
-                }
-                SyntaxKind::FloatExpression => {
-                    let float = self.node.payload.decode_float();
-
-                    buffer.push_str(&float.to_string());
-                }
-                SyntaxKind::IntegerExpression => {
-                    let integer = self.node.payload.decode_integer();
-
-                    buffer.push_str(&integer.to_string());
-                }
-                SyntaxKind::StringExpression => {
-                    let string = self.node.payload.decode_string();
-
-                    buffer.push_str(&string);
-                }
-                _ => {}
-            }
-        }
-
         buffer.push('\n');
 
         let size = self.child_count();
@@ -237,8 +216,8 @@ impl<'a> SyntaxReaderIterator<'a> {
     }
 
     pub fn is_empty(&self) -> bool {
-        match self.parent.node.payload_kind {
-            SyntaxPayloadKind::Empty | SyntaxPayloadKind::Value => true,
+        match self.parent.node.children_kind {
+            SyntaxPayloadKind::Empty => true,
             SyntaxPayloadKind::SingleChild
             | SyntaxPayloadKind::BinaryChildren
             | SyntaxPayloadKind::MultipleChildren => false,
@@ -256,18 +235,18 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
     type Item = SyntaxReader<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let id = match self.parent.node.payload_kind {
+        let id = match self.parent.node.children_kind {
             SyntaxPayloadKind::SingleChild if self.current_index == 0 => {
-                let child_id = self.parent.node.payload.left_id();
+                let child_id = self.parent.node.children.left_id();
                 self.current_index += 1;
 
                 child_id
             }
             SyntaxPayloadKind::BinaryChildren => {
                 let child_id = if self.current_index == 0 {
-                    self.parent.node.payload.left_id()
+                    self.parent.node.children.left_id()
                 } else if self.current_index == 1 {
-                    self.parent.node.payload.right_id()
+                    self.parent.node.children.right_id()
                 } else {
                     return None;
                 };
@@ -278,7 +257,7 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
             SyntaxPayloadKind::MultipleChildren
                 if self.current_index < self.parent.child_count() =>
             {
-                let child_index = self.parent.payload().left as usize + self.current_index;
+                let child_index = self.parent.children_payload().left as usize + self.current_index;
                 self.current_index += 1;
 
                 self.parent.tree.children[child_index]
@@ -300,18 +279,18 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
 
 impl DoubleEndedIterator for SyntaxReaderIterator<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        let child_id = match self.parent.node.payload_kind {
+        let child_id = match self.parent.node.children_kind {
             SyntaxPayloadKind::SingleChild if self.current_index == 0 => {
-                let child_id = self.parent.node.payload.left_id();
+                let child_id = self.parent.node.children.left_id();
                 self.current_index += 1;
 
                 child_id
             }
             SyntaxPayloadKind::BinaryChildren if self.current_index < 2 => {
                 let child_id = if self.current_index == 0 {
-                    self.parent.node.payload.left_id()
+                    self.parent.node.children.left_id()
                 } else {
-                    self.parent.node.payload.right_id()
+                    self.parent.node.children.right_id()
                 };
                 self.current_index += 1;
 
@@ -321,7 +300,7 @@ impl DoubleEndedIterator for SyntaxReaderIterator<'_> {
                 if self.current_index < self.parent.child_count() =>
             {
                 let child_index =
-                    self.parent.payload().as_usize_range().end - 1 - self.current_index;
+                    self.parent.children_payload().right as usize - self.current_index - 1;
                 self.current_index += 1;
 
                 self.parent.tree.children[child_index]
@@ -350,11 +329,14 @@ mod tests {
 
         let root = syntax_tree.root().unwrap();
 
-        let forward = root.children().map(|node| node.inner()).collect::<Vec<_>>();
+        let forward = root
+            .children()
+            .map(|reader| reader.node())
+            .collect::<Vec<_>>();
         let backward = root
             .children()
             .rev()
-            .map(|node| node.inner())
+            .map(|reader| reader.node())
             .collect::<Vec<_>>();
 
         for (forward_node, backward_node) in forward.iter().zip(backward.iter().rev()) {

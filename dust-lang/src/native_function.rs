@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::resolver::{Resolver, declaration_graph::DeclarationId};
+use crate::resolver::{Resolver, declarations::DeclarationId};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct NativeFunction(pub u16);

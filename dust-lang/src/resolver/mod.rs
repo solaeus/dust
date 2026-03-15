@@ -1,8 +1,8 @@
-pub mod declaration_graph;
+pub mod declarations;
 pub mod error;
-pub mod scope_graph;
-pub mod symbol_table;
-pub mod type_graph;
+pub mod scopes;
+pub mod symbols;
+pub mod types;
 
 use std::collections::{HashMap, HashSet};
 
@@ -13,15 +13,14 @@ use crate::{
     compiler::error::CompileError,
     dust_type::DustType,
     resolver::{
-        declaration_graph::{
-            Declaration, DeclarationGraph, DeclarationId, DeclarationMembers, Definition,
-            Visibility,
+        declarations::{
+            Declaration, DeclarationId, DeclarationMembers, Declarations, Definition, Visibility,
         },
         error::ResolverError,
-        scope_graph::{ScopeGraph, ScopeId},
-        symbol_table::{SymbolId, SymbolTable},
-        type_graph::{
-            FloatType, SignedIntegerType, Type, TypeGraph, TypeId, TypeMembers, UnsignedIntegerType,
+        scopes::{ScopeId, Scopes},
+        symbols::{SymbolId, Symbols},
+        types::{
+            FloatType, SignedIntegerType, Type, TypeId, TypeMembers, Types, UnsignedIntegerType,
         },
     },
     source::Source,
@@ -30,10 +29,10 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Resolver {
-    pub symbols: SymbolTable,
-    pub declarations: DeclarationGraph,
-    pub scopes: ScopeGraph,
-    pub types: TypeGraph,
+    pub symbols: Symbols,
+    pub declarations: Declarations,
+    pub scopes: Scopes,
+    pub types: Types,
 
     scope_search: HashSet<ScopeId, FxBuildHasher>,
 
@@ -45,10 +44,10 @@ pub struct Resolver {
 impl Resolver {
     pub fn new() -> Self {
         let mut resolver = Self {
-            symbols: SymbolTable::new(),
-            declarations: DeclarationGraph::new(),
-            scopes: ScopeGraph::new(),
-            types: TypeGraph::new(),
+            symbols: Symbols::new(),
+            declarations: Declarations::new(),
+            scopes: Scopes::new(),
+            types: Types::new(),
             scope_search: HashSet::default(),
             declaration_bindings: HashMap::default(),
             scope_bindings: HashMap::default(),
@@ -118,7 +117,7 @@ impl Resolver {
             | Type::FunctionDefinition { .. }
             | Type::Closure { .. }
             | Type::Function { .. } => Ok(4),
-            Type::Slice { .. } | Type::Heap { .. } => Ok(8),
+            Type::Slice { .. } | Type::Pointer { .. } => Ok(8),
             Type::SignedInteger(SignedIntegerType::I64)
             | Type::UnsignedInteger(UnsignedIntegerType::U64)
             | Type::Float(FloatType::F64) => Ok(8),
@@ -162,9 +161,17 @@ impl Resolver {
                         let mut total_size = 0;
 
                         for field_declaration_id in field_declaration_ids {
-                            let field_type_id = self
-                                .declarations
-                                .get_declaration_type(*field_declaration_id)?;
+                            let field_declaration =
+                                self.declarations.get_declaration(*field_declaration_id)?;
+                            let Definition::Field {
+                                type_id: field_type_id,
+                                ..
+                            } = field_declaration.definition
+                            else {
+                                return Err(CompileError::Resolver(
+                                    ResolverError::ExpectedFieldDeclaration(*field_declaration_id),
+                                ));
+                            };
                             let field_type = self.types.get_type(field_type_id)?;
 
                             if let Type::Generic { .. } = field_type {

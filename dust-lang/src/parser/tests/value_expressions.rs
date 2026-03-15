@@ -62,7 +62,8 @@ fn byte() {
             FunctionParameters.with_child(Span::new(7, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(7, 9)),
             BlockExpression.with_child(Span::new(10, 22), SyntaxId(5)),
-            ByteExpression.with_value(Span::new(16, 20), SyntaxPayload::encode_byte(42)),
+            HexadecimalIntegerExpression
+                .with_value(Span::new(16, 20), SyntaxPayload::encode_byte(42)),
         ]
     );
 }

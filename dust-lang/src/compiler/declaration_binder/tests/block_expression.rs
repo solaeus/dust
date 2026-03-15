@@ -1,5 +1,5 @@
 use crate::{
-    compiler::declaration_binder::tests::bind_declarations, resolver::scope_graph::ScopeKind,
+    compiler::declaration_binder::tests::bind_declarations, resolver::scopes::ScopeKind,
     source::SourceFileId, syntax::node::SyntaxKind,
 };
 

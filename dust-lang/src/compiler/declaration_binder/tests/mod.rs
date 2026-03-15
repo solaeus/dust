@@ -24,8 +24,8 @@ use crate::{
     parser::{ParseResult, Parser},
     resolver::{
         Resolver,
-        declaration_graph::{DeclarationId, Definition},
-        scope_graph::{Scope, ScopeId, ScopeKind},
+        declarations::{DeclarationId, Definition},
+        scopes::{Scope, ScopeId, ScopeKind},
     },
     source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, visitor::SyntaxVisitor},

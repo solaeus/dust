@@ -20,13 +20,11 @@ pub trait SyntaxVisitor {
 
     fn visit_item(&mut self, node: SyntaxReader) -> Result<(), CompileError> {
         match node.kind() {
-            SyntaxKind::ModuleItem | SyntaxKind::PublicModuleItem => self.visit_module_item(node),
-            SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem => {
-                self.visit_function_item(node)
-            }
-            SyntaxKind::UseItem | SyntaxKind::PublicUseItem => self.visit_use_item(node),
-            SyntaxKind::StructItem | SyntaxKind::PublicStructItem => self.visit_struct_item(node),
-            SyntaxKind::EnumItem | SyntaxKind::PublicEnumItem => self.visit_enum_item(node),
+            SyntaxKind::ModuleItem => self.visit_module_item(node),
+            SyntaxKind::FunctionItem => self.visit_function_item(node),
+            SyntaxKind::UseItem => self.visit_use_item(node),
+            SyntaxKind::StructItem => self.visit_struct_item(node),
+            SyntaxKind::EnumItem => self.visit_enum_item(node),
             _ => Err(CompileError::Unimplemented {
                 syntax_kind: node.kind(),
                 position: node.position(),
@@ -39,24 +37,12 @@ pub trait SyntaxVisitor {
         node: SyntaxReader,
     ) -> Result<Option<Self::StatementOutput>, CompileError> {
         match node.kind() {
-            SyntaxKind::ModuleItem | SyntaxKind::PublicModuleItem => {
-                self.visit_module_item(node).map(|_| None)
-            }
-            SyntaxKind::FunctionItem | SyntaxKind::PublicFunctionItem => {
-                self.visit_function_item(node).map(|_| None)
-            }
-            SyntaxKind::UseItem | SyntaxKind::PublicUseItem => {
-                self.visit_use_item(node).map(|_| None)
-            }
-            SyntaxKind::StructItem | SyntaxKind::PublicStructItem => {
-                self.visit_struct_item(node).map(|_| None)
-            }
-            SyntaxKind::EnumItem | SyntaxKind::PublicEnumItem => {
-                self.visit_enum_item(node).map(|_| None)
-            }
-            SyntaxKind::LetStatement | SyntaxKind::LetMutStatement => {
-                self.visit_let_statement(node).map(Some)
-            }
+            SyntaxKind::ModuleItem => self.visit_module_item(node).map(|_| None),
+            SyntaxKind::FunctionItem => self.visit_function_item(node).map(|_| None),
+            SyntaxKind::UseItem => self.visit_use_item(node).map(|_| None),
+            SyntaxKind::StructItem => self.visit_struct_item(node).map(|_| None),
+            SyntaxKind::EnumItem => self.visit_enum_item(node).map(|_| None),
+            SyntaxKind::LetStatement => self.visit_let_statement(node).map(Some),
             SyntaxKind::ExpressionStatement => self.visit_expression_statement(node).map(Some),
             _ => Err(CompileError::Unimplemented {
                 syntax_kind: node.kind(),
@@ -82,7 +68,7 @@ pub trait SyntaxVisitor {
             }
             SyntaxKind::PathExpression => self.visit_path_expression(node, input),
             SyntaxKind::BooleanExpression => self.visit_boolean_expression(node, input),
-            SyntaxKind::ByteExpression => self.visit_byte_expression(node, input),
+            SyntaxKind::HexadecimalIntegerExpression => self.visit_byte_expression(node, input),
             SyntaxKind::CharacterExpression => self.visit_character_expression(node, input),
             SyntaxKind::FloatExpression => self.visit_float_expression(node, input),
             SyntaxKind::IntegerExpression => self.visit_integer_expression(node, input),
@@ -111,7 +97,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::IfExpression => self.visit_if_expression(node, input),
             SyntaxKind::WhileExpression => self.visit_while_expression(node, input),
             SyntaxKind::CallExpression => self.visit_call_expression(node, input),
-            SyntaxKind::GroupedExpression => self.visit_expression(node.child()?, input),
+            SyntaxKind::GroupedExpression => self.visit_expression(node.single_child()?, input),
             _ => Err(CompileError::Unimplemented {
                 syntax_kind: node.kind(),
                 position: node.position(),

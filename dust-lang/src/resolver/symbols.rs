@@ -1,17 +1,21 @@
-use std::hash::{Hash, Hasher};
+use std::{
+    fmt::Write,
+    hash::{Hash, Hasher},
+};
 
 use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
+use serde::{Deserialize, Serialize};
 
 use crate::source::Span;
 
 #[derive(Debug)]
-pub struct SymbolTable {
+pub struct Symbols {
     pool: String,
     spans: IndexMap<u64, Span, FxBuildHasher>,
 }
 
-impl SymbolTable {
+impl Symbols {
     pub fn new() -> Self {
         Self {
             pool: String::new(),
@@ -23,8 +27,8 @@ impl SymbolTable {
         let hash = {
             let mut hasher = FxHasher::default();
 
+            hasher.write_u8(0);
             name.hash(&mut hasher);
-
             hasher.finish()
         };
 
@@ -33,10 +37,34 @@ impl SymbolTable {
         }
 
         let id = SymbolId(self.spans.len() as u32);
-        let span = Span::new(self.pool.len(), self.pool.len() + name.len());
+        let start = self.pool.len() as u32;
 
         self.pool.push_str(name);
-        self.spans.insert(hash, span);
+        self.spans
+            .insert(hash, Span::new(start, self.pool.len() as u32));
+
+        id
+    }
+
+    pub fn add_index_symbol(&mut self, index: usize) -> SymbolId {
+        let hash = {
+            let mut hasher = FxHasher::default();
+
+            hasher.write_u8(1);
+            index.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        if let Some(existing_index) = self.spans.get_index_of(&hash) {
+            return SymbolId(existing_index as u32);
+        }
+
+        let id = SymbolId(self.spans.len() as u32);
+        let start = self.pool.len() as u32;
+
+        write!(&mut self.pool, "{index}");
+        self.spans
+            .insert(hash, Span::new(start, self.pool.len() as u32));
 
         id
     }
@@ -52,7 +80,7 @@ impl SymbolTable {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct SymbolId(u32);
 
 impl SymbolId {

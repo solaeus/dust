@@ -1,5 +1,4 @@
 //! Type instance collection that stores every type known to the `Compiler`.
-
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
@@ -9,58 +8,59 @@ use std::{
 use indexmap::{IndexSet, set::MutableValues};
 use smallvec::SmallVec;
 
-use crate::resolver::{declaration_graph::DeclarationId, error::ResolverError};
+use crate::resolver::{declarations::DeclarationId, error::ResolverError};
 
 /// Type instance collection that stores every type known to the `Compiler`.
 #[derive(Debug)]
-pub struct TypeGraph {
+pub struct Types {
     types: IndexSet<Type>,
     members: Vec<TypeId>,
     next_inferred_type_id: InferredTypeId,
 }
 
-impl TypeGraph {
+impl Types {
     pub fn new() -> Self {
-        let mut type_graph = Self {
+        let mut types = Self {
             types: IndexSet::new(),
             members: Vec::new(),
             next_inferred_type_id: InferredTypeId(0),
         };
 
-        let _unit_type_id = type_graph.add_type(Type::unit_type());
-        let _boolean_type_id = type_graph.add_type(Type::Boolean);
-        let _character_type_id = type_graph.add_type(Type::Character);
-        let _u8_type_id = type_graph.add_type(Type::UnsignedInteger(UnsignedIntegerType::U8));
-        let _i8_type_id = type_graph.add_type(Type::SignedInteger(SignedIntegerType::I8));
-        let _u16_type_id = type_graph.add_type(Type::UnsignedInteger(UnsignedIntegerType::U16));
-        let _i16_type_id = type_graph.add_type(Type::SignedInteger(SignedIntegerType::I16));
-        let _u32_type_id = type_graph.add_type(Type::UnsignedInteger(UnsignedIntegerType::U32));
-        let _i32_type_id = type_graph.add_type(Type::SignedInteger(SignedIntegerType::I32));
-        let _u64_type_id = type_graph.add_type(Type::UnsignedInteger(UnsignedIntegerType::U64));
-        let _i64_type_id = type_graph.add_type(Type::SignedInteger(SignedIntegerType::I64));
-        let _u128_type_id = type_graph.add_type(Type::UnsignedInteger(UnsignedIntegerType::U128));
-        let _i128_type_id = type_graph.add_type(Type::SignedInteger(SignedIntegerType::I128));
-        let _f32_type_id = type_graph.add_type(Type::Float(FloatType::F32));
-        let _f64_type_id = type_graph.add_type(Type::Float(FloatType::F64));
-        let _never_type_id = type_graph.add_type(Type::Never);
+        let _unit_type_id = types.add_type(Type::unit_type());
+        let _boolean_type_id = types.add_type(Type::Boolean);
+        let _character_type_id = types.add_type(Type::Character);
+        let _i8_type_id = types.add_type(Type::SignedInteger(SignedIntegerType::I8));
+        let _i16_type_id = types.add_type(Type::SignedInteger(SignedIntegerType::I16));
+        let _i32_type_id = types.add_type(Type::SignedInteger(SignedIntegerType::I32));
+        let _i64_type_id = types.add_type(Type::SignedInteger(SignedIntegerType::I64));
+        let _i128_type_id = types.add_type(Type::SignedInteger(SignedIntegerType::I128));
+        let _u8_type_id = types.add_type(Type::UnsignedInteger(UnsignedIntegerType::U8));
+        let _u16_type_id = types.add_type(Type::UnsignedInteger(UnsignedIntegerType::U16));
+        let _u32_type_id = types.add_type(Type::UnsignedInteger(UnsignedIntegerType::U32));
+        let _u64_type_id = types.add_type(Type::UnsignedInteger(UnsignedIntegerType::U64));
+        let _u128_type_id = types.add_type(Type::UnsignedInteger(UnsignedIntegerType::U128));
+        let _f32_type_id = types.add_type(Type::Float(FloatType::F32));
+        let _f64_type_id = types.add_type(Type::Float(FloatType::F64));
+        let _never_type_id = types.add_type(Type::Never);
 
         debug_assert_eq!(_unit_type_id, TypeId::UNIT);
         debug_assert_eq!(_boolean_type_id, TypeId::BOOLEAN);
-        debug_assert_eq!(_u8_type_id, TypeId::U_8);
         debug_assert_eq!(_i8_type_id, TypeId::I_8);
-        debug_assert_eq!(_u16_type_id, TypeId::U_16);
         debug_assert_eq!(_i16_type_id, TypeId::I_16);
-        debug_assert_eq!(_u32_type_id, TypeId::U_32);
         debug_assert_eq!(_i32_type_id, TypeId::I_32);
-        debug_assert_eq!(_u64_type_id, TypeId::U_64);
         debug_assert_eq!(_i64_type_id, TypeId::I_64);
-        debug_assert_eq!(_u128_type_id, TypeId::U_128);
         debug_assert_eq!(_i128_type_id, TypeId::I_128);
+        debug_assert_eq!(_u8_type_id, TypeId::U_8);
+        debug_assert_eq!(_u16_type_id, TypeId::U_16);
+        debug_assert_eq!(_u32_type_id, TypeId::U_32);
+        debug_assert_eq!(_u64_type_id, TypeId::U_64);
+        debug_assert_eq!(_u128_type_id, TypeId::U_128);
         debug_assert_eq!(_f32_type_id, TypeId::F_32);
         debug_assert_eq!(_f64_type_id, TypeId::F_64);
         debug_assert_eq!(_character_type_id, TypeId::CHARACTER);
+        debug_assert_eq!(_never_type_id, TypeId::NEVER);
 
-        type_graph
+        types
     }
 
     pub fn add_type(&mut self, type_node: Type) -> TypeId {
@@ -110,14 +110,13 @@ impl TypeGraph {
     }
 
     pub fn create_inferred_type(&mut self) -> TypeId {
-        let inferred_type_node = Type::Inferred {
+        let inferred_type = Type::Inferred {
             inferred_id: self.next_inferred_type_id,
             resolved: None,
         };
-
         self.next_inferred_type_id.0 += 1;
 
-        self.add_type(inferred_type_node)
+        self.add_type(inferred_type)
     }
 }
 
@@ -147,10 +146,15 @@ impl TypeId {
         self.0
     }
 
+    pub(crate) fn offset(self, offset: u32) -> Self {
+        TypeId(self.0 + offset)
+    }
+
     pub fn is_primitive(self) -> bool {
         matches!(
             self,
-            Self::BOOLEAN
+            Self::UNIT
+                | Self::BOOLEAN
                 | Self::CHARACTER
                 | Self::I_8
                 | Self::I_16
@@ -171,18 +175,22 @@ impl TypeId {
 
 /// Type instance representation covering all concrete and non-concrete types.
 ///
-/// # Concrete types
+/// # Overview
 ///
-/// Concrete types are fully known to the compiler and are therefore scalar.
-///
-/// - All primitive types except the never type are concrete.
+/// - `bool`, `char`, all numeric types and the special pointer type are always concrete. The never
+/// type is non-concrete because it does not represent any values.
 /// - Composite types whose type members are all concrete are also concrete. `Option<i32>` is
-/// concrete because `i32` is concrete, but `Option<T>` is not.
-/// - Generics are never concrete. The presence of a generic type means that the `TypeNode`
-/// represents the *definition* of a type rather than a specific *instance*.
+/// concrete because `i32` is concrete, but `Option<T>`, which uses a generic type parameter, will
+/// not be concrete until `T` is resolved to a concrete type.
+/// - Generics are used by [`Definitions`][]s to represent type parameters that are part of a type
+/// definition. They are not used on type instances, so they are never inside of other `Type`
+/// variants. Generics are non-concrete by definition.
 /// - Inferred types start as non-concrete but may become concrete through type unification. For
 /// example, the type of `x` in `let x = 5;` is initially an inferred type, but it becomes concrete
-/// when it is unified with the type of `5`, which is `i32`.
+/// when it is unified with an explicit type written elsewhere or the default `i32`.
+/// - Types based on a type [`Definition`][] have a `declaration_id` field that can be used to find
+/// how it was declared, including its full definition. For each type parameter in the definition,
+/// there is a corresponding entry in the `type_arguments` field.
 ///
 /// Because the Rust type system is the primary inspiration for this one, the variants of this enum
 /// are very similar to the variants of [`rustc_type_ir::ty_kind::TyKind`][1].
@@ -195,75 +203,92 @@ impl TypeId {
 /// [1]: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_type_ir/ty_kind/enum.TyKind.html
 #[derive(Clone, Copy, Debug)]
 pub enum Type {
-    /// `bool`: `true` or `false`
-    ///
-    /// This is a concrete type.
+    /// `bool`: `true` or `false` values.
     Boolean,
 
-    /// `char`: a Unicode scalar value.
-    ///
-    /// This is a concrete type.
+    /// `char`: the Unicode scalar value type.
     Character,
 
-    /// `i8`, `i16`, `i32`, `i64` and `i128`
-    ///
-    /// These are concrete types.
+    /// `i8`, `i16`, `i32`, `i64` and `i128`, which represent signed integers.
     SignedInteger(SignedIntegerType),
 
-    /// `u8`, `u16`, `u32`, `u64` and `u128`
-    ///
-    /// These are concrete types.
+    /// `u8`, `u16`, `u32`, `u64` and `u128`, which represent unsigned integers.
     UnsignedInteger(UnsignedIntegerType),
 
-    /// `f32` and `f64`
-    ///
-    /// These are concrete types.
+    /// `f32` and `f64`, which represent floating point numbers.
     Float(FloatType),
 
-    /// `!`
-    ///
     /// The never type, which represents expressions that never return (i.e. infinite loops, panics
     /// and process termination).
+    ///
+    /// `!`
     Never,
 
+    /// An anonymous heterogeneous product type.
+    ///
     /// `()`, `(i32, T)`, `(f64, bool, char)`, etc.
     Tuple { element_type_ids: TypeMembers },
 
+    /// An anonymous homogeneous product type with a fixed length.
+    ///
     /// `[T; N]`
     Array {
         element_type_id: TypeId,
         length: usize,
     },
 
+    /// A view into a contiguous sequence of elements.
+    ///
     /// `[T]`
     Slice { element_type_id: TypeId },
 
-    /// `fn foo<T>(x: T) -> T`
-    ///
     /// An instance of a function definition type.
+    ///
+    /// ```
+    /// fn foo<T: Add>(x: T) -> T { ... } // A `fn` item creates the *defintion* of the function type.
+    ///
+    /// foo::<i32>(42);                   // An *instance* of the function type is created by passing
+    /// foo::<u8>(42);                    // type arguments to the function definition type.
+    /// ```
     FunctionDefinition {
         declaration_id: DeclarationId,
         type_arguments: TypeMembers,
     },
 
-    /// `|x: T| x + 1`
-    ///
     /// The type of a closure expression.
+    ///
+    /// `|x: T| x + 1`
     Closure {
         value_parameters: TypeMembers,
         return_type_id: TypeId,
     },
 
+    /// A common type with which function definition types and closure types are compatible. The
+    /// user cannot write function definition or closure types, they are created from `fn` items and
+    /// closure expressions. Instead, the user writes function types and the compiler recognizes
+    /// matching function definition and closure types as compatible.
+    ///
     /// `fn(T) -> T`
     ///
-    /// A common type to which function definition types and closure types can be coerced.
+    /// ```
+    /// struct MyFunction(fn(i32) -> i32); // The user writes a function type
+    ///
+    /// fn foo(x: i32) -> i32 { x + 1 }
+    ///
+    /// fn baz() -> i32 {
+    ///     let x = MyFunction(|x| x + 1); // The closure type is compatible
+    ///     let y = MyFunction(foo);       // The function definition type is compatible
+    ///
+    ///     x.0(21) + y.0(21)
+    /// }
+    /// ```
     Function {
         value_parameters: TypeMembers,
         return_type: TypeId,
     },
 
     /// ```
-    /// struct Foo<T> { x: T }
+    /// struct Foo { bar: f32 }
     ///
     /// enum Option<T> {
     ///     Some(T),
@@ -271,7 +296,8 @@ pub enum Type {
     /// }
     /// ```
     ///
-    /// A declared composite or sum type.
+    /// A named composite or sum type. Their corresponding type [`Definition`][] contains the fields
+    /// or variants of the type.
     Algebraic {
         declaration_id: DeclarationId,
         type_arguments: TypeMembers,
@@ -279,25 +305,21 @@ pub enum Type {
 
     /// `T` in `fn foo<T>(x: T) -> T`
     ///
-    /// A non-concrete type that will be must be resolved to a concrete type before a value of this
-    /// type can be used.
+    /// A non-concrete type used in type definitions to represent type arguments to be given when
+    /// the type is instantiated.
     Generic { declaration_id: DeclarationId },
 
-    /// A type that has not yet been resolved.
-    ///
-    /// Inferred types are created in two situations:
-    ///
-    /// - The user does not specify a type for a value, e.g. `let x = 5;`
-    /// - When instantiating a type with type parameters the, `type_arguments` field is populated with
-    /// types that may be inferred.
+    /// A type that was not specified by the user and may be resolved to a concrete type through
+    /// type unification.
     Inferred {
         inferred_id: InferredTypeId,
         resolved: Option<TypeId>,
     },
 
-    /// An internal type used to represent types like `Vec<T>` and `String`. The type arguments make
-    /// each instance unique but the size is always the size of a pointer.
-    Heap {
+    /// An internal type used to represent the pointer fields of types like `Vec` and `String`. The
+    /// type arguments make each instance unique but the size is always the size of a pointer on the
+    /// target platform.
+    Pointer {
         declaration_id: DeclarationId,
         type_arguments: TypeMembers,
     },
@@ -311,7 +333,7 @@ impl Type {
     }
 }
 
-/// See the [`TypeNode`] documentation for details on equality, ordering and hashing.
+/// See the [`Type`][] documentation for details on equality, ordering and hashing.
 impl PartialEq for Type {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -428,7 +450,7 @@ impl PartialOrd for Type {
     }
 }
 
-/// See the [`TypeNode`] documentation for details on equality, ordering and hashing.
+/// See the [`Type`][] documentation for details on equality, ordering and hashing.
 impl Ord for Type {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
@@ -548,23 +570,23 @@ impl Ord for Type {
             ) => a_inferred_id.cmp(b_inferred_id),
             (Type::Inferred { .. }, _) => Ordering::Less,
             (
-                Type::Heap {
+                Type::Pointer {
                     declaration_id: left_declaration_id,
                     type_arguments: left_type_arguments,
                 },
-                Type::Heap {
+                Type::Pointer {
                     declaration_id: right_declaration_id,
                     type_arguments: right_type_arguments,
                 },
             ) => left_declaration_id
                 .cmp(right_declaration_id)
                 .then_with(|| left_type_arguments.cmp(right_type_arguments)),
-            (Type::Heap { .. }, _) => Ordering::Less,
+            (Type::Pointer { .. }, _) => Ordering::Less,
         }
     }
 }
 
-/// See the [`TypeNode`] documentation for details on equality, ordering and hashing.
+/// See the [`Type`][] documentation for details on equality, ordering and hashing.
 impl Hash for Type {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
@@ -672,7 +694,7 @@ impl Hash for Type {
                 state.write_u8(23);
                 inferred_id.hash(state);
             }
-            Type::Heap {
+            Type::Pointer {
                 declaration_id,
                 type_arguments,
             } => {
@@ -735,13 +757,6 @@ mod tests {
         collections::hash_map::DefaultHasher,
         hash::{Hash, Hasher},
     };
-
-    fn hash_of(node: &Type) -> u64 {
-        let mut hasher = DefaultHasher::new();
-
-        node.hash(&mut hasher);
-        hasher.finish()
-    }
 
     fn algebraic(decl: u32, start: u32, end: u32) -> Type {
         Type::Algebraic {
@@ -816,11 +831,24 @@ mod tests {
             (Type::Never, Type::Never, true),
         ];
 
-        for (i, (a, b, expect_eq)) in cases.iter().enumerate() {
-            assert_eq!(a == b, *expect_eq);
+        for (a, b, expect_eq) in cases {
+            assert_eq!(a == b, expect_eq);
 
-            if *expect_eq {
-                assert_eq!(hash_of(a), hash_of(b));
+            if expect_eq {
+                let a_hash = {
+                    let mut hasher = DefaultHasher::new();
+
+                    a.hash(&mut hasher);
+                    hasher.finish()
+                };
+                let b_hash = {
+                    let mut hasher = DefaultHasher::new();
+
+                    b.hash(&mut hasher);
+                    hasher.finish()
+                };
+
+                assert_eq!(a_hash, b_hash);
             }
         }
     }
@@ -834,8 +862,8 @@ mod tests {
             (inferred(0, None), inferred(0, Some(TypeId::BOOLEAN))),
         ];
 
-        for (i, (a, b)) in cases.iter().enumerate() {
-            assert_eq!(a == b, a.cmp(b) == Ordering::Equal);
+        for (a, b) in cases {
+            assert_eq!(a == b, a.cmp(&b) == Ordering::Equal);
         }
     }
 }

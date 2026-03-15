@@ -35,7 +35,6 @@ pub enum TokenKind {
     Identifier,
 
     // Keywords
-    Any,
     As,
     Async,
     Bool,
@@ -122,7 +121,6 @@ pub enum TokenKind {
 impl Display for TokenKind {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            TokenKind::Any => write!(f, "any keyword"),
             TokenKind::ArrowThin => write!(f, "-> symbol"),
             TokenKind::As => write!(f, "as keyword"),
             TokenKind::Asterisk => write!(f, "* symbol"),

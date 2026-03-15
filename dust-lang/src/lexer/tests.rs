@@ -253,7 +253,6 @@ fn strings() {
 #[test]
 fn keywords() {
     let keywords = [
-        ("any", TokenKind::Any),
         ("async", TokenKind::Async),
         ("bool", TokenKind::Bool),
         ("break", TokenKind::Break),

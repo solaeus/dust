@@ -1,16 +1,15 @@
-use std::fmt::{self, Display, Formatter};
-
 use crate::{error::ErrorKind, parser::Parser, syntax::node::SyntaxNode, token::TokenKind};
 
 pub type PrefixParser<'a> = fn(&mut Parser<'a>) -> Result<SyntaxNode, ErrorKind>;
 pub type InfixParser<'a> = fn(&mut Parser<'a>, SyntaxNode) -> Result<SyntaxNode, ErrorKind>;
 
-/// Pratt parsing rule for a token in the Dust language.
+/// Pratt parsing rule for a single token.
 ///
 /// Each token can have a prefix and/or infix parsing function associated with it, which is used to
-/// parse expressions involving that token. The precedence indicates how the token should be treated
-/// for operator precedence during parsing.
-#[derive(Debug, Clone, Copy)]
+/// parse an item, statement or expression involving that token. The [`Precedence`][] determines the
+/// order of operations when parsing infix operators and the [`Associativity`][] determines how
+/// operators of the same precedence are grouped.
+#[derive(Debug)]
 pub struct ParseRule<'a> {
     pub prefix: Option<PrefixParser<'a>>,
     pub infix: Option<InfixParser<'a>>,
@@ -21,12 +20,6 @@ pub struct ParseRule<'a> {
 impl From<TokenKind> for ParseRule<'_> {
     fn from(token: TokenKind) -> Self {
         match token {
-            TokenKind::Any => ParseRule {
-                prefix: None,
-                infix: None,
-                precedence: Precedence::None,
-                associativity: Associativity::Left,
-            },
             TokenKind::ArrowThin => ParseRule {
                 prefix: None,
                 infix: None,
@@ -100,7 +93,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 associativity: Associativity::Left,
             },
             TokenKind::HexIntegerValue => ParseRule {
-                prefix: Some(Parser::parse_prefix_hex_integer),
+                prefix: Some(Parser::parse_prefix_hexadecimal_integer),
                 infix: None,
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
@@ -541,14 +534,13 @@ impl From<TokenKind> for ParseRule<'_> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug)]
 pub enum Associativity {
     Left,
     Right,
 }
 
-/// Operator precedence levels.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Precedence {
     Primary = 11,
     Path = 10,
@@ -580,11 +572,5 @@ impl Precedence {
             Precedence::Path => Precedence::Primary,
             Precedence::Primary => Precedence::Primary,
         }
-    }
-}
-
-impl Display for Precedence {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{self:?}")
     }
 }

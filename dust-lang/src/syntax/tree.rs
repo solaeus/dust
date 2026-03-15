@@ -1,6 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 use crate::{
     source::SourceFileId,
@@ -74,7 +75,7 @@ impl SyntaxTree {
 
     pub fn sorted_nodes(&self) -> Vec<SyntaxNode> {
         fn collect_depth_first(node: SyntaxReader, nodes: &mut Vec<SyntaxNode>) {
-            nodes.push(*node.inner());
+            nodes.push(*node.node());
 
             for child in node.children() {
                 collect_depth_first(child, nodes);
@@ -134,15 +135,19 @@ impl SyntaxTreeBuilder {
         self.tree.nodes[id.0 as usize] = node;
     }
 
-    pub fn add_children(&mut self, children: &[SyntaxId]) -> SyntaxPayload {
+    pub fn add_children<T>(
+        &mut self,
+        children: impl IntoIterator<Item = SyntaxId>,
+    ) -> SyntaxPayload {
         let start_index = self.tree.children.len() as u32;
-        let length = children.len() as u32;
 
-        self.tree.children.extend_from_slice(children);
+        self.tree.children.extend(children);
+
+        let end_index = self.tree.children.len() as u32;
 
         SyntaxPayload {
             left: start_index,
-            right: length,
+            right: end_index,
         }
     }
 

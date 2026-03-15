@@ -10,50 +10,17 @@ use crate::{source::Span, syntax::SyntaxId};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyntaxNode {
     pub(crate) kind: SyntaxKind,
-    pub(crate) payload: SyntaxPayload,
-    pub(crate) payload_kind: SyntaxPayloadKind,
+    pub(crate) children: SyntaxPayload,
+    pub(crate) children_kind: SyntaxPayloadKind,
     pub(crate) span: Span,
+    pub(crate) attachments: SyntaxPayload,
+    pub(crate) attachments_kind: SyntaxPayloadKind,
+    pub(crate) modifier: bool,
 }
 
 impl Display for SyntaxNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.kind)?;
-
-        match self.kind {
-            SyntaxKind::BooleanExpression => {
-                let boolean = self.payload.decode_boolean();
-
-                write!(f, ": {boolean}")?;
-            }
-            SyntaxKind::ByteExpression => {
-                let byte = self.payload.decode_byte();
-
-                write!(f, ": {byte}")?;
-            }
-            SyntaxKind::CharacterExpression => {
-                let character = self.payload.decode_character();
-
-                write!(f, ": {character}")?;
-            }
-            SyntaxKind::FloatExpression => {
-                let float = self.payload.decode_float();
-
-                write!(f, ": {float}")?;
-            }
-            SyntaxKind::IntegerExpression => {
-                let integer = self.payload.decode_integer();
-
-                write!(f, ": {integer}")?;
-            }
-            SyntaxKind::StringExpression => {
-                let string = self.payload.decode_string();
-
-                write!(f, ": \"{string}\" (length: {})", self.span.length() - 2)?;
-            }
-            _ => {}
-        }
-
-        Ok(())
+        write!(f, "{}", self.kind)
     }
 }
 
@@ -63,19 +30,13 @@ pub enum SyntaxKind {
 
     // Items
     ModuleItem,
-    PublicModuleItem,
     UseItem,
-    PublicUseItem,
     FunctionItem,
-    PublicFunctionItem,
     StructItem,
-    PublicStructItem,
     EnumItem,
-    PublicEnumItem,
 
     // Statements
     LetStatement,
-    LetMutStatement,
     ExpressionStatement,
 
     // Assignment expressions
@@ -89,9 +50,9 @@ pub enum SyntaxKind {
 
     // Literal expressions
     BooleanExpression,
-    ByteExpression,
     CharacterExpression,
     FloatExpression,
+    HexadecimalIntegerExpression,
     IntegerExpression,
     StringExpression,
 
@@ -161,7 +122,7 @@ pub enum SyntaxKind {
     StructField,
 
     // Types
-    AnyType,
+    TypePath,
     BooleanType,
     CharacterType,
     StringType,
@@ -177,9 +138,9 @@ pub enum SyntaxKind {
     I128Type,
     F32Type,
     F64Type,
-    TypePath,
-    ListType,
+    SliceType,
     FunctionType,
+    NeverType,
     ValueParameterTypes,
 
     // Ignored
@@ -190,24 +151,27 @@ impl SyntaxKind {
     pub fn empty(self, span: Span) -> SyntaxNode {
         SyntaxNode {
             kind: self,
-            payload: SyntaxPayload {
-                left: SyntaxId::NONE.0,
-                right: SyntaxId::NONE.0,
-            },
-            payload_kind: SyntaxPayloadKind::Empty,
+            children: SyntaxPayload::empty(),
+            children_kind: SyntaxPayloadKind::Empty,
             span,
+            attachments: SyntaxPayload::empty(),
+            attachments_kind: SyntaxPayloadKind::Empty,
+            modifier: false,
         }
     }
 
     pub fn with_child(self, span: Span, child_id: SyntaxId) -> SyntaxNode {
         SyntaxNode {
             kind: self,
-            payload: SyntaxPayload {
+            children: SyntaxPayload {
                 left: child_id.0,
                 right: SyntaxId::NONE.0,
             },
-            payload_kind: SyntaxPayloadKind::SingleChild,
+            children_kind: SyntaxPayloadKind::SingleChild,
             span,
+            attachments: SyntaxPayload::empty(),
+            attachments_kind: SyntaxPayloadKind::Empty,
+            modifier: false,
         }
     }
 
@@ -219,32 +183,24 @@ impl SyntaxKind {
     ) -> SyntaxNode {
         SyntaxNode {
             kind: self,
-            payload: SyntaxPayload {
-                left: left_child_id.0,
-                right: right_child_id.0,
-            },
-            payload_kind: SyntaxPayloadKind::BinaryChildren,
+            children: SyntaxPayload::binary_children(left_child_id, right_child_id),
+            children_kind: SyntaxPayloadKind::BinaryChildren,
             span,
+            attachments: SyntaxPayload::empty(),
+            attachments_kind: SyntaxPayloadKind::Empty,
+            modifier: false,
         }
     }
 
     pub fn with_multiple_children(self, span: Span, payload: SyntaxPayload) -> SyntaxNode {
-        {
-            SyntaxNode {
-                kind: self,
-                payload,
-                payload_kind: SyntaxPayloadKind::MultipleChildren,
-                span,
-            }
-        }
-    }
-
-    pub fn with_value(self, span: Span, payload: SyntaxPayload) -> SyntaxNode {
         SyntaxNode {
             kind: self,
-            payload,
-            payload_kind: SyntaxPayloadKind::Value,
+            children: payload,
+            children_kind: SyntaxPayloadKind::MultipleChildren,
             span,
+            attachments: SyntaxPayload::empty(),
+            attachments_kind: SyntaxPayloadKind::Empty,
+            modifier: false,
         }
     }
 
@@ -253,15 +209,10 @@ impl SyntaxKind {
             self,
             SyntaxKind::Root
                 | SyntaxKind::ModuleItem
-                | SyntaxKind::PublicModuleItem
                 | SyntaxKind::UseItem
-                | SyntaxKind::PublicUseItem
                 | SyntaxKind::FunctionItem
-                | SyntaxKind::PublicFunctionItem
                 | SyntaxKind::StructItem
-                | SyntaxKind::PublicStructItem
                 | SyntaxKind::EnumItem
-                | SyntaxKind::PublicEnumItem
         )
     }
 
@@ -269,9 +220,7 @@ impl SyntaxKind {
         self.is_item()
             || matches!(
                 self,
-                SyntaxKind::LetStatement
-                    | SyntaxKind::LetMutStatement
-                    | SyntaxKind::ExpressionStatement
+                SyntaxKind::LetStatement | SyntaxKind::ExpressionStatement
             )
     }
 
@@ -279,7 +228,7 @@ impl SyntaxKind {
         matches!(
             self,
             SyntaxKind::BooleanExpression
-                | SyntaxKind::ByteExpression
+                | SyntaxKind::HexadecimalIntegerExpression
                 | SyntaxKind::CharacterExpression
                 | SyntaxKind::FloatExpression
                 | SyntaxKind::IntegerExpression
@@ -325,7 +274,7 @@ impl SyntaxKind {
         matches!(
             self,
             SyntaxKind::BooleanExpression
-                | SyntaxKind::ByteExpression
+                | SyntaxKind::HexadecimalIntegerExpression
                 | SyntaxKind::CharacterExpression
                 | SyntaxKind::FloatExpression
                 | SyntaxKind::IntegerExpression
@@ -338,13 +287,13 @@ impl SyntaxKind {
             SyntaxKind::AdditionAssignmentExpression => "addition assignment expression",
             SyntaxKind::AdditionExpression => "addition expression",
             SyntaxKind::AndExpression => "and expression",
-            SyntaxKind::AnyType => "any type",
             SyntaxKind::AsExpression => "as expression",
+            SyntaxKind::AssignmentExpression => "reassignment expression",
             SyntaxKind::BlockExpression => "block expression",
             SyntaxKind::BooleanExpression => "boolean expression",
             SyntaxKind::BooleanType => "boolean type",
             SyntaxKind::BreakExpression => "break expression",
-            SyntaxKind::ByteExpression => "byte expression",
+            SyntaxKind::HexadecimalIntegerExpression => "hexadecimal integer expression",
             SyntaxKind::CallExpression => "call expression",
             SyntaxKind::CharacterExpression => "character expression",
             SyntaxKind::CharacterType => "character type",
@@ -377,10 +326,8 @@ impl SyntaxKind {
             SyntaxKind::IntegerExpression => "integer expression",
             SyntaxKind::LessThanExpression => "less than expression",
             SyntaxKind::LessThanOrEqualExpression => "less than or equal expression",
-            SyntaxKind::LetMutStatement => "let mut statement",
             SyntaxKind::LetStatement => "let statement",
             SyntaxKind::ListExpression => "list expression",
-            SyntaxKind::ListType => "list type",
             SyntaxKind::ModuleBody => "module body",
             SyntaxKind::ModuleItem => "module item",
             SyntaxKind::ModuloAssignmentExpression => "modulo assignment expression",
@@ -390,21 +337,17 @@ impl SyntaxKind {
             }
             SyntaxKind::MultiplicationExpression => "multiplication expression",
             SyntaxKind::NegationExpression => "negation expression",
+            SyntaxKind::NeverType => "never type",
             SyntaxKind::NotEqualExpression => "not equal expression",
             SyntaxKind::NotExpression => "not expression",
             SyntaxKind::OrExpression => "or expression",
             SyntaxKind::Path => "path",
             SyntaxKind::PathExpression => "path expression",
             SyntaxKind::PathSegment => "path segment",
-            SyntaxKind::PublicEnumItem => "public enum item",
-            SyntaxKind::PublicFunctionItem => "public function item",
-            SyntaxKind::PublicModuleItem => "public module item",
-            SyntaxKind::PublicStructItem => "public struct item",
-            SyntaxKind::PublicUseItem => "public use item",
-            SyntaxKind::AssignmentExpression => "reassignment expression",
             SyntaxKind::ReturnExpression => "return expression",
             SyntaxKind::Root => "root",
             SyntaxKind::SimplePath => "simple path",
+            SyntaxKind::SliceType => "slice type",
             SyntaxKind::StringExpression => "string expression",
             SyntaxKind::StringType => "string type",
             SyntaxKind::StructExpression => "struct expression",
@@ -460,7 +403,7 @@ impl SyntaxPayload {
         }
     }
 
-    pub fn children(left: SyntaxId, right: SyntaxId) -> Self {
+    pub fn binary_children(left: SyntaxId, right: SyntaxId) -> Self {
         Self {
             left: left.0,
             right: right.0,
@@ -654,5 +597,4 @@ pub enum SyntaxPayloadKind {
     SingleChild,
     BinaryChildren,
     MultipleChildren,
-    Value,
 }

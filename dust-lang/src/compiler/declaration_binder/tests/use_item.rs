@@ -1,6 +1,6 @@
 use crate::{
     compiler::declaration_binder::tests::bind_declarations,
-    resolver::{declaration_graph::Definition, scope_graph::ScopeKind},
+    resolver::{declarations::Definition, scopes::ScopeKind},
     source::SourceFileId,
     syntax::node::SyntaxKind,
 };

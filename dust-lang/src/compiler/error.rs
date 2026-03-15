@@ -7,10 +7,10 @@ use crate::{
     instruction::OperandType,
     resolver::{
         Resolver,
-        declaration_graph::DeclarationId,
+        declarations::DeclarationId,
         error::ResolverError,
-        symbol_table::SymbolId,
-        type_graph::{Type, TypeId},
+        symbols::SymbolId,
+        types::{Type, TypeId},
     },
     source::{Position, Source, SourceError},
     syntax::{error::SyntaxError, node::SyntaxKind},
@@ -30,6 +30,10 @@ pub enum CompileError {
         left_position: Position,
         right_type: OperandType,
         right_position: Position,
+    },
+    CannotImport {
+        declaration_id: DeclarationId,
+        position: Position,
     },
     CannotInferType {
         type_id: TypeId,
@@ -910,6 +914,41 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         ),
                     );
                 }
+
+                groups.push(group);
+            }
+            CompileError::CannotImport { declaration_id, position } => {
+                let title = "Cannot import".to_string();
+                let declaration = match resolver.declarations.get_declaration(*declaration_id) {
+                    Ok(declaration) => declaration,
+                    Err(error) => {
+                        error.add_report((), groups);
+
+                        return;
+                    }
+                };
+                let name = match resolver.symbols.get_symbol(&declaration.symbol_id) {
+                    Ok(name) => name,
+                    Err(error) => {
+                        error.add_report((), groups);
+
+                        return;
+                    }
+                };
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!("Cannot import \"{name}\" here.")),
+                    ),
+                );
 
                 groups.push(group);
             }

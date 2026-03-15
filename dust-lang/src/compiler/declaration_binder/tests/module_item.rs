@@ -1,8 +1,8 @@
 use crate::{
     compiler::declaration_binder::tests::{bind_declarations, find_declaration},
     resolver::{
-        declaration_graph::{Definition, ModuleKind},
-        scope_graph::ScopeKind,
+        declarations::{Definition, ModuleKind},
+        scopes::ScopeKind,
     },
     source::SourceFileId,
     syntax::node::SyntaxKind,

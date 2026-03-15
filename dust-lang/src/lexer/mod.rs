@@ -625,13 +625,6 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
             _ => None,
         },
         3 => match token[0] {
-            b'a' => {
-                if &token[1..3] == b"ny" {
-                    Some(TokenKind::Any)
-                } else {
-                    None
-                }
-            }
             b'f' => match &token[1..3] {
                 b"32" => Some(TokenKind::F32),
                 b"64" => Some(TokenKind::F64),

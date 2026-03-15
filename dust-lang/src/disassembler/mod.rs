@@ -15,8 +15,7 @@ use tracing::error;
 use crate::{
     instruction::OperandType,
     program::Program,
-    prototype::Prototype,
-    prototype::PrototypeId,
+    prototype::{Prototype, PrototypeId},
     resolver::Resolver,
     source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, tree::SyntaxTree},
@@ -57,21 +56,45 @@ impl<'a> Disassembler<'a> {
         tabs.push(Tab::Declarations);
 
         for (id, prototype) in program.prototypes.iter() {
-            let found_declaration = resolver
-                .declarations
-                .find_prototype_declaration(id)
-                .unwrap();
-            let function_name = if let Some(declaration) = found_declaration {
-                let symbol = resolver.symbols.get_symbol(&declaration.symbol_id).unwrap();
+            let name_display = if let Some(symbol_id) = prototype.debug_symbol_id {
+                let symbol = resolver.symbols.get_symbol(&symbol_id).unwrap();
 
-                Some(symbol)
+                symbol.to_string()
             } else {
-                None
+                let file = source.get_file(prototype.debug_position.file_id).unwrap();
+                let file_name = file.file_name();
+                let span_range = prototype.debug_position.span.as_usize_range();
+                let (start_line, start_column) = file.content_as_str()[..span_range.start]
+                    .lines()
+                    .fold((1, 0), |(line, column), line_content| {
+                        let line_length = line_content.chars().count() + 1;
+
+                        if column + line_length > span_range.start {
+                            (line, column)
+                        } else {
+                            (line + 1, column + line_length)
+                        }
+                    });
+                let (end_line, end_column) = file.content_as_str()
+                    [span_range.start..span_range.end]
+                    .lines()
+                    .fold((start_line, 0), |(line, column), line_content| {
+                        let line_length = line_content.chars().count() + 1;
+
+                        if column + line_length > span_range.end {
+                            (line, column)
+                        } else {
+                            (line + 1, column + line_length)
+                        }
+                    });
+
+                format!(
+                    "closure @ {file_name} {start_line}:{start_column}..{end_line}:{end_column}"
+                )
             };
-            let (source, source_lines, source_width) = if let Some(declaration) = found_declaration
-                && let Some((position, _)) = declaration.syntax
-            {
-                let content = source.get_file_content(&position).unwrap();
+
+            let (source, source_lines, source_width) = {
+                let content = source.get_file_content(&prototype.debug_position).unwrap();
                 let mut line_count = 0;
                 let mut max_width = 0;
 
@@ -81,14 +104,12 @@ impl<'a> Disassembler<'a> {
                 }
 
                 (Some(content), line_count, max_width)
-            } else {
-                (None, 0, 0)
             };
 
             tabs.push(Tab::Prototype(PrototypeTab {
                 id,
                 prototype,
-                function_name,
+                name_display,
                 source,
                 source_lines,
                 source_width,
@@ -198,7 +219,7 @@ impl<'a> Disassembler<'a> {
         let PrototypeTab {
             id,
             prototype,
-            function_name,
+            name_display,
             source,
             source_lines,
             source_width,
@@ -225,7 +246,6 @@ impl<'a> Disassembler<'a> {
             Constraint::Length(source_lines + 1),
             Constraint::Length(2),
             Constraint::Length(get_section_length(prototype.instructions.len())),
-            Constraint::Length(get_section_length(prototype.drops.len())),
         ]);
         let [
             name_area,
@@ -236,7 +256,7 @@ impl<'a> Disassembler<'a> {
             _drop_lists_area,
         ] = areas.flex(Flex::Start).areas(inner_area);
 
-        Paragraph::new(function_name.unwrap_or("anonymous"))
+        Paragraph::new(name_display.as_str())
             .centered()
             .wrap(Wrap { trim: true })
             .bold()
@@ -460,15 +480,11 @@ impl<'a> From<&'a Tab<'a>> for Line<'a> {
                 Line::from(vec![title, file_name])
             }
             Tab::Declarations => Line::from("Declarations"),
-            Tab::Prototype(PrototypeTab { function_name, .. }) => {
+            Tab::Prototype(PrototypeTab { name_display, .. }) => {
                 let title = Span::raw("Prototype: ");
-                let function_name = if let Some(function_name) = function_name {
-                    Span::styled(*function_name, Style::default().bold())
-                } else {
-                    Span::styled("anonymous", Style::default().bold())
-                };
+                let name_display = Span::raw(name_display.as_str());
 
-                Line::from(vec![title, function_name])
+                Line::from(vec![title, name_display])
             }
         }
     }
@@ -477,7 +493,7 @@ impl<'a> From<&'a Tab<'a>> for Line<'a> {
 struct PrototypeTab<'a> {
     id: PrototypeId,
     prototype: &'a Prototype,
-    function_name: Option<&'a str>,
+    name_display: String,
     source: Option<&'a str>,
     source_lines: u16,
     source_width: u16,

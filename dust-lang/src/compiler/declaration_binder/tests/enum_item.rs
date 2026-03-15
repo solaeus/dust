@@ -1,6 +1,6 @@
 use crate::{
     compiler::declaration_binder::tests::{bind_declarations, find_declaration},
-    resolver::declaration_graph::Definition,
+    resolver::declarations::Definition,
     source::SourceFileId,
     syntax::node::SyntaxKind,
 };
@@ -50,7 +50,7 @@ fn creates_type_declaration() {
         .iter()
         .find(|node| node.kind() == SyntaxKind::EnumVariant)
         .unwrap();
-    let variant_name = variant.child().unwrap();
+    let variant_name = variant.single_child().unwrap();
     let (red_id, _) = find_declaration(&mut resolver, "Red").unwrap();
 
     assert_eq!(

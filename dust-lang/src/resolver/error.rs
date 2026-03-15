@@ -1,10 +1,10 @@
 use crate::{
     error::AnnotatedError,
     resolver::{
-        declaration_graph::{DeclarationId, DeclarationMembers},
-        scope_graph::ScopeId,
-        symbol_table::SymbolId,
-        type_graph::{TypeId, TypeMembers},
+        declarations::{DeclarationId, DeclarationMembers},
+        scopes::ScopeId,
+        symbols::SymbolId,
+        types::{TypeId, TypeMembers},
     },
     syntax::SyntaxId,
 };
@@ -25,7 +25,7 @@ pub enum ResolverError {
     MissingTypeMembers(TypeMembers),
     MissingTypeBinding(SyntaxId),
     MissingFunctionDeclaration(DeclarationId),
-    MissingFieldDeclaration(DeclarationId),
+    ExpectedFieldDeclaration(DeclarationId),
     MissingAlgebraicTypeDeclaration(DeclarationId),
     MissingTypeArgument(DeclarationId),
 }

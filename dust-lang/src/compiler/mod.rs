@@ -23,8 +23,8 @@ use crate::{
     prototype::{PrototypeId, PrototypeList},
     resolver::{
         Resolver,
-        declaration_graph::{Definition, Visibility},
-        scope_graph::{Scope, ScopeId, ScopeKind},
+        declarations::{Definition, Visibility},
+        scopes::{Scope, ScopeId, ScopeKind},
     },
     source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, visitor::SyntaxVisitor},
@@ -155,8 +155,8 @@ impl<'src> Compiler<'src> {
         let crate_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Crate,
             parent: ScopeId::NONE,
-            modules: SmallVec::new(),
-            imports: SmallVec::new(),
+            modules: Vec::new(),
+            imports: Vec::new(),
         });
         let main_file_root = unwrap_or_return!(
             self.syntax

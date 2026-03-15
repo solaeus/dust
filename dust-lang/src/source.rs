@@ -321,7 +321,7 @@ impl<'src> SourceFile<'src> {
 }
 
 /// Represents a slice of a file's content that can be read from the `Source`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Position {
     pub file_id: SourceFileId,
     pub span: Span,
@@ -354,6 +354,10 @@ impl Span {
         let end = end.try_into().unwrap_or_default().max(start);
 
         Self(start, end)
+    }
+
+    pub fn empty() -> Self {
+        Self(0, 0)
     }
 
     pub fn as_usize_range(&self) -> Range<usize> {

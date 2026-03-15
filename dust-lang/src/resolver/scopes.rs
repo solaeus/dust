@@ -1,21 +1,17 @@
-use smallvec::SmallVec;
-
-use crate::resolver::{declaration_graph::DeclarationId, error::ResolverError};
+use crate::resolver::{declarations::DeclarationId, error::ResolverError};
 
 #[derive(Debug, Default)]
-pub struct ScopeGraph {
+pub struct Scopes {
     scopes: Vec<Scope>,
 }
 
-impl ScopeGraph {
+impl Scopes {
     pub fn new() -> Self {
         Self { scopes: Vec::new() }
     }
 
-    pub fn add_scope(&mut self, mut scope: Scope) -> ScopeId {
+    pub fn add_scope(&mut self, scope: Scope) -> ScopeId {
         let id = ScopeId(self.scopes.len() as u32);
-
-        scope.modules.push(ScopeId::CORE);
 
         self.scopes.push(scope);
 
@@ -45,8 +41,8 @@ impl ScopeId {
 pub struct Scope {
     pub kind: ScopeKind,
     pub parent: ScopeId,
-    pub modules: SmallVec<[ScopeId; 4]>,
-    pub imports: SmallVec<[DeclarationId; 4]>,
+    pub modules: Vec<ScopeId>,
+    pub imports: Vec<DeclarationId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

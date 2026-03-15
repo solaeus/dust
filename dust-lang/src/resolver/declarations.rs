@@ -6,28 +6,25 @@ use smallvec::SmallVec;
 use crate::{
     native_function::NativeFunction,
     resolver::{
-        TypeId, error::ResolverError, scope_graph::ScopeId, symbol_table::SymbolId,
-        type_graph::TypeMembers,
+        TypeId, error::ResolverError, scopes::ScopeId, symbols::SymbolId, types::TypeMembers,
     },
     source::{Position, SourceFileId},
     syntax::SyntaxId,
 };
 
 #[derive(Debug)]
-pub struct DeclarationGraph {
+pub struct Declarations {
     declarations: Vec<Declaration>,
     declaration_lookup: HashMap<DeclarationKey, DeclarationId, FxBuildHasher>,
     declaration_members: Vec<DeclarationId>,
-    declaration_types: HashMap<DeclarationId, TypeId, FxBuildHasher>,
 }
 
-impl DeclarationGraph {
+impl Declarations {
     pub fn new() -> Self {
         Self {
             declarations: Vec::new(),
             declaration_lookup: HashMap::default(),
             declaration_members: Vec::new(),
-            declaration_types: HashMap::default(),
         }
     }
 
@@ -55,17 +52,6 @@ impl DeclarationGraph {
         self.declarations
             .get(id.0 as usize)
             .ok_or(ResolverError::MissingDeclaration(id))
-    }
-
-    pub fn set_declaration_type(&mut self, id: DeclarationId, type_id: TypeId) {
-        self.declaration_types.insert(id, type_id);
-    }
-
-    pub fn get_declaration_type(&self, id: DeclarationId) -> Result<TypeId, ResolverError> {
-        self.declaration_types
-            .get(&id)
-            .copied()
-            .ok_or(ResolverError::MissingDeclarationType(id))
     }
 
     pub fn find_declaration(
@@ -96,17 +82,9 @@ impl DeclarationGraph {
     /// used for error reporting or debugging.
     pub fn find_type_declaration(
         &self,
-        type_id: TypeId,
+        _type_id: TypeId,
     ) -> Result<Option<&Declaration>, ResolverError> {
-        for (declaration_id, declaration_type_id) in &self.declaration_types {
-            if *declaration_type_id == type_id {
-                let declaration = self.get_declaration(*declaration_id)?;
-
-                return Ok(Some(declaration));
-            }
-        }
-
-        Ok(None)
+        todo!()
     }
 
     pub fn next_declaration_id(&self) -> DeclarationId {
@@ -172,17 +150,18 @@ pub struct Declaration {
 
 #[derive(Clone, Copy, Debug)]
 pub enum Definition {
-    /// A block-scoped variable created by a `let` statement or a function parameter. Must have an
-    /// associated type ID.
+    /// A `let` statement or a function value parameter.
     ///
-    /// - `let mut x: f64 = 42;`
+    /// - `let x = 42;`
+    /// - `let mut y: u64 = 666;`
     /// - `a: f64` in `fn foo(a: f64) { ... }`
     Local {
         mutable: bool,
         shadowed: Option<DeclarationId>,
+        type_id: TypeId,
     },
 
-    /// A namespace that can contain other declarations, either inline or in another file.
+    /// A `mod` item, which can contain other declarations, either inline or in another file.
     ///
     /// - `mod foo { mod bar { ... } }`
     /// - `mod foo;`
@@ -192,8 +171,14 @@ pub enum Definition {
         inner_scope_id: ScopeId,
     },
 
-    /// Definition of a declared function that stores its type and metadata. This type definition
-    /// can be instantiated as a [`Type::FunctionDefinition`][].
+    /// A `use` item, which imports an item or enum variant to its scope. When public, it also
+    /// exports the item.
+    ///
+    /// - `use foo::bar;`
+    /// - `pub use SomeEnum::Variant;`
+    Use { public: bool, item: DeclarationId },
+
+    /// A `fn` item. This type definition can be instantiated as [`Type::FunctionDefinition`][].
     ///
     /// - `fn yo() { ... }`
     /// - `fn foo<T>(x: T) -> T { ... }`
@@ -219,7 +204,7 @@ pub enum Definition {
         return_type_id: TypeId,
     },
 
-    /// Definition of a declared product type. This type definition can be instantiated as
+    /// Definition of a declared product type. A struct type definition can be instantiated as
     /// `Type::Algebraic`.
     ///
     /// - `struct Foo<T>(T);`
@@ -229,6 +214,11 @@ pub enum Definition {
         type_parameters: DeclarationMembers,
         fields: DeclarationMembers,
     },
+
+    /// Fields are the members of a struct type.
+    ///
+    /// `foo: f32` in `struct Bar { foo: f32 }`
+    Field { public: bool, type_id: TypeId },
 
     /// Definition of a declared sum type. This type definition can be instantiated as
     /// `Type::Algebraic`.
@@ -246,16 +236,30 @@ pub enum Definition {
         variants: DeclarationMembers,
     },
 
+    /// Variants are the members of an enum type. This is essentially a struct type with a
+    /// discriminant field.
+    ///
+    /// Bar(T) in `enum Foo<T> { Bar(T), ... }`
+    ///
+    /// ```
+    /// enum Foo {
+    ///   Bar = 0, // Fieldless variants can specify a discriminant
+    ///   Baz = 1,
+    ///   Qux = 2,
+    /// }
+    /// ```
+    ///
+    Variant {
+        discriminant: u32,
+        type_parameters: DeclarationMembers,
+        fields: DeclarationMembers,
+    },
+
     /// Type parameters have a unique `Type::Generic` type. When a type is instantiated, the type
     /// instance is given a type argument for each type parameter. Must have an associated type ID.
     ///
     /// `T` in `fn foo<T>(x: T) -> T { ... }`
     TypeParameter,
-
-    /// Fields are the members of a product (`struct`) type. Must have an associated type ID.
-    ///
-    /// `foo: f32` in `struct Bar { foo: f32 }`
-    Field { public: bool },
 }
 
 impl Definition {
@@ -267,8 +271,9 @@ impl Definition {
             | Definition::NativeFunction { .. }
             | Definition::StructType { .. }
             | Definition::EnumType { .. }
-            | Definition::TypeParameter { .. } => Visibility::Module,
-            Definition::Field { .. } => Visibility::Type,
+            | Definition::TypeParameter { .. }
+            | Definition::Use { .. } => Visibility::Module,
+            Definition::Field { .. } | Definition::Variant { .. } => Visibility::Type,
         }
     }
 }
