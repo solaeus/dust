@@ -243,7 +243,7 @@ pub enum Definition {
     ///
     /// ```
     /// enum Foo {
-    ///   Bar = 0, // Fieldless variants can specify a discriminant
+    ///   Bar = 0, // If all variants have no fields, the discriminant can be specified manually.
     ///   Baz = 1,
     ///   Qux = 2,
     /// }

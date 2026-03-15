@@ -45,6 +45,7 @@ impl Types {
 
         debug_assert_eq!(_unit_type_id, TypeId::UNIT);
         debug_assert_eq!(_boolean_type_id, TypeId::BOOLEAN);
+        debug_assert_eq!(_character_type_id, TypeId::CHARACTER);
         debug_assert_eq!(_i8_type_id, TypeId::I_8);
         debug_assert_eq!(_i16_type_id, TypeId::I_16);
         debug_assert_eq!(_i32_type_id, TypeId::I_32);
@@ -57,7 +58,6 @@ impl Types {
         debug_assert_eq!(_u128_type_id, TypeId::U_128);
         debug_assert_eq!(_f32_type_id, TypeId::F_32);
         debug_assert_eq!(_f64_type_id, TypeId::F_64);
-        debug_assert_eq!(_character_type_id, TypeId::CHARACTER);
         debug_assert_eq!(_never_type_id, TypeId::NEVER);
 
         types
@@ -668,11 +668,11 @@ impl Hash for Type {
                 return_type_id.hash(state);
             }
             Type::Function {
-                value_parameters: parameter_types,
+                value_parameters,
                 return_type,
             } => {
                 state.write_u8(20);
-                parameter_types.hash(state);
+                value_parameters.hash(state);
                 return_type.hash(state);
             }
             Type::Algebraic {

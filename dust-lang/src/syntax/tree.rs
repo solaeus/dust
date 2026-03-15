@@ -1,7 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
 
 use crate::{
     source::SourceFileId,

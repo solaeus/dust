@@ -505,10 +505,10 @@ impl<'src> Parser<'src> {
 
         let mut children = Self::new_child_buffer();
 
-        let path_node = self.expect_simple_path()?;
-        let path_id = self.tree_builder.add_node(path_node);
+        let name_node = self.expect_simple_path()?;
+        let name_id = self.tree_builder.add_node(name_node);
 
-        children.push(path_id);
+        children.push(name_id);
 
         let type_parameters_id = self
             .allow_type_parameters()?

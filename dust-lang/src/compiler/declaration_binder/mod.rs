@@ -462,7 +462,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     members: DeclarationMembers::default(),
                 },
                 scope_id: self.current_scope_id,
-                public: false,
                 syntax: Some((variant.position(), variant.id)),
             });
 

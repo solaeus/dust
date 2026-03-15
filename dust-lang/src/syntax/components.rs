@@ -131,3 +131,45 @@ impl<'a> SyntaxComponent<'a> for StructField<'a> {
         })
     }
 }
+
+pub struct EnumItem<'a> {
+    pub public: bool,
+    pub name: SyntaxReader<'a>,
+    pub type_parameters: Option<SyntaxReader<'a>>,
+    pub variants: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for EnumItem<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting enum item");
+        debug_assert!(reader.kind() == SyntaxKind::EnumItem);
+
+        let mut children = reader.children();
+
+        Ok(Self {
+            public: reader.modifier(),
+            name: children.expect_next()?,
+            variants: children.expect_next()?,
+            type_parameters: children.next(),
+        })
+    }
+}
+
+pub struct EnumVariant<'a> {
+    pub name: SyntaxReader<'a>,
+    pub fields: Option<SyntaxReader<'a>>,
+}
+
+impl<'a> SyntaxComponent<'a> for EnumVariant<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting enum variant");
+        debug_assert!(reader.kind() == SyntaxKind::EnumVariant);
+
+        let mut children = reader.children();
+
+        Ok(Self {
+            name: children.expect_next()?,
+            fields: children.next(),
+        })
+    }
+}
