@@ -36,7 +36,7 @@ fn empty_fields() {
             StructExpression.with_binary_children(Span::new(16, 22), SyntaxId(6), SyntaxId(7)),
             Path.with_child(Span::new(16, 19), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 19)),
-            StructFields.empty(Span::new(21, 22)),
+            StructExpressionFields.empty(Span::new(21, 22)),
         ]
     );
 }
@@ -68,11 +68,19 @@ fn fields() {
             StructExpression.with_binary_children(Span::new(16, 37), SyntaxId(6), SyntaxId(13)),
             Path.with_child(Span::new(16, 19), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 19)),
-            StructFields.with_binary_children(Span::new(22, 37), SyntaxId(9), SyntaxId(12)),
-            StructField.with_binary_children(Span::new(22, 28), SyntaxId(7), SyntaxId(8)),
+            StructExpressionFields.with_binary_children(
+                Span::new(22, 37),
+                SyntaxId(9),
+                SyntaxId(12)
+            ),
+            StructDeclartionField.with_binary_children(Span::new(22, 28), SyntaxId(7), SyntaxId(8)),
             SimplePath.empty(Span::new(22, 23)),
             IntegerExpression.with_value(Span::new(25, 27), SyntaxPayload::encode_integer(42)),
-            StructField.with_binary_children(Span::new(22, 35), SyntaxId(10), SyntaxId(11)),
+            StructDeclartionField.with_binary_children(
+                Span::new(22, 35),
+                SyntaxId(10),
+                SyntaxId(11)
+            ),
             SimplePath.empty(Span::new(29, 30)),
             IntegerExpression.with_value(Span::new(32, 35), SyntaxPayload::encode_integer(666)),
         ]

@@ -85,7 +85,7 @@ fn fields_variant() {
             EnumVariant.with_binary_children(Span::new(11, 33), SyntaxId(2), SyntaxId(8)),
             SimplePath.empty(Span::new(11, 14)),
             EnumVariant.with_child(Span::new(11, 33), SyntaxId(7)),
-            StructFieldsDeclaration.with_multiple_children(Span::new(15, 33), 0, 4),
+            StructDeclarationFields.with_multiple_children(Span::new(15, 33), 0, 4),
             SimplePath.empty(Span::new(17, 18)),
             I64Type.empty(Span::new(20, 23)),
             SimplePath.empty(Span::new(25, 26)),
@@ -124,7 +124,7 @@ fn mixed_variants() {
             EnumVariant.with_binary_children(Span::new(26, 40), SyntaxId(9), SyntaxId(13)),
             SimplePath.empty(Span::new(26, 29)),
             EnumVariant.with_child(Span::new(26, 40), SyntaxId(12)),
-            StructFieldsDeclaration.with_binary_children(
+            StructDeclarationFields.with_binary_children(
                 Span::new(30, 40),
                 SyntaxId(10),
                 SyntaxId(11)

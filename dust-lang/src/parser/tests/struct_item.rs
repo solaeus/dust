@@ -21,7 +21,7 @@ fn empty() {
             Root.with_child(Span::new(0, 13), SyntaxId(3)),
             StructItem.with_binary_children(Span::new(0, 13), SyntaxId(1), SyntaxId(2)),
             SimplePath.empty(Span::new(7, 10)),
-            StructFieldsDeclaration.empty(Span::new(11, 13)),
+            StructDeclarationFields.empty(Span::new(11, 13)),
         ]
     );
 }
@@ -75,7 +75,7 @@ fn fields() {
             Root.with_child(Span::new(0, 29), SyntaxId(7)),
             StructItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(7, 10)),
-            StructFieldsDeclaration.with_multiple_children(Span::new(11, 29), 0, 4),
+            StructDeclarationFields.with_multiple_children(Span::new(11, 29), 0, 4),
             SimplePath.empty(Span::new(13, 14)),
             I64Type.empty(Span::new(16, 19)),
             SimplePath.empty(Span::new(21, 22)),
@@ -107,7 +107,7 @@ fn type_parameters() {
             SimplePath.empty(Span::new(11, 12)),
             SimplePath.empty(Span::new(14, 15)),
             SimplePath.empty(Span::new(17, 18)),
-            StructFieldsDeclaration.empty(Span::new(20, 22)),
+            StructDeclarationFields.empty(Span::new(20, 22)),
         ]
     );
 }

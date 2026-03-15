@@ -44,7 +44,7 @@ fn creates_type_declaration() {
 
     let fields = tree
         .iter()
-        .find(|node| node.kind() == SyntaxKind::StructFieldsDeclaration)
+        .find(|node| node.kind() == SyntaxKind::StructDeclarationFields)
         .unwrap();
     let field_name = fields.children().next().unwrap();
 

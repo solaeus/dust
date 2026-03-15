@@ -218,7 +218,11 @@ pub enum Definition {
     /// Fields are the members of a struct type.
     ///
     /// `foo: f32` in `struct Bar { foo: f32 }`
-    Field { public: bool, type_id: TypeId },
+    Field {
+        public: bool,
+        parent_struct: DeclarationId,
+        type_id: TypeId,
+    },
 
     /// Definition of a declared sum type. This type definition can be instantiated as
     /// `Type::Algebraic`.
@@ -251,6 +255,7 @@ pub enum Definition {
     ///
     Variant {
         discriminant: u32,
+        parent_enum: DeclarationId,
         type_parameters: DeclarationMembers,
         fields: DeclarationMembers,
     },

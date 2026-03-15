@@ -254,10 +254,13 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
 
                 child_id
             }
-            SyntaxPayloadKind::MultipleChildren
-                if self.current_index < self.parent.child_count() =>
-            {
+            SyntaxPayloadKind::MultipleChildren => {
                 let child_index = self.parent.children_payload().left as usize + self.current_index;
+
+                if child_index >= self.parent.children_payload().right as usize {
+                    return None;
+                }
+
                 self.current_index += 1;
 
                 self.parent.tree.children[child_index]

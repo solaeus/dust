@@ -120,7 +120,7 @@ pub struct StructField<'a> {
 impl<'a> SyntaxComponent<'a> for StructField<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting struct field");
-        debug_assert!(reader.kind() == SyntaxKind::StructField);
+        debug_assert!(reader.kind() == SyntaxKind::StructDeclartionField);
 
         let (r#type, name) = reader.single_or_binary_children()?;
 
@@ -171,5 +171,266 @@ impl<'a> SyntaxComponent<'a> for EnumVariant<'a> {
             name: children.expect_next()?,
             fields: children.next(),
         })
+    }
+}
+
+pub struct LetStatement<'a> {
+    pub mutable: bool,
+    pub name: SyntaxReader<'a>,
+    pub expression: SyntaxReader<'a>,
+    pub type_notation: Option<SyntaxReader<'a>>,
+}
+
+impl<'a> SyntaxComponent<'a> for LetStatement<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting let statement");
+        debug_assert!(matches!(reader.kind(), SyntaxKind::LetStatement));
+
+        let mut children = reader.children();
+
+        Ok(Self {
+            mutable: reader.modifier(),
+            name: children.expect_next()?,
+            expression: children.expect_next()?,
+            type_notation: children.next(),
+        })
+    }
+}
+
+pub struct ExpressionStatement<'a> {
+    pub expression: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for ExpressionStatement<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting expression statement");
+        debug_assert!(matches!(reader.kind(), SyntaxKind::ExpressionStatement));
+
+        Ok(Self {
+            expression: reader.single_child()?,
+        })
+    }
+}
+
+pub struct AssignmentExpression<'a> {
+    pub target: SyntaxReader<'a>,
+    pub value: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for AssignmentExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting assignment expression");
+        debug_assert!(matches!(reader.kind(), SyntaxKind::AssignmentExpression));
+
+        let (target, value) = reader.binary_children()?;
+
+        Ok(Self { target, value })
+    }
+}
+
+pub struct CompoundAssignmentExpression<'a> {
+    pub target: SyntaxReader<'a>,
+    pub value: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for CompoundAssignmentExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting compound assignment expression");
+        debug_assert!(matches!(
+            reader.kind(),
+            SyntaxKind::AdditionAssignmentExpression
+                | SyntaxKind::SubtractionAssignmentExpression
+                | SyntaxKind::MultiplicationAssignmentExpression
+                | SyntaxKind::DivisionAssignmentExpression
+                | SyntaxKind::ModuloAssignmentExpression
+                | SyntaxKind::ExponentAssignmentExpression
+        ));
+
+        let (target, value) = reader.binary_children()?;
+
+        Ok(Self { target, value })
+    }
+}
+
+pub struct MathExpression<'a> {
+    pub left: SyntaxReader<'a>,
+    pub right: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for MathExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting math expression");
+        debug_assert!(matches!(
+            reader.kind(),
+            SyntaxKind::AdditionExpression
+                | SyntaxKind::SubtractionExpression
+                | SyntaxKind::MultiplicationExpression
+                | SyntaxKind::DivisionExpression
+                | SyntaxKind::ModuloExpression
+                | SyntaxKind::ExponentExpression
+        ));
+
+        let (left, right) = reader.binary_children()?;
+
+        Ok(Self { left, right })
+    }
+}
+
+pub struct ComparisonExpression<'a> {
+    pub left: SyntaxReader<'a>,
+    pub right: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for ComparisonExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting comparison expression");
+        debug_assert!(matches!(
+            reader.kind(),
+            SyntaxKind::EqualExpression
+                | SyntaxKind::NotEqualExpression
+                | SyntaxKind::LessThanExpression
+                | SyntaxKind::GreaterThanExpression
+                | SyntaxKind::LessThanOrEqualExpression
+                | SyntaxKind::GreaterThanOrEqualExpression
+        ));
+
+        let (left, right) = reader.binary_children()?;
+
+        Ok(Self { left, right })
+    }
+}
+
+pub struct LogicExpression<'a> {
+    pub left: SyntaxReader<'a>,
+    pub right: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for LogicExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting logic expression");
+        debug_assert!(matches!(
+            reader.kind(),
+            SyntaxKind::AndExpression | SyntaxKind::OrExpression
+        ));
+
+        let (left, right) = reader.binary_children()?;
+
+        Ok(Self { left, right })
+    }
+}
+
+pub struct NegationExpression<'a> {
+    pub operand: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for NegationExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting negation expression");
+        debug_assert!(matches!(reader.kind(), SyntaxKind::NegationExpression));
+
+        Ok(Self {
+            operand: reader.single_child()?,
+        })
+    }
+}
+
+pub struct IndexExpression<'a> {
+    pub list: SyntaxReader<'a>,
+    pub index: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for IndexExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting index expression");
+        debug_assert!(matches!(reader.kind(), SyntaxKind::IndexExpression));
+
+        let (list, index) = reader.binary_children()?;
+
+        Ok(Self { list, index })
+    }
+}
+
+pub struct IfExpression<'a> {
+    pub condition: SyntaxReader<'a>,
+    pub then_branch: SyntaxReader<'a>,
+    pub else_branch: Option<SyntaxReader<'a>>,
+}
+
+impl<'a> SyntaxComponent<'a> for IfExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting if expression");
+        debug_assert!(matches!(reader.kind(), SyntaxKind::IfExpression));
+
+        let mut children = reader.children();
+
+        Ok(Self {
+            condition: children.expect_next()?,
+            then_branch: children.expect_next()?,
+            else_branch: children.next(),
+        })
+    }
+}
+
+pub struct WhileExpression<'a> {
+    pub condition: SyntaxReader<'a>,
+    pub body: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for WhileExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting while expression");
+        debug_assert!(matches!(reader.kind(), SyntaxKind::WhileExpression));
+
+        let (condition, body) = reader.binary_children()?;
+
+        Ok(Self { condition, body })
+    }
+}
+
+pub struct CallExpression<'a> {
+    pub callee: SyntaxReader<'a>,
+    pub arguments: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for CallExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting call expression");
+        debug_assert!(matches!(reader.kind(), SyntaxKind::CallExpression));
+
+        let (callee, arguments) = reader.binary_children()?;
+
+        Ok(Self { callee, arguments })
+    }
+}
+
+pub struct StructExpression<'a> {
+    pub path: SyntaxReader<'a>,
+    pub fields: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for StructExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting struct expression");
+        debug_assert!(matches!(reader.kind(), SyntaxKind::StructExpression));
+
+        let (path, fields) = reader.binary_children()?;
+
+        Ok(Self { path, fields })
+    }
+}
+
+pub struct StructExpressionField<'a> {
+    pub name: SyntaxReader<'a>,
+    pub expression: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for StructExpressionField<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting struct expression field");
+        debug_assert!(matches!(reader.kind(), SyntaxKind::StructExpressionField));
+
+        let (name, expression) = reader.binary_children()?;
+
+        Ok(Self { name, expression })
     }
 }

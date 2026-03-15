@@ -450,7 +450,7 @@ impl<'src> Parser<'src> {
                     let field_type_node = self.expect_type()?;
                     let field_type_id = self.tree_builder.add_node(field_type_node);
 
-                    let field_node = SyntaxKind::StructField.with_binary_children(
+                    let field_node = SyntaxKind::StructDeclartionField.with_binary_children(
                         Span::new(start, self.previous_token.span.end()),
                         field_name_id,
                         field_type_id,
@@ -461,7 +461,7 @@ impl<'src> Parser<'src> {
                 }
 
                 Ok(self.create_node_with_children(
-                    SyntaxKind::StructFields,
+                    SyntaxKind::StructExpressionFields,
                     Span::new(start, self.previous_token.span.end()),
                     fields,
                 ))
@@ -475,7 +475,7 @@ impl<'src> Parser<'src> {
                     let field_type_node = self.expect_type()?;
                     let field_type_id = self.tree_builder.add_node(field_type_node);
 
-                    let field_node = SyntaxKind::StructField.with_child(
+                    let field_node = SyntaxKind::StructDeclartionField.with_child(
                         Span::new(start, self.previous_token.span.end()),
                         field_type_id,
                     );
@@ -485,7 +485,7 @@ impl<'src> Parser<'src> {
                 }
 
                 Ok(self.create_node_with_children(
-                    SyntaxKind::StructFields,
+                    SyntaxKind::StructExpressionFields,
                     Span::new(start, self.previous_token.span.end()),
                     fields,
                 ))
@@ -1225,7 +1225,7 @@ impl<'src> Parser<'src> {
         if may_be_struct && self.allow(TokenKind::LeftCurlyBrace)? {
             let path_id = self.tree_builder.add_node(path_node);
 
-            let struct_fields_node = self.parse_struct_fields_values()?;
+            let struct_fields_node = self.parse_struct_expression_fields()?;
             let struct_fields_id = self.tree_builder.add_node(struct_fields_node);
 
             return Ok(SyntaxKind::StructExpression.with_binary_children(
@@ -1379,7 +1379,7 @@ impl<'src> Parser<'src> {
         )))
     }
 
-    fn parse_struct_fields_values(&mut self) -> Result<SyntaxNode, ErrorKind> {
+    fn parse_struct_expression_fields(&mut self) -> Result<SyntaxNode, ErrorKind> {
         let start = self.current_token.span.start();
 
         let mut fields = Self::new_child_buffer();
@@ -1395,7 +1395,7 @@ impl<'src> Parser<'src> {
 
             self.allow(TokenKind::Comma)?;
 
-            let field_node = SyntaxKind::StructField.with_binary_children(
+            let field_node = SyntaxKind::StructExpressionField.with_binary_children(
                 Span::new(start, self.previous_token.span.end()),
                 field_path_id,
                 field_expression_id,
@@ -1406,7 +1406,7 @@ impl<'src> Parser<'src> {
         }
 
         Ok(self.create_node_with_children(
-            SyntaxKind::StructFields,
+            SyntaxKind::StructExpressionFields,
             Span::new(start, self.previous_token.span.end()),
             fields,
         ))
