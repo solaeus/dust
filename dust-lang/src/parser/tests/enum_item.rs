@@ -2,7 +2,7 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
-    syntax::{SyntaxId, node::SyntaxKind::*},
+    syntax::{SyntaxId, node::{SyntaxKind::*, SyntaxPayload}},
 };
 
 #[test]
@@ -85,7 +85,7 @@ fn fields_variant() {
             EnumVariant.with_binary_children(Span::new(11, 33), SyntaxId(2), SyntaxId(8)),
             SimplePath.empty(Span::new(11, 14)),
             EnumVariant.with_child(Span::new(11, 33), SyntaxId(7)),
-            StructDeclarationFields.with_multiple_children(Span::new(15, 33), 0, 4),
+            StructDeclarationFields.with_multiple_children(Span::new(15, 33), SyntaxPayload::child_indices(0, 4)),
             SimplePath.empty(Span::new(17, 18)),
             I64Type.empty(Span::new(20, 23)),
             SimplePath.empty(Span::new(25, 26)),
@@ -113,7 +113,7 @@ fn mixed_variants() {
             Root.with_child(Span::new(0, 42), SyntaxId(16)),
             EnumItem.with_binary_children(Span::new(0, 42), SyntaxId(1), SyntaxId(15)),
             SimplePath.empty(Span::new(5, 8)),
-            EnumVariants.with_multiple_children(Span::new(0, 42), 0, 3),
+            EnumVariants.with_multiple_children(Span::new(0, 42), SyntaxPayload::child_indices(0, 3)),
             EnumVariant.with_child(Span::new(11, 15), SyntaxId(2)),
             SimplePath.empty(Span::new(11, 14)),
             EnumVariant.with_binary_children(Span::new(16, 24), SyntaxId(4), SyntaxId(7)),
@@ -152,12 +152,12 @@ fn type_parameters() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 25), SyntaxId(9)),
-            EnumItem.with_multiple_children(Span::new(0, 25), 3, 3),
+            EnumItem.with_multiple_children(Span::new(0, 25), SyntaxPayload::child_indices(3, 3)),
             SimplePath.empty(Span::new(5, 8)),
             EnumVariants.with_child(Span::new(0, 25), SyntaxId(7)),
             EnumVariant.with_child(Span::new(20, 25), SyntaxId(6)),
             SimplePath.empty(Span::new(20, 23)),
-            TypeParameters.with_multiple_children(Span::new(8, 17), 0, 3),
+            TypeParameters.with_multiple_children(Span::new(8, 17), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(9, 10)),
             SimplePath.empty(Span::new(12, 13)),
             SimplePath.empty(Span::new(15, 16)),

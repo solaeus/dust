@@ -85,6 +85,6 @@ fn handle_output(
             .write_all(&bytes)
             .expect("Failed to write Postcard output to stdout");
     } else if trees {
-        println!("{syntax_tree}");
+        print!("{syntax_tree}");
     }
 }

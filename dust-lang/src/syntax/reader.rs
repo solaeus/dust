@@ -67,10 +67,12 @@ impl<'a> SyntaxReader<'a> {
 
     pub fn child_count(&self) -> usize {
         match self.node.children_kind {
+            SyntaxPayloadKind::Empty => 0,
             SyntaxPayloadKind::SingleChild => 1,
             SyntaxPayloadKind::BinaryChildren => 2,
-            SyntaxPayloadKind::MultipleChildren => self.node.children.right as usize,
-            _ => 0,
+            SyntaxPayloadKind::MultipleChildren => {
+                (self.node.children.right - self.node.children.left) as usize
+            }
         }
     }
 

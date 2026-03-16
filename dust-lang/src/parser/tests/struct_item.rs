@@ -2,7 +2,7 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
-    syntax::{SyntaxId, node::SyntaxKind::*},
+    syntax::{SyntaxId, node::{SyntaxKind::*, SyntaxPayload}},
 };
 
 #[test]
@@ -75,7 +75,7 @@ fn fields() {
             Root.with_child(Span::new(0, 29), SyntaxId(7)),
             StructItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(7, 10)),
-            StructDeclarationFields.with_multiple_children(Span::new(11, 29), 0, 4),
+            StructDeclarationFields.with_multiple_children(Span::new(11, 29), SyntaxPayload::child_indices(0, 4)),
             SimplePath.empty(Span::new(13, 14)),
             I64Type.empty(Span::new(16, 19)),
             SimplePath.empty(Span::new(21, 22)),
@@ -101,9 +101,9 @@ fn type_parameters() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 22), SyntaxId(7)),
-            StructItem.with_multiple_children(Span::new(0, 22), 3, 3),
+            StructItem.with_multiple_children(Span::new(0, 22), SyntaxPayload::child_indices(3, 3)),
             SimplePath.empty(Span::new(7, 10)),
-            TypeParameters.with_multiple_children(Span::new(10, 19), 0, 3),
+            TypeParameters.with_multiple_children(Span::new(10, 19), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(11, 12)),
             SimplePath.empty(Span::new(14, 15)),
             SimplePath.empty(Span::new(17, 18)),

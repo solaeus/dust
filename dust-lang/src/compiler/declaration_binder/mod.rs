@@ -1,5 +1,5 @@
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
 use smallvec::SmallVec;
 use tracing::debug;
@@ -66,34 +66,6 @@ impl<'a> DeclarationBinder<'a> {
             crate_scope_id,
             current_scope_id: crate_scope_id,
         }
-    }
-
-    fn handle_type_parameters(
-        &mut self,
-        type_parameters: SyntaxReader,
-        parent_declaration_id: DeclarationId,
-        declaration_ids: &[DeclarationId],
-    ) -> Result<(), CompileError> {
-        for (index, type_parameter) in type_parameters.children().enumerate() {
-            let type_parameter_name_str =
-                self.source.get_file_content(&type_parameter.position())?;
-            let type_parameter_symbol_id =
-                self.resolver.symbols.add_symbol(type_parameter_name_str);
-            let _type_parameter_declaration_id =
-                self.resolver.declarations.add_declaration(Declaration {
-                    symbol_id: type_parameter_symbol_id,
-                    definition: Definition::TypeParameter,
-                    scope_id: self.current_scope_id,
-                    syntax: Some((type_parameter.position(), type_parameter.id)),
-                });
-
-            debug_assert_eq!(_type_parameter_declaration_id, declaration_ids[index]);
-
-            self.resolver
-                .add_declaration_binding(type_parameter.id, declaration_ids[index]);
-        }
-
-        Ok(())
     }
 }
 

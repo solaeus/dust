@@ -416,10 +416,22 @@ impl<'src> Parser<'src> {
             children.push(type_parameters_id);
         }
 
-        let struct_fields_node = self.expect_struct_fields()?;
-        let struct_fields_id = self.tree_builder.add_node(struct_fields_node);
+        match self.current_token.kind {
+            TokenKind::LeftCurlyBrace => {
+                let fields_node = self.parse_struct_fields()?;
+                let fields_id = self.tree_builder.add_node(fields_node);
 
-        children.push(struct_fields_id);
+                children.push(fields_id);
+            }
+            TokenKind::LeftParenthesis => {
+                let fields_node = self.parse_tuple_fields()?;
+                let fields_id = self.tree_builder.add_node(fields_node);
+
+                children.push(fields_id);
+                self.expect(TokenKind::Semicolon)?;
+            }
+            _ => {}
+        };
 
         Ok(self.create_node_with_children(
             SyntaxKind::StructItem,
@@ -428,74 +440,76 @@ impl<'src> Parser<'src> {
         ))
     }
 
-    fn expect_struct_fields(&mut self) -> Result<SyntaxNode, ErrorKind> {
+    fn parse_struct_fields(&mut self) -> Result<SyntaxNode, ErrorKind> {
         let start = self.current_token.span.start();
 
         self.advance();
 
-        let mut fields = Self::new_child_buffer();
+        let mut field_ids = Self::new_child_buffer();
 
-        match self.previous_token.kind {
-            TokenKind::LeftCurlyBrace => {
-                while !self.allow(TokenKind::RightCurlyBrace)? {
-                    if !fields.is_empty() {
-                        self.expect(TokenKind::Comma)?;
-                    }
+        while !self.allow(TokenKind::RightCurlyBrace)? {
+            let field_node = self.expect_struct_field()?;
+            let field_id = self.tree_builder.add_node(field_node);
 
-                    let field_name_node = self.expect_simple_path()?;
-                    let field_name_id = self.tree_builder.add_node(field_name_node);
+            field_ids.push(field_id);
 
-                    self.expect(TokenKind::Colon)?;
-
-                    let field_type_node = self.expect_type()?;
-                    let field_type_id = self.tree_builder.add_node(field_type_node);
-
-                    let field_node = SyntaxKind::StructDeclartionField.with_binary_children(
-                        Span::new(start, self.previous_token.span.end()),
-                        field_name_id,
-                        field_type_id,
-                    );
-                    let field_id = self.tree_builder.add_node(field_node);
-
-                    fields.push(field_id);
-                }
-
-                Ok(self.create_node_with_children(
-                    SyntaxKind::StructExpressionFields,
-                    Span::new(start, self.previous_token.span.end()),
-                    fields,
-                ))
+            if self.current_token.kind != TokenKind::RightCurlyBrace {
+                self.expect(TokenKind::Comma)?;
             }
-            TokenKind::LeftParenthesis => {
-                while !self.allow(TokenKind::RightParenthesis)? {
-                    if !fields.is_empty() {
-                        self.expect(TokenKind::Comma)?;
-                    }
-
-                    let field_type_node = self.expect_type()?;
-                    let field_type_id = self.tree_builder.add_node(field_type_node);
-
-                    let field_node = SyntaxKind::StructDeclartionField.with_child(
-                        Span::new(start, self.previous_token.span.end()),
-                        field_type_id,
-                    );
-                    let field_id = self.tree_builder.add_node(field_node);
-
-                    fields.push(field_id);
-                }
-
-                Ok(self.create_node_with_children(
-                    SyntaxKind::StructExpressionFields,
-                    Span::new(start, self.previous_token.span.end()),
-                    fields,
-                ))
-            }
-            _ => Err(ErrorKind::Parse(ParseError::ExpectedMultipleTokens {
-                expected: &[TokenKind::LeftCurlyBrace, TokenKind::LeftParenthesis],
-                found: self.previous_token.kind,
-                position: self.current_position(),
-            })),
         }
+
+        Ok(self.create_node_with_children(
+            SyntaxKind::StructExpressionFields,
+            Span::new(start, self.previous_token.span.end()),
+            field_ids,
+        ))
+    }
+
+    fn expect_struct_field(&mut self) -> Result<SyntaxNode, ErrorKind> {
+        let field_name_node = self.expect_simple_path()?;
+        let field_name_id = self.tree_builder.add_node(field_name_node);
+
+        self.expect(TokenKind::Colon)?;
+
+        let field_type_node = self.expect_type()?;
+        let field_type_id = self.tree_builder.add_node(field_type_node);
+
+        Ok(SyntaxKind::StructDeclartionField.with_binary_children(
+            Span::new(field_name_node.span.start(), field_type_node.span.end()),
+            field_name_id,
+            field_type_id,
+        ))
+    }
+
+    fn parse_tuple_fields(&mut self) -> Result<SyntaxNode, ErrorKind> {
+        let start = self.current_token.span.start();
+
+        self.advance();
+
+        let mut field_ids = Self::new_child_buffer();
+
+        while !self.allow(TokenKind::RightParenthesis)? {
+            let field_type_node = self.expect_type()?;
+            let field_type_id = self.tree_builder.add_node(field_type_node);
+
+            let field_node = SyntaxKind::StructDeclartionField.with_child(
+                Span::new(start, self.previous_token.span.end()),
+                field_type_id,
+            );
+            let field_id = self.tree_builder.add_node(field_node);
+
+            field_ids.push(field_id);
+
+            if self.current_token.kind != TokenKind::RightParenthesis {
+                self.expect(TokenKind::Comma)?;
+            }
+        }
+
+        Ok(self.create_node_with_children(
+            SyntaxKind::StructExpressionFields,
+            Span::new(start, self.previous_token.span.end()),
+            field_ids,
+        ))
     }
 
     fn parse_prefix_enum_keyword(&mut self) -> Result<SyntaxNode, ErrorKind> {
@@ -516,7 +530,7 @@ impl<'src> Parser<'src> {
 
         self.expect(TokenKind::LeftCurlyBrace)?;
 
-        let mut variant_nodes = Self::new_child_buffer();
+        let mut variant_ids = Self::new_child_buffer();
 
         while !self.allow(TokenKind::RightCurlyBrace)? {
             let start = self.current_token.span.start();
@@ -524,32 +538,62 @@ impl<'src> Parser<'src> {
             let path_node = self.expect_simple_path()?;
             let path_id = self.tree_builder.add_node(path_node);
 
-            let variant_node = match self.current_token.kind {
-                TokenKind::Comma | TokenKind::RightCurlyBrace => {
+            match self.current_token.kind {
+                TokenKind::Comma => {
                     self.advance();
 
-                    SyntaxKind::EnumVariant
-                        .with_child(Span::new(start, self.previous_token.span.end()), path_id)
+                    let variant_node = SyntaxKind::EnumVariant
+                        .with_child(Span::new(start, self.previous_token.span.end()), path_id);
+                    let variant_id = self.tree_builder.add_node(variant_node);
+
+                    variant_ids.push(variant_id);
+
+                    continue;
+                }
+                TokenKind::RightCurlyBrace => {
+                    self.advance();
+
+                    let variant_node = SyntaxKind::EnumVariant
+                        .with_child(Span::new(start, self.previous_token.span.end()), path_id);
+                    let variant_id = self.tree_builder.add_node(variant_node);
+
+                    variant_ids.push(variant_id);
+
+                    break;
                 }
                 TokenKind::LeftParenthesis => {
-                    let fields_node = self.expect_struct_fields()?;
+                    let fields_node = self.parse_tuple_fields()?;
                     let fields_id = self.tree_builder.add_node(fields_node);
 
-                    SyntaxKind::EnumVariant.with_binary_children(
+                    let variant_node = SyntaxKind::EnumVariant.with_binary_children(
                         Span::new(start, self.previous_token.span.end()),
                         path_id,
                         fields_id,
-                    )
+                    );
+                    let variant_id = self.tree_builder.add_node(variant_node);
+
+                    variant_ids.push(variant_id);
+
+                    if self.current_token.kind != TokenKind::RightCurlyBrace {
+                        self.expect(TokenKind::Comma)?;
+                    }
                 }
                 TokenKind::LeftCurlyBrace => {
-                    let fields_node = self.expect_struct_fields()?;
+                    let fields_node = self.parse_struct_fields()?;
                     let fields_id = self.tree_builder.add_node(fields_node);
 
-                    SyntaxKind::EnumVariant.with_binary_children(
+                    let variant_node = SyntaxKind::EnumVariant.with_binary_children(
                         Span::new(start, self.previous_token.span.end()),
                         path_id,
                         fields_id,
-                    )
+                    );
+                    let variant_id = self.tree_builder.add_node(variant_node);
+
+                    variant_ids.push(variant_id);
+
+                    if self.current_token.kind != TokenKind::RightCurlyBrace {
+                        self.expect(TokenKind::Comma)?;
+                    }
                 }
                 _ => {
                     return Err(ErrorKind::Parse(ParseError::ExpectedMultipleTokens {
@@ -557,22 +601,19 @@ impl<'src> Parser<'src> {
                             TokenKind::Comma,
                             TokenKind::LeftParenthesis,
                             TokenKind::LeftCurlyBrace,
+                            TokenKind::RightCurlyBrace,
                         ],
                         found: self.current_token.kind,
                         position: self.current_position(),
                     }));
                 }
             };
-            let variant_id = self.tree_builder.add_node(variant_node);
-
-            variant_nodes.push(variant_id);
-            self.allow(TokenKind::Comma)?;
         }
 
         let variant_list_node = self.create_node_with_children(
             SyntaxKind::EnumVariants,
             Span::new(start, self.previous_token.span.end()),
-            variant_nodes,
+            variant_ids,
         );
         let variant_list_id = self.tree_builder.add_node(variant_list_node);
 
@@ -859,7 +900,7 @@ impl<'src> Parser<'src> {
 
         self.advance();
 
-        let is_public = self.allow(TokenKind::Pub)?;
+        let is_mutable = self.allow(TokenKind::Mut)?;
         let path_node = self.expect_simple_path()?;
         let path_id = self.tree_builder.add_node(path_node);
         let type_notation_id = if self.allow(TokenKind::Colon)? {
@@ -891,7 +932,7 @@ impl<'src> Parser<'src> {
         } else {
             SyntaxKind::LetStatement.with_binary_children(span, path_id, expression_id)
         };
-        let_statement_node.modifier = is_public;
+        let_statement_node.modifier = is_mutable;
 
         Ok(let_statement_node)
     }

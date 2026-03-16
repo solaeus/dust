@@ -1,6 +1,5 @@
 use crate::{
     compiler::error::CompileError,
-    resolver::declarations::DeclarationMembers,
     syntax::{node::SyntaxKind, reader::SyntaxReader},
 };
 
