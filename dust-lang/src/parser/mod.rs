@@ -523,14 +523,12 @@ impl<'src> Parser<'src> {
             let start = self.current_token.span.start();
 
             let path_node = self.expect_simple_path()?;
-            let path_id = self.tree_builder.add_node(path_node);
 
             match self.current_token.kind {
                 TokenKind::Comma => {
                     self.advance();
 
-                    let variant_node = SyntaxKind::EnumEmptyVariant
-                        .with_child(Span::new(start, self.previous_token.span.end()), path_id);
+                    let variant_node = SyntaxKind::EnumUnitVariant.empty(path_node.span);
                     let variant_id = self.tree_builder.add_node(variant_node);
 
                     variant_ids.push(variant_id);
@@ -540,8 +538,7 @@ impl<'src> Parser<'src> {
                 TokenKind::RightCurlyBrace => {
                     self.advance();
 
-                    let variant_node = SyntaxKind::EnumEmptyVariant
-                        .with_child(Span::new(start, self.previous_token.span.end()), path_id);
+                    let variant_node = SyntaxKind::EnumUnitVariant.empty(path_node.span);
                     let variant_id = self.tree_builder.add_node(variant_node);
 
                     variant_ids.push(variant_id);
@@ -549,6 +546,8 @@ impl<'src> Parser<'src> {
                     break;
                 }
                 TokenKind::LeftParenthesis => {
+                    let path_id = self.tree_builder.add_node(path_node);
+
                     let fields_node = self.parse_tuple_fields()?;
                     let fields_id = self.tree_builder.add_node(fields_node);
 
@@ -566,6 +565,8 @@ impl<'src> Parser<'src> {
                     }
                 }
                 TokenKind::LeftCurlyBrace => {
+                    let path_id = self.tree_builder.add_node(path_node);
+
                     let fields_node = self.parse_struct_fields()?;
                     let fields_id = self.tree_builder.add_node(fields_node);
 

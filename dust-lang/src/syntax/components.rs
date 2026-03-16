@@ -178,14 +178,28 @@ pub struct EnumVariant<'a> {
 impl<'a> SyntaxComponent<'a> for EnumVariant<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting enum variant");
-        debug_assert!(reader.kind() == SyntaxKind::EnumEmptyVariant);
+        debug_assert!(matches!(
+            reader.kind(),
+            SyntaxKind::EnumUnitVariant
+                | SyntaxKind::EnumStructVariant
+                | SyntaxKind::EnumTupleVariant
+        ));
 
-        let mut children = reader.children();
+        match reader.kind() {
+            SyntaxKind::EnumUnitVariant => Ok(Self {
+                name: *reader,
+                fields: None,
+            }),
+            SyntaxKind::EnumStructVariant | SyntaxKind::EnumTupleVariant => {
+                let mut children = reader.children();
 
-        Ok(Self {
-            name: children.expect_next()?,
-            fields: children.next(),
-        })
+                Ok(Self {
+                    name: children.expect_next()?,
+                    fields: Some(children.expect_next()?),
+                })
+            }
+            _ => unreachable!(),
+        }
     }
 }
 
