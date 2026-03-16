@@ -172,7 +172,6 @@ impl<'src> Compiler<'src> {
                 &self.source,
                 &self.syntax,
                 &mut self.resolver,
-                &mut self.prototypes,
                 &mut errors,
                 crate_scope_id,
             );

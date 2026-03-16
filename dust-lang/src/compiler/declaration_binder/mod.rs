@@ -1,5 +1,5 @@
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
 
 use smallvec::SmallVec;
 use tracing::debug;
@@ -7,7 +7,6 @@ use tracing::debug;
 use crate::{
     compiler::error::CompileError,
     error::ErrorKind,
-    prototype::PrototypeList,
     resolver::{
         Resolver,
         declarations::{
@@ -41,8 +40,6 @@ pub struct DeclarationBinder<'a> {
 
     resolver: &'a mut Resolver,
 
-    prototypes: &'a mut PrototypeList,
-
     errors: &'a mut Vec<ErrorKind>,
 
     crate_scope_id: ScopeId,
@@ -55,7 +52,6 @@ impl<'a> DeclarationBinder<'a> {
         source: &'a Source<'a>,
         syntax: &'a Syntax,
         resolver: &'a mut Resolver,
-        prototypes: &'a mut PrototypeList,
         errors: &'a mut Vec<ErrorKind>,
         crate_scope_id: ScopeId,
     ) -> Self {
@@ -63,7 +59,6 @@ impl<'a> DeclarationBinder<'a> {
             source,
             syntax,
             resolver,
-            prototypes,
             errors,
             crate_scope_id,
             current_scope_id: crate_scope_id,

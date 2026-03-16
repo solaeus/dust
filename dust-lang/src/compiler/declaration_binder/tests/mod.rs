@@ -1,22 +1,5 @@
 #![allow(clippy::disallowed_methods)]
 
-mod assignment_expression;
-mod binary_assignment_expressions;
-mod block_expression;
-mod call_expression;
-mod enum_item;
-mod function_item;
-mod if_expression;
-mod let_statement;
-mod module_item;
-mod path_expression;
-mod struct_expression;
-mod struct_item;
-mod use_item;
-mod while_expression;
-
-use smallvec::SmallVec;
-
 use crate::{
     compiler::declaration_binder::DeclarationBinder,
     error::ErrorKind,
@@ -40,9 +23,11 @@ fn bind_declarations(source_code: &str) -> (Syntax, Resolver) {
     let parser = Parser::new(SourceFileId::MAIN, lexer);
     let ParseResult {
         syntax_tree,
-        mut errors,
+        errors,
         ..
     } = parser.parse();
+
+    assert!(errors.is_empty(), "{errors:#?}");
 
     let mut syntax = Syntax::new(source.file_count());
 
@@ -52,12 +37,13 @@ fn bind_declarations(source_code: &str) -> (Syntax, Resolver) {
     let program_scope_id = resolver.scopes.add_scope(Scope {
         kind: ScopeKind::Crate,
         parent: ScopeId::NONE,
-        modules: SmallVec::new(),
-        imports: SmallVec::new(),
+        modules: Vec::new(),
+        imports: Vec::new(),
     });
 
     let main_root = syntax.get_tree(SourceFileId::MAIN).unwrap().root().unwrap();
 
+    let mut errors = Vec::new();
     let mut declaration_binder = DeclarationBinder::new(
         &source,
         &syntax,

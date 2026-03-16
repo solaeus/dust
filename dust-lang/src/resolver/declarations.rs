@@ -301,6 +301,10 @@ impl DeclarationMembers {
         self.end - self.start
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn as_range(&self) -> Range<u32> {
         self.start..self.end
     }
