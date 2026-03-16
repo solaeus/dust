@@ -1,7 +1,7 @@
 use std::io::{Write, stdout};
 
 use dust_lang::{
-    error::Error,
+    error::{Error, ErrorKind},
     lexer::Lexer,
     parser::{ParseResult, Parser},
     syntax::tree::SyntaxTree,
@@ -45,7 +45,7 @@ pub fn handle_parse_command(command: ParseCommand) {
         } = parser.parse();
 
         handle_output(&syntax_tree, debug, ron, pretty_ron, postcard, trees);
-        parse_errors.extend(errors);
+        parse_errors.extend(errors.into_iter().map(ErrorKind::Parse));
     }
 
     if !parse_errors.is_empty() {

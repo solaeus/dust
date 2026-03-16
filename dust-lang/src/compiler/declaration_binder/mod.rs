@@ -506,7 +506,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         for (index, variant) in variants.children().enumerate() {
             let EnumVariant {
                 name: variant_name,
-                fields,
+                fields: _,
             } = variant.as_component()?;
 
             let variant_name_str = self.source.get_file_content(&variant_name.position())?;
@@ -975,7 +975,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     SmallVec::new()
                 };
 
-                let type_parameters = self
+                let _type_parameters = self
                     .resolver
                     .declarations
                     .add_declaration_members(type_parameter_ids);
@@ -993,9 +993,9 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
                 match declaration.definition {
                     Definition::StructType {
-                        public,
-                        type_parameters,
-                        fields,
+                        public: _,
+                        type_parameters: _,
+                        fields: _,
                     } => self.resolver.types.add_type(Type::Algebraic {
                         declaration_id,
                         type_arguments: TypeMembers::default(),

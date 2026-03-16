@@ -5,7 +5,7 @@ use std::hint::cold_path;
 
 use crate::{
     error::ErrorKind,
-    parser::ParseError,
+    parser::error::ParseError,
     source::{Position, Source, SourceFile, Span},
     token::{Token, TokenKind},
 };
@@ -492,6 +492,12 @@ impl Iterator for Lexer<'_> {
             if current_byte == b'.'
                 && let Some(start) = self.token_start
             {
+                if self.token_flags.has_decimal
+                    && let Some(token) = self.finish_token()
+                {
+                    return Some(token);
+                }
+
                 let first_byte = self.source[start];
 
                 let next_is_digit = (self.index + 1) < self.source.len() && {

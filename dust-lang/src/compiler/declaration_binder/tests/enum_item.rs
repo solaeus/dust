@@ -11,15 +11,16 @@ fn creates_type_declaration() {
 
     let (color_id, color_kind) = find_declaration(&mut resolver, "Color").unwrap();
 
-    let (parent, members) = match color_kind {
-        Definition::Type {
-            parent, members, ..
-        } => (parent, members),
-        other => panic!("expected Type declaration, got {other:?}"),
+    let variants = match color_kind {
+        Definition::EnumType {
+            public,
+            type_parameters,
+            variants,
+        } => variants,
+        _ => panic!(),
     };
 
-    assert_eq!(parent, None);
-    assert_eq!(members.len(), 3);
+    assert_eq!(variants.len(), 3);
 
     let color_declaration = resolver.declarations.get_declaration(color_id).unwrap();
 

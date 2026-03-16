@@ -1,4 +1,4 @@
-#![feature(iterator_try_collect, iter_intersperse)]
+#![allow(clippy::disallowed_methods)]
 
 use std::hint::black_box;
 

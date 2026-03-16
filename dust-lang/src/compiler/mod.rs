@@ -3,7 +3,6 @@ mod declaration_binder;
 pub mod error;
 // mod type_binder;
 
-use smallvec::SmallVec;
 use tracing::{Level, span};
 
 use crate::{
@@ -148,7 +147,7 @@ impl<'src> Compiler<'src> {
 
                 file.set_utf8_validated(true);
                 self.syntax.add_tree(syntax_tree);
-                errors.extend(parse_errors);
+                errors.extend(parse_errors.into_iter().map(ErrorKind::Parse));
             }
         }
 
@@ -189,7 +188,7 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "type");
             let _enter = span.enter();
 
-            let mut type_binder = todo!();
+            let _type_binder = todo!();
         }
 
         let main_symbol_id = self.resolver.symbols.add_symbol("main");

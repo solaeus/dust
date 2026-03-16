@@ -1,4 +1,6 @@
-use std::{hint::black_box, time::Duration};
+#![allow(clippy::disallowed_methods)]
+
+use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use dust_lang::compiler::compile;
@@ -19,7 +21,7 @@ fn compile_bench(source: &[(&str, &str)]) {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let mut source = String::new();
+    // let source = String::new();
     let mut group = c.benchmark_group("compiler");
 
     group.throughput(Throughput::Elements(1000));

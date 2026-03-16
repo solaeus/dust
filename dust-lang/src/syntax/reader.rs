@@ -159,15 +159,7 @@ impl<'a> SyntaxReader<'a> {
         buffer.push_str(self.node.kind.as_str());
         buffer.push('\n');
 
-        let size = self.child_count();
-
-        if size > 0 {
-            for (index, child) in self.children().enumerate() {
-                let child_is_last = index == size.saturating_sub(1);
-
-                child.draw_text_tree_line(buffer, &mut ancestors, child_is_last);
-            }
-        }
+        self.draw_text_tree_line(buffer, &mut ancestors, true);
     }
 
     fn draw_text_tree_line(&self, buffer: &mut String, ancestors: &mut Vec<bool>, is_last: bool) {
@@ -193,7 +185,11 @@ impl<'a> SyntaxReader<'a> {
             return;
         }
 
-        for (index, child) in self.children().enumerate() {
+        let mut children = self.children().collect::<Vec<SyntaxReader>>();
+
+        children.sort_by_key(|child| child.node.span);
+
+        for (index, child) in children.into_iter().enumerate() {
             let child_is_last = index == size.saturating_sub(1);
 
             child.draw_text_tree_line(buffer, ancestors, child_is_last);

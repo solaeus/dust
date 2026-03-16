@@ -1,11 +1,6 @@
 //! The Dust programming language library.
 #![expect(incomplete_features)]
-#![feature(
-    generic_const_exprs,
-    int_from_ascii,
-    iter_array_chunks,
-    iterator_try_collect
-)]
+#![feature(generic_const_exprs, iter_array_chunks, iterator_try_collect)]
 
 pub mod compiler;
 mod constant_list;

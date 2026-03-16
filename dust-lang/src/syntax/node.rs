@@ -126,6 +126,7 @@ pub enum SyntaxKind {
     EnumUnitVariant,
     EnumTupleVariant,
     EnumStructVariant,
+    StructItemUnit,
     StructItemTupleFields,
     StructItemStructFields,
     StructExpressionStructFields,
@@ -241,39 +242,40 @@ impl SyntaxKind {
     pub fn is_expression(&self) -> bool {
         matches!(
             self,
-            SyntaxKind::BooleanExpression
-                | SyntaxKind::HexadecimalIntegerExpression
-                | SyntaxKind::CharacterExpression
-                | SyntaxKind::FloatExpression
-                | SyntaxKind::IntegerExpression
-                | SyntaxKind::StringExpression
-                | SyntaxKind::AdditionExpression
-                | SyntaxKind::SubtractionExpression
-                | SyntaxKind::MultiplicationExpression
-                | SyntaxKind::DivisionExpression
-                | SyntaxKind::ModuloExpression
+            SyntaxKind::AdditionExpression
                 | SyntaxKind::AndExpression
-                | SyntaxKind::OrExpression
-                | SyntaxKind::GreaterThanExpression
-                | SyntaxKind::LessThanExpression
-                | SyntaxKind::GreaterThanOrEqualExpression
-                | SyntaxKind::LessThanOrEqualExpression
-                | SyntaxKind::EqualExpression
-                | SyntaxKind::NotEqualExpression
-                | SyntaxKind::NegationExpression
-                | SyntaxKind::NotExpression
                 | SyntaxKind::ArrayExpression
-                | SyntaxKind::IndexExpression
-                | SyntaxKind::BlockExpression
-                | SyntaxKind::CallExpression
-                | SyntaxKind::GroupedExpression
-                | SyntaxKind::PathExpression
-                | SyntaxKind::WhileExpression
-                | SyntaxKind::ReturnExpression
-                | SyntaxKind::BreakExpression
+                | SyntaxKind::ArrayRepeatExpression
                 | SyntaxKind::AsExpression
+                | SyntaxKind::BlockExpression
+                | SyntaxKind::BreakExpression
+                | SyntaxKind::CallExpression
+                | SyntaxKind::CharacterExpression
+                | SyntaxKind::DivisionExpression
+                | SyntaxKind::EqualExpression
+                | SyntaxKind::FloatExpression
+                | SyntaxKind::GreaterThanExpression
+                | SyntaxKind::GreaterThanOrEqualExpression
+                | SyntaxKind::GroupedExpression
+                | SyntaxKind::HexadecimalIntegerExpression
                 | SyntaxKind::IfExpression
+                | SyntaxKind::IndexExpression
+                | SyntaxKind::IntegerExpression
+                | SyntaxKind::LessThanExpression
+                | SyntaxKind::LessThanOrEqualExpression
+                | SyntaxKind::ModuloExpression
+                | SyntaxKind::MultiplicationExpression
+                | SyntaxKind::NegationExpression
+                | SyntaxKind::NotEqualExpression
+                | SyntaxKind::NotExpression
+                | SyntaxKind::OrExpression
+                | SyntaxKind::PathExpression
+                | SyntaxKind::ReturnExpression
+                | SyntaxKind::StringExpression
                 | SyntaxKind::StructExpression
+                | SyntaxKind::SubtractionExpression
+                | SyntaxKind::WhileExpression
+                | SyntaxKind::BooleanExpression
         )
     }
 
@@ -372,6 +374,7 @@ impl SyntaxKind {
             SyntaxKind::StructExpressionStructFields => "struct expression struct fields",
             SyntaxKind::StructExpressionTupleFields => "struct expression tuple fields",
             SyntaxKind::StructItem => "struct item",
+            SyntaxKind::StructItemUnit => "struct item unit",
             SyntaxKind::SubtractionAssignmentExpression => "subtraction assignment expression",
             SyntaxKind::SubtractionExpression => "subtraction expression",
             SyntaxKind::Trivia => "trivia",

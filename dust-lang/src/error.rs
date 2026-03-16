@@ -10,7 +10,7 @@ use annotate_snippets::{Group, Level, Renderer};
 use crate::{
     compiler::error::CompileError,
     constant_list::ConstantListError,
-    parser::ParseError,
+    parser::error::ParseError,
     resolver::{Resolver, error::ResolverError},
     source::{Source, SourceError},
     syntax::error::SyntaxError,

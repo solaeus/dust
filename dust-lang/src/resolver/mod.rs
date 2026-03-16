@@ -43,7 +43,7 @@ pub struct Resolver {
 
 impl Resolver {
     pub fn new() -> Self {
-        let mut resolver = Self {
+        let resolver = Self {
             symbols: Symbols::new(),
             declarations: Declarations::new(),
             scopes: Scopes::new(),
@@ -264,11 +264,11 @@ impl Resolver {
         })
     }
 
-    pub fn add_external_type(&mut self, new_type: &DustType) -> TypeId {
+    pub fn add_external_type(&mut self, _new_type: &DustType) -> TypeId {
         todo!()
     }
 
-    pub fn get_external_type(&self, id: TypeId, source: &Source) -> Result<DustType, CompileError> {
+    pub fn get_external_type(&self, _id: TypeId, _source: &Source) -> Result<DustType, CompileError> {
         todo!()
     }
 
@@ -300,7 +300,7 @@ impl Resolver {
     pub fn declaration_display_iterator<'a>(
         &'a self,
     ) -> impl Iterator<Item = Result<String, CompileError>> + 'a {
-        self.declarations.iter().map(|(id, declaration)| todo!())
+        self.declarations.iter().map(|(_id, _declaration)| todo!())
     }
 }
 

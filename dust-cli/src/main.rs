@@ -183,7 +183,7 @@ fn build_source<'src>(
     let mut source = Source::new();
 
     if let Some(input) = eval {
-        let eval_program = format!("fn main() -> any {{\n    {input}\n}}");
+        let eval_program = format!("fn main<T>() -> T {{\n    {input}\n}}");
         let file = SourceFile::validated_owned("CLI Input", eval_program);
 
         source.add_file(file);
