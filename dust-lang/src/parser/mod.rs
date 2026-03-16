@@ -1291,6 +1291,10 @@ impl<'src> Parser<'src> {
 
         children.push(first_expression_id);
 
+        if self.current_token.kind != TokenKind::RightSquareBracket {
+            self.expect(TokenKind::Comma)?;
+        }
+
         while !self.allow(TokenKind::RightSquareBracket)? {
             let child_node = self.parse_expression()?;
             let child_id = self.tree_builder.add_node(child_node);
