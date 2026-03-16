@@ -92,7 +92,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
-            TokenKind::HexIntegerValue => ParseRule {
+            TokenKind::HexIntegerLiteral => ParseRule {
                 prefix: Some(Parser::parse_prefix_hexadecimal_integer),
                 infix: None,
                 precedence: Precedence::None,
@@ -122,7 +122,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
-            TokenKind::CharacterValue => ParseRule {
+            TokenKind::CharacterLiteral => ParseRule {
                 prefix: Some(Parser::parse_prefix_character),
                 infix: None,
                 precedence: Precedence::None,
@@ -218,7 +218,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
-            TokenKind::FloatValue => ParseRule {
+            TokenKind::FloatLiteral => ParseRule {
                 prefix: Some(Parser::parse_prefix_float),
                 infix: None,
                 precedence: Precedence::None,
@@ -296,7 +296,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
-            TokenKind::IntegerValue => ParseRule {
+            TokenKind::IntegerLiteral => ParseRule {
                 prefix: Some(Parser::parse_prefix_integer),
                 infix: None,
                 precedence: Precedence::None,
@@ -470,7 +470,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
-            TokenKind::StringValue => ParseRule {
+            TokenKind::StringLiteral => ParseRule {
                 prefix: Some(Parser::parse_prefix_string),
                 infix: None,
                 precedence: Precedence::None,

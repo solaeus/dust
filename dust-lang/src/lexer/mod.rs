@@ -117,12 +117,12 @@ impl<'src> Lexer<'src> {
 
         if self.token_flags.starts_with_digit {
             if self.token_flags.in_hexadecimal && self.token_flags.hex_digits > 0 {
-                return finish(TokenKind::HexIntegerValue, span, self);
+                return finish(TokenKind::HexIntegerLiteral, span, self);
             } else if self.token_flags.has_decimal {
-                return finish(TokenKind::FloatValue, span, self);
+                return finish(TokenKind::FloatLiteral, span, self);
             }
 
-            return finish(TokenKind::IntegerValue, span, self);
+            return finish(TokenKind::IntegerLiteral, span, self);
         }
 
         let class = bytes[0].class();
@@ -327,7 +327,7 @@ impl<'src> Lexer<'src> {
                 self.index = index + 1;
 
                 return Ok(Some(Token {
-                    kind: TokenKind::StringValue,
+                    kind: TokenKind::StringLiteral,
                     span: Span::new(start, self.index),
                 }));
             }
@@ -372,7 +372,7 @@ impl<'src> Lexer<'src> {
                     self.index = end;
 
                     return Ok(Some(Token {
-                        kind: TokenKind::CharacterValue,
+                        kind: TokenKind::CharacterLiteral,
                         span: Span::new(start, end),
                     }));
                 } else if byte == b'\\' {
@@ -393,7 +393,7 @@ impl<'src> Lexer<'src> {
         self.index = end;
 
         Ok(Some(Token {
-            kind: TokenKind::CharacterValue,
+            kind: TokenKind::CharacterLiteral,
             span: Span::new(start, end),
         }))
     }
@@ -524,7 +524,7 @@ impl Iterator for Lexer<'_> {
 
                         if slice == b"-Infinity" {
                             let span = Span::new(self.index, self.index + 9);
-                            let kind = TokenKind::FloatValue;
+                            let kind = TokenKind::FloatLiteral;
                             self.index += 9;
 
                             return Some(Token { kind, span });
@@ -759,7 +759,7 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
         },
         8 => {
             if token == b"Infinity" {
-                Some(TokenKind::FloatValue)
+                Some(TokenKind::FloatLiteral)
             } else {
                 None
             }

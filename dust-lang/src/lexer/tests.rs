@@ -107,11 +107,11 @@ fn hex_integers() {
         tokens,
         vec![
             Token {
-                kind: TokenKind::HexIntegerValue,
+                kind: TokenKind::HexIntegerLiteral,
                 span: Span::new(0, 4)
             },
             Token {
-                kind: TokenKind::HexIntegerValue,
+                kind: TokenKind::HexIntegerLiteral,
                 span: Span::new(5, 9)
             },
             Token {
@@ -140,7 +140,7 @@ fn characters() {
             tokens,
             vec![
                 Token {
-                    kind: TokenKind::CharacterValue,
+                    kind: TokenKind::CharacterLiteral,
                     span: Span::new(0, source.len())
                 },
                 Token {
@@ -159,7 +159,7 @@ fn characters() {
         tokens,
         vec![
             Token {
-                kind: TokenKind::CharacterValue,
+                kind: TokenKind::CharacterLiteral,
                 span: Span::new(0, 4)
             },
             Token {
@@ -179,15 +179,15 @@ fn floats() {
         tokens,
         vec![
             Token {
-                kind: TokenKind::FloatValue,
+                kind: TokenKind::FloatLiteral,
                 span: Span::new(0, 4)
             },
             Token {
-                kind: TokenKind::FloatValue,
+                kind: TokenKind::FloatLiteral,
                 span: Span::new(5, 10)
             },
             Token {
-                kind: TokenKind::FloatValue,
+                kind: TokenKind::FloatLiteral,
                 span: Span::new(11, 15)
             },
             Token {
@@ -207,15 +207,15 @@ fn integers() {
         tokens,
         vec![
             Token {
-                kind: TokenKind::IntegerValue,
+                kind: TokenKind::IntegerLiteral,
                 span: Span::new(0, 1)
             },
             Token {
-                kind: TokenKind::IntegerValue,
+                kind: TokenKind::IntegerLiteral,
                 span: Span::new(2, 5)
             },
             Token {
-                kind: TokenKind::IntegerValue,
+                kind: TokenKind::IntegerLiteral,
                 span: Span::new(6, 12)
             },
             Token {
@@ -235,11 +235,11 @@ fn strings() {
         tokens,
         vec![
             Token {
-                kind: TokenKind::StringValue,
+                kind: TokenKind::StringLiteral,
                 span: Span::new(0, 7)
             },
             Token {
-                kind: TokenKind::StringValue,
+                kind: TokenKind::StringLiteral,
                 span: Span::new(8, 15)
             },
             Token {
@@ -385,7 +385,7 @@ fn adjacent_tokens() {
                 span: Span::new(9, 10)
             },
             Token {
-                kind: TokenKind::IntegerValue,
+                kind: TokenKind::IntegerLiteral,
                 span: Span::new(10, 12)
             },
             Token {
@@ -667,7 +667,7 @@ fn emoji_character() {
         tokens,
         vec![
             Token {
-                kind: TokenKind::CharacterValue,
+                kind: TokenKind::CharacterLiteral,
                 span: Span::new(0, 6)
             },
             Token {
@@ -687,7 +687,7 @@ fn emoji_string() {
         tokens,
         vec![
             Token {
-                kind: TokenKind::StringValue,
+                kind: TokenKind::StringLiteral,
                 span: Span::new(0, 6)
             },
             Token {

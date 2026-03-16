@@ -25,15 +25,15 @@ fn empty() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 24), SyntaxId(9)),
+            Root.with_child(Span::new(0, 22), SyntaxId(8)),
             FunctionItem
-                .with_multiple_children(Span::new(0, 24), SyntaxPayload::child_indices(0, 3)),
+                .with_multiple_children(Span::new(0, 22), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 24), SyntaxId(7)),
-            StructExpression.with_binary_children(Span::new(16, 22), SyntaxId(5), SyntaxId(6)),
-            Path.with_child(Span::new(16, 19), SyntaxId(4)),
+            ExpressionStatement.with_child(Span::new(10, 22), SyntaxId(6)),
+            BlockExpression.with_child(Span::new(10, 22), SyntaxId(5)),
+            PathExpression.with_child(Span::new(16, 19), SyntaxId(4)),
             PathSegment.empty(Span::new(16, 19)),
         ]
     );
@@ -55,21 +55,18 @@ fn fields() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 39), SyntaxId(15)),
+            Root.with_child(Span::new(0, 39), SyntaxId(13)),
             FunctionItem
-                .with_multiple_children(Span::new(0, 39), SyntaxPayload::child_indices(0, 3)),
+                .with_multiple_children(Span::new(0, 39), SyntaxPayload::child_indices(4, 7)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 39), SyntaxId(13)),
-            StructExpression.with_binary_children(Span::new(16, 37), SyntaxId(5), SyntaxId(12)),
+            BlockExpression.with_child(Span::new(10, 39), SyntaxId(11)),
+            StructExpression.with_binary_children(Span::new(16, 37), SyntaxId(9), SyntaxId(10)),
             Path.with_child(Span::new(16, 19), SyntaxId(4)),
             PathSegment.empty(Span::new(16, 19)),
-            StructExpressionStructFields.with_binary_children(
-                Span::new(22, 37),
-                SyntaxId(8),
-                SyntaxId(11)
-            ),
+            StructExpressionStructFields
+                .with_multiple_children(Span::new(20, 37), SyntaxPayload::child_indices(0, 4)),
             SimplePath.empty(Span::new(22, 23)),
             IntegerExpression.empty(Span::new(25, 27)),
             SimplePath.empty(Span::new(29, 30)),

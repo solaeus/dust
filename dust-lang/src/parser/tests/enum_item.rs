@@ -21,12 +21,11 @@ fn empty_variant() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 16), SyntaxId(5)),
-            EnumItem.with_binary_children(Span::new(0, 16), SyntaxId(1), SyntaxId(4)),
+            Root.with_child(Span::new(0, 16), SyntaxId(4)),
+            EnumItem.with_binary_children(Span::new(0, 16), SyntaxId(1), SyntaxId(3)),
             SimplePath.empty(Span::new(5, 8)),
-            EnumVariants.with_child(Span::new(0, 16), SyntaxId(3)),
-            EnumUnitVariant.with_child(Span::new(11, 16), SyntaxId(2)),
-            SimplePath.empty(Span::new(11, 14)),
+            EnumVariants.with_child(Span::new(0, 16), SyntaxId(2)),
+            EnumUnitVariant.empty(Span::new(11, 14)),
         ]
     );
 }
@@ -47,13 +46,12 @@ fn tuple_variant() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 26), SyntaxId(9)),
-            EnumItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(8)),
+            Root.with_child(Span::new(0, 26), SyntaxId(8)),
+            EnumItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(5, 8)),
-            EnumVariants.with_child(Span::new(0, 26), SyntaxId(7)),
-            EnumUnitVariant.with_binary_children(Span::new(11, 24), SyntaxId(2), SyntaxId(6)),
+            EnumVariants.with_child(Span::new(0, 26), SyntaxId(6)),
+            EnumTupleVariant.with_binary_children(Span::new(11, 24), SyntaxId(2), SyntaxId(5)),
             SimplePath.empty(Span::new(11, 14)),
-            EnumUnitVariant.with_child(Span::new(11, 24), SyntaxId(5)),
             StructItemTupleFields.with_binary_children(Span::new(14, 24), SyntaxId(3), SyntaxId(4)),
             I64Type.empty(Span::new(15, 18)),
             I64Type.empty(Span::new(20, 23)),
@@ -77,13 +75,12 @@ fn fields_variant() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 35), SyntaxId(11)),
-            EnumItem.with_binary_children(Span::new(0, 35), SyntaxId(1), SyntaxId(10)),
+            Root.with_child(Span::new(0, 35), SyntaxId(10)),
+            EnumItem.with_binary_children(Span::new(0, 35), SyntaxId(1), SyntaxId(9)),
             SimplePath.empty(Span::new(5, 8)),
-            EnumVariants.with_child(Span::new(0, 35), SyntaxId(9)),
-            EnumUnitVariant.with_binary_children(Span::new(11, 33), SyntaxId(2), SyntaxId(8)),
+            EnumVariants.with_child(Span::new(0, 35), SyntaxId(8)),
+            EnumStructVariant.with_binary_children(Span::new(11, 33), SyntaxId(2), SyntaxId(7)),
             SimplePath.empty(Span::new(11, 14)),
-            EnumUnitVariant.with_child(Span::new(11, 33), SyntaxId(7)),
             StructItemStructFields
                 .with_multiple_children(Span::new(15, 33), SyntaxPayload::child_indices(0, 4)),
             SimplePath.empty(Span::new(17, 18)),
@@ -110,25 +107,22 @@ fn mixed_variants() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 42), SyntaxId(16)),
-            EnumItem.with_binary_children(Span::new(0, 42), SyntaxId(1), SyntaxId(15)),
+            Root.with_child(Span::new(0, 42), SyntaxId(13)),
+            EnumItem.with_binary_children(Span::new(0, 42), SyntaxId(1), SyntaxId(12)),
             SimplePath.empty(Span::new(5, 8)),
             EnumVariants
                 .with_multiple_children(Span::new(0, 42), SyntaxPayload::child_indices(0, 3)),
-            EnumUnitVariant.with_child(Span::new(11, 15), SyntaxId(2)),
-            SimplePath.empty(Span::new(11, 14)),
-            EnumUnitVariant.with_binary_children(Span::new(16, 24), SyntaxId(4), SyntaxId(7)),
+            EnumUnitVariant.empty(Span::new(11, 14)),
+            EnumTupleVariant.with_binary_children(Span::new(16, 24), SyntaxId(3), SyntaxId(5)),
             SimplePath.empty(Span::new(16, 19)),
-            EnumUnitVariant.with_child(Span::new(16, 24), SyntaxId(6)),
-            StructItemTupleFields.with_child(Span::new(19, 24), SyntaxId(5)),
+            StructItemTupleFields.with_child(Span::new(19, 24), SyntaxId(4)),
             I64Type.empty(Span::new(20, 23)),
-            EnumUnitVariant.with_binary_children(Span::new(26, 40), SyntaxId(9), SyntaxId(13)),
+            EnumStructVariant.with_binary_children(Span::new(26, 40), SyntaxId(7), SyntaxId(10)),
             SimplePath.empty(Span::new(26, 29)),
-            EnumUnitVariant.with_child(Span::new(26, 40), SyntaxId(12)),
             StructItemStructFields.with_binary_children(
                 Span::new(30, 40),
-                SyntaxId(10),
-                SyntaxId(11)
+                SyntaxId(8),
+                SyntaxId(9),
             ),
             SimplePath.empty(Span::new(32, 33)),
             I64Type.empty(Span::new(35, 38)),
@@ -152,12 +146,11 @@ fn type_parameters() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 25), SyntaxId(9)),
-            EnumItem.with_multiple_children(Span::new(0, 25), SyntaxPayload::child_indices(3, 3)),
+            Root.with_child(Span::new(0, 25), SyntaxId(8)),
+            EnumItem.with_multiple_children(Span::new(0, 25), SyntaxPayload::child_indices(3, 6)),
             SimplePath.empty(Span::new(5, 8)),
-            EnumVariants.with_child(Span::new(0, 25), SyntaxId(7)),
-            EnumUnitVariant.with_child(Span::new(20, 25), SyntaxId(6)),
-            SimplePath.empty(Span::new(20, 23)),
+            EnumVariants.with_child(Span::new(0, 25), SyntaxId(6)),
+            EnumUnitVariant.empty(Span::new(20, 23)),
             TypeParameters
                 .with_multiple_children(Span::new(8, 17), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(9, 10)),

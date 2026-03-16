@@ -111,10 +111,6 @@ impl<'src> Parser<'src> {
         Position::new(self.tree_builder.file_id(), self.current_token.span)
     }
 
-    fn current_source(&self) -> &[u8] {
-        &self.source()[self.current_token.span.as_usize_range()]
-    }
-
     fn new_child_buffer() -> SmallVec<[SyntaxId; 4]> {
         SmallVec::<[SyntaxId; 4]>::new()
     }
@@ -1272,21 +1268,43 @@ impl<'src> Parser<'src> {
 
         self.advance();
 
+        let first_expression_node = self.parse_expression()?;
+        let first_expression_id = self.tree_builder.add_node(first_expression_node);
+
+        if self.allow(TokenKind::Semicolon)? {
+            self.expect(TokenKind::IntegerLiteral)?;
+
+            let integer_expression_node =
+                SyntaxKind::IntegerExpression.empty(self.previous_token.span);
+            let length_expression_id = self.tree_builder.add_node(integer_expression_node);
+
+            self.expect(TokenKind::RightSquareBracket)?;
+
+            return Ok(SyntaxKind::ArrayRepeatExpression.with_binary_children(
+                Span::new(start, self.previous_token.span.end()),
+                first_expression_id,
+                length_expression_id,
+            ));
+        }
+
         let mut children = Self::new_child_buffer();
+
+        children.push(first_expression_id);
 
         while !self.allow(TokenKind::RightSquareBracket)? {
             let child_node = self.parse_expression()?;
             let child_id = self.tree_builder.add_node(child_node);
 
             children.push(child_id);
-            self.allow(TokenKind::Comma)?;
+
+            if self.current_token.kind != TokenKind::RightSquareBracket {
+                self.expect(TokenKind::Comma)?;
+            }
         }
 
-        let end = self.previous_token.span.end();
-
         Ok(self.create_node_with_children(
-            SyntaxKind::ListExpression,
-            Span::new(start, end),
+            SyntaxKind::ArrayExpression,
+            Span::new(start, self.previous_token.span.end()),
             children,
         ))
     }
@@ -1415,10 +1433,6 @@ impl<'src> Parser<'src> {
             let mut fields = Self::new_child_buffer();
 
             while !self.allow(TokenKind::RightCurlyBrace)? {
-                if !fields.is_empty() {
-                    self.expect(TokenKind::Comma)?;
-                }
-
                 let field_path_node = self.expect_simple_path()?;
                 let field_path_id = self.tree_builder.add_node(field_path_node);
 
@@ -1429,6 +1443,10 @@ impl<'src> Parser<'src> {
 
                 fields.push(field_path_id);
                 fields.push(field_expression_id);
+
+                if self.current_token.kind != TokenKind::RightCurlyBrace {
+                    self.expect(TokenKind::Comma)?;
+                }
             }
 
             return Ok(Some(self.create_node_with_children(

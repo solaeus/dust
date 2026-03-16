@@ -200,7 +200,7 @@ fn list() {
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 27), SyntaxId(7)),
-            ListExpression
+            ArrayExpression
                 .with_multiple_children(Span::new(16, 25), SyntaxPayload::child_indices(0, 3)),
             IntegerExpression.empty(Span::new(17, 18)),
             IntegerExpression.empty(Span::new(20, 21)),

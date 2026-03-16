@@ -88,8 +88,9 @@ pub enum SyntaxKind {
     NegationExpression,
     NotExpression,
 
-    // List expressions
-    ListExpression,
+    // Array expressions
+    ArrayExpression,
+    ArrayRepeatExpression,
     IndexExpression,
 
     // Function expressions
@@ -261,7 +262,7 @@ impl SyntaxKind {
                 | SyntaxKind::NotEqualExpression
                 | SyntaxKind::NegationExpression
                 | SyntaxKind::NotExpression
-                | SyntaxKind::ListExpression
+                | SyntaxKind::ArrayExpression
                 | SyntaxKind::IndexExpression
                 | SyntaxKind::BlockExpression
                 | SyntaxKind::CallExpression
@@ -302,6 +303,8 @@ impl SyntaxKind {
             SyntaxKind::AndExpression => "and expression",
             SyntaxKind::AsExpression => "as expression",
             SyntaxKind::AssignmentExpression => "reassignment expression",
+            SyntaxKind::ArrayExpression => "array expression",
+            SyntaxKind::ArrayRepeatExpression => "array repeat expression",
             SyntaxKind::BlockExpression => "block expression",
             SyntaxKind::BooleanExpression => "boolean expression",
             SyntaxKind::BooleanType => "boolean type",
@@ -342,7 +345,6 @@ impl SyntaxKind {
             SyntaxKind::LessThanExpression => "less than expression",
             SyntaxKind::LessThanOrEqualExpression => "less than or equal expression",
             SyntaxKind::LetStatement => "let statement",
-            SyntaxKind::ListExpression => "list expression",
             SyntaxKind::ModuleBody => "module body",
             SyntaxKind::ModuleItem => "module item",
             SyntaxKind::ModuloAssignmentExpression => "modulo assignment expression",

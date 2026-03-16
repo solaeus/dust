@@ -73,7 +73,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::FloatExpression => self.visit_float_expression(node, input),
             SyntaxKind::IntegerExpression => self.visit_integer_expression(node, input),
             SyntaxKind::StringExpression => self.visit_string_expression(node, input),
-            SyntaxKind::ListExpression => self.visit_list_expression(node, input),
+            SyntaxKind::ArrayExpression => self.visit_list_expression(node, input),
             SyntaxKind::IndexExpression => self.visit_index_expression(node, input),
             SyntaxKind::StructExpression => self.visit_struct_expression(node, input),
             SyntaxKind::AdditionExpression

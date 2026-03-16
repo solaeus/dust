@@ -87,13 +87,20 @@ fn let_mut_statement() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 33), SyntaxId(5)),
+            Root.with_child(Span::new(0, 33), SyntaxId(8)),
             FunctionItem
                 .with_multiple_children(Span::new(0, 33), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.empty(Span::new(10, 33)),
+            BlockExpression.with_child(Span::new(10, 33), SyntaxId(6)),
+            {
+                let mut node = LetStatement.with_binary_children(Span::new(16, 31), SyntaxId(4), SyntaxId(5));
+                node.modifier = true;
+                node
+            },
+            SimplePath.empty(Span::new(24, 25)),
+            IntegerExpression.empty(Span::new(28, 30)),
         ]
     );
 }
@@ -114,13 +121,21 @@ fn let_mut_statement_with_type() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 38), SyntaxId(5)),
+            Root.with_child(Span::new(0, 38), SyntaxId(9)),
             FunctionItem
-                .with_multiple_children(Span::new(0, 38), SyntaxPayload::child_indices(0, 3)),
+                .with_multiple_children(Span::new(0, 38), SyntaxPayload::child_indices(3, 6)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.empty(Span::new(10, 38)),
+            BlockExpression.with_child(Span::new(10, 38), SyntaxId(7)),
+            {
+                let mut node = LetStatement.with_multiple_children(Span::new(16, 36), SyntaxPayload::child_indices(0, 3));
+                node.modifier = true;
+                node
+            },
+            SimplePath.empty(Span::new(24, 25)),
+            IntegerExpression.empty(Span::new(33, 35)),
+            I64Type.empty(Span::new(27, 30)),
         ]
     );
 }

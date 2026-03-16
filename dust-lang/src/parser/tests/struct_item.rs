@@ -101,7 +101,7 @@ fn type_parameters() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 22), SyntaxId(7)),
-            StructItem.with_multiple_children(Span::new(0, 22), SyntaxPayload::child_indices(3, 3)),
+            StructItem.with_multiple_children(Span::new(0, 22), SyntaxPayload::child_indices(3, 6)),
             SimplePath.empty(Span::new(7, 10)),
             TypeParameters
                 .with_multiple_children(Span::new(10, 19), SyntaxPayload::child_indices(0, 3)),

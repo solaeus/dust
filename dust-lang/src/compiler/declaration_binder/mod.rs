@@ -686,7 +686,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visiting list expression");
-        debug_assert_eq!(list_expression.kind(), SyntaxKind::ListExpression);
+        debug_assert_eq!(list_expression.kind(), SyntaxKind::ArrayExpression);
 
         for element in list_expression.children() {
             self.visit_expression(element, None)?;
