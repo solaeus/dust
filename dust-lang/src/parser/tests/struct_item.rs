@@ -2,7 +2,10 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
-    syntax::{SyntaxId, node::{SyntaxKind::*, SyntaxPayload}},
+    syntax::{
+        SyntaxId,
+        node::{SyntaxKind::*, SyntaxPayload},
+    },
 };
 
 #[test]
@@ -21,7 +24,7 @@ fn empty() {
             Root.with_child(Span::new(0, 13), SyntaxId(3)),
             StructItem.with_binary_children(Span::new(0, 13), SyntaxId(1), SyntaxId(2)),
             SimplePath.empty(Span::new(7, 10)),
-            StructDeclarationFields.empty(Span::new(11, 13)),
+            StructItemStructFields.empty(Span::new(11, 13)),
         ]
     );
 }
@@ -45,11 +48,7 @@ fn tuple() {
             Root.with_child(Span::new(0, 21), SyntaxId(5)),
             StructItem.with_binary_children(Span::new(0, 21), SyntaxId(1), SyntaxId(4)),
             SimplePath.empty(Span::new(7, 10)),
-            TupleFieldsDeclaration.with_binary_children(
-                Span::new(10, 20),
-                SyntaxId(2),
-                SyntaxId(3)
-            ),
+            StructItemTupleFields.with_binary_children(Span::new(10, 20), SyntaxId(2), SyntaxId(3)),
             I64Type.empty(Span::new(11, 14)),
             I64Type.empty(Span::new(16, 19)),
         ]
@@ -75,7 +74,8 @@ fn fields() {
             Root.with_child(Span::new(0, 29), SyntaxId(7)),
             StructItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(7, 10)),
-            StructDeclarationFields.with_multiple_children(Span::new(11, 29), SyntaxPayload::child_indices(0, 4)),
+            StructItemStructFields
+                .with_multiple_children(Span::new(11, 29), SyntaxPayload::child_indices(0, 4)),
             SimplePath.empty(Span::new(13, 14)),
             I64Type.empty(Span::new(16, 19)),
             SimplePath.empty(Span::new(21, 22)),
@@ -103,11 +103,12 @@ fn type_parameters() {
             Root.with_child(Span::new(0, 22), SyntaxId(7)),
             StructItem.with_multiple_children(Span::new(0, 22), SyntaxPayload::child_indices(3, 3)),
             SimplePath.empty(Span::new(7, 10)),
-            TypeParameters.with_multiple_children(Span::new(10, 19), SyntaxPayload::child_indices(0, 3)),
+            TypeParameters
+                .with_multiple_children(Span::new(10, 19), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(11, 12)),
             SimplePath.empty(Span::new(14, 15)),
             SimplePath.empty(Span::new(17, 18)),
-            StructDeclarationFields.empty(Span::new(20, 22)),
+            StructItemStructFields.empty(Span::new(20, 22)),
         ]
     );
 }

@@ -10,10 +10,10 @@ use crate::{
 };
 
 #[test]
-fn empty_fields() {
+fn empty() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("Foo {}")),
+        Lexer::from_bytes(function_wrapper!("Foo;")),
     );
     let ParseResult {
         syntax_tree,
@@ -26,7 +26,8 @@ fn empty_fields() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 24), SyntaxId(9)),
-            FunctionItem.with_multiple_children(Span::new(0, 24), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 24), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
@@ -34,7 +35,6 @@ fn empty_fields() {
             StructExpression.with_binary_children(Span::new(16, 22), SyntaxId(5), SyntaxId(6)),
             Path.with_child(Span::new(16, 19), SyntaxId(4)),
             PathSegment.empty(Span::new(16, 19)),
-            StructExpressionFields.empty(Span::new(21, 22)),
         ]
     );
 }
@@ -56,7 +56,8 @@ fn fields() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 39), SyntaxId(15)),
-            FunctionItem.with_multiple_children(Span::new(0, 39), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 39), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
@@ -64,11 +65,13 @@ fn fields() {
             StructExpression.with_binary_children(Span::new(16, 37), SyntaxId(5), SyntaxId(12)),
             Path.with_child(Span::new(16, 19), SyntaxId(4)),
             PathSegment.empty(Span::new(16, 19)),
-            StructExpressionFields.with_binary_children(Span::new(22, 37), SyntaxId(8), SyntaxId(11)),
-            StructExpressionField.with_binary_children(Span::new(22, 28), SyntaxId(6), SyntaxId(7)),
+            StructExpressionStructFields.with_binary_children(
+                Span::new(22, 37),
+                SyntaxId(8),
+                SyntaxId(11)
+            ),
             SimplePath.empty(Span::new(22, 23)),
             IntegerExpression.empty(Span::new(25, 27)),
-            StructExpressionField.with_binary_children(Span::new(22, 35), SyntaxId(9), SyntaxId(10)),
             SimplePath.empty(Span::new(29, 30)),
             IntegerExpression.empty(Span::new(32, 35)),
         ]

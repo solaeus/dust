@@ -18,6 +18,14 @@ pub struct SyntaxNode {
     pub(crate) modifier: bool,
 }
 
+impl SyntaxNode {
+    pub(crate) fn with_modifier(mut self, modifier: bool) -> Self {
+        self.modifier = modifier;
+
+        self
+    }
+}
+
 impl Display for SyntaxNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.kind)
@@ -113,14 +121,14 @@ pub enum SyntaxKind {
     FunctionParameters,
     ValueParameters,
     TypeParameters,
-    EnumVariant,
     EnumVariants,
-    TupleFieldsDeclaration,
-    TupleFields,
-    StructDeclarationFields,
-    StructDeclartionField,
-    StructExpressionFields,
-    StructExpressionField,
+    EnumEmptyVariant,
+    EnumTupleVariant,
+    EnumStructVariant,
+    StructItemTupleFields,
+    StructItemStructFields,
+    StructExpressionStructFields,
+    StructExpressionTupleFields,
 
     // Types
     TypePath,
@@ -208,8 +216,7 @@ impl SyntaxKind {
     pub fn is_item(&self) -> bool {
         matches!(
             self,
-            SyntaxKind::Root
-                | SyntaxKind::ModuleItem
+            SyntaxKind::ModuleItem
                 | SyntaxKind::UseItem
                 | SyntaxKind::FunctionItem
                 | SyntaxKind::StructItem
@@ -218,11 +225,16 @@ impl SyntaxKind {
     }
 
     pub fn is_statement(&self) -> bool {
-        self.is_item()
-            || matches!(
-                self,
-                SyntaxKind::LetStatement | SyntaxKind::ExpressionStatement
-            )
+        matches!(
+            self,
+            SyntaxKind::ModuleItem
+                | SyntaxKind::UseItem
+                | SyntaxKind::FunctionItem
+                | SyntaxKind::StructItem
+                | SyntaxKind::EnumItem
+                | SyntaxKind::LetStatement
+                | SyntaxKind::ExpressionStatement
+        )
     }
 
     pub fn is_expression(&self) -> bool {
@@ -301,8 +313,10 @@ impl SyntaxKind {
             SyntaxKind::DivisionAssignmentExpression => "division assignment expression",
             SyntaxKind::DivisionExpression => "division expression",
             SyntaxKind::EnumItem => "enum item",
-            SyntaxKind::EnumVariant => "enum variant",
             SyntaxKind::EnumVariants => "enum variants",
+            SyntaxKind::EnumEmptyVariant => "enum variant",
+            SyntaxKind::EnumTupleVariant => "enum tuple variant",
+            SyntaxKind::EnumStructVariant => "enum struct variant",
             SyntaxKind::EqualExpression => "equal expression",
             SyntaxKind::ExponentAssignmentExpression => "exponent assignment expression",
             SyntaxKind::ExponentExpression => "exponent expression",
@@ -351,17 +365,15 @@ impl SyntaxKind {
             SyntaxKind::SliceType => "slice type",
             SyntaxKind::StringExpression => "string expression",
             SyntaxKind::StringType => "string type",
-            SyntaxKind::StructDeclarationFields => "struct declaration fields",
-            SyntaxKind::StructDeclartionField => "struct field",
+            SyntaxKind::StructItemStructFields => "struct item struct fields",
             SyntaxKind::StructExpression => "struct expression",
-            SyntaxKind::StructExpressionField => "struct expression field",
-            SyntaxKind::StructExpressionFields => "struct expression fields",
+            SyntaxKind::StructExpressionStructFields => "struct expression struct fields",
+            SyntaxKind::StructExpressionTupleFields => "struct expression tuple fields",
             SyntaxKind::StructItem => "struct item",
             SyntaxKind::SubtractionAssignmentExpression => "subtraction assignment expression",
             SyntaxKind::SubtractionExpression => "subtraction expression",
             SyntaxKind::Trivia => "trivia",
-            SyntaxKind::TupleFields => "tuple fields",
-            SyntaxKind::TupleFieldsDeclaration => "tuple fields declaration",
+            SyntaxKind::StructItemTupleFields => "struct item tuple fields",
             SyntaxKind::TypeParameters => "type parameters",
             SyntaxKind::TypePath => "type path",
             SyntaxKind::U128Type => "u128 type",

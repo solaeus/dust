@@ -1,6 +1,12 @@
+use std::iter::ArrayChunks;
+
 use tracing::debug;
 
-use crate::syntax::{error::SyntaxError, node::SyntaxKind, reader::SyntaxReader};
+use crate::syntax::{
+    error::SyntaxError,
+    node::SyntaxKind,
+    reader::{SyntaxReader, SyntaxReaderIterator},
+};
 
 pub trait SyntaxComponent<'a>: Sized {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError>;
@@ -111,23 +117,32 @@ impl<'a> SyntaxComponent<'a> for StructItem<'a> {
     }
 }
 
-pub struct StructField<'a> {
-    pub public: bool,
-    pub name: Option<SyntaxReader<'a>>,
-    pub r#type: SyntaxReader<'a>,
+pub struct StructItemStructFields<'a> {
+    pub name_type_pairs: ArrayChunks<SyntaxReaderIterator<'a>, 2>,
 }
 
-impl<'a> SyntaxComponent<'a> for StructField<'a> {
+impl<'a> SyntaxComponent<'a> for StructItemStructFields<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
-        debug!("Visiting struct field");
-        debug_assert!(reader.kind() == SyntaxKind::StructDeclartionField);
-
-        let (r#type, name) = reader.single_or_binary_children()?;
+        debug!("Visiting struct item struct fields");
+        debug_assert!(reader.kind() == SyntaxKind::StructItemStructFields);
 
         Ok(Self {
-            public: reader.modifier(),
-            r#type,
-            name,
+            name_type_pairs: reader.children().array_chunks(),
+        })
+    }
+}
+
+pub struct StructItemTupleFields<'a> {
+    pub types: SyntaxReaderIterator<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for StructItemTupleFields<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting struct item tuple fields");
+        debug_assert!(reader.kind() == SyntaxKind::StructItemTupleFields);
+
+        Ok(Self {
+            types: reader.children(),
         })
     }
 }
@@ -163,7 +178,7 @@ pub struct EnumVariant<'a> {
 impl<'a> SyntaxComponent<'a> for EnumVariant<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting enum variant");
-        debug_assert!(reader.kind() == SyntaxKind::EnumVariant);
+        debug_assert!(reader.kind() == SyntaxKind::EnumEmptyVariant);
 
         let mut children = reader.children();
 
@@ -419,18 +434,32 @@ impl<'a> SyntaxComponent<'a> for StructExpression<'a> {
     }
 }
 
-pub struct StructExpressionField<'a> {
-    pub name: SyntaxReader<'a>,
-    pub expression: SyntaxReader<'a>,
+pub struct StructExpressionStructFields<'a> {
+    pub name_expression_pairs: ArrayChunks<SyntaxReaderIterator<'a>, 2>,
 }
 
-impl<'a> SyntaxComponent<'a> for StructExpressionField<'a> {
+impl<'a> SyntaxComponent<'a> for StructExpressionStructFields<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
-        debug!("Visiting struct expression field");
-        debug_assert!(matches!(reader.kind(), SyntaxKind::StructExpressionField));
+        debug!("Visiting struct expression struct fields");
+        debug_assert!(reader.kind() == SyntaxKind::StructExpressionStructFields);
 
-        let (name, expression) = reader.binary_children()?;
+        Ok(Self {
+            name_expression_pairs: reader.children().array_chunks(),
+        })
+    }
+}
 
-        Ok(Self { name, expression })
+pub struct StructExpressionTupleFields<'a> {
+    pub expressions: SyntaxReaderIterator<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for StructExpressionTupleFields<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting struct expression tuple fields");
+        debug_assert!(reader.kind() == SyntaxKind::StructExpressionTupleFields);
+
+        Ok(Self {
+            expressions: reader.children(),
+        })
     }
 }

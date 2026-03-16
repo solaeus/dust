@@ -24,7 +24,9 @@ use crate::{
             CompoundAssignmentExpression, EnumItem, EnumVariant, ExpressionStatement, FunctionItem,
             FunctionParameters, IfExpression, IndexExpression, LetStatement, LogicExpression,
             MathExpression, ModuleItem, NegationExpression, StructExpression,
-            StructExpressionField, StructField, StructItem, UseItem, WhileExpression,
+            StructExpressionStructFields, StructExpressionTupleFields, StructItem,
+            StructItemStructFields, StructItemTupleFields, SyntaxComponent, UseItem,
+            WhileExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -395,36 +397,62 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             DeclarationMembers::default()
         };
 
-        for (index, field) in fields.children().enumerate() {
-            let StructField {
-                public,
-                name,
-                r#type,
-            } = field.as_component()?;
+        match fields.kind() {
+            SyntaxKind::StructItemTupleFields => {
+                let StructItemTupleFields { types } = StructItemTupleFields::from_reader(&fields)?;
 
-            let symbol_id = if let Some(name) = name {
-                let symbol = self.source.get_file_content(&name.position())?;
+                for (index, field_type) in types.enumerate() {
+                    let public = field_type.modifier();
+                    let symbol_id = self.resolver.symbols.add_index_symbol(index);
+                    let type_id = self.visit_type(field_type)?;
+                    let _field_declaration_id =
+                        self.resolver.declarations.add_declaration(Declaration {
+                            symbol_id,
+                            definition: Definition::Field {
+                                public,
+                                parent_struct: struct_declaration_id,
+                                type_id,
+                            },
+                            scope_id: self.current_scope_id,
+                            syntax: Some((field_type.position(), field_type.id)),
+                        });
 
-                self.resolver.symbols.add_symbol(symbol)
-            } else {
-                self.resolver.symbols.add_index_symbol(index)
-            };
-            let type_id = self.visit_type(r#type)?;
-            let _field_declaration_id = self.resolver.declarations.add_declaration(Declaration {
-                symbol_id,
-                definition: Definition::Field {
-                    public,
-                    parent_struct: struct_declaration_id,
-                    type_id,
-                },
-                scope_id: self.current_scope_id,
-                syntax: Some((field.position(), field.id)),
-            });
+                    debug_assert_eq!(_field_declaration_id, field_declaration_ids[index]);
 
-            debug_assert_eq!(_field_declaration_id, field_declaration_ids[index]);
+                    self.resolver
+                        .add_declaration_binding(field_type.id, field_declaration_ids[index]);
+                }
+            }
+            SyntaxKind::StructItemStructFields => {
+                let StructItemStructFields { name_type_pairs } =
+                    StructItemStructFields::from_reader(&fields)?;
 
-            self.resolver
-                .add_declaration_binding(field.id, field_declaration_ids[index]);
+                let file = self.source.get_file(name.file_id())?;
+
+                for (index, [field_name, field_type]) in name_type_pairs.enumerate() {
+                    let public = field_name.modifier();
+                    let field_name_str = file.content_str(field_name.span())?;
+                    let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
+                    let field_type_id = self.visit_type(field_type)?;
+                    let _field_declaration_id =
+                        self.resolver.declarations.add_declaration(Declaration {
+                            symbol_id: field_symbol_id,
+                            definition: Definition::Field {
+                                public,
+                                parent_struct: struct_declaration_id,
+                                type_id: field_type_id,
+                            },
+                            scope_id: self.current_scope_id,
+                            syntax: Some((field_name.position(), field_name.id)),
+                        });
+
+                    debug_assert_eq!(_field_declaration_id, field_declaration_ids[index]);
+
+                    self.resolver
+                        .add_declaration_binding(field_name.id, field_declaration_ids[index]);
+                }
+            }
+            _ => unreachable!(),
         }
 
         let fields = self
@@ -705,14 +733,24 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.visit_path(path, Visibility::Module)?;
 
-        for field in fields.children() {
-            let StructExpressionField {
-                name: field_path,
-                expression: field_expression,
-            } = field.as_component()?;
+        match fields.kind() {
+            SyntaxKind::StructExpressionStructFields => {
+                let StructExpressionStructFields {
+                    name_expression_pairs,
+                } = fields.as_component()?;
 
-            self.visit_simple_path(field_path, Visibility::Block)?;
-            self.visit_expression(field_expression, None)?;
+                for [_, field_value] in name_expression_pairs {
+                    self.visit_expression(field_value, None)?;
+                }
+            }
+            SyntaxKind::StructExpressionTupleFields => {
+                let StructExpressionTupleFields { expressions } = fields.as_component()?;
+
+                for expression in expressions {
+                    self.visit_expression(expression, None)?;
+                }
+            }
+            _ => unreachable!(),
         }
 
         Ok(())
