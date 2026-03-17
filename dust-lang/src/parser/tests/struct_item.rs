@@ -103,12 +103,12 @@ fn type_parameters() {
             Root.with_child(Span::new(0, 22), SyntaxId(7)),
             StructItem.with_multiple_children(Span::new(0, 22), SyntaxPayload::child_indices(3, 6)),
             SimplePath.empty(Span::new(7, 10)),
+            StructItemStructFields.empty(Span::new(20, 22)),
             TypeParameters
                 .with_multiple_children(Span::new(10, 19), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(11, 12)),
             SimplePath.empty(Span::new(14, 15)),
             SimplePath.empty(Span::new(17, 18)),
-            StructItemStructFields.empty(Span::new(20, 22)),
         ]
     );
 }

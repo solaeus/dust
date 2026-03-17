@@ -227,7 +227,7 @@ pub enum Definition {
     /// Definition of a declared sum type. This type definition can be instantiated as
     /// `Type::Algebraic`.
     ///
-    /// ```
+    /// ```dust
     /// enum Foo<T> {
     ///     Bar(T),
     ///     Baz { x: f32 }
@@ -245,14 +245,13 @@ pub enum Definition {
     ///
     /// Bar(T) in `enum Foo<T> { Bar(T), ... }`
     ///
-    /// ```
+    /// ```dust
     /// enum Foo {
     ///   Bar = 0, // If all variants have no fields, the discriminant can be specified manually.
     ///   Baz = 1,
     ///   Qux = 2,
     /// }
     /// ```
-    ///
     Variant {
         discriminant: u32,
         parent_enum: DeclarationId,

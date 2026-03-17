@@ -8,7 +8,10 @@ use std::{
 use indexmap::{IndexSet, set::MutableValues};
 use smallvec::SmallVec;
 
-use crate::resolver::{declarations::DeclarationId, error::ResolverError};
+use crate::resolver::{
+    declarations::{DeclarationId, DeclarationMembers},
+    error::ResolverError,
+};
 
 /// Type instance collection that stores every type known to the `Compiler`.
 #[derive(Debug)]
@@ -178,19 +181,19 @@ impl TypeId {
 /// # Overview
 ///
 /// - `bool`, `char`, all numeric types and the special pointer type are always concrete. The never
-/// type is non-concrete because it does not represent any values.
+///   type is non-concrete because it does not represent any values.
 /// - Composite types whose type members are all concrete are also concrete. `Option<i32>` is
-/// concrete because `i32` is concrete, but `Option<T>`, which uses a generic type parameter, will
-/// not be concrete until `T` is resolved to a concrete type.
+///   concrete because `i32` is concrete, but `Option<T>`, which uses a generic type parameter, will
+///   not be concrete until `T` is resolved to a concrete type.
 /// - Generics are used by [`Definitions`][]s to represent type parameters that are part of a type
-/// definition. They are not used on type instances, so they are never inside of other `Type`
-/// variants. Generics are non-concrete by definition.
+///   definition. They are not used on type instances, so they are never inside of other `Type`
+///   variants. Generics are non-concrete by definition.
 /// - Inferred types start as non-concrete but may become concrete through type unification. For
-/// example, the type of `x` in `let x = 5;` is initially an inferred type, but it becomes concrete
-/// when it is unified with an explicit type written elsewhere or the default `i32`.
+///   example, the type of `x` in `let x = 5;` is initially an inferred type, but it becomes concrete
+///   when it is unified with an explicit type written elsewhere or the default `i32`.
 /// - Types based on a type [`Definition`][] have a `declaration_id` field that can be used to find
-/// how it was declared, including its full definition. For each type parameter in the definition,
-/// there is a corresponding entry in the `type_arguments` field.
+///   how it was declared, including its full definition. For each type parameter in the definition,
+///   there is a corresponding entry in the `type_arguments` field.
 ///
 /// Because the Rust type system is the primary inspiration for this one, the variants of this enum
 /// are very similar to the variants of [`rustc_type_ir::ty_kind::TyKind`][1].
@@ -244,7 +247,7 @@ pub enum Type {
 
     /// An instance of a function definition type.
     ///
-    /// ```
+    /// ```dust
     /// fn foo<T: Add>(x: T) -> T { ... } // A `fn` item creates the *defintion* of the function type.
     ///
     /// foo::<i32>(42);                   // An *instance* of the function type is created by passing
@@ -255,7 +258,7 @@ pub enum Type {
         type_arguments: TypeMembers,
     },
 
-    /// The type of a closure expression.
+    /// The anonymous type of a closure expression.
     ///
     /// `|x: T| x + 1`
     Closure {
@@ -270,24 +273,28 @@ pub enum Type {
     ///
     /// `fn(T) -> T`
     ///
-    /// ```
+    /// ```dust
     /// struct MyFunction(fn(i32) -> i32); // The user writes a function type
     ///
     /// fn foo(x: i32) -> i32 { x + 1 }
     ///
-    /// fn baz() -> i32 {
+    /// fn bar() -> i32 {
     ///     let x = MyFunction(|x| x + 1); // The closure type is compatible
     ///     let y = MyFunction(foo);       // The function definition type is compatible
     ///
-    ///     x.0(21) + y.0(21)
+    ///     x.0(20) + y.0(20)
     /// }
     /// ```
     Function {
+        type_parameters: DeclarationMembers,
         value_parameters: TypeMembers,
         return_type: TypeId,
     },
 
-    /// ```
+    /// A named composite or sum type. Their corresponding type [`Definition`][] contains the fields
+    /// or variants of the type.
+    ///
+    /// ```dust
     /// struct Foo { bar: f32 }
     ///
     /// enum Option<T> {
@@ -295,18 +302,15 @@ pub enum Type {
     ///     None
     /// }
     /// ```
-    ///
-    /// A named composite or sum type. Their corresponding type [`Definition`][] contains the fields
-    /// or variants of the type.
     Algebraic {
         declaration_id: DeclarationId,
         type_arguments: TypeMembers,
     },
 
-    /// `T` in `fn foo<T>(x: T) -> T`
-    ///
     /// A non-concrete type used in type definitions to represent type arguments to be given when
     /// the type is instantiated.
+    ///
+    /// `T` in `fn foo<T>(x: T) -> T`
     Generic { declaration_id: DeclarationId },
 
     /// A type that was not specified by the user and may be resolved to a concrete type through
@@ -408,15 +412,18 @@ impl PartialEq for Type {
             }
             (
                 Type::Function {
+                    type_parameters: left_type_parameters,
                     value_parameters: left_parameter_types,
                     return_type: left_return_type,
                 },
                 Type::Function {
+                    type_parameters: right_type_parameters,
                     value_parameters: right_parameter_types,
                     return_type: right_return_type,
                 },
             ) => {
-                left_parameter_types == right_parameter_types
+                left_type_parameters == right_type_parameters
+                    && left_parameter_types == right_parameter_types
                     && left_return_type == right_return_type
             }
             (
@@ -525,16 +532,22 @@ impl Ord for Type {
             (Type::Closure { .. }, _) => Ordering::Less,
             (
                 Type::Function {
+                    type_parameters: left_type_parameters,
                     value_parameters: left_parameter_types,
                     return_type: left_return_type,
                 },
                 Type::Function {
+                    type_parameters: right_type_parameters,
                     value_parameters: right_parameter_types,
                     return_type: right_return_type,
                 },
-            ) => left_parameter_types
-                .cmp(right_parameter_types)
-                .then_with(|| left_return_type.cmp(right_return_type)),
+            ) => left_type_parameters
+                .cmp(right_type_parameters)
+                .then_with(|| {
+                    left_parameter_types
+                        .cmp(right_parameter_types)
+                        .then_with(|| left_return_type.cmp(right_return_type))
+                }),
             (Type::Function { .. }, _) => Ordering::Less,
             (
                 Type::Algebraic {
@@ -668,10 +681,12 @@ impl Hash for Type {
                 return_type_id.hash(state);
             }
             Type::Function {
+                type_parameters,
                 value_parameters,
                 return_type,
             } => {
                 state.write_u8(20);
+                type_parameters.hash(state);
                 value_parameters.hash(state);
                 return_type.hash(state);
             }

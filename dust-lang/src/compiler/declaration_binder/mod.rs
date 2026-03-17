@@ -970,7 +970,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     SmallVec::new()
                 };
 
-                let _type_parameters = self
+                let type_parameters = self
                     .resolver
                     .declarations
                     .add_declaration_members(type_parameter_ids);
@@ -978,6 +978,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 let return_type_id = self.visit_type(return_type)?;
 
                 self.resolver.types.add_type(Type::Function {
+                    type_parameters,
                     value_parameters,
                     return_type: return_type_id,
                 })
