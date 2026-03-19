@@ -182,6 +182,8 @@ impl<'src> Compiler<'src> {
             }
         }
 
+        println!("Errors after declaration binding: {:#?}", errors);
+
         // Type binding phase
         {
             let span = span!(Level::INFO, "type");

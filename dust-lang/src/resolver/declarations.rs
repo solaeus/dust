@@ -260,7 +260,7 @@ pub enum Definition {
     },
 
     /// Type parameters have a unique `Type::Generic` type. When a type is instantiated, the type
-    /// instance is given a type argument for each type parameter. Must have an associated type ID.
+    /// instance is given a type argument for each type parameter.
     ///
     /// `T` in `fn foo<T>(x: T) -> T { ... }`
     TypeParameter,
@@ -275,9 +275,10 @@ impl Definition {
             | Definition::NativeFunction { .. }
             | Definition::StructType { .. }
             | Definition::EnumType { .. }
-            | Definition::TypeParameter { .. }
             | Definition::Use { .. } => Visibility::Module,
-            Definition::Field { .. } | Definition::Variant { .. } => Visibility::Type,
+            Definition::Field { .. } | Definition::Variant { .. } | Definition::TypeParameter => {
+                Visibility::Type
+            }
         }
     }
 }

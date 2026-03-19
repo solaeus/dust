@@ -5,7 +5,7 @@ mod enum_item;
 mod function_item;
 mod if_expression;
 mod let_statement;
-mod mod_item;
+mod module_item;
 mod struct_expression;
 mod struct_item;
 mod unary_expressions;
@@ -29,7 +29,7 @@ macro_rules! function_wrapper {
 }
 
 #[test]
-fn reassignment_statement() {
+fn assignment_expression() {
     let parser = Parser::new(
         SourceFileId::MAIN,
         Lexer::from_bytes(function_wrapper!("x = 42;")),

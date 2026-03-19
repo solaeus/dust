@@ -21,12 +21,12 @@ pub struct ModuleItem<'a> {
 impl<'a> SyntaxComponent<'a> for ModuleItem<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting module item");
-        debug_assert!(matches!(reader.kind(), SyntaxKind::ModuleItem));
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::ModuleItem));
 
         let mut children = reader.children();
 
         Ok(Self {
-            public: reader.modifier(),
+            public: reader.node.modifier,
             name: children.expect_next()?,
             body: children.next(),
         })
@@ -41,10 +41,10 @@ pub struct UseItem<'a> {
 impl<'a> SyntaxComponent<'a> for UseItem<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting use item");
-        debug_assert!(matches!(reader.kind(), SyntaxKind::UseItem));
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::UseItem));
 
         Ok(Self {
-            public: reader.modifier(),
+            public: reader.node.modifier,
             path: reader.single_child()?,
         })
     }
@@ -61,12 +61,12 @@ pub struct FunctionItem<'a> {
 impl<'a> SyntaxComponent<'a> for FunctionItem<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting function item");
-        debug_assert!(matches!(reader.kind(), SyntaxKind::FunctionItem));
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::FunctionItem));
 
         let mut children = reader.children();
 
         Ok(Self {
-            public: reader.modifier(),
+            public: reader.node.modifier,
             name: children.expect_next()?,
             parameters: children.expect_next()?,
             body: children.expect_next()?,
@@ -81,11 +81,11 @@ pub struct FunctionParameters<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for FunctionParameters<'a> {
-    fn from_reader(node: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting function parameters");
-        debug_assert!(node.kind() == SyntaxKind::FunctionParameters);
+        debug_assert!(reader.node.kind == SyntaxKind::FunctionParameters);
 
-        let mut children = node.children();
+        let mut children = reader.children();
 
         Ok(Self {
             value_parameters: children.expect_next()?,
@@ -104,12 +104,12 @@ pub struct StructItem<'a> {
 impl<'a> SyntaxComponent<'a> for StructItem<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting struct item");
-        debug_assert!(reader.kind() == SyntaxKind::StructItem);
+        debug_assert!(reader.node.kind == SyntaxKind::StructItem);
 
         let mut children = reader.children();
 
         Ok(Self {
-            public: reader.modifier(),
+            public: reader.node.modifier,
             name: children.expect_next()?,
             fields: children.expect_next()?,
             type_parameters: children.next(),
@@ -124,7 +124,7 @@ pub struct StructItemStructFields<'a> {
 impl<'a> SyntaxComponent<'a> for StructItemStructFields<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting struct item struct fields");
-        debug_assert!(reader.kind() == SyntaxKind::StructItemStructFields);
+        debug_assert!(reader.node.kind == SyntaxKind::StructItemStructFields);
 
         Ok(Self {
             name_type_pairs: reader.children().array_chunks(),
@@ -139,7 +139,7 @@ pub struct StructItemTupleFields<'a> {
 impl<'a> SyntaxComponent<'a> for StructItemTupleFields<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting struct item tuple fields");
-        debug_assert!(reader.kind() == SyntaxKind::StructItemTupleFields);
+        debug_assert!(reader.node.kind == SyntaxKind::StructItemTupleFields);
 
         Ok(Self {
             types: reader.children(),
@@ -157,12 +157,12 @@ pub struct EnumItem<'a> {
 impl<'a> SyntaxComponent<'a> for EnumItem<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting enum item");
-        debug_assert!(reader.kind() == SyntaxKind::EnumItem);
+        debug_assert!(reader.node.kind == SyntaxKind::EnumItem);
 
         let mut children = reader.children();
 
         Ok(Self {
-            public: reader.modifier(),
+            public: reader.node.modifier,
             name: children.expect_next()?,
             variants: children.expect_next()?,
             type_parameters: children.next(),
@@ -179,13 +179,13 @@ impl<'a> SyntaxComponent<'a> for EnumVariant<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting enum variant");
         debug_assert!(matches!(
-            reader.kind(),
+            reader.node.kind,
             SyntaxKind::EnumUnitVariant
                 | SyntaxKind::EnumStructVariant
                 | SyntaxKind::EnumTupleVariant
         ));
 
-        match reader.kind() {
+        match reader.node.kind {
             SyntaxKind::EnumUnitVariant => Ok(Self {
                 name: *reader,
                 fields: None,
@@ -213,12 +213,12 @@ pub struct LetStatement<'a> {
 impl<'a> SyntaxComponent<'a> for LetStatement<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting let statement");
-        debug_assert!(matches!(reader.kind(), SyntaxKind::LetStatement));
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::LetStatement));
 
         let mut children = reader.children();
 
         Ok(Self {
-            mutable: reader.modifier(),
+            mutable: reader.node.modifier,
             name: children.expect_next()?,
             expression: children.expect_next()?,
             type_notation: children.next(),
@@ -233,7 +233,7 @@ pub struct ExpressionStatement<'a> {
 impl<'a> SyntaxComponent<'a> for ExpressionStatement<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting expression statement");
-        debug_assert!(matches!(reader.kind(), SyntaxKind::ExpressionStatement));
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::ExpressionStatement));
 
         Ok(Self {
             expression: reader.single_child()?,
@@ -249,7 +249,7 @@ pub struct AssignmentExpression<'a> {
 impl<'a> SyntaxComponent<'a> for AssignmentExpression<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting assignment expression");
-        debug_assert!(matches!(reader.kind(), SyntaxKind::AssignmentExpression));
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::AssignmentExpression));
 
         let (target, value) = reader.binary_children()?;
 
@@ -266,7 +266,7 @@ impl<'a> SyntaxComponent<'a> for CompoundAssignmentExpression<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting compound assignment expression");
         debug_assert!(matches!(
-            reader.kind(),
+            reader.node.kind,
             SyntaxKind::AdditionAssignmentExpression
                 | SyntaxKind::SubtractionAssignmentExpression
                 | SyntaxKind::MultiplicationAssignmentExpression
@@ -290,7 +290,7 @@ impl<'a> SyntaxComponent<'a> for MathExpression<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting math expression");
         debug_assert!(matches!(
-            reader.kind(),
+            reader.node.kind,
             SyntaxKind::AdditionExpression
                 | SyntaxKind::SubtractionExpression
                 | SyntaxKind::MultiplicationExpression
@@ -314,7 +314,7 @@ impl<'a> SyntaxComponent<'a> for ComparisonExpression<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting comparison expression");
         debug_assert!(matches!(
-            reader.kind(),
+            reader.node.kind,
             SyntaxKind::EqualExpression
                 | SyntaxKind::NotEqualExpression
                 | SyntaxKind::LessThanExpression
@@ -338,7 +338,7 @@ impl<'a> SyntaxComponent<'a> for LogicExpression<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting logic expression");
         debug_assert!(matches!(
-            reader.kind(),
+            reader.node.kind,
             SyntaxKind::AndExpression | SyntaxKind::OrExpression
         ));
 
@@ -355,7 +355,7 @@ pub struct NegationExpression<'a> {
 impl<'a> SyntaxComponent<'a> for NegationExpression<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting negation expression");
-        debug_assert!(matches!(reader.kind(), SyntaxKind::NegationExpression));
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::NegationExpression));
 
         Ok(Self {
             operand: reader.single_child()?,
@@ -371,7 +371,7 @@ pub struct IndexExpression<'a> {
 impl<'a> SyntaxComponent<'a> for IndexExpression<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting index expression");
-        debug_assert!(matches!(reader.kind(), SyntaxKind::IndexExpression));
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::IndexExpression));
 
         let (list, index) = reader.binary_children()?;
 
@@ -388,7 +388,7 @@ pub struct IfExpression<'a> {
 impl<'a> SyntaxComponent<'a> for IfExpression<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting if expression");
-        debug_assert!(matches!(reader.kind(), SyntaxKind::IfExpression));
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::IfExpression));
 
         let mut children = reader.children();
 
@@ -408,7 +408,7 @@ pub struct WhileExpression<'a> {
 impl<'a> SyntaxComponent<'a> for WhileExpression<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting while expression");
-        debug_assert!(matches!(reader.kind(), SyntaxKind::WhileExpression));
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::WhileExpression));
 
         let (condition, body) = reader.binary_children()?;
 
@@ -424,7 +424,7 @@ pub struct CallExpression<'a> {
 impl<'a> SyntaxComponent<'a> for CallExpression<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting call expression");
-        debug_assert!(matches!(reader.kind(), SyntaxKind::CallExpression));
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::CallExpression));
 
         let (callee, arguments) = reader.binary_children()?;
 
@@ -440,7 +440,7 @@ pub struct StructExpression<'a> {
 impl<'a> SyntaxComponent<'a> for StructExpression<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting struct expression");
-        debug_assert!(matches!(reader.kind(), SyntaxKind::StructExpression));
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::StructExpression));
 
         let (path, fields) = reader.binary_children()?;
 
@@ -455,7 +455,7 @@ pub struct StructExpressionStructFields<'a> {
 impl<'a> SyntaxComponent<'a> for StructExpressionStructFields<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting struct expression struct fields");
-        debug_assert!(reader.kind() == SyntaxKind::StructExpressionStructFields);
+        debug_assert!(reader.node.kind == SyntaxKind::StructExpressionStructFields);
 
         Ok(Self {
             name_expression_pairs: reader.children().array_chunks(),
@@ -470,7 +470,7 @@ pub struct StructExpressionTupleFields<'a> {
 impl<'a> SyntaxComponent<'a> for StructExpressionTupleFields<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting struct expression tuple fields");
-        debug_assert!(reader.kind() == SyntaxKind::StructExpressionTupleFields);
+        debug_assert!(reader.node.kind == SyntaxKind::StructExpressionTupleFields);
 
         Ok(Self {
             expressions: reader.children(),

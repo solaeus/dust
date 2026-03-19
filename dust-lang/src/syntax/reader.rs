@@ -1,10 +1,10 @@
 use crate::{
-    source::{Position, SourceFileId, Span},
+    source::{Position, SourceFileId},
     syntax::{
         SyntaxId,
         components::SyntaxComponent,
         error::SyntaxError,
-        node::{SyntaxKind, SyntaxNode, SyntaxPayload, SyntaxPayloadKind},
+        node::{SyntaxNode, SyntaxPayloadKind},
         tree::SyntaxTree,
     },
 };
@@ -23,26 +23,6 @@ impl<'a> SyntaxReader<'a> {
 
     pub fn root(&self) -> Result<Self, SyntaxError> {
         self.tree.root()
-    }
-
-    pub fn node(&self) -> &'a SyntaxNode {
-        self.node
-    }
-
-    pub fn kind(&self) -> SyntaxKind {
-        self.node.kind
-    }
-
-    pub fn children_payload(&self) -> SyntaxPayload {
-        self.node.children
-    }
-
-    pub fn span(&self) -> Span {
-        self.node.span
-    }
-
-    pub fn modifier(&self) -> bool {
-        self.node.modifier
     }
 
     pub fn is_item(&self) -> bool {
@@ -253,9 +233,9 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
                 child_id
             }
             SyntaxPayloadKind::MultipleChildren => {
-                let child_index = self.parent.children_payload().left as usize + self.current_index;
+                let child_index = self.parent.node.children.left as usize + self.current_index;
 
-                if child_index >= self.parent.children_payload().right as usize {
+                if child_index >= self.parent.node.children.right as usize {
                     return None;
                 }
 
@@ -300,8 +280,7 @@ impl DoubleEndedIterator for SyntaxReaderIterator<'_> {
             SyntaxPayloadKind::MultipleChildren
                 if self.current_index < self.parent.child_count() =>
             {
-                let child_index =
-                    self.parent.children_payload().right as usize - self.current_index - 1;
+                let child_index = self.parent.node.children.right as usize - self.current_index - 1;
                 self.current_index += 1;
 
                 self.parent.tree.children[child_index]
@@ -332,12 +311,12 @@ mod tests {
 
         let forward = root
             .children()
-            .map(|reader| reader.node())
+            .map(|reader| reader.node)
             .collect::<Vec<_>>();
         let backward = root
             .children()
             .rev()
-            .map(|reader| reader.node())
+            .map(|reader| reader.node)
             .collect::<Vec<_>>();
 
         for (forward_node, backward_node) in forward.iter().zip(backward.iter().rev()) {

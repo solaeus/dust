@@ -42,8 +42,6 @@ pub struct DeclarationBinder<'a> {
 
     errors: &'a mut Vec<ErrorKind>,
 
-    crate_scope_id: ScopeId,
-
     current_scope_id: ScopeId,
 }
 
@@ -53,15 +51,14 @@ impl<'a> DeclarationBinder<'a> {
         syntax: &'a Syntax,
         resolver: &'a mut Resolver,
         errors: &'a mut Vec<ErrorKind>,
-        crate_scope_id: ScopeId,
+        starting_scope_id: ScopeId,
     ) -> Self {
         Self {
             source,
             syntax,
             resolver,
             errors,
-            crate_scope_id,
-            current_scope_id: crate_scope_id,
+            current_scope_id: starting_scope_id,
         }
     }
 }
@@ -75,12 +72,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     type PathInput = Visibility;
     type PathOutput = DeclarationId;
 
-    fn visit_root(&mut self, reader: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
-        debug!("Visiting root");
-        debug_assert_eq!(reader.kind(), SyntaxKind::Root);
+    fn visit_root(&mut self, root: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
+        debug_assert_eq!(root.node.kind, SyntaxKind::Root);
 
-        for child in reader.children() {
-            match self.visit_item(child) {
+        for item in root.children() {
+            match self.visit_item(item) {
                 Ok(()) => {}
                 Err(error) => self.errors.push(ErrorKind::Compile(error)),
             }
@@ -89,13 +85,13 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_module_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        let ModuleItem { public, name, body } = reader.as_component()?;
+    fn visit_module_item(&mut self, module_item: SyntaxReader) -> Result<(), CompileError> {
+        let ModuleItem { public, name, body } = module_item.as_component()?;
 
         let module_name_str = self
             .source
             .get_file(name.file_id())?
-            .content_str(name.span())?;
+            .content_str(name.node.span)?;
         let module_symbol_id = self.resolver.symbols.add_symbol(module_name_str);
         let module_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Module,
@@ -113,15 +109,16 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     inner_scope_id: module_scope_id,
                 },
                 scope_id: self.current_scope_id,
-                syntax: Some((name.position(), reader.id)),
+                syntax: Some((name.position(), module_item.id)),
             });
 
             self.resolver
                 .add_scope_binding(module_body.id, module_scope_id);
             self.resolver
-                .add_declaration_binding(reader.id, module_declaration_id);
+                .add_declaration_binding(module_item.id, module_declaration_id);
 
             let starting_scope_id = self.current_scope_id;
+            self.current_scope_id = module_scope_id;
 
             for child in module_body.children() {
                 match self.visit_item(child) {
@@ -161,29 +158,30 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     inner_scope_id: module_scope_id,
                 },
                 scope_id: self.current_scope_id,
-                syntax: Some((name.position(), reader.id)),
+                syntax: Some((name.position(), module_item.id)),
             });
 
             self.resolver
                 .add_declaration_binding(name.id, module_declaration_id);
 
             let module_root = self.syntax.get_tree(module_file_id)?.root()?;
-            let starting_module_scope_id = self.current_scope_id;
+            let starting_scope_id = self.current_scope_id;
+            self.current_scope_id = module_scope_id;
 
             self.visit_root(module_root)?;
 
-            self.current_scope_id = starting_module_scope_id;
+            self.current_scope_id = starting_scope_id;
         }
 
         Ok(())
     }
 
     fn visit_use_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        let start = reader.span().start();
+        let start = reader.node.span.start();
         let UseItem { public, path } = reader.as_component()?;
 
         let file = self.source.get_file(path.file_id())?;
-        let symbol = file.content_str(path.span())?;
+        let symbol = file.content_str(path.node.span)?;
         let symbol_id = self.resolver.symbols.add_symbol(symbol);
 
         let path_segments = path.children().rev();
@@ -192,7 +190,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let mut current_end = start;
 
         for segment in path_segments {
-            let segment_str = file.content_str(segment.span())?;
+            let segment_str = file.content_str(segment.node.span)?;
             let segment_symbol_id = self.resolver.symbols.add_symbol(segment_str);
             let (declaration_id, declaration) = self.resolver.find_declaration_in_scope(
                 segment_symbol_id,
@@ -211,7 +209,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             }
 
             current_declaration_id = Some(declaration_id);
-            current_end = segment.span().end();
+            current_end = segment.node.span.end();
         }
 
         if let Some(current_declaration_id) = current_declaration_id {
@@ -392,12 +390,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             DeclarationMembers::default()
         };
 
-        match fields.kind() {
+        match fields.node.kind {
             SyntaxKind::StructItemTupleFields => {
                 let StructItemTupleFields { types } = StructItemTupleFields::from_reader(&fields)?;
 
                 for (index, field_type) in types.enumerate() {
-                    let public = field_type.modifier();
+                    let public = field_type.node.modifier;
                     let symbol_id = self.resolver.symbols.add_index_symbol(index);
                     let type_id = self.visit_type(field_type)?;
                     let _field_declaration_id =
@@ -425,8 +423,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 let file = self.source.get_file(name.file_id())?;
 
                 for (index, [field_name, field_type]) in name_type_pairs.enumerate() {
-                    let public = field_name.modifier();
-                    let field_name_str = file.content_str(field_name.span())?;
+                    let public = field_name.node.modifier;
+                    let field_name_str = file.content_str(field_name.node.span)?;
                     let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
                     let field_type_id = self.visit_type(field_type)?;
                     let _field_declaration_id =
@@ -681,7 +679,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visiting list expression");
-        debug_assert_eq!(list_expression.kind(), SyntaxKind::ArrayExpression);
+        debug_assert_eq!(list_expression.node.kind, SyntaxKind::ArrayExpression);
 
         for element in list_expression.children() {
             self.visit_expression(element, None)?;
@@ -709,7 +707,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visiting path expression");
-        debug_assert_eq!(path_expression.kind(), SyntaxKind::PathExpression);
+        debug_assert_eq!(path_expression.node.kind, SyntaxKind::PathExpression);
 
         let declaration_id = search_path_segments(self, path_expression, Visibility::Block)?;
 
@@ -728,7 +726,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.visit_path(path, Visibility::Module)?;
 
-        match fields.kind() {
+        match fields.node.kind {
             SyntaxKind::StructExpressionStructFields => {
                 let StructExpressionStructFields {
                     name_expression_pairs,
@@ -757,7 +755,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visiting block expression");
-        debug_assert_eq!(block_expression.kind(), SyntaxKind::BlockExpression);
+        debug_assert_eq!(block_expression.node.kind, SyntaxKind::BlockExpression);
 
         let block_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Block,
@@ -769,7 +767,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         self.current_scope_id = block_scope_id;
 
         for child in block_expression.children() {
-            if child.kind().is_statement() {
+            if child.node.kind.is_statement() {
                 match self.visit_statement(child) {
                     Ok(_) => {}
                     Err(error) => self.errors.push(ErrorKind::Compile(error)),
@@ -891,7 +889,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_type(&mut self, node: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
         debug!("Visiting type");
         debug_assert!(matches!(
-            node.kind(),
+            node.node.kind,
             SyntaxKind::BooleanType
                 | SyntaxKind::CharacterType
                 | SyntaxKind::I8Type
@@ -909,7 +907,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 | SyntaxKind::TypePath
         ),);
 
-        let type_id = match node.kind() {
+        let type_id = match node.node.kind {
             SyntaxKind::BooleanType => TypeId::BOOLEAN,
             SyntaxKind::U8Type => TypeId::U_8,
             SyntaxKind::CharacterType => TypeId::CHARACTER,
@@ -1013,7 +1011,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         visibility: Self::PathInput,
     ) -> Result<Self::PathOutput, CompileError> {
         debug!("Visiting path");
-        debug_assert_eq!(path.kind(), SyntaxKind::Path);
+        debug_assert_eq!(path.node.kind, SyntaxKind::Path);
 
         let declaration_id = search_path_segments(self, path, visibility)?;
 
@@ -1029,7 +1027,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         visibility: Self::PathInput,
     ) -> Result<Self::PathOutput, CompileError> {
         debug!("Visiting simple path");
-        debug_assert_eq!(simple_path.kind(), SyntaxKind::SimplePath);
+        debug_assert_eq!(simple_path.node.kind, SyntaxKind::SimplePath);
 
         let identifier = self.source.get_file_content(&simple_path.position())?;
         let symbol_id = self.resolver.symbols.add_symbol(identifier);
@@ -1062,7 +1060,7 @@ fn search_path_segments<'a>(
 
     let mut search =
         |segment: SyntaxReader| {
-            let segment_str = file.content_str(segment.span())?;
+            let segment_str = file.content_str(segment.node.span)?;
             let symbol_id = binder.resolver.symbols.add_symbol(segment_str);
 
             let (next_declaration_id, next_declaration) = binder

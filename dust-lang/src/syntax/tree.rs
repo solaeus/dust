@@ -73,10 +73,10 @@ impl SyntaxTree {
     }
 
     pub fn sorted_nodes(&self) -> Vec<SyntaxNode> {
-        fn collect_depth_first(node: SyntaxReader, nodes: &mut Vec<SyntaxNode>) {
-            nodes.push(*node.node());
+        fn collect_depth_first(reader: SyntaxReader, nodes: &mut Vec<SyntaxNode>) {
+            nodes.push(*reader.node);
 
-            for child in node.children() {
+            for child in reader.children() {
                 collect_depth_first(child, nodes);
             }
         }
