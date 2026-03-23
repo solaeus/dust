@@ -7,7 +7,7 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::source::Span;
+use crate::{resolver::error::ResolverError, source::Span};
 
 #[derive(Debug)]
 pub struct Symbols {
@@ -62,14 +62,15 @@ impl Symbols {
         let id = SymbolId(self.spans.len() as u32);
         let start = self.pool.len() as u32;
 
-        write!(&mut self.pool, "{index}");
+        let _ = write!(&mut self.pool, "{index}");
+
         self.spans
             .insert(hash, Span::new(start, self.pool.len() as u32));
 
         id
     }
 
-    pub fn get_symbol(&self, id: &SymbolId) -> Result<&str, crate::resolver::error::ResolverError> {
+    pub fn get_symbol(&self, id: &SymbolId) -> Result<&str, ResolverError> {
         let (_, span) = self
             .spans
             .get_index(id.0 as usize)
@@ -82,7 +83,3 @@ impl Symbols {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct SymbolId(u32);
-
-impl SymbolId {
-    pub const DUMMY: SymbolId = Self(u32::MAX);
-}

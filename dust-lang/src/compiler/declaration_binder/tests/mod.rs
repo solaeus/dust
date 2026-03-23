@@ -1,6 +1,10 @@
 #![allow(clippy::disallowed_methods)]
 
+mod enum_item;
+mod function_item;
 mod module_item;
+mod struct_item;
+mod use_item;
 
 use std::path::PathBuf;
 

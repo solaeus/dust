@@ -11,9 +11,10 @@ use super::{bind_declarations, cleanup_module_file, create_module_file};
 #[test]
 fn inline_module() {
     let mut source = Source::new();
-    source.add_file(SourceFile::validated_borrowed("test", "mod foo {}"));
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
 
+    source.add_file(SourceFile::validated_borrowed("test", "mod foo {}"));
+
+    let (mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
@@ -33,9 +34,10 @@ fn inline_module() {
 #[test]
 fn public_inline_module() {
     let mut source = Source::new();
-    source.add_file(SourceFile::validated_borrowed("test", "pub mod foo {}"));
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
 
+    source.add_file(SourceFile::validated_borrowed("test", "pub mod foo {}"));
+
+    let (mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
@@ -55,9 +57,10 @@ fn public_inline_module() {
 #[test]
 fn inline_module_creates_module_scope() {
     let mut source = Source::new();
-    source.add_file(SourceFile::validated_borrowed("test", "mod foo {}"));
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
 
+    source.add_file(SourceFile::validated_borrowed("test", "mod foo {}"));
+
+    let (mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
@@ -76,12 +79,13 @@ fn inline_module_creates_module_scope() {
 #[test]
 fn inline_module_with_function() {
     let mut source = Source::new();
+
     source.add_file(SourceFile::validated_borrowed(
         "test",
         "mod foo { fn bar() {} }",
     ));
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
 
+    let (mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
@@ -106,12 +110,13 @@ fn inline_module_with_function() {
 #[test]
 fn nested_inline_modules() {
     let mut source = Source::new();
+
     source.add_file(SourceFile::validated_borrowed(
         "test",
         "mod foo { mod bar {} }",
     ));
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
 
+    let (mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
@@ -147,12 +152,13 @@ fn nested_inline_modules() {
 #[test]
 fn multiple_inline_modules() {
     let mut source = Source::new();
+
     source.add_file(SourceFile::validated_borrowed(
         "test",
         "mod foo {} mod bar {}",
     ));
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
 
+    let (mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let foo_result =
         resolver
