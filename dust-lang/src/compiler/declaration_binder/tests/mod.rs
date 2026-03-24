@@ -2,6 +2,7 @@
 
 mod enum_item;
 mod function_item;
+mod let_statement;
 mod module_item;
 mod struct_item;
 mod use_item;

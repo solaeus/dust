@@ -185,7 +185,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let mut current_scope_id = self.current_scope_id;
         let mut current_declaration_id = None;
         let mut current_end = start;
-        let mut symbol_id = self.resolver.symbols.add_symbol(file.content_str(path.node.span)?);
+        let mut symbol_id = self
+            .resolver
+            .symbols
+            .add_symbol(file.content_str(path.node.span)?);
 
         let mut path_segments = path.children();
 
@@ -370,7 +373,17 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         self.resolver
             .add_declaration_binding(reader.id, function_declaration_id);
         self.resolver.add_scope_binding(body.id, function_scope_id);
-        self.visit_block_expression(body, None)?;
+
+        for child in body.children() {
+            if child.node.kind.is_statement() {
+                match self.visit_statement(child) {
+                    Ok(_) => {}
+                    Err(error) => self.errors.push(ErrorKind::Compile(error)),
+                }
+            } else {
+                self.visit_expression(child, None)?;
+            }
+        }
 
         Ok(())
     }
@@ -387,8 +400,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let struct_symbol = self.resolver.symbols.add_symbol(struct_name_str);
 
         let base_id = self.resolver.declarations.next_declaration_id();
-        let type_parameter_count = type_parameters
-            .map_or(0, |tp| tp.child_count()) as u32;
+        let type_parameter_count = type_parameters.map_or(0, |tp| tp.child_count()) as u32;
         let field_count = match fields.node.kind {
             SyntaxKind::StructItemTupleFields => fields.child_count() as u32,
             SyntaxKind::StructItemStructFields => (fields.child_count() / 2) as u32,
@@ -396,7 +408,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             _ => unreachable!(),
         };
 
-        let type_parameter_declaration_ids = if let Some(type_parameters) = type_parameters {
+        let type_parameter_declaration_ids = if type_parameters.is_some() {
             (0..type_parameter_count)
                 .map(|index| base_id.offset(index))
                 .collect::<SmallVec<[DeclarationId; 4]>>()
@@ -534,11 +546,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let enum_symbol = self.resolver.symbols.add_symbol(enum_name_str);
 
         let base_id = self.resolver.declarations.next_declaration_id();
-        let type_parameter_count = type_parameters
-            .map_or(0, |tp| tp.child_count()) as u32;
+        let type_parameter_count = type_parameters.map_or(0, |tp| tp.child_count()) as u32;
 
-        // Count total declarations before enum: type params + variants + variant fields
         let mut total_child_declarations = type_parameter_count;
+
         for variant in variants.children() {
             total_child_declarations += 1;
 
@@ -628,8 +639,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
                         for [field_name, field_type] in name_type_pairs {
                             let field_name_str = file.content_str(field_name.node.span)?;
-                            let field_symbol_id =
-                                self.resolver.symbols.add_symbol(field_name_str);
+                            let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
                             let field_type_id = self.visit_type(field_type)?;
                             let field_declaration_id =
                                 self.resolver.declarations.add_declaration(Declaration {
@@ -718,13 +728,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         } else {
             self.resolver.types.create_inferred_type()
         };
-
         let shadowed = self
             .resolver
             .find_declaration_in_scope(symbol_id, self.current_scope_id, Visibility::Block, &name)
             .ok()
             .map(|(declaration_id, _)| declaration_id);
-
         let declaration_id = self.resolver.declarations.add_declaration(Declaration {
             symbol_id,
             definition: Definition::Local {

@@ -9,7 +9,7 @@ use crate::{
 use super::bind_declarations;
 
 #[test]
-fn enum_with_unit_variants() {
+fn with_unit_variants() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -57,6 +57,7 @@ fn enum_with_unit_variants() {
     else {
         panic!();
     };
+
     assert_eq!(red.symbol_id, red_symbol);
     assert_eq!(red_disc, 0);
     assert_eq!(red_parent, color_id);
@@ -73,6 +74,7 @@ fn enum_with_unit_variants() {
     else {
         panic!();
     };
+
     assert_eq!(green.symbol_id, green_symbol);
     assert_eq!(green_disc, 1);
     assert_eq!(green_parent, color_id);
@@ -89,13 +91,14 @@ fn enum_with_unit_variants() {
     else {
         panic!();
     };
+
     assert_eq!(blue.symbol_id, blue_symbol);
     assert_eq!(blue_disc, 2);
     assert_eq!(blue_parent, color_id);
 }
 
 #[test]
-fn public_generic_enum() {
+fn public_generic() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -123,6 +126,7 @@ fn public_generic_enum() {
         .declarations
         .get_declaration_members(&type_parameters)
         .unwrap();
+
     assert_eq!(type_param_ids.len(), 2);
 
     let a_symbol = resolver.symbols.add_symbol("A");
@@ -135,20 +139,20 @@ fn public_generic_enum() {
         .declarations
         .get_declaration(type_param_ids[1])
         .unwrap();
-    assert_eq!(first_tp.symbol_id, a_symbol);
-    assert!(matches!(first_tp.definition, Definition::TypeParameter));
-    assert_eq!(second_tp.symbol_id, b_symbol);
-    assert!(matches!(second_tp.definition, Definition::TypeParameter));
-
     let variant_ids = resolver
         .declarations
         .get_declaration_members(&variants)
         .unwrap();
+
+    assert_eq!(first_tp.symbol_id, a_symbol);
+    assert!(matches!(first_tp.definition, Definition::TypeParameter));
+    assert_eq!(second_tp.symbol_id, b_symbol);
+    assert!(matches!(second_tp.definition, Definition::TypeParameter));
     assert_eq!(variant_ids.len(), 2);
 }
 
 #[test]
-fn enum_with_mixed_variants() {
+fn with_mixed_variants() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -169,6 +173,7 @@ fn enum_with_mixed_variants() {
         .declarations
         .get_declaration_members(&variants)
         .unwrap();
+
     assert_eq!(variant_ids.len(), 3);
 
     let point_symbol = resolver.symbols.add_symbol("Point");
@@ -188,6 +193,7 @@ fn enum_with_mixed_variants() {
     else {
         panic!();
     };
+
     assert_eq!(point.symbol_id, point_symbol);
     assert_eq!(point_disc, 0);
     assert_eq!(point_parent, shape_id);
@@ -206,6 +212,7 @@ fn enum_with_mixed_variants() {
     else {
         panic!();
     };
+
     assert_eq!(line.symbol_id, line_symbol);
     assert_eq!(line_disc, 1);
     assert_eq!(line_parent, shape_id);
@@ -214,7 +221,9 @@ fn enum_with_mixed_variants() {
         .declarations
         .get_declaration_members(&line_fields)
         .unwrap();
+
     assert_eq!(line_field_ids.len(), 1);
+
     let line_field = resolver
         .declarations
         .get_declaration(line_field_ids[0])
@@ -226,6 +235,7 @@ fn enum_with_mixed_variants() {
     else {
         panic!();
     };
+
     assert_eq!(line_field_type, TypeId::I_64);
 
     let rect = resolver
@@ -241,6 +251,7 @@ fn enum_with_mixed_variants() {
     else {
         panic!();
     };
+
     assert_eq!(rect.symbol_id, rect_symbol);
     assert_eq!(rect_disc, 2);
     assert_eq!(rect_parent, shape_id);
@@ -249,7 +260,9 @@ fn enum_with_mixed_variants() {
         .declarations
         .get_declaration_members(&rect_fields)
         .unwrap();
+
     assert_eq!(rect_field_ids.len(), 2);
+
     let w_symbol = resolver.symbols.add_symbol("w");
     let h_symbol = resolver.symbols.add_symbol("h");
     let w_field = resolver
@@ -260,6 +273,7 @@ fn enum_with_mixed_variants() {
         .declarations
         .get_declaration(rect_field_ids[1])
         .unwrap();
+
     assert_eq!(w_field.symbol_id, w_symbol);
     assert_eq!(h_field.symbol_id, h_symbol);
 }
@@ -267,10 +281,8 @@ fn enum_with_mixed_variants() {
 #[test]
 fn variants_not_visible_at_module_scope() {
     let mut source = Source::new();
-    source.add_file(SourceFile::validated_borrowed(
-        "test",
-        "enum Foo { Bar }",
-    ));
+
+    source.add_file(SourceFile::validated_borrowed("test", "enum Foo { Bar }"));
 
     let (mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("Bar");
@@ -288,6 +300,7 @@ fn variants_not_visible_at_module_scope() {
 #[test]
 fn same_name_enum_in_different_modules() {
     let mut source = Source::new();
+
     source.add_file(SourceFile::validated_borrowed(
         "test",
         "mod a { enum Foo { X } } mod b { enum Foo { Y } }",
@@ -343,6 +356,7 @@ fn same_name_enum_in_different_modules() {
         .get_declaration(a_variant_ids[0])
         .unwrap();
     let x_symbol = resolver.symbols.add_symbol("X");
+
     assert_eq!(a_variant.symbol_id, x_symbol);
 
     let (b_foo_id, b_foo) = resolver
@@ -365,7 +379,7 @@ fn same_name_enum_in_different_modules() {
         .get_declaration(b_variant_ids[0])
         .unwrap();
     let y_symbol = resolver.symbols.add_symbol("Y");
-    assert_eq!(b_variant.symbol_id, y_symbol);
 
+    assert_eq!(b_variant.symbol_id, y_symbol);
     assert_ne!(a_foo_id, b_foo_id);
 }
