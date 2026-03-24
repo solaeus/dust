@@ -34,8 +34,10 @@ impl Declarations {
             scope_id: declaration.scope_id,
         };
 
-        if !matches!(declaration.definition, Definition::Local { .. })
-            && let Some(existing_id) = self.declaration_lookup.get(&key)
+        if !matches!(
+            declaration.definition,
+            Definition::Local { .. } | Definition::Use { .. }
+        ) && let Some(existing_id) = self.declaration_lookup.get(&key)
         {
             return *existing_id;
         }
