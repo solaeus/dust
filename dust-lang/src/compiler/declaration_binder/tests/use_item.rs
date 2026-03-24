@@ -6,7 +6,7 @@ use crate::{
 use super::bind_declarations;
 
 #[test]
-fn use_module() {
+fn module() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed("test", "mod foo {} use foo;"));
     let (mut resolver, crate_scope_id) = bind_declarations(&source);
@@ -27,7 +27,7 @@ fn use_module() {
 }
 
 #[test]
-fn public_use_module() {
+fn public_module() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -51,7 +51,7 @@ fn public_use_module() {
 }
 
 #[test]
-fn use_module_points_to_module() {
+fn resolves_to_module() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed("test", "mod foo {} use foo;"));
     let (mut resolver, crate_scope_id) = bind_declarations(&source);
@@ -71,7 +71,7 @@ fn use_module_points_to_module() {
 }
 
 #[test]
-fn use_function_from_module() {
+fn function_from_module() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -94,7 +94,7 @@ fn use_function_from_module() {
 }
 
 #[test]
-fn use_struct_from_module() {
+fn struct_from_module() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -117,7 +117,7 @@ fn use_struct_from_module() {
 }
 
 #[test]
-fn use_from_nested_module() {
+fn from_nested_module() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -140,7 +140,7 @@ fn use_from_nested_module() {
 }
 
 #[test]
-fn use_nested_module() {
+fn nested_module() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -163,7 +163,7 @@ fn use_nested_module() {
 }
 
 #[test]
-fn use_inside_module() {
+fn inside_module() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -195,7 +195,7 @@ fn use_inside_module() {
 }
 
 #[test]
-fn public_use_function() {
+fn public_function() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -219,7 +219,7 @@ fn public_use_function() {
 }
 
 #[test]
-fn multiple_use_items() {
+fn multiple() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",

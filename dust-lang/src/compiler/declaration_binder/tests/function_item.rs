@@ -9,7 +9,7 @@ use crate::{
 use super::bind_declarations;
 
 #[test]
-fn minimal_function() {
+fn minimal() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed("test", "fn foo() {}"));
 
@@ -38,7 +38,7 @@ fn minimal_function() {
 }
 
 #[test]
-fn fully_specified_function() {
+fn fully_specified() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -92,7 +92,7 @@ fn fully_specified_function() {
 }
 
 #[test]
-fn multiple_functions_in_same_scope() {
+fn multiple_in_same_scope() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -155,7 +155,7 @@ fn parameters_not_visible_in_declaring_scope() {
 }
 
 #[test]
-fn same_name_function_in_different_modules() {
+fn same_name_in_different_modules() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",

@@ -4,7 +4,7 @@ use crate::{
         SyntaxId,
         components::SyntaxComponent,
         error::SyntaxError,
-        node::{SyntaxNode, SyntaxPayloadKind},
+        node::{SyntaxKind, SyntaxNode, SyntaxPayloadKind},
         tree::SyntaxTree,
     },
 };
@@ -136,9 +136,6 @@ impl<'a> SyntaxReader<'a> {
     pub fn draw_text_tree(&self, buffer: &mut String) {
         let mut ancestors = Vec::new();
 
-        buffer.push_str(self.node.kind.as_str());
-        buffer.push('\n');
-
         self.draw_text_tree_line(buffer, &mut ancestors, true);
     }
 
@@ -149,7 +146,13 @@ impl<'a> SyntaxReader<'a> {
             buffer.push_str(indent);
         }
 
-        let connector = if is_last { "└── " } else { "├── " };
+        let connector = if self.node.kind == SyntaxKind::Root {
+            "•"
+        } else if is_last {
+            "└─ "
+        } else {
+            "├─ "
+        };
 
         buffer.push_str(connector);
         buffer.push_str(self.node.kind.as_str());

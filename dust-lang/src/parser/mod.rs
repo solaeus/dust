@@ -829,6 +829,32 @@ impl<'src> Parser<'src> {
 
                 Ok(path_node)
             }
+            TokenKind::LeftParenthesis => {
+                let start = self.current_token.span.start();
+
+                self.advance();
+
+                let mut children = Self::new_child_buffer();
+
+                while !self.allow(TokenKind::RightParenthesis)? {
+                    if self.current_token.kind == TokenKind::Eof {
+                        break;
+                    }
+
+                    let type_node = self.expect_type()?;
+                    let type_id = self.tree_builder.add_node(type_node);
+
+                    children.push(type_id);
+
+                    self.allow(TokenKind::Comma)?;
+                }
+
+                Ok(self.create_node_with_children(
+                    SyntaxKind::TupleType,
+                    Span::new(start, self.previous_token.span.end()),
+                    children,
+                ))
+            }
             TokenKind::LeftSquareBracket => {
                 let start = self.current_token.span.start();
 
@@ -893,7 +919,6 @@ impl<'src> Parser<'src> {
                 expected: &[
                     TokenKind::Identifier,
                     TokenKind::Bool,
-                    TokenKind::Char,
                     TokenKind::I8,
                     TokenKind::I16,
                     TokenKind::I32,
@@ -906,9 +931,11 @@ impl<'src> Parser<'src> {
                     TokenKind::U128,
                     TokenKind::F32,
                     TokenKind::F64,
-                    TokenKind::Fn,
-                    TokenKind::LeftSquareBracket,
+                    TokenKind::Char,
                     TokenKind::Str,
+                    TokenKind::Fn,
+                    TokenKind::LeftParenthesis,
+                    TokenKind::LeftSquareBracket,
                 ],
                 found: self.current_token.kind,
                 position: self.current_position(),
@@ -1137,6 +1164,11 @@ impl<'src> Parser<'src> {
         let start = self.current_token.span.start();
 
         self.advance();
+
+        if self.allow(TokenKind::RightParenthesis)? {
+            return Ok(SyntaxKind::GroupedExpression
+                .empty(Span::new(start, self.previous_token.span.end())));
+        }
 
         let expression_node = self.parse_expression()?;
         let expression_id = self.tree_builder.add_node(expression_node);

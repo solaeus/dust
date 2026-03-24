@@ -152,6 +152,7 @@ pub enum SyntaxKind {
     SliceType,
     FunctionType,
     NeverType,
+    TupleType,
     ValueParameterTypes,
 
     // Ignored
@@ -381,6 +382,7 @@ impl SyntaxKind {
             SyntaxKind::StructItemTupleFields => "struct item tuple fields",
             SyntaxKind::TypeParameters => "type parameters",
             SyntaxKind::TypePath => "type path",
+            SyntaxKind::TupleType => "tuple type",
             SyntaxKind::U128Type => "u128 type",
             SyntaxKind::U16Type => "u16 type",
             SyntaxKind::U32Type => "u32 type",

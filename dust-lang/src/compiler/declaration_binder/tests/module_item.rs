@@ -9,7 +9,7 @@ use crate::{
 use super::{bind_declarations, cleanup_module_file, create_module_file};
 
 #[test]
-fn inline_module() {
+fn inline() {
     let mut source = Source::new();
 
     source.add_file(SourceFile::validated_borrowed("test", "mod foo {}"));
@@ -32,7 +32,7 @@ fn inline_module() {
 }
 
 #[test]
-fn public_inline_module() {
+fn public_inline() {
     let mut source = Source::new();
 
     source.add_file(SourceFile::validated_borrowed("test", "pub mod foo {}"));
@@ -55,7 +55,7 @@ fn public_inline_module() {
 }
 
 #[test]
-fn inline_module_creates_module_scope() {
+fn inline_creates_module_scope() {
     let mut source = Source::new();
 
     source.add_file(SourceFile::validated_borrowed("test", "mod foo {}"));
@@ -77,7 +77,7 @@ fn inline_module_creates_module_scope() {
 }
 
 #[test]
-fn inline_module_with_function() {
+fn inline_with_function() {
     let mut source = Source::new();
 
     source.add_file(SourceFile::validated_borrowed(
@@ -108,7 +108,7 @@ fn inline_module_with_function() {
 }
 
 #[test]
-fn nested_inline_modules() {
+fn nested_inline() {
     let mut source = Source::new();
 
     source.add_file(SourceFile::validated_borrowed(
@@ -150,7 +150,7 @@ fn nested_inline_modules() {
 }
 
 #[test]
-fn multiple_inline_modules() {
+fn multiple_inline() {
     let mut source = Source::new();
 
     source.add_file(SourceFile::validated_borrowed(
@@ -175,7 +175,7 @@ fn multiple_inline_modules() {
 }
 
 #[test]
-fn file_module() {
+fn file() {
     let path = create_module_file("foo", "");
     let mut source = Source::new();
 
@@ -203,7 +203,7 @@ fn file_module() {
 }
 
 #[test]
-fn public_file_module() {
+fn public_file() {
     let path = create_module_file("foo", "");
     let mut source = Source::new();
 
@@ -231,7 +231,7 @@ fn public_file_module() {
 }
 
 #[test]
-fn file_module_binds_contents() {
+fn file_binds_contents() {
     let path = create_module_file("foo", "fn bar() {}");
     let mut source = Source::new();
 

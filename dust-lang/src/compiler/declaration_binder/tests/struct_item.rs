@@ -9,7 +9,7 @@ use crate::{
 use super::bind_declarations;
 
 #[test]
-fn empty_struct() {
+fn empty() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed("test", "struct Foo {}"));
 
@@ -35,7 +35,7 @@ fn empty_struct() {
 }
 
 #[test]
-fn struct_with_named_fields() {
+fn with_named_fields() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -95,7 +95,7 @@ fn struct_with_named_fields() {
 }
 
 #[test]
-fn tuple_struct() {
+fn tuple() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -150,7 +150,7 @@ fn tuple_struct() {
 }
 
 #[test]
-fn public_generic_struct() {
+fn public_generic() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",
@@ -233,7 +233,7 @@ fn fields_not_visible_at_module_scope() {
 }
 
 #[test]
-fn same_name_struct_in_different_modules() {
+fn same_name_in_different_modules() {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed(
         "test",

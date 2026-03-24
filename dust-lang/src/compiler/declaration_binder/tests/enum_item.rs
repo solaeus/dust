@@ -298,7 +298,7 @@ fn variants_not_visible_at_module_scope() {
 }
 
 #[test]
-fn same_name_enum_in_different_modules() {
+fn same_name_in_different_modules() {
     let mut source = Source::new();
 
     source.add_file(SourceFile::validated_borrowed(
