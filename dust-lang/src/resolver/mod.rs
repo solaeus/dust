@@ -96,116 +96,6 @@ impl Resolver {
             .ok_or(ResolverError::MissingTypeBinding(*syntax_id))
     }
 
-    pub fn get_byte_size(
-        &self,
-        type_id: TypeId,
-        node: &SyntaxReader,
-    ) -> Result<usize, CompileError> {
-        let r#type = self.types.get_type(type_id)?;
-
-        match r#type {
-            Type::Never => Ok(0),
-            Type::Boolean
-            | Type::SignedInteger(SignedIntegerType::I8)
-            | Type::UnsignedInteger(UnsignedIntegerType::U8) => Ok(1),
-            Type::SignedInteger(SignedIntegerType::I16)
-            | Type::UnsignedInteger(UnsignedIntegerType::U16) => Ok(2),
-            Type::Character
-            | Type::SignedInteger(SignedIntegerType::I32)
-            | Type::UnsignedInteger(UnsignedIntegerType::U32)
-            | Type::Float(FloatType::F32)
-            | Type::FunctionDefinition { .. }
-            | Type::Closure { .. }
-            | Type::Function { .. } => Ok(4),
-            Type::Slice { .. } | Type::Pointer { .. } => Ok(8),
-            Type::SignedInteger(SignedIntegerType::I64)
-            | Type::UnsignedInteger(UnsignedIntegerType::U64)
-            | Type::Float(FloatType::F64) => Ok(8),
-            Type::SignedInteger(SignedIntegerType::I128)
-            | Type::UnsignedInteger(UnsignedIntegerType::U128) => Ok(16),
-            Type::Tuple { element_type_ids } => {
-                let type_ids = self.types.get_type_members(*element_type_ids)?;
-                let mut total_size = 0;
-
-                for type_id in type_ids {
-                    total_size += self.get_byte_size(*type_id, node)?;
-                }
-
-                Ok(total_size)
-            }
-            Type::Array {
-                element_type_id,
-                length,
-            } => {
-                let element_size = self.get_byte_size(*element_type_id, node)?;
-
-                Ok(element_size * (*length))
-            }
-            Type::Algebraic {
-                declaration_id,
-                type_arguments,
-            } => {
-                let declaration = self.declarations.get_declaration(*declaration_id)?;
-                let mut type_arguments = self
-                    .types
-                    .get_type_members(*type_arguments)?
-                    .iter()
-                    .rev()
-                    .copied()
-                    .collect::<SmallVec<[TypeId; 4]>>();
-
-                match &declaration.definition {
-                    Definition::StructType { fields, .. } => {
-                        let field_declaration_ids =
-                            self.declarations.get_declaration_members(fields)?;
-                        let mut total_size = 0;
-
-                        for field_declaration_id in field_declaration_ids {
-                            let field_declaration =
-                                self.declarations.get_declaration(*field_declaration_id)?;
-                            let Definition::Field {
-                                type_id: field_type_id,
-                                ..
-                            } = field_declaration.definition
-                            else {
-                                return Err(CompileError::Resolver(
-                                    ResolverError::ExpectedFieldDeclaration(*field_declaration_id),
-                                ));
-                            };
-                            let field_type = self.types.get_type(field_type_id)?;
-
-                            if let Type::Generic { .. } = field_type {
-                                let type_argument_id =
-                                    type_arguments.pop().ok_or(CompileError::Resolver(
-                                        ResolverError::MissingTypeArgument(*declaration_id),
-                                    ))?;
-
-                                total_size += self.get_byte_size(type_argument_id, node)?;
-                            } else {
-                                total_size += self.get_byte_size(field_type_id, node)?;
-                            }
-                        }
-
-                        Ok(total_size)
-                    }
-                    _ => Err(CompileError::Resolver(
-                        ResolverError::MissingAlgebraicTypeDeclaration(*declaration_id),
-                    )),
-                }
-            }
-            _ => todo!(),
-        }
-    }
-
-    pub fn get_register_size(
-        &self,
-        type_id: TypeId,
-        node: &SyntaxReader,
-    ) -> Result<usize, CompileError> {
-        self.get_byte_size(type_id, node)
-            .map(|byte_size| byte_size.div_ceil(4))
-    }
-
     pub fn find_declaration_in_scope(
         &mut self,
         symbol_id: SymbolId,
@@ -268,7 +158,11 @@ impl Resolver {
         todo!()
     }
 
-    pub fn get_external_type(&self, _id: TypeId, _source: &Source) -> Result<DustType, CompileError> {
+    pub fn get_external_type(
+        &self,
+        _id: TypeId,
+        _source: &Source,
+    ) -> Result<DustType, CompileError> {
         todo!()
     }
 

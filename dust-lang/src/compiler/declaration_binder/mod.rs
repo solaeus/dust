@@ -72,10 +72,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     type PathInput = Visibility;
     type PathOutput = DeclarationId;
 
-    fn visit_root(&mut self, root: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
-        debug_assert_eq!(root.node.kind, SyntaxKind::Root);
+    fn visit_root(&mut self, reader: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
+        debug_assert_eq!(reader.node.kind, SyntaxKind::Root);
 
-        for item in root.children() {
+        for item in reader.children() {
             match self.visit_item(item) {
                 Ok(()) => {}
                 Err(error) => self.errors.push(ErrorKind::Compile(error)),
@@ -85,8 +85,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_module_item(&mut self, module_item: SyntaxReader) -> Result<(), CompileError> {
-        let ModuleItem { public, name, body } = module_item.as_component()?;
+    fn visit_module_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        let ModuleItem { public, name, body } = reader.as_component()?;
 
         let module_name_str = self
             .source
@@ -109,13 +109,13 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     inner_scope_id: module_scope_id,
                 },
                 scope_id: self.current_scope_id,
-                syntax: Some((name.position(), module_item.id)),
+                syntax: Some((name.position(), reader.id)),
             });
 
             self.resolver
                 .add_scope_binding(module_body.id, module_scope_id);
             self.resolver
-                .add_declaration_binding(module_item.id, module_declaration_id);
+                .add_declaration_binding(reader.id, module_declaration_id);
 
             let starting_scope_id = self.current_scope_id;
             self.current_scope_id = module_scope_id;
@@ -158,7 +158,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     inner_scope_id: module_scope_id,
                 },
                 scope_id: self.current_scope_id,
-                syntax: Some((name.position(), module_item.id)),
+                syntax: Some((name.position(), reader.id)),
             });
 
             self.resolver

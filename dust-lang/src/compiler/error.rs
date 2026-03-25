@@ -2,6 +2,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     // compiler::emitter::JumpId,
+    compiler::emitter::JumpId,
     constant_list::ConstantListError,
     error::AnnotatedError,
     instruction::OperandType,
@@ -131,7 +132,7 @@ pub enum CompileError {
     ExpectedEmissionTarget {
         node_kind: SyntaxKind,
     },
-    // ExpectedJumpPlacement(JumpId),
+    ExpectedJumpPlacement(JumpId),
     Syntax(SyntaxError),
     Resolver(ResolverError),
     ConstantList(ConstantListError),
@@ -917,7 +918,10 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::CannotImport { declaration_id, position } => {
+            CompileError::CannotImport {
+                declaration_id,
+                position,
+            } => {
                 let title = "Cannot import".to_string();
                 let declaration = match resolver.declarations.get_declaration(*declaration_id) {
                     Ok(declaration) => declaration,
@@ -958,8 +962,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             | CompileError::ExpectedFloatRegister
             | CompileError::ExpectedIntegerRegister
             | CompileError::ExpectedEmissionTarget { .. }
-            // | CompileError::ExpectedJumpPlacement(_)
-            => {
+            | CompileError::ExpectedJumpPlacement(_) => {
                 self.add_internal_report(groups);
             }
             CompileError::Syntax(error) => error.add_report((), groups),

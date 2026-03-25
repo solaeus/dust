@@ -1,16 +1,16 @@
 mod declaration_binder;
-// mod emitter;
+mod emitter;
 pub mod error;
-// mod type_binder;
+mod type_binder;
 
 use tracing::{Level, span};
 
 use crate::{
     compiler::{
         declaration_binder::DeclarationBinder,
-        // emitter::Emitter,
+        emitter::{Emitter, get_register_size},
         error::CompileError,
-        // type_binder::TypeBinder,
+        type_binder::TypeBinder,
     },
     constant_list::ConstantListBuilder,
     dust_type::DustType,
@@ -26,7 +26,7 @@ use crate::{
         scopes::{Scope, ScopeId, ScopeKind},
     },
     source::{Source, SourceFile, SourceFileId},
-    syntax::{Syntax, visitor::SyntaxVisitor},
+    syntax::{Syntax, components::FunctionItem, visitor::SyntaxVisitor},
 };
 
 pub fn compile<'src>(source_files: &[(&'src str, &'src str)]) -> Result<Program, Error<'src>> {
@@ -182,17 +182,22 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        if !errors.is_empty() {
-            return Err(errors);
-        }
-
         // Type binding phase
         {
             let span = span!(Level::INFO, "type");
             let _enter = span.enter();
 
-            let _type_binder = todo!();
+            let mut type_binder = TypeBinder::new(&self.syntax, &mut self.resolver, &mut errors);
+
+            match type_binder.visit_root(main_file_root) {
+                Ok(()) => {}
+                Err(error) => errors.push(ErrorKind::Compile(error)),
+            }
         }
+
+        // Emission phase
+        let span = span!(Level::INFO, "emit");
+        let _enter = span.enter();
 
         let main_symbol_id = self.resolver.symbols.add_symbol("main");
         let (main_declaration_id, main_declaration) = match self
@@ -218,20 +223,63 @@ impl<'src> Compiler<'src> {
                 .get_tree(SourceFileId::MAIN)
                 .and_then(|tree| tree.get_node(main_syntax_id))
         );
+        let FunctionItem {
+            public,
+            name,
+            parameters,
+            return_type,
+            body,
+        } = unwrap_or_return!(main_function_item.as_component());
+        let main_return_register_count =
+            unwrap_or_return!(get_register_size(return_type_id, None, &self.resolver,)) as u16;
+        let main_scope_id = *unwrap_or_return!(self.resolver.get_scope_binding(&body.id));
 
-        // Emission phase
-        {
-            let span = span!(Level::INFO, "emit");
-            let _enter = span.enter();
+        let _main_prototype_id = self.prototypes.reserve();
 
-            let _main_prototype_id = self.prototypes.reserve();
+        debug_assert_eq!(_main_prototype_id, PrototypeId::MAIN);
 
-            debug_assert_eq!(_main_prototype_id, PrototypeId::MAIN);
+        let mut emitter = match Emitter::new(
+            Some(main_declaration_id),
+            PrototypeId::MAIN,
+            0,
+            main_return_register_count,
+            main_scope_id,
+            (Some(main_symbol_id), main_function_item.position()),
+            (
+                &self.source,
+                &self.syntax,
+                &mut self.constants,
+                &mut self.resolver,
+                &mut self.prototypes,
+            ),
+        ) {
+            Ok(emitter) => emitter,
+            Err(error) => {
+                errors.push(ErrorKind::Compile(error));
 
-            let main_prototype = todo!();
+                return Err(errors);
+            }
+        };
 
-            self.prototypes.set(PrototypeId::MAIN, main_prototype);
-        }
+        match emitter.visit_function_item(main_function_item) {
+            Ok(()) => {}
+            Err(error) => {
+                errors.push(ErrorKind::Compile(error));
+
+                return Err(errors);
+            }
+        };
+
+        let main_prototype = match emitter.finish() {
+            Ok(prototype) => prototype,
+            Err(error) => {
+                errors.push(ErrorKind::Compile(error));
+
+                return Err(errors);
+            }
+        };
+
+        self.prototypes.set(PrototypeId::MAIN, main_prototype);
 
         let main_function_return_type_id = unwrap_or_return!(
             self.resolver
