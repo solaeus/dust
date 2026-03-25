@@ -1,4 +1,5 @@
 use crate::{
+    compiler::declaration_binder::tests::bind_declarations_with_errors,
     resolver::{
         declarations::{Definition, Visibility},
         types::{Type, TypeId},
@@ -27,6 +28,7 @@ fn parameter_type_of_foo(source_code: &str) -> TypeId {
     };
 
     assert_eq!(value_parameters.len(), 1);
+
     let parameter_types = resolver.types.get_type_members(value_parameters).unwrap();
 
     parameter_types[0]
@@ -429,8 +431,8 @@ fn type_path_to_enum() {
     };
 
     let parameter_types = resolver.types.get_type_members(value_parameters).unwrap();
-    let param_type = resolver.types.get_type(parameter_types[0]).unwrap();
-    let Type::Algebraic { declaration_id, .. } = param_type else {
+    let parameter_type = resolver.types.get_type(parameter_types[0]).unwrap();
+    let Type::Algebraic { declaration_id, .. } = parameter_type else {
         panic!();
     };
 
@@ -467,8 +469,8 @@ fn type_path_to_type_parameter() {
 
     let t_declaration_id = type_parameter_ids[0];
     let parameter_types = resolver.types.get_type_members(value_parameters).unwrap();
-    let param_type = resolver.types.get_type(parameter_types[0]).unwrap();
-    let Type::Generic { declaration_id } = param_type else {
+    let parameter_type = resolver.types.get_type(parameter_types[0]).unwrap();
+    let Type::Generic { declaration_id } = parameter_type else {
         panic!();
     };
 
@@ -484,8 +486,7 @@ fn type_path_to_non_type_errors() {
         "fn bar() {} fn foo(x: bar) {}",
     ));
 
-    let (_syntax, _resolver, _crate_scope_id, errors) =
-        super::bind_declarations_with_errors(&source);
+    let (_syntax, _resolver, _crate_scope_id, errors) = bind_declarations_with_errors(&source);
 
     assert!(!errors.is_empty());
 }
