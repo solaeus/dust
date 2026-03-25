@@ -226,7 +226,7 @@ fn function_type_basic() {
     let parameter_types = resolver.types.get_type_members(value_parameters).unwrap();
     let function_type = resolver.types.get_type(parameter_types[0]).unwrap();
     let Type::Function {
-        value_parameters: fn_value_parameters,
+        value_parameters: function_value_parameters,
         return_type,
     } = function_type
     else {
@@ -234,7 +234,7 @@ fn function_type_basic() {
     };
     let parameters = resolver
         .types
-        .get_type_members(*fn_value_parameters)
+        .get_type_members(*function_value_parameters)
         .unwrap();
 
     assert_eq!(parameters, &[TypeId::I_64]);
@@ -264,17 +264,17 @@ fn function_type_no_params() {
     };
 
     let parameter_types = resolver.types.get_type_members(value_parameters).unwrap();
-    let fn_type = resolver.types.get_type(parameter_types[0]).unwrap();
+    let function_type = resolver.types.get_type(parameter_types[0]).unwrap();
     let Type::Function {
-        value_parameters: fn_value_parameters,
+        value_parameters: function_value_parameters,
         return_type,
         ..
-    } = fn_type
+    } = function_type
     else {
         panic!();
     };
 
-    assert!(fn_value_parameters.is_empty());
+    assert!(function_value_parameters.is_empty());
     assert_eq!(*return_type, TypeId::BOOLEAN);
 }
 
@@ -301,21 +301,21 @@ fn function_type_multiple_params() {
     };
 
     let parameter_types = resolver.types.get_type_members(value_parameters).unwrap();
-    let fn_type = resolver.types.get_type(parameter_types[0]).unwrap();
+    let function_type = resolver.types.get_type(parameter_types[0]).unwrap();
     let Type::Function {
-        value_parameters: fn_value_parameters,
+        value_parameters: function_value_parameters,
         return_type,
         ..
-    } = fn_type
+    } = function_type
     else {
         panic!();
     };
-    let fn_parameters = resolver
+    let function_parameters = resolver
         .types
-        .get_type_members(*fn_value_parameters)
+        .get_type_members(*function_value_parameters)
         .unwrap();
 
-    assert_eq!(fn_parameters, &[TypeId::I_64, TypeId::BOOLEAN]);
+    assert_eq!(function_parameters, &[TypeId::I_64, TypeId::BOOLEAN]);
     assert_eq!(*return_type, TypeId::CHARACTER);
 }
 
@@ -342,21 +342,18 @@ fn function_type_no_return() {
     };
 
     let parameter_types = resolver.types.get_type_members(value_parameters).unwrap();
-    let fn_type = resolver.types.get_type(parameter_types[0]).unwrap();
+    let function_type = resolver.types.get_type(parameter_types[0]).unwrap();
     let Type::Function {
-        value_parameters: fn_value_parameters,
+        value_parameters,
         return_type,
         ..
-    } = fn_type
+    } = function_type
     else {
         panic!();
     };
-    let fn_parameters = resolver
-        .types
-        .get_type_members(*fn_value_parameters)
-        .unwrap();
+    let value_parameters = resolver.types.get_type_members(*value_parameters).unwrap();
 
-    assert_eq!(fn_parameters, &[TypeId::I_64]);
+    assert_eq!(value_parameters, &[TypeId::I_64]);
     assert_eq!(*return_type, TypeId::UNIT);
 }
 
@@ -389,11 +386,11 @@ fn type_path_to_struct() {
     };
 
     let parameter_types = resolver.types.get_type_members(value_parameters).unwrap();
-    let param_type = resolver.types.get_type(parameter_types[0]).unwrap();
+    let parameter_type = resolver.types.get_type(parameter_types[0]).unwrap();
     let Type::Algebraic {
         declaration_id,
         type_arguments,
-    } = param_type
+    } = parameter_type
     else {
         panic!();
     };
