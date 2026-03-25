@@ -21,10 +21,10 @@ use crate::{
         components::{
             AssignmentExpression, CallExpression, ComparisonExpression,
             CompoundAssignmentExpression, EnumItem, EnumVariant, ExpressionStatement, FunctionItem,
-            FunctionParameters, IfExpression, IndexExpression, LetStatement, LogicExpression,
-            MathExpression, ModuleItem, NegationExpression, StructExpression,
-            StructExpressionStructFields, StructExpressionTupleFields, StructItem,
-            StructItemStructFields, StructItemTupleFields, SyntaxComponent, UseItem,
+            FunctionParameters, FunctionType, GroupedExpression, IfExpression, IndexExpression,
+            LetStatement, LogicExpression, MathExpression, ModuleItem, NegationExpression,
+            StructExpression, StructExpressionStructFields, StructExpressionTupleFields,
+            StructItem, StructItemStructFields, StructItemTupleFields, SyntaxComponent, UseItem,
             WhileExpression,
         },
         node::SyntaxKind,
@@ -288,12 +288,14 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             type_parameters,
         } = parameters.as_component()?;
 
-        let function_scope_id = self.resolver.scopes.add_scope(Scope {
+        let starting_scope_id = self.current_scope_id;
+        self.current_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Function,
             parent: self.current_scope_id,
             modules: Vec::new(),
             imports: Vec::new(),
         });
+
         let type_parameters = if let Some(type_parameters) = type_parameters {
             let mut declaration_ids =
                 SmallVec::<[DeclarationId; 4]>::with_capacity(type_parameters.child_count());
@@ -339,7 +341,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                             shadowed: None,
                             type_id: parameter_type_id,
                         },
-                        scope_id: function_scope_id,
+                        scope_id: self.current_scope_id,
                         syntax: Some((parameter_name.position(), parameter_name.id)),
                     });
 
@@ -366,13 +368,14 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 value_parameters,
                 return_type_id,
             },
-            scope_id: self.current_scope_id,
+            scope_id: starting_scope_id,
             syntax: Some((reader.position(), reader.id)),
         });
 
         self.resolver
             .add_declaration_binding(reader.id, function_declaration_id);
-        self.resolver.add_scope_binding(body.id, function_scope_id);
+        self.resolver
+            .add_scope_binding(body.id, self.current_scope_id);
 
         for child in body.children() {
             if child.node.kind.is_statement() {
@@ -384,6 +387,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 self.visit_expression(child, None)?;
             }
         }
+
+        self.current_scope_id = starting_scope_id;
 
         Ok(())
     }
@@ -910,6 +915,20 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
+    fn visit_grouped_expression(
+        &mut self,
+        reader: SyntaxReader,
+        input: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
+        let GroupedExpression { expression } = reader.as_component()?;
+
+        if let Some(expression) = expression {
+            self.visit_expression(expression, input)
+        } else {
+            Ok(())
+        }
+    }
+
     fn visit_block_expression(
         &mut self,
         block_expression: SyntaxReader,
@@ -1052,98 +1071,80 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         debug_assert!(matches!(
             node.node.kind,
             SyntaxKind::BooleanType
-                | SyntaxKind::CharacterType
                 | SyntaxKind::I8Type
                 | SyntaxKind::I16Type
                 | SyntaxKind::I32Type
                 | SyntaxKind::I64Type
+                | SyntaxKind::I128Type
                 | SyntaxKind::U8Type
                 | SyntaxKind::U16Type
                 | SyntaxKind::U32Type
                 | SyntaxKind::U64Type
+                | SyntaxKind::U128Type
                 | SyntaxKind::F32Type
                 | SyntaxKind::F64Type
-                | SyntaxKind::FunctionType
+                | SyntaxKind::CharacterType
                 | SyntaxKind::SliceType
+                | SyntaxKind::TupleType
+                | SyntaxKind::FunctionType
                 | SyntaxKind::TypePath
         ),);
 
         let type_id = match node.node.kind {
             SyntaxKind::BooleanType => TypeId::BOOLEAN,
-            SyntaxKind::U8Type => TypeId::U_8,
-            SyntaxKind::CharacterType => TypeId::CHARACTER,
-            SyntaxKind::F64Type => TypeId::F_64,
+            SyntaxKind::I8Type => TypeId::I_8,
+            SyntaxKind::I16Type => TypeId::I_16,
+            SyntaxKind::I32Type => TypeId::I_32,
             SyntaxKind::I64Type => TypeId::I_64,
+            SyntaxKind::I128Type => TypeId::I_128,
+            SyntaxKind::U8Type => TypeId::U_8,
+            SyntaxKind::U16Type => TypeId::U_16,
+            SyntaxKind::U32Type => TypeId::U_32,
+            SyntaxKind::U64Type => TypeId::U_64,
+            SyntaxKind::U128Type => TypeId::U_128,
+            SyntaxKind::F32Type => TypeId::F_32,
+            SyntaxKind::F64Type => TypeId::F_64,
+            SyntaxKind::CharacterType => TypeId::CHARACTER,
             SyntaxKind::SliceType => {
                 let element_type = node.single_child()?;
 
                 self.visit_type(element_type)?
             }
-            SyntaxKind::FunctionType => {
-                let mut children = node.children();
-                let parameters = children.expect_next()?;
-                let mut parameters_children = parameters.children();
-                let value_parameters = parameters_children.expect_next()?;
-                let type_parameters = parameters_children.next();
-                let return_type = children.expect_next()?;
-
-                let value_parameter_ids = value_parameters
+            SyntaxKind::TupleType => {
+                let element_type_ids = node
                     .children()
-                    .map(|parameter| {
-                        let parameter_type = parameter.single_child()?;
-
-                        self.visit_type(parameter_type)
-                    })
+                    .map(|element_type| self.visit_type(element_type))
                     .try_collect::<SmallVec<[TypeId; 4]>>()?;
-                let type_parameter_ids = if let Some(type_parameters) = type_parameters {
-                    type_parameters
-                        .children()
-                        .map(|type_parameter| -> Result<DeclarationId, CompileError> {
-                            let type_parameter_name = type_parameter.single_child()?;
+                let element_type_ids = self.resolver.types.add_type_members(element_type_ids);
 
-                            let type_parameter_name_str = self
-                                .source
-                                .get_file_content(&type_parameter_name.position())?;
-                            let type_parameter_symbol_id =
-                                self.resolver.symbols.add_symbol(type_parameter_name_str);
-                            let type_parameter_declaration_id =
-                                self.resolver.declarations.add_declaration(Declaration {
-                                    symbol_id: type_parameter_symbol_id,
-                                    definition: Definition::TypeParameter,
-                                    scope_id: self.current_scope_id,
-                                    syntax: Some((
-                                        type_parameter_name.position(),
-                                        type_parameter_name.id,
-                                    )),
-                                });
+                self.resolver
+                    .types
+                    .add_type(Type::Tuple { element_type_ids })
+            }
+            SyntaxKind::FunctionType => {
+                let FunctionType {
+                    value_parameter_types,
+                    return_type,
+                } = node.as_component()?;
 
-                            self.resolver.add_declaration_binding(
-                                type_parameter_name.id,
-                                type_parameter_declaration_id,
-                            );
-
-                            Ok(type_parameter_declaration_id)
-                        })
-                        .try_collect::<SmallVec<[DeclarationId; 4]>>()?
+                let value_parameter_ids = value_parameter_types
+                    .children()
+                    .map(|parameter_type| self.visit_type(parameter_type))
+                    .try_collect::<SmallVec<[TypeId; 4]>>()?;
+                let value_parameters = self.resolver.types.add_type_members(value_parameter_ids);
+                let return_type_id = if let Some(return_type) = return_type {
+                    self.visit_type(return_type)?
                 } else {
-                    SmallVec::new()
+                    TypeId::UNIT
                 };
 
-                let type_parameters = self
-                    .resolver
-                    .declarations
-                    .add_declaration_members(type_parameter_ids);
-                let value_parameters = self.resolver.types.add_type_members(value_parameter_ids);
-                let return_type_id = self.visit_type(return_type)?;
-
                 self.resolver.types.add_type(Type::Function {
-                    type_parameters,
                     value_parameters,
                     return_type: return_type_id,
                 })
             }
             SyntaxKind::TypePath => {
-                let declaration_id = search_path_segments(self, node, Visibility::Module)?;
+                let declaration_id = search_path_segments(self, node, Visibility::Block)?;
                 let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
 
                 match declaration.definition {
@@ -1155,6 +1156,18 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                         declaration_id,
                         type_arguments: TypeMembers::default(),
                     }),
+                    Definition::EnumType {
+                        public: _,
+                        type_parameters: _,
+                        variants: _,
+                    } => self.resolver.types.add_type(Type::Algebraic {
+                        declaration_id,
+                        type_arguments: TypeMembers::default(),
+                    }),
+                    Definition::TypeParameter => self
+                        .resolver
+                        .types
+                        .add_type(Type::Generic { declaration_id }),
                     _ => {
                         return Err(CompileError::ExpectedTypeDeclaration(declaration_id));
                     }

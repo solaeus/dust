@@ -6,7 +6,7 @@ use crate::{
     source::{Source, SourceFile},
 };
 
-use super::bind_declarations;
+use super::{bind_declarations, find_function_body_scope};
 
 #[test]
 fn immutable() {
@@ -17,11 +17,12 @@ fn immutable() {
         "fn main() { let x = 1; }",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, crate_scope_id, Visibility::Block)
+        .find_declaration(x_symbol, body_scope, Visibility::Block)
         .unwrap();
     let Definition::Local {
         mutable,
@@ -38,7 +39,7 @@ fn immutable() {
         resolver.types.get_type(type_id).unwrap(),
         Type::Inferred { .. }
     ));
-    assert_eq!(x_declaration.scope_id, crate_scope_id);
+    assert_eq!(x_declaration.scope_id, body_scope);
 }
 
 #[test]
@@ -50,11 +51,12 @@ fn mutable() {
         "fn main() { let mut x = 1; }",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, crate_scope_id, Visibility::Block)
+        .find_declaration(x_symbol, body_scope, Visibility::Block)
         .unwrap();
     let Definition::Local {
         mutable, type_id, ..
@@ -79,11 +81,12 @@ fn with_type_notation() {
         "fn main() { let x: i64 = 1; }",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, crate_scope_id, Visibility::Block)
+        .find_declaration(x_symbol, body_scope, Visibility::Block)
         .unwrap();
     let Definition::Local {
         mutable, type_id, ..
@@ -105,11 +108,12 @@ fn mutable_with_type_notation() {
         "fn main() { let mut x: bool = true; }",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, crate_scope_id, Visibility::Block)
+        .find_declaration(x_symbol, body_scope, Visibility::Block)
         .unwrap();
     let Definition::Local {
         mutable, type_id, ..
@@ -131,12 +135,13 @@ fn shadowing() {
         "fn main() { let x = 1; let x = 2; }",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
 
     let (second_x_id, second_x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, crate_scope_id, Visibility::Block)
+        .find_declaration(x_symbol, body_scope, Visibility::Block)
         .unwrap();
     let Definition::Local {
         shadowed: second_shadowed,
@@ -168,17 +173,18 @@ fn multiple() {
         "fn main() { let x = 1; let y = 2; }",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
 
     let x_symbol = resolver.symbols.add_symbol("x");
     let (x_id, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, crate_scope_id, Visibility::Block)
+        .find_declaration(x_symbol, body_scope, Visibility::Block)
         .unwrap();
     let y_symbol = resolver.symbols.add_symbol("y");
     let (y_id, y_declaration) = resolver
         .declarations
-        .find_declaration(y_symbol, crate_scope_id, Visibility::Block)
+        .find_declaration(y_symbol, body_scope, Visibility::Block)
         .unwrap();
 
     assert!(matches!(x_declaration.definition, Definition::Local { .. }));
@@ -195,12 +201,13 @@ fn block_visibility() {
         "fn main() { { let x = 1; } }",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
     let result =
         resolver
             .declarations
-            .find_declaration(x_symbol, crate_scope_id, Visibility::Block);
+            .find_declaration(x_symbol, body_scope, Visibility::Block);
 
     assert!(
         result.is_none(),

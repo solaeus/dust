@@ -477,3 +477,40 @@ impl<'a> SyntaxComponent<'a> for StructExpressionTupleFields<'a> {
         })
     }
 }
+
+pub struct GroupedExpression<'a> {
+    pub expression: Option<SyntaxReader<'a>>,
+}
+
+impl<'a> SyntaxComponent<'a> for GroupedExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting grouped expression");
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::GroupedExpression));
+
+        let expression = if reader.child_count() == 0 {
+            None
+        } else {
+            Some(reader.single_child()?)
+        };
+
+        Ok(Self { expression })
+    }
+}
+
+pub struct FunctionType<'a> {
+    pub value_parameter_types: SyntaxReader<'a>,
+    pub return_type: Option<SyntaxReader<'a>>,
+}
+
+impl<'a> SyntaxComponent<'a> for FunctionType<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::FunctionType));
+
+        let mut children = reader.children();
+
+        Ok(Self {
+            value_parameter_types: children.expect_next()?,
+            return_type: children.next(),
+        })
+    }
+}

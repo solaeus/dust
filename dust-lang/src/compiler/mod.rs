@@ -182,7 +182,9 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        println!("Errors after declaration binding: {:#?}", errors);
+        if !errors.is_empty() {
+            return Err(errors);
+        }
 
         // Type binding phase
         {

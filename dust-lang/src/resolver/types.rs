@@ -8,10 +8,7 @@ use std::{
 use indexmap::{IndexSet, set::MutableValues};
 use smallvec::SmallVec;
 
-use crate::resolver::{
-    declarations::{DeclarationId, DeclarationMembers},
-    error::ResolverError,
-};
+use crate::resolver::{declarations::DeclarationId, error::ResolverError};
 
 /// Type instance collection that stores every type known to the `Compiler`.
 #[derive(Debug)]
@@ -286,7 +283,6 @@ pub enum Type {
     /// }
     /// ```
     Function {
-        type_parameters: DeclarationMembers,
         value_parameters: TypeMembers,
         return_type: TypeId,
     },
@@ -412,18 +408,15 @@ impl PartialEq for Type {
             }
             (
                 Type::Function {
-                    type_parameters: left_type_parameters,
                     value_parameters: left_parameter_types,
                     return_type: left_return_type,
                 },
                 Type::Function {
-                    type_parameters: right_type_parameters,
                     value_parameters: right_parameter_types,
                     return_type: right_return_type,
                 },
             ) => {
-                left_type_parameters == right_type_parameters
-                    && left_parameter_types == right_parameter_types
+                left_parameter_types == right_parameter_types
                     && left_return_type == right_return_type
             }
             (
@@ -532,22 +525,16 @@ impl Ord for Type {
             (Type::Closure { .. }, _) => Ordering::Less,
             (
                 Type::Function {
-                    type_parameters: left_type_parameters,
                     value_parameters: left_parameter_types,
                     return_type: left_return_type,
                 },
                 Type::Function {
-                    type_parameters: right_type_parameters,
                     value_parameters: right_parameter_types,
                     return_type: right_return_type,
                 },
-            ) => left_type_parameters
-                .cmp(right_type_parameters)
-                .then_with(|| {
-                    left_parameter_types
-                        .cmp(right_parameter_types)
-                        .then_with(|| left_return_type.cmp(right_return_type))
-                }),
+            ) => left_parameter_types
+                .cmp(right_parameter_types)
+                .then_with(|| left_return_type.cmp(right_return_type)),
             (Type::Function { .. }, _) => Ordering::Less,
             (
                 Type::Algebraic {
@@ -681,12 +668,10 @@ impl Hash for Type {
                 return_type_id.hash(state);
             }
             Type::Function {
-                type_parameters,
                 value_parameters,
                 return_type,
             } => {
                 state.write_u8(20);
-                type_parameters.hash(state);
                 value_parameters.hash(state);
                 return_type.hash(state);
             }
@@ -734,6 +719,14 @@ impl TypeMembers {
 
     pub fn as_usize_range(&self) -> Range<usize> {
         self.start as usize..self.end as usize
+    }
+
+    pub fn len(&self) -> usize {
+        (self.end - self.start) as usize
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 

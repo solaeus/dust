@@ -1,7 +1,7 @@
 use crate::{
     resolver::{
         declarations::{Definition, Visibility},
-        types::TypeId,
+        types::{Type, TypeId},
     },
     source::{Source, SourceFile},
 };
@@ -11,12 +11,13 @@ use super::bind_declarations;
 #[test]
 fn with_unit_variants() {
     let mut source = Source::new();
+
     source.add_file(SourceFile::validated_borrowed(
         "test",
         "enum Color { Red, Green, Blue }",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let color_symbol = resolver.symbols.add_symbol("Color");
     let (color_id, color_declaration) = resolver
         .declarations
@@ -39,7 +40,7 @@ fn with_unit_variants() {
         .declarations
         .get_declaration_members(&variants)
         .unwrap();
-    assert_eq!(variant_ids.len(), 3);
+    assert_eq!(variants.len(), 3);
 
     let red_symbol = resolver.symbols.add_symbol("Red");
     let green_symbol = resolver.symbols.add_symbol("Green");
@@ -50,7 +51,7 @@ fn with_unit_variants() {
         .get_declaration(variant_ids[0])
         .unwrap();
     let Definition::Variant {
-        discriminant: red_disc,
+        discriminant: red_discriminant,
         parent_enum: red_parent,
         ..
     } = red.definition
@@ -59,7 +60,7 @@ fn with_unit_variants() {
     };
 
     assert_eq!(red.symbol_id, red_symbol);
-    assert_eq!(red_disc, 0);
+    assert_eq!(red_discriminant, 0);
     assert_eq!(red_parent, color_id);
 
     let green = resolver
@@ -67,7 +68,7 @@ fn with_unit_variants() {
         .get_declaration(variant_ids[1])
         .unwrap();
     let Definition::Variant {
-        discriminant: green_disc,
+        discriminant: green_discriminant,
         parent_enum: green_parent,
         ..
     } = green.definition
@@ -76,7 +77,7 @@ fn with_unit_variants() {
     };
 
     assert_eq!(green.symbol_id, green_symbol);
-    assert_eq!(green_disc, 1);
+    assert_eq!(green_discriminant, 1);
     assert_eq!(green_parent, color_id);
 
     let blue = resolver
@@ -84,7 +85,7 @@ fn with_unit_variants() {
         .get_declaration(variant_ids[2])
         .unwrap();
     let Definition::Variant {
-        discriminant: blue_disc,
+        discriminant: blue_discriminant,
         parent_enum: blue_parent,
         ..
     } = blue.definition
@@ -93,19 +94,20 @@ fn with_unit_variants() {
     };
 
     assert_eq!(blue.symbol_id, blue_symbol);
-    assert_eq!(blue_disc, 2);
+    assert_eq!(blue_discriminant, 2);
     assert_eq!(blue_parent, color_id);
 }
 
 #[test]
 fn public_generic() {
     let mut source = Source::new();
+
     source.add_file(SourceFile::validated_borrowed(
         "test",
         "pub enum Opt<A, B> { None, Some }",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let opt_symbol = resolver.symbols.add_symbol("Opt");
     let (_, opt_declaration) = resolver
         .declarations
@@ -122,33 +124,29 @@ fn public_generic() {
 
     assert!(public);
 
-    let type_param_ids = resolver
+    let type_parameter_ids = resolver
         .declarations
         .get_declaration_members(&type_parameters)
         .unwrap();
 
-    assert_eq!(type_param_ids.len(), 2);
+    assert_eq!(type_parameters.len(), 2);
 
     let a_symbol = resolver.symbols.add_symbol("A");
     let b_symbol = resolver.symbols.add_symbol("B");
     let first_tp = resolver
         .declarations
-        .get_declaration(type_param_ids[0])
+        .get_declaration(type_parameter_ids[0])
         .unwrap();
     let second_tp = resolver
         .declarations
-        .get_declaration(type_param_ids[1])
-        .unwrap();
-    let variant_ids = resolver
-        .declarations
-        .get_declaration_members(&variants)
+        .get_declaration(type_parameter_ids[1])
         .unwrap();
 
     assert_eq!(first_tp.symbol_id, a_symbol);
     assert!(matches!(first_tp.definition, Definition::TypeParameter));
     assert_eq!(second_tp.symbol_id, b_symbol);
     assert!(matches!(second_tp.definition, Definition::TypeParameter));
-    assert_eq!(variant_ids.len(), 2);
+    assert_eq!(variants.len(), 2);
 }
 
 #[test]
@@ -159,7 +157,7 @@ fn with_mixed_variants() {
         "enum Shape { Point, Line(i64), Rect { w: i64, h: i64 } }",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let shape_symbol = resolver.symbols.add_symbol("Shape");
     let (shape_id, shape_declaration) = resolver
         .declarations
@@ -174,7 +172,7 @@ fn with_mixed_variants() {
         .get_declaration_members(&variants)
         .unwrap();
 
-    assert_eq!(variant_ids.len(), 3);
+    assert_eq!(variants.len(), 3);
 
     let point_symbol = resolver.symbols.add_symbol("Point");
     let line_symbol = resolver.symbols.add_symbol("Line");
@@ -185,7 +183,7 @@ fn with_mixed_variants() {
         .get_declaration(variant_ids[0])
         .unwrap();
     let Definition::Variant {
-        discriminant: point_disc,
+        discriminant: point_discriminant,
         parent_enum: point_parent,
         fields: point_fields,
         ..
@@ -195,7 +193,7 @@ fn with_mixed_variants() {
     };
 
     assert_eq!(point.symbol_id, point_symbol);
-    assert_eq!(point_disc, 0);
+    assert_eq!(point_discriminant, 0);
     assert_eq!(point_parent, shape_id);
     assert!(point_fields.is_empty());
 
@@ -204,7 +202,7 @@ fn with_mixed_variants() {
         .get_declaration(variant_ids[1])
         .unwrap();
     let Definition::Variant {
-        discriminant: line_disc,
+        discriminant: line_discriminant,
         parent_enum: line_parent,
         fields: line_fields,
         ..
@@ -214,7 +212,7 @@ fn with_mixed_variants() {
     };
 
     assert_eq!(line.symbol_id, line_symbol);
-    assert_eq!(line_disc, 1);
+    assert_eq!(line_discriminant, 1);
     assert_eq!(line_parent, shape_id);
 
     let line_field_ids = resolver
@@ -222,7 +220,7 @@ fn with_mixed_variants() {
         .get_declaration_members(&line_fields)
         .unwrap();
 
-    assert_eq!(line_field_ids.len(), 1);
+    assert_eq!(line_fields.len(), 1);
 
     let line_field = resolver
         .declarations
@@ -243,7 +241,7 @@ fn with_mixed_variants() {
         .get_declaration(variant_ids[2])
         .unwrap();
     let Definition::Variant {
-        discriminant: rect_disc,
+        discriminant: rect_discriminant,
         parent_enum: rect_parent,
         fields: rect_fields,
         ..
@@ -253,7 +251,7 @@ fn with_mixed_variants() {
     };
 
     assert_eq!(rect.symbol_id, rect_symbol);
-    assert_eq!(rect_disc, 2);
+    assert_eq!(rect_discriminant, 2);
     assert_eq!(rect_parent, shape_id);
 
     let rect_field_ids = resolver
@@ -261,7 +259,7 @@ fn with_mixed_variants() {
         .get_declaration_members(&rect_fields)
         .unwrap();
 
-    assert_eq!(rect_field_ids.len(), 2);
+    assert_eq!(rect_fields.len(), 2);
 
     let w_symbol = resolver.symbols.add_symbol("w");
     let h_symbol = resolver.symbols.add_symbol("h");
@@ -284,7 +282,7 @@ fn variants_not_visible_at_module_scope() {
 
     source.add_file(SourceFile::validated_borrowed("test", "enum Foo { Bar }"));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("Bar");
     let result =
         resolver
@@ -306,30 +304,30 @@ fn same_name_in_different_modules() {
         "mod a { enum Foo { X } } mod b { enum Foo { Y } }",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
     let a_symbol = resolver.symbols.add_symbol("a");
-    let (_, a_decl) = resolver
+    let (_, a_declaration) = resolver
         .declarations
         .find_declaration(a_symbol, crate_scope_id, Visibility::Module)
         .unwrap();
     let Definition::Module {
         inner_scope_id: a_scope,
         ..
-    } = a_decl.definition
+    } = a_declaration.definition
     else {
         panic!();
     };
 
     let b_symbol = resolver.symbols.add_symbol("b");
-    let (_, b_decl) = resolver
+    let (_, b_declaration) = resolver
         .declarations
         .find_declaration(b_symbol, crate_scope_id, Visibility::Module)
         .unwrap();
     let Definition::Module {
         inner_scope_id: b_scope,
         ..
-    } = b_decl.definition
+    } = b_declaration.definition
     else {
         panic!();
     };
@@ -382,4 +380,90 @@ fn same_name_in_different_modules() {
 
     assert_eq!(b_variant.symbol_id, y_symbol);
     assert_ne!(a_foo_id, b_foo_id);
+}
+
+#[test]
+fn generic_variant_field() {
+    let mut source = Source::new();
+
+    source.add_file(SourceFile::validated_borrowed(
+        "test",
+        "enum Opt<T> { Some(T), None }",
+    ));
+
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let opt_symbol = resolver.symbols.add_symbol("Opt");
+    let (_, opt_declaration) = resolver
+        .declarations
+        .find_declaration(opt_symbol, crate_scope_id, Visibility::Module)
+        .unwrap();
+    let Definition::EnumType {
+        type_parameters,
+        variants,
+        ..
+    } = opt_declaration.definition
+    else {
+        panic!();
+    };
+
+    let type_parameter_ids = resolver
+        .declarations
+        .get_declaration_members(&type_parameters)
+        .unwrap();
+
+    assert_eq!(type_parameters.len(), 1);
+
+    let t_declaration_id = type_parameter_ids[0];
+    let variant_ids = resolver
+        .declarations
+        .get_declaration_members(&variants)
+        .unwrap();
+
+    assert_eq!(variants.len(), 2);
+
+    let some_variant = resolver
+        .declarations
+        .get_declaration(variant_ids[0])
+        .unwrap();
+    let Definition::Variant {
+        fields: some_fields,
+        ..
+    } = some_variant.definition
+    else {
+        panic!();
+    };
+    let some_field_ids = resolver
+        .declarations
+        .get_declaration_members(&some_fields)
+        .unwrap();
+
+    assert_eq!(some_fields.len(), 1);
+
+    let some_field = resolver
+        .declarations
+        .get_declaration(some_field_ids[0])
+        .unwrap();
+    let Definition::Field { type_id, .. } = some_field.definition else {
+        panic!();
+    };
+    let field_type = resolver.types.get_type(type_id).unwrap();
+    let Type::Generic { declaration_id } = field_type else {
+        panic!();
+    };
+
+    assert_eq!(*declaration_id, t_declaration_id);
+
+    let none_variant = resolver
+        .declarations
+        .get_declaration(variant_ids[1])
+        .unwrap();
+    let Definition::Variant {
+        fields: none_fields,
+        ..
+    } = none_variant.definition
+    else {
+        panic!();
+    };
+
+    assert!(none_fields.is_empty());
 }

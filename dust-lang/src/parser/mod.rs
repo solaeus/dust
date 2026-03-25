@@ -837,10 +837,6 @@ impl<'src> Parser<'src> {
                 let mut children = Self::new_child_buffer();
 
                 while !self.allow(TokenKind::RightParenthesis)? {
-                    if self.current_token.kind == TokenKind::Eof {
-                        break;
-                    }
-
                     let type_node = self.expect_type()?;
                     let type_id = self.tree_builder.add_node(type_node);
 
@@ -879,10 +875,6 @@ impl<'src> Parser<'src> {
                 let mut children = Self::new_child_buffer();
 
                 while !self.allow(TokenKind::RightParenthesis)? {
-                    if self.current_token.kind == TokenKind::Eof {
-                        break;
-                    }
-
                     let parameter_type_node = self.expect_type()?;
                     let parameter_type_id = self.tree_builder.add_node(parameter_type_node);
 

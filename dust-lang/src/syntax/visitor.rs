@@ -93,11 +93,11 @@ pub trait SyntaxVisitor {
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
                 self.visit_logic_expression(reader, input)
             }
+            SyntaxKind::GroupedExpression => self.visit_grouped_expression(reader, input),
             SyntaxKind::BlockExpression => self.visit_block_expression(reader, input),
             SyntaxKind::IfExpression => self.visit_if_expression(reader, input),
             SyntaxKind::WhileExpression => self.visit_while_expression(reader, input),
             SyntaxKind::CallExpression => self.visit_call_expression(reader, input),
-            SyntaxKind::GroupedExpression => self.visit_expression(reader.single_child()?, input),
             _ => Err(CompileError::Unimplemented {
                 syntax_kind: reader.node.kind,
                 position: reader.position(),
@@ -192,6 +192,12 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_struct_expression(
+        &mut self,
+        reader: SyntaxReader,
+        input: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError>;
+
+    fn visit_grouped_expression(
         &mut self,
         reader: SyntaxReader,
         input: Option<Self::ExpressionInput>,

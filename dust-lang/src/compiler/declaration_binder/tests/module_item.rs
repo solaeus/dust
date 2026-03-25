@@ -14,7 +14,7 @@ fn inline() {
 
     source.add_file(SourceFile::validated_borrowed("test", "mod foo {}"));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
@@ -37,7 +37,7 @@ fn public_inline() {
 
     source.add_file(SourceFile::validated_borrowed("test", "pub mod foo {}"));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
@@ -60,7 +60,7 @@ fn inline_creates_module_scope() {
 
     source.add_file(SourceFile::validated_borrowed("test", "mod foo {}"));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
@@ -85,7 +85,7 @@ fn inline_with_function() {
         "mod foo { fn bar() {} }",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
@@ -116,7 +116,7 @@ fn nested_inline() {
         "mod foo { mod bar {} }",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
@@ -158,7 +158,7 @@ fn multiple_inline() {
         "mod foo {} mod bar {}",
     ));
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let foo_result =
         resolver
@@ -182,7 +182,7 @@ fn file() {
     source.add_file(SourceFile::validated_borrowed("test", "mod foo;"));
     source.add_file(SourceFile::file(&path).unwrap());
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
     cleanup_module_file(&path);
 
@@ -210,7 +210,7 @@ fn public_file() {
     source.add_file(SourceFile::validated_borrowed("test", "pub mod foo;"));
     source.add_file(SourceFile::file(&path).unwrap());
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
     cleanup_module_file(&path);
 
@@ -238,7 +238,7 @@ fn file_binds_contents() {
     source.add_file(SourceFile::validated_borrowed("test", "mod foo;"));
     source.add_file(SourceFile::file(&path).unwrap());
 
-    let (mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
     cleanup_module_file(&path);
 
