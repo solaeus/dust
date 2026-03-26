@@ -118,6 +118,7 @@ pub struct OutputOptions {
 
 impl OutputOptions {
     pub fn join(&mut self, other: OutputOptions) {
+        self.debug = self.debug || other.debug;
         self.ron = self.ron || other.ron;
         self.pretty_ron = self.pretty_ron || other.pretty_ron;
         self.postcard = self.postcard || other.postcard;

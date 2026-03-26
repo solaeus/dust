@@ -14,7 +14,7 @@ use crate::{
     native_function::NativeFunction,
     prototype::{Prototype, PrototypeId, PrototypeList},
     resolver::{
-        Resolver,
+        CompilationRequest, Resolver,
         declarations::{DeclarationId, Definition},
         error::ResolverError,
         scopes::ScopeId,
@@ -25,8 +25,8 @@ use crate::{
     syntax::{
         Syntax,
         components::{
-            AssignmentExpression, ComparisonExpression, LogicExpression, MathExpression,
-            NegationExpression,
+            AssignmentExpression, ComparisonExpression, FunctionItem, LogicExpression,
+            MathExpression, NegationExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -1071,6 +1071,39 @@ impl<'a> Emitter<'a> {
         }
     }
 
+    pub fn emit_function_body(&mut self, body: SyntaxReader) -> Result<(), CompileError> {
+        let children = body.children();
+        let child_count = children.len();
+
+        if child_count == 0 {
+            self.emit_instruction(Instruction::r#return());
+            return Ok(());
+        }
+
+        for (index, child) in children.enumerate() {
+            let is_last = index == child_count - 1;
+
+            if is_last {
+                let emission = self.handle_implicit_return(child, None)?;
+                self.handle_top_emission(emission, child)?;
+                return Ok(());
+            }
+
+            if child.is_statement() {
+                if let Some(instructions) = self.visit_statement(child)? {
+                    self.handle_top_emission(Emission::Instructions(instructions), child)?;
+                }
+            } else {
+                let emission = self.visit_expression(child, None)?;
+                if let Emission::Instructions(instructions) = emission {
+                    self.handle_top_emission(Emission::Instructions(instructions), child)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn handle_implicit_return(
         &mut self,
         node: SyntaxReader,
@@ -1116,7 +1149,57 @@ impl SyntaxVisitor for Emitter<'_> {
     }
 
     fn visit_function_item(&mut self, node: SyntaxReader<'_>) -> Result<(), CompileError> {
-        todo!()
+        let FunctionItem {
+            public: _,
+            name,
+            parameters: _,
+            return_type: _,
+            body: _,
+        } = node.as_component()?;
+
+        let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
+        let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+        let Definition::Function {
+            type_parameters, ..
+        } = declaration.definition
+        else {
+            return Err(CompileError::ExpectedFunctionType {
+                found: TypeId::UNIT,
+                position: node.position(),
+            });
+        };
+
+        // Generic functions are instantiated at call sites, not here
+        if !type_parameters.is_empty() {
+            return Ok(());
+        }
+
+        let cache_key = (declaration_id, SmallVec::new());
+        let prototype_id = if let Some(existing) = self.resolver.get_cached_prototype(&cache_key) {
+            existing
+        } else {
+            let reserved = self.prototypes.reserve();
+
+            self.resolver.cache_prototype(cache_key, reserved);
+            self.resolver
+                .compilation_queue
+                .push_back(CompilationRequest {
+                    declaration_id,
+                    prototype_id: reserved,
+                });
+
+            reserved
+        };
+
+        self.locals.insert(
+            declaration_id,
+            Place::Constant {
+                operand_type: OperandType::FUNCTION,
+                index: prototype_id.inner(),
+            },
+        );
+
+        Ok(())
     }
 
     fn visit_use_item(&mut self, _: SyntaxReader<'_>) -> Result<(), CompileError> {
@@ -3497,6 +3580,10 @@ pub fn get_byte_size(
         Type::Generic { declaration_id } => {
             get_definition_type_size(*declaration_id, None, resolver)
         }
+        Type::Inferred {
+            resolved: Some(resolved),
+            ..
+        } => get_byte_size(*resolved, type_arguments, resolver),
         _ => todo!("Handle byte size for type: {:?}", r#type),
     }
 }

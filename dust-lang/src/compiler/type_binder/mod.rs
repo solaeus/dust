@@ -48,6 +48,19 @@ impl<'a> TypeBinder<'a> {
         }
     }
 
+    pub fn bind_function_body(
+        &mut self,
+        body: SyntaxReader,
+        return_type_id: TypeId,
+    ) -> Result<(), CompileError> {
+        let resolved_return_type_id = self.resolver.resolve_type_through_map(return_type_id)?;
+        let body_type_id = self.visit_expression(body, None)?;
+
+        self.unify_types(resolved_return_type_id, None, body_type_id, body)?;
+
+        Ok(())
+    }
+
     pub fn unify_types(
         &mut self,
         left: TypeId,
@@ -296,7 +309,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         reader: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
-        todo!()
+        let mut children = reader.children();
+        let expression = children.expect_next()?;
+
+        self.visit_expression(expression, None)?;
+
+        Ok(())
     }
 
     fn visit_compound_assignment_expression(
@@ -350,7 +368,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        Ok(TypeId::I_32)
     }
 
     fn visit_string_expression(
@@ -406,7 +424,18 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let mut last_type_id = TypeId::UNIT;
+
+        for child in reader.children() {
+            if child.is_expression() {
+                last_type_id = self.visit_expression(child, None)?;
+            } else {
+                self.visit_statement(child)?;
+                last_type_id = TypeId::UNIT;
+            }
+        }
+
+        Ok(last_type_id)
     }
 
     fn visit_if_expression(

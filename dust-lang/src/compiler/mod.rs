@@ -21,7 +21,7 @@ use crate::{
     program::Program,
     prototype::{PrototypeId, PrototypeList},
     resolver::{
-        Resolver,
+        CompilationRequest, Resolver,
         declarations::{Definition, Visibility},
         scopes::{Scope, ScopeId, ScopeKind},
     },
@@ -182,19 +182,6 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        // Type binding phase
-        {
-            let span = span!(Level::INFO, "type");
-            let _enter = span.enter();
-
-            let mut type_binder = TypeBinder::new(&self.syntax, &mut self.resolver, &mut errors);
-
-            match type_binder.visit_root(main_file_root) {
-                Ok(()) => {}
-                Err(error) => errors.push(ErrorKind::Compile(error)),
-            }
-        }
-
         // Emission phase
         let span = span!(Level::INFO, "emit");
         let _enter = span.enter();
@@ -212,78 +199,176 @@ impl<'src> Compiler<'src> {
                 return Err(errors);
             }
         };
-        let Definition::Function { return_type_id, .. } = main_declaration.definition else {
+        let Definition::Function { .. } = main_declaration.definition else {
             errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
 
             return Err(errors);
         };
-        let main_syntax_id = main_declaration.syntax.unwrap().1;
-        let main_function_item = unwrap_or_return!(
-            self.syntax
-                .get_tree(SourceFileId::MAIN)
-                .and_then(|tree| tree.get_node(main_syntax_id))
-        );
-        let FunctionItem {
-            public,
-            name,
-            parameters,
-            return_type,
-            body,
-        } = unwrap_or_return!(main_function_item.as_component());
-        let main_return_register_count =
-            unwrap_or_return!(get_register_size(return_type_id, None, &self.resolver,)) as u16;
-        let main_scope_id = *unwrap_or_return!(self.resolver.get_scope_binding(&body.id));
 
-        let _main_prototype_id = self.prototypes.reserve();
+        // Seed the compilation queue with main
+        let main_prototype_id = self.prototypes.reserve();
 
-        debug_assert_eq!(_main_prototype_id, PrototypeId::MAIN);
+        debug_assert_eq!(main_prototype_id, PrototypeId::MAIN);
 
-        let mut emitter = match Emitter::new(
-            Some(main_declaration_id),
-            PrototypeId::MAIN,
-            0,
-            main_return_register_count,
-            main_scope_id,
-            (Some(main_symbol_id), main_function_item.position()),
-            (
-                &self.source,
-                &self.syntax,
-                &mut self.constants,
-                &mut self.resolver,
-                &mut self.prototypes,
-            ),
-        ) {
-            Ok(emitter) => emitter,
-            Err(error) => {
-                errors.push(ErrorKind::Compile(error));
+        self.resolver
+            .compilation_queue
+            .push_back(CompilationRequest {
+                declaration_id: main_declaration_id,
+                prototype_id: main_prototype_id,
+            });
+
+        // Process the compilation queue
+        let mut concrete_main_return_type_id = None;
+
+        while let Some(request) = self.resolver.compilation_queue.pop_front() {
+            let declaration = *unwrap_or_return!(
+                self.resolver
+                    .declarations
+                    .get_declaration(request.declaration_id)
+            );
+            let Definition::Function {
+                return_type_id,
+                value_parameters,
+                type_parameters,
+                ..
+            } = declaration.definition
+            else {
+                continue;
+            };
+            let (position, syntax_id) = match declaration.syntax {
+                Some(syntax) => syntax,
+                None => {
+                    errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
+
+                    return Err(errors);
+                }
+            };
+            let function_item = unwrap_or_return!(
+                self.syntax
+                    .get_tree(position.file_id)
+                    .and_then(|tree| tree.get_node(syntax_id))
+            );
+            let FunctionItem { body, .. } = unwrap_or_return!(function_item.as_component());
+            let scope_id = *unwrap_or_return!(self.resolver.get_scope_binding(&body.id));
+
+            // Create fresh inferred types for this function's type parameters
+            self.resolver.type_parameter_map.clear();
+
+            let type_parameter_declaration_ids = unwrap_or_return!(
+                self.resolver
+                    .declarations
+                    .get_declaration_members(&type_parameters)
+            );
+
+            for &type_parameter_declaration_id in type_parameter_declaration_ids {
+                let inferred_type_id = self.resolver.types.create_inferred_type();
+
+                self.resolver
+                    .type_parameter_map
+                    .insert(type_parameter_declaration_id, inferred_type_id);
+            }
+
+            // Type-bind the function body
+            let mut type_binder = TypeBinder::new(&self.syntax, &mut self.resolver, &mut errors);
+
+            match type_binder.bind_function_body(body, return_type_id) {
+                Ok(()) => {}
+                Err(error) => errors.push(ErrorKind::Compile(error)),
+            }
+
+            // Resolve the concrete return type
+            let concrete_return_type_id =
+                unwrap_or_return!(self.resolver.resolve_type_through_map(return_type_id));
+
+            // Compute argument and return register counts
+            let argument_count = {
+                let parameter_type_ids =
+                    unwrap_or_return!(self.resolver.types.get_type_members(value_parameters));
+                let mut count = 0u16;
+
+                for &parameter_type_id in parameter_type_ids {
+                    let concrete_parameter_type_id = unwrap_or_return!(
+                        self.resolver.resolve_type_through_map(parameter_type_id)
+                    );
+                    let register_size = unwrap_or_return!(get_register_size(
+                        concrete_parameter_type_id,
+                        None,
+                        &self.resolver,
+                    ));
+
+                    count += register_size as u16;
+                }
+
+                count
+            };
+
+            let return_register_count = unwrap_or_return!(get_register_size(
+                concrete_return_type_id,
+                None,
+                &self.resolver,
+            )) as u16;
+
+            // Create and run the emitter
+            let mut emitter = match Emitter::new(
+                Some(request.declaration_id),
+                request.prototype_id,
+                argument_count,
+                return_register_count,
+                scope_id,
+                (Some(declaration.symbol_id), position),
+                (
+                    &self.source,
+                    &self.syntax,
+                    &mut self.constants,
+                    &mut self.resolver,
+                    &mut self.prototypes,
+                ),
+            ) {
+                Ok(emitter) => emitter,
+                Err(error) => {
+                    errors.push(ErrorKind::Compile(error));
+
+                    return Err(errors);
+                }
+            };
+
+            match emitter.emit_function_body(body) {
+                Ok(()) => {}
+                Err(error) => {
+                    errors.push(ErrorKind::Compile(error));
+
+                    return Err(errors);
+                }
+            };
+
+            let prototype = match emitter.finish() {
+                Ok(prototype) => prototype,
+                Err(error) => {
+                    errors.push(ErrorKind::Compile(error));
+
+                    return Err(errors);
+                }
+            };
+
+            self.prototypes.set(request.prototype_id, prototype);
+
+            if request.prototype_id == PrototypeId::MAIN {
+                concrete_main_return_type_id = Some(concrete_return_type_id);
+            }
+        }
+
+        let concrete_main_return_type_id = match concrete_main_return_type_id {
+            Some(type_id) => type_id,
+            None => {
+                errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
 
                 return Err(errors);
             }
         };
-
-        match emitter.visit_function_item(main_function_item) {
-            Ok(()) => {}
-            Err(error) => {
-                errors.push(ErrorKind::Compile(error));
-
-                return Err(errors);
-            }
-        };
-
-        let main_prototype = match emitter.finish() {
-            Ok(prototype) => prototype,
-            Err(error) => {
-                errors.push(ErrorKind::Compile(error));
-
-                return Err(errors);
-            }
-        };
-
-        self.prototypes.set(PrototypeId::MAIN, main_prototype);
 
         let main_function_return_type_id = unwrap_or_return!(
             self.resolver
-                .get_external_type(return_type_id, &self.source)
+                .get_external_type(concrete_main_return_type_id, &self.source)
         );
 
         if errors.is_empty() {
