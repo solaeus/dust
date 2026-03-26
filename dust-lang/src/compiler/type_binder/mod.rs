@@ -257,11 +257,19 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(())
     }
 
-    fn visit_module_item(&mut self, module_item: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_module_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         Ok(())
     }
 
     fn visit_function_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        let FunctionItem {
+            public,
+            name,
+            parameters,
+            return_type,
+            body,
+        } = reader.as_component()?;
+
         Ok(())
     }
 
@@ -269,45 +277,45 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(())
     }
 
-    fn visit_struct_item(&mut self, node: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_struct_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         Ok(())
     }
 
-    fn visit_enum_item(&mut self, node: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_enum_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         Ok(())
     }
 
     fn visit_let_statement(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
         todo!()
     }
 
     fn visit_expression_statement(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
         todo!()
     }
 
     fn visit_compound_assignment_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
     }
 
     fn visit_assignment_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
     }
 
     fn visit_boolean_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -315,7 +323,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_byte_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -323,7 +331,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_character_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -331,7 +339,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_float_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -339,7 +347,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_integer_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -347,7 +355,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_string_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -355,7 +363,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_list_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -363,7 +371,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_index_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         input: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -379,7 +387,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_struct_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -395,7 +403,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_block_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -403,7 +411,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_if_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -411,7 +419,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_math_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -419,7 +427,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_comparison_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -427,7 +435,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_logic_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         input: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -435,7 +443,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_negation_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -443,7 +451,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_while_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -451,23 +459,27 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_call_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
     }
 
-    fn visit_type(&mut self, node: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
+    fn visit_type(&mut self, reader: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
         todo!()
     }
 
-    fn visit_path(&mut self, path: SyntaxReader, _: ()) -> Result<Self::PathOutput, CompileError> {
+    fn visit_path(
+        &mut self,
+        reader: SyntaxReader,
+        _: (),
+    ) -> Result<Self::PathOutput, CompileError> {
         todo!()
     }
 
     fn visit_simple_path(
         &mut self,
-        simple_path: SyntaxReader,
+        reader: SyntaxReader,
         _: (),
     ) -> Result<Self::PathOutput, CompileError> {
         todo!()
