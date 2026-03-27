@@ -31,8 +31,8 @@ fn empty() {
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            ExpressionStatement.with_child(Span::new(10, 22), SyntaxId(6)),
-            BlockExpression.with_child(Span::new(10, 22), SyntaxId(5)),
+            BlockExpression.with_child(Span::new(10, 22), SyntaxId(6)),
+            ExpressionStatement.with_child(Span::new(16, 20), SyntaxId(5)),
             PathExpression.with_child(Span::new(16, 19), SyntaxId(4)),
             PathSegment.empty(Span::new(16, 19)),
         ]

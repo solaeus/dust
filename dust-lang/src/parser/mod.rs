@@ -15,6 +15,7 @@ use crate::{
         error::ParseError,
         parse_rule::{Associativity, ParseRule, Precedence},
     },
+    project::EXAMPLE_LIBRARY,
     source::{Position, SourceFileId, Span},
     syntax::{
         SyntaxId,
@@ -123,7 +124,6 @@ impl<'src> Parser<'src> {
 
         while let Some(infix_parser) = infix_rule.infix
             && minimum_precedence <= infix_rule.precedence
-            && self.previous_token.kind != TokenKind::Semicolon
         {
             node = infix_parser(self, node)?;
             infix_rule = ParseRule::from(self.current_token.kind);
@@ -954,10 +954,19 @@ impl<'src> Parser<'src> {
 
         self.expect(TokenKind::Equal)?;
 
-        let expression_node = self.parse_expression()?;
-        let expression_id = self.tree_builder.add_node(expression_node);
+        let expression_id = {
+            let expression_statement_node = self.pratt(Precedence::None)?;
 
-        self.expect(TokenKind::Semicolon)?;
+            if expression_statement_node.kind != SyntaxKind::ExpressionStatement {
+                return Err(ParseError::ExpectedToken {
+                    found: self.current_token.kind,
+                    expected: TokenKind::Semicolon,
+                    position: self.current_position(),
+                });
+            }
+
+            expression_statement_node.children.left_id()
+        };
 
         let span = Span::new(start, self.previous_token.span.end());
 
@@ -985,7 +994,7 @@ impl<'src> Parser<'src> {
 
         self.advance();
 
-        let expression_node = self.parse_expression()?;
+        let expression_node = self.parse_sub_expression(Precedence::Assignment)?;
         let expression_id = self.tree_builder.add_node(expression_node);
 
         self.expect(TokenKind::Semicolon)?;
@@ -1178,17 +1187,10 @@ impl<'src> Parser<'src> {
         self.advance();
 
         let mut children = Self::new_child_buffer();
-        let mut is_expression_statement = false;
 
         while !self.allow(TokenKind::RightCurlyBrace)? {
             match self.pratt(Precedence::None) {
                 Ok(node) => {
-                    if node.kind.is_expression() {
-                        is_expression_statement = self.allow(TokenKind::Semicolon)?;
-                    } else {
-                        is_expression_statement = false;
-                    }
-
                     let child_id = self.tree_builder.add_node(node);
 
                     children.push(child_id);
@@ -1197,22 +1199,11 @@ impl<'src> Parser<'src> {
             }
         }
 
-        let block_expression_node = self.create_node_with_children(
+        Ok(self.create_node_with_children(
             SyntaxKind::BlockExpression,
             Span::new(start, self.previous_token.span.end()),
             children,
-        );
-
-        if is_expression_statement {
-            let block_expression_id = self.tree_builder.add_node(block_expression_node);
-
-            Ok(SyntaxKind::ExpressionStatement.with_child(
-                Span::new(start, self.previous_token.span.end()),
-                block_expression_id,
-            ))
-        } else {
-            Ok(block_expression_node)
-        }
+        ))
     }
 
     fn parse_prefix_if_keyword(&mut self) -> Result<SyntaxNode, ParseError> {
@@ -1465,6 +1456,16 @@ impl<'src> Parser<'src> {
         let end = self.previous_token.span.end();
 
         Ok(self.create_node_with_children(SyntaxKind::Path, Span::new(start, end), children))
+    }
+
+    fn parse_infix_semicolon(&mut self, left: SyntaxNode) -> Result<SyntaxNode, ParseError> {
+        let start = left.span.start();
+        let left_id = self.tree_builder.add_node(left);
+
+        self.advance();
+
+        Ok(SyntaxKind::ExpressionStatement
+            .with_child(Span::new(start, self.previous_token.span.end()), left_id))
     }
 
     fn expect_simple_path(&mut self) -> Result<SyntaxNode, ParseError> {

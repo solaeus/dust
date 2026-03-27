@@ -3,6 +3,9 @@ mod emitter;
 pub mod error;
 mod type_binder;
 
+#[cfg(test)]
+pub(crate) mod tests;
+
 use tracing::{Level, span};
 
 use crate::{

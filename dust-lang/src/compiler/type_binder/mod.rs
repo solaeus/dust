@@ -9,7 +9,10 @@ use crate::{
         types::{Type, TypeId},
     },
     syntax::{
-        Syntax, components::FunctionItem, node::SyntaxKind, reader::SyntaxReader,
+        Syntax,
+        components::{ExpressionStatement, FunctionItem},
+        node::SyntaxKind,
+        reader::SyntaxReader,
         visitor::SyntaxVisitor,
     },
 };
@@ -36,6 +39,32 @@ impl<'a> TypeBinder<'a> {
         }
     }
 
+    pub fn bind_function_body(
+        &mut self,
+        body: SyntaxReader,
+        return_type_id: TypeId,
+    ) -> Result<(), CompileError> {
+        assert_eq!(body.node.kind, SyntaxKind::BlockExpression);
+
+        let resolved_return_type_id = self.resolver.resolve_type_through_map(return_type_id)?;
+
+        let mut body_type_id = TypeId::UNIT;
+
+        for child in body.children() {
+            if child.is_expression() {
+                body_type_id = self.visit_expression(child, None)?;
+            } else {
+                self.visit_statement(child)?;
+
+                body_type_id = TypeId::UNIT;
+            }
+        }
+
+        self.unify_types(resolved_return_type_id, None, body_type_id, body)?;
+
+        Ok(())
+    }
+
     pub fn infer_type(&self, type_id: TypeId) -> Result<TypeId, CompileError> {
         if let Type::Inferred {
             resolved: Some(resolved),
@@ -46,19 +75,6 @@ impl<'a> TypeBinder<'a> {
         } else {
             Ok(type_id)
         }
-    }
-
-    pub fn bind_function_body(
-        &mut self,
-        body: SyntaxReader,
-        return_type_id: TypeId,
-    ) -> Result<(), CompileError> {
-        let resolved_return_type_id = self.resolver.resolve_type_through_map(return_type_id)?;
-        let body_type_id = self.visit_expression(body, None)?;
-
-        self.unify_types(resolved_return_type_id, None, body_type_id, body)?;
-
-        Ok(())
     }
 
     pub fn unify_types(
@@ -275,14 +291,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
     }
 
     fn visit_function_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        let FunctionItem {
-            public,
-            name,
-            parameters,
-            return_type,
-            body,
-        } = reader.as_component()?;
-
         Ok(())
     }
 
@@ -309,8 +317,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         reader: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
-        let mut children = reader.children();
-        let expression = children.expect_next()?;
+        let ExpressionStatement { expression } = reader.as_component()?;
 
         self.visit_expression(expression, None)?;
 
@@ -514,3 +521,6 @@ impl SyntaxVisitor for TypeBinder<'_> {
         todo!()
     }
 }
+
+#[cfg(test)]
+mod tests;
