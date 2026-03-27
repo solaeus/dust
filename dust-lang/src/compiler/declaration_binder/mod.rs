@@ -23,9 +23,8 @@ use crate::{
             CompoundAssignmentExpression, EnumItem, EnumVariant, ExpressionStatement, FunctionItem,
             FunctionParameters, FunctionType, GroupedExpression, IfExpression, IndexExpression,
             LetStatement, LogicExpression, MathExpression, ModuleItem, NegationExpression,
-            StructExpression, StructExpressionStructFields, StructExpressionTupleFields,
-            StructItem, StructItemStructFields, StructItemTupleFields, SyntaxComponent, UseItem,
-            WhileExpression,
+            StructExpression, StructExpressionStructFields, StructItem, StructItemStructFields,
+            StructItemTupleFields, SyntaxComponent, UseItem, WhileExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -892,27 +891,22 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.visit_path(path, Visibility::Module)?;
 
-        match fields.node.kind {
-            SyntaxKind::StructExpressionStructFields => {
-                let StructExpressionStructFields {
-                    name_expression_pairs,
-                } = fields.as_component()?;
+        if let SyntaxKind::StructExpressionStructFields = fields.node.kind {
+            let StructExpressionStructFields {
+                name_expression_pairs,
+            } = fields.as_component()?;
 
-                for [_, field_value] in name_expression_pairs {
-                    self.visit_expression(field_value, None)?;
-                }
+            for [_, field_value] in name_expression_pairs {
+                self.visit_expression(field_value, None)?;
             }
-            SyntaxKind::StructExpressionTupleFields => {
-                let StructExpressionTupleFields { expressions } = fields.as_component()?;
 
-                for expression in expressions {
-                    self.visit_expression(expression, None)?;
-                }
-            }
-            _ => unreachable!(),
+            Ok(())
+        } else {
+            Err(CompileError::ExpectedSyntaxKind {
+                expected: SyntaxKind::StructExpressionStructFields,
+                found: fields.node.kind,
+            })
         }
-
-        Ok(())
     }
 
     fn visit_grouped_expression(

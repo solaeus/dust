@@ -146,10 +146,6 @@ impl TypeId {
         self.0
     }
 
-    pub(crate) fn offset(self, offset: u32) -> Self {
-        TypeId(self.0 + offset)
-    }
-
     pub fn is_primitive(self) -> bool {
         matches!(
             self,

@@ -137,6 +137,10 @@ pub enum CompileError {
     Resolver(ResolverError),
     ConstantList(ConstantListError),
     Source(SourceError),
+    ExpectedSyntaxKind {
+        expected: SyntaxKind,
+        found: SyntaxKind,
+    },
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
@@ -962,7 +966,8 @@ impl<'a> AnnotatedError<'a> for CompileError {
             | CompileError::ExpectedFloatRegister
             | CompileError::ExpectedIntegerRegister
             | CompileError::ExpectedEmissionTarget { .. }
-            | CompileError::ExpectedJumpPlacement(_) => {
+            | CompileError::ExpectedJumpPlacement(_)
+            | CompileError::ExpectedSyntaxKind { .. } => {
                 self.add_internal_report(groups);
             }
             CompileError::Syntax(error) => error.add_report((), groups),

@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_methods)]
+
 mod block_table;
 
 use std::io;
@@ -10,7 +12,6 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Paragraph, Tabs, Widget, Wrap},
 };
-use tracing::error;
 
 use crate::{
     instruction::OperandType,
@@ -253,7 +254,6 @@ impl<'a> Disassembler<'a> {
             source_area,
             info_area,
             instructions_area,
-            _drop_lists_area,
         ] = areas.flex(Flex::Start).areas(inner_area);
 
         Paragraph::new(name_display.as_str())
@@ -313,19 +313,38 @@ impl<'a> Disassembler<'a> {
     }
 
     fn draw_declaration_tab(&self, resolver: &'a Resolver, area: Rect, buffer: &mut Buffer) {
-        let declaration_displays = resolver
-            .declaration_display_iterator()
-            .map(|result| match result {
-                Ok(display) => [display],
-                Err(error) => {
-                    error!("{error:?}");
+        let block = Block::new()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Thick)
+            .title("Declarations")
+            .title_alignment(Alignment::Center);
+        let inner_area = block.inner(area);
+        let columns = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]);
+        let [symbol_area, definition_area] = columns.areas(inner_area);
+        let block = Block::new()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Thick);
+        let symbol_block = block
+            .clone()
+            .title("Symbol")
+            .title_alignment(Alignment::Center);
+        let definition_block = block
+            .clone()
+            .title("Definition")
+            .title_alignment(Alignment::Center);
 
-                    ["Error".to_string()]
-                }
-            })
-            .collect();
+        let mut symbol_rows = symbol_block.inner(symbol_area).rows();
+        let mut definition_rows = definition_block.inner(definition_area).rows();
 
-        BlockTable::new("Declarations", [""], declaration_displays, None).render(area, buffer);
+        for result in resolver.definition_display_iterator() {
+            let (symbol, definition) = result.unwrap();
+
+            Line::from(symbol.to_string()).render(symbol_rows.next().unwrap(), buffer);
+
+            for line in definition.lines() {
+                Line::from(line).render(definition_rows.next().unwrap(), buffer);
+            }
+        }
     }
 }
 

@@ -130,7 +130,6 @@ pub enum SyntaxKind {
     StructItemTupleFields,
     StructItemStructFields,
     StructExpressionStructFields,
-    StructExpressionTupleFields,
 
     // Types
     TypePath,
@@ -373,7 +372,6 @@ impl SyntaxKind {
             SyntaxKind::StructItemStructFields => "struct item struct fields",
             SyntaxKind::StructExpression => "struct expression",
             SyntaxKind::StructExpressionStructFields => "struct expression struct fields",
-            SyntaxKind::StructExpressionTupleFields => "struct expression tuple fields",
             SyntaxKind::StructItem => "struct item",
             SyntaxKind::StructItemUnit => "struct item unit",
             SyntaxKind::SubtractionAssignmentExpression => "subtraction assignment expression",

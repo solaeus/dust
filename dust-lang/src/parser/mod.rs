@@ -1548,28 +1548,6 @@ impl<'src> Parser<'src> {
             )));
         }
 
-        if self.current_token.kind == TokenKind::LeftParenthesis {
-            let start = self.current_token.span.start();
-
-            self.advance();
-
-            let mut fields = Self::new_child_buffer();
-
-            while !self.allow(TokenKind::RightParenthesis)? {
-                let field_expression_node = self.parse_expression()?;
-                let field_expression_id = self.tree_builder.add_node(field_expression_node);
-
-                fields.push(field_expression_id);
-                self.allow(TokenKind::Comma)?;
-            }
-
-            return Ok(Some(self.create_node_with_children(
-                SyntaxKind::StructExpressionTupleFields,
-                Span::new(start, self.previous_token.span.end()),
-                fields,
-            )));
-        }
-
         Ok(None)
     }
 }

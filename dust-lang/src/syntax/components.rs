@@ -463,21 +463,6 @@ impl<'a> SyntaxComponent<'a> for StructExpressionStructFields<'a> {
     }
 }
 
-pub struct StructExpressionTupleFields<'a> {
-    pub expressions: SyntaxReaderIterator<'a>,
-}
-
-impl<'a> SyntaxComponent<'a> for StructExpressionTupleFields<'a> {
-    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
-        debug!("Visiting struct expression tuple fields");
-        debug_assert!(reader.node.kind == SyntaxKind::StructExpressionTupleFields);
-
-        Ok(Self {
-            expressions: reader.children(),
-        })
-    }
-}
-
 pub struct GroupedExpression<'a> {
     pub expression: Option<SyntaxReader<'a>>,
 }

@@ -18,7 +18,9 @@ use crate::{
         error::ResolverError,
         scopes::{ScopeId, Scopes},
         symbols::{SymbolId, Symbols},
-        types::{FloatType, SignedIntegerType, Type, TypeId, TypeMembers, Types, UnsignedIntegerType},
+        types::{
+            FloatType, SignedIntegerType, Type, TypeId, TypeMembers, Types, UnsignedIntegerType,
+        },
     },
     source::Source,
     syntax::{SyntaxId, reader::SyntaxReader},
@@ -250,17 +252,14 @@ impl Resolver {
                 if members.is_empty() {
                     Ok(DustType::Unit)
                 } else {
-                    todo!("get_external_type: tuple with elements")
+                    todo!()
                 }
             }
             Type::Inferred {
                 resolved: Some(resolved),
                 ..
             } => self.get_external_type(*resolved, _source),
-            _ => todo!(
-                "get_external_type: unhandled type {:?}",
-                r#type
-            ),
+            _ => todo!("{type:?}"),
         }
     }
 
@@ -289,10 +288,14 @@ impl Resolver {
         })
     }
 
-    pub fn declaration_display_iterator<'a>(
+    pub fn definition_display_iterator<'a>(
         &'a self,
-    ) -> impl Iterator<Item = Result<String, CompileError>> + 'a {
-        self.declarations.iter().map(|(_id, _declaration)| todo!())
+    ) -> impl Iterator<Item = Result<(&str, String), CompileError>> + 'a {
+        self.declarations.iter().map(|(_, declaration)| {
+            let symbol = self.symbols.get_symbol(&declaration.symbol_id)?;
+
+            Ok((symbol, format!("{:#?}", declaration.definition)))
+        })
     }
 }
 
