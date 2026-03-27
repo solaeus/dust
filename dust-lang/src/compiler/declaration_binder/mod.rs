@@ -730,7 +730,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let type_id = if let Some(type_notation) = type_notation {
             self.visit_type(type_notation)?
         } else {
-            self.resolver.types.create_inferred_type()
+            self.resolver.types.create_inferred_type(None)
         };
         let shadowed = self
             .resolver

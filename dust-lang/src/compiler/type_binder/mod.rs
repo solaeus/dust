@@ -6,7 +6,7 @@ use crate::{
     resolver::{
         Resolver,
         declarations::Definition,
-        types::{Type, TypeId},
+        types::{InferredTypeConstraint, Type, TypeId},
     },
     syntax::{
         Syntax,
@@ -112,6 +112,7 @@ impl<'a> TypeBinder<'a> {
             (
                 Type::Inferred {
                     inferred_id,
+                    constraint,
                     resolved: None,
                 },
                 _,
@@ -120,6 +121,7 @@ impl<'a> TypeBinder<'a> {
 
                 *left_node = Type::Inferred {
                     inferred_id,
+                    constraint,
                     resolved: Some(right),
                 };
 
@@ -129,6 +131,7 @@ impl<'a> TypeBinder<'a> {
                 _,
                 Type::Inferred {
                     inferred_id,
+                    constraint,
                     resolved: None,
                 },
             ) => {
@@ -136,6 +139,7 @@ impl<'a> TypeBinder<'a> {
 
                 *right_node = Type::Inferred {
                     inferred_id,
+                    constraint,
                     resolved: Some(left),
                 };
 
@@ -340,42 +344,51 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_boolean_expression(
         &mut self,
-        reader: SyntaxReader,
+        _: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        Ok(TypeId::BOOLEAN)
     }
 
     fn visit_byte_expression(
         &mut self,
-        reader: SyntaxReader,
+        _: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        Ok(self
+            .resolver
+            .types
+            .create_inferred_type(Some(InferredTypeConstraint::Integer)))
     }
 
     fn visit_character_expression(
         &mut self,
-        reader: SyntaxReader,
+        _: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        Ok(TypeId::CHARACTER)
     }
 
     fn visit_float_expression(
         &mut self,
-        reader: SyntaxReader,
+        _: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        Ok(self
+            .resolver
+            .types
+            .create_inferred_type(Some(InferredTypeConstraint::Float)))
     }
 
     fn visit_integer_expression(
         &mut self,
-        reader: SyntaxReader,
+        _: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        Ok(TypeId::I_32)
+        Ok(self
+            .resolver
+            .types
+            .create_inferred_type(Some(InferredTypeConstraint::Integer)))
     }
 
     fn visit_string_expression(

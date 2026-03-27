@@ -109,9 +109,10 @@ impl Types {
             .ok_or(ResolverError::MissingTypeMember(index))
     }
 
-    pub fn create_inferred_type(&mut self) -> TypeId {
+    pub fn create_inferred_type(&mut self, constraint: Option<InferredTypeConstraint>) -> TypeId {
         let inferred_type = Type::Inferred {
             inferred_id: self.next_inferred_type_id,
+            constraint,
             resolved: None,
         };
         self.next_inferred_type_id.0 += 1;
@@ -309,6 +310,7 @@ pub enum Type {
     /// type unification.
     Inferred {
         inferred_id: InferredTypeId,
+        constraint: Option<InferredTypeConstraint>,
         resolved: Option<TypeId>,
     },
 
@@ -426,10 +428,12 @@ impl PartialEq for Type {
             (
                 Type::Inferred {
                     inferred_id: left_inferred_id,
+                    constraint: _,
                     resolved: _,
                 },
                 Type::Inferred {
                     inferred_id: right_inferred_id,
+                    constraint: _,
                     resolved: _,
                 },
             ) => left_inferred_id == right_inferred_id,
@@ -557,10 +561,12 @@ impl Ord for Type {
             (
                 Type::Inferred {
                     inferred_id: a_inferred_id,
+                    constraint: _,
                     resolved: _,
                 },
                 Type::Inferred {
                     inferred_id: b_inferred_id,
+                    constraint: _,
                     resolved: _,
                 },
             ) => a_inferred_id.cmp(b_inferred_id),
@@ -685,6 +691,7 @@ impl Hash for Type {
             }
             Type::Inferred {
                 inferred_id,
+                constraint: _,
                 resolved: _,
             } => {
                 state.write_u8(23);
@@ -753,6 +760,12 @@ pub enum FloatType {
     F64,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum InferredTypeConstraint {
+    Float,
+    Integer,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -792,6 +805,7 @@ mod tests {
     fn inferred(id: u32, resolved: Option<TypeId>) -> Type {
         Type::Inferred {
             inferred_id: InferredTypeId(id),
+            constraint: None,
             resolved,
         }
     }

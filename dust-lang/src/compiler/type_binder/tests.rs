@@ -17,8 +17,7 @@ fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
     let mut source = Source::new();
     source.add_file(SourceFile::validated_borrowed("test", source_code));
 
-    let (syntax, mut resolver, crate_scope_id) =
-        crate::compiler::tests::bind_declarations(&source);
+    let (syntax, mut resolver, crate_scope_id) = crate::compiler::tests::bind_declarations(&source);
 
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
@@ -52,7 +51,7 @@ fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
         .unwrap();
 
     for &type_parameter_declaration_id in type_parameter_declaration_ids {
-        let inferred_type_id = resolver.types.create_inferred_type();
+        let inferred_type_id = resolver.types.create_inferred_type(None);
         resolver
             .type_parameter_map
             .insert(type_parameter_declaration_id, inferred_type_id);

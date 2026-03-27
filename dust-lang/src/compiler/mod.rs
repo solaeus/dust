@@ -264,7 +264,7 @@ impl<'src> Compiler<'src> {
             );
 
             for &type_parameter_declaration_id in type_parameter_declaration_ids {
-                let inferred_type_id = self.resolver.types.create_inferred_type();
+                let inferred_type_id = self.resolver.types.create_inferred_type(None);
 
                 self.resolver
                     .type_parameter_map
