@@ -208,7 +208,6 @@ impl<'src> Compiler<'src> {
             return Err(errors);
         };
 
-        // Seed the compilation queue with main
         let main_prototype_id = self.prototypes.reserve();
 
         debug_assert_eq!(main_prototype_id, PrototypeId::MAIN);
@@ -220,7 +219,6 @@ impl<'src> Compiler<'src> {
                 prototype_id: main_prototype_id,
             });
 
-        // Process the compilation queue
         let mut concrete_main_return_type_id = None;
 
         while let Some(request) = self.resolver.compilation_queue.pop_front() {
@@ -254,7 +252,6 @@ impl<'src> Compiler<'src> {
             let FunctionItem { body, .. } = unwrap_or_return!(function_item.as_component());
             let scope_id = *unwrap_or_return!(self.resolver.get_scope_binding(&body.id));
 
-            // Create fresh inferred types for this function's type parameters
             self.resolver.type_parameter_map.clear();
 
             let type_parameter_declaration_ids = unwrap_or_return!(
@@ -271,7 +268,6 @@ impl<'src> Compiler<'src> {
                     .insert(type_parameter_declaration_id, inferred_type_id);
             }
 
-            // Type-bind the function body
             let mut type_binder = TypeBinder::new(&self.syntax, &mut self.resolver, &mut errors);
 
             match type_binder.bind_function_body(body, return_type_id) {
@@ -279,18 +275,16 @@ impl<'src> Compiler<'src> {
                 Err(error) => errors.push(ErrorKind::Compile(error)),
             }
 
-            // Resolve the concrete return type
             let concrete_return_type_id =
                 unwrap_or_return!(self.resolver.resolve_type_through_map(return_type_id));
 
-            // Compute argument and return register counts
             let argument_count =
                 {
-                    let parameter_type_ids =
-                        unwrap_or_return!(self.resolver.types.get_type_members(value_parameters));
-                    let mut count = 0u16;
+                    let mut count = 0;
 
-                    for &parameter_type_id in parameter_type_ids {
+                    for index in value_parameters.as_range() {
+                        let parameter_type_id =
+                            *unwrap_or_return!(self.resolver.types.get_type_member(index));
                         let concrete_parameter_type_id = unwrap_or_return!(
                             self.resolver.resolve_type_through_map(parameter_type_id)
                         );
@@ -312,7 +306,6 @@ impl<'src> Compiler<'src> {
 
                     count
                 };
-
             let return_register_count = if let Some(size) = unwrap_or_return!(get_register_size(
                 concrete_return_type_id,
                 None,
@@ -328,7 +321,6 @@ impl<'src> Compiler<'src> {
                 return Err(errors);
             };
 
-            // Create and run the emitter
             let mut emitter = match Emitter::new(
                 Some(request.declaration_id),
                 request.prototype_id,

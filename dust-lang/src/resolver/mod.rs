@@ -19,7 +19,8 @@ use crate::{
         scopes::{ScopeId, Scopes},
         symbols::{SymbolId, Symbols},
         types::{
-            FloatType, SignedIntegerType, Type, TypeId, TypeMembers, Types, UnsignedIntegerType,
+            FloatType, InferredTypeConstraint, SignedIntegerType, Type, TypeId, TypeMembers, Types,
+            UnsignedIntegerType,
         },
     },
     source::Source,
@@ -131,28 +132,52 @@ impl Resolver {
         self.monomorphization_cache.insert(cache_key, prototype_id);
     }
 
-    pub fn resolve_type_through_map(&self, type_id: TypeId) -> Result<TypeId, ResolverError> {
-        let resolved_type = self.types.get_type(type_id)?;
+    pub fn resolve_type_through_map(&mut self, type_id: TypeId) -> Result<TypeId, ResolverError> {
+        let resolved_type = *self.types.get_type(type_id)?;
 
-        if let Type::Generic { declaration_id } = resolved_type
-            && let Some(&inferred_type_id) = self.type_parameter_map.get(declaration_id)
+        let start_type_id = if let Type::Generic { declaration_id } = resolved_type
+            && let Some(&inferred_type_id) = self.type_parameter_map.get(&declaration_id)
         {
-            let mut current_type_id = inferred_type_id;
+            inferred_type_id
+        } else if matches!(resolved_type, Type::Inferred { .. }) {
+            type_id
+        } else {
+            return Ok(type_id);
+        };
 
-            loop {
-                match self.types.get_type(current_type_id)? {
-                    Type::Inferred {
-                        resolved: Some(resolved),
-                        ..
-                    } => {
-                        current_type_id = *resolved;
-                    }
-                    _ => return Ok(current_type_id),
+        let mut current_type_id = start_type_id;
+
+        loop {
+            match *self.types.get_type(current_type_id)? {
+                Type::Inferred {
+                    resolved: Some(resolved),
+                    ..
+                } => {
+                    current_type_id = resolved;
                 }
+                Type::Inferred {
+                    inferred_id,
+                    constraint: Some(constraint),
+                    resolved: None,
+                } => {
+                    let default_type_id = match constraint {
+                        InferredTypeConstraint::Integer => TypeId::I_32,
+                        InferredTypeConstraint::Float => TypeId::F_64,
+                    };
+
+                    let node = self.types.get_type_mut(current_type_id)?;
+
+                    *node = Type::Inferred {
+                        inferred_id,
+                        constraint: Some(constraint),
+                        resolved: Some(default_type_id),
+                    };
+
+                    return Ok(default_type_id);
+                }
+                _ => return Ok(current_type_id),
             }
         }
-
-        Ok(type_id)
     }
 
     pub fn find_declaration_in_scope(

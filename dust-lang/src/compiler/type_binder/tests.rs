@@ -158,17 +158,11 @@ fn generic_return_type_resolves_through_type_parameter_map() {
         .unwrap();
     let type_parameter_declaration_id = type_parameter_declaration_ids[0];
 
-    let &inferred_type_id = resolver
+    let inferred_type_id = *resolver
         .type_parameter_map
         .get(&type_parameter_declaration_id)
         .unwrap();
-    let Type::Inferred {
-        resolved: Some(resolved),
-        ..
-    } = resolver.types.get_type(inferred_type_id).unwrap()
-    else {
-        panic!();
-    };
+    let resolved = resolver.resolve_type_through_map(inferred_type_id).unwrap();
 
-    assert_eq!(*resolved, TypeId::I_32);
+    assert_eq!(resolved, TypeId::I_32);
 }

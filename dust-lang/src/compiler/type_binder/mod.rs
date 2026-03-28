@@ -8,7 +8,7 @@ use crate::{
     },
     syntax::{
         Syntax,
-        components::{ExpressionStatement, LetStatement},
+        components::{ExpressionStatement, IndexExpression, LetStatement},
         node::SyntaxKind,
         reader::SyntaxReader,
         visitor::SyntaxVisitor,
@@ -379,24 +379,15 @@ impl SyntaxVisitor for TypeBinder<'_> {
     type PathInput = ();
     type PathOutput = TypeId;
 
-    fn visit_root(&mut self, reader: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
-        debug_assert!(reader.node.kind == SyntaxKind::Root);
-
-        for item in reader.children() {
-            match self.visit_item(item) {
-                Ok(()) => {}
-                Err(error) => self.errors.push(ErrorKind::Compile(error)),
-            }
-        }
-
+    fn visit_root(&mut self, _: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
         Ok(())
     }
 
-    fn visit_module_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_module_item(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
         Ok(())
     }
 
-    fn visit_function_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_function_item(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
         Ok(())
     }
 
@@ -404,11 +395,11 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(())
     }
 
-    fn visit_struct_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_struct_item(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
         Ok(())
     }
 
-    fn visit_enum_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_enum_item(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
         Ok(())
     }
 
@@ -525,14 +516,14 @@ impl SyntaxVisitor for TypeBinder<'_> {
     fn visit_index_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
     }
 
     fn visit_path_expression(
         &mut self,
-        path_expression: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
