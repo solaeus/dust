@@ -284,32 +284,49 @@ impl<'src> Compiler<'src> {
                 unwrap_or_return!(self.resolver.resolve_type_through_map(return_type_id));
 
             // Compute argument and return register counts
-            let argument_count = {
-                let parameter_type_ids =
-                    unwrap_or_return!(self.resolver.types.get_type_members(value_parameters));
-                let mut count = 0u16;
+            let argument_count =
+                {
+                    let parameter_type_ids =
+                        unwrap_or_return!(self.resolver.types.get_type_members(value_parameters));
+                    let mut count = 0u16;
 
-                for &parameter_type_id in parameter_type_ids {
-                    let concrete_parameter_type_id = unwrap_or_return!(
-                        self.resolver.resolve_type_through_map(parameter_type_id)
-                    );
-                    let register_size = unwrap_or_return!(get_register_size(
-                        concrete_parameter_type_id,
-                        None,
-                        &self.resolver,
-                    ));
+                    for &parameter_type_id in parameter_type_ids {
+                        let concrete_parameter_type_id = unwrap_or_return!(
+                            self.resolver.resolve_type_through_map(parameter_type_id)
+                        );
+                        let register_size = if let Some(size) = unwrap_or_return!(
+                            get_register_size(concrete_parameter_type_id, None, &self.resolver,)
+                        ) {
+                            size
+                        } else {
+                            errors.push(ErrorKind::Compile(CompileError::CannotInferType {
+                                type_id: concrete_parameter_type_id,
+                                position,
+                            }));
 
-                    count += register_size as u16;
-                }
+                            return Err(errors);
+                        };
 
-                count
-            };
+                        count += register_size as u16;
+                    }
 
-            let return_register_count = unwrap_or_return!(get_register_size(
+                    count
+                };
+
+            let return_register_count = if let Some(size) = unwrap_or_return!(get_register_size(
                 concrete_return_type_id,
                 None,
                 &self.resolver,
-            )) as u16;
+            )) {
+                size as u16
+            } else {
+                errors.push(ErrorKind::Compile(CompileError::CannotInferType {
+                    type_id: concrete_return_type_id,
+                    position,
+                }));
+
+                return Err(errors);
+            };
 
             // Create and run the emitter
             let mut emitter = match Emitter::new(

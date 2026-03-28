@@ -38,7 +38,7 @@ pub enum CompileError {
     },
     CannotInferType {
         type_id: TypeId,
-        position: Option<Position>,
+        position: Position,
     },
     CannotIndex {
         type_id: TypeId,
@@ -129,6 +129,7 @@ pub enum CompileError {
     },
     ExpectedFloatRegister,
     ExpectedIntegerRegister,
+    ExpectedLocalDefinition,
     ExpectedEmissionTarget {
         node_kind: SyntaxKind,
     },
@@ -155,11 +156,13 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 | CompileError::ExpectedFloatRegister
                 | CompileError::ExpectedIntegerRegister
                 | CompileError::ExpectedEmissionTarget { .. }
-                // | CompileError::ExpectedJumpPlacement(_)
+                | CompileError::ExpectedJumpPlacement(_)
                 | CompileError::Syntax(_)
                 | CompileError::Resolver(_)
                 | CompileError::ConstantList(_)
                 | CompileError::Source(_)
+                | CompileError::ExpectedSyntaxKind { .. }
+                | CompileError::ExpectedLocalDefinition
         )
     }
 
@@ -354,31 +357,22 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     }
                 };
                 let title = format!("Cannot infer type {type_string}");
-                let group = match position {
-                    Some(position) => {
-                        let file_content = match source.get_file(position.file_id) {
-                            Ok(file) => file.content_as_str(),
-                            Err(error) => {
-                                error.add_report((), groups);
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        error.add_report((), groups);
 
-                                return;
-                            }
-                        };
-
-                        Group::with_title(Level::ERROR.primary_title(title)).elements([
-                            Snippet::source(file_content).annotation(
-                                AnnotationKind::Primary
-                                    .span(position.span.as_usize_range())
-                                    .label(format!(
-                                        "Type {type_string} was declared here, but its type cannot be inferred."
-                                    )),
-                            ),
-                        ])
+                        return;
                     }
-                    None => Group::with_title(Level::ERROR.primary_title(title)).element(
-                        Level::ERROR.message(format!("Type {type_string} cannot be inferred.")),
-                    ),
                 };
+                let group = Group::with_title(Level::ERROR.primary_title(title))
+                    .elements([Snippet::source(file_content).annotation(
+                    AnnotationKind::Primary
+                        .span(position.span.as_usize_range())
+                        .label(format!(
+                            "Type {type_string} was declared here, but its type cannot be inferred."
+                        )),
+                )]);
 
                 groups.push(group);
             }
@@ -967,7 +961,8 @@ impl<'a> AnnotatedError<'a> for CompileError {
             | CompileError::ExpectedIntegerRegister
             | CompileError::ExpectedEmissionTarget { .. }
             | CompileError::ExpectedJumpPlacement(_)
-            | CompileError::ExpectedSyntaxKind { .. } => {
+            | CompileError::ExpectedSyntaxKind { .. }
+            | CompileError::ExpectedLocalDefinition => {
                 self.add_internal_report(groups);
             }
             CompileError::Syntax(error) => error.add_report((), groups),

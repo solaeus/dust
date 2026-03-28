@@ -217,10 +217,11 @@ impl<'a> Emitter<'a> {
         reader: &SyntaxReader,
     ) -> Result<RegisterAllocation, CompileError> {
         fn collect_registers(
-            emitter: &mut Emitter,
             type_id: TypeId,
             temporary: bool,
             registers: &mut SmallVec<[Register; 8]>,
+            emitter: &mut Emitter,
+            reader: &SyntaxReader,
         ) -> Result<(), CompileError> {
             let type_node = emitter.resolver.types.get_type(type_id)?;
 
@@ -263,13 +264,13 @@ impl<'a> Emitter<'a> {
                 Type::FunctionDefinition { .. } => (OperandType::FUNCTION, RegisterWidth::Single),
                 Type::Inferred { resolved, .. } => {
                     if let Some(resolved) = resolved {
-                        collect_registers(emitter, *resolved, temporary, registers)?;
+                        collect_registers(*resolved, temporary, registers, emitter, reader)?;
 
                         return Ok(());
                     } else {
                         return Err(CompileError::CannotInferType {
                             type_id,
-                            position: None,
+                            position: reader.position(),
                         });
                     }
                 }
@@ -292,7 +293,7 @@ impl<'a> Emitter<'a> {
 
         let mut allocations = SmallVec::new();
 
-        collect_registers(self, type_id, temporary, &mut allocations)?;
+        collect_registers(type_id, temporary, &mut allocations, self, reader)?;
 
         match allocations.len() {
             0 => Err(CompileError::ExpectedValue {
@@ -3493,12 +3494,12 @@ pub fn get_byte_size(
     type_id: TypeId,
     type_arguments: Option<&TypeMembers>,
     resolver: &Resolver,
-) -> Result<usize, CompileError> {
+) -> Result<Option<usize>, CompileError> {
     fn get_definition_type_size(
         declaration_id: DeclarationId,
         type_arguments: Option<&TypeMembers>,
         resolver: &Resolver,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<Option<usize>, CompileError> {
         let declaration = resolver.declarations.get_declaration(declaration_id)?;
 
         match &declaration.definition {
@@ -3521,10 +3522,18 @@ pub fn get_byte_size(
                         ));
                     };
 
-                    total_size += get_byte_size(field_type_id, type_arguments, resolver)?;
+                    let byte_size = if let Some(size) =
+                        get_byte_size(field_type_id, type_arguments, resolver)?
+                    {
+                        size
+                    } else {
+                        return Ok(None);
+                    };
+
+                    total_size += byte_size;
                 }
 
-                Ok(total_size)
+                Ok(Some(total_size))
             }
             Definition::TypeParameter => {
                 todo!()
@@ -3536,42 +3545,54 @@ pub fn get_byte_size(
     let r#type = resolver.types.get_type(type_id)?;
 
     match r#type {
-        Type::Never => Ok(0),
+        Type::Never => Ok(Some(0)),
         Type::Boolean
         | Type::SignedInteger(SignedIntegerType::I8)
-        | Type::UnsignedInteger(UnsignedIntegerType::U8) => Ok(1),
+        | Type::UnsignedInteger(UnsignedIntegerType::U8) => Ok(Some(1)),
         Type::SignedInteger(SignedIntegerType::I16)
         | Type::UnsignedInteger(UnsignedIntegerType::U16)
         | Type::FunctionDefinition { .. }
         | Type::Closure { .. }
-        | Type::Function { .. } => Ok(2),
+        | Type::Function { .. } => Ok(Some(2)),
         Type::Character
         | Type::SignedInteger(SignedIntegerType::I32)
         | Type::UnsignedInteger(UnsignedIntegerType::U32)
-        | Type::Float(FloatType::F32) => Ok(4),
-        Type::Slice { .. } | Type::Pointer { .. } => Ok(8),
+        | Type::Float(FloatType::F32) => Ok(Some(4)),
+        Type::Slice { .. } | Type::Pointer { .. } => Ok(Some(8)),
         Type::SignedInteger(SignedIntegerType::I64)
         | Type::UnsignedInteger(UnsignedIntegerType::U64)
-        | Type::Float(FloatType::F64) => Ok(8),
+        | Type::Float(FloatType::F64) => Ok(Some(8)),
         Type::SignedInteger(SignedIntegerType::I128)
-        | Type::UnsignedInteger(UnsignedIntegerType::U128) => Ok(16),
+        | Type::UnsignedInteger(UnsignedIntegerType::U128) => Ok(Some(16)),
         Type::Tuple { element_type_ids } => {
             let type_ids = resolver.types.get_type_members(*element_type_ids)?;
             let mut total_size = 0;
 
             for type_id in type_ids {
-                total_size += get_byte_size(*type_id, type_arguments, resolver)?;
+                let byte_size =
+                    if let Some(size) = get_byte_size(*type_id, type_arguments, resolver)? {
+                        size
+                    } else {
+                        return Ok(None);
+                    };
+
+                total_size += byte_size;
             }
 
-            Ok(total_size)
+            Ok(Some(total_size))
         }
         Type::Array {
             element_type_id,
             length,
         } => {
-            let element_size = get_byte_size(*element_type_id, type_arguments, resolver)?;
+            let element_size =
+                if let Some(size) = get_byte_size(*element_type_id, type_arguments, resolver)? {
+                    size
+                } else {
+                    return Ok(None);
+                };
 
-            Ok(element_size * (*length))
+            Ok(Some(element_size * (*length)))
         }
         Type::Algebraic {
             declaration_id,
@@ -3584,6 +3605,7 @@ pub fn get_byte_size(
             resolved: Some(resolved),
             ..
         } => get_byte_size(*resolved, type_arguments, resolver),
+        Type::Inferred { resolved: None, .. } => Ok(None),
         _ => todo!("Handle byte size for type: {:?}", r#type),
     }
 }
@@ -3592,6 +3614,7 @@ pub fn get_register_size(
     type_id: TypeId,
     type_arguments: Option<&TypeMembers>,
     resolver: &Resolver,
-) -> Result<usize, CompileError> {
-    get_byte_size(type_id, type_arguments, resolver).map(|byte_size| byte_size.div_ceil(4))
+) -> Result<Option<usize>, CompileError> {
+    get_byte_size(type_id, type_arguments, resolver)
+        .map(|byte_size| byte_size.map(|size| size.div_ceil(4)))
 }

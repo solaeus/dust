@@ -1,5 +1,3 @@
-use smallvec::SmallVec;
-
 use crate::{
     compiler::error::CompileError,
     error::ErrorKind,
@@ -10,7 +8,7 @@ use crate::{
     },
     syntax::{
         Syntax,
-        components::{ExpressionStatement, FunctionItem},
+        components::{ExpressionStatement, LetStatement},
         node::SyntaxKind,
         reader::SyntaxReader,
         visitor::SyntaxVisitor,
@@ -111,12 +109,96 @@ impl<'a> TypeBinder<'a> {
         match (left_type_node, right_type_node) {
             (
                 Type::Inferred {
+                    inferred_id: left_inferred_id,
+                    constraint: left_constraint,
+                    resolved: None,
+                },
+                Type::Inferred {
+                    constraint: right_constraint,
+                    resolved: None,
+                    ..
+                },
+            ) => {
+                match (left_constraint, right_constraint) {
+                    (Some(left_bound), Some(right_bound)) if left_bound != right_bound => {
+                        let expected_position = if let Some(left) = left_syntax {
+                            left.children().next_back().map(|child| child.position())
+                        } else {
+                            None
+                        };
+                        let found_position = right_syntax
+                            .children()
+                            .next_back()
+                            .unwrap_or(right_syntax)
+                            .position();
+
+                        return Err(CompileError::TypeConflict {
+                            expected_type: left,
+                            expected_position,
+                            found_type: right,
+                            found_position,
+                        });
+                    }
+                    (Some(inherited_constraint), None) => {
+                        let right_node = self.resolver.types.get_type_mut(right)?;
+
+                        if let Type::Inferred { constraint, .. } = right_node {
+                            *constraint = Some(inherited_constraint);
+                        }
+                    }
+                    _ => {}
+                }
+
+                let left_node = self.resolver.types.get_type_mut(left)?;
+
+                *left_node = Type::Inferred {
+                    inferred_id: left_inferred_id,
+                    constraint: left_constraint,
+                    resolved: Some(right),
+                };
+
+                Ok(())
+            }
+            (
+                Type::Inferred {
                     inferred_id,
                     constraint,
                     resolved: None,
                 },
                 _,
             ) => {
+                if let Some(constraint) = constraint {
+                    let satisfied = match constraint {
+                        InferredTypeConstraint::Integer => matches!(
+                            right_type_node,
+                            Type::SignedInteger(_) | Type::UnsignedInteger(_)
+                        ),
+                        InferredTypeConstraint::Float => {
+                            matches!(right_type_node, Type::Float(_))
+                        }
+                    };
+
+                    if !satisfied {
+                        let expected_position = if let Some(left) = left_syntax {
+                            left.children().next_back().map(|child| child.position())
+                        } else {
+                            None
+                        };
+                        let found_position = right_syntax
+                            .children()
+                            .next_back()
+                            .unwrap_or(right_syntax)
+                            .position();
+
+                        return Err(CompileError::TypeConflict {
+                            expected_type: left,
+                            expected_position,
+                            found_type: right,
+                            found_position,
+                        });
+                    }
+                }
+
                 let left_node = self.resolver.types.get_type_mut(left)?;
 
                 *left_node = Type::Inferred {
@@ -135,6 +217,38 @@ impl<'a> TypeBinder<'a> {
                     resolved: None,
                 },
             ) => {
+                if let Some(constraint) = constraint {
+                    let satisfied = match constraint {
+                        InferredTypeConstraint::Integer => matches!(
+                            left_type_node,
+                            Type::SignedInteger(_) | Type::UnsignedInteger(_)
+                        ),
+                        InferredTypeConstraint::Float => {
+                            matches!(left_type_node, Type::Float(_))
+                        }
+                    };
+
+                    if !satisfied {
+                        let expected_position = if let Some(left) = left_syntax {
+                            left.children().next_back().map(|child| child.position())
+                        } else {
+                            None
+                        };
+                        let found_position = right_syntax
+                            .children()
+                            .next_back()
+                            .unwrap_or(right_syntax)
+                            .position();
+
+                        return Err(CompileError::TypeConflict {
+                            expected_type: left,
+                            expected_position,
+                            found_type: right,
+                            found_position,
+                        });
+                    }
+                }
+
                 let right_node = self.resolver.types.get_type_mut(right)?;
 
                 *right_node = Type::Inferred {
@@ -155,38 +269,35 @@ impl<'a> TypeBinder<'a> {
                     type_arguments: right_type_arguments,
                 },
             ) => {
-                let left_declaration = self
-                    .resolver
-                    .declarations
-                    .get_declaration(left_declaration_id)?;
-                let Definition::Function {
-                    public: _,
-                    type_parameters: left_type_parameters,
-                    value_parameters: left_value_parameters,
-                    return_type_id: left_return_type_id,
-                } = left_declaration.definition
-                else {
-                    return Err(CompileError::ExpectedFunctionType {
-                        found: left,
-                        position: left_syntax.unwrap_or(right_syntax).position(),
+                if left_declaration_id != right_declaration_id {
+                    let expected_position = if let Some(left) = left_syntax {
+                        left.children().next_back().map(|child| child.position())
+                    } else {
+                        None
+                    };
+                    let found_position = right_syntax
+                        .children()
+                        .next_back()
+                        .unwrap_or(right_syntax)
+                        .position();
+
+                    return Err(CompileError::TypeConflict {
+                        expected_type: left,
+                        expected_position,
+                        found_type: right,
+                        found_position,
                     });
-                };
-                let right_declaration = self
-                    .resolver
-                    .declarations
-                    .get_declaration(right_declaration_id)?;
-                let Definition::Function {
-                    public: _,
-                    type_parameters: right_type_parameters,
-                    value_parameters: right_value_parameters,
-                    return_type_id: right_return_type_id,
-                } = right_declaration.definition
-                else {
-                    return Err(CompileError::ExpectedFunctionType {
-                        found: right,
-                        position: right_syntax.position(),
-                    });
-                };
+                }
+
+                for (left_index, right_index) in left_type_arguments
+                    .as_range()
+                    .zip(right_type_arguments.as_range())
+                {
+                    let left_arg = *self.resolver.types.get_type_member(left_index)?;
+                    let right_arg = *self.resolver.types.get_type_member(right_index)?;
+
+                    self.unify_types(left_arg, left_syntax, right_arg, right_syntax)?;
+                }
 
                 Ok(())
             }
@@ -220,23 +331,14 @@ impl<'a> TypeBinder<'a> {
                     });
                 }
 
-                let left_args = self
-                    .resolver
-                    .types
-                    .get_type_members(left_type_arguments)?
-                    .iter()
-                    .copied()
-                    .collect::<SmallVec<[TypeId; 8]>>();
-                let right_args = self
-                    .resolver
-                    .types
-                    .get_type_members(right_type_arguments)?
-                    .iter()
-                    .copied()
-                    .collect::<SmallVec<[TypeId; 8]>>();
+                for (left_index, right_index) in left_type_arguments
+                    .as_range()
+                    .zip(right_type_arguments.as_range())
+                {
+                    let left_arg = *self.resolver.types.get_type_member(left_index)?;
+                    let right_arg = *self.resolver.types.get_type_member(right_index)?;
 
-                for (left_arg, right_arg) in left_args.iter().zip(right_args.iter()) {
-                    self.unify_types(*left_arg, left_syntax, *right_arg, right_syntax)?;
+                    self.unify_types(left_arg, left_syntax, right_arg, right_syntax)?;
                 }
 
                 Ok(())
@@ -314,7 +416,20 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         reader: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
-        todo!()
+        let LetStatement {
+            name, expression, ..
+        } = reader.as_component()?;
+
+        let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
+        let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+        let Definition::Local { type_id, .. } = declaration.definition else {
+            return Err(CompileError::ExpectedLocalDefinition);
+        };
+        let expression_type_id = self.visit_expression(expression, None)?;
+
+        self.unify_types(type_id, Some(reader), expression_type_id, expression)?;
+
+        Ok(())
     }
 
     fn visit_expression_statement(
