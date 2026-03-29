@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use dust_lang::{
     compiler::Compiler,
     vm::{MINIMUM_OBJECT_HEAP_DEFAULT, Vm},
@@ -29,7 +27,7 @@ pub fn handle_run_command(commmand: RunCommand) {
         }
     };
     let jit_vm = Vm::new(
-        Arc::new(program),
+        program,
         MINIMUM_OBJECT_HEAP_DEFAULT,
         MINIMUM_OBJECT_HEAP_DEFAULT,
     );

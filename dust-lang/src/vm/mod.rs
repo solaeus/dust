@@ -12,11 +12,15 @@ use tracing::{Level, error, info, span};
 
 use crate::{
     compiler::Compiler,
+    dust_type::DustType,
     dust_value::DustValue,
     error::{Error, ErrorKind},
     program::Program,
     source::{Source, SourceFile},
-    vm::thread_pool::{ThreadMessage, ThreadPool},
+    vm::{
+        error::VmError,
+        thread_pool::{ThreadMessage, ThreadPool},
+    },
 };
 
 pub const MINIMUM_OBJECT_HEAP_DEFAULT: usize = if cfg!(debug_assertions) {
@@ -38,7 +42,7 @@ pub fn run<'src>(source_code: &'src str) -> Result<Option<DustValue>, Error<'src
     let compiler = Compiler::new(source);
     let program = compiler.compile(None)?;
     let vm = Vm::new(
-        Arc::new(program),
+        program,
         MINIMUM_OBJECT_HEAP_DEFAULT,
         MINIMUM_OBJECT_SWEEP_DEFAULT,
     );
@@ -47,16 +51,16 @@ pub fn run<'src>(source_code: &'src str) -> Result<Option<DustValue>, Error<'src
 }
 
 pub struct Vm {
+    program: Arc<Program>,
     thread_pool: ThreadPool,
 }
 
 impl Vm {
-    pub fn new(
-        program: Arc<Program>,
-        minimum_object_heap: usize,
-        minimum_object_sweep: usize,
-    ) -> Self {
+    pub fn new(program: Program, minimum_object_heap: usize, minimum_object_sweep: usize) -> Self {
+        let program = Arc::new(program);
+
         Self {
+            program: Arc::clone(&program),
             thread_pool: ThreadPool::new(program, minimum_object_heap, minimum_object_sweep),
         }
     }
@@ -94,9 +98,6 @@ impl Vm {
                 Ok(ThreadMessage::RemoveThread { thread_id, result }) => {
                     info!("VM thread completed: Thread ID: {}", thread_id.as_u64());
 
-                    let return_registers = result
-                        .map_err(|error| Error::without_context(vec![ErrorKind::Vm(error)]))?;
-
                     let mut spawner = self.thread_pool.lock_spawner();
                     let removed_handle = spawner.threads_mut().remove(&thread_id);
 
@@ -119,6 +120,12 @@ impl Vm {
                     if spawner.is_empty() {
                         info!("All VM threads have completed.");
 
+                        let return_registers = result
+                            .map_err(|error| Error::without_context(vec![ErrorKind::Vm(error)]))?;
+                        let return_value = self
+                            .create_return_value(return_registers, self.program.return_type())
+                            .map_err(|error| Error::without_context(vec![ErrorKind::Vm(error)]))?;
+
                         break;
                     }
                 }
@@ -134,5 +141,13 @@ impl Vm {
             Some(_) => todo!(),
             None => Ok(None),
         }
+    }
+
+    fn create_return_value<'a>(
+        &self,
+        return_registers: Vec<register::Register>,
+        return_type: &DustType,
+    ) -> Result<Option<DustValue>, VmError> {
+        todo!()
     }
 }
