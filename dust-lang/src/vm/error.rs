@@ -1,5 +1,6 @@
 use crate::{
     constant_list::ConstantListError,
+    dust_type::DustType,
     error::AnnotatedError,
     instruction::{MemoryKind, OperandType, Operation},
 };
@@ -8,11 +9,23 @@ use crate::{
 pub enum VmError {
     ConstantList(ConstantListError),
 
-    InvalidPrototypeId { prototype_id: u16 },
-    UnsupportedOperation { operation: Operation },
-    UnsupportedMemoryKind { memory: MemoryKind },
-    UnsupportedOperandType { operand_type: OperandType },
+    InvalidPrototypeId {
+        prototype_id: u16,
+    },
+    UnsupportedOperation {
+        operation: Operation,
+    },
+    UnsupportedMemoryKind {
+        memory: MemoryKind,
+    },
+    UnsupportedOperandType {
+        operand_type: OperandType,
+    },
     CallStackUnderflow,
+    InvalidReturnValue {
+        register_count: usize,
+        expected_type: DustType,
+    },
 }
 
 impl From<ConstantListError> for VmError {
@@ -33,7 +46,8 @@ impl<'a> AnnotatedError<'a> for VmError {
             | VmError::UnsupportedMemoryKind { .. }
             | VmError::UnsupportedOperation { .. }
             | VmError::UnsupportedOperandType { .. }
-            | VmError::CallStackUnderflow => self.add_internal_report(groups),
+            | VmError::CallStackUnderflow
+            | VmError::InvalidReturnValue { .. } => self.add_internal_report(groups),
         }
     }
 }

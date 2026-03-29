@@ -1,11 +1,10 @@
-use std::fmt::Display;
+use std::fmt::{self, Display, Formatter};
 
 /// External representation of a Dust value.
 ///
 /// This is used to represent values going into and out of the VM. It is not used as a
 /// representation of values in the compiler or the VM.
 pub enum DustValue {
-    Empty,
     Boolean(bool),
     I8(i8),
     I16(i16),
@@ -23,9 +22,8 @@ pub enum DustValue {
 }
 
 impl Display for DustValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            DustValue::Empty => write!(f, "empty"),
             DustValue::Boolean(boolean) => write!(f, "{boolean}"),
             DustValue::I8(integer) => write!(f, "{integer}"),
             DustValue::I16(integer) => write!(f, "{integer}"),

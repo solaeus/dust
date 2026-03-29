@@ -122,8 +122,9 @@ impl Vm {
 
                         let return_registers = result
                             .map_err(|error| Error::without_context(vec![ErrorKind::Vm(error)]))?;
-                        let return_value = self
-                            .create_return_value(return_registers, self.program.return_type())
+
+                        return_value = self
+                            .create_return_value(return_registers)
                             .map_err(|error| Error::without_context(vec![ErrorKind::Vm(error)]))?;
 
                         break;
@@ -137,17 +138,143 @@ impl Vm {
             }
         }
 
-        match return_value {
-            Some(_) => todo!(),
-            None => Ok(None),
-        }
+        Ok(return_value)
     }
 
-    fn create_return_value<'a>(
+    fn create_return_value(
         &self,
         return_registers: Vec<register::Register>,
-        return_type: &DustType,
     ) -> Result<Option<DustValue>, VmError> {
-        todo!()
+        match self.program.return_type() {
+            DustType::Unit => {
+                if return_registers.is_empty() {
+                    return Ok(None);
+                }
+            }
+            DustType::Boolean => {
+                if return_registers.len() == 1 {
+                    return Ok(Some(DustValue::Boolean(return_registers[0].0 != 0)));
+                }
+            }
+            DustType::Character => {
+                if return_registers.len() == 1 {
+                    let value = return_registers[0].0;
+                    let character = char::from_u32(value).unwrap_or_default();
+
+                    return Ok(Some(DustValue::Character(character)));
+                }
+            }
+            DustType::U8 => {
+                if return_registers.len() == 1 {
+                    let value = return_registers[0].0;
+
+                    return Ok(Some(DustValue::U8(value as u8)));
+                }
+            }
+            DustType::U16 => {
+                if return_registers.len() == 1 {
+                    let value = return_registers[0].0;
+
+                    return Ok(Some(DustValue::U16(value as u16)));
+                }
+            }
+            DustType::U32 => {
+                if return_registers.len() == 1 {
+                    let value = return_registers[0].0;
+
+                    return Ok(Some(DustValue::U32(value)));
+                }
+            }
+            DustType::U64 => {
+                if return_registers.len() == 2 {
+                    let low = return_registers[0].0 as u64;
+                    let high = return_registers[1].0 as u64;
+                    let value = (high << 32) | low;
+
+                    return Ok(Some(DustValue::U64(value)));
+                }
+            }
+            DustType::U128 => {
+                if return_registers.len() == 4 {
+                    let value_0 = return_registers[0].0 as u128;
+                    let value_1 = return_registers[1].0 as u128;
+                    let value_2 = return_registers[2].0 as u128;
+                    let value_3 = return_registers[3].0 as u128;
+                    let value = (value_3 << 96) | (value_2 << 64) | (value_1 << 32) | value_0;
+
+                    return Ok(Some(DustValue::U128(value)));
+                }
+            }
+            DustType::I8 => {
+                if return_registers.len() == 1 {
+                    let value = return_registers[0].0;
+
+                    return Ok(Some(DustValue::I8(value as i8)));
+                }
+            }
+            DustType::I16 => {
+                if return_registers.len() == 1 {
+                    let value = return_registers[0].0;
+
+                    return Ok(Some(DustValue::I16(value as i16)));
+                }
+            }
+            DustType::I32 => {
+                if return_registers.len() == 1 {
+                    let value = return_registers[0].0;
+
+                    return Ok(Some(DustValue::I32(value as i32)));
+                }
+            }
+            DustType::I64 => {
+                if return_registers.len() == 2 {
+                    let low = return_registers[0].0 as u64;
+                    let high = return_registers[1].0 as u64;
+                    let value = (high << 32) | low;
+
+                    return Ok(Some(DustValue::I64(value as i64)));
+                }
+            }
+            DustType::I128 => {
+                if return_registers.len() == 4 {
+                    let value_0 = return_registers[0].0 as u128;
+                    let value_1 = return_registers[1].0 as u128;
+                    let value_2 = return_registers[2].0 as u128;
+                    let value_3 = return_registers[3].0 as u128;
+                    let value = (value_3 << 96) | (value_2 << 64) | (value_1 << 32) | value_0;
+
+                    return Ok(Some(DustValue::I128(value as i128)));
+                }
+            }
+            DustType::F32 => {
+                if return_registers.len() == 1 {
+                    let value = return_registers[0].0;
+                    let float_value = f32::from_bits(value);
+
+                    return Ok(Some(DustValue::F32(float_value)));
+                }
+            }
+            DustType::F64 => {
+                if return_registers.len() == 2 {
+                    let low = return_registers[0].0 as u64;
+                    let high = return_registers[1].0 as u64;
+                    let value = (high << 32) | low;
+                    let float_value = f64::from_bits(value);
+
+                    return Ok(Some(DustValue::F64(float_value)));
+                }
+            }
+            DustType::Tuple(dust_type) => todo!(),
+            DustType::Array(dust_type, _) => todo!(),
+            DustType::Slice(dust_type) => todo!(),
+            DustType::Function(dust_function_type) => todo!(),
+            DustType::Struct(dust_struct_type) => todo!(),
+            DustType::Enum(_, dust_struct_types) => todo!(),
+        }
+
+        Err(VmError::InvalidReturnValue {
+            register_count: return_registers.len(),
+            expected_type: self.program.return_type().clone(),
+        })
     }
 }
