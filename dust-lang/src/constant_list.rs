@@ -17,52 +17,52 @@ pub struct ConstantList {
 }
 
 impl ConstantList {
-    pub fn get_u32(&self, id: ConstantId) -> Result<u32, ConstantListError> {
+    pub fn get_u32(&self, index: u16) -> Result<u32, ConstantListError> {
         let payload = *self
             .payloads
-            .get(id.0 as usize)
-            .ok_or(ConstantListError::MissingConstant(id))?;
+            .get(index as usize)
+            .ok_or(ConstantListError::MissingConstant(index))?;
 
         Ok(payload)
     }
 
-    pub fn get_i32(&self, id: ConstantId) -> Result<i32, ConstantListError> {
+    pub fn get_i32(&self, index: u16) -> Result<i32, ConstantListError> {
         let payload = *self
             .payloads
-            .get(id.0 as usize)
-            .ok_or(ConstantListError::MissingConstant(id))?;
+            .get(index as usize)
+            .ok_or(ConstantListError::MissingConstant(index))?;
 
         Ok(payload as i32)
     }
 
-    pub fn get_u64(&self, id: ConstantId) -> Result<u64, ConstantListError> {
-        let payload_range = id.0 as usize..(id.0 + 2) as usize;
+    pub fn get_u64(&self, index: u16) -> Result<u64, ConstantListError> {
+        let payload_range = index as usize..(index + 2) as usize;
         let payloads = self
             .payloads
             .get(payload_range)
-            .ok_or(ConstantListError::MissingConstant(id))?;
+            .ok_or(ConstantListError::MissingConstant(index))?;
         let decoded = (payloads[1] as u64) << 32 | (payloads[0] as u64);
 
         Ok(decoded)
     }
 
-    pub fn get_i64(&self, id: ConstantId) -> Result<i64, ConstantListError> {
-        let payload_range = id.0 as usize..(id.0 + 2) as usize;
+    pub fn get_i64(&self, index: u16) -> Result<i64, ConstantListError> {
+        let payload_range = index as usize..(index + 2) as usize;
         let payloads = self
             .payloads
             .get(payload_range)
-            .ok_or(ConstantListError::MissingConstant(id))?;
+            .ok_or(ConstantListError::MissingConstant(index))?;
         let decoded = (payloads[1] as i64) << 32 | (payloads[0] as i64);
 
         Ok(decoded)
     }
 
-    pub fn get_u128(&self, id: ConstantId) -> Result<u128, ConstantListError> {
-        let payload_range = id.0 as usize..(id.0 + 4) as usize;
+    pub fn get_u128(&self, index: u16) -> Result<u128, ConstantListError> {
+        let payload_range = index as usize..(index + 4) as usize;
         let payloads = self
             .payloads
             .get(payload_range)
-            .ok_or(ConstantListError::MissingConstant(id))?;
+            .ok_or(ConstantListError::MissingConstant(index))?;
         let decoded = (payloads[3] as u128) << 96
             | (payloads[2] as u128) << 64
             | (payloads[1] as u128) << 32
@@ -71,12 +71,12 @@ impl ConstantList {
         Ok(decoded)
     }
 
-    pub fn get_i128(&self, id: ConstantId) -> Result<i128, ConstantListError> {
-        let payload_range = id.0 as usize..(id.0 + 4) as usize;
+    pub fn get_i128(&self, index: u16) -> Result<i128, ConstantListError> {
+        let payload_range = index as usize..(index + 4) as usize;
         let payloads = self
             .payloads
             .get(payload_range)
-            .ok_or(ConstantListError::MissingConstant(id))?;
+            .ok_or(ConstantListError::MissingConstant(index))?;
         let decoded = (payloads[3] as i128) << 96
             | (payloads[2] as i128) << 64
             | (payloads[1] as i128) << 32
@@ -85,40 +85,40 @@ impl ConstantList {
         Ok(decoded)
     }
 
-    pub fn get_f32(&self, id: ConstantId) -> Result<f32, ConstantListError> {
+    pub fn get_f32(&self, index: u16) -> Result<f32, ConstantListError> {
         let payload = *self
             .payloads
-            .get(id.0 as usize)
-            .ok_or(ConstantListError::MissingConstant(id))?;
+            .get(index as usize)
+            .ok_or(ConstantListError::MissingConstant(index))?;
 
         Ok(f32::from_bits(payload))
     }
 
-    pub fn get_f64(&self, id: ConstantId) -> Result<f64, ConstantListError> {
-        let payload_range = id.0 as usize..(id.0 + 2) as usize;
+    pub fn get_f64(&self, index: u16) -> Result<f64, ConstantListError> {
+        let payload_range = index as usize..(index + 2) as usize;
         let payloads = self
             .payloads
             .get(payload_range)
-            .ok_or(ConstantListError::MissingConstant(id))?;
+            .ok_or(ConstantListError::MissingConstant(index))?;
         let payload = (payloads[1] as u64) << 32 | (payloads[0] as u64);
 
         Ok(f64::from_bits(payload))
     }
 
-    pub fn get_character(&self, id: ConstantId) -> Result<char, ConstantListError> {
+    pub fn get_character(&self, index: u16) -> Result<char, ConstantListError> {
         let payload = *self
             .payloads
-            .get(id.0 as usize)
-            .ok_or(ConstantListError::MissingConstant(id))?;
+            .get(index as usize)
+            .ok_or(ConstantListError::MissingConstant(index))?;
 
         char::from_u32(payload).ok_or(ConstantListError::InvalidConstantPayload)
     }
 
-    pub fn get_string(&self, id: ConstantId) -> Result<&str, ConstantListError> {
+    pub fn get_string(&self, index: u16) -> Result<&str, ConstantListError> {
         let payload = *self
             .payloads
-            .get(id.0 as usize)
-            .ok_or(ConstantListError::MissingConstant(id))?;
+            .get(index as usize)
+            .ok_or(ConstantListError::MissingConstant(index))?;
         let start = (payload >> 16) as usize;
         let end = (payload & 0xFFFF) as usize;
 
@@ -129,9 +129,9 @@ impl ConstantList {
 
     pub fn get_string_raw_parts(
         &self,
-        id: ConstantId,
+        index: u16,
     ) -> Result<(*const u8, usize), ConstantListError> {
-        self.get_string(id).map(|str| (str.as_ptr(), str.len()))
+        self.get_string(index).map(|str| (str.as_ptr(), str.len()))
     }
 }
 
@@ -399,15 +399,11 @@ impl ConstantId {
 #[derive(Debug)]
 pub enum ConstantListError {
     InvalidConstantPayload,
-    MissingConstant(ConstantId),
+    MissingConstant(u16),
 }
 
 impl<'a> AnnotatedError<'a> for ConstantListError {
     type Context = ();
-
-    fn is_internal(&self) -> bool {
-        true
-    }
 
     fn add_report(&self, _: Self::Context, groups: &mut Vec<Group<'a>>) {
         self.add_internal_report(groups);
@@ -419,9 +415,7 @@ impl<'a> AnnotatedError<'a> for ConstantListError {
 mod tests {
     use super::*;
 
-    fn create_test_table(
-        op: fn(&mut ConstantListBuilder) -> ConstantId,
-    ) -> (ConstantList, ConstantId) {
+    fn create_test_table(op: fn(&mut ConstantListBuilder) -> ConstantId) -> (ConstantList, u16) {
         let mut table = ConstantListBuilder::new();
 
         table.add_character('q');
@@ -437,7 +431,7 @@ mod tests {
 
         let id = op(&mut table);
 
-        (table.build().0, id)
+        (table.build().0, id.0)
     }
 
     #[test]
@@ -490,80 +484,80 @@ mod tests {
 
     #[test]
     fn character() {
-        let (table, id) = create_test_table(|table| table.add_character('q'));
-        let retrieved = table.get_character(id).unwrap();
+        let (table, index) = create_test_table(|table| table.add_character('q'));
+        let retrieved = table.get_character(index).unwrap();
 
         assert_eq!(retrieved, 'q');
     }
 
     #[test]
     fn u32() {
-        let (table, id) = create_test_table(|table| table.add_u32(666));
-        let retrieved = table.get_u32(id).unwrap();
+        let (table, index) = create_test_table(|table| table.add_u32(666));
+        let retrieved = table.get_u32(index).unwrap();
 
         assert_eq!(retrieved, 666);
     }
 
     #[test]
     fn i32() {
-        let (table, id) = create_test_table(|table| table.add_i32(-666));
-        let retrieved = table.get_i32(id).unwrap();
+        let (table, index) = create_test_table(|table| table.add_i32(-666));
+        let retrieved = table.get_i32(index).unwrap();
 
         assert_eq!(retrieved, -666);
     }
 
     #[test]
     fn u64() {
-        let (table, id) = create_test_table(|table| table.add_u64(666));
-        let retrieved = table.get_u64(id).unwrap();
+        let (table, index) = create_test_table(|table| table.add_u64(666));
+        let retrieved = table.get_u64(index).unwrap();
 
         assert_eq!(retrieved, 666);
     }
 
     #[test]
     fn i64() {
-        let (table, id) = create_test_table(|table| table.add_i64(666));
-        let retrieved = table.get_i64(id).unwrap();
+        let (table, index) = create_test_table(|table| table.add_i64(666));
+        let retrieved = table.get_i64(index).unwrap();
 
         assert_eq!(retrieved, 666);
     }
 
     #[test]
     fn u128() {
-        let (table, id) = create_test_table(|table| table.add_u128(666));
-        let retrieved = table.get_u128(id).unwrap();
+        let (table, index) = create_test_table(|table| table.add_u128(666));
+        let retrieved = table.get_u128(index).unwrap();
 
         assert_eq!(retrieved, 666);
     }
 
     #[test]
     fn i128() {
-        let (table, id) = create_test_table(|table| table.add_i128(666));
-        let retrieved = table.get_i128(id).unwrap();
+        let (table, index) = create_test_table(|table| table.add_i128(666));
+        let retrieved = table.get_i128(index).unwrap();
 
         assert_eq!(retrieved, 666);
     }
 
     #[test]
     fn f32() {
-        let (table, id) = create_test_table(|table| table.add_f32(666.0));
-        let retrieved = table.get_f32(id).unwrap();
+        let (table, index) = create_test_table(|table| table.add_f32(666.0));
+        let retrieved = table.get_f32(index).unwrap();
 
         assert_eq!(retrieved, 666.0);
     }
 
     #[test]
     fn f64() {
-        let (table, id) = create_test_table(|table| table.add_f64(666.0));
-        let retrieved = table.get_f64(id).unwrap();
+        let (table, index) = create_test_table(|table| table.add_f64(666.0));
+        let retrieved = table.get_f64(index).unwrap();
 
         assert_eq!(retrieved, 666.0);
     }
 
     #[test]
     fn string() {
-        let (table, id) = create_test_table(|table| table.add_string("666"));
-        let retrieved = table.get_string(id).unwrap();
+        let (table, index) = create_test_table(|table| table.add_string("666"));
+        let retrieved = table.get_string(index).unwrap();
 
         assert_eq!(retrieved, "666");
     }

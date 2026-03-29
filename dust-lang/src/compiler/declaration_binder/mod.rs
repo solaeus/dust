@@ -23,7 +23,7 @@ use crate::{
             CompoundAssignmentExpression, EnumItem, EnumVariant, ExpressionStatement, FunctionItem,
             FunctionParameters, FunctionType, GroupedExpression, IfExpression, IndexExpression,
             LetStatement, LogicExpression, MathExpression, ModuleItem, NegationExpression,
-            StructExpression, StructExpressionStructFields, StructItem, StructItemStructFields,
+            NotExpression, StructExpression, StructExpressionStructFields, StructItem, StructItemStructFields,
             StructItemTupleFields, SyntaxComponent, UseItem, WhileExpression,
         },
         node::SyntaxKind,
@@ -1025,6 +1025,18 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let NegationExpression { operand } = negation_expression.as_component()?;
+
+        self.visit_expression(operand, None)?;
+
+        Ok(())
+    }
+
+    fn visit_not_expression(
+        &mut self,
+        not_expression: SyntaxReader,
+        _: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
+        let NotExpression { operand } = not_expression.as_component()?;
 
         self.visit_expression(operand, None)?;
 

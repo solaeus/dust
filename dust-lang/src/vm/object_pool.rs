@@ -3,7 +3,10 @@ use std::{pin::Pin, time::Instant};
 use bumpalo::{Bump, boxed::Box as BumpBox, collections::Vec as BumpVec};
 use tracing::{debug, trace};
 
-use crate::jit_vm::{Object, Register, RegisterTag, object::ObjectValue};
+use crate::vm::{
+    object::{Object, ObjectValue},
+    register::{Register, RegisterTag},
+};
 
 #[repr(C)]
 pub struct ObjectPool<'a> {
@@ -111,13 +114,7 @@ impl<'a> ObjectPool<'a> {
     }
 
     fn mark(registers: &[Register], register_tags: &[RegisterTag]) {
-        for (register, tag) in registers.iter().zip(register_tags.iter()) {
-            if *tag == RegisterTag::OBJECT {
-                let object = unsafe { &mut *register.object_pointer };
-
-                Self::mark_object(object);
-            }
-        }
+        todo!()
     }
 
     fn mark_object(object: &mut Object) {

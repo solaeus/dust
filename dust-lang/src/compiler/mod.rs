@@ -276,7 +276,7 @@ impl<'src> Compiler<'src> {
             }
 
             let concrete_return_type_id =
-                unwrap_or_return!(self.resolver.resolve_type_through_map(return_type_id));
+                unwrap_or_return!(self.resolver.resolve_type(return_type_id));
 
             let argument_count =
                 {
@@ -285,9 +285,8 @@ impl<'src> Compiler<'src> {
                     for index in value_parameters.as_range() {
                         let parameter_type_id =
                             *unwrap_or_return!(self.resolver.types.get_type_member(index));
-                        let concrete_parameter_type_id = unwrap_or_return!(
-                            self.resolver.resolve_type_through_map(parameter_type_id)
-                        );
+                        let concrete_parameter_type_id =
+                            unwrap_or_return!(self.resolver.resolve_type(parameter_type_id));
                         let register_size = if let Some(size) = unwrap_or_return!(
                             get_register_size(concrete_parameter_type_id, None, &self.resolver,)
                         ) {
@@ -306,26 +305,14 @@ impl<'src> Compiler<'src> {
 
                     count
                 };
-            let return_register_count = if let Some(size) = unwrap_or_return!(get_register_size(
-                concrete_return_type_id,
-                None,
-                &self.resolver,
-            )) {
-                size as u16
-            } else {
-                errors.push(ErrorKind::Compile(CompileError::CannotInferType {
-                    type_id: concrete_return_type_id,
-                    position,
-                }));
-
-                return Err(errors);
-            };
+            let return_types =
+                unwrap_or_return!(self.resolver.get_operand_types(concrete_return_type_id));
 
             let mut emitter = match Emitter::new(
                 Some(request.declaration_id),
                 request.prototype_id,
                 argument_count,
-                return_register_count,
+                return_types,
                 scope_id,
                 (Some(declaration.symbol_id), position),
                 (

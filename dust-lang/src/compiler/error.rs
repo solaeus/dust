@@ -1,7 +1,6 @@
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
-    // compiler::emitter::JumpId,
     compiler::emitter::JumpId,
     constant_list::ConstantListError,
     error::AnnotatedError,
@@ -146,25 +145,6 @@ pub enum CompileError {
 
 impl<'a> AnnotatedError<'a> for CompileError {
     type Context = (&'a Source<'a>, &'a Resolver);
-
-    fn is_internal(&self) -> bool {
-        matches!(
-            self,
-            CompileError::ExpectedModuleDeclaration(_)
-                | CompileError::ExpectedTypeDeclaration(_)
-                | CompileError::InvalidRegisterCount { .. }
-                | CompileError::ExpectedFloatRegister
-                | CompileError::ExpectedIntegerRegister
-                | CompileError::ExpectedEmissionTarget { .. }
-                | CompileError::ExpectedJumpPlacement(_)
-                | CompileError::Syntax(_)
-                | CompileError::Resolver(_)
-                | CompileError::ConstantList(_)
-                | CompileError::Source(_)
-                | CompileError::ExpectedSyntaxKind { .. }
-                | CompileError::ExpectedLocalDefinition
-        )
-    }
 
     fn add_report(&self, (source, resolver): Self::Context, groups: &mut Vec<Group<'a>>) {
         match self {

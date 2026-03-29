@@ -1,3 +1,5 @@
+use smallvec::SmallVec;
+
 use crate::{
     compiler::error::CompileError,
     error::ErrorKind,
@@ -8,7 +10,12 @@ use crate::{
     },
     syntax::{
         Syntax,
-        components::{ExpressionStatement, IndexExpression, LetStatement},
+        components::{
+            AssignmentExpression, CallExpression, ComparisonExpression,
+            CompoundAssignmentExpression, ExpressionStatement, GroupedExpression, IfExpression,
+            LetStatement, LogicExpression, MathExpression, NegationExpression, NotExpression,
+            StructExpression, StructExpressionStructFields, WhileExpression,
+        },
         node::SyntaxKind,
         reader::SyntaxReader,
         visitor::SyntaxVisitor,
@@ -44,7 +51,7 @@ impl<'a> TypeBinder<'a> {
     ) -> Result<(), CompileError> {
         assert_eq!(body.node.kind, SyntaxKind::BlockExpression);
 
-        let resolved_return_type_id = self.resolver.resolve_type_through_map(return_type_id)?;
+        let resolved_return_type_id = self.resolver.resolve_type(return_type_id)?;
 
         let mut body_type_id = TypeId::UNIT;
 
@@ -438,63 +445,97 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         reader: SyntaxReader,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let CompoundAssignmentExpression { target, value } = reader.as_component()?;
+
+        let target_type_id = self.visit_expression(target, None)?;
+        let value_type_id = self.visit_expression(value, None)?;
+
+        self.unify_types(target_type_id, Some(target), value_type_id, value)?;
+
+        self.resolver.add_type_binding(reader.id, TypeId::UNIT);
+
+        Ok(TypeId::UNIT)
     }
 
     fn visit_assignment_expression(
         &mut self,
         reader: SyntaxReader,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let AssignmentExpression { target, value } = reader.as_component()?;
+
+        let target_type_id = self.visit_expression(target, None)?;
+        let value_type_id = self.visit_expression(value, None)?;
+
+        self.unify_types(target_type_id, Some(target), value_type_id, value)?;
+
+        self.resolver.add_type_binding(reader.id, TypeId::UNIT);
+
+        Ok(TypeId::UNIT)
     }
 
     fn visit_boolean_expression(
         &mut self,
-        _: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
+        self.resolver.add_type_binding(reader.id, TypeId::BOOLEAN);
+
         Ok(TypeId::BOOLEAN)
     }
 
     fn visit_byte_expression(
         &mut self,
-        _: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        Ok(self
+        let type_id = self
             .resolver
             .types
-            .create_inferred_type(Some(InferredTypeConstraint::Integer)))
+            .create_inferred_type(Some(InferredTypeConstraint::Integer));
+
+        self.resolver.add_type_binding(reader.id, type_id);
+
+        Ok(type_id)
     }
 
     fn visit_character_expression(
         &mut self,
-        _: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
+        self.resolver.add_type_binding(reader.id, TypeId::CHARACTER);
+
         Ok(TypeId::CHARACTER)
     }
 
     fn visit_float_expression(
         &mut self,
-        _: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        Ok(self
+        let type_id = self
             .resolver
             .types
-            .create_inferred_type(Some(InferredTypeConstraint::Float)))
+            .create_inferred_type(Some(InferredTypeConstraint::Float));
+
+        self.resolver.add_type_binding(reader.id, type_id);
+
+        Ok(type_id)
     }
 
     fn visit_integer_expression(
         &mut self,
-        _: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        Ok(self
+        let type_id = self
             .resolver
             .types
-            .create_inferred_type(Some(InferredTypeConstraint::Integer)))
+            .create_inferred_type(Some(InferredTypeConstraint::Integer));
+
+        self.resolver.add_type_binding(reader.id, type_id);
+
+        Ok(type_id)
     }
 
     fn visit_string_expression(
@@ -526,7 +567,77 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
+        let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+        let type_id = match declaration.definition {
+            Definition::Local { type_id, .. } => self.resolver.resolve_type(type_id)?,
+            Definition::Function {
+                type_parameters, ..
+            } => {
+                let type_argument_types: SmallVec<[TypeId; 4]> = type_parameters
+                    .as_range()
+                    .map(|index| {
+                        let type_parameter_declaration_id = self
+                            .resolver
+                            .declarations
+                            .get_declaration_member(index)
+                            .copied();
+
+                        match type_parameter_declaration_id {
+                            Ok(type_parameter_declaration_id) => self
+                                .resolver
+                                .type_parameter_map
+                                .get(&type_parameter_declaration_id)
+                                .copied()
+                                .unwrap_or_else(|| self.resolver.types.create_inferred_type(None)),
+                            Err(_) => self.resolver.types.create_inferred_type(None),
+                        }
+                    })
+                    .collect();
+                let type_arguments = self.resolver.types.add_type_members(type_argument_types);
+                let function_definition_type = Type::FunctionDefinition {
+                    declaration_id,
+                    type_arguments,
+                };
+
+                self.resolver.types.add_type(function_definition_type)
+            }
+            Definition::StructType { .. } | Definition::EnumType { .. } => {
+                let type_arguments = self.resolver.types.add_type_members(SmallVec::new());
+                let algebraic_type = Type::Algebraic {
+                    declaration_id,
+                    type_arguments,
+                };
+
+                self.resolver.types.add_type(algebraic_type)
+            }
+            Definition::Use { item, .. } => {
+                let target_declaration = self.resolver.declarations.get_declaration(item)?;
+
+                match target_declaration.definition {
+                    Definition::Local { type_id, .. } => self.resolver.resolve_type(type_id)?,
+                    _ => {
+                        let type_arguments = self.resolver.types.add_type_members(SmallVec::new());
+                        let algebraic_type = Type::Algebraic {
+                            declaration_id: item,
+                            type_arguments,
+                        };
+
+                        self.resolver.types.add_type(algebraic_type)
+                    }
+                }
+            }
+            _ => {
+                return Err(CompileError::ExpectedValue {
+                    node_kind: reader.node.kind,
+                    position: reader.position(),
+                });
+            }
+        };
+
+        self.resolver.add_type_binding(reader.id, type_id);
+
+        Ok(type_id)
     }
 
     fn visit_struct_expression(
@@ -534,15 +645,60 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let StructExpression { path, fields } = reader.as_component()?;
+        let StructExpressionStructFields {
+            name_expression_pairs,
+        } = fields.as_component()?;
+
+        for [field_name, field_value] in name_expression_pairs {
+            let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
+            let field_declaration = self
+                .resolver
+                .declarations
+                .get_declaration(field_declaration_id)?;
+
+            let Definition::Field { type_id, .. } = field_declaration.definition else {
+                return Err(CompileError::ExpectedValue {
+                    node_kind: field_name.node.kind,
+                    position: field_name.position(),
+                });
+            };
+
+            let field_type_id = self.resolver.resolve_type(type_id)?;
+            let value_type_id = self.visit_expression(field_value, None)?;
+
+            self.unify_types(field_type_id, Some(field_name), value_type_id, field_value)?;
+        }
+
+        let declaration_id = *self.resolver.get_declaration_binding(&path.id)?;
+        let type_arguments = self.resolver.types.add_type_members(SmallVec::new());
+        let struct_type = Type::Algebraic {
+            declaration_id,
+            type_arguments,
+        };
+        let type_id = self.resolver.types.add_type(struct_type);
+
+        self.resolver.add_type_binding(reader.id, type_id);
+
+        Ok(type_id)
     }
 
     fn visit_grouped_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let GroupedExpression { expression } = reader.as_component()?;
+
+        let type_id = if let Some(inner) = expression {
+            self.visit_expression(inner, None)?
+        } else {
+            TypeId::UNIT
+        };
+
+        self.resolver.add_type_binding(reader.id, type_id);
+
+        Ok(type_id)
     }
 
     fn visit_block_expression(
@@ -550,18 +706,20 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        let mut last_type_id = TypeId::UNIT;
+        let mut block_type_id = TypeId::UNIT;
 
         for child in reader.children() {
             if child.is_expression() {
-                last_type_id = self.visit_expression(child, None)?;
+                block_type_id = self.visit_expression(child, None)?;
             } else {
                 self.visit_statement(child)?;
-                last_type_id = TypeId::UNIT;
+                block_type_id = TypeId::UNIT;
             }
         }
 
-        Ok(last_type_id)
+        self.resolver.add_type_binding(reader.id, block_type_id);
+
+        Ok(block_type_id)
     }
 
     fn visit_if_expression(
@@ -569,7 +727,30 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let IfExpression {
+            condition,
+            then_branch,
+            else_branch,
+        } = reader.as_component()?;
+
+        let condition_type_id = self.visit_expression(condition, None)?;
+
+        self.unify_types(TypeId::BOOLEAN, Some(reader), condition_type_id, condition)?;
+
+        let then_type_id = self.visit_expression(then_branch, None)?;
+
+        if let Some(else_branch) = else_branch {
+            let else_type_id = self.visit_expression(else_branch, None)?;
+
+            self.unify_types(then_type_id, Some(then_branch), else_type_id, else_branch)?;
+            self.resolver.add_type_binding(reader.id, then_type_id);
+
+            Ok(then_type_id)
+        } else {
+            self.resolver.add_type_binding(reader.id, TypeId::UNIT);
+
+            Ok(TypeId::UNIT)
+        }
     }
 
     fn visit_math_expression(
@@ -577,7 +758,16 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let MathExpression { left, right } = reader.as_component()?;
+
+        let left_type_id = self.visit_expression(left, None)?;
+        let right_type_id = self.visit_expression(right, None)?;
+
+        self.unify_types(left_type_id, Some(reader), right_type_id, right)?;
+
+        self.resolver.add_type_binding(reader.id, left_type_id);
+
+        Ok(left_type_id)
     }
 
     fn visit_comparison_expression(
@@ -585,15 +775,33 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let ComparisonExpression { left, right } = reader.as_component()?;
+
+        let left_type_id = self.visit_expression(left, None)?;
+        let right_type_id = self.visit_expression(right, None)?;
+
+        self.unify_types(left_type_id, Some(reader), right_type_id, right)?;
+
+        self.resolver.add_type_binding(reader.id, TypeId::BOOLEAN);
+
+        Ok(TypeId::BOOLEAN)
     }
 
     fn visit_logic_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let LogicExpression { left, right } = reader.as_component()?;
+
+        let left_type_id = self.visit_expression(left, None)?;
+        let right_type_id = self.visit_expression(right, None)?;
+
+        self.unify_types(TypeId::BOOLEAN, Some(reader), left_type_id, left)?;
+        self.unify_types(TypeId::BOOLEAN, Some(reader), right_type_id, right)?;
+        self.resolver.add_type_binding(reader.id, TypeId::BOOLEAN);
+
+        Ok(TypeId::BOOLEAN)
     }
 
     fn visit_negation_expression(
@@ -601,7 +809,28 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let NegationExpression { operand } = reader.as_component()?;
+
+        let operand_type_id = self.visit_expression(operand, None)?;
+
+        self.resolver.add_type_binding(reader.id, operand_type_id);
+
+        Ok(operand_type_id)
+    }
+
+    fn visit_not_expression(
+        &mut self,
+        reader: SyntaxReader,
+        _: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
+        let NotExpression { operand } = reader.as_component()?;
+
+        let operand_type_id = self.visit_expression(operand, None)?;
+
+        self.unify_types(TypeId::BOOLEAN, Some(reader), operand_type_id, operand)?;
+        self.resolver.add_type_binding(reader.id, TypeId::BOOLEAN);
+
+        Ok(TypeId::BOOLEAN)
     }
 
     fn visit_while_expression(
@@ -609,7 +838,15 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let WhileExpression { condition, body } = reader.as_component()?;
+
+        let condition_type_id = self.visit_expression(condition, None)?;
+
+        self.unify_types(TypeId::BOOLEAN, Some(reader), condition_type_id, condition)?;
+        self.visit_expression(body, None)?;
+        self.resolver.add_type_binding(reader.id, TypeId::UNIT);
+
+        Ok(TypeId::UNIT)
     }
 
     fn visit_call_expression(
@@ -617,7 +854,78 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let CallExpression { callee, arguments } = reader.as_component()?;
+
+        let callee_type_id = self.visit_expression(callee, None)?;
+        let resolved_callee_type_id = self.infer_type(callee_type_id)?;
+        let callee_type = *self.resolver.types.get_type(resolved_callee_type_id)?;
+        let (value_parameters, return_type_id) = match callee_type {
+            Type::FunctionDefinition { declaration_id, .. } => {
+                let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+
+                match declaration.definition {
+                    Definition::Function {
+                        value_parameters,
+                        return_type_id,
+                        ..
+                    } => (value_parameters, return_type_id),
+                    Definition::NativeFunction {
+                        value_parameters,
+                        return_type_id,
+                        ..
+                    } => (value_parameters, return_type_id),
+                    _ => {
+                        return Err(CompileError::ExpectedFunctionType {
+                            found: resolved_callee_type_id,
+                            position: callee.position(),
+                        });
+                    }
+                }
+            }
+            _ => {
+                return Err(CompileError::ExpectedFunctionType {
+                    found: resolved_callee_type_id,
+                    position: callee.position(),
+                });
+            }
+        };
+
+        let mut argument_count = 0;
+        let mut parameter_range = value_parameters.as_range();
+
+        for argument in arguments.children() {
+            let Some(parameter_index) = parameter_range.next() else {
+                return Err(CompileError::ExpectedArguments {
+                    function_type: resolved_callee_type_id,
+                    expected_count: value_parameters.len(),
+                    found_count: arguments.child_count(),
+                    found_position: arguments.position(),
+                });
+            };
+            let parameter_type_id = *self.resolver.types.get_type_member(parameter_index)?;
+            let resolved_parameter_type_id = self.resolver.resolve_type(parameter_type_id)?;
+            let argument_type_id = self.visit_expression(argument, None)?;
+
+            self.unify_types(resolved_parameter_type_id, None, argument_type_id, argument)?;
+
+            argument_count += 1;
+        }
+
+        if parameter_range.next().is_some() {
+            return Err(CompileError::ExpectedArguments {
+                function_type: resolved_callee_type_id,
+                expected_count: value_parameters.len(),
+                found_count: argument_count,
+                found_position: arguments.position(),
+            });
+        }
+
+        let resolved_return_type_id = self.resolver.resolve_type(return_type_id)?;
+
+        self.resolver
+            .add_type_binding(reader.id, resolved_return_type_id);
+
+        Ok(resolved_return_type_id)
     }
 
     fn visit_type(&mut self, reader: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {

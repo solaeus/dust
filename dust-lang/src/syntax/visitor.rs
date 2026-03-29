@@ -93,6 +93,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
                 self.visit_logic_expression(reader, input)
             }
+            SyntaxKind::NotExpression => self.visit_not_expression(reader, input),
             SyntaxKind::GroupedExpression => self.visit_grouped_expression(reader, input),
             SyntaxKind::BlockExpression => self.visit_block_expression(reader, input),
             SyntaxKind::IfExpression => self.visit_if_expression(reader, input),
@@ -234,6 +235,12 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_negation_expression(
+        &mut self,
+        reader: SyntaxReader,
+        input: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError>;
+
+    fn visit_not_expression(
         &mut self,
         reader: SyntaxReader,
         input: Option<Self::ExpressionInput>,

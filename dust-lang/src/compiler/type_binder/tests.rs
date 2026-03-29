@@ -7,7 +7,7 @@ use crate::{
         Resolver,
         declarations::{Definition, Visibility},
         scopes::ScopeId,
-        types::{Type, TypeId},
+        types::TypeId,
     },
     source::{Source, SourceFile},
     syntax::{Syntax, components::FunctionItem},
@@ -162,7 +162,7 @@ fn generic_return_type_resolves_through_type_parameter_map() {
         .type_parameter_map
         .get(&type_parameter_declaration_id)
         .unwrap();
-    let resolved = resolver.resolve_type_through_map(inferred_type_id).unwrap();
+    let resolved = resolver.resolve_type(inferred_type_id).unwrap();
 
     assert_eq!(resolved, TypeId::I_32);
 }

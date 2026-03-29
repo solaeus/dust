@@ -26,7 +26,7 @@ use crate::{
         Syntax,
         components::{
             AssignmentExpression, ComparisonExpression, FunctionItem, LogicExpression,
-            MathExpression, NegationExpression,
+            MathExpression, NegationExpression, NotExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -48,7 +48,7 @@ pub struct Emitter<'a> {
 
     argument_count: u16,
 
-    return_count: u16,
+    return_types: Vec<OperandType>,
 
     /// Emitted bytecode instructions, filled during compilation.
     instructions: Vec<Instruction>,
@@ -82,7 +82,7 @@ impl<'a> Emitter<'a> {
         declaration_id: Option<DeclarationId>,
         prototype_id: PrototypeId,
         argument_count: u16,
-        return_count: u16,
+        return_types: Vec<OperandType>,
         starting_scope_id: ScopeId,
         debug_info: (Option<SymbolId>, Position),
         (source, syntax, constants, resolver, prototypes): (
@@ -116,8 +116,8 @@ impl<'a> Emitter<'a> {
             drop_lists: Vec::new(),
             pending_drops: Vec::new(),
             argument_count,
-            return_count,
-            register_tracker: RegisterTracker::new(argument_count, return_count),
+            register_tracker: RegisterTracker::new(argument_count, return_types.len() as u16),
+            return_types,
             jump_placements: HashMap::default(),
             jump_over_branch_ids: Vec::new(),
             current_scope_id: starting_scope_id,
@@ -188,9 +188,9 @@ impl<'a> Emitter<'a> {
 
         Ok(Prototype {
             instructions: self.instructions,
+            return_types: self.return_types,
             register_count: self.register_tracker.max,
             argument_count: self.argument_count,
-            return_count: self.return_count,
             debug_symbol_id: self.debug_symbol_id,
             debug_position: self.debug_position,
         })
@@ -2448,6 +2448,57 @@ impl SyntaxVisitor for Emitter<'_> {
         input: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let NegationExpression { operand } = reader.as_component()?;
+
+        let expression_emission = self.visit_expression(operand, None)?;
+
+        if let Emission::Constant(constant) = expression_emission {
+            let negated = constant
+                .negate()
+                .ok_or_else(|| CompileError::CannotApplyOperator {
+                    operator: reader.node.kind,
+                    type_id: constant.type_id(),
+                    operand_position: operand.position(),
+                })?;
+
+            return Ok(Emission::Constant(negated));
+        }
+
+        let mut negation_emission = InstructionsEmission::new();
+
+        let (operand_memory, operand_index, _) = self.handle_operand_emission(
+            &mut negation_emission,
+            expression_emission,
+            reader.node.kind,
+            &operand,
+        )?;
+        let target = if let Some(target) = input {
+            target.clone()
+        } else {
+            let type_id = *self.resolver.get_type_binding(&reader.id)?;
+
+            self.allocate_registers(type_id, true, &reader)?
+        };
+        let register = target.expect_single()?;
+
+        let negate_instruction = Instruction::negate(
+            register.index,
+            register.operand_type,
+            operand_memory,
+            operand_index,
+        );
+
+        negation_emission.push(negate_instruction);
+        negation_emission.set_target(Some(target));
+
+        Ok(Emission::Instructions(negation_emission))
+    }
+
+    fn visit_not_expression(
+        &mut self,
+        reader: SyntaxReader,
+        input: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
+        let NotExpression { operand } = reader.as_component()?;
 
         let expression_emission = self.visit_expression(operand, None)?;
 

@@ -12,6 +12,7 @@ use smallvec::SmallVec;
 use crate::{
     compiler::error::CompileError,
     dust_type::DustType,
+    instruction::OperandType,
     prototype::PrototypeId,
     resolver::{
         declarations::{Declaration, DeclarationId, DeclarationMembers, Declarations, Visibility},
@@ -132,7 +133,7 @@ impl Resolver {
         self.monomorphization_cache.insert(cache_key, prototype_id);
     }
 
-    pub fn resolve_type_through_map(&mut self, type_id: TypeId) -> Result<TypeId, ResolverError> {
+    pub fn resolve_type(&mut self, type_id: TypeId) -> Result<TypeId, ResolverError> {
         let resolved_type = *self.types.get_type(type_id)?;
 
         let start_type_id = if let Type::Generic { declaration_id } = resolved_type
@@ -177,6 +178,65 @@ impl Resolver {
                 }
                 _ => return Ok(current_type_id),
             }
+        }
+    }
+
+    pub fn get_operand_types(&self, type_id: TypeId) -> Result<Vec<OperandType>, ResolverError> {
+        let r#type = self.types.get_type(type_id)?.clone();
+
+        match r#type {
+            Type::Boolean => Ok(vec![OperandType::BOOLEAN]),
+            Type::Character => Ok(vec![OperandType::CHARACTER]),
+            Type::SignedInteger(SignedIntegerType::I8) => Ok(vec![OperandType::I_8]),
+            Type::SignedInteger(SignedIntegerType::I16) => Ok(vec![OperandType::I_16]),
+            Type::SignedInteger(SignedIntegerType::I32) => Ok(vec![OperandType::I_32]),
+            Type::SignedInteger(SignedIntegerType::I64) => Ok(vec![OperandType::I_64]),
+            Type::SignedInteger(SignedIntegerType::I128) => Ok(vec![OperandType::I_128]),
+            Type::UnsignedInteger(UnsignedIntegerType::U8) => Ok(vec![OperandType::U_8]),
+            Type::UnsignedInteger(UnsignedIntegerType::U16) => Ok(vec![OperandType::U_16]),
+            Type::UnsignedInteger(UnsignedIntegerType::U32) => Ok(vec![OperandType::U_32]),
+            Type::UnsignedInteger(UnsignedIntegerType::U64) => Ok(vec![OperandType::U_64]),
+            Type::UnsignedInteger(UnsignedIntegerType::U128) => Ok(vec![OperandType::U_128]),
+            Type::Float(FloatType::F32) => Ok(vec![OperandType::F_32]),
+            Type::Float(FloatType::F64) => Ok(vec![OperandType::F_64]),
+            Type::Never => Ok(vec![]),
+            Type::Tuple { element_type_ids } => {
+                let element_type_ids = self.types.get_type_members(element_type_ids)?;
+
+                let mut operand_types = Vec::with_capacity(element_type_ids.len());
+
+                for element_type_id in element_type_ids {
+                    operand_types.extend(self.get_operand_types(*element_type_id)?);
+                }
+
+                Ok(operand_types)
+            }
+            Type::Array {
+                element_type_id,
+                length,
+            } => {
+                let element_operand_types = self.get_operand_types(element_type_id)?;
+
+                let mut operand_types = Vec::with_capacity(element_operand_types.len() * length);
+
+                for _ in 0..length {
+                    operand_types.extend(&element_operand_types);
+                }
+
+                Ok(operand_types)
+            }
+            Type::Slice { .. } | Type::Pointer { .. } => Ok(vec![OperandType::POINTER]),
+            Type::FunctionDefinition { .. } | Type::Closure { .. } | Type::Function { .. } => {
+                Ok(vec![OperandType::FUNCTION])
+            }
+            Type::Algebraic {
+                declaration_id,
+                type_arguments,
+            } => {
+                todo!()
+            }
+            Type::Generic { declaration_id } => Err(ResolverError::ExpectedConcreteType),
+            Type::Inferred { .. } => Err(ResolverError::ExpectedConcreteType),
         }
     }
 
@@ -313,9 +373,9 @@ impl Resolver {
         })
     }
 
-    pub fn definition_display_iterator<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = Result<(&str, String), CompileError>> + 'a {
+    pub fn definition_display_iterator(
+        &self,
+    ) -> impl Iterator<Item = Result<(&str, String), CompileError>> {
         self.declarations.iter().map(|(_, declaration)| {
             let symbol = self.symbols.get_symbol(&declaration.symbol_id)?;
 

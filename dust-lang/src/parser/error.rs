@@ -58,14 +58,6 @@ impl From<SourceError> for ParseError {
 impl<'src> AnnotatedError<'src> for ParseError {
     type Context = &'src Source<'src>;
 
-    fn is_internal(&self) -> bool {
-        if let ParseError::Source(error) = self {
-            error.is_internal()
-        } else {
-            false
-        }
-    }
-
     fn add_report(&self, source: Self::Context, groups: &mut Vec<Group<'src>>) {
         match self {
             ParseError::CannotResolveModule { position } => {

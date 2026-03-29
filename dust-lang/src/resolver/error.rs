@@ -28,14 +28,11 @@ pub enum ResolverError {
     ExpectedFieldDeclaration(DeclarationId),
     MissingAlgebraicTypeDeclaration(DeclarationId),
     MissingTypeArgument(DeclarationId),
+    ExpectedConcreteType,
 }
 
 impl<'a> AnnotatedError<'a> for ResolverError {
     type Context = ();
-
-    fn is_internal(&self) -> bool {
-        true
-    }
 
     fn add_report(&self, _: Self::Context, groups: &mut Vec<annotate_snippets::Group<'a>>) {
         self.add_internal_report(groups);

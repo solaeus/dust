@@ -432,13 +432,6 @@ impl Display for SourceError {
 impl<'src> AnnotatedError<'src> for SourceError {
     type Context = ();
 
-    fn is_internal(&self) -> bool {
-        matches!(
-            self,
-            SourceError::MissingSourceFile(_) | SourceError::FileContentOutOfBounds { .. }
-        )
-    }
-
     fn add_report(&self, _: Self::Context, reports: &mut Vec<Group<'src>>) {
         let group = match self {
             SourceError::CannotOpen { io_error } => {

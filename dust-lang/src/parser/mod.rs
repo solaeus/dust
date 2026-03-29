@@ -15,7 +15,6 @@ use crate::{
         error::ParseError,
         parse_rule::{Associativity, ParseRule, Precedence},
     },
-    project::EXAMPLE_LIBRARY,
     source::{Position, SourceFileId, Span},
     syntax::{
         SyntaxId,

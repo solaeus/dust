@@ -363,6 +363,21 @@ impl<'a> SyntaxComponent<'a> for NegationExpression<'a> {
     }
 }
 
+pub struct NotExpression<'a> {
+    pub operand: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for NotExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting not expression");
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::NotExpression));
+
+        Ok(Self {
+            operand: reader.single_child()?,
+        })
+    }
+}
+
 pub struct IndexExpression<'a> {
     pub list: SyntaxReader<'a>,
     pub index: SyntaxReader<'a>,

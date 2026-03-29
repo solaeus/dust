@@ -9,7 +9,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    instruction::Instruction,
+    instruction::{Instruction, OperandType},
     resolver::symbols::SymbolId,
     source::{Position, SourceFileId, Span},
 };
@@ -21,9 +21,9 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Prototype {
     pub(crate) instructions: Vec<Instruction>,
+    pub(crate) return_types: Vec<OperandType>,
     pub(crate) register_count: u16,
     pub(crate) argument_count: u16,
-    pub(crate) return_count: u16,
     pub(crate) debug_symbol_id: Option<SymbolId>,
     pub(crate) debug_position: Position,
 }
@@ -32,9 +32,9 @@ impl Prototype {
     pub(crate) fn placeholder() -> Self {
         Self {
             instructions: Vec::new(),
+            return_types: Vec::new(),
             register_count: 0,
             argument_count: 0,
-            return_count: 0,
             debug_symbol_id: None,
             debug_position: Position::new(SourceFileId::MAIN, Span::default()),
         }

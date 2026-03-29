@@ -3,7 +3,7 @@
 mod cli;
 mod compile;
 mod parse;
-// mod run;
+mod run;
 
 use std::{
     fmt,
@@ -25,9 +25,10 @@ use tracing_subscriber::{
 };
 
 use crate::{
-    cli::{Cli, Command, InputOptions},
+    cli::{Cli, Command, InputOptions, RunCommand},
     compile::handle_compile_command,
     parse::handle_parse_command,
+    run::handle_run_command,
     // run::handle_run_command,
 };
 
@@ -39,77 +40,76 @@ fn main() {
         input,
         output,
     } = Cli::parse();
-    // let command = command.unwrap_or(Command::Run(input));
 
-    if let Some(Command::Run(mut run_input)) = command {
-        run_input.join(input);
+    match command {
+        Some(Command::Run(mut command)) => {
+            command.global.join(global);
+            command.input.join(input);
 
-        // handle_run_command(eval, path, no_output, time, start_time);
-
-        return;
-    }
-
-    if let Some(Command::Parse(mut command)) = command {
-        command.global.join(global);
-        command.input.join(input);
-        command.output.join(output);
-
-        handle_logging(command.global.log, start_time);
-        handle_parse_command(command);
-
-        return;
-    }
-
-    if let Some(Command::Compile(mut command)) = command {
-        command.global.join(global);
-        command.input.join(input);
-        command.output.join(output);
-
-        handle_logging(command.global.log, start_time);
-        handle_compile_command(command);
-
-        return;
-    }
-
-    if let Some(Command::Init(InputOptions { path, .. })) = command {
-        let path = path.unwrap_or_else(|| PathBuf::from("."));
-
-        if !path.exists() {
-            create_dir_all(&path).expect("Failed to create project directory");
-        } else if path.read_dir().unwrap().next().is_some() {
-            eprintln!("The directory `{}` is not empty", path.display());
-
-            return;
+            handle_logging(command.global.log, start_time);
+            handle_run_command(command);
         }
+        None => {
+            let command = RunCommand { global, input };
 
-        let example_config_path = path.join(PROJECT_CONFIG_PATH);
-        let example_project_config = toml::to_string_pretty(&ProjectConfig::example())
-            .expect("Failed to serialize example project config to TOML");
+            handle_logging(command.global.log, start_time);
+            handle_run_command(command);
+        }
+        Some(Command::Parse(mut command)) => {
+            command.global.join(global);
+            command.input.join(input);
 
-        File::create(&example_config_path)
-            .expect("Failed to create project config file")
-            .write_all(example_project_config.as_bytes())
-            .expect("Failed to write to project config file");
+            handle_logging(command.global.log, start_time);
+            handle_parse_command(command);
+        }
+        Some(Command::Compile(mut command)) => {
+            command.global.join(global);
+            command.input.join(input);
+            command.output.join(output);
 
-        let src_path = path.join("src");
+            handle_logging(command.global.log, start_time);
+            handle_compile_command(command);
+        }
+        Some(Command::Init(InputOptions { path, .. })) => {
+            let path = path.unwrap_or_else(|| PathBuf::from("."));
 
-        create_dir(&src_path).expect("Failed to create `src` directory");
+            if !path.exists() {
+                create_dir_all(&path).expect("Failed to create project directory");
+            } else if path.read_dir().unwrap().next().is_some() {
+                eprintln!("The directory `{}` is not empty", path.display());
 
-        let example_program_path = src_path.join("main.ds");
+                return;
+            }
 
-        File::create(&example_program_path)
-            .expect("Failed to create example program file")
-            .write_all(EXAMPLE_PROGRAM.as_bytes())
-            .expect("Failed to write to example program file");
+            let example_config_path = path.join(PROJECT_CONFIG_PATH);
+            let example_project_config = toml::to_string_pretty(&ProjectConfig::example())
+                .expect("Failed to serialize example project config to TOML");
 
-        let example_lib_path = src_path.join("lib.ds");
+            File::create(&example_config_path)
+                .expect("Failed to create project config file")
+                .write_all(example_project_config.as_bytes())
+                .expect("Failed to write to project config file");
 
-        File::create(&example_lib_path)
-            .expect("Failed to create example library file")
-            .write_all(EXAMPLE_LIBRARY.as_bytes())
-            .expect("Failed to write to example library file");
+            let src_path = path.join("src");
 
-        println!("Initialized a new Dust project at `{}`", path.display());
+            create_dir(&src_path).expect("Failed to create `src` directory");
+
+            let example_program_path = src_path.join("main.ds");
+
+            File::create(&example_program_path)
+                .expect("Failed to create example program file")
+                .write_all(EXAMPLE_PROGRAM.as_bytes())
+                .expect("Failed to write to example program file");
+
+            let example_lib_path = src_path.join("lib.ds");
+
+            File::create(&example_lib_path)
+                .expect("Failed to create example library file")
+                .write_all(EXAMPLE_LIBRARY.as_bytes())
+                .expect("Failed to write to example library file");
+
+            println!("Initialized a new Dust project at `{}`", path.display());
+        }
     }
 }
 

@@ -33,10 +33,6 @@ impl Display for SyntaxError {
 impl<'a> AnnotatedError<'a> for SyntaxError {
     type Context = ();
 
-    fn is_internal(&self) -> bool {
-        true
-    }
-
     fn add_report(&self, _: Self::Context, groups: &mut Vec<annotate_snippets::Group<'a>>) {
         self.add_internal_report(groups);
     }

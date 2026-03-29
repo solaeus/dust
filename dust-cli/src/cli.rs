@@ -71,7 +71,7 @@ pub enum Command {
 
     /// Run a program (default)
     #[command(alias = "r")]
-    Run(InputOptions),
+    Run(RunCommand),
 }
 
 #[derive(Args)]
@@ -155,4 +155,13 @@ pub struct CompileCommand {
     /// Launch the TUI disassembler (default: true)
     #[arg(long, default_value = "true", group = "format")]
     pub tui: bool,
+}
+
+#[derive(Args)]
+pub struct RunCommand {
+    #[command(flatten)]
+    pub global: GlobalOptions,
+
+    #[command(flatten)]
+    pub input: InputOptions,
 }

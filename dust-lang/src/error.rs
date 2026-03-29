@@ -14,6 +14,7 @@ use crate::{
     resolver::{Resolver, error::ResolverError},
     source::{Source, SourceError},
     syntax::error::SyntaxError,
+    vm::error::VmError,
 };
 
 #[derive(Debug)]
@@ -96,6 +97,7 @@ impl<'a> Display for Error<'a> {
 pub enum ErrorKind {
     Parse(ParseError),
     Compile(CompileError),
+    Vm(VmError),
 }
 
 impl From<ParseError> for ErrorKind {
@@ -107,6 +109,12 @@ impl From<ParseError> for ErrorKind {
 impl From<CompileError> for ErrorKind {
     fn from(compile_error: CompileError) -> Self {
         ErrorKind::Compile(compile_error)
+    }
+}
+
+impl From<VmError> for ErrorKind {
+    fn from(vm_error: VmError) -> Self {
+        ErrorKind::Vm(vm_error)
     }
 }
 
@@ -137,13 +145,6 @@ impl From<SourceError> for ErrorKind {
 impl<'a> AnnotatedError<'a> for ErrorKind {
     type Context = (Option<&'a Source<'a>>, Option<&'a Resolver>);
 
-    fn is_internal(&self) -> bool {
-        match self {
-            ErrorKind::Parse(parse_error) => parse_error.is_internal(),
-            ErrorKind::Compile(compile_error) => compile_error.is_internal(),
-        }
-    }
-
     fn add_report(&self, context: Self::Context, groups: &mut Vec<Group<'a>>) {
         let (source, resolver) = context;
 
@@ -164,6 +165,9 @@ impl<'a> AnnotatedError<'a> for ErrorKind {
                     MissingErrorContext.add_report((), groups);
                 }
             }
+            ErrorKind::Vm(vm_error) => {
+                vm_error.add_report((), groups);
+            }
         }
     }
 }
@@ -175,10 +179,6 @@ pub struct MissingErrorContext;
 impl<'a> AnnotatedError<'a> for MissingErrorContext {
     type Context = ();
 
-    fn is_internal(&self) -> bool {
-        true
-    }
-
     fn add_report(&self, _: Self::Context, groups: &mut Vec<Group<'a>>) {
         self.add_internal_report(groups);
     }
@@ -186,8 +186,6 @@ impl<'a> AnnotatedError<'a> for MissingErrorContext {
 
 pub trait AnnotatedError<'a> {
     type Context;
-
-    fn is_internal(&self) -> bool;
 
     fn add_report(&self, context: Self::Context, groups: &mut Vec<Group<'a>>);
 
