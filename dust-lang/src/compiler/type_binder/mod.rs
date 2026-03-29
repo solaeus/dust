@@ -2,14 +2,12 @@ use smallvec::SmallVec;
 
 use crate::{
     compiler::error::CompileError,
-    error::ErrorKind,
     resolver::{
         Resolver,
         declarations::Definition,
         types::{InferredTypeConstraint, Type, TypeId},
     },
     syntax::{
-        Syntax,
         components::{
             AssignmentExpression, CallExpression, ComparisonExpression,
             CompoundAssignmentExpression, ExpressionStatement, GroupedExpression, IfExpression,
@@ -24,24 +22,12 @@ use crate::{
 
 #[derive(Debug)]
 pub struct TypeBinder<'a> {
-    syntax: &'a Syntax,
-
     resolver: &'a mut Resolver,
-
-    errors: &'a mut Vec<ErrorKind>,
 }
 
 impl<'a> TypeBinder<'a> {
-    pub fn new(
-        syntax: &'a Syntax,
-        resolver: &'a mut Resolver,
-        errors: &'a mut Vec<ErrorKind>,
-    ) -> Self {
-        Self {
-            syntax,
-            resolver,
-            errors,
-        }
+    pub fn new(resolver: &'a mut Resolver) -> Self {
+        Self { resolver }
     }
 
     pub fn bind_function_body(

@@ -141,6 +141,10 @@ pub enum CompileError {
         expected: SyntaxKind,
         found: SyntaxKind,
     },
+    ExpectedSyntaxKinds {
+        expected: &'static [SyntaxKind; 2],
+        found: SyntaxKind,
+    },
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
@@ -942,6 +946,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             | CompileError::ExpectedEmissionTarget { .. }
             | CompileError::ExpectedJumpPlacement(_)
             | CompileError::ExpectedSyntaxKind { .. }
+            | CompileError::ExpectedSyntaxKinds { .. }
             | CompileError::ExpectedLocalDefinition => {
                 self.add_internal_report(groups);
             }

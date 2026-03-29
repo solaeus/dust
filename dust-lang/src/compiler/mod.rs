@@ -185,6 +185,10 @@ impl<'src> Compiler<'src> {
             }
         }
 
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
         // Emission phase
         let span = span!(Level::INFO, "emit");
         let _enter = span.enter();
@@ -268,7 +272,7 @@ impl<'src> Compiler<'src> {
                     .insert(type_parameter_declaration_id, inferred_type_id);
             }
 
-            let mut type_binder = TypeBinder::new(&self.syntax, &mut self.resolver, &mut errors);
+            let mut type_binder = TypeBinder::new(&mut self.resolver);
 
             match type_binder.bind_function_body(body, return_type_id) {
                 Ok(()) => {}

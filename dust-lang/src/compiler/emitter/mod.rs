@@ -25,8 +25,8 @@ use crate::{
     syntax::{
         Syntax,
         components::{
-            AssignmentExpression, ComparisonExpression, FunctionItem, LogicExpression,
-            MathExpression, NegationExpression, NotExpression,
+            AssignmentExpression, ComparisonExpression, ExpressionStatement, FunctionItem,
+            LogicExpression, MathExpression, NegationExpression, NotExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -313,7 +313,7 @@ impl<'a> Emitter<'a> {
 
     fn free_temporary_registers(&mut self, registers: &RegisterAllocation) {
         debug_assert!(
-            registers.temporary(),
+            registers.is_temporary(),
             "Cannot free local registers mid-scope"
         );
 
@@ -694,7 +694,7 @@ impl<'a> Emitter<'a> {
             }
             Emission::Instructions(operand_instructions) => {
                 if let Some(registers) = &operand_instructions.target
-                    && registers.temporary()
+                    && registers.is_temporary()
                 {
                     self.free_temporary_registers(registers);
                 }
@@ -818,7 +818,7 @@ impl<'a> Emitter<'a> {
                             condition_instructions.instructions.truncate(length - 2);
 
                             if let Some(registers) = &condition_instructions.target
-                                && registers.temporary()
+                                && registers.is_temporary()
                             {
                                 self.free_temporary_registers(registers);
                             }
@@ -842,7 +842,7 @@ impl<'a> Emitter<'a> {
                             condition_instructions.push(new_test_instruction);
 
                             if let Some(registers) = &condition_instructions.target
-                                && registers.temporary()
+                                && registers.is_temporary()
                             {
                                 self.free_temporary_registers(registers);
                             }
@@ -1217,9 +1217,19 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_expression_statement(
         &mut self,
-        node: SyntaxReader<'_>,
+        reader: SyntaxReader<'_>,
     ) -> Result<Self::StatementOutput, CompileError> {
-        todo!()
+        let ExpressionStatement { expression } = reader.as_component()?;
+
+        let expression_emission = self.visit_expression(expression, None)?;
+
+        if let Emission::Instructions(mut instructions_emission) = expression_emission {
+            instructions_emission.set_target(None);
+
+            Ok(instructions_emission)
+        } else {
+            Ok(InstructionsEmission::new())
+        }
     }
 
     fn visit_let_statement(
@@ -1238,9 +1248,15 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let target = self.allocate_registers(type_id, false, &expression)?;
         let mut expression_emission = self.visit_expression(expression, Some(target))?;
-        let target = expression_emission
-            .take_target()
-            .expect("Failed to set provided target");
+        let target = {
+            if let Some(target) = expression_emission.take_target()
+                && target.is_temporary()
+            {
+                self.free_temporary_registers(&target);
+            }
+
+            self.allocate_registers(type_id, false, &expression)?
+        };
 
         match expression_emission {
             Emission::Constant(constant) => {
@@ -1753,10 +1769,20 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_path_expression(
         &mut self,
-        path_expression: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let declaration_id = self.resolver.get_declaration_binding(&reader.id)?;
+        let local = self
+            .locals
+            .get(declaration_id)
+            .ok_or_else(|| CompileError::OutOfScopeId {
+                declaration_id: *declaration_id,
+                usage_position: reader.position(),
+            })?
+            .clone();
+
+        Ok(Emission::Place(local))
     }
 
     fn visit_struct_expression(
@@ -2547,7 +2573,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_while_expression(
         &mut self,
         node: SyntaxReader<'_>,
-        _: Option<Self::ExpressionInput>,
+        target: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting while expression");
 
@@ -2565,9 +2591,12 @@ impl SyntaxVisitor for Emitter<'_> {
             forward_id: jump_forward_id,
         });
 
-        let body_instructions = self.visit_expression_statement(body)?;
+        let body_emission = self.visit_block_expression(body, target)?;
 
-        while_emission.merge(body_instructions);
+        if let Emission::Instructions(instructions) = body_emission {
+            while_emission.merge(instructions);
+        }
+
         while_emission.push_drop_anchor(JumpAnchor::LoopEndOnNext {
             forward_id: jump_forward_id,
             backward_id: jump_backward_id,
@@ -2776,7 +2805,7 @@ impl InstructionsEmission {
         }
     }
 
-    fn _with_instruction(instruction: Instruction) -> Self {
+    fn with_instruction(instruction: Instruction) -> Self {
         Self {
             instructions: vec![(instruction, Vec::new())],
             target: None,
@@ -2848,7 +2877,7 @@ pub enum RegisterAllocation {
 }
 
 impl RegisterAllocation {
-    fn temporary(&self) -> bool {
+    fn is_temporary(&self) -> bool {
         match self {
             RegisterAllocation::Single { temporary, .. }
             | RegisterAllocation::Multiple { temporary, .. } => *temporary,
@@ -3505,7 +3534,7 @@ impl RegisterTracker {
     }
 
     fn free_temporary(&mut self, registers: &RegisterAllocation) {
-        debug_assert!(registers.temporary());
+        debug_assert!(registers.is_temporary());
 
         for register in registers.iter() {
             debug_assert!(register.index < self.next_temporary);

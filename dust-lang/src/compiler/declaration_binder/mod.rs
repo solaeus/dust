@@ -23,8 +23,9 @@ use crate::{
             CompoundAssignmentExpression, EnumItem, EnumVariant, ExpressionStatement, FunctionItem,
             FunctionParameters, FunctionType, GroupedExpression, IfExpression, IndexExpression,
             LetStatement, LogicExpression, MathExpression, ModuleItem, NegationExpression,
-            NotExpression, StructExpression, StructExpressionStructFields, StructItem, StructItemStructFields,
-            StructItemTupleFields, SyntaxComponent, UseItem, WhileExpression,
+            NotExpression, StructExpression, StructExpressionStructFields, StructItem,
+            StructItemStructFields, StructItemTupleFields, SyntaxComponent, UseItem,
+            WhileExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -974,7 +975,16 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         self.visit_block_expression(then_branch, None)?;
 
         if let Some(else_branch) = else_branch {
-            self.visit_block_expression(else_branch, None)?;
+            match else_branch.node.kind {
+                SyntaxKind::BlockExpression => self.visit_block_expression(else_branch, None)?,
+                SyntaxKind::IfExpression => self.visit_if_expression(else_branch, None)?,
+                _ => {
+                    return Err(CompileError::ExpectedSyntaxKinds {
+                        expected: &[SyntaxKind::BlockExpression, SyntaxKind::IfExpression],
+                        found: else_branch.node.kind,
+                    });
+                }
+            }
         }
 
         Ok(())
