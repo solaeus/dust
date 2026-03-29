@@ -1149,14 +1149,14 @@ impl SyntaxVisitor for Emitter<'_> {
         todo!()
     }
 
-    fn visit_function_item(&mut self, node: SyntaxReader<'_>) -> Result<(), CompileError> {
+    fn visit_function_item(&mut self, reader: SyntaxReader<'_>) -> Result<(), CompileError> {
         let FunctionItem {
             public: _,
             name,
             parameters: _,
             return_type: _,
             body: _,
-        } = node.as_component()?;
+        } = reader.as_component()?;
 
         let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
         let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
@@ -1166,7 +1166,7 @@ impl SyntaxVisitor for Emitter<'_> {
         else {
             return Err(CompileError::ExpectedFunctionType {
                 found: TypeId::UNIT,
-                position: node.position(),
+                position: reader.position(),
             });
         };
 
@@ -1234,11 +1234,11 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_let_statement(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError> {
         debug!("Visting let statement");
 
-        let mut children = node.children();
+        let mut children = reader.children();
         let path = children.expect_next()?;
         let expression = children.expect_next()?;
 
@@ -1333,7 +1333,7 @@ impl SyntaxVisitor for Emitter<'_> {
             }
             Emission::NativeFunction(_) => {
                 return Err(CompileError::ExpectedNativeFunctionCall {
-                    position: node.position(),
+                    position: reader.position(),
                 });
             }
             Emission::None => {
@@ -1472,11 +1472,11 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_compound_assignment_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting binary assignment statement");
 
-        let emission = self.visit_math_expression(node, None)?;
+        let emission = self.visit_math_expression(reader, None)?;
         let instructions = if let Emission::Instructions(mut instructions) = emission {
             instructions.set_target(None);
 
@@ -1490,7 +1490,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_boolean_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -1498,7 +1498,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_byte_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -1506,7 +1506,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_character_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -1514,12 +1514,12 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_float_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         target: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting float expression");
 
-        let float_str = self.source.get_file_content(&node.position())?;
+        let float_str = self.source.get_file_content(&reader.position())?;
         let float_constant = match target {
             Some(RegisterAllocation::Single { register, .. })
                 if register.operand_type == OperandType::F_32 =>
@@ -1553,12 +1553,12 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_integer_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         target: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting integer expression");
 
-        let integer_str = self.source.get_file_content(&node.position())?;
+        let integer_str = self.source.get_file_content(&reader.position())?;
         let integer_constant = match target {
             Some(RegisterAllocation::Single { register, .. })
                 if register.operand_type == OperandType::U_8 =>
@@ -1689,7 +1689,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_string_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -1697,7 +1697,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_list_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         target: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -1705,12 +1705,12 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_index_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         target: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting index expression");
 
-        let (list_expression, index_expression) = node.binary_children()?;
+        let (list_expression, index_expression) = reader.binary_children()?;
 
         let left_emission = self.visit_expression(list_expression, None)?;
         let right_emission = self.visit_expression(index_expression, None)?;
@@ -1748,9 +1748,9 @@ impl SyntaxVisitor for Emitter<'_> {
         let target = if let Some(target) = target {
             target
         } else {
-            let type_id = *self.resolver.get_type_binding(&node.id)?;
+            let type_id = *self.resolver.get_type_binding(&reader.id)?;
 
-            self.allocate_registers(type_id, true, &node)?
+            self.allocate_registers(type_id, true, &reader)?
         };
         let register = target.expect_single()?;
         let get_list_instruction = Instruction::get_list(
@@ -1787,19 +1787,19 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_struct_expression(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         target: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting struct expression");
 
-        let (_, struct_fields) = node.binary_children()?;
+        let (_, struct_fields) = reader.binary_children()?;
 
         let target = if let Some(target) = target {
             target
         } else {
-            let type_id = *self.resolver.get_type_binding(&node.id)?;
+            let type_id = *self.resolver.get_type_binding(&reader.id)?;
 
-            self.allocate_registers(type_id, true, &node)?
+            self.allocate_registers(type_id, true, &reader)?
         };
 
         let mut struct_instructions = InstructionsEmission::new();
@@ -1867,14 +1867,14 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_block_expression(
         &mut self,
-        node: SyntaxReader<'_>,
+        reader: SyntaxReader<'_>,
         target: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting block expression");
 
-        let children = node.children();
+        let children = reader.children();
 
-        let block_scope_id = *self.resolver.get_scope_binding(&node.id)?;
+        let block_scope_id = *self.resolver.get_scope_binding(&reader.id)?;
         let parent_scope_id = self.current_scope_id;
         let parent_scope_tracker = self.register_tracker;
 
@@ -1983,7 +1983,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 }
                 Emission::NativeFunction(_) => {
                     return Err(CompileError::ExpectedNativeFunctionCall {
-                        position: node.position(),
+                        position: reader.position(),
                     });
                 }
                 Emission::None => {}
@@ -2000,12 +2000,12 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_if_expression(
         &mut self,
-        node: SyntaxReader<'_>,
+        reader: SyntaxReader<'_>,
         target: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting if expression");
 
-        let mut children = node.children();
+        let mut children = reader.children();
         let condition = children.expect_next()?;
         let then_block = children.expect_next()?;
         let else_block = children.next();
@@ -2019,9 +2019,9 @@ impl SyntaxVisitor for Emitter<'_> {
         let target = if let Some(target) = target {
             target
         } else {
-            let type_id = *self.resolver.get_type_binding(&node.id)?;
+            let type_id = *self.resolver.get_type_binding(&reader.id)?;
 
-            self.allocate_registers(type_id, true, &node)?
+            self.allocate_registers(type_id, true, &reader)?
         };
         let jump_over_then_id = self.create_jump_id();
         let start_else_anchor_count = self.jump_over_branch_ids.len();
@@ -2572,12 +2572,12 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_while_expression(
         &mut self,
-        node: SyntaxReader<'_>,
+        reader: SyntaxReader<'_>,
         target: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visting while expression");
 
-        let (condition, body) = node.binary_children()?;
+        let (condition, body) = reader.binary_children()?;
 
         let mut while_emission = InstructionsEmission::new();
         let condition_emission = self.visit_expression(condition, None)?;
@@ -2744,7 +2744,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_path(
         &mut self,
-        path: SyntaxReader,
+        reader: SyntaxReader,
         _: Self::PathInput,
     ) -> Result<Self::PathOutput, CompileError> {
         todo!()
@@ -2752,7 +2752,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_simple_path(
         &mut self,
-        node: SyntaxReader,
+        reader: SyntaxReader,
         _: Self::PathInput,
     ) -> Result<Self::PathOutput, CompileError> {
         todo!()
