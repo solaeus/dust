@@ -615,6 +615,14 @@ impl Resolver {
                     _ => todo!("{type:?}"),
                 }
             }
+            Type::Array {
+                element_type_id,
+                length,
+            } => {
+                let element_dust_type = self.get_external_type(*element_type_id, _source)?;
+
+                Ok(DustType::Array(Box::new(element_dust_type), *length))
+            }
             _ => todo!("{type:?}"),
         }
     }

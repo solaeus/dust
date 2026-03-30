@@ -102,7 +102,7 @@ pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
     }
 
     let mut errors = Vec::new();
-    let mut type_binder = TypeBinder::new(&mut resolver);
+    let mut type_binder = TypeBinder::new(&mut resolver, &source);
 
     match type_binder.bind_function_body(body, return_type_id) {
         Ok(()) => {}

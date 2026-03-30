@@ -2,10 +2,11 @@
 mod add;
 mod call;
 mod call_native;
+mod check_index;
 mod divide;
 mod drop;
 mod equal;
-mod get_list;
+mod get_index;
 mod jump;
 mod less;
 mod less_equal;
@@ -13,22 +14,22 @@ mod modulo;
 mod r#move;
 mod multiply;
 mod negate;
-mod new_list;
 mod operand_type;
 mod operation;
 mod power;
 mod r#return;
-mod set_list;
+mod set_index;
 mod subtract;
 mod test;
 
 pub use add::Add;
 pub use call::Call;
 pub use call_native::CallNative;
+pub use check_index::CheckIndex;
 pub use divide::Divide;
 pub use drop::Drop;
 pub use equal::Equal;
-pub use get_list::GetList;
+pub use get_index::GetIndex;
 pub use jump::Jump;
 pub use less::Less;
 pub use less_equal::LessEqual;
@@ -36,12 +37,11 @@ pub use modulo::Modulo;
 pub use r#move::Move;
 pub use multiply::Multiply;
 pub use negate::Negate;
-pub use new_list::NewList;
 pub use operand_type::OperandType;
 pub use operation::Operation;
 pub use power::Power;
 pub use r#return::Return;
-pub use set_list::SetList;
+pub use set_index::SetIndex;
 pub use subtract::Subtract;
 pub use test::Test;
 
@@ -120,56 +120,6 @@ impl Instruction {
         Instruction::from(Drop {
             drop_list_start,
             drop_list_end,
-        })
-    }
-
-    pub fn new_list(
-        destination: u16,
-        element_type: OperandType,
-        length_memory: MemoryKind,
-        length_index: u16,
-        element_size: u16,
-    ) -> Instruction {
-        Instruction::from(NewList {
-            destination,
-            element_type,
-            length_memory,
-            length_index,
-            element_size,
-        })
-    }
-
-    pub fn set_list(
-        destination_list: u16,
-        element_type: OperandType,
-        source_memory: MemoryKind,
-        source_index: u16,
-        index_memory: MemoryKind,
-        index_index: u16,
-    ) -> Instruction {
-        Instruction::from(SetList {
-            destination_list,
-            element_type,
-            source_memory,
-            source_index,
-            index_memory,
-            index_index,
-        })
-    }
-
-    pub fn get_list(
-        destination: u16,
-        element_type: OperandType,
-        list_index: u16,
-        index_memory: MemoryKind,
-        index_index: u16,
-    ) -> Instruction {
-        Instruction::from(GetList {
-            destination,
-            element_type,
-            list_index,
-            index_memory,
-            index_index,
         })
     }
 
@@ -418,6 +368,52 @@ impl Instruction {
         Instruction::from(Return)
     }
 
+    pub fn check_index(
+        index_memory: MemoryKind,
+        index_index: u16,
+        array_length: u16,
+    ) -> Instruction {
+        Instruction::from(CheckIndex {
+            index_memory,
+            index_index,
+            array_length,
+        })
+    }
+
+    pub fn get_index(
+        destination: u16,
+        operand_type: OperandType,
+        base_register: u16,
+        index_memory: MemoryKind,
+        index_index: u16,
+    ) -> Instruction {
+        Instruction::from(GetIndex {
+            destination,
+            operand_type,
+            base_register,
+            index_memory,
+            index_index,
+        })
+    }
+
+    pub fn set_index(
+        base_register: u16,
+        operand_type: OperandType,
+        index_memory: MemoryKind,
+        index_index: u16,
+        source_memory: MemoryKind,
+        source_index: u16,
+    ) -> Instruction {
+        Instruction::from(SetIndex {
+            base_register,
+            operand_type,
+            index_memory,
+            index_index,
+            source_memory,
+            source_index,
+        })
+    }
+
     pub fn operation(&self) -> Operation {
         Operation(self.0 as u8 & 0x1F)
     }
@@ -478,9 +474,6 @@ impl Instruction {
             Operation::NO_OP => String::new(),
             Operation::MOVE => Move::from(self).to_string(),
             Operation::DROP => Drop::from(self).to_string(),
-            Operation::NEW_LIST => NewList::from(self).to_string(),
-            Operation::SET_LIST => SetList::from(self).to_string(),
-            Operation::GET_LIST => GetList::from(self).to_string(),
             Operation::ADD => Add::from(self).to_string(),
             Operation::SUBTRACT => Subtract::from(self).to_string(),
             Operation::MULTIPLY => Multiply::from(self).to_string(),
@@ -496,6 +489,9 @@ impl Instruction {
             Operation::CALL_NATIVE => CallNative::from(self).to_string(),
             Operation::JUMP => Jump::from(self).to_string(),
             Operation::RETURN => Return::from(self).to_string(),
+            Operation::CHECK_INDEX => CheckIndex::from(self).to_string(),
+            Operation::GET_INDEX => GetIndex::from(self).to_string(),
+            Operation::SET_INDEX => SetIndex::from(self).to_string(),
             unknown => format!("Unknown operation: {}", unknown.0),
         }
     }

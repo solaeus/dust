@@ -378,6 +378,40 @@ impl<'a> SyntaxComponent<'a> for NotExpression<'a> {
     }
 }
 
+pub struct ArrayExpression<'a> {
+    pub elements: SyntaxReaderIterator<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for ArrayExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting array expression");
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::ArrayExpression));
+
+        Ok(Self {
+            elements: reader.children(),
+        })
+    }
+}
+
+pub struct ArrayRepeatExpression<'a> {
+    pub element: SyntaxReader<'a>,
+    pub length: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for ArrayRepeatExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting array repeat expression");
+        debug_assert!(matches!(
+            reader.node.kind,
+            SyntaxKind::ArrayRepeatExpression
+        ));
+
+        let (element, length) = reader.binary_children()?;
+
+        Ok(Self { element, length })
+    }
+}
+
 pub struct IndexExpression<'a> {
     pub list: SyntaxReader<'a>,
     pub index: SyntaxReader<'a>,

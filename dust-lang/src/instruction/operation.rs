@@ -12,11 +12,6 @@ impl Operation {
     pub const MOVE: Operation = Operation(1);
     pub const DROP: Operation = Operation(2);
 
-    // List operations
-    pub const NEW_LIST: Operation = Operation(3);
-    pub const SET_LIST: Operation = Operation(4);
-    pub const GET_LIST: Operation = Operation(5);
-
     // Arithmetic binary operations
     pub const ADD: Operation = Operation(6);
     pub const SUBTRACT: Operation = Operation(7);
@@ -46,6 +41,11 @@ impl Operation {
 
     // Type conversions
     pub const CONVERT: Operation = Operation(21);
+
+    // Indexed access
+    pub const CHECK_INDEX: Operation = Operation(22);
+    pub const GET_INDEX: Operation = Operation(23);
+    pub const SET_INDEX: Operation = Operation(24);
 }
 
 impl Operation {
@@ -54,9 +54,6 @@ impl Operation {
             Self::NO_OP => "NO_OP",
             Self::MOVE => "MOVE",
             Self::DROP => "DROP",
-            Self::NEW_LIST => "NEW_LIST",
-            Self::SET_LIST => "SET_LIST",
-            Self::GET_LIST => "GET_LIST",
             Self::ADD => "ADD",
             Self::SUBTRACT => "SUBTRACT",
             Self::MULTIPLY => "MULTIPLY",
@@ -73,6 +70,9 @@ impl Operation {
             Self::JUMP => "JUMP",
             Self::RETURN => "RETURN",
             Self::CONVERT => "CONVERT",
+            Self::CHECK_INDEX => "CHECK_INDEX",
+            Self::GET_INDEX => "GET_INDEX",
+            Self::SET_INDEX => "SET_INDEX",
             _ => "UNKNOWN",
         }
     }

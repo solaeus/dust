@@ -195,8 +195,34 @@ fn tuple_type_multiple() {
 
 #[test]
 fn slice_type() {
-    let type_id = parameter_type_of_foo("fn foo(x: [i64]) {}");
-    assert_eq!(type_id, TypeId::I_64);
+    let mut source = Source::new();
+
+    source.add_file(SourceFile::validated_borrowed(
+        "test",
+        "fn foo(x: [i64]) {}",
+    ));
+
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let foo_symbol = resolver.symbols.add_symbol("foo");
+    let (_, foo_declaration) = resolver
+        .declarations
+        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .unwrap();
+    let Definition::Function {
+        value_parameters, ..
+    } = foo_declaration.definition
+    else {
+        panic!();
+    };
+
+    let parameter_types = resolver.types.get_type_members(value_parameters).unwrap();
+    let slice_type = resolver.types.get_type(parameter_types[0]).unwrap();
+    let Type::Slice { element_type_id } = slice_type else {
+        panic!();
+    };
+
+    assert_eq!(value_parameters.len(), 1);
+    assert_eq!(*element_type_id, TypeId::I_64);
 }
 
 #[test]

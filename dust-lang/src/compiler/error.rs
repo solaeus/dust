@@ -73,7 +73,7 @@ pub enum CompileError {
         found_type: TypeId,
         found_position: Position,
     },
-    OutOfScopeId {
+    DeclarationOutOfScope {
         declaration_id: DeclarationId,
         usage_position: Position,
     },
@@ -96,6 +96,11 @@ pub enum CompileError {
     },
     ExpectedValue {
         node_kind: SyntaxKind,
+        position: Position,
+    },
+    IndexOutOfBounds {
+        index: usize,
+        length: usize,
         position: Position,
     },
     ExpectedNoneType {
@@ -241,11 +246,11 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::OutOfScopeId {
+            CompileError::DeclarationOutOfScope {
                 declaration_id,
                 usage_position,
             } => {
-                let title = "Undeclared variable".to_string();
+                let title = "Declaration out of scope".to_string();
 
                 let declaration = match resolver.declarations.get_declaration(*declaration_id) {
                     Ok(declaration) => declaration,
@@ -713,6 +718,30 @@ impl<'a> AnnotatedError<'a> for CompileError {
                             .span(position.span.as_usize_range())
                             .label(format!(
                                 "Expected a value here, but found {node_kind} with type ()."
+                            )),
+                    ),
+                );
+
+                groups.push(group);
+            }
+            CompileError::IndexOutOfBounds {
+                index,
+                length,
+                position,
+            } => {
+                let title = "Index out of bounds".to_string();
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!(
+                                "Index {index} is out of bounds for array of length {length}."
                             )),
                     ),
                 );

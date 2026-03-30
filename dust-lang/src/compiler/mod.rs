@@ -254,7 +254,8 @@ impl<'src> Compiler<'src> {
                     .get_tree(position.file_id)
                     .and_then(|tree| tree.get_node(syntax_id))
             );
-            let FunctionItem { body, .. } = unwrap_or_return!(function_item.as_component());
+            let FunctionItem { parameters, body, .. } =
+                unwrap_or_return!(function_item.as_component());
             let scope_id = *unwrap_or_return!(self.resolver.get_scope_binding(&body.id));
 
             self.resolver.type_parameter_map.clear();
@@ -273,7 +274,7 @@ impl<'src> Compiler<'src> {
                     .insert(type_parameter_declaration_id, inferred_type_id);
             }
 
-            let mut type_binder = TypeBinder::new(&mut self.resolver);
+            let mut type_binder = TypeBinder::new(&mut self.resolver, &self.source);
 
             match type_binder.bind_function_body(body, return_type_id) {
                 Ok(()) => {}
@@ -334,6 +335,12 @@ impl<'src> Compiler<'src> {
                     return Err(errors);
                 }
             };
+
+            if let Err(error) = emitter.bind_parameters(parameters) {
+                errors.push(ErrorKind::Compile(error));
+
+                return Err(errors);
+            }
 
             match emitter.emit_function_body(body) {
                 Ok(()) => {}

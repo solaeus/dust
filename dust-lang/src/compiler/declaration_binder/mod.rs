@@ -19,13 +19,13 @@ use crate::{
     syntax::{
         Syntax,
         components::{
-            AssignmentExpression, CallExpression, ComparisonExpression,
-            CompoundAssignmentExpression, EnumItem, EnumVariant, ExpressionStatement, FunctionItem,
-            FunctionParameters, FunctionType, GroupedExpression, IfExpression, IndexExpression,
-            LetStatement, LogicExpression, MathExpression, ModuleItem, NegationExpression,
-            NotExpression, StructExpression, StructExpressionStructFields, StructItem,
-            StructItemStructFields, StructItemTupleFields, SyntaxComponent, UseItem,
-            WhileExpression,
+            ArrayExpression, ArrayRepeatExpression, AssignmentExpression, CallExpression,
+            ComparisonExpression, CompoundAssignmentExpression, EnumItem, EnumVariant,
+            ExpressionStatement, FunctionItem, FunctionParameters, FunctionType,
+            GroupedExpression, IfExpression, IndexExpression, LetStatement, LogicExpression,
+            MathExpression, ModuleItem, NegationExpression, NotExpression, StructExpression,
+            StructExpressionStructFields, StructItem, StructItemStructFields,
+            StructItemTupleFields, SyntaxComponent, UseItem, WhileExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -832,17 +832,28 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_list_expression(
+    fn visit_array_expression(
         &mut self,
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        debug!("Visiting list expression");
-        debug_assert_eq!(reader.node.kind, SyntaxKind::ArrayExpression);
+        let ArrayExpression { elements } = reader.as_component()?;
 
-        for element in reader.children() {
+        for element in elements {
             self.visit_expression(element, None)?;
         }
+
+        Ok(())
+    }
+
+    fn visit_array_repeat_expression(
+        &mut self,
+        reader: SyntaxReader,
+        _: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
+        let ArrayRepeatExpression { element, .. } = reader.as_component()?;
+
+        self.visit_expression(element, None)?;
 
         Ok(())
     }
@@ -1116,7 +1127,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             SyntaxKind::SliceType => {
                 let element_type = reader.single_child()?;
 
-                self.visit_type(element_type)?
+                let element_type_id = self.visit_type(element_type)?;
+
+                self.resolver
+                    .types
+                    .add_type(Type::Slice { element_type_id })
             }
             SyntaxKind::TupleType => {
                 let element_type_ids = reader

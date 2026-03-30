@@ -1,3 +1,4 @@
+use lexical_core::{ParseIntegerOptions, format::RUST_LITERAL, parse_with_options};
 use smallvec::SmallVec;
 
 use crate::{
@@ -7,12 +8,14 @@ use crate::{
         declarations::Definition,
         types::{InferredTypeConstraint, Type, TypeId},
     },
+    source::Source,
     syntax::{
         components::{
-            AssignmentExpression, CallExpression, ComparisonExpression,
-            CompoundAssignmentExpression, ExpressionStatement, GroupedExpression, IfExpression,
-            LetStatement, LogicExpression, MathExpression, NegationExpression, NotExpression,
-            StructExpression, StructExpressionStructFields, WhileExpression,
+            ArrayExpression, ArrayRepeatExpression, AssignmentExpression, CallExpression,
+            ComparisonExpression, CompoundAssignmentExpression, ExpressionStatement,
+            FunctionType, GroupedExpression, IfExpression, IndexExpression, LetStatement,
+            LogicExpression, MathExpression, NegationExpression, NotExpression, StructExpression,
+            StructExpressionStructFields, WhileExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -23,11 +26,12 @@ use crate::{
 #[derive(Debug)]
 pub struct TypeBinder<'a> {
     resolver: &'a mut Resolver,
+    source: &'a Source<'a>,
 }
 
 impl<'a> TypeBinder<'a> {
-    pub fn new(resolver: &'a mut Resolver) -> Self {
-        Self { resolver }
+    pub fn new(resolver: &'a mut Resolver, source: &'a Source<'a>) -> Self {
+        Self { resolver, source }
     }
 
     pub fn bind_function_body(
@@ -532,12 +536,71 @@ impl SyntaxVisitor for TypeBinder<'_> {
         todo!()
     }
 
-    fn visit_list_expression(
+    fn visit_array_expression(
         &mut self,
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let ArrayExpression { mut elements } = reader.as_component()?;
+
+        let first_element = elements.next().ok_or(CompileError::ExpectedValue {
+            node_kind: reader.node.kind,
+            position: reader.position(),
+        })?;
+        let element_type_id = self.visit_expression(first_element, None)?;
+
+        let mut length = 1;
+
+        for element in elements {
+            let element_type = self.visit_expression(element, None)?;
+
+            self.unify_types(element_type_id, Some(first_element), element_type, element)?;
+
+            length += 1;
+        }
+
+        let array_type = Type::Array {
+            element_type_id,
+            length,
+        };
+        let type_id = self.resolver.types.add_type(array_type);
+
+        self.resolver.add_type_binding(reader.id, type_id);
+
+        Ok(type_id)
+    }
+
+    fn visit_array_repeat_expression(
+        &mut self,
+        reader: SyntaxReader,
+        _: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
+        let ArrayRepeatExpression {
+            element,
+            length: length_reader,
+        } = reader.as_component()?;
+
+        let element_type_id = self.visit_expression(element, None)?;
+
+        let length_str = self.source.get_file_content(&length_reader.position())?;
+        let length = parse_with_options::<usize, RUST_LITERAL>(
+            length_str.as_bytes(),
+            &ParseIntegerOptions::default(),
+        )
+        .map_err(|_| CompileError::ExpectedValue {
+            node_kind: length_reader.node.kind,
+            position: length_reader.position(),
+        })?;
+
+        let array_type = Type::Array {
+            element_type_id,
+            length,
+        };
+        let type_id = self.resolver.types.add_type(array_type);
+
+        self.resolver.add_type_binding(reader.id, type_id);
+
+        Ok(type_id)
     }
 
     fn visit_index_expression(
@@ -545,7 +608,28 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let IndexExpression { list, index } = reader.as_component()?;
+
+        let list_type_id = self.visit_expression(list, None)?;
+        self.visit_expression(index, None)?;
+
+        let list_type = *self.resolver.types.get_type(list_type_id)?;
+
+        let element_type_id = match list_type {
+            Type::Array {
+                element_type_id, ..
+            } => element_type_id,
+            _ => {
+                return Err(CompileError::ExpectedValue {
+                    node_kind: reader.node.kind,
+                    position: reader.position(),
+                });
+            }
+        };
+
+        self.resolver.add_type_binding(reader.id, element_type_id);
+
+        Ok(element_type_id)
     }
 
     fn visit_path_expression(
@@ -1052,7 +1136,88 @@ impl SyntaxVisitor for TypeBinder<'_> {
     }
 
     fn visit_type(&mut self, reader: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
-        todo!()
+        debug_assert!(matches!(
+            reader.node.kind,
+            SyntaxKind::BooleanType
+                | SyntaxKind::I8Type
+                | SyntaxKind::I16Type
+                | SyntaxKind::I32Type
+                | SyntaxKind::I64Type
+                | SyntaxKind::I128Type
+                | SyntaxKind::U8Type
+                | SyntaxKind::U16Type
+                | SyntaxKind::U32Type
+                | SyntaxKind::U64Type
+                | SyntaxKind::U128Type
+                | SyntaxKind::F32Type
+                | SyntaxKind::F64Type
+                | SyntaxKind::CharacterType
+                | SyntaxKind::SliceType
+                | SyntaxKind::TupleType
+                | SyntaxKind::FunctionType
+        ),);
+
+        let type_id = match reader.node.kind {
+            SyntaxKind::BooleanType => TypeId::BOOLEAN,
+            SyntaxKind::I8Type => TypeId::I_8,
+            SyntaxKind::I16Type => TypeId::I_16,
+            SyntaxKind::I32Type => TypeId::I_32,
+            SyntaxKind::I64Type => TypeId::I_64,
+            SyntaxKind::I128Type => TypeId::I_128,
+            SyntaxKind::U8Type => TypeId::U_8,
+            SyntaxKind::U16Type => TypeId::U_16,
+            SyntaxKind::U32Type => TypeId::U_32,
+            SyntaxKind::U64Type => TypeId::U_64,
+            SyntaxKind::U128Type => TypeId::U_128,
+            SyntaxKind::F32Type => TypeId::F_32,
+            SyntaxKind::F64Type => TypeId::F_64,
+            SyntaxKind::CharacterType => TypeId::CHARACTER,
+            SyntaxKind::SliceType => {
+                let element_type = reader.single_child()?;
+
+                let element_type_id = self.visit_type(element_type)?;
+
+                self.resolver
+                    .types
+                    .add_type(Type::Slice { element_type_id })
+            }
+            SyntaxKind::TupleType => {
+                let element_type_ids = reader
+                    .children()
+                    .map(|element_type| self.visit_type(element_type))
+                    .try_collect::<SmallVec<[TypeId; 4]>>()?;
+                let element_type_ids = self.resolver.types.add_type_members(element_type_ids);
+
+                self.resolver
+                    .types
+                    .add_type(Type::Tuple { element_type_ids })
+            }
+            SyntaxKind::FunctionType => {
+                let FunctionType {
+                    value_parameter_types,
+                    return_type,
+                } = reader.as_component()?;
+
+                let value_parameter_ids = value_parameter_types
+                    .children()
+                    .map(|parameter_type| self.visit_type(parameter_type))
+                    .try_collect::<SmallVec<[TypeId; 4]>>()?;
+                let value_parameters = self.resolver.types.add_type_members(value_parameter_ids);
+                let return_type_id = if let Some(return_type) = return_type {
+                    self.visit_type(return_type)?
+                } else {
+                    TypeId::UNIT
+                };
+
+                self.resolver.types.add_type(Type::Function {
+                    value_parameters,
+                    return_type: return_type_id,
+                })
+            }
+            _ => unreachable!(),
+        };
+
+        Ok(type_id)
     }
 
     fn visit_path(
