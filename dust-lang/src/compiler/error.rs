@@ -712,7 +712,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label(format!(
-                                "Expected a value here, but found {node_kind} with type `none`."
+                                "Expected a value here, but found {node_kind} with type ()."
                             )),
                     ),
                 );

@@ -1,3 +1,5 @@
+use smallvec::SmallVec;
+
 use crate::resolver::{declarations::DeclarationId, error::ResolverError};
 
 #[derive(Debug, Default)]
@@ -41,8 +43,8 @@ impl ScopeId {
 pub struct Scope {
     pub kind: ScopeKind,
     pub parent: ScopeId,
-    pub modules: Vec<ScopeId>,
-    pub imports: Vec<DeclarationId>,
+    pub modules: SmallVec<[ScopeId; 4]>,
+    pub imports: SmallVec<[DeclarationId; 4]>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

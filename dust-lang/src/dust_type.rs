@@ -55,7 +55,7 @@ impl Display for DustType {
             DustType::U128 => write!(f, "u128"),
             DustType::F32 => write!(f, "f32"),
             DustType::F64 => write!(f, "f64"),
-            DustType::Tuple(item_type) => write!(f, "Vec<{item_type}>"),
+            DustType::Tuple(item_type) => write!(f, "({item_type})"),
             DustType::Array(item_type, size) => write!(f, "[{item_type}; {size}]"),
             DustType::Slice(item_type) => write!(f, "[{item_type}]"),
             DustType::Function(function_type) => write!(f, "{function_type}"),

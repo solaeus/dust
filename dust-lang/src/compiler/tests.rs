@@ -1,5 +1,7 @@
 #![allow(clippy::disallowed_methods)]
 
+use smallvec::SmallVec;
+
 use crate::{
     compiler::{declaration_binder::DeclarationBinder, type_binder::TypeBinder},
     error::ErrorKind,
@@ -33,8 +35,8 @@ pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
     let crate_scope_id = resolver.scopes.add_scope(Scope {
         kind: ScopeKind::Crate,
         parent: ScopeId::NONE,
-        modules: Vec::new(),
-        imports: Vec::new(),
+        modules: SmallVec::new(),
+        imports: SmallVec::new(),
     });
 
     let main_root = syntax.get_tree(SourceFileId::MAIN).unwrap().root().unwrap();

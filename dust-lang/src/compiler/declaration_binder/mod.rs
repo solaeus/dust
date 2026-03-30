@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 use tracing::debug;
 
 use crate::{
@@ -96,8 +96,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let module_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Module,
             parent: self.current_scope_id,
-            modules: Vec::new(),
-            imports: Vec::new(),
+            modules: smallvec![ScopeId::CORE],
+            imports: SmallVec::new(),
         });
 
         if let Some(module_body) = body {
@@ -292,8 +292,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         self.current_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Function,
             parent: self.current_scope_id,
-            modules: Vec::new(),
-            imports: Vec::new(),
+            modules: smallvec![ScopeId::CORE],
+            imports: SmallVec::new(),
         });
 
         let type_parameters = if let Some(type_parameters) = type_parameters {
@@ -755,10 +755,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_expression_statement(
-        &mut self,
-        reader: SyntaxReader,
-    ) -> Result<(), CompileError> {
+    fn visit_expression_statement(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let ExpressionStatement { expression } = reader.as_component()?;
 
         self.visit_expression(expression, None)?;
@@ -766,10 +763,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_assignment_expression(
-        &mut self,
-        reader: SyntaxReader,
-    ) -> Result<(), CompileError> {
+    fn visit_assignment_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let AssignmentExpression { target, value } = reader.as_component()?;
 
         self.visit_expression(target, None)?;
@@ -782,8 +776,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         &mut self,
         reader: SyntaxReader,
     ) -> Result<(), CompileError> {
-        let CompoundAssignmentExpression { target, value } =
-            reader.as_component()?;
+        let CompoundAssignmentExpression { target, value } = reader.as_component()?;
 
         self.visit_expression(target, None)?;
         self.visit_expression(value, None)?;
@@ -935,8 +928,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let block_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Block,
             parent: self.current_scope_id,
-            modules: Vec::new(),
-            imports: Vec::new(),
+            modules: smallvec![ScopeId::CORE],
+            imports: SmallVec::new(),
         });
         let parent_scope_id = self.current_scope_id;
         self.current_scope_id = block_scope_id;
@@ -954,8 +947,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.current_scope_id = parent_scope_id;
 
-        self.resolver
-            .add_scope_binding(reader.id, block_scope_id);
+        self.resolver.add_scope_binding(reader.id, block_scope_id);
 
         Ok(())
     }

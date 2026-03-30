@@ -6,6 +6,7 @@ mod type_binder;
 #[cfg(test)]
 pub(crate) mod tests;
 
+use smallvec::SmallVec;
 use tracing::{Level, span};
 
 use crate::{
@@ -157,8 +158,8 @@ impl<'src> Compiler<'src> {
         let crate_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Crate,
             parent: ScopeId::NONE,
-            modules: Vec::new(),
-            imports: Vec::new(),
+            modules: SmallVec::new(),
+            imports: SmallVec::new(),
         });
         let main_file_root = unwrap_or_return!(
             self.syntax

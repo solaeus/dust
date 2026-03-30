@@ -1,7 +1,6 @@
 use std::{collections::HashMap, ops::Range};
 
 use rustc_hash::FxBuildHasher;
-use smallvec::SmallVec;
 
 use crate::{
     native_function::NativeFunction,
@@ -33,15 +32,6 @@ impl Declarations {
             symbol_id: declaration.symbol_id,
             scope_id: declaration.scope_id,
         };
-
-        if !matches!(
-            declaration.definition,
-            Definition::Local { .. } | Definition::Use { .. }
-        ) && let Some(existing_id) = self.declaration_lookup.get(&key)
-        {
-            return *existing_id;
-        }
-
         let declaration_id = DeclarationId(self.declarations.len() as u32);
 
         self.declarations.push(declaration);
@@ -95,7 +85,7 @@ impl Declarations {
 
     pub fn add_declaration_members(
         &mut self,
-        parameter_ids: SmallVec<[DeclarationId; 4]>,
+        parameter_ids: impl IntoIterator<Item = DeclarationId>,
     ) -> DeclarationMembers {
         let start = self.declaration_members.len() as u32;
 

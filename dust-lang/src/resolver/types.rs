@@ -8,13 +8,7 @@ use std::{
 use indexmap::{IndexSet, set::MutableValues};
 use smallvec::SmallVec;
 
-use crate::{
-    instruction::OperandType,
-    resolver::{
-        declarations::{DeclarationId, Definition},
-        error::ResolverError,
-    },
-};
+use crate::resolver::{declarations::DeclarationId, error::ResolverError};
 
 /// Type instance collection that stores every type known to the `Compiler`.
 #[derive(Debug)]

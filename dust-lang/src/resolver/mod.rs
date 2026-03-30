@@ -15,9 +15,11 @@ use crate::{
     instruction::OperandType,
     prototype::PrototypeId,
     resolver::{
-        declarations::{Declaration, DeclarationId, DeclarationMembers, Declarations, Visibility},
+        declarations::{
+            Declaration, DeclarationId, DeclarationMembers, Declarations, Definition, Visibility,
+        },
         error::ResolverError,
-        scopes::{ScopeId, Scopes},
+        scopes::{Scope, ScopeId, ScopeKind, Scopes},
         symbols::{SymbolId, Symbols},
         types::{
             FloatType, InferredTypeConstraint, SignedIntegerType, Type, TypeId, TypeMembers, Types,
@@ -47,7 +49,7 @@ pub struct Resolver {
 
 impl Resolver {
     pub fn new() -> Self {
-        let resolver = Self {
+        let mut resolver = Self {
             symbols: Symbols::new(),
             declarations: Declarations::new(),
             scopes: Scopes::new(),
@@ -61,13 +63,9 @@ impl Resolver {
             compilation_queue: VecDeque::new(),
         };
 
-        // resolver.add_core();
+        add_core(&mut resolver);
 
         resolver
-    }
-
-    fn add_core(&mut self) {
-        todo!()
     }
 
     pub fn add_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
@@ -182,7 +180,7 @@ impl Resolver {
     }
 
     pub fn get_operand_types(&self, type_id: TypeId) -> Result<Vec<OperandType>, ResolverError> {
-        let r#type = self.types.get_type(type_id)?.clone();
+        let r#type = self.types.get_type(type_id)?;
 
         match r#type {
             Type::Boolean => Ok(vec![OperandType::BOOLEAN]),
@@ -201,7 +199,7 @@ impl Resolver {
             Type::Float(FloatType::F64) => Ok(vec![OperandType::F_64]),
             Type::Never => Ok(vec![]),
             Type::Tuple { element_type_ids } => {
-                let element_type_ids = self.types.get_type_members(element_type_ids)?;
+                let element_type_ids = self.types.get_type_members(*element_type_ids)?;
 
                 let mut operand_types = Vec::with_capacity(element_type_ids.len());
 
@@ -215,11 +213,11 @@ impl Resolver {
                 element_type_id,
                 length,
             } => {
-                let element_operand_types = self.get_operand_types(element_type_id)?;
+                let element_operand_types = self.get_operand_types(*element_type_id)?;
 
                 let mut operand_types = Vec::with_capacity(element_operand_types.len() * length);
 
-                for _ in 0..length {
+                for _ in 0..*length {
                     operand_types.extend(&element_operand_types);
                 }
 
@@ -393,6 +391,223 @@ impl Default for Resolver {
 #[derive(Debug)]
 pub struct CompilationRequest {
     pub declaration_id: DeclarationId,
-
     pub prototype_id: PrototypeId,
+}
+
+fn add_core(resolver: &mut Resolver) {
+    let _core_scope_id = resolver.scopes.add_scope(Scope {
+        kind: ScopeKind::Module,
+        parent: ScopeId::NONE,
+        modules: SmallVec::new(),
+        imports: SmallVec::new(),
+    });
+
+    debug_assert_eq!(_core_scope_id, ScopeId::CORE);
+
+    let t_symbol = resolver.symbols.add_symbol("T");
+    let field_0_symbol = resolver.symbols.add_index_symbol(0);
+
+    {
+        let option_symbol = resolver.symbols.add_symbol("Option");
+        let some_symbol = resolver.symbols.add_symbol("Some");
+        let none_symbol = resolver.symbols.add_symbol("None");
+
+        let base_id = resolver.declarations.next_declaration_id();
+        let t_declaration_id = base_id;
+        let some_field_declaration_id = base_id.offset(1);
+        let some_declaration_id = base_id.offset(2);
+        let none_declaration_id = base_id.offset(3);
+        let option_declaration_id = base_id.offset(4);
+
+        let t_type_id = resolver.types.add_type(Type::Generic {
+            declaration_id: t_declaration_id,
+        });
+
+        let _t_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: t_symbol,
+            definition: Definition::TypeParameter,
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let _some_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: field_0_symbol,
+            definition: Definition::Field {
+                public: false,
+                parent_struct: option_declaration_id,
+                type_id: t_type_id,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let some_fields = resolver
+            .declarations
+            .add_declaration_members([some_field_declaration_id]);
+
+        let _some_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: some_symbol,
+            definition: Definition::Variant {
+                discriminant: 0,
+                parent_enum: option_declaration_id,
+                type_parameters: DeclarationMembers::default(),
+                fields: some_fields,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let _none_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: none_symbol,
+            definition: Definition::Variant {
+                discriminant: 1,
+                parent_enum: option_declaration_id,
+                type_parameters: DeclarationMembers::default(),
+                fields: DeclarationMembers::default(),
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let type_parameters = resolver
+            .declarations
+            .add_declaration_members([t_declaration_id]);
+        let variants = resolver
+            .declarations
+            .add_declaration_members([some_declaration_id, none_declaration_id]);
+
+        let _option_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: option_symbol,
+            definition: Definition::EnumType {
+                public: true,
+                type_parameters,
+                variants,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        debug_assert_eq!(_t_declaration_id, t_declaration_id);
+        debug_assert_eq!(_some_field_declaration_id, some_field_declaration_id);
+        debug_assert_eq!(_some_declaration_id, some_declaration_id);
+        debug_assert_eq!(_none_declaration_id, none_declaration_id);
+        debug_assert_eq!(_option_declaration_id, option_declaration_id);
+    }
+
+    {
+        let result_symbol = resolver.symbols.add_symbol("Result");
+        let ok_symbol = resolver.symbols.add_symbol("Ok");
+        let err_symbol = resolver.symbols.add_symbol("Err");
+        let e_symbol = resolver.symbols.add_symbol("E");
+
+        let base_id = resolver.declarations.next_declaration_id();
+        let t_declaration_id = base_id;
+        let e_declaration_id = base_id.offset(1);
+        let ok_field_declaration_id = base_id.offset(2);
+        let ok_declaration_id = base_id.offset(3);
+        let err_field_declaration_id = base_id.offset(4);
+        let err_declaration_id = base_id.offset(5);
+        let result_declaration_id = base_id.offset(6);
+
+        let t_type_id = resolver.types.add_type(Type::Generic {
+            declaration_id: t_declaration_id,
+        });
+        let e_type_id = resolver.types.add_type(Type::Generic {
+            declaration_id: e_declaration_id,
+        });
+
+        let _t_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: t_symbol,
+            definition: Definition::TypeParameter,
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let _e_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: e_symbol,
+            definition: Definition::TypeParameter,
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let _ok_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: field_0_symbol,
+            definition: Definition::Field {
+                public: false,
+                parent_struct: result_declaration_id,
+                type_id: t_type_id,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let ok_fields = resolver
+            .declarations
+            .add_declaration_members([ok_field_declaration_id]);
+
+        let _ok_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: ok_symbol,
+            definition: Definition::Variant {
+                discriminant: 0,
+                parent_enum: result_declaration_id,
+                type_parameters: DeclarationMembers::default(),
+                fields: ok_fields,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let _err_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: field_0_symbol,
+            definition: Definition::Field {
+                public: false,
+                parent_struct: result_declaration_id,
+                type_id: e_type_id,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let err_fields = resolver
+            .declarations
+            .add_declaration_members([err_field_declaration_id]);
+
+        let _err_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: err_symbol,
+            definition: Definition::Variant {
+                discriminant: 1,
+                parent_enum: result_declaration_id,
+                type_parameters: DeclarationMembers::default(),
+                fields: err_fields,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let type_parameters = resolver
+            .declarations
+            .add_declaration_members([t_declaration_id, e_declaration_id]);
+        let variants = resolver
+            .declarations
+            .add_declaration_members([ok_declaration_id, err_declaration_id]);
+
+        let _result_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: result_symbol,
+            definition: Definition::EnumType {
+                public: true,
+                type_parameters,
+                variants,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        debug_assert_eq!(_t_declaration_id, t_declaration_id);
+        debug_assert_eq!(_e_declaration_id, e_declaration_id);
+        debug_assert_eq!(_ok_field_declaration_id, ok_field_declaration_id);
+        debug_assert_eq!(_ok_declaration_id, ok_declaration_id);
+        debug_assert_eq!(_err_field_declaration_id, err_field_declaration_id);
+        debug_assert_eq!(_err_declaration_id, err_declaration_id);
+        debug_assert_eq!(_result_declaration_id, result_declaration_id);
+    }
 }

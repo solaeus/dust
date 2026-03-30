@@ -11,6 +11,8 @@ mod use_item;
 
 use std::path::PathBuf;
 
+use smallvec::SmallVec;
+
 use crate::{
     compiler::{declaration_binder::DeclarationBinder, tests::bind_declarations},
     error::ErrorKind,
@@ -64,8 +66,8 @@ fn bind_declarations_with_errors(source: &Source) -> (Syntax, Resolver, ScopeId,
     let crate_scope_id = resolver.scopes.add_scope(Scope {
         kind: ScopeKind::Crate,
         parent: ScopeId::NONE,
-        modules: Vec::new(),
-        imports: Vec::new(),
+        modules: SmallVec::new(),
+        imports: SmallVec::new(),
     });
 
     let main_root = syntax.get_tree(SourceFileId::MAIN).unwrap().root().unwrap();
