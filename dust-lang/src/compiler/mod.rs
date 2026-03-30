@@ -322,7 +322,6 @@ impl<'src> Compiler<'src> {
                 (Some(declaration.symbol_id), position),
                 (
                     &self.source,
-                    &self.syntax,
                     &mut self.constants,
                     &mut self.resolver,
                     &mut self.prototypes,

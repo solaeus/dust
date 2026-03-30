@@ -86,7 +86,7 @@ impl Thread {
                 .ok_or(VmError::InvalidPrototypeId {
                     prototype_id: current_call_frame.prototype_id,
                 })?;
-            let mut instruction_pointer = current_call_frame.instruction_pointer as usize;
+            let mut instruction_pointer = current_call_frame.instruction_pointer;
 
             'call: loop {
                 assert!(
@@ -110,9 +110,50 @@ impl Thread {
 
                         match operand_type {
                             OperandType::I_32 => {
-                                let value = self.get_i32(operand_memory, operand_index)?;
+                                let register_value = match operand_memory {
+                                    MemoryKind::CONSTANT => {
+                                        self.program.constants.get_i32(operand_index)? as u32
+                                    }
+                                    MemoryKind::REGISTER => self.get_register(operand_index)?.0,
+                                    _ => {
+                                        return Err(VmError::UnsupportedMemoryKind {
+                                            memory: operand_memory,
+                                        });
+                                    }
+                                };
 
-                                self.register_stack[destination as usize] = Register(value as u32);
+                                self.register_stack[destination as usize] =
+                                    Register(register_value);
+                            }
+                            OperandType::F_64 => {
+                                let (low_bits, high_bits) = match operand_memory {
+                                    MemoryKind::CONSTANT => {
+                                        let bits = self
+                                            .program
+                                            .constants
+                                            .get_f64(operand_index)?
+                                            .to_bits();
+
+                                        (bits as u32, (bits >> 32) as u32)
+                                    }
+                                    MemoryKind::REGISTER => {
+                                        let register_value = self.get_register(operand_index)?.0;
+                                        let next_register_value =
+                                            self.get_register(operand_index + 1)?.0;
+
+                                        (register_value, next_register_value)
+                                    }
+                                    _ => {
+                                        return Err(VmError::UnsupportedMemoryKind {
+                                            memory: operand_memory,
+                                        });
+                                    }
+                                };
+                                let destination = destination as usize;
+                                let next_destination = destination + 1;
+
+                                self.register_stack[destination] = Register(low_bits);
+                                self.register_stack[next_destination] = Register(high_bits);
                             }
                             _ => {
                                 return Err(VmError::UnsupportedOperandType { operand_type });
@@ -150,10 +191,9 @@ impl Thread {
         }
     }
 
-    fn get_i32(&self, memory: MemoryKind, index: u16) -> Result<i32, VmError> {
-        match memory {
-            MemoryKind::CONSTANT => Ok(self.program.constants.get_i32(index)?),
-            _ => Err(VmError::UnsupportedMemoryKind { memory }),
-        }
+    fn get_register(&self, index: u16) -> Result<&Register, VmError> {
+        self.register_stack
+            .get(index as usize)
+            .ok_or(VmError::InvalidRegisterIndex { index })
     }
 }

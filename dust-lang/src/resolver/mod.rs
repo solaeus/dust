@@ -11,7 +11,7 @@ use smallvec::SmallVec;
 
 use crate::{
     compiler::error::CompileError,
-    dust_type::DustType,
+    dust_type::{DustStructType, DustType},
     instruction::OperandType,
     prototype::PrototypeId,
     resolver::{
@@ -231,9 +231,123 @@ impl Resolver {
                 declaration_id,
                 type_arguments,
             } => {
-                todo!()
+                let declaration =
+                    self.declarations.get_declaration(*declaration_id)?;
+
+                match &declaration.definition {
+                    Definition::EnumType { variants, type_parameters, .. } => {
+                        let mut operand_types = vec![OperandType::U_32];
+
+                        let type_parameter_map: SmallVec<[(DeclarationId, TypeId); 4]> =
+                            type_parameters.as_range()
+                                .zip(type_arguments.as_range())
+                                .filter_map(|(parameter_index, argument_index)| {
+                                    let parameter_declaration_id = self.declarations
+                                        .get_declaration_member(parameter_index).ok()?;
+                                    let argument_type_id = self.types
+                                        .get_type_member(argument_index).ok()?;
+                                    Some((*parameter_declaration_id, *argument_type_id))
+                                })
+                                .collect();
+
+                        let variant_declaration_ids =
+                            self.declarations.get_declaration_members(variants)?;
+                        let mut max_variant_operand_types: Vec<OperandType> = Vec::new();
+
+                        for variant_declaration_id in variant_declaration_ids {
+                            let variant_declaration = self.declarations
+                                .get_declaration(*variant_declaration_id)?;
+                            let Definition::Variant { fields, .. } =
+                                &variant_declaration.definition
+                            else {
+                                continue;
+                            };
+
+                            let field_declaration_ids =
+                                self.declarations.get_declaration_members(fields)?;
+                            let mut variant_operand_types = Vec::new();
+
+                            for field_declaration_id in field_declaration_ids {
+                                let field_declaration = self.declarations
+                                    .get_declaration(*field_declaration_id)?;
+                                let Definition::Field {
+                                    type_id: field_type_id, ..
+                                } = field_declaration.definition
+                                else {
+                                    continue;
+                                };
+
+                                let resolved_field_type = self.types.get_type(field_type_id)?;
+                                let concrete_type_id =
+                                    if let Type::Generic { declaration_id: parameter_declaration } =
+                                        resolved_field_type
+                                    {
+                                        type_parameter_map.iter()
+                                            .find(|(declaration, _)| declaration == parameter_declaration)
+                                            .map(|(_, type_id)| *type_id)
+                                            .unwrap_or(field_type_id)
+                                    } else {
+                                        field_type_id
+                                    };
+
+                                let resolved_type_id = match self.types.get_type(concrete_type_id)? {
+                                    Type::Inferred { resolved: Some(resolved), .. } => *resolved,
+                                    Type::Inferred { resolved: None, .. } => continue,
+                                    _ => concrete_type_id,
+                                };
+
+                                match self.get_operand_types(resolved_type_id) {
+                                    Ok(field_operand_types) => variant_operand_types.extend(field_operand_types),
+                                    Err(_) => continue,
+                                }
+                            }
+
+                            if variant_operand_types.len() > max_variant_operand_types.len() {
+                                max_variant_operand_types = variant_operand_types;
+                            }
+                        }
+
+                        operand_types.extend(max_variant_operand_types);
+                        Ok(operand_types)
+                    }
+                    Definition::StructType { fields, .. } => {
+                        let field_declaration_ids =
+                            self.declarations.get_declaration_members(fields)?;
+                        let mut operand_types = Vec::new();
+
+                        for field_declaration_id in field_declaration_ids {
+                            let field_declaration = self.declarations
+                                .get_declaration(*field_declaration_id)?;
+                            let Definition::Field {
+                                type_id: field_type_id, ..
+                            } = field_declaration.definition
+                            else {
+                                continue;
+                            };
+
+                            operand_types.extend(self.get_operand_types(field_type_id)?);
+                        }
+
+                        Ok(operand_types)
+                    }
+                    _ => Err(ResolverError::ExpectedConcreteType),
+                }
             }
             Type::Generic { declaration_id } => Err(ResolverError::ExpectedConcreteType),
+            Type::Inferred {
+                resolved: Some(resolved),
+                ..
+            } => self.get_operand_types(*resolved),
+            Type::Inferred {
+                constraint: Some(InferredTypeConstraint::Integer),
+                resolved: None,
+                ..
+            } => Ok(vec![OperandType::I_32]),
+            Type::Inferred {
+                constraint: Some(InferredTypeConstraint::Float),
+                resolved: None,
+                ..
+            } => Ok(vec![OperandType::F_64]),
             Type::Inferred { .. } => Err(ResolverError::ExpectedConcreteType),
         }
     }
@@ -342,6 +456,165 @@ impl Resolver {
                 resolved: Some(resolved),
                 ..
             } => self.get_external_type(*resolved, _source),
+            Type::Inferred {
+                resolved: None,
+                constraint: Some(InferredTypeConstraint::Integer),
+                ..
+            } => Ok(DustType::I32),
+            Type::Inferred {
+                resolved: None,
+                constraint: Some(InferredTypeConstraint::Float),
+                ..
+            } => Ok(DustType::F64),
+            Type::Algebraic {
+                declaration_id,
+                type_arguments,
+            } => {
+                let declaration = self.declarations.get_declaration(*declaration_id)?;
+
+                match &declaration.definition {
+                    Definition::EnumType {
+                        variants,
+                        type_parameters,
+                        ..
+                    } => {
+                        let enum_name = self
+                            .symbols
+                            .get_symbol(&declaration.symbol_id)?
+                            .to_string();
+
+                        let type_parameter_map: SmallVec<[(DeclarationId, TypeId); 4]> =
+                            type_parameters
+                                .as_range()
+                                .zip(type_arguments.as_range())
+                                .filter_map(|(parameter_index, argument_index)| {
+                                    let parameter_declaration_id = self
+                                        .declarations
+                                        .get_declaration_member(parameter_index)
+                                        .ok()?;
+                                    let argument_type_id =
+                                        self.types.get_type_member(argument_index).ok()?;
+                                    Some((*parameter_declaration_id, *argument_type_id))
+                                })
+                                .collect();
+
+                        let variant_declaration_ids =
+                            self.declarations.get_declaration_members(variants)?;
+                        let mut variant_types = Vec::new();
+
+                        for variant_declaration_id in variant_declaration_ids {
+                            let variant_declaration =
+                                self.declarations.get_declaration(*variant_declaration_id)?;
+                            let Definition::Variant { fields, .. } =
+                                &variant_declaration.definition
+                            else {
+                                continue;
+                            };
+
+                            let variant_name = self
+                                .symbols
+                                .get_symbol(&variant_declaration.symbol_id)?
+                                .to_string();
+
+                            let field_declaration_ids =
+                                self.declarations.get_declaration_members(fields)?;
+                            let mut field_types = Vec::new();
+
+                            for (field_index, field_declaration_id) in
+                                field_declaration_ids.iter().enumerate()
+                            {
+                                let field_declaration =
+                                    self.declarations.get_declaration(*field_declaration_id)?;
+                                let Definition::Field {
+                                    type_id: field_type_id,
+                                    ..
+                                } = field_declaration.definition
+                                else {
+                                    continue;
+                                };
+
+                                let resolved_type = self.types.get_type(field_type_id)?;
+                                let concrete_type_id = if let Type::Generic {
+                                    declaration_id: parameter_declaration,
+                                } = resolved_type
+                                {
+                                    type_parameter_map
+                                        .iter()
+                                        .find(|(declaration, _)| declaration == parameter_declaration)
+                                        .map(|(_, type_id)| *type_id)
+                                        .unwrap_or(field_type_id)
+                                } else {
+                                    field_type_id
+                                };
+
+                                let resolved_type_id =
+                                    match self.types.get_type(concrete_type_id)? {
+                                        Type::Inferred {
+                                            resolved: Some(resolved),
+                                            ..
+                                        } => *resolved,
+                                        Type::Inferred { resolved: None, .. } => continue,
+                                        _ => concrete_type_id,
+                                    };
+
+                                let field_dust_type =
+                                    self.get_external_type(resolved_type_id, _source)?;
+                                let field_name = self
+                                    .symbols
+                                    .get_symbol(&field_declaration.symbol_id)
+                                    .map(|symbol| symbol.to_string())
+                                    .unwrap_or_else(|_| field_index.to_string());
+
+                                field_types.push((field_name, field_dust_type));
+                            }
+
+                            variant_types.push(DustStructType {
+                                name: variant_name,
+                                fields: field_types,
+                            });
+                        }
+
+                        Ok(DustType::Enum(enum_name, variant_types))
+                    }
+                    Definition::StructType { fields, .. } => {
+                        let struct_name = self
+                            .symbols
+                            .get_symbol(&declaration.symbol_id)?
+                            .to_string();
+
+                        let field_declaration_ids =
+                            self.declarations.get_declaration_members(fields)?;
+                        let mut field_types = Vec::new();
+
+                        for field_declaration_id in field_declaration_ids {
+                            let field_declaration =
+                                self.declarations.get_declaration(*field_declaration_id)?;
+                            let Definition::Field {
+                                type_id: field_type_id,
+                                ..
+                            } = field_declaration.definition
+                            else {
+                                continue;
+                            };
+
+                            let field_dust_type =
+                                self.get_external_type(field_type_id, _source)?;
+                            let field_name = self
+                                .symbols
+                                .get_symbol(&field_declaration.symbol_id)?
+                                .to_string();
+
+                            field_types.push((field_name, field_dust_type));
+                        }
+
+                        Ok(DustType::Struct(Box::new(DustStructType {
+                            name: struct_name,
+                            fields: field_types,
+                        })))
+                    }
+                    _ => todo!("{type:?}"),
+                }
+            }
             _ => todo!("{type:?}"),
         }
     }

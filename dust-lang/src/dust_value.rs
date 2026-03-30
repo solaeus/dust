@@ -19,6 +19,11 @@ pub enum DustValue {
     F32(f32),
     F64(f64),
     Character(char),
+    Enum {
+        enum_name: String,
+        variant_name: String,
+        fields: Vec<DustValue>,
+    },
 }
 
 impl Display for DustValue {
@@ -36,8 +41,37 @@ impl Display for DustValue {
             DustValue::U64(integer) => write!(f, "{integer}"),
             DustValue::U128(integer) => write!(f, "{integer}"),
             DustValue::F32(float) => write!(f, "{float}"),
-            DustValue::F64(float) => write!(f, "{float}"),
+            DustValue::F64(float) => {
+                if float % 1.0 == 0.0 {
+                    write!(f, "{float:.1}")
+                } else {
+                    write!(f, "{float:.}")
+                }
+            }
             DustValue::Character(character) => write!(f, "'{character}'"),
+            DustValue::Enum {
+                variant_name,
+                fields,
+                ..
+            } => {
+                write!(f, "{variant_name}")?;
+
+                if !fields.is_empty() {
+                    write!(f, "(")?;
+
+                    for (index, field) in fields.iter().enumerate() {
+                        if index > 0 {
+                            write!(f, ", ")?;
+                        }
+
+                        write!(f, "{field}")?;
+                    }
+
+                    write!(f, ")")?;
+                }
+
+                Ok(())
+            }
         }
     }
 }

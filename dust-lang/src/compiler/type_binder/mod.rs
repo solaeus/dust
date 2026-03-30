@@ -56,7 +56,7 @@ impl<'a> TypeBinder<'a> {
         Ok(())
     }
 
-    pub fn infer_type(&self, type_id: TypeId) -> Result<TypeId, CompileError> {
+    fn infer_type(&self, type_id: TypeId) -> Result<TypeId, CompileError> {
         if let Type::Inferred {
             resolved: Some(resolved),
             ..
@@ -68,7 +68,7 @@ impl<'a> TypeBinder<'a> {
         }
     }
 
-    pub fn unify_types(
+    fn unify_types(
         &mut self,
         left: TypeId,
         left_syntax: Option<SyntaxReader>,
@@ -89,7 +89,7 @@ impl<'a> TypeBinder<'a> {
         self.unify_inferred_types(left_inferred, left_syntax, right_inferred, right_syntax)
     }
 
-    pub fn unify_inferred_types<'b>(
+    fn unify_inferred_types<'b>(
         &'b mut self,
         left: TypeId,
         left_syntax: Option<SyntaxReader<'b>>,
@@ -597,6 +597,47 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
                 self.resolver.types.add_type(algebraic_type)
             }
+            Definition::Variant { parent_enum, .. } => {
+                let parent_declaration = self.resolver.declarations.get_declaration(parent_enum)?;
+                let Definition::EnumType {
+                    type_parameters, ..
+                } = parent_declaration.definition
+                else {
+                    return Err(CompileError::ExpectedValue {
+                        node_kind: reader.node.kind,
+                        position: reader.position(),
+                    });
+                };
+
+                let type_argument_types: SmallVec<[TypeId; 4]> = type_parameters
+                    .as_range()
+                    .map(|index| {
+                        let type_parameter_declaration_id = self
+                            .resolver
+                            .declarations
+                            .get_declaration_member(index)
+                            .copied();
+
+                        match type_parameter_declaration_id {
+                            Ok(type_parameter_declaration_id) => self
+                                .resolver
+                                .type_parameter_map
+                                .get(&type_parameter_declaration_id)
+                                .copied()
+                                .unwrap_or_else(|| self.resolver.types.create_inferred_type(None)),
+                            Err(_) => self.resolver.types.create_inferred_type(None),
+                        }
+                    })
+                    .collect();
+
+                let type_arguments = self.resolver.types.add_type_members(type_argument_types);
+                let algebraic_type = Type::Algebraic {
+                    declaration_id: parent_enum,
+                    type_arguments,
+                };
+
+                self.resolver.types.add_type(algebraic_type)
+            }
             Definition::Use { item, .. } => {
                 let target_declaration = self.resolver.declarations.get_declaration(item)?;
 
@@ -845,11 +886,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let callee_type_id = self.visit_expression(callee, None)?;
         let resolved_callee_type_id = self.infer_type(callee_type_id)?;
         let callee_type = *self.resolver.types.get_type(resolved_callee_type_id)?;
-        let (value_parameters, return_type_id) = match callee_type {
+
+        match callee_type {
             Type::FunctionDefinition { declaration_id, .. } => {
                 let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
 
-                match declaration.definition {
+                let (value_parameters, return_type_id) = match declaration.definition {
                     Definition::Function {
                         value_parameters,
                         return_type_id,
@@ -866,52 +908,147 @@ impl SyntaxVisitor for TypeBinder<'_> {
                             position: callee.position(),
                         });
                     }
+                };
+
+                let mut argument_count = 0;
+                let mut parameter_range = value_parameters.as_range();
+
+                for argument in arguments.children() {
+                    let Some(parameter_index) = parameter_range.next() else {
+                        return Err(CompileError::ExpectedArguments {
+                            function_type: resolved_callee_type_id,
+                            expected_count: value_parameters.len(),
+                            found_count: arguments.child_count(),
+                            found_position: arguments.position(),
+                        });
+                    };
+                    let parameter_type_id =
+                        *self.resolver.types.get_type_member(parameter_index)?;
+                    let resolved_parameter_type_id =
+                        self.resolver.resolve_type(parameter_type_id)?;
+                    let argument_type_id = self.visit_expression(argument, None)?;
+
+                    self.unify_types(resolved_parameter_type_id, None, argument_type_id, argument)?;
+
+                    argument_count += 1;
                 }
+
+                if parameter_range.next().is_some() {
+                    return Err(CompileError::ExpectedArguments {
+                        function_type: resolved_callee_type_id,
+                        expected_count: value_parameters.len(),
+                        found_count: argument_count,
+                        found_position: arguments.position(),
+                    });
+                }
+
+                let resolved_return_type_id = self.resolver.resolve_type(return_type_id)?;
+
+                self.resolver
+                    .add_type_binding(reader.id, resolved_return_type_id);
+
+                Ok(resolved_return_type_id)
             }
-            _ => {
-                return Err(CompileError::ExpectedFunctionType {
-                    found: resolved_callee_type_id,
-                    position: callee.position(),
-                });
+            Type::Algebraic { type_arguments, .. } => {
+                let callee_declaration_id = *self.resolver.get_declaration_binding(&callee.id)?;
+                let callee_declaration = self
+                    .resolver
+                    .declarations
+                    .get_declaration(callee_declaration_id)?;
+
+                let Definition::Variant {
+                    parent_enum,
+                    fields,
+                    ..
+                } = callee_declaration.definition
+                else {
+                    return Err(CompileError::ExpectedFunctionType {
+                        found: resolved_callee_type_id,
+                        position: callee.position(),
+                    });
+                };
+
+                let parent_declaration = self.resolver.declarations.get_declaration(parent_enum)?;
+                let Definition::EnumType {
+                    type_parameters, ..
+                } = parent_declaration.definition
+                else {
+                    return Err(CompileError::ExpectedFunctionType {
+                        found: resolved_callee_type_id,
+                        position: callee.position(),
+                    });
+                };
+
+                for (parameter_index, argument_index) in
+                    type_parameters.as_range().zip(type_arguments.as_range())
+                {
+                    let parameter_declaration_id = *self
+                        .resolver
+                        .declarations
+                        .get_declaration_member(parameter_index)?;
+                    let argument_type_id = *self.resolver.types.get_type_member(argument_index)?;
+
+                    self.resolver
+                        .type_parameter_map
+                        .insert(parameter_declaration_id, argument_type_id);
+                }
+
+                let mut argument_count = 0;
+                let mut field_range = fields.as_range();
+
+                for argument in arguments.children() {
+                    let Some(field_index) = field_range.next() else {
+                        argument_count += 1;
+                        continue;
+                    };
+
+                    let field_declaration_id = *self
+                        .resolver
+                        .declarations
+                        .get_declaration_member(field_index)?;
+                    let field_declaration = self
+                        .resolver
+                        .declarations
+                        .get_declaration(field_declaration_id)?;
+
+                    let Definition::Field {
+                        type_id: field_type_id,
+                        ..
+                    } = field_declaration.definition
+                    else {
+                        return Err(CompileError::ExpectedValue {
+                            node_kind: callee.node.kind,
+                            position: callee.position(),
+                        });
+                    };
+
+                    let resolved_field_type_id = self.resolver.resolve_type(field_type_id)?;
+                    let argument_type_id = self.visit_expression(argument, None)?;
+
+                    self.unify_types(resolved_field_type_id, None, argument_type_id, argument)?;
+
+                    argument_count += 1;
+                }
+
+                if argument_count != fields.len() {
+                    return Err(CompileError::ExpectedArguments {
+                        function_type: resolved_callee_type_id,
+                        expected_count: fields.len() as usize,
+                        found_count: argument_count as usize,
+                        found_position: arguments.position(),
+                    });
+                }
+
+                self.resolver
+                    .add_type_binding(reader.id, resolved_callee_type_id);
+
+                Ok(resolved_callee_type_id)
             }
-        };
-
-        let mut argument_count = 0;
-        let mut parameter_range = value_parameters.as_range();
-
-        for argument in arguments.children() {
-            let Some(parameter_index) = parameter_range.next() else {
-                return Err(CompileError::ExpectedArguments {
-                    function_type: resolved_callee_type_id,
-                    expected_count: value_parameters.len(),
-                    found_count: arguments.child_count(),
-                    found_position: arguments.position(),
-                });
-            };
-            let parameter_type_id = *self.resolver.types.get_type_member(parameter_index)?;
-            let resolved_parameter_type_id = self.resolver.resolve_type(parameter_type_id)?;
-            let argument_type_id = self.visit_expression(argument, None)?;
-
-            self.unify_types(resolved_parameter_type_id, None, argument_type_id, argument)?;
-
-            argument_count += 1;
+            _ => Err(CompileError::ExpectedFunctionType {
+                found: resolved_callee_type_id,
+                position: callee.position(),
+            }),
         }
-
-        if parameter_range.next().is_some() {
-            return Err(CompileError::ExpectedArguments {
-                function_type: resolved_callee_type_id,
-                expected_count: value_parameters.len(),
-                found_count: argument_count,
-                found_position: arguments.position(),
-            });
-        }
-
-        let resolved_return_type_id = self.resolver.resolve_type(return_type_id)?;
-
-        self.resolver
-            .add_type_binding(reader.id, resolved_return_type_id);
-
-        Ok(resolved_return_type_id)
     }
 
     fn visit_type(&mut self, reader: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {

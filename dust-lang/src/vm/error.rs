@@ -26,6 +26,9 @@ pub enum VmError {
         register_count: usize,
         expected_type: DustType,
     },
+    InvalidRegisterIndex {
+        index: u16,
+    },
 }
 
 impl From<ConstantListError> for VmError {
@@ -47,7 +50,8 @@ impl<'a> AnnotatedError<'a> for VmError {
             | VmError::UnsupportedOperation { .. }
             | VmError::UnsupportedOperandType { .. }
             | VmError::CallStackUnderflow
-            | VmError::InvalidReturnValue { .. } => self.add_internal_report(groups),
+            | VmError::InvalidReturnValue { .. }
+            | VmError::InvalidRegisterIndex { .. } => self.add_internal_report(groups),
         }
     }
 }

@@ -27,7 +27,9 @@ pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
             errors,
             ..
         } = parser.parse();
+
         assert!(errors.is_empty(), "{errors:#?}");
+
         syntax.add_tree(syntax_tree);
     }
 
