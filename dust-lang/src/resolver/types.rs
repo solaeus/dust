@@ -237,7 +237,10 @@ pub enum Type {
     /// A view into a contiguous sequence of elements.
     ///
     /// `[T]`
-    Slice { element_type_id: TypeId },
+    Slice {
+        declaration_id: DeclarationId,
+        element_type_id: TypeId,
+    },
 
     /// An instance of a function definition type.
     ///
@@ -363,9 +366,11 @@ impl PartialEq for Type {
             (
                 Type::Slice {
                     element_type_id: left_element_type_id,
+                    ..
                 },
                 Type::Slice {
                     element_type_id: right_element_type_id,
+                    ..
                 },
             ) => left_element_type_id == right_element_type_id,
             (
@@ -491,9 +496,11 @@ impl Ord for Type {
             (
                 Type::Slice {
                     element_type_id: left_element_type_id,
+                    ..
                 },
                 Type::Slice {
                     element_type_id: right_element_type_id,
+                    ..
                 },
             ) => left_element_type_id.cmp(right_element_type_id),
             (Type::Slice { .. }, _) => Ordering::Less,
@@ -649,7 +656,9 @@ impl Hash for Type {
                 element_type_id.hash(state);
                 length.hash(state);
             }
-            Type::Slice { element_type_id } => {
+            Type::Slice {
+                element_type_id, ..
+            } => {
                 state.write_u8(17);
                 element_type_id.hash(state);
             }

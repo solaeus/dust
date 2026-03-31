@@ -74,10 +74,11 @@ pub trait SyntaxVisitor {
             SyntaxKind::IntegerExpression => self.visit_integer_expression(reader, input),
             SyntaxKind::StringExpression => self.visit_string_expression(reader, input),
             SyntaxKind::ArrayExpression => self.visit_array_expression(reader, input),
-            SyntaxKind::ArrayRepeatExpression => {
-                self.visit_array_repeat_expression(reader, input)
-            }
+            SyntaxKind::ArrayRepeatExpression => self.visit_array_repeat_expression(reader, input),
             SyntaxKind::IndexExpression => self.visit_index_expression(reader, input),
+            SyntaxKind::RangeExpression | SyntaxKind::RangeInclusiveExpression => {
+                self.visit_range_expression(reader, input)
+            }
             SyntaxKind::StructExpression => self.visit_struct_expression(reader, input),
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
@@ -190,6 +191,12 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_index_expression(
+        &mut self,
+        reader: SyntaxReader,
+        input: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError>;
+
+    fn visit_range_expression(
         &mut self,
         reader: SyntaxReader,
         input: Option<Self::ExpressionInput>,

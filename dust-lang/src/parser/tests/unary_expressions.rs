@@ -3,7 +3,10 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceFileId, Span},
-    syntax::{SyntaxId, node::{SyntaxKind::*, SyntaxPayload}},
+    syntax::{
+        SyntaxId,
+        node::{SyntaxKind::*, SyntaxPayload},
+    },
 };
 
 #[test]
@@ -23,7 +26,8 @@ fn negation() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 20), SyntaxId(8)),
-            FunctionItem.with_multiple_children(Span::new(0, 20), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 20), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
@@ -52,7 +56,8 @@ fn logical_not() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 20), SyntaxId(8)),
-            FunctionItem.with_multiple_children(Span::new(0, 20), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 20), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),

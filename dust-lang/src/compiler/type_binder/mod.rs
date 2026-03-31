@@ -1,20 +1,21 @@
 use lexical_core::{ParseIntegerOptions, format::RUST_LITERAL, parse_with_options};
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 
 use crate::{
     compiler::error::CompileError,
     resolver::{
         Resolver,
-        declarations::Definition,
+        declarations::{Declaration, DeclarationId, Definition},
+        scopes::ScopeId,
         types::{InferredTypeConstraint, Type, TypeId},
     },
     source::Source,
     syntax::{
         components::{
             ArrayExpression, ArrayRepeatExpression, AssignmentExpression, CallExpression,
-            ComparisonExpression, CompoundAssignmentExpression, ExpressionStatement,
-            FunctionType, GroupedExpression, IfExpression, IndexExpression, LetStatement,
-            LogicExpression, MathExpression, NegationExpression, NotExpression, StructExpression,
+            ComparisonExpression, CompoundAssignmentExpression, ExpressionStatement, FunctionType,
+            GroupedExpression, IfExpression, IndexExpression, LetStatement, LogicExpression,
+            MathExpression, NegationExpression, NotExpression, RangeExpression, StructExpression,
             StructExpressionStructFields, WhileExpression,
         },
         node::SyntaxKind,
@@ -340,6 +341,21 @@ impl<'a> TypeBinder<'a> {
 
                 Ok(())
             }
+            (
+                Type::Slice {
+                    element_type_id: slice_element_type_id,
+                    ..
+                },
+                Type::Array {
+                    element_type_id: array_element_type_id,
+                    ..
+                },
+            ) => self.unify_types(
+                slice_element_type_id,
+                left_syntax,
+                array_element_type_id,
+                right_syntax,
+            ),
             (left_type_node, right_type_node) => {
                 if left_type_node == right_type_node {
                     Ok(())
@@ -611,7 +627,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let IndexExpression { list, index } = reader.as_component()?;
 
         let list_type_id = self.visit_expression(list, None)?;
-        self.visit_expression(index, None)?;
+        let index_type_id = self.visit_expression(index, None)?;
 
         let list_type = *self.resolver.types.get_type(list_type_id)?;
 
@@ -627,9 +643,53 @@ impl SyntaxVisitor for TypeBinder<'_> {
             }
         };
 
-        self.resolver.add_type_binding(reader.id, element_type_id);
+        let index_type = *self.resolver.types.get_type(index_type_id)?;
 
-        Ok(element_type_id)
+        let result_type_id = if let Type::Algebraic { declaration_id, .. } = index_type {
+            if declaration_id == DeclarationId::RANGE
+                || declaration_id == DeclarationId::RANGE_INCLUSIVE
+            {
+                list_type_id
+            } else {
+                element_type_id
+            }
+        } else {
+            element_type_id
+        };
+
+        self.resolver.add_type_binding(reader.id, result_type_id);
+
+        Ok(result_type_id)
+    }
+
+    fn visit_range_expression(
+        &mut self,
+        reader: SyntaxReader,
+        _: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
+        let RangeExpression { start, end } = reader.as_component()?;
+
+        let start_type_id = self.visit_expression(start, None)?;
+        self.visit_expression(end, None)?;
+
+        let declaration_id = if reader.node.kind == SyntaxKind::RangeInclusiveExpression {
+            DeclarationId::RANGE_INCLUSIVE
+        } else {
+            DeclarationId::RANGE
+        };
+
+        let type_arguments = self
+            .resolver
+            .types
+            .add_type_members(smallvec![start_type_id]);
+        let range_type_id = self.resolver.types.add_type(Type::Algebraic {
+            declaration_id,
+            type_arguments,
+        });
+
+        self.resolver.add_type_binding(reader.id, range_type_id);
+
+        Ok(range_type_id)
     }
 
     fn visit_path_expression(
@@ -1176,10 +1236,18 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 let element_type = reader.single_child()?;
 
                 let element_type_id = self.visit_type(element_type)?;
+                let slice_symbol_id = self.resolver.symbols.add_symbol("[]");
+                let declaration_id = self.resolver.declarations.add_declaration(Declaration {
+                    symbol_id: slice_symbol_id,
+                    definition: Definition::TypeParameter,
+                    scope_id: ScopeId::CORE,
+                    syntax: None,
+                });
 
-                self.resolver
-                    .types
-                    .add_type(Type::Slice { element_type_id })
+                self.resolver.types.add_type(Type::Slice {
+                    declaration_id,
+                    element_type_id,
+                })
             }
             SyntaxKind::TupleType => {
                 let element_type_ids = reader

@@ -217,7 +217,10 @@ fn slice_type() {
 
     let parameter_types = resolver.types.get_type_members(value_parameters).unwrap();
     let slice_type = resolver.types.get_type(parameter_types[0]).unwrap();
-    let Type::Slice { element_type_id } = slice_type else {
+    let Type::Slice {
+        element_type_id, ..
+    } = slice_type
+    else {
         panic!();
     };
 

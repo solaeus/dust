@@ -182,8 +182,14 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::DoubleDot => ParseRule {
                 prefix: Parser::parse_unexpected,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Parser::parse_infix_binary_operator),
+                precedence: Precedence::Range,
+                associativity: Associativity::Left,
+            },
+            TokenKind::DoubleDotEqual => ParseRule {
+                prefix: Parser::parse_unexpected,
+                infix: Some(Parser::parse_infix_binary_operator),
+                precedence: Precedence::Range,
                 associativity: Associativity::Left,
             },
             TokenKind::Eof => ParseRule {
@@ -546,16 +552,17 @@ pub enum Associativity {
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Precedence {
-    Primary = 11,
-    Path = 10,
-    CallOrIndex = 9,
-    Unary = 8,
-    AsKeyword = 7,
-    PrimaryMath = 6,
-    SecondaryMath = 5,
-    Exponent = 4,
-    Comparison = 3,
-    Logic = 2,
+    Primary = 12,
+    Path = 11,
+    CallOrIndex = 10,
+    Unary = 9,
+    AsKeyword = 8,
+    PrimaryMath = 7,
+    SecondaryMath = 6,
+    Exponent = 5,
+    Comparison = 4,
+    Logic = 3,
+    Range = 2,
     Assignment = 1,
     None = 0,
 }
@@ -564,7 +571,8 @@ impl Precedence {
     pub fn increment(&self) -> Self {
         match self {
             Precedence::None => Precedence::Assignment,
-            Precedence::Assignment => Precedence::Logic,
+            Precedence::Assignment => Precedence::Range,
+            Precedence::Range => Precedence::Logic,
             Precedence::Logic => Precedence::Comparison,
             Precedence::Comparison => Precedence::Exponent,
             Precedence::Exponent => Precedence::SecondaryMath,

@@ -428,6 +428,25 @@ impl<'a> SyntaxComponent<'a> for IndexExpression<'a> {
     }
 }
 
+pub struct RangeExpression<'a> {
+    pub start: SyntaxReader<'a>,
+    pub end: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for RangeExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting range expression");
+        debug_assert!(matches!(
+            reader.node.kind,
+            SyntaxKind::RangeExpression | SyntaxKind::RangeInclusiveExpression
+        ));
+
+        let (start, end) = reader.binary_children()?;
+
+        Ok(Self { start, end })
+    }
+}
+
 pub struct IfExpression<'a> {
     pub condition: SyntaxReader<'a>,
     pub then_branch: SyntaxReader<'a>,

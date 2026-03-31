@@ -26,7 +26,8 @@ fn empty() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 20), SyntaxId(6)),
-            FunctionItem.with_multiple_children(Span::new(0, 20), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 20), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
@@ -53,13 +54,15 @@ fn item() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 33), SyntaxId(11)),
-            FunctionItem.with_multiple_children(Span::new(0, 33), SyntaxPayload::child_indices(3, 6)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 33), SyntaxPayload::child_indices(3, 6)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 33), SyntaxId(9)),
             BlockExpression.with_child(Span::new(16, 31), SyntaxId(8)),
-            FunctionItem.with_multiple_children(Span::new(18, 29), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(18, 29), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(21, 24)),
             FunctionParameters.with_child(Span::new(18, 26), SyntaxId(5)),
             ValueParameters.empty(Span::new(18, 26)),
@@ -85,7 +88,8 @@ fn statement() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 33), SyntaxId(9)),
-            FunctionItem.with_multiple_children(Span::new(0, 33), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 33), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
@@ -115,7 +119,8 @@ fn expression() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 27), SyntaxId(11)),
-            FunctionItem.with_multiple_children(Span::new(0, 27), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 27), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
@@ -147,13 +152,16 @@ fn mixed() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 51), SyntaxId(19)),
-            FunctionItem.with_multiple_children(Span::new(0, 51), SyntaxPayload::child_indices(6, 9)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 51), SyntaxPayload::child_indices(6, 9)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 51), SyntaxId(17)),
-            BlockExpression.with_multiple_children(Span::new(16, 49), SyntaxPayload::child_indices(3, 6)),
-            FunctionItem.with_multiple_children(Span::new(18, 29), SyntaxPayload::child_indices(0, 3)),
+            BlockExpression
+                .with_multiple_children(Span::new(16, 49), SyntaxPayload::child_indices(3, 6)),
+            FunctionItem
+                .with_multiple_children(Span::new(18, 29), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(21, 24)),
             FunctionParameters.with_child(Span::new(18, 26), SyntaxId(5)),
             ValueParameters.empty(Span::new(18, 26)),

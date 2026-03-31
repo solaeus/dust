@@ -93,6 +93,10 @@ pub enum SyntaxKind {
     ArrayRepeatExpression,
     IndexExpression,
 
+    // Range expressions
+    RangeExpression,
+    RangeInclusiveExpression,
+
     // Function expressions
     CallExpression,
 
@@ -270,6 +274,8 @@ impl SyntaxKind {
                 | SyntaxKind::NotExpression
                 | SyntaxKind::OrExpression
                 | SyntaxKind::PathExpression
+                | SyntaxKind::RangeExpression
+                | SyntaxKind::RangeInclusiveExpression
                 | SyntaxKind::ReturnExpression
                 | SyntaxKind::StringExpression
                 | SyntaxKind::StructExpression
@@ -363,6 +369,8 @@ impl SyntaxKind {
             SyntaxKind::Path => "path",
             SyntaxKind::PathExpression => "path expression",
             SyntaxKind::PathSegment => "path segment",
+            SyntaxKind::RangeExpression => "range expression",
+            SyntaxKind::RangeInclusiveExpression => "range inclusive expression",
             SyntaxKind::ReturnExpression => "return expression",
             SyntaxKind::Root => "root",
             SyntaxKind::SimplePath => "simple path",

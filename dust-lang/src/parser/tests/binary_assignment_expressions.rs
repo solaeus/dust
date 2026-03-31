@@ -26,12 +26,17 @@ fn add_assign() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 26), SyntaxId(9)),
-            FunctionItem.with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 26), SyntaxId(7)),
-            AdditionAssignmentExpression.with_binary_children(Span::new(16, 24), SyntaxId(5), SyntaxId(6)),
+            AdditionAssignmentExpression.with_binary_children(
+                Span::new(16, 24),
+                SyntaxId(5),
+                SyntaxId(6)
+            ),
             PathExpression.with_child(Span::new(16, 17), SyntaxId(4)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.empty(Span::new(21, 23)),
@@ -56,12 +61,17 @@ fn subtract_assign() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 26), SyntaxId(9)),
-            FunctionItem.with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 26), SyntaxId(7)),
-            SubtractionAssignmentExpression.with_binary_children(Span::new(16, 24), SyntaxId(5), SyntaxId(6)),
+            SubtractionAssignmentExpression.with_binary_children(
+                Span::new(16, 24),
+                SyntaxId(5),
+                SyntaxId(6)
+            ),
             PathExpression.with_child(Span::new(16, 17), SyntaxId(4)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.empty(Span::new(21, 23)),
@@ -86,12 +96,17 @@ fn multiply_assign() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 26), SyntaxId(9)),
-            FunctionItem.with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 26), SyntaxId(7)),
-            MultiplicationAssignmentExpression.with_binary_children(Span::new(16, 24), SyntaxId(5), SyntaxId(6)),
+            MultiplicationAssignmentExpression.with_binary_children(
+                Span::new(16, 24),
+                SyntaxId(5),
+                SyntaxId(6)
+            ),
             PathExpression.with_child(Span::new(16, 17), SyntaxId(4)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.empty(Span::new(21, 23)),
@@ -116,12 +131,17 @@ fn divide_assign() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 26), SyntaxId(9)),
-            FunctionItem.with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 26), SyntaxId(7)),
-            DivisionAssignmentExpression.with_binary_children(Span::new(16, 24), SyntaxId(5), SyntaxId(6)),
+            DivisionAssignmentExpression.with_binary_children(
+                Span::new(16, 24),
+                SyntaxId(5),
+                SyntaxId(6)
+            ),
             PathExpression.with_child(Span::new(16, 17), SyntaxId(4)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.empty(Span::new(21, 23)),
@@ -146,12 +166,17 @@ fn modulo_assign() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 26), SyntaxId(9)),
-            FunctionItem.with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 26), SyntaxId(7)),
-            ModuloAssignmentExpression.with_binary_children(Span::new(16, 24), SyntaxId(5), SyntaxId(6)),
+            ModuloAssignmentExpression.with_binary_children(
+                Span::new(16, 24),
+                SyntaxId(5),
+                SyntaxId(6)
+            ),
             PathExpression.with_child(Span::new(16, 17), SyntaxId(4)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.empty(Span::new(21, 23)),
@@ -176,12 +201,17 @@ fn power_assign() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 26), SyntaxId(9)),
-            FunctionItem.with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
+            FunctionItem
+                .with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 26), SyntaxId(7)),
-            ExponentAssignmentExpression.with_binary_children(Span::new(16, 24), SyntaxId(5), SyntaxId(6)),
+            ExponentAssignmentExpression.with_binary_children(
+                Span::new(16, 24),
+                SyntaxId(5),
+                SyntaxId(6)
+            ),
             PathExpression.with_child(Span::new(16, 17), SyntaxId(4)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.empty(Span::new(21, 23)),

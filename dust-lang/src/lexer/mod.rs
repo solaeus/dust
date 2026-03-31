@@ -90,10 +90,147 @@ impl<'src> Lexer<'src> {
 
     #[inline(always)]
     fn next_byte(&self) -> Option<u8> {
-        if self.index + 1 < self.source.len() {
-            Some(self.source[self.index + 1])
-        } else {
-            None
+        self.source.get(self.index + 1).copied()
+    }
+
+    #[inline(always)]
+    fn operator_or_punctuation(&self, current: u8) -> (TokenKind, usize) {
+        let next = self.next_byte();
+
+        match current {
+            b'*' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::AsteriskEqual, 2)
+                } else {
+                    (TokenKind::Asterisk, 1)
+                }
+            }
+            b'!' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::BangEqual, 2)
+                } else {
+                    (TokenKind::Bang, 1)
+                }
+            }
+            b'^' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::CaretEqual, 2)
+                } else {
+                    (TokenKind::Caret, 1)
+                }
+            }
+            b':' => {
+                if let Some(next) = next
+                    && next == b':'
+                {
+                    (TokenKind::DoubleColon, 2)
+                } else {
+                    (TokenKind::Colon, 1)
+                }
+            }
+            b',' => (TokenKind::Comma, 1),
+            b'.' => {
+                if let Some(next) = next
+                    && next == b'.'
+                {
+                    if self.source.get(self.index + 2) == Some(&b'=') {
+                        (TokenKind::DoubleDotEqual, 3)
+                    } else {
+                        (TokenKind::DoubleDot, 2)
+                    }
+                } else {
+                    (TokenKind::Dot, 1)
+                }
+            }
+            b'=' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::DoubleEqual, 2)
+                } else {
+                    (TokenKind::Equal, 1)
+                }
+            }
+            b'>' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::GreaterEqual, 2)
+                } else {
+                    (TokenKind::Greater, 1)
+                }
+            }
+            b'{' => (TokenKind::LeftCurlyBrace, 1),
+            b'[' => (TokenKind::LeftSquareBracket, 1),
+            b'(' => (TokenKind::LeftParenthesis, 1),
+            b'<' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::LessEqual, 2)
+                } else {
+                    (TokenKind::Less, 1)
+                }
+            }
+            b'-' => {
+                if let Some(next) = next {
+                    match next {
+                        b'=' => (TokenKind::MinusEqual, 2),
+                        b'>' => (TokenKind::ArrowThin, 2),
+                        _ => (TokenKind::Minus, 1),
+                    }
+                } else {
+                    (TokenKind::Minus, 1)
+                }
+            }
+            b'%' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::PercentEqual, 2)
+                } else {
+                    (TokenKind::Percent, 1)
+                }
+            }
+            b'+' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::PlusEqual, 2)
+                } else {
+                    (TokenKind::Plus, 1)
+                }
+            }
+            b'}' => (TokenKind::RightCurlyBrace, 1),
+            b']' => (TokenKind::RightSquareBracket, 1),
+            b')' => (TokenKind::RightParenthesis, 1),
+            b';' => (TokenKind::Semicolon, 1),
+            b'/' => {
+                if let Some(next) = next
+                    && next == b'='
+                {
+                    (TokenKind::SlashEqual, 2)
+                } else {
+                    (TokenKind::Slash, 1)
+                }
+            }
+            _ => {
+                let Some(next) = next else {
+                    return (TokenKind::Unknown, 1);
+                };
+
+                match (current, next) {
+                    (b'&', b'&') => (TokenKind::DoubleAmpersand, 2),
+                    (b'|', b'|') => (TokenKind::DoublePipe, 2),
+                    _ => (TokenKind::Unknown, 1),
+                }
+            }
         }
     }
 
@@ -538,7 +675,8 @@ impl Iterator for Lexer<'_> {
                     }
                 }
 
-                let (kind, width) = current_byte.operator_or_punctuation_kind(self.next_byte());
+                let (kind, width) = self.operator_or_punctuation(current_byte);
+
                 let span = Span::new(self.index, self.index + width);
                 self.index += width;
 
@@ -981,7 +1119,6 @@ const ASCII_CLASSES: [Utf8Class; 128] = {
 trait Utf8Byte {
     fn utf8_width(self) -> usize;
     fn class(self) -> Utf8Class;
-    fn operator_or_punctuation_kind(self, next: Option<u8>) -> (TokenKind, usize);
 }
 
 impl Utf8Byte for u8 {
@@ -996,141 +1133,6 @@ impl Utf8Byte for u8 {
             ASCII_CLASSES[self as usize]
         } else {
             Utf8Class::NON_ASCII
-        }
-    }
-
-    #[inline(always)]
-    fn operator_or_punctuation_kind(self, next: Option<u8>) -> (TokenKind, usize) {
-        match self {
-            b'*' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::AsteriskEqual, 2)
-                } else {
-                    (TokenKind::Asterisk, 1)
-                }
-            }
-            b'!' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::BangEqual, 2)
-                } else {
-                    (TokenKind::Bang, 1)
-                }
-            }
-            b'^' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::CaretEqual, 2)
-                } else {
-                    (TokenKind::Caret, 1)
-                }
-            }
-            b':' => {
-                if let Some(next) = next
-                    && next == b':'
-                {
-                    (TokenKind::DoubleColon, 2)
-                } else {
-                    (TokenKind::Colon, 1)
-                }
-            }
-            b',' => (TokenKind::Comma, 1),
-            b'.' => {
-                if let Some(next) = next
-                    && next == b'.'
-                {
-                    (TokenKind::DoubleDot, 2)
-                } else {
-                    (TokenKind::Dot, 1)
-                }
-            }
-            b'=' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::DoubleEqual, 2)
-                } else {
-                    (TokenKind::Equal, 1)
-                }
-            }
-            b'>' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::GreaterEqual, 2)
-                } else {
-                    (TokenKind::Greater, 1)
-                }
-            }
-            b'{' => (TokenKind::LeftCurlyBrace, 1),
-            b'[' => (TokenKind::LeftSquareBracket, 1),
-            b'(' => (TokenKind::LeftParenthesis, 1),
-            b'<' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::LessEqual, 2)
-                } else {
-                    (TokenKind::Less, 1)
-                }
-            }
-            b'-' => {
-                if let Some(next) = next {
-                    match next {
-                        b'=' => (TokenKind::MinusEqual, 2),
-                        b'>' => (TokenKind::ArrowThin, 2),
-                        _ => (TokenKind::Minus, 1),
-                    }
-                } else {
-                    (TokenKind::Minus, 1)
-                }
-            }
-            b'%' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::PercentEqual, 2)
-                } else {
-                    (TokenKind::Percent, 1)
-                }
-            }
-            b'+' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::PlusEqual, 2)
-                } else {
-                    (TokenKind::Plus, 1)
-                }
-            }
-            b'}' => (TokenKind::RightCurlyBrace, 1),
-            b']' => (TokenKind::RightSquareBracket, 1),
-            b')' => (TokenKind::RightParenthesis, 1),
-            b';' => (TokenKind::Semicolon, 1),
-            b'/' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::SlashEqual, 2)
-                } else {
-                    (TokenKind::Slash, 1)
-                }
-            }
-            _ => {
-                let Some(next) = next else {
-                    return (TokenKind::Unknown, 1);
-                };
-
-                match (self, next) {
-                    (b'&', b'&') => (TokenKind::DoubleAmpersand, 2),
-                    (b'|', b'|') => (TokenKind::DoublePipe, 2),
-                    _ => (TokenKind::Unknown, 1),
-                }
-            }
         }
     }
 }

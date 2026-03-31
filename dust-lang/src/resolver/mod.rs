@@ -4,7 +4,7 @@ pub mod scopes;
 pub mod symbols;
 pub mod types;
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
@@ -37,7 +37,6 @@ pub struct Resolver {
     pub scopes: Scopes,
     pub types: Types,
     pub type_parameter_map: HashMap<DeclarationId, TypeId>,
-    pub compilation_queue: VecDeque<CompilationRequest>,
 
     scope_search: HashSet<ScopeId, FxBuildHasher>,
 
@@ -60,7 +59,6 @@ impl Resolver {
             type_bindings: HashMap::default(),
             type_parameter_map: HashMap::new(),
             monomorphization_cache: HashMap::new(),
-            compilation_queue: VecDeque::new(),
         };
 
         add_core(&mut resolver);
@@ -131,6 +129,16 @@ impl Resolver {
         self.monomorphization_cache.insert(cache_key, prototype_id);
     }
 
+    pub fn get_concrete_type_arguments(
+        &self,
+        prototype_id: PrototypeId,
+    ) -> Option<&SmallVec<[TypeId; 4]>> {
+        self.monomorphization_cache
+            .iter()
+            .find(|(_, id)| **id == prototype_id)
+            .map(|((_, type_arguments), _)| type_arguments)
+    }
+
     pub fn resolve_type(&mut self, type_id: TypeId) -> Result<TypeId, ResolverError> {
         let resolved_type = *self.types.get_type(type_id)?;
 
@@ -138,6 +146,10 @@ impl Resolver {
             && let Some(&inferred_type_id) = self.type_parameter_map.get(&declaration_id)
         {
             inferred_type_id
+        } else if let Type::Slice { declaration_id, .. } = resolved_type
+            && let Some(&concrete_type_id) = self.type_parameter_map.get(&declaration_id)
+        {
+            return Ok(concrete_type_id);
         } else if matches!(resolved_type, Type::Inferred { .. }) {
             type_id
         } else {
@@ -231,21 +243,27 @@ impl Resolver {
                 declaration_id,
                 type_arguments,
             } => {
-                let declaration =
-                    self.declarations.get_declaration(*declaration_id)?;
+                let declaration = self.declarations.get_declaration(*declaration_id)?;
 
                 match &declaration.definition {
-                    Definition::EnumType { variants, type_parameters, .. } => {
+                    Definition::EnumType {
+                        variants,
+                        type_parameters,
+                        ..
+                    } => {
                         let mut operand_types = vec![OperandType::U_32];
 
                         let type_parameter_map: SmallVec<[(DeclarationId, TypeId); 4]> =
-                            type_parameters.as_range()
+                            type_parameters
+                                .as_range()
                                 .zip(type_arguments.as_range())
                                 .filter_map(|(parameter_index, argument_index)| {
-                                    let parameter_declaration_id = self.declarations
-                                        .get_declaration_member(parameter_index).ok()?;
-                                    let argument_type_id = self.types
-                                        .get_type_member(argument_index).ok()?;
+                                    let parameter_declaration_id = self
+                                        .declarations
+                                        .get_declaration_member(parameter_index)
+                                        .ok()?;
+                                    let argument_type_id =
+                                        self.types.get_type_member(argument_index).ok()?;
                                     Some((*parameter_declaration_id, *argument_type_id))
                                 })
                                 .collect();
@@ -255,8 +273,8 @@ impl Resolver {
                         let mut max_variant_operand_types: Vec<OperandType> = Vec::new();
 
                         for variant_declaration_id in variant_declaration_ids {
-                            let variant_declaration = self.declarations
-                                .get_declaration(*variant_declaration_id)?;
+                            let variant_declaration =
+                                self.declarations.get_declaration(*variant_declaration_id)?;
                             let Definition::Variant { fields, .. } =
                                 &variant_declaration.definition
                             else {
@@ -268,36 +286,46 @@ impl Resolver {
                             let mut variant_operand_types = Vec::new();
 
                             for field_declaration_id in field_declaration_ids {
-                                let field_declaration = self.declarations
-                                    .get_declaration(*field_declaration_id)?;
+                                let field_declaration =
+                                    self.declarations.get_declaration(*field_declaration_id)?;
                                 let Definition::Field {
-                                    type_id: field_type_id, ..
+                                    type_id: field_type_id,
+                                    ..
                                 } = field_declaration.definition
                                 else {
                                     continue;
                                 };
 
                                 let resolved_field_type = self.types.get_type(field_type_id)?;
-                                let concrete_type_id =
-                                    if let Type::Generic { declaration_id: parameter_declaration } =
-                                        resolved_field_type
-                                    {
-                                        type_parameter_map.iter()
-                                            .find(|(declaration, _)| declaration == parameter_declaration)
-                                            .map(|(_, type_id)| *type_id)
-                                            .unwrap_or(field_type_id)
-                                    } else {
-                                        field_type_id
-                                    };
-
-                                let resolved_type_id = match self.types.get_type(concrete_type_id)? {
-                                    Type::Inferred { resolved: Some(resolved), .. } => *resolved,
-                                    Type::Inferred { resolved: None, .. } => continue,
-                                    _ => concrete_type_id,
+                                let concrete_type_id = if let Type::Generic {
+                                    declaration_id: parameter_declaration,
+                                } = resolved_field_type
+                                {
+                                    type_parameter_map
+                                        .iter()
+                                        .find(|(declaration, _)| {
+                                            declaration == parameter_declaration
+                                        })
+                                        .map(|(_, type_id)| *type_id)
+                                        .unwrap_or(field_type_id)
+                                } else {
+                                    field_type_id
                                 };
 
+                                let resolved_type_id =
+                                    match self.types.get_type(concrete_type_id)? {
+                                        Type::Inferred {
+                                            resolved: Some(resolved),
+                                            ..
+                                        } => *resolved,
+                                        Type::Inferred { resolved: None, .. } => continue,
+                                        _ => concrete_type_id,
+                                    };
+
                                 match self.get_operand_types(resolved_type_id) {
-                                    Ok(field_operand_types) => variant_operand_types.extend(field_operand_types),
+                                    Ok(field_operand_types) => {
+                                        variant_operand_types.extend(field_operand_types)
+                                    }
                                     Err(_) => continue,
                                 }
                             }
@@ -316,10 +344,11 @@ impl Resolver {
                         let mut operand_types = Vec::new();
 
                         for field_declaration_id in field_declaration_ids {
-                            let field_declaration = self.declarations
-                                .get_declaration(*field_declaration_id)?;
+                            let field_declaration =
+                                self.declarations.get_declaration(*field_declaration_id)?;
                             let Definition::Field {
-                                type_id: field_type_id, ..
+                                type_id: field_type_id,
+                                ..
                             } = field_declaration.definition
                             else {
                                 continue;
@@ -333,7 +362,7 @@ impl Resolver {
                     _ => Err(ResolverError::ExpectedConcreteType),
                 }
             }
-            Type::Generic { declaration_id } => Err(ResolverError::ExpectedConcreteType),
+            Type::Generic { .. } => Err(ResolverError::ExpectedConcreteType),
             Type::Inferred {
                 resolved: Some(resolved),
                 ..
@@ -478,10 +507,8 @@ impl Resolver {
                         type_parameters,
                         ..
                     } => {
-                        let enum_name = self
-                            .symbols
-                            .get_symbol(&declaration.symbol_id)?
-                            .to_string();
+                        let enum_name =
+                            self.symbols.get_symbol(&declaration.symbol_id)?.to_string();
 
                         let type_parameter_map: SmallVec<[(DeclarationId, TypeId); 4]> =
                             type_parameters
@@ -540,7 +567,9 @@ impl Resolver {
                                 {
                                     type_parameter_map
                                         .iter()
-                                        .find(|(declaration, _)| declaration == parameter_declaration)
+                                        .find(|(declaration, _)| {
+                                            declaration == parameter_declaration
+                                        })
                                         .map(|(_, type_id)| *type_id)
                                         .unwrap_or(field_type_id)
                                 } else {
@@ -577,10 +606,8 @@ impl Resolver {
                         Ok(DustType::Enum(enum_name, variant_types))
                     }
                     Definition::StructType { fields, .. } => {
-                        let struct_name = self
-                            .symbols
-                            .get_symbol(&declaration.symbol_id)?
-                            .to_string();
+                        let struct_name =
+                            self.symbols.get_symbol(&declaration.symbol_id)?.to_string();
 
                         let field_declaration_ids =
                             self.declarations.get_declaration_members(fields)?;
@@ -597,8 +624,7 @@ impl Resolver {
                                 continue;
                             };
 
-                            let field_dust_type =
-                                self.get_external_type(field_type_id, _source)?;
+                            let field_dust_type = self.get_external_type(field_type_id, _source)?;
                             let field_name = self
                                 .symbols
                                 .get_symbol(&field_declaration.symbol_id)?
@@ -669,12 +695,6 @@ impl Default for Resolver {
     }
 }
 
-#[derive(Debug)]
-pub struct CompilationRequest {
-    pub declaration_id: DeclarationId,
-    pub prototype_id: PrototypeId,
-}
-
 fn add_core(resolver: &mut Resolver) {
     let _core_scope_id = resolver.scopes.add_scope(Scope {
         kind: ScopeKind::Module,
@@ -698,7 +718,6 @@ fn add_core(resolver: &mut Resolver) {
         let some_field_declaration_id = base_id.offset(1);
         let some_declaration_id = base_id.offset(2);
         let none_declaration_id = base_id.offset(3);
-        let option_declaration_id = base_id.offset(4);
 
         let t_type_id = resolver.types.add_type(Type::Generic {
             declaration_id: t_declaration_id,
@@ -715,7 +734,7 @@ fn add_core(resolver: &mut Resolver) {
             symbol_id: field_0_symbol,
             definition: Definition::Field {
                 public: false,
-                parent_struct: option_declaration_id,
+                parent_struct: DeclarationId::OPTION,
                 type_id: t_type_id,
             },
             scope_id: ScopeId::CORE,
@@ -730,7 +749,7 @@ fn add_core(resolver: &mut Resolver) {
             symbol_id: some_symbol,
             definition: Definition::Variant {
                 discriminant: 0,
-                parent_enum: option_declaration_id,
+                parent_enum: DeclarationId::OPTION,
                 type_parameters: DeclarationMembers::default(),
                 fields: some_fields,
             },
@@ -742,7 +761,7 @@ fn add_core(resolver: &mut Resolver) {
             symbol_id: none_symbol,
             definition: Definition::Variant {
                 discriminant: 1,
-                parent_enum: option_declaration_id,
+                parent_enum: DeclarationId::OPTION,
                 type_parameters: DeclarationMembers::default(),
                 fields: DeclarationMembers::default(),
             },
@@ -772,7 +791,7 @@ fn add_core(resolver: &mut Resolver) {
         debug_assert_eq!(_some_field_declaration_id, some_field_declaration_id);
         debug_assert_eq!(_some_declaration_id, some_declaration_id);
         debug_assert_eq!(_none_declaration_id, none_declaration_id);
-        debug_assert_eq!(_option_declaration_id, option_declaration_id);
+        debug_assert_eq!(_option_declaration_id, DeclarationId::OPTION);
     }
 
     {
@@ -788,7 +807,6 @@ fn add_core(resolver: &mut Resolver) {
         let ok_declaration_id = base_id.offset(3);
         let err_field_declaration_id = base_id.offset(4);
         let err_declaration_id = base_id.offset(5);
-        let result_declaration_id = base_id.offset(6);
 
         let t_type_id = resolver.types.add_type(Type::Generic {
             declaration_id: t_declaration_id,
@@ -815,7 +833,7 @@ fn add_core(resolver: &mut Resolver) {
             symbol_id: field_0_symbol,
             definition: Definition::Field {
                 public: false,
-                parent_struct: result_declaration_id,
+                parent_struct: DeclarationId::RESULT,
                 type_id: t_type_id,
             },
             scope_id: ScopeId::CORE,
@@ -830,7 +848,7 @@ fn add_core(resolver: &mut Resolver) {
             symbol_id: ok_symbol,
             definition: Definition::Variant {
                 discriminant: 0,
-                parent_enum: result_declaration_id,
+                parent_enum: DeclarationId::RESULT,
                 type_parameters: DeclarationMembers::default(),
                 fields: ok_fields,
             },
@@ -842,7 +860,7 @@ fn add_core(resolver: &mut Resolver) {
             symbol_id: field_0_symbol,
             definition: Definition::Field {
                 public: false,
-                parent_struct: result_declaration_id,
+                parent_struct: DeclarationId::RESULT,
                 type_id: e_type_id,
             },
             scope_id: ScopeId::CORE,
@@ -857,7 +875,7 @@ fn add_core(resolver: &mut Resolver) {
             symbol_id: err_symbol,
             definition: Definition::Variant {
                 discriminant: 1,
-                parent_enum: result_declaration_id,
+                parent_enum: DeclarationId::RESULT,
                 type_parameters: DeclarationMembers::default(),
                 fields: err_fields,
             },
@@ -889,6 +907,143 @@ fn add_core(resolver: &mut Resolver) {
         debug_assert_eq!(_ok_declaration_id, ok_declaration_id);
         debug_assert_eq!(_err_field_declaration_id, err_field_declaration_id);
         debug_assert_eq!(_err_declaration_id, err_declaration_id);
-        debug_assert_eq!(_result_declaration_id, result_declaration_id);
+        debug_assert_eq!(_result_declaration_id, DeclarationId::RESULT);
+    }
+
+    let start_symbol = resolver.symbols.add_symbol("start");
+    let end_symbol = resolver.symbols.add_symbol("end");
+    let last_symbol = resolver.symbols.add_symbol("last");
+
+    {
+        let range_symbol = resolver.symbols.add_symbol("Range");
+
+        let base_id = resolver.declarations.next_declaration_id();
+        let t_declaration_id = base_id;
+        let start_field_declaration_id = base_id.offset(1);
+        let end_field_declaration_id = base_id.offset(2);
+
+        let t_type_id = resolver.types.add_type(Type::Generic {
+            declaration_id: t_declaration_id,
+        });
+
+        let _t_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: t_symbol,
+            definition: Definition::TypeParameter,
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let _start_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: start_symbol,
+            definition: Definition::Field {
+                public: true,
+                parent_struct: DeclarationId::RANGE,
+                type_id: t_type_id,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let _end_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: end_symbol,
+            definition: Definition::Field {
+                public: true,
+                parent_struct: DeclarationId::RANGE,
+                type_id: t_type_id,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let type_parameters = resolver
+            .declarations
+            .add_declaration_members([t_declaration_id]);
+        let fields = resolver
+            .declarations
+            .add_declaration_members([start_field_declaration_id, end_field_declaration_id]);
+
+        let _range_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: range_symbol,
+            definition: Definition::StructType {
+                public: true,
+                type_parameters,
+                fields,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        debug_assert_eq!(_t_declaration_id, t_declaration_id);
+        debug_assert_eq!(_start_field_declaration_id, start_field_declaration_id);
+        debug_assert_eq!(_end_field_declaration_id, end_field_declaration_id);
+        debug_assert_eq!(_range_declaration_id, DeclarationId::RANGE);
+    }
+
+    {
+        let range_inclusive_symbol = resolver.symbols.add_symbol("RangeInclusive");
+
+        let base_id = resolver.declarations.next_declaration_id();
+        let t_declaration_id = base_id;
+        let start_field_declaration_id = base_id.offset(1);
+        let last_field_declaration_id = base_id.offset(2);
+
+        let t_type_id = resolver.types.add_type(Type::Generic {
+            declaration_id: t_declaration_id,
+        });
+
+        let _t_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: t_symbol,
+            definition: Definition::TypeParameter,
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let _start_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: start_symbol,
+            definition: Definition::Field {
+                public: true,
+                parent_struct: DeclarationId::RANGE_INCLUSIVE,
+                type_id: t_type_id,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let _last_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: last_symbol,
+            definition: Definition::Field {
+                public: true,
+                parent_struct: DeclarationId::RANGE_INCLUSIVE,
+                type_id: t_type_id,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let type_parameters = resolver
+            .declarations
+            .add_declaration_members([t_declaration_id]);
+        let fields = resolver
+            .declarations
+            .add_declaration_members([start_field_declaration_id, last_field_declaration_id]);
+
+        let _range_inclusive_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: range_inclusive_symbol,
+            definition: Definition::StructType {
+                public: true,
+                type_parameters,
+                fields,
+            },
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        debug_assert_eq!(_t_declaration_id, t_declaration_id);
+        debug_assert_eq!(_start_field_declaration_id, start_field_declaration_id);
+        debug_assert_eq!(_last_field_declaration_id, last_field_declaration_id);
+        debug_assert_eq!(
+            _range_inclusive_declaration_id,
+            DeclarationId::RANGE_INCLUSIVE
+        );
     }
 }

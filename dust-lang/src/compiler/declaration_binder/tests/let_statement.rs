@@ -204,10 +204,9 @@ fn block_visibility() {
     let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
-    let result =
-        resolver
-            .declarations
-            .find_declaration(x_symbol, body_scope, Visibility::Block);
+    let result = resolver
+        .declarations
+        .find_declaration(x_symbol, body_scope, Visibility::Block);
 
     assert!(
         result.is_none(),

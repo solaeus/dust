@@ -42,9 +42,6 @@ impl Display for CheckIndex {
             array_length,
         } = *self;
 
-        write!(
-            f,
-            "{index_memory}_{index_index} < {array_length}"
-        )
+        write!(f, "{index_memory}_{index_index} < {array_length}")
     }
 }

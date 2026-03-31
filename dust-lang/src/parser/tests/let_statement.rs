@@ -95,7 +95,8 @@ fn let_mut_statement() {
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 33), SyntaxId(6)),
             {
-                let mut node = LetStatement.with_binary_children(Span::new(16, 31), SyntaxId(4), SyntaxId(5));
+                let mut node =
+                    LetStatement.with_binary_children(Span::new(16, 31), SyntaxId(4), SyntaxId(5));
                 node.modifier = true;
                 node
             },
@@ -129,7 +130,8 @@ fn let_mut_statement_with_type() {
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 38), SyntaxId(7)),
             {
-                let mut node = LetStatement.with_multiple_children(Span::new(16, 36), SyntaxPayload::child_indices(0, 3));
+                let mut node = LetStatement
+                    .with_multiple_children(Span::new(16, 36), SyntaxPayload::child_indices(0, 3));
                 node.modifier = true;
                 node
             },

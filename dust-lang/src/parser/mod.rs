@@ -1093,6 +1093,8 @@ impl<'src> Parser<'src> {
             TokenKind::LessEqual => (SyntaxKind::LessThanOrEqualExpression, false),
             TokenKind::DoubleAmpersand => (SyntaxKind::AndExpression, false),
             TokenKind::DoublePipe => (SyntaxKind::OrExpression, false),
+            TokenKind::DoubleDot => (SyntaxKind::RangeExpression, false),
+            TokenKind::DoubleDotEqual => (SyntaxKind::RangeInclusiveExpression, false),
             _ => {
                 return Err(ParseError::ExpectedMultipleTokens {
                     expected: &[
@@ -1115,6 +1117,8 @@ impl<'src> Parser<'src> {
                         TokenKind::BangEqual,
                         TokenKind::DoubleAmpersand,
                         TokenKind::DoublePipe,
+                        TokenKind::DoubleDot,
+                        TokenKind::DoubleDotEqual,
                     ],
                     found: operator,
                     position: self.current_position(),

@@ -21,9 +21,9 @@ use crate::{
         components::{
             ArrayExpression, ArrayRepeatExpression, AssignmentExpression, CallExpression,
             ComparisonExpression, CompoundAssignmentExpression, EnumItem, EnumVariant,
-            ExpressionStatement, FunctionItem, FunctionParameters, FunctionType,
-            GroupedExpression, IfExpression, IndexExpression, LetStatement, LogicExpression,
-            MathExpression, ModuleItem, NegationExpression, NotExpression, StructExpression,
+            ExpressionStatement, FunctionItem, FunctionParameters, FunctionType, GroupedExpression,
+            IfExpression, IndexExpression, LetStatement, LogicExpression, MathExpression,
+            ModuleItem, NegationExpression, NotExpression, RangeExpression, StructExpression,
             StructExpressionStructFields, StructItem, StructItemStructFields,
             StructItemTupleFields, SyntaxComponent, UseItem, WhileExpression,
         },
@@ -296,9 +296,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             imports: SmallVec::new(),
         });
 
-        let type_parameters = if let Some(type_parameters) = type_parameters {
-            let mut declaration_ids =
-                SmallVec::<[DeclarationId; 4]>::with_capacity(type_parameters.child_count());
+        let mut type_parameter_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
+
+        if let Some(type_parameters) = type_parameters {
+            type_parameter_declaration_ids.reserve(type_parameters.child_count());
 
             for type_parameter in type_parameters.children() {
                 let type_parameter_name_str =
@@ -313,17 +314,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                         syntax: Some((type_parameter.position(), type_parameter.id)),
                     });
 
-                declaration_ids.push(type_parameter_declaration_id);
+                type_parameter_declaration_ids.push(type_parameter_declaration_id);
                 self.resolver
                     .add_declaration_binding(type_parameter.id, type_parameter_declaration_id);
             }
+        }
 
-            self.resolver
-                .declarations
-                .add_declaration_members(declaration_ids)
-        } else {
-            DeclarationMembers::default()
-        };
         let value_parameters = {
             let mut type_ids =
                 SmallVec::<[TypeId; 4]>::with_capacity(value_parameters.child_count());
@@ -348,11 +344,22 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 self.resolver
                     .add_declaration_binding(parameter_name.id, parameter_declaration_id);
 
+                if let Ok(Type::Slice { declaration_id, .. }) =
+                    self.resolver.types.get_type(parameter_type_id)
+                {
+                    type_parameter_declaration_ids.push(*declaration_id);
+                }
+
                 type_ids.push(parameter_type_id);
             }
 
             self.resolver.types.add_type_members(type_ids)
         };
+
+        let type_parameters = self
+            .resolver
+            .declarations
+            .add_declaration_members(type_parameter_declaration_ids);
         let return_type_id = if let Some(return_type) = return_type {
             self.visit_type(return_type)?
         } else {
@@ -373,7 +380,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         });
 
         self.resolver
-            .add_declaration_binding(reader.id, function_declaration_id);
+            .add_declaration_binding(name.id, function_declaration_id);
         self.resolver
             .add_scope_binding(body.id, self.current_scope_id);
 
@@ -871,6 +878,19 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
+    fn visit_range_expression(
+        &mut self,
+        reader: SyntaxReader,
+        _: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
+        let RangeExpression { start, end } = reader.as_component()?;
+
+        self.visit_expression(start, None)?;
+        self.visit_expression(end, None)?;
+
+        Ok(())
+    }
+
     fn visit_path_expression(
         &mut self,
         reader: SyntaxReader,
@@ -1128,10 +1148,18 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 let element_type = reader.single_child()?;
 
                 let element_type_id = self.visit_type(element_type)?;
+                let slice_symbol_id = self.resolver.symbols.add_symbol("[]");
+                let declaration_id = self.resolver.declarations.add_declaration(Declaration {
+                    symbol_id: slice_symbol_id,
+                    definition: Definition::TypeParameter,
+                    scope_id: self.current_scope_id,
+                    syntax: Some((reader.position(), reader.id)),
+                });
 
-                self.resolver
-                    .types
-                    .add_type(Type::Slice { element_type_id })
+                self.resolver.types.add_type(Type::Slice {
+                    declaration_id,
+                    element_type_id,
+                })
             }
             SyntaxKind::TupleType => {
                 let element_type_ids = reader

@@ -25,9 +25,10 @@ use crate::{
     program::Program,
     prototype::{PrototypeId, PrototypeList},
     resolver::{
-        CompilationRequest, Resolver,
-        declarations::{Definition, Visibility},
+        Resolver,
+        declarations::{DeclarationId, Definition, Visibility},
         scopes::{Scope, ScopeId, ScopeKind},
+        types::Type,
     },
     source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, components::FunctionItem, visitor::SyntaxVisitor},
@@ -54,6 +55,7 @@ pub struct Compiler<'src> {
     constants: ConstantListBuilder,
     resolver: Resolver,
     prototypes: PrototypeList,
+    compilation_stack: Vec<CompilationRequest>,
 }
 
 impl<'src> Compiler<'src> {
@@ -64,6 +66,7 @@ impl<'src> Compiler<'src> {
             constants: ConstantListBuilder::new(),
             resolver: Resolver::new(),
             prototypes: PrototypeList::new(),
+            compilation_stack: Vec::new(),
         }
     }
 
@@ -217,16 +220,14 @@ impl<'src> Compiler<'src> {
 
         debug_assert_eq!(main_prototype_id, PrototypeId::MAIN);
 
-        self.resolver
-            .compilation_queue
-            .push_back(CompilationRequest {
-                declaration_id: main_declaration_id,
-                prototype_id: main_prototype_id,
-            });
+        self.compilation_stack.push(CompilationRequest {
+            declaration_id: main_declaration_id,
+            prototype_id: main_prototype_id,
+        });
 
         let mut concrete_main_return_type_id = None;
 
-        while let Some(request) = self.resolver.compilation_queue.pop_front() {
+        while let Some(request) = self.compilation_stack.pop() {
             let declaration = *unwrap_or_return!(
                 self.resolver
                     .declarations
@@ -254,8 +255,9 @@ impl<'src> Compiler<'src> {
                     .get_tree(position.file_id)
                     .and_then(|tree| tree.get_node(syntax_id))
             );
-            let FunctionItem { parameters, body, .. } =
-                unwrap_or_return!(function_item.as_component());
+            let FunctionItem {
+                parameters, body, ..
+            } = unwrap_or_return!(function_item.as_component());
             let scope_id = *unwrap_or_return!(self.resolver.get_scope_binding(&body.id));
 
             self.resolver.type_parameter_map.clear();
@@ -272,6 +274,27 @@ impl<'src> Compiler<'src> {
                 self.resolver
                     .type_parameter_map
                     .insert(type_parameter_declaration_id, inferred_type_id);
+            }
+
+            if let Some(concrete_type_arguments) = self
+                .resolver
+                .get_concrete_type_arguments(request.prototype_id)
+                .cloned()
+            {
+                for (&type_parameter_declaration_id, concrete_type_id) in
+                    type_parameter_declaration_ids
+                        .iter()
+                        .zip(concrete_type_arguments.iter())
+                {
+                    let inferred_type_id =
+                        self.resolver.type_parameter_map[&type_parameter_declaration_id];
+                    let inferred_type =
+                        unwrap_or_return!(self.resolver.types.get_type_mut(inferred_type_id));
+
+                    if let Type::Inferred { resolved, .. } = inferred_type {
+                        *resolved = Some(*concrete_type_id);
+                    }
+                }
             }
 
             let mut type_binder = TypeBinder::new(&mut self.resolver, &self.source);
@@ -326,6 +349,7 @@ impl<'src> Compiler<'src> {
                     &mut self.constants,
                     &mut self.resolver,
                     &mut self.prototypes,
+                    &mut self.compilation_stack,
                 ),
             ) {
                 Ok(emitter) => emitter,
@@ -387,4 +411,10 @@ impl<'src> Compiler<'src> {
             Err(errors)
         }
     }
+}
+
+#[derive(Debug)]
+pub struct CompilationRequest {
+    pub declaration_id: DeclarationId,
+    pub prototype_id: PrototypeId,
 }

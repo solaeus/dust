@@ -314,7 +314,8 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let type_declaration_id = match type_node {
                     Type::Algebraic { declaration_id, .. }
                     | Type::FunctionDefinition { declaration_id, .. }
-                    | Type::Generic { declaration_id } => Some(*declaration_id),
+                    | Type::Generic { declaration_id }
+                    | Type::Slice { declaration_id, .. } => Some(*declaration_id),
                     _ => None,
                 };
                 let type_string = if let Some(declaration_id) = type_declaration_id {
