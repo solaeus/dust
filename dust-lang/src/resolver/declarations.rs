@@ -3,6 +3,8 @@ use std::{collections::HashMap, ops::Range};
 use rustc_hash::FxBuildHasher;
 
 use crate::{
+    constant_list::ConstantId,
+    instruction::OperandType,
     native_function::NativeFunction,
     resolver::{
         TypeId, error::ResolverError, scopes::ScopeId, symbols::SymbolId, types::TypeMembers,
@@ -173,7 +175,10 @@ pub enum Definition {
     ///
     /// - `use foo::bar;`
     /// - `pub use SomeEnum::Variant;`
-    Use { public: bool, item: DeclarationId },
+    Use {
+        public: bool,
+        item: DeclarationId,
+    },
 
     /// A `fn` item. This type definition can be instantiated as [`Type::FunctionDefinition`][].
     ///
@@ -261,6 +266,45 @@ pub enum Definition {
     ///
     /// `T` in `fn foo<T>(x: T) -> T { ... }`
     TypeParameter,
+
+    TypeAlias {
+        public: bool,
+        type_parameters: DeclarationMembers,
+        aliased_type_id: TypeId,
+    },
+
+    Constant {
+        public: bool,
+        type_id: TypeId,
+    },
+
+    Trait {
+        public: bool,
+        inner_scope_id: ScopeId,
+        type_parameters: DeclarationMembers,
+        supertraits: DeclarationMembers,
+        declarations: DeclarationMembers,
+    },
+
+    Implementation {
+        type_parameters: DeclarationMembers,
+        trait_declaration_id: Option<DeclarationId>,
+        trait_type_arguments: TypeMembers,
+        declarations: DeclarationMembers,
+    },
+
+    AssociatedConstant {
+        public: bool,
+        parent: DeclarationId,
+        type_id: TypeId,
+    },
+
+    AssociatedType {
+        public: bool,
+        parent: DeclarationId,
+        type_parameters: DeclarationMembers,
+        aliased_type_id: TypeId,
+    },
 }
 
 impl Definition {
@@ -272,10 +316,16 @@ impl Definition {
             | Definition::NativeFunction { .. }
             | Definition::StructType { .. }
             | Definition::EnumType { .. }
-            | Definition::Use { .. } => Visibility::Module,
-            Definition::Field { .. } | Definition::Variant { .. } | Definition::TypeParameter => {
-                Visibility::Type
-            }
+            | Definition::Use { .. }
+            | Definition::TypeAlias { .. }
+            | Definition::Constant { .. }
+            | Definition::Trait { .. }
+            | Definition::Implementation { .. } => Visibility::Module,
+            Definition::Field { .. }
+            | Definition::Variant { .. }
+            | Definition::TypeParameter
+            | Definition::AssociatedConstant { .. }
+            | Definition::AssociatedType { .. } => Visibility::Type,
         }
     }
 }
