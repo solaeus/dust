@@ -158,8 +158,8 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Dot => ParseRule {
                 prefix: Parser::parse_unexpected,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Parser::parse_infix_dot),
+                precedence: Precedence::CallOrIndex,
                 associativity: Associativity::Left,
             },
             TokenKind::DoubleAmpersand => ParseRule {

@@ -146,15 +146,18 @@ fn type_parameters() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 25), SyntaxId(8)),
+            Root.with_child(Span::new(0, 25), SyntaxId(11)),
             EnumItem.with_multiple_children(Span::new(0, 25), SyntaxPayload::child_indices(3, 6)),
             SimplePath.empty(Span::new(5, 8)),
-            EnumVariants.with_child(Span::new(0, 25), SyntaxId(6)),
+            EnumVariants.with_child(Span::new(0, 25), SyntaxId(9)),
             EnumUnitVariant.empty(Span::new(20, 23)),
             TypeParameters
                 .with_multiple_children(Span::new(8, 17), SyntaxPayload::child_indices(0, 3)),
+            TypeParameter.with_child(Span::new(9, 10), SyntaxId(2)),
             SimplePath.empty(Span::new(9, 10)),
+            TypeParameter.with_child(Span::new(12, 13), SyntaxId(4)),
             SimplePath.empty(Span::new(12, 13)),
+            TypeParameter.with_child(Span::new(15, 16), SyntaxId(6)),
             SimplePath.empty(Span::new(15, 16)),
         ]
     );

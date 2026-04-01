@@ -140,7 +140,9 @@ pub enum SyntaxKind {
     ValueParameters,
     TypeParameters,
     TypeArguments,
-    TraitBound,
+    TraitBounds,
+    TypeParameter,
+    WherePredicate,
     WhereClause,
     EnumVariants,
     EnumUnitVariant,
@@ -247,6 +249,7 @@ impl SyntaxKind {
                 | SyntaxKind::ConstItem
                 | SyntaxKind::TypeItem
                 | SyntaxKind::ImplItem
+                | SyntaxKind::ImplTraitItem
                 | SyntaxKind::TraitItem
         )
     }
@@ -262,6 +265,7 @@ impl SyntaxKind {
                 | SyntaxKind::ConstItem
                 | SyntaxKind::TypeItem
                 | SyntaxKind::ImplItem
+                | SyntaxKind::ImplTraitItem
                 | SyntaxKind::TraitItem
                 | SyntaxKind::LetStatement
                 | SyntaxKind::ExpressionStatement
@@ -418,7 +422,7 @@ impl SyntaxKind {
             SyntaxKind::SubtractionExpression => "subtraction expression",
             SyntaxKind::Trivia => "trivia",
             SyntaxKind::TraitBody => "trait body",
-            SyntaxKind::TraitBound => "trait bound",
+            SyntaxKind::TraitBounds => "trait bounds",
             SyntaxKind::TraitItem => "trait item",
             SyntaxKind::TraitMethod => "trait method",
             SyntaxKind::TraitConst => "trait const",
@@ -427,6 +431,7 @@ impl SyntaxKind {
             SyntaxKind::TypeItem => "type item",
             SyntaxKind::TypeArguments => "type arguments",
             SyntaxKind::TypeParameters => "type parameters",
+            SyntaxKind::TypeParameter => "type parameter",
             SyntaxKind::TypePath => "type path",
             SyntaxKind::TupleType => "tuple type",
             SyntaxKind::U128Type => "u128 type",
@@ -440,6 +445,7 @@ impl SyntaxKind {
             SyntaxKind::ValueParameterTypes => "value parameter types",
             SyntaxKind::WhileExpression => "while loop expression",
             SyntaxKind::WhereClause => "where clause",
+            SyntaxKind::WherePredicate => "where predicate",
         }
     }
 }

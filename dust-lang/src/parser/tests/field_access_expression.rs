@@ -32,8 +32,7 @@ fn field_access() {
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 21), SyntaxId(7)),
-            FieldAccessExpression
-                .with_binary_children(Span::new(16, 19), SyntaxId(5), SyntaxId(6)),
+            FieldAccessExpression.with_binary_children(Span::new(16, 19), SyntaxId(5), SyntaxId(6)),
             PathExpression.with_child(Span::new(16, 17), SyntaxId(4)),
             PathSegment.empty(Span::new(16, 17)),
             SimplePath.empty(Span::new(18, 19)),
@@ -65,8 +64,7 @@ fn method_call() {
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 26), SyntaxId(10)),
             CallExpression.with_binary_children(Span::new(16, 24), SyntaxId(7), SyntaxId(9)),
-            FieldAccessExpression
-                .with_binary_children(Span::new(16, 21), SyntaxId(5), SyntaxId(6)),
+            FieldAccessExpression.with_binary_children(Span::new(16, 21), SyntaxId(5), SyntaxId(6)),
             PathExpression.with_child(Span::new(16, 17), SyntaxId(4)),
             PathSegment.empty(Span::new(16, 17)),
             SimplePath.empty(Span::new(18, 21)),

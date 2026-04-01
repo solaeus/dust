@@ -43,10 +43,24 @@ fn with_function() {
     } = parser.parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
-
-    let nodes = syntax_tree.sorted_nodes();
-
-    assert_eq!(nodes.len(), 10, "expected 10 nodes, got {}: {nodes:#?}", nodes.len());
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        [
+            Root.with_child(Span::new(0, 28), SyntaxId(11)),
+            ImplItem.with_binary_children(Span::new(0, 28), SyntaxId(2), SyntaxId(10)),
+            TypePath.with_child(Span::new(5, 8), SyntaxId(1)),
+            PathSegment.empty(Span::new(5, 8)),
+            ImplBody.with_child(Span::new(9, 28), SyntaxId(9)),
+            FunctionItem
+                .with_multiple_children(Span::new(11, 26), SyntaxPayload::child_indices(0, 3),),
+            SimplePath.empty(Span::new(14, 17)),
+            FunctionParameters.with_child(Span::new(11, 23), SyntaxId(6)),
+            ValueParameters.with_binary_children(Span::new(11, 23), SyntaxId(4), SyntaxId(5)),
+            SimplePath.empty(Span::new(18, 22)),
+            SelfType.empty(Span::new(18, 22)),
+            BlockExpression.empty(Span::new(24, 26)),
+        ]
+    );
 }
 
 #[test]
@@ -62,10 +76,25 @@ fn with_pub_function() {
     } = parser.parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
-
-    let nodes = syntax_tree.sorted_nodes();
-
-    assert_eq!(nodes.len(), 10, "expected 10 nodes, got {}: {nodes:#?}", nodes.len());
+    assert_eq!(
+        syntax_tree.sorted_nodes(),
+        [
+            Root.with_child(Span::new(0, 32), SyntaxId(11)),
+            ImplItem.with_binary_children(Span::new(0, 32), SyntaxId(2), SyntaxId(10)),
+            TypePath.with_child(Span::new(5, 8), SyntaxId(1)),
+            PathSegment.empty(Span::new(5, 8)),
+            ImplBody.with_child(Span::new(9, 32), SyntaxId(9)),
+            FunctionItem
+                .with_multiple_children(Span::new(15, 30), SyntaxPayload::child_indices(0, 3),)
+                .with_modifier(true),
+            SimplePath.empty(Span::new(18, 21)),
+            FunctionParameters.with_child(Span::new(15, 27), SyntaxId(6)),
+            ValueParameters.with_binary_children(Span::new(15, 27), SyntaxId(4), SyntaxId(5)),
+            SimplePath.empty(Span::new(22, 26)),
+            SelfType.empty(Span::new(22, 26)),
+            BlockExpression.empty(Span::new(28, 30)),
+        ]
+    );
 }
 
 #[test]
@@ -85,12 +114,12 @@ fn trait_impl() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 19), SyntaxId(6)),
-            ImplItem
+            ImplTraitItem
                 .with_multiple_children(Span::new(0, 19), SyntaxPayload::child_indices(0, 3)),
-            TypePath.with_child(Span::new(13, 16), SyntaxId(3)),
+            TypePath.with_child(Span::new(13, 16), SyntaxId(2)),
             PathSegment.empty(Span::new(13, 16)),
             ImplBody.empty(Span::new(17, 19)),
-            TypePath.with_child(Span::new(5, 8), SyntaxId(1)),
+            Path.with_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
         ]
     );
@@ -112,16 +141,17 @@ fn with_where_clause() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 26), SyntaxId(9)),
-            ImplItem
-                .with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
+            Root.with_child(Span::new(0, 26), SyntaxId(11)),
+            ImplItem.with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
             TypePath.with_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             ImplBody.empty(Span::new(24, 26)),
-            WhereClause.with_binary_children(Span::new(9, 23), SyntaxId(4), SyntaxId(6)),
+            WhereClause.with_child(Span::new(9, 23), SyntaxId(8)),
+            WherePredicate.with_binary_children(Span::new(15, 23), SyntaxId(4), SyntaxId(7)),
             TypePath.with_child(Span::new(15, 18), SyntaxId(3)),
             PathSegment.empty(Span::new(15, 18)),
-            TraitBound.with_child(Span::new(20, 23), SyntaxId(5)),
+            TraitBounds.with_child(Span::new(20, 23), SyntaxId(6)),
+            Path.with_child(Span::new(20, 23), SyntaxId(5)),
             PathSegment.empty(Span::new(20, 23)),
         ]
     );

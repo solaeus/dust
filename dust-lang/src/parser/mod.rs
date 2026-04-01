@@ -312,6 +312,34 @@ impl<'src> Parser<'src> {
 
                 Ok(enum_node)
             }
+            TokenKind::Const => {
+                let mut const_node = self.parse_prefix_const_keyword()?;
+
+                const_node.modifier = true;
+
+                Ok(const_node)
+            }
+            TokenKind::Trait => {
+                let mut trait_node = self.parse_prefix_trait_keyword()?;
+
+                trait_node.modifier = true;
+
+                Ok(trait_node)
+            }
+            TokenKind::Type => {
+                let mut type_node = self.parse_prefix_type_keyword()?;
+
+                type_node.modifier = true;
+
+                Ok(type_node)
+            }
+            TokenKind::Impl => {
+                let mut impl_node = self.parse_prefix_impl_keyword()?;
+
+                impl_node.modifier = true;
+
+                Ok(impl_node)
+            }
             _ => Err(ParseError::ExpectedMultipleTokens {
                 expected: &[
                     TokenKind::Mod,
@@ -319,6 +347,10 @@ impl<'src> Parser<'src> {
                     TokenKind::Fn,
                     TokenKind::Struct,
                     TokenKind::Enum,
+                    TokenKind::Const,
+                    TokenKind::Trait,
+                    TokenKind::Type,
+                    TokenKind::Impl,
                 ],
                 found: self.current_token.kind,
                 position: self.current_position(),
@@ -408,6 +440,10 @@ impl<'src> Parser<'src> {
         let type_parameters_node = self.allow_type_parameters()?;
         let type_parameters_id = type_parameters_node.map(|node| self.tree_builder.add_node(node));
 
+        let where_clause_id = self
+            .allow_where_clause()?
+            .map(|node| self.tree_builder.add_node(node));
+
         let fields_id = match self.current_token.kind {
             TokenKind::LeftCurlyBrace => {
                 let fields_node = self.parse_struct_fields()?;
@@ -429,19 +465,23 @@ impl<'src> Parser<'src> {
             }
         };
 
-        if let Some(type_parameters_id) = type_parameters_id {
-            Ok(SyntaxKind::StructItem.with_multiple_children(
-                Span::new(start, self.previous_token.span.end()),
-                self.tree_builder
-                    .add_children([path_id, fields_id, type_parameters_id]),
-            ))
-        } else {
-            Ok(SyntaxKind::StructItem.with_binary_children(
-                Span::new(start, self.previous_token.span.end()),
-                path_id,
-                fields_id,
-            ))
+        let mut children = Self::new_child_buffer();
+        children.push(path_id);
+        children.push(fields_id);
+
+        if let Some(id) = type_parameters_id {
+            children.push(id);
         }
+
+        if let Some(id) = where_clause_id {
+            children.push(id);
+        }
+
+        Ok(self.create_node_with_children(
+            SyntaxKind::StructItem,
+            Span::new(start, self.previous_token.span.end()),
+            children,
+        ))
     }
 
     fn parse_struct_fields(&mut self) -> Result<SyntaxNode, ParseError> {
@@ -653,16 +693,29 @@ impl<'src> Parser<'src> {
         let mut value_parameters_children = Self::new_child_buffer();
 
         while !self.allow(TokenKind::RightParenthesis)? {
-            let parameter_path_node = self.expect_simple_path()?;
-            let parameter_path_id = self.tree_builder.add_node(parameter_path_node);
+            if self.current_token.kind == TokenKind::SelfValue {
+                let self_node = SyntaxKind::SimplePath.empty(self.current_token.span);
+                let self_id = self.tree_builder.add_node(self_node);
 
-            self.expect(TokenKind::Colon)?;
+                self.advance();
 
-            let parameter_type_node_id = self.expect_type()?;
-            let parameter_type_id = self.tree_builder.add_node(parameter_type_node_id);
+                let self_type_node = SyntaxKind::SelfType.empty(self.previous_token.span);
+                let self_type_id = self.tree_builder.add_node(self_type_node);
 
-            value_parameters_children.push(parameter_path_id);
-            value_parameters_children.push(parameter_type_id);
+                value_parameters_children.push(self_id);
+                value_parameters_children.push(self_type_id);
+            } else {
+                let parameter_path_node = self.expect_simple_path()?;
+                let parameter_path_id = self.tree_builder.add_node(parameter_path_node);
+
+                self.expect(TokenKind::Colon)?;
+
+                let parameter_type_node_id = self.expect_type()?;
+                let parameter_type_id = self.tree_builder.add_node(parameter_type_node_id);
+
+                value_parameters_children.push(parameter_path_id);
+                value_parameters_children.push(parameter_type_id);
+            }
 
             match self.current_token.kind {
                 TokenKind::Comma => self.advance(),
@@ -705,6 +758,10 @@ impl<'src> Parser<'src> {
         };
         let return_type_id = return_type_node.map(|node| self.tree_builder.add_node(node));
 
+        let where_clause_id = self
+            .allow_where_clause()?
+            .map(|node| self.tree_builder.add_node(node));
+
         if self.current_token.kind != TokenKind::LeftCurlyBrace {
             return Err(ParseError::ExpectedToken {
                 expected: TokenKind::LeftCurlyBrace,
@@ -716,13 +773,20 @@ impl<'src> Parser<'src> {
         let body_node = self.parse_prefix_left_brace()?;
         let body_id = self.tree_builder.add_node(body_node);
 
-        let children = if let Some(return_type_id) = return_type_id {
-            self.tree_builder
-                .add_children([name_id, parameters_id, body_id, return_type_id])
-        } else {
-            self.tree_builder
-                .add_children([name_id, parameters_id, body_id])
-        };
+        let mut children_buf = Self::new_child_buffer();
+        children_buf.push(name_id);
+        children_buf.push(parameters_id);
+        children_buf.push(body_id);
+
+        if let Some(id) = return_type_id {
+            children_buf.push(id);
+        }
+
+        if let Some(id) = where_clause_id {
+            children_buf.push(id);
+        }
+
+        let children = self.tree_builder.add_children(children_buf);
 
         Ok(SyntaxKind::FunctionItem
             .with_multiple_children(Span::new(start, self.previous_token.span.end()), children))
@@ -733,48 +797,64 @@ impl<'src> Parser<'src> {
 
         self.advance();
 
-        let mut children = Self::new_child_buffer();
+        let type_parameters_id = self
+            .allow_type_parameters()?
+            .map(|node| self.tree_builder.add_node(node));
 
-        if let Some(type_parameters_node) = self.allow_type_parameters()? {
-            let type_parameters_id = self.tree_builder.add_node(type_parameters_node);
+        let first_path_node = self.expect_path()?;
 
-            children.push(type_parameters_id);
-        }
-
-        let path_node = self.expect_path()?;
-        let path_id = self.tree_builder.add_node(path_node);
-
-        children.push(path_id);
-
-        if let Some(type_parameters_node) = self.allow_type_arguments()? {
-            let type_parameters_id = self.tree_builder.add_node(type_parameters_node);
-
-            children.push(type_parameters_id);
-        }
+        let type_arguments_id = self
+            .allow_type_arguments()?
+            .map(|node| self.tree_builder.add_node(node));
 
         if self.allow(TokenKind::For)? {
-            let type_path_node = self.expect_path()?;
-            let type_path_id = self.tree_builder.add_node(type_path_node);
+            let mut self_type_node = self.expect_path()?;
+            self_type_node.kind = SyntaxKind::TypePath;
+            let self_type_id = self.tree_builder.add_node(self_type_node);
 
-            children.push(type_path_id);
-
-            if let Some(type_parameters_node) = self.allow_type_parameters()? {
-                let type_parameters_id = self.tree_builder.add_node(type_parameters_node);
-
-                children.push(type_parameters_id);
-            }
+            let where_clause_id = self
+                .allow_where_clause()?
+                .map(|node| self.tree_builder.add_node(node));
 
             self.expect(TokenKind::LeftCurlyBrace)?;
+
+            let body_start = self.previous_token.span.start();
+            let mut body_children = Self::new_child_buffer();
 
             while !self.allow(TokenKind::RightCurlyBrace)? {
                 match self.expect_impl_item() {
                     Ok(item) => {
                         let item_id = self.tree_builder.add_node(item);
-
-                        children.push(item_id);
+                        body_children.push(item_id);
                     }
                     Err(error) => self.recover(error),
                 }
+            }
+
+            let body_node = self.create_node_with_children(
+                SyntaxKind::ImplBody,
+                Span::new(body_start, self.previous_token.span.end()),
+                body_children,
+            );
+            let body_id = self.tree_builder.add_node(body_node);
+
+            let trait_path_id = self.tree_builder.add_node(first_path_node);
+
+            let mut children = Self::new_child_buffer();
+            children.push(self_type_id);
+            children.push(body_id);
+            children.push(trait_path_id);
+
+            if let Some(id) = type_parameters_id {
+                children.push(id);
+            }
+
+            if let Some(id) = type_arguments_id {
+                children.push(id);
+            }
+
+            if let Some(id) = where_clause_id {
+                children.push(id);
             }
 
             Ok(self.create_node_with_children(
@@ -783,17 +863,50 @@ impl<'src> Parser<'src> {
                 children,
             ))
         } else {
+            let mut self_type_node = first_path_node;
+            self_type_node.kind = SyntaxKind::TypePath;
+            let self_type_id = self.tree_builder.add_node(self_type_node);
+
+            let where_clause_id = self
+                .allow_where_clause()?
+                .map(|node| self.tree_builder.add_node(node));
+
             self.expect(TokenKind::LeftCurlyBrace)?;
+
+            let body_start = self.previous_token.span.start();
+            let mut body_children = Self::new_child_buffer();
 
             while !self.allow(TokenKind::RightCurlyBrace)? {
                 match self.expect_impl_item() {
                     Ok(item) => {
                         let item_id = self.tree_builder.add_node(item);
-
-                        children.push(item_id);
+                        body_children.push(item_id);
                     }
                     Err(error) => self.recover(error),
                 }
+            }
+
+            let body_node = self.create_node_with_children(
+                SyntaxKind::ImplBody,
+                Span::new(body_start, self.previous_token.span.end()),
+                body_children,
+            );
+            let body_id = self.tree_builder.add_node(body_node);
+
+            let mut children = Self::new_child_buffer();
+            children.push(self_type_id);
+            children.push(body_id);
+
+            if let Some(id) = type_parameters_id {
+                children.push(id);
+            }
+
+            if let Some(id) = type_arguments_id {
+                children.push(id);
+            }
+
+            if let Some(id) = where_clause_id {
+                children.push(id);
             }
 
             Ok(self.create_node_with_children(
@@ -820,19 +933,42 @@ impl<'src> Parser<'src> {
             .allow_type_parameters()?
             .map(|node| self.tree_builder.add_node(node));
 
+        let supertraits_id = if self.allow(TokenKind::Colon)? {
+            let bounds_node = self.expect_trait_bounds()?;
+            Some(self.tree_builder.add_node(bounds_node))
+        } else {
+            None
+        };
+
+        let where_clause_id = self
+            .allow_where_clause()?
+            .map(|node| self.tree_builder.add_node(node));
+
         self.expect(TokenKind::LeftCurlyBrace)?;
+
+        let body_start = self.previous_token.span.start();
+        let mut body_children = Self::new_child_buffer();
 
         while !self.allow(TokenKind::RightCurlyBrace)? {
             match self.current_token.kind {
                 TokenKind::Fn => {
-                    let method_definition_node = self.expect_trait_method_definition()?;
-                    let method_definition_id = self.tree_builder.add_node(method_definition_node);
-
-                    children.push(method_definition_id);
+                    let method_node = self.expect_trait_method_definition()?;
+                    let method_id = self.tree_builder.add_node(method_node);
+                    body_children.push(method_id);
+                }
+                TokenKind::Const => {
+                    let const_node = self.expect_trait_const()?;
+                    let const_id = self.tree_builder.add_node(const_node);
+                    body_children.push(const_id);
+                }
+                TokenKind::Type => {
+                    let type_node = self.expect_trait_type()?;
+                    let type_id = self.tree_builder.add_node(type_node);
+                    body_children.push(type_id);
                 }
                 _ => {
                     return Err(ParseError::ExpectedMultipleTokens {
-                        expected: &[TokenKind::Fn],
+                        expected: &[TokenKind::Fn, TokenKind::Const, TokenKind::Type],
                         found: self.current_token.kind,
                         position: self.current_position(),
                     });
@@ -840,8 +976,25 @@ impl<'src> Parser<'src> {
             }
         }
 
-        if let Some(type_parameters_id) = type_parameters_id {
-            children.push(type_parameters_id);
+        let body_node = self.create_node_with_children(
+            SyntaxKind::TraitBody,
+            Span::new(body_start, self.previous_token.span.end()),
+            body_children,
+        );
+        let body_id = self.tree_builder.add_node(body_node);
+
+        children.push(body_id);
+
+        if let Some(id) = type_parameters_id {
+            children.push(id);
+        }
+
+        if let Some(id) = supertraits_id {
+            children.push(id);
+        }
+
+        if let Some(id) = where_clause_id {
+            children.push(id);
         }
 
         Ok(self.create_node_with_children(
@@ -1566,6 +1719,24 @@ impl<'src> Parser<'src> {
         ))
     }
 
+    fn parse_infix_dot(&mut self, left: SyntaxNode) -> Result<SyntaxNode, ParseError> {
+        let start = left.span.start();
+        let left_id = self.tree_builder.add_node(left);
+
+        self.advance();
+
+        let field_name_node = self.expect_simple_path()?;
+        let field_name_id = self.tree_builder.add_node(field_name_node);
+
+        let end = self.previous_token.span.end();
+
+        Ok(SyntaxKind::FieldAccessExpression.with_binary_children(
+            Span::new(start, end),
+            left_id,
+            field_name_id,
+        ))
+    }
+
     fn parse_infix_left_bracket(&mut self, left: SyntaxNode) -> Result<SyntaxNode, ParseError> {
         let start = left.span.start();
         let left_id = self.tree_builder.add_node(left);
@@ -1680,10 +1851,28 @@ impl<'src> Parser<'src> {
         let mut type_parameter_nodes = Self::new_child_buffer();
 
         while !self.allow(TokenKind::Greater)? {
+            let param_start = self.current_token.span.start();
             let type_parameter_path_node = self.expect_simple_path()?;
             let type_parameter_path_id = self.tree_builder.add_node(type_parameter_path_node);
 
-            type_parameter_nodes.push(type_parameter_path_id);
+            let type_parameter_node = if self.allow(TokenKind::Colon)? {
+                let bounds_node = self.expect_trait_bounds()?;
+                let bounds_id = self.tree_builder.add_node(bounds_node);
+
+                SyntaxKind::TypeParameter.with_binary_children(
+                    Span::new(param_start, self.previous_token.span.end()),
+                    type_parameter_path_id,
+                    bounds_id,
+                )
+            } else {
+                SyntaxKind::TypeParameter.with_child(
+                    Span::new(param_start, self.previous_token.span.end()),
+                    type_parameter_path_id,
+                )
+            };
+            let type_parameter_id = self.tree_builder.add_node(type_parameter_node);
+
+            type_parameter_nodes.push(type_parameter_id);
 
             match self.current_token.kind {
                 TokenKind::Comma => self.advance(),
@@ -1705,13 +1894,112 @@ impl<'src> Parser<'src> {
         )))
     }
 
+    fn expect_trait_bounds(&mut self) -> Result<SyntaxNode, ParseError> {
+        let start = self.current_token.span.start();
+        let mut bound_ids = Self::new_child_buffer();
+
+        let first_bound = self.expect_path()?;
+        let first_bound_id = self.tree_builder.add_node(first_bound);
+        bound_ids.push(first_bound_id);
+
+        while self.allow(TokenKind::Plus)? {
+            let bound = self.expect_path()?;
+            let bound_id = self.tree_builder.add_node(bound);
+            bound_ids.push(bound_id);
+        }
+
+        Ok(self.create_node_with_children(
+            SyntaxKind::TraitBounds,
+            Span::new(start, self.previous_token.span.end()),
+            bound_ids,
+        ))
+    }
+
+    fn allow_where_clause(&mut self) -> Result<Option<SyntaxNode>, ParseError> {
+        if !self.allow(TokenKind::Where)? {
+            return Ok(None);
+        }
+
+        let start = self.previous_token.span.start();
+        let mut predicate_ids = Self::new_child_buffer();
+
+        loop {
+            if matches!(
+                self.current_token.kind,
+                TokenKind::LeftCurlyBrace | TokenKind::Semicolon | TokenKind::Eof
+            ) {
+                break;
+            }
+
+            let predicate_start = self.current_token.span.start();
+
+            let mut type_node = self.expect_path()?;
+            type_node.kind = SyntaxKind::TypePath;
+            let type_id = self.tree_builder.add_node(type_node);
+
+            self.expect(TokenKind::Colon)?;
+
+            let bounds_node = self.expect_trait_bounds()?;
+            let bounds_id = self.tree_builder.add_node(bounds_node);
+
+            let predicate_node = SyntaxKind::WherePredicate.with_binary_children(
+                Span::new(predicate_start, self.previous_token.span.end()),
+                type_id,
+                bounds_id,
+            );
+            let predicate_id = self.tree_builder.add_node(predicate_node);
+            predicate_ids.push(predicate_id);
+
+            if !self.allow(TokenKind::Comma)? {
+                break;
+            }
+        }
+
+        Ok(Some(self.create_node_with_children(
+            SyntaxKind::WhereClause,
+            Span::new(start, self.previous_token.span.end()),
+            predicate_ids,
+        )))
+    }
+
     fn expect_impl_item(&mut self) -> Result<SyntaxNode, ParseError> {
         match self.current_token.kind {
             TokenKind::Fn => Ok(self.parse_prefix_fn_keyword()?),
             TokenKind::Const => Ok(self.parse_prefix_const_keyword()?),
             TokenKind::Type => Ok(self.parse_prefix_type_keyword()?),
+            TokenKind::Pub => {
+                self.advance();
+
+                match self.current_token.kind {
+                    TokenKind::Fn => {
+                        let mut node = self.parse_prefix_fn_keyword()?;
+                        node.modifier = true;
+                        Ok(node)
+                    }
+                    TokenKind::Const => {
+                        let mut node = self.parse_prefix_const_keyword()?;
+                        node.modifier = true;
+                        Ok(node)
+                    }
+                    TokenKind::Type => {
+                        let mut node = self.parse_prefix_type_keyword()?;
+                        node.modifier = true;
+                        Ok(node)
+                    }
+                    _ => Err(ParseError::ExpectedMultipleTokens {
+                        expected: &[TokenKind::Fn, TokenKind::Const, TokenKind::Type],
+                        found: self.current_token.kind,
+                        position: self.current_position(),
+                    }),
+                }
+            }
             _ => Err(ParseError::ExpectedMultipleTokens {
-                expected: &[TokenKind::Fn, TokenKind::Const, TokenKind::Type],
+                expected: &[
+                    TokenKind::Fn,
+                    TokenKind::Const,
+                    TokenKind::Type,
+                    TokenKind::Pub,
+                ],
                 found: self.current_token.kind,
                 position: self.current_position(),
             }),
@@ -1796,6 +2084,76 @@ impl<'src> Parser<'src> {
         Ok(None)
     }
 
+    fn expect_trait_const(&mut self) -> Result<SyntaxNode, ParseError> {
+        let start = self.current_token.span.start();
+
+        self.advance();
+
+        let name_node = self.expect_simple_path()?;
+        let name_id = self.tree_builder.add_node(name_node);
+
+        self.expect(TokenKind::Colon)?;
+
+        let type_node = self.expect_type()?;
+        let type_id = self.tree_builder.add_node(type_node);
+
+        if self.allow(TokenKind::Equal)? {
+            let expression_statement_node = self.pratt(Precedence::None)?;
+
+            if expression_statement_node.kind != SyntaxKind::ExpressionStatement {
+                return Err(ParseError::ExpectedToken {
+                    expected: TokenKind::Semicolon,
+                    found: self.current_token.kind,
+                    position: self.current_position(),
+                });
+            }
+
+            let expression_id = expression_statement_node.children.left_id();
+
+            let children = self
+                .tree_builder
+                .add_children([name_id, type_id, expression_id]);
+
+            Ok(SyntaxKind::TraitConst
+                .with_multiple_children(Span::new(start, self.previous_token.span.end()), children))
+        } else {
+            self.expect(TokenKind::Semicolon)?;
+
+            Ok(SyntaxKind::TraitConst.with_binary_children(
+                Span::new(start, self.previous_token.span.end()),
+                name_id,
+                type_id,
+            ))
+        }
+    }
+
+    fn expect_trait_type(&mut self) -> Result<SyntaxNode, ParseError> {
+        let start = self.current_token.span.start();
+
+        self.advance();
+
+        let name_node = self.expect_simple_path()?;
+        let name_id = self.tree_builder.add_node(name_node);
+
+        if self.allow(TokenKind::Equal)? {
+            let aliased_type_node = self.expect_type()?;
+            let aliased_type_id = self.tree_builder.add_node(aliased_type_node);
+
+            self.expect(TokenKind::Semicolon)?;
+
+            Ok(SyntaxKind::TraitType.with_binary_children(
+                Span::new(start, self.previous_token.span.end()),
+                name_id,
+                aliased_type_id,
+            ))
+        } else {
+            self.expect(TokenKind::Semicolon)?;
+
+            Ok(SyntaxKind::TraitType
+                .with_child(Span::new(start, self.previous_token.span.end()), name_id))
+        }
+    }
+
     fn expect_trait_method_definition(&mut self) -> Result<SyntaxNode, ParseError> {
         let start = self.current_token.span.start();
 
@@ -1812,16 +2170,29 @@ impl<'src> Parser<'src> {
         let mut value_parameters_children = Self::new_child_buffer();
 
         while !self.allow(TokenKind::RightParenthesis)? {
-            let parameter_path_node = self.expect_simple_path()?;
-            let parameter_path_id = self.tree_builder.add_node(parameter_path_node);
+            if self.current_token.kind == TokenKind::SelfValue {
+                let self_node = SyntaxKind::SimplePath.empty(self.current_token.span);
+                let self_id = self.tree_builder.add_node(self_node);
 
-            self.expect(TokenKind::Colon)?;
+                self.advance();
 
-            let parameter_type_node_id = self.expect_type()?;
-            let parameter_type_id = self.tree_builder.add_node(parameter_type_node_id);
+                let self_type_node = SyntaxKind::SelfType.empty(self.previous_token.span);
+                let self_type_id = self.tree_builder.add_node(self_type_node);
 
-            value_parameters_children.push(parameter_path_id);
-            value_parameters_children.push(parameter_type_id);
+                value_parameters_children.push(self_id);
+                value_parameters_children.push(self_type_id);
+            } else {
+                let parameter_path_node = self.expect_simple_path()?;
+                let parameter_path_id = self.tree_builder.add_node(parameter_path_node);
+
+                self.expect(TokenKind::Colon)?;
+
+                let parameter_type_node_id = self.expect_type()?;
+                let parameter_type_id = self.tree_builder.add_node(parameter_type_node_id);
+
+                value_parameters_children.push(parameter_path_id);
+                value_parameters_children.push(parameter_type_id);
+            }
 
             match self.current_token.kind {
                 TokenKind::Comma => self.advance(),
@@ -1857,74 +2228,42 @@ impl<'src> Parser<'src> {
         };
         let parameters_id = self.tree_builder.add_node(parameters_node);
 
-        if self.allow(TokenKind::Semicolon)? {
-            return Ok(SyntaxKind::TraitMethod.with_binary_children(
-                Span::new(start, self.previous_token.span.end()),
-                name_id,
-                parameters_id,
-            ));
-        }
-
-        if self.allow(TokenKind::ArrowThin)? {
+        let return_type_id = if self.allow(TokenKind::ArrowThin)? {
             let return_type_node = self.expect_type()?;
-            let return_type_id = self.tree_builder.add_node(return_type_node);
+            Some(self.tree_builder.add_node(return_type_node))
+        } else {
+            None
+        };
 
-            if self.allow(TokenKind::Semicolon)? {
-                let children =
-                    self.tree_builder
-                        .add_children([name_id, parameters_id, return_type_id]);
+        let where_clause_id = self
+            .allow_where_clause()?
+            .map(|node| self.tree_builder.add_node(node));
 
-                return Ok(SyntaxKind::TraitMethod.with_multiple_children(
-                    Span::new(start, self.previous_token.span.end()),
-                    children,
-                ));
-            }
+        let mut children = Self::new_child_buffer();
+        children.push(name_id);
+        children.push(parameters_id);
 
-            if self.allow(TokenKind::Semicolon)? {
-                let children =
-                    self.tree_builder
-                        .add_children([name_id, parameters_id, return_type_id]);
-
-                return Ok(SyntaxKind::TraitMethod.with_multiple_children(
-                    Span::new(start, self.previous_token.span.end()),
-                    children,
-                ));
-            }
-
-            if self.allow(TokenKind::LeftCurlyBrace)? {
-                let body_node = self.parse_prefix_left_brace()?;
-                let body_id = self.tree_builder.add_node(body_node);
-
-                let children = self.tree_builder.add_children([
-                    name_id,
-                    parameters_id,
-                    return_type_id,
-                    body_id,
-                ]);
-
-                return Ok(SyntaxKind::TraitMethod.with_multiple_children(
-                    Span::new(start, self.previous_token.span.end()),
-                    children,
-                ));
-            }
-
-            self.expect(TokenKind::Semicolon)?;
-
-            let children = self
-                .tree_builder
-                .add_children([name_id, parameters_id, return_type_id]);
-
-            Ok(SyntaxKind::TraitMethod
-                .with_multiple_children(Span::new(start, self.previous_token.span.end()), children))
+        if self.current_token.kind == TokenKind::LeftCurlyBrace {
+            let body_node = self.parse_prefix_left_brace()?;
+            let body_id = self.tree_builder.add_node(body_node);
+            children.push(body_id);
         } else {
             self.expect(TokenKind::Semicolon)?;
-
-            Ok(SyntaxKind::TraitMethod.with_binary_children(
-                Span::new(start, self.previous_token.span.end()),
-                name_id,
-                parameters_id,
-            ))
         }
+
+        if let Some(id) = return_type_id {
+            children.push(id);
+        }
+
+        if let Some(id) = where_clause_id {
+            children.push(id);
+        }
+
+        Ok(self.create_node_with_children(
+            SyntaxKind::TraitMethod,
+            Span::new(start, self.previous_token.span.end()),
+            children,
+        ))
     }
 }
 

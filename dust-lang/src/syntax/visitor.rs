@@ -28,7 +28,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::ConstItem => self.visit_const_item(reader),
             SyntaxKind::TypeItem => self.visit_type_item(reader),
             SyntaxKind::ImplItem => self.visit_impl_item(reader),
-            SyntaxKind::TraitItem => self.visit_trait_item(reader),
+            SyntaxKind::ImplTraitItem => self.visit_impl_trait_item(reader),
             _ => Err(CompileError::Unimplemented {
                 syntax_kind: reader.node.kind,
                 position: reader.position(),
@@ -49,7 +49,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::ConstItem => self.visit_const_item(reader).map(|_| None),
             SyntaxKind::TypeItem => self.visit_type_item(reader).map(|_| None),
             SyntaxKind::ImplItem => self.visit_impl_item(reader).map(|_| None),
-            SyntaxKind::TraitItem => self.visit_trait_item(reader).map(|_| None),
+            SyntaxKind::ImplTraitItem => self.visit_impl_trait_item(reader).map(|_| None),
             SyntaxKind::LetStatement => self.visit_let_statement(reader).map(Some),
             SyntaxKind::ExpressionStatement => self.visit_expression_statement(reader).map(Some),
             _ => Err(CompileError::Unimplemented {
@@ -111,9 +111,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::IfExpression => self.visit_if_expression(reader, input),
             SyntaxKind::WhileExpression => self.visit_while_expression(reader, input),
             SyntaxKind::CallExpression => self.visit_call_expression(reader, input),
-            SyntaxKind::FieldAccessExpression => {
-                self.visit_field_access_expression(reader, input)
-            }
+            SyntaxKind::FieldAccessExpression => self.visit_field_access_expression(reader, input),
             _ => Err(CompileError::Unimplemented {
                 syntax_kind: reader.node.kind,
                 position: reader.position(),
@@ -139,13 +137,7 @@ pub trait SyntaxVisitor {
 
     fn visit_impl_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError>;
 
-    fn visit_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError>;
-
-    fn visit_trait_method(&mut self, reader: SyntaxReader) -> Result<(), CompileError>;
-
-    fn visit_trait_const(&mut self, reader: SyntaxReader) -> Result<(), CompileError>;
-
-    fn visit_trait_type(&mut self, reader: SyntaxReader) -> Result<(), CompileError>;
+    fn visit_impl_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError>;
 
     fn visit_expression_statement(
         &mut self,

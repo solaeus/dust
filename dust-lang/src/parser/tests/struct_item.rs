@@ -100,14 +100,17 @@ fn type_parameters() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 22), SyntaxId(7)),
+            Root.with_child(Span::new(0, 22), SyntaxId(10)),
             StructItem.with_multiple_children(Span::new(0, 22), SyntaxPayload::child_indices(3, 6)),
             SimplePath.empty(Span::new(7, 10)),
             StructItemStructFields.empty(Span::new(20, 22)),
             TypeParameters
                 .with_multiple_children(Span::new(10, 19), SyntaxPayload::child_indices(0, 3)),
+            TypeParameter.with_child(Span::new(11, 12), SyntaxId(2)),
             SimplePath.empty(Span::new(11, 12)),
+            TypeParameter.with_child(Span::new(14, 15), SyntaxId(4)),
             SimplePath.empty(Span::new(14, 15)),
+            TypeParameter.with_child(Span::new(17, 18), SyntaxId(6)),
             SimplePath.empty(Span::new(17, 18)),
         ]
     );

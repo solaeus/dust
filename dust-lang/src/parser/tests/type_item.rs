@@ -31,10 +31,7 @@ fn simple() {
 
 #[test]
 fn with_type_parameters() {
-    let parser = Parser::new(
-        SourceFileId::MAIN,
-        Lexer::from_bytes(b"type Foo<T> = T;"),
-    );
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"type Foo<T> = T;"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -45,13 +42,13 @@ fn with_type_parameters() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 16), SyntaxId(6)),
-            TypeItem
-                .with_multiple_children(Span::new(0, 16), SyntaxPayload::child_indices(0, 3)),
+            Root.with_child(Span::new(0, 16), SyntaxId(7)),
+            TypeItem.with_multiple_children(Span::new(0, 16), SyntaxPayload::child_indices(0, 3)),
             SimplePath.empty(Span::new(5, 8)),
-            TypePath.with_child(Span::new(14, 15), SyntaxId(4)),
+            TypePath.with_child(Span::new(14, 15), SyntaxId(5)),
             PathSegment.empty(Span::new(14, 15)),
-            TypeParameters.with_child(Span::new(8, 11), SyntaxId(2)),
+            TypeParameters.with_child(Span::new(8, 11), SyntaxId(3)),
+            TypeParameter.with_child(Span::new(9, 10), SyntaxId(2)),
             SimplePath.empty(Span::new(9, 10)),
         ]
     );

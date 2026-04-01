@@ -80,16 +80,19 @@ fn type_parameters() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 20), SyntaxId(9)),
+            Root.with_child(Span::new(0, 20), SyntaxId(12)),
             FunctionItem
                 .with_multiple_children(Span::new(0, 20), SyntaxPayload::child_indices(3, 6)),
             SimplePath.empty(Span::new(3, 6)),
-            FunctionParameters.with_binary_children(Span::new(0, 17), SyntaxId(6), SyntaxId(5)),
+            FunctionParameters.with_binary_children(Span::new(0, 17), SyntaxId(9), SyntaxId(8)),
             ValueParameters.empty(Span::new(0, 17)),
             TypeParameters
                 .with_multiple_children(Span::new(6, 15), SyntaxPayload::child_indices(0, 3)),
+            TypeParameter.with_child(Span::new(7, 8), SyntaxId(2)),
             SimplePath.empty(Span::new(7, 8)),
+            TypeParameter.with_child(Span::new(10, 11), SyntaxId(4)),
             SimplePath.empty(Span::new(10, 11)),
+            TypeParameter.with_child(Span::new(13, 14), SyntaxId(6)),
             SimplePath.empty(Span::new(13, 14)),
             BlockExpression.empty(Span::new(18, 20)),
         ]
@@ -137,26 +140,29 @@ fn mixed() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 35), SyntaxId(17)),
+            Root.with_child(Span::new(0, 35), SyntaxId(20)),
             FunctionItem
                 .with_multiple_children(Span::new(0, 35), SyntaxPayload::child_indices(7, 11)),
             SimplePath.empty(Span::new(3, 6)),
-            FunctionParameters.with_binary_children(Span::new(0, 27), SyntaxId(12), SyntaxId(5)),
+            FunctionParameters.with_binary_children(Span::new(0, 27), SyntaxId(15), SyntaxId(8)),
             ValueParameters
                 .with_multiple_children(Span::new(0, 27), SyntaxPayload::child_indices(3, 7)),
             SimplePath.empty(Span::new(16, 17)),
-            TypePath.with_child(Span::new(19, 20), SyntaxId(7)),
+            TypePath.with_child(Span::new(19, 20), SyntaxId(10)),
             PathSegment.empty(Span::new(19, 20)),
             SimplePath.empty(Span::new(22, 23)),
-            TypePath.with_child(Span::new(25, 26), SyntaxId(10)),
+            TypePath.with_child(Span::new(25, 26), SyntaxId(13)),
             PathSegment.empty(Span::new(25, 26)),
             TypeParameters
                 .with_multiple_children(Span::new(6, 15), SyntaxPayload::child_indices(0, 3)),
+            TypeParameter.with_child(Span::new(7, 8), SyntaxId(2)),
             SimplePath.empty(Span::new(7, 8)),
+            TypeParameter.with_child(Span::new(10, 11), SyntaxId(4)),
             SimplePath.empty(Span::new(10, 11)),
+            TypeParameter.with_child(Span::new(13, 14), SyntaxId(6)),
             SimplePath.empty(Span::new(13, 14)),
             BlockExpression.empty(Span::new(33, 35)),
-            TypePath.with_child(Span::new(31, 32), SyntaxId(14)),
+            TypePath.with_child(Span::new(31, 32), SyntaxId(17)),
             PathSegment.empty(Span::new(31, 32)),
         ]
     );

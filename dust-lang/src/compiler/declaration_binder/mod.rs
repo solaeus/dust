@@ -283,6 +283,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             parameters,
             return_type,
             body,
+            ..
         } = reader.as_component()?;
         let FunctionParameters {
             value_parameters,
@@ -407,6 +408,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             name,
             type_parameters,
             fields,
+            ..
         } = reader.as_component()?;
 
         let struct_name_str = self.source.get_file_content(&name.position())?;
@@ -745,28 +747,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         })
     }
 
-    fn visit_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
-    }
-
-    fn visit_trait_method(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
-    }
-
-    fn visit_trait_const(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
-    }
-
-    fn visit_trait_type(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_impl_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         Err(CompileError::Unimplemented {
             syntax_kind: reader.node.kind,
             position: reader.position(),
