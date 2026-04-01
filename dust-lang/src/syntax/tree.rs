@@ -134,10 +134,7 @@ impl SyntaxTreeBuilder {
         self.tree.nodes[id.0 as usize] = node;
     }
 
-    pub fn add_children<T>(
-        &mut self,
-        children: impl IntoIterator<Item = SyntaxId>,
-    ) -> SyntaxPayload {
+    pub fn add_children(&mut self, children: impl IntoIterator<Item = SyntaxId>) -> SyntaxPayload {
         let start_index = self.tree.children.len() as u32;
 
         self.tree.children.extend(children);

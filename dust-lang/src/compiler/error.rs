@@ -147,7 +147,7 @@ pub enum CompileError {
         found: SyntaxKind,
     },
     ExpectedSyntaxKinds {
-        expected: &'static [SyntaxKind; 2],
+        expected: &'static [SyntaxKind],
         found: SyntaxKind,
     },
 }

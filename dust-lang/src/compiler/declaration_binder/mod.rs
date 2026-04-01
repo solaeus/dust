@@ -21,11 +21,12 @@ use crate::{
         components::{
             ArrayExpression, ArrayRepeatExpression, AssignmentExpression, CallExpression,
             ComparisonExpression, CompoundAssignmentExpression, EnumItem, EnumVariant,
-            ExpressionStatement, FunctionItem, FunctionParameters, FunctionType, GroupedExpression,
-            IfExpression, IndexExpression, LetStatement, LogicExpression, MathExpression,
-            ModuleItem, NegationExpression, NotExpression, RangeExpression, StructExpression,
-            StructExpressionStructFields, StructItem, StructItemStructFields,
-            StructItemTupleFields, SyntaxComponent, UseItem, WhileExpression,
+            ExpressionStatement, FieldAccessExpression, FunctionItem, FunctionParameters,
+            FunctionType, GroupedExpression, IfExpression, IndexExpression, LetStatement,
+            LogicExpression, MathExpression, ModuleItem, NegationExpression, NotExpression,
+            RangeExpression, StructExpression, StructExpressionStructFields, StructItem,
+            StructItemStructFields, StructItemTupleFields, SyntaxComponent, UseItem,
+            WhileExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -723,6 +724,55 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
+    fn visit_const_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
+    fn visit_type_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
+    fn visit_impl_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
+    fn visit_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
+    fn visit_trait_method(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
+    fn visit_trait_const(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
+    fn visit_trait_type(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
     fn visit_let_statement(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let LetStatement {
             mutable,
@@ -1105,30 +1155,19 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
-    fn visit_type(&mut self, reader: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
-        debug!("Visiting type");
-        debug_assert!(matches!(
-            reader.node.kind,
-            SyntaxKind::BooleanType
-                | SyntaxKind::I8Type
-                | SyntaxKind::I16Type
-                | SyntaxKind::I32Type
-                | SyntaxKind::I64Type
-                | SyntaxKind::I128Type
-                | SyntaxKind::U8Type
-                | SyntaxKind::U16Type
-                | SyntaxKind::U32Type
-                | SyntaxKind::U64Type
-                | SyntaxKind::U128Type
-                | SyntaxKind::F32Type
-                | SyntaxKind::F64Type
-                | SyntaxKind::CharacterType
-                | SyntaxKind::SliceType
-                | SyntaxKind::TupleType
-                | SyntaxKind::FunctionType
-                | SyntaxKind::TypePath
-        ),);
+    fn visit_field_access_expression(
+        &mut self,
+        reader: SyntaxReader,
+        _: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
+        let FieldAccessExpression { operand, .. } = reader.as_component()?;
 
+        self.visit_expression(operand, None)?;
+
+        Ok(())
+    }
+
+    fn visit_type(&mut self, reader: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
         let type_id = match reader.node.kind {
             SyntaxKind::BooleanType => TypeId::BOOLEAN,
             SyntaxKind::I8Type => TypeId::I_8,
@@ -1224,7 +1263,31 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     }
                 }
             }
-            _ => unreachable!(),
+            _ => {
+                return Err(CompileError::ExpectedSyntaxKinds {
+                    expected: &[
+                        SyntaxKind::BooleanType,
+                        SyntaxKind::I8Type,
+                        SyntaxKind::I16Type,
+                        SyntaxKind::I32Type,
+                        SyntaxKind::I64Type,
+                        SyntaxKind::I128Type,
+                        SyntaxKind::U8Type,
+                        SyntaxKind::U16Type,
+                        SyntaxKind::U32Type,
+                        SyntaxKind::U64Type,
+                        SyntaxKind::U128Type,
+                        SyntaxKind::F32Type,
+                        SyntaxKind::F64Type,
+                        SyntaxKind::CharacterType,
+                        SyntaxKind::SliceType,
+                        SyntaxKind::TupleType,
+                        SyntaxKind::FunctionType,
+                        SyntaxKind::TypePath,
+                    ],
+                    found: reader.node.kind,
+                });
+            }
         };
 
         Ok(type_id)

@@ -240,7 +240,7 @@ impl<'a> Emitter<'a> {
                 }
                 _ => {
                     unreachable!(
-                        "Invalid jump anchor instruction: {:?}",
+                        "Invalid jump anchor instruction: {}",
                         instruction.operation()
                     );
                 }
@@ -1341,6 +1341,55 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_enum_item(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
         todo!()
+    }
+
+    fn visit_const_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
+    fn visit_type_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
+    fn visit_impl_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
+    fn visit_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
+    fn visit_trait_method(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
+    fn visit_trait_const(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
+    fn visit_trait_type(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
     }
 
     fn visit_expression_statement(
@@ -3568,6 +3617,17 @@ impl SyntaxVisitor for Emitter<'_> {
         call_instructions.set_target(target);
 
         Ok(Emission::Instructions(call_instructions))
+    }
+
+    fn visit_field_access_expression(
+        &mut self,
+        reader: SyntaxReader,
+        _: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
     }
 
     fn visit_type(&mut self, _: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {

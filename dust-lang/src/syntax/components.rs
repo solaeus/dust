@@ -567,3 +567,237 @@ impl<'a> SyntaxComponent<'a> for FunctionType<'a> {
         })
     }
 }
+
+pub struct ConstItem<'a> {
+    pub public: bool,
+    pub name: SyntaxReader<'a>,
+    pub type_annotation: SyntaxReader<'a>,
+    pub value: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for ConstItem<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting const item");
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::ConstItem));
+
+        let mut children = reader.children();
+
+        Ok(Self {
+            public: reader.node.modifier,
+            name: children.expect_next()?,
+            type_annotation: children.expect_next()?,
+            value: children.expect_next()?,
+        })
+    }
+}
+
+pub struct TypeItem<'a> {
+    pub public: bool,
+    pub name: SyntaxReader<'a>,
+    pub type_parameters: Option<SyntaxReader<'a>>,
+    pub aliased_type: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for TypeItem<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting type item");
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::TypeItem));
+
+        let mut children = reader.children();
+
+        Ok(Self {
+            public: reader.node.modifier,
+            name: children.expect_next()?,
+            aliased_type: children.expect_next()?,
+            type_parameters: children.next(),
+        })
+    }
+}
+
+pub struct ImplItem<'a> {
+    pub type_parameters: Option<SyntaxReader<'a>>,
+    pub trait_path: Option<SyntaxReader<'a>>,
+    pub self_type: SyntaxReader<'a>,
+    pub body: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for ImplItem<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting impl item");
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::ImplItem));
+
+        let mut children = reader.children();
+
+        Ok(Self {
+            self_type: children.expect_next()?,
+            body: children.expect_next()?,
+            type_parameters: children.next(),
+            trait_path: children.next(),
+        })
+    }
+}
+
+pub struct TraitItem<'a> {
+    pub public: bool,
+    pub name: SyntaxReader<'a>,
+    pub body: SyntaxReader<'a>,
+    pub type_parameters: Option<SyntaxReader<'a>>,
+    pub supertraits: Vec<SyntaxReader<'a>>,
+    pub where_clause: Option<SyntaxReader<'a>>,
+}
+
+impl<'a> SyntaxComponent<'a> for TraitItem<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting trait item");
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::TraitItem));
+
+        let mut children = reader.children();
+
+        let name = children.expect_next()?;
+        let body = children.expect_next()?;
+
+        let mut type_parameters = None;
+        let mut supertraits = Vec::new();
+        let mut where_clause = None;
+
+        for child in children {
+            match child.node.kind {
+                SyntaxKind::TypeParameters => type_parameters = Some(child),
+                SyntaxKind::TraitBound => supertraits.push(child),
+                SyntaxKind::WhereClause => where_clause = Some(child),
+                _ => {}
+            }
+        }
+
+        Ok(Self {
+            public: reader.node.modifier,
+            name,
+            body,
+            type_parameters,
+            supertraits,
+            where_clause,
+        })
+    }
+}
+
+pub struct TraitMethod<'a> {
+    pub public: bool,
+    pub name: SyntaxReader<'a>,
+    pub parameters: SyntaxReader<'a>,
+    pub body: Option<SyntaxReader<'a>>,
+    pub return_type: Option<SyntaxReader<'a>>,
+    pub where_clause: Option<SyntaxReader<'a>>,
+}
+
+impl<'a> SyntaxComponent<'a> for TraitMethod<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting trait method");
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::TraitMethod));
+
+        let mut children = reader.children();
+
+        let name = children.expect_next()?;
+        let parameters = children.expect_next()?;
+
+        let mut body = None;
+        let mut return_type = None;
+        let mut where_clause = None;
+
+        for child in children {
+            match child.node.kind {
+                SyntaxKind::BlockExpression => body = Some(child),
+                SyntaxKind::WhereClause => where_clause = Some(child),
+                _ => return_type = Some(child),
+            }
+        }
+
+        Ok(Self {
+            public: reader.node.modifier,
+            name,
+            parameters,
+            body,
+            return_type,
+            where_clause,
+        })
+    }
+}
+
+pub struct TraitConst<'a> {
+    pub name: SyntaxReader<'a>,
+    pub type_annotation: SyntaxReader<'a>,
+    pub value: Option<SyntaxReader<'a>>,
+}
+
+impl<'a> SyntaxComponent<'a> for TraitConst<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting trait const");
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::TraitConst));
+
+        let mut children = reader.children();
+
+        let name = children.expect_next()?;
+        let type_annotation = children.expect_next()?;
+        let value = children.next();
+
+        Ok(Self {
+            name,
+            type_annotation,
+            value,
+        })
+    }
+}
+
+pub struct TraitType<'a> {
+    pub name: SyntaxReader<'a>,
+    pub type_parameters: Option<SyntaxReader<'a>>,
+    pub aliased_type: Option<SyntaxReader<'a>>,
+}
+
+impl<'a> SyntaxComponent<'a> for TraitType<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting trait type");
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::TraitType));
+
+        let mut children = reader.children();
+
+        let name = children.expect_next()?;
+
+        let mut type_parameters = None;
+        let mut aliased_type = None;
+
+        for child in children {
+            match child.node.kind {
+                SyntaxKind::TypeParameters => type_parameters = Some(child),
+                _ => aliased_type = Some(child),
+            }
+        }
+
+        Ok(Self {
+            name,
+            type_parameters,
+            aliased_type,
+        })
+    }
+}
+
+pub struct FieldAccessExpression<'a> {
+    pub operand: SyntaxReader<'a>,
+    pub field_name: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for FieldAccessExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting field access expression");
+        debug_assert!(matches!(
+            reader.node.kind,
+            SyntaxKind::FieldAccessExpression
+        ));
+
+        let (operand, field_name) = reader.binary_children()?;
+
+        Ok(Self {
+            operand,
+            field_name,
+        })
+    }
+}

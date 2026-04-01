@@ -772,6 +772,7 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
             b'f' => match &token[1..3] {
                 b"32" => Some(TokenKind::F32),
                 b"64" => Some(TokenKind::F64),
+                b"or" => Some(TokenKind::For),
                 _ => None,
             },
             b'i' => match &token[1..3] {
@@ -817,6 +818,10 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
             _ => None,
         },
         4 => match token[0] {
+            b'S' => match &token[1..4] {
+                b"elf" => Some(TokenKind::SelfType),
+                _ => None,
+            },
             b'b' => match &token[1..4] {
                 b"ool" => Some(TokenKind::Bool),
                 _ => None,
@@ -833,14 +838,20 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
             },
             b'i' => match &token[1..4] {
                 b"128" => Some(TokenKind::I128),
+                b"mpl" => Some(TokenKind::Impl),
                 _ => None,
             },
             b'l' => match &token[1..4] {
                 b"oop" => Some(TokenKind::Loop),
                 _ => None,
             },
+            b's' => match &token[1..4] {
+                b"elf" => Some(TokenKind::SelfValue),
+                _ => None,
+            },
             b't' => match &token[1..4] {
                 b"rue" => Some(TokenKind::True),
+                b"ype" => Some(TokenKind::Type),
                 _ => None,
             },
             b'u' => match &token[1..4] {
@@ -875,13 +886,18 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
                 b"alse" => Some(TokenKind::False),
                 _ => None,
             },
-            b'w' => {
-                if &token[1..5] == b"hile" {
-                    Some(TokenKind::While)
+            b't' => {
+                if &token[1..5] == b"rait" {
+                    Some(TokenKind::Trait)
                 } else {
                     None
                 }
             }
+            b'w' => match &token[1..5] {
+                b"here" => Some(TokenKind::Where),
+                b"hile" => Some(TokenKind::While),
+                _ => None,
+            },
             _ => None,
         },
         6 => match token[0] {

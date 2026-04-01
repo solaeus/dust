@@ -84,6 +84,12 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
+            TokenKind::For => ParseRule {
+                prefix: Parser::parse_unexpected,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
             TokenKind::True => ParseRule {
                 prefix: Parser::parse_prefix_boolean,
                 infix: None,
@@ -145,7 +151,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 associativity: Associativity::Left,
             },
             TokenKind::Const => ParseRule {
-                prefix: Parser::parse_unexpected,
+                prefix: Parser::parse_prefix_const_keyword,
                 infix: None,
                 precedence: Precedence::Assignment,
                 associativity: Associativity::Left,
@@ -290,6 +296,12 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::If => ParseRule {
                 prefix: Parser::parse_prefix_if_keyword,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
+            TokenKind::Impl => ParseRule {
+                prefix: Parser::parse_prefix_impl_keyword,
                 infix: None,
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
@@ -456,6 +468,18 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
+            TokenKind::SelfType => ParseRule {
+                prefix: Parser::parse_unexpected,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
+            TokenKind::SelfValue => ParseRule {
+                prefix: Parser::parse_unexpected,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
             TokenKind::Semicolon => ParseRule {
                 prefix: Parser::parse_unexpected,
                 infix: Some(Parser::parse_infix_semicolon),
@@ -488,6 +512,18 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Struct => ParseRule {
                 prefix: Parser::parse_prefix_struct_keyword,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
+            TokenKind::Trait => ParseRule {
+                prefix: Parser::parse_prefix_trait_keyword,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
+            TokenKind::Type => ParseRule {
+                prefix: Parser::parse_prefix_type_keyword,
                 infix: None,
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
@@ -530,6 +566,12 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Use => ParseRule {
                 prefix: Parser::parse_prefix_use_keyword,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
+            TokenKind::Where => ParseRule {
+                prefix: Parser::parse_unexpected,
                 infix: None,
                 precedence: Precedence::None,
                 associativity: Associativity::Left,

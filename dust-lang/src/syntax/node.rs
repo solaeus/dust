@@ -42,6 +42,11 @@ pub enum SyntaxKind {
     FunctionItem,
     StructItem,
     EnumItem,
+    ConstItem,
+    TypeItem,
+    ImplItem,
+    ImplTraitItem,
+    TraitItem,
 
     // Statements
     LetStatement,
@@ -100,6 +105,9 @@ pub enum SyntaxKind {
     // Function expressions
     CallExpression,
 
+    // Member access expressions
+    FieldAccessExpression,
+
     // Control flow expressions
     IfExpression,
 
@@ -121,11 +129,19 @@ pub enum SyntaxKind {
 
     // Sub-Syntax
     ModuleBody,
+    ImplBody,
+    TraitBody,
+    TraitMethod,
+    TraitConst,
+    TraitType,
     ValueArguments,
     FunctionSignature,
     FunctionParameters,
     ValueParameters,
     TypeParameters,
+    TypeArguments,
+    TraitBound,
+    WhereClause,
     EnumVariants,
     EnumUnitVariant,
     EnumTupleVariant,
@@ -134,6 +150,7 @@ pub enum SyntaxKind {
     StructItemTupleFields,
     StructItemStructFields,
     StructExpressionStructFields,
+    ValueParameterTypes,
 
     // Types
     TypePath,
@@ -156,7 +173,7 @@ pub enum SyntaxKind {
     FunctionType,
     NeverType,
     TupleType,
-    ValueParameterTypes,
+    SelfType,
 
     // Ignored
     Trivia,
@@ -227,6 +244,10 @@ impl SyntaxKind {
                 | SyntaxKind::FunctionItem
                 | SyntaxKind::StructItem
                 | SyntaxKind::EnumItem
+                | SyntaxKind::ConstItem
+                | SyntaxKind::TypeItem
+                | SyntaxKind::ImplItem
+                | SyntaxKind::TraitItem
         )
     }
 
@@ -238,6 +259,10 @@ impl SyntaxKind {
                 | SyntaxKind::FunctionItem
                 | SyntaxKind::StructItem
                 | SyntaxKind::EnumItem
+                | SyntaxKind::ConstItem
+                | SyntaxKind::TypeItem
+                | SyntaxKind::ImplItem
+                | SyntaxKind::TraitItem
                 | SyntaxKind::LetStatement
                 | SyntaxKind::ExpressionStatement
         )
@@ -257,6 +282,7 @@ impl SyntaxKind {
                 | SyntaxKind::CharacterExpression
                 | SyntaxKind::DivisionExpression
                 | SyntaxKind::EqualExpression
+                | SyntaxKind::FieldAccessExpression
                 | SyntaxKind::FloatExpression
                 | SyntaxKind::GreaterThanExpression
                 | SyntaxKind::GreaterThanOrEqualExpression
@@ -321,6 +347,7 @@ impl SyntaxKind {
             SyntaxKind::CallExpression => "call expression",
             SyntaxKind::CharacterExpression => "character expression",
             SyntaxKind::CharacterType => "character type",
+            SyntaxKind::ConstItem => "const item",
             SyntaxKind::DivisionAssignmentExpression => "division assignment expression",
             SyntaxKind::DivisionExpression => "division expression",
             SyntaxKind::EnumItem => "enum item",
@@ -334,6 +361,7 @@ impl SyntaxKind {
             SyntaxKind::ExpressionStatement => "expression statement",
             SyntaxKind::F32Type => "f32 type",
             SyntaxKind::F64Type => "f64 type",
+            SyntaxKind::FieldAccessExpression => "field access expression",
             SyntaxKind::FloatExpression => "float expression",
             SyntaxKind::FunctionItem => "function item",
             SyntaxKind::FunctionParameters => "function parameters",
@@ -348,6 +376,9 @@ impl SyntaxKind {
             SyntaxKind::I64Type => "i64 type",
             SyntaxKind::I8Type => "i8 type",
             SyntaxKind::IfExpression => "if expression",
+            SyntaxKind::ImplBody => "impl body",
+            SyntaxKind::ImplItem => "impl item",
+            SyntaxKind::ImplTraitItem => "impl trait item",
             SyntaxKind::IndexExpression => "index expression",
             SyntaxKind::IntegerExpression => "integer expression",
             SyntaxKind::LessThanExpression => "less than expression",
@@ -373,6 +404,7 @@ impl SyntaxKind {
             SyntaxKind::RangeInclusiveExpression => "range inclusive expression",
             SyntaxKind::ReturnExpression => "return expression",
             SyntaxKind::Root => "root",
+            SyntaxKind::SelfType => "self type",
             SyntaxKind::SimplePath => "simple path",
             SyntaxKind::SliceType => "slice type",
             SyntaxKind::StringExpression => "string expression",
@@ -385,7 +417,15 @@ impl SyntaxKind {
             SyntaxKind::SubtractionAssignmentExpression => "subtraction assignment expression",
             SyntaxKind::SubtractionExpression => "subtraction expression",
             SyntaxKind::Trivia => "trivia",
+            SyntaxKind::TraitBody => "trait body",
+            SyntaxKind::TraitBound => "trait bound",
+            SyntaxKind::TraitItem => "trait item",
+            SyntaxKind::TraitMethod => "trait method",
+            SyntaxKind::TraitConst => "trait const",
+            SyntaxKind::TraitType => "trait type",
             SyntaxKind::StructItemTupleFields => "struct item tuple fields",
+            SyntaxKind::TypeItem => "type item",
+            SyntaxKind::TypeArguments => "type arguments",
             SyntaxKind::TypeParameters => "type parameters",
             SyntaxKind::TypePath => "type path",
             SyntaxKind::TupleType => "tuple type",
@@ -399,6 +439,7 @@ impl SyntaxKind {
             SyntaxKind::ValueParameters => "value parameters",
             SyntaxKind::ValueParameterTypes => "value parameter types",
             SyntaxKind::WhileExpression => "while loop expression",
+            SyntaxKind::WhereClause => "where clause",
         }
     }
 }
