@@ -444,6 +444,13 @@ impl SyntaxVisitor for TypeBinder<'_> {
         })
     }
 
+    fn visit_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
     fn visit_let_statement(
         &mut self,
         reader: SyntaxReader,
@@ -1089,7 +1096,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                     let Some(parameter_index) = parameter_range.next() else {
                         return Err(CompileError::ExpectedArguments {
                             function_type: resolved_callee_type_id,
-                            expected_count: value_parameters.len(),
+                            expected_count: value_parameters.len() as usize,
                             found_count: arguments.child_count(),
                             found_position: arguments.position(),
                         });
@@ -1108,7 +1115,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 if parameter_range.next().is_some() {
                     return Err(CompileError::ExpectedArguments {
                         function_type: resolved_callee_type_id,
-                        expected_count: value_parameters.len(),
+                        expected_count: value_parameters.len() as usize,
                         found_count: argument_count,
                         found_position: arguments.position(),
                     });

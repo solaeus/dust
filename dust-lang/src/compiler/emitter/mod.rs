@@ -1371,6 +1371,13 @@ impl SyntaxVisitor for Emitter<'_> {
         })
     }
 
+    fn visit_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        Err(CompileError::Unimplemented {
+            syntax_kind: reader.node.kind,
+            position: reader.position(),
+        })
+    }
+
     fn visit_expression_statement(
         &mut self,
         reader: SyntaxReader<'_>,

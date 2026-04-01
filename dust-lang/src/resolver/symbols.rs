@@ -83,3 +83,7 @@ impl Symbols {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct SymbolId(u32);
+
+impl SymbolId {
+    pub const PLACEHOLDER: Self = Self(u32::MAX);
+}

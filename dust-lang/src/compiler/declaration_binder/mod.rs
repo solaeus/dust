@@ -20,13 +20,14 @@ use crate::{
         Syntax,
         components::{
             ArrayExpression, ArrayRepeatExpression, AssignmentExpression, CallExpression,
-            ComparisonExpression, CompoundAssignmentExpression, EnumItem, EnumVariant,
+            ComparisonExpression, CompoundAssignmentExpression, ConstItem, EnumItem, EnumVariant,
             ExpressionStatement, FieldAccessExpression, FunctionItem, FunctionParameters,
-            FunctionType, GroupedExpression, IfExpression, IndexExpression, LetStatement,
-            LogicExpression, MathExpression, ModuleItem, NegationExpression, NotExpression,
-            RangeExpression, StructExpression, StructExpressionStructFields, StructItem,
-            StructItemStructFields, StructItemTupleFields, SyntaxComponent, UseItem,
-            WhileExpression,
+            FunctionType, GroupedExpression, IfExpression, ImplItem, ImplTraitItem,
+            IndexExpression, LetStatement, LogicExpression, MathExpression, ModuleItem,
+            NegationExpression, NotExpression, RangeExpression, StructExpression,
+            StructExpressionStructFields, StructItem, StructItemStructFields,
+            StructItemTupleFields, SyntaxComponent, TraitBounds, TraitConst, TraitItem,
+            TraitMethod, TraitType, TypeItem, UseItem, WhileExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -413,35 +414,19 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let struct_name_str = self.source.get_file_content(&name.position())?;
         let struct_symbol = self.resolver.symbols.add_symbol(struct_name_str);
+        let struct_declaration_id = self.resolver.declarations.reserve_declaration_id();
 
-        let base_id = self.resolver.declarations.next_declaration_id();
-        let type_parameter_count = type_parameters.map_or(0, |tp| tp.child_count()) as u32;
-        let field_count = match fields.node.kind {
-            SyntaxKind::StructItemTupleFields => fields.child_count() as u32,
-            SyntaxKind::StructItemStructFields => (fields.child_count() / 2) as u32,
-            SyntaxKind::StructItemUnit => 0,
-            _ => unreachable!(),
-        };
+        let mut type_parameter_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
 
-        let type_parameter_declaration_ids = if type_parameters.is_some() {
-            (0..type_parameter_count)
-                .map(|index| base_id.offset(index))
-                .collect::<SmallVec<[DeclarationId; 4]>>()
-        } else {
-            SmallVec::default()
-        };
-        let field_declaration_ids = (0..field_count)
-            .map(|index| base_id.offset(type_parameter_count + index))
-            .collect::<SmallVec<[DeclarationId; 4]>>();
-        let struct_declaration_id = base_id.offset(type_parameter_count + field_count);
+        if let Some(type_parameters) = type_parameters {
+            type_parameter_declaration_ids.reserve(type_parameters.child_count());
 
-        let type_parameters = if let Some(type_parameters) = type_parameters {
-            for (index, type_parameter) in type_parameters.children().enumerate() {
+            for type_parameter in type_parameters.children() {
                 let type_parameter_name_str =
                     self.source.get_file_content(&type_parameter.position())?;
                 let type_parameter_symbol_id =
                     self.resolver.symbols.add_symbol(type_parameter_name_str);
-                let _type_parameter_declaration_id =
+                let type_parameter_declaration_id =
                     self.resolver.declarations.add_declaration(Declaration {
                         symbol_id: type_parameter_symbol_id,
                         definition: Definition::TypeParameter,
@@ -449,23 +434,18 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                         syntax: Some((type_parameter.position(), type_parameter.id)),
                     });
 
-                debug_assert_eq!(
-                    _type_parameter_declaration_id,
-                    type_parameter_declaration_ids[index]
-                );
-
-                self.resolver.add_declaration_binding(
-                    type_parameter.id,
-                    type_parameter_declaration_ids[index],
-                );
+                type_parameter_declaration_ids.push(type_parameter_declaration_id);
+                self.resolver
+                    .add_declaration_binding(type_parameter.id, type_parameter_declaration_id);
             }
+        }
 
-            self.resolver
-                .declarations
-                .add_declaration_members(type_parameter_declaration_ids)
-        } else {
-            DeclarationMembers::default()
-        };
+        let type_parameters = self
+            .resolver
+            .declarations
+            .add_declaration_members(type_parameter_declaration_ids);
+
+        let mut field_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
 
         match fields.node.kind {
             SyntaxKind::StructItemTupleFields => {
@@ -475,7 +455,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     let public = field_type.node.modifier;
                     let symbol_id = self.resolver.symbols.add_index_symbol(index);
                     let type_id = self.visit_type(field_type)?;
-                    let _field_declaration_id =
+                    let field_declaration_id =
                         self.resolver.declarations.add_declaration(Declaration {
                             symbol_id,
                             definition: Definition::Field {
@@ -487,10 +467,9 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                             syntax: Some((field_type.position(), field_type.id)),
                         });
 
-                    debug_assert_eq!(_field_declaration_id, field_declaration_ids[index]);
-
                     self.resolver
-                        .add_declaration_binding(field_type.id, field_declaration_ids[index]);
+                        .add_declaration_binding(field_type.id, field_declaration_id);
+                    field_declaration_ids.push(field_declaration_id);
                 }
             }
             SyntaxKind::StructItemStructFields => {
@@ -499,12 +478,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
                 let file = self.source.get_file(name.file_id())?;
 
-                for (index, [field_name, field_type]) in name_type_pairs.enumerate() {
+                for [field_name, field_type] in name_type_pairs {
                     let public = field_name.node.modifier;
                     let field_name_str = file.content_str(field_name.node.span)?;
                     let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
                     let field_type_id = self.visit_type(field_type)?;
-                    let _field_declaration_id =
+                    let field_declaration_id =
                         self.resolver.declarations.add_declaration(Declaration {
                             symbol_id: field_symbol_id,
                             definition: Definition::Field {
@@ -516,10 +495,9 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                             syntax: Some((field_name.position(), field_name.id)),
                         });
 
-                    debug_assert_eq!(_field_declaration_id, field_declaration_ids[index]);
-
                     self.resolver
-                        .add_declaration_binding(field_name.id, field_declaration_ids[index]);
+                        .add_declaration_binding(field_name.id, field_declaration_id);
+                    field_declaration_ids.push(field_declaration_id);
                 }
             }
             SyntaxKind::StructItemUnit => {}
@@ -530,18 +508,20 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .resolver
             .declarations
             .add_declaration_members(field_declaration_ids);
-        let _struct_declaration_id = self.resolver.declarations.add_declaration(Declaration {
-            symbol_id: struct_symbol,
-            definition: Definition::StructType {
-                public,
-                type_parameters,
-                fields,
-            },
-            scope_id: self.current_scope_id,
-            syntax: Some((reader.position(), reader.id)),
-        });
 
-        debug_assert_eq!(_struct_declaration_id, struct_declaration_id);
+        self.resolver.declarations.set_declaration(
+            struct_declaration_id,
+            Declaration {
+                symbol_id: struct_symbol,
+                definition: Definition::StructType {
+                    public,
+                    type_parameters,
+                    fields,
+                },
+                scope_id: self.current_scope_id,
+                syntax: Some((reader.position(), reader.id)),
+            },
+        )?;
 
         self.resolver
             .add_declaration_binding(reader.id, struct_declaration_id);
@@ -559,33 +539,13 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let enum_name_str = self.source.get_file_content(&name.position())?;
         let enum_symbol = self.resolver.symbols.add_symbol(enum_name_str);
+        let enum_declaration_id = self.resolver.declarations.reserve_declaration_id();
 
-        let base_id = self.resolver.declarations.next_declaration_id();
-        let type_parameter_count = type_parameters.map_or(0, |tp| tp.child_count()) as u32;
-
-        let mut total_child_declarations = type_parameter_count;
-
-        for variant in variants.children() {
-            total_child_declarations += 1;
-
-            match variant.node.kind {
-                SyntaxKind::EnumTupleVariant => {
-                    if let Some(fields) = variant.children().nth(1) {
-                        total_child_declarations += fields.child_count() as u32;
-                    }
-                }
-                SyntaxKind::EnumStructVariant => {
-                    if let Some(fields) = variant.children().nth(1) {
-                        total_child_declarations += (fields.child_count() / 2) as u32;
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        let enum_declaration_id = base_id.offset(total_child_declarations);
+        let mut type_parameter_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
 
         if let Some(type_parameters) = type_parameters {
+            type_parameter_declaration_ids.reserve(type_parameters.child_count());
+
             for type_parameter in type_parameters.children() {
                 let type_parameter_name_str =
                     self.source.get_file_content(&type_parameter.position())?;
@@ -599,14 +559,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                         syntax: Some((type_parameter.position(), type_parameter.id)),
                     });
 
+                type_parameter_declaration_ids.push(type_parameter_declaration_id);
                 self.resolver
                     .add_declaration_binding(type_parameter.id, type_parameter_declaration_id);
             }
         }
 
-        let type_parameter_declaration_ids = (0..type_parameter_count)
-            .map(|index| base_id.offset(index))
-            .collect::<SmallVec<[DeclarationId; 4]>>();
         let mut variant_declaration_ids =
             SmallVec::<[DeclarationId; 4]>::with_capacity(variants.child_count());
 
@@ -624,6 +582,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     SyntaxKind::StructItemTupleFields => {
                         let StructItemTupleFields { types } =
                             StructItemTupleFields::from_reader(&variant_fields)?;
+
                         let mut ids = SmallVec::<[DeclarationId; 4]>::new();
 
                         for field_type in types {
@@ -649,6 +608,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     SyntaxKind::StructItemStructFields => {
                         let StructItemStructFields { name_type_pairs } =
                             StructItemStructFields::from_reader(&variant_fields)?;
+
                         let file = self.source.get_file(variant_name.file_id())?;
                         let mut ids = SmallVec::<[DeclarationId; 4]>::new();
 
@@ -708,18 +668,21 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .resolver
             .declarations
             .add_declaration_members(variant_declaration_ids);
-        let declared_id = self.resolver.declarations.add_declaration(Declaration {
-            symbol_id: enum_symbol,
-            definition: Definition::EnumType {
-                public,
-                type_parameters,
-                variants,
-            },
-            scope_id: self.current_scope_id,
-            syntax: Some((reader.position(), reader.id)),
-        });
 
-        debug_assert_eq!(declared_id, enum_declaration_id);
+        self.resolver.declarations.set_declaration(
+            enum_declaration_id,
+            Declaration {
+                symbol_id: enum_symbol,
+                definition: Definition::EnumType {
+                    public,
+                    type_parameters,
+                    variants,
+                },
+                scope_id: self.current_scope_id,
+                syntax: Some((reader.position(), reader.id)),
+            },
+        )?;
+
         self.resolver
             .add_declaration_binding(name.id, enum_declaration_id);
 
@@ -727,31 +690,720 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     }
 
     fn visit_const_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+        let ConstItem {
+            public,
+            name,
+            type_annotation,
+            value,
+        } = reader.as_component()?;
+
+        self.visit_expression(value, None)?;
+
+        let const_name_str = self.source.get_file_content(&name.position())?;
+        let const_symbol_id = self.resolver.symbols.add_symbol(const_name_str);
+        let type_id = self.visit_type(type_annotation)?;
+        let declaration_id = self.resolver.declarations.add_declaration(Declaration {
+            symbol_id: const_symbol_id,
+            definition: Definition::Constant { public, type_id },
+            scope_id: self.current_scope_id,
+            syntax: Some((reader.position(), reader.id)),
+        });
+
+        self.resolver
+            .add_declaration_binding(name.id, declaration_id);
+
+        Ok(())
     }
 
     fn visit_type_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+        let TypeItem {
+            public,
+            name,
+            type_parameters,
+            aliased_type,
+        } = reader.as_component()?;
+
+        let mut type_parameter_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
+
+        if let Some(type_parameters) = type_parameters {
+            type_parameter_declaration_ids.reserve(type_parameters.child_count());
+
+            for type_parameter in type_parameters.children() {
+                let type_parameter_name_str =
+                    self.source.get_file_content(&type_parameter.position())?;
+                let type_parameter_symbol_id =
+                    self.resolver.symbols.add_symbol(type_parameter_name_str);
+                let type_parameter_declaration_id =
+                    self.resolver.declarations.add_declaration(Declaration {
+                        symbol_id: type_parameter_symbol_id,
+                        definition: Definition::TypeParameter,
+                        scope_id: self.current_scope_id,
+                        syntax: Some((type_parameter.position(), type_parameter.id)),
+                    });
+
+                type_parameter_declaration_ids.push(type_parameter_declaration_id);
+                self.resolver
+                    .add_declaration_binding(type_parameter.id, type_parameter_declaration_id);
+            }
+        }
+
+        let type_parameters = self
+            .resolver
+            .declarations
+            .add_declaration_members(type_parameter_declaration_ids);
+        let aliased_type_id = self.visit_type(aliased_type)?;
+        let type_alias_name_str = self.source.get_file_content(&name.position())?;
+        let type_alias_symbol_id = self.resolver.symbols.add_symbol(type_alias_name_str);
+        let declaration_id = self.resolver.declarations.add_declaration(Declaration {
+            symbol_id: type_alias_symbol_id,
+            definition: Definition::TypeAlias {
+                public,
+                type_parameters,
+                aliased_type_id,
+            },
+            scope_id: self.current_scope_id,
+            syntax: Some((reader.position(), reader.id)),
+        });
+
+        self.resolver
+            .add_declaration_binding(name.id, declaration_id);
+
+        Ok(())
     }
 
     fn visit_impl_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+        let ImplItem {
+            self_type,
+            body,
+            type_parameters,
+            ..
+        } = reader.as_component()?;
+
+        let starting_scope_id = self.current_scope_id;
+        self.current_scope_id = self.resolver.scopes.add_scope(Scope {
+            kind: ScopeKind::Impl,
+            parent: self.current_scope_id,
+            modules: smallvec![ScopeId::CORE],
+            imports: SmallVec::new(),
+        });
+
+        let mut type_parameter_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
+
+        if let Some(type_parameters) = type_parameters {
+            type_parameter_declaration_ids.reserve(type_parameters.child_count());
+
+            for type_parameter in type_parameters.children() {
+                let type_parameter_name_str =
+                    self.source.get_file_content(&type_parameter.position())?;
+                let type_parameter_symbol_id =
+                    self.resolver.symbols.add_symbol(type_parameter_name_str);
+                let type_parameter_declaration_id =
+                    self.resolver.declarations.add_declaration(Declaration {
+                        symbol_id: type_parameter_symbol_id,
+                        definition: Definition::TypeParameter,
+                        scope_id: self.current_scope_id,
+                        syntax: Some((type_parameter.position(), type_parameter.id)),
+                    });
+
+                type_parameter_declaration_ids.push(type_parameter_declaration_id);
+                self.resolver
+                    .add_declaration_binding(type_parameter.id, type_parameter_declaration_id);
+            }
+        }
+
+        let type_parameters = self
+            .resolver
+            .declarations
+            .add_declaration_members(type_parameter_declaration_ids);
+
+        let mut member_declaration_ids = SmallVec::<[DeclarationId; 8]>::new();
+
+        for child in body.children() {
+            match child.node.kind {
+                SyntaxKind::FunctionItem => {
+                    self.visit_function_item(child)?;
+
+                    let function_declaration_id = *self
+                        .resolver
+                        .get_declaration_binding(&child.children().expect_next()?.id)?;
+
+                    member_declaration_ids.push(function_declaration_id);
+                }
+                SyntaxKind::ConstItem => {
+                    self.visit_const_item(child)?;
+
+                    let const_declaration_id = *self
+                        .resolver
+                        .get_declaration_binding(&child.children().expect_next()?.id)?;
+
+                    member_declaration_ids.push(const_declaration_id);
+                }
+                _ => {
+                    return Err(CompileError::ExpectedSyntaxKinds {
+                        expected: &[SyntaxKind::FunctionItem, SyntaxKind::ConstItem],
+                        found: child.node.kind,
+                    });
+                }
+            }
+        }
+
+        let declarations = self
+            .resolver
+            .declarations
+            .add_declaration_members(member_declaration_ids);
+
+        self.visit_type(self_type)?;
+
+        let mut impl_index = 0;
+        let impl_symbol_id = loop {
+            let symbol_id = self.resolver.symbols.add_index_symbol(impl_index);
+
+            if self
+                .resolver
+                .declarations
+                .find_declaration(symbol_id, starting_scope_id, Visibility::Module)
+                .is_none()
+            {
+                break symbol_id;
+            }
+
+            impl_index += 1;
+        };
+
+        let impl_declaration_id = self.resolver.declarations.add_declaration(Declaration {
+            symbol_id: impl_symbol_id,
+            definition: Definition::InherentImplementation {
+                type_parameters,
+                declarations,
+            },
+            scope_id: starting_scope_id,
+            syntax: Some((reader.position(), reader.id)),
+        });
+
+        self.resolver
+            .add_declaration_binding(reader.id, impl_declaration_id);
+        self.resolver
+            .add_scope_binding(body.id, self.current_scope_id);
+
+        self.current_scope_id = starting_scope_id;
+
+        Ok(())
     }
 
     fn visit_impl_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+        let ImplTraitItem {
+            self_type,
+            body,
+            trait_path,
+            type_parameters,
+            type_arguments,
+            ..
+        } = reader.as_component()?;
+
+        let starting_scope_id = self.current_scope_id;
+        self.current_scope_id = self.resolver.scopes.add_scope(Scope {
+            kind: ScopeKind::Impl,
+            parent: self.current_scope_id,
+            modules: smallvec![ScopeId::CORE],
+            imports: SmallVec::new(),
+        });
+
+        let mut type_parameter_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
+
+        if let Some(type_parameters) = type_parameters {
+            type_parameter_declaration_ids.reserve(type_parameters.child_count());
+
+            for type_parameter in type_parameters.children() {
+                let type_parameter_name_str =
+                    self.source.get_file_content(&type_parameter.position())?;
+                let type_parameter_symbol_id =
+                    self.resolver.symbols.add_symbol(type_parameter_name_str);
+                let type_parameter_declaration_id =
+                    self.resolver.declarations.add_declaration(Declaration {
+                        symbol_id: type_parameter_symbol_id,
+                        definition: Definition::TypeParameter,
+                        scope_id: self.current_scope_id,
+                        syntax: Some((type_parameter.position(), type_parameter.id)),
+                    });
+
+                type_parameter_declaration_ids.push(type_parameter_declaration_id);
+                self.resolver
+                    .add_declaration_binding(type_parameter.id, type_parameter_declaration_id);
+            }
+        }
+
+        let type_parameters = self
+            .resolver
+            .declarations
+            .add_declaration_members(type_parameter_declaration_ids);
+
+        let trait_declaration_id = self.visit_path(trait_path, Visibility::Module)?;
+
+        let trait_type_arguments = if let Some(type_arguments) = type_arguments {
+            let mut type_ids = SmallVec::<[TypeId; 4]>::with_capacity(type_arguments.child_count());
+
+            for type_argument in type_arguments.children() {
+                type_ids.push(self.visit_type(type_argument)?);
+            }
+
+            self.resolver.types.add_type_members(type_ids)
+        } else {
+            TypeMembers::default()
+        };
+
+        let impl_declaration_id = self.resolver.declarations.reserve_declaration_id();
+        let mut member_declaration_ids = SmallVec::<[DeclarationId; 8]>::new();
+
+        for child in body.children() {
+            match child.node.kind {
+                SyntaxKind::FunctionItem => {
+                    self.visit_function_item(child)?;
+
+                    let function_declaration_id = *self
+                        .resolver
+                        .get_declaration_binding(&child.children().expect_next()?.id)?;
+
+                    member_declaration_ids.push(function_declaration_id);
+                }
+                SyntaxKind::ConstItem => {
+                    self.visit_const_item(child)?;
+
+                    let const_declaration_id = *self
+                        .resolver
+                        .get_declaration_binding(&child.children().expect_next()?.id)?;
+
+                    member_declaration_ids.push(const_declaration_id);
+                }
+                SyntaxKind::TypeItem => {
+                    let TypeItem {
+                        public: type_public,
+                        name: type_name,
+                        type_parameters,
+                        aliased_type,
+                    } = child.as_component()?;
+
+                    let mut type_parameter_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
+
+                    if let Some(type_parameters) = type_parameters {
+                        type_parameter_declaration_ids.reserve(type_parameters.child_count());
+
+                        for type_parameter in type_parameters.children() {
+                            let type_parameter_name_str =
+                                self.source.get_file_content(&type_parameter.position())?;
+                            let type_parameter_symbol_id =
+                                self.resolver.symbols.add_symbol(type_parameter_name_str);
+                            let type_parameter_declaration_id =
+                                self.resolver.declarations.add_declaration(Declaration {
+                                    symbol_id: type_parameter_symbol_id,
+                                    definition: Definition::TypeParameter,
+                                    scope_id: self.current_scope_id,
+                                    syntax: Some((type_parameter.position(), type_parameter.id)),
+                                });
+
+                            type_parameter_declaration_ids.push(type_parameter_declaration_id);
+                            self.resolver.add_declaration_binding(
+                                type_parameter.id,
+                                type_parameter_declaration_id,
+                            );
+                        }
+                    }
+
+                    let type_parameters = self
+                        .resolver
+                        .declarations
+                        .add_declaration_members(type_parameter_declaration_ids);
+                    let aliased_type_id = self.visit_type(aliased_type)?;
+                    let type_name_str = self.source.get_file_content(&type_name.position())?;
+                    let type_symbol_id = self.resolver.symbols.add_symbol(type_name_str);
+                    let type_declaration_id =
+                        self.resolver.declarations.add_declaration(Declaration {
+                            symbol_id: type_symbol_id,
+                            definition: Definition::AssociatedType {
+                                public: type_public,
+                                parent: impl_declaration_id,
+                                type_parameters,
+                                aliased_type_id,
+                            },
+                            scope_id: self.current_scope_id,
+                            syntax: Some((child.position(), child.id)),
+                        });
+
+                    self.resolver
+                        .add_declaration_binding(type_name.id, type_declaration_id);
+                    member_declaration_ids.push(type_declaration_id);
+                }
+                _ => {
+                    return Err(CompileError::ExpectedSyntaxKinds {
+                        expected: &[
+                            SyntaxKind::FunctionItem,
+                            SyntaxKind::ConstItem,
+                            SyntaxKind::TypeItem,
+                        ],
+                        found: child.node.kind,
+                    });
+                }
+            }
+        }
+
+        let declarations = self
+            .resolver
+            .declarations
+            .add_declaration_members(member_declaration_ids);
+
+        self.visit_type(self_type)?;
+
+        let mut impl_index = 0;
+        let impl_symbol_id = loop {
+            let symbol_id = self.resolver.symbols.add_index_symbol(impl_index);
+
+            if self
+                .resolver
+                .declarations
+                .find_declaration(symbol_id, starting_scope_id, Visibility::Module)
+                .is_none()
+            {
+                break symbol_id;
+            }
+
+            impl_index += 1;
+        };
+
+        self.resolver.declarations.set_declaration(
+            impl_declaration_id,
+            Declaration {
+                symbol_id: impl_symbol_id,
+                definition: Definition::TraitImplementation {
+                    type_parameters,
+                    trait_declaration_id: Some(trait_declaration_id),
+                    trait_type_arguments,
+                    declarations,
+                },
+                scope_id: starting_scope_id,
+                syntax: Some((reader.position(), reader.id)),
+            },
+        )?;
+
+        self.resolver
+            .add_declaration_binding(reader.id, impl_declaration_id);
+        self.resolver
+            .add_scope_binding(body.id, self.current_scope_id);
+
+        self.current_scope_id = starting_scope_id;
+
+        Ok(())
+    }
+
+    fn visit_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        let TraitItem {
+            public,
+            name,
+            body,
+            type_parameters,
+            supertraits,
+            ..
+        } = reader.as_component()?;
+
+        let starting_scope_id = self.current_scope_id;
+        self.current_scope_id = self.resolver.scopes.add_scope(Scope {
+            kind: ScopeKind::Trait,
+            parent: self.current_scope_id,
+            modules: smallvec![ScopeId::CORE],
+            imports: SmallVec::new(),
+        });
+
+        let mut type_parameter_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
+
+        if let Some(type_parameters) = type_parameters {
+            type_parameter_declaration_ids.reserve(type_parameters.child_count());
+
+            for type_parameter in type_parameters.children() {
+                let type_parameter_name_str =
+                    self.source.get_file_content(&type_parameter.position())?;
+                let type_parameter_symbol_id =
+                    self.resolver.symbols.add_symbol(type_parameter_name_str);
+                let type_parameter_declaration_id =
+                    self.resolver.declarations.add_declaration(Declaration {
+                        symbol_id: type_parameter_symbol_id,
+                        definition: Definition::TypeParameter,
+                        scope_id: self.current_scope_id,
+                        syntax: Some((type_parameter.position(), type_parameter.id)),
+                    });
+
+                type_parameter_declaration_ids.push(type_parameter_declaration_id);
+                self.resolver
+                    .add_declaration_binding(type_parameter.id, type_parameter_declaration_id);
+            }
+        }
+
+        let type_parameters = self
+            .resolver
+            .declarations
+            .add_declaration_members(type_parameter_declaration_ids);
+
+        let mut supertrait_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
+
+        if let Some(supertraits) = supertraits {
+            let TraitBounds { bounds } = supertraits.as_component()?;
+
+            for bound in bounds {
+                let supertrait_id = self.visit_path(bound, Visibility::Module)?;
+                supertrait_declaration_ids.push(supertrait_id);
+            }
+        }
+
+        let supertraits = self
+            .resolver
+            .declarations
+            .add_declaration_members(supertrait_declaration_ids);
+
+        let trait_declaration_id = self.resolver.declarations.reserve_declaration_id();
+        let mut member_declaration_ids = SmallVec::<[DeclarationId; 8]>::new();
+
+        for child in body.children() {
+            match child.node.kind {
+                SyntaxKind::TraitMethod => {
+                    let TraitMethod {
+                        public: method_public,
+                        name: method_name,
+                        parameters: method_parameters,
+                        body: method_body,
+                        return_type: method_return_type,
+                        ..
+                    } = child.as_component()?;
+                    let FunctionParameters {
+                        value_parameters: method_value_parameters,
+                        type_parameters: method_type_parameters,
+                    } = method_parameters.as_component()?;
+
+                    let method_scope_id = self.resolver.scopes.add_scope(Scope {
+                        kind: ScopeKind::Function,
+                        parent: self.current_scope_id,
+                        modules: smallvec![ScopeId::CORE],
+                        imports: SmallVec::new(),
+                    });
+                    let previous_scope_id = self.current_scope_id;
+                    self.current_scope_id = method_scope_id;
+
+                    let mut type_parameter_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
+
+                    if let Some(method_type_parameters) = method_type_parameters {
+                        type_parameter_declaration_ids
+                            .reserve(method_type_parameters.child_count());
+
+                        for type_parameter in method_type_parameters.children() {
+                            let type_parameter_name_str =
+                                self.source.get_file_content(&type_parameter.position())?;
+                            let type_parameter_symbol_id =
+                                self.resolver.symbols.add_symbol(type_parameter_name_str);
+                            let type_parameter_declaration_id =
+                                self.resolver.declarations.add_declaration(Declaration {
+                                    symbol_id: type_parameter_symbol_id,
+                                    definition: Definition::TypeParameter,
+                                    scope_id: method_scope_id,
+                                    syntax: Some((type_parameter.position(), type_parameter.id)),
+                                });
+
+                            type_parameter_declaration_ids.push(type_parameter_declaration_id);
+                            self.resolver.add_declaration_binding(
+                                type_parameter.id,
+                                type_parameter_declaration_id,
+                            );
+                        }
+                    }
+
+                    let value_parameters = {
+                        let mut type_ids = SmallVec::<[TypeId; 4]>::with_capacity(
+                            method_value_parameters.child_count(),
+                        );
+
+                        for [parameter_name, parameter_type] in
+                            method_value_parameters.children().array_chunks()
+                        {
+                            let parameter_name_str =
+                                self.source.get_file_content(&parameter_name.position())?;
+                            let parameter_symbol_id =
+                                self.resolver.symbols.add_symbol(parameter_name_str);
+                            let parameter_type_id = self.visit_type(parameter_type)?;
+                            let parameter_declaration_id =
+                                self.resolver.declarations.add_declaration(Declaration {
+                                    symbol_id: parameter_symbol_id,
+                                    definition: Definition::Local {
+                                        mutable: false,
+                                        shadowed: None,
+                                        type_id: parameter_type_id,
+                                    },
+                                    scope_id: method_scope_id,
+                                    syntax: Some((parameter_name.position(), parameter_name.id)),
+                                });
+
+                            self.resolver.add_declaration_binding(
+                                parameter_name.id,
+                                parameter_declaration_id,
+                            );
+
+                            if let Ok(Type::Slice { declaration_id, .. }) =
+                                self.resolver.types.get_type(parameter_type_id)
+                            {
+                                type_parameter_declaration_ids.push(*declaration_id);
+                            }
+
+                            type_ids.push(parameter_type_id);
+                        }
+
+                        self.resolver.types.add_type_members(type_ids)
+                    };
+
+                    let type_parameters = self
+                        .resolver
+                        .declarations
+                        .add_declaration_members(type_parameter_declaration_ids);
+                    let return_type_id = if let Some(return_type) = method_return_type {
+                        self.visit_type(return_type)?
+                    } else {
+                        TypeId::UNIT
+                    };
+                    let method_name_str = self.source.get_file_content(&method_name.position())?;
+                    let method_symbol_id = self.resolver.symbols.add_symbol(method_name_str);
+                    let method_declaration_id =
+                        self.resolver.declarations.add_declaration(Declaration {
+                            symbol_id: method_symbol_id,
+                            definition: Definition::Function {
+                                public: method_public,
+                                type_parameters,
+                                value_parameters,
+                                return_type_id,
+                            },
+                            scope_id: previous_scope_id,
+                            syntax: Some((child.position(), child.id)),
+                        });
+
+                    self.resolver
+                        .add_declaration_binding(method_name.id, method_declaration_id);
+                    member_declaration_ids.push(method_declaration_id);
+
+                    if let Some(method_body) = method_body {
+                        self.resolver
+                            .add_scope_binding(method_body.id, method_scope_id);
+
+                        for body_child in method_body.children() {
+                            if body_child.node.kind.is_statement() {
+                                match self.visit_statement(body_child) {
+                                    Ok(_) => {}
+                                    Err(error) => self.errors.push(ErrorKind::Compile(error)),
+                                }
+                            } else {
+                                self.visit_expression(body_child, None)?;
+                            }
+                        }
+                    }
+
+                    self.current_scope_id = previous_scope_id;
+                }
+                SyntaxKind::TraitConst => {
+                    let TraitConst {
+                        name: const_name,
+                        type_annotation,
+                        value,
+                    } = child.as_component()?;
+
+                    if let Some(value) = value {
+                        self.visit_expression(value, None)?;
+                    }
+
+                    let const_name_str = self.source.get_file_content(&const_name.position())?;
+                    let const_symbol_id = self.resolver.symbols.add_symbol(const_name_str);
+                    let type_id = self.visit_type(type_annotation)?;
+                    let const_declaration_id =
+                        self.resolver.declarations.add_declaration(Declaration {
+                            symbol_id: const_symbol_id,
+                            definition: Definition::AssociatedConstant {
+                                public: false,
+                                parent: trait_declaration_id,
+                                type_id,
+                            },
+                            scope_id: self.current_scope_id,
+                            syntax: Some((child.position(), child.id)),
+                        });
+
+                    self.resolver
+                        .add_declaration_binding(const_name.id, const_declaration_id);
+                    member_declaration_ids.push(const_declaration_id);
+                }
+                SyntaxKind::TraitType => {
+                    let TraitType {
+                        name: type_name,
+                        aliased_type,
+                    } = child.as_component()?;
+
+                    let aliased_type_id = if let Some(aliased_type) = aliased_type {
+                        self.visit_type(aliased_type)?
+                    } else {
+                        TypeId::UNIT
+                    };
+                    let type_name_str = self.source.get_file_content(&type_name.position())?;
+                    let type_symbol_id = self.resolver.symbols.add_symbol(type_name_str);
+                    let type_declaration_id =
+                        self.resolver.declarations.add_declaration(Declaration {
+                            symbol_id: type_symbol_id,
+                            definition: Definition::AssociatedType {
+                                public: false,
+                                parent: trait_declaration_id,
+                                type_parameters: DeclarationMembers::default(),
+                                aliased_type_id,
+                            },
+                            scope_id: self.current_scope_id,
+                            syntax: Some((child.position(), child.id)),
+                        });
+
+                    self.resolver
+                        .add_declaration_binding(type_name.id, type_declaration_id);
+                    member_declaration_ids.push(type_declaration_id);
+                }
+                _ => {
+                    return Err(CompileError::ExpectedSyntaxKinds {
+                        expected: &[
+                            SyntaxKind::TraitMethod,
+                            SyntaxKind::TraitConst,
+                            SyntaxKind::TraitType,
+                        ],
+                        found: child.node.kind,
+                    });
+                }
+            }
+        }
+
+        let declarations = self
+            .resolver
+            .declarations
+            .add_declaration_members(member_declaration_ids);
+
+        let trait_name_str = self.source.get_file_content(&name.position())?;
+        let trait_symbol_id = self.resolver.symbols.add_symbol(trait_name_str);
+
+        self.resolver.declarations.set_declaration(
+            trait_declaration_id,
+            Declaration {
+                symbol_id: trait_symbol_id,
+                definition: Definition::Trait {
+                    public,
+                    inner_scope_id: self.current_scope_id,
+                    type_parameters,
+                    supertraits,
+                    declarations,
+                },
+                scope_id: starting_scope_id,
+                syntax: Some((reader.position(), reader.id)),
+            },
+        )?;
+
+        self.resolver
+            .add_declaration_binding(name.id, trait_declaration_id);
+        self.resolver
+            .add_scope_binding(body.id, self.current_scope_id);
+
+        self.current_scope_id = starting_scope_id;
+
+        Ok(())
     }
 
     fn visit_let_statement(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {

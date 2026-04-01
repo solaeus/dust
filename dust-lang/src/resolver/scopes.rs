@@ -53,4 +53,6 @@ pub enum ScopeKind {
     Module,
     Function,
     Block,
+    Impl,
+    Trait,
 }

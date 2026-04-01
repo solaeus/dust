@@ -29,6 +29,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::TypeItem => self.visit_type_item(reader),
             SyntaxKind::ImplItem => self.visit_impl_item(reader),
             SyntaxKind::ImplTraitItem => self.visit_impl_trait_item(reader),
+            SyntaxKind::TraitItem => self.visit_trait_item(reader),
             _ => Err(CompileError::Unimplemented {
                 syntax_kind: reader.node.kind,
                 position: reader.position(),
@@ -50,6 +51,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::TypeItem => self.visit_type_item(reader).map(|_| None),
             SyntaxKind::ImplItem => self.visit_impl_item(reader).map(|_| None),
             SyntaxKind::ImplTraitItem => self.visit_impl_trait_item(reader).map(|_| None),
+            SyntaxKind::TraitItem => self.visit_trait_item(reader).map(|_| None),
             SyntaxKind::LetStatement => self.visit_let_statement(reader).map(Some),
             SyntaxKind::ExpressionStatement => self.visit_expression_statement(reader).map(Some),
             _ => Err(CompileError::Unimplemented {
@@ -138,6 +140,8 @@ pub trait SyntaxVisitor {
     fn visit_impl_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError>;
 
     fn visit_impl_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError>;
+
+    fn visit_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError>;
 
     fn visit_expression_statement(
         &mut self,

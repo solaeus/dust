@@ -3,8 +3,6 @@ use std::{collections::HashMap, ops::Range};
 use rustc_hash::FxBuildHasher;
 
 use crate::{
-    constant_list::ConstantId,
-    instruction::OperandType,
     native_function::NativeFunction,
     resolver::{
         TypeId, error::ResolverError, scopes::ScopeId, symbols::SymbolId, types::TypeMembers,
@@ -46,6 +44,41 @@ impl Declarations {
         self.declarations
             .get(id.0 as usize)
             .ok_or(ResolverError::MissingDeclaration(id))
+    }
+
+    pub fn reserve_declaration_id(&mut self) -> DeclarationId {
+        let id = DeclarationId(self.declarations.len() as u32);
+
+        self.declarations.push(Declaration {
+            symbol_id: SymbolId::PLACEHOLDER,
+            definition: Definition::Placeholder,
+            scope_id: ScopeId::NONE,
+            syntax: None,
+        });
+
+        id
+    }
+
+    pub fn set_declaration(
+        &mut self,
+        id: DeclarationId,
+        declaration: Declaration,
+    ) -> Result<(), ResolverError> {
+        let index = id.0 as usize;
+
+        if self.declarations.get(index).is_none() {
+            return Err(ResolverError::MissingDeclaration(id));
+        }
+
+        let key = DeclarationKey {
+            symbol_id: declaration.symbol_id,
+            scope_id: declaration.scope_id,
+        };
+
+        self.declarations[index] = declaration;
+        self.declaration_lookup.insert(key, id);
+
+        Ok(())
     }
 
     pub fn find_declaration(
@@ -286,7 +319,12 @@ pub enum Definition {
         declarations: DeclarationMembers,
     },
 
-    Implementation {
+    InherentImplementation {
+        type_parameters: DeclarationMembers,
+        declarations: DeclarationMembers,
+    },
+
+    TraitImplementation {
         type_parameters: DeclarationMembers,
         trait_declaration_id: Option<DeclarationId>,
         trait_type_arguments: TypeMembers,
@@ -305,6 +343,8 @@ pub enum Definition {
         type_parameters: DeclarationMembers,
         aliased_type_id: TypeId,
     },
+
+    Placeholder,
 }
 
 impl Definition {
@@ -320,12 +360,14 @@ impl Definition {
             | Definition::TypeAlias { .. }
             | Definition::Constant { .. }
             | Definition::Trait { .. }
-            | Definition::Implementation { .. } => Visibility::Module,
+            | Definition::InherentImplementation { .. }
+            | Definition::TraitImplementation { .. } => Visibility::Module,
             Definition::Field { .. }
             | Definition::Variant { .. }
             | Definition::TypeParameter
             | Definition::AssociatedConstant { .. }
-            | Definition::AssociatedType { .. } => Visibility::Type,
+            | Definition::AssociatedType { .. }
+            | Definition::Placeholder => Visibility::Type,
         }
     }
 }

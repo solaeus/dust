@@ -733,8 +733,8 @@ impl TypeMembers {
         self.start as usize..self.end as usize
     }
 
-    pub fn len(&self) -> usize {
-        (self.end - self.start) as usize
+    pub fn len(&self) -> u32 {
+        self.end - self.start
     }
 
     pub fn is_empty(&self) -> bool {

@@ -1,11 +1,16 @@
 #![allow(clippy::disallowed_methods)]
 
+mod const_item;
 mod enum_item;
 mod expression_scoping;
 mod function_item;
+mod impl_item;
+mod impl_trait_item;
 mod let_statement;
 mod module_item;
 mod struct_item;
+mod trait_item;
+mod type_item;
 mod type_notation;
 mod use_item;
 
