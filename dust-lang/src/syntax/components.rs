@@ -333,11 +333,17 @@ impl<'a> SyntaxComponent<'a> for MathExpression<'a> {
         debug_assert!(matches!(
             reader.node.kind,
             SyntaxKind::AdditionExpression
+                | SyntaxKind::AdditionAssignmentExpression
                 | SyntaxKind::SubtractionExpression
+                | SyntaxKind::SubtractionAssignmentExpression
                 | SyntaxKind::MultiplicationExpression
+                | SyntaxKind::MultiplicationAssignmentExpression
                 | SyntaxKind::DivisionExpression
+                | SyntaxKind::DivisionAssignmentExpression
                 | SyntaxKind::ModuloExpression
+                | SyntaxKind::ModuloAssignmentExpression
                 | SyntaxKind::ExponentExpression
+                | SyntaxKind::ExponentAssignmentExpression
         ));
 
         let (left, right) = reader.binary_children()?;

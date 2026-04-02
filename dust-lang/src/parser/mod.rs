@@ -121,6 +121,7 @@ impl<'src> Parser<'src> {
 
         while let Some(infix_parser) = infix_rule.infix
             && minimum_precedence <= infix_rule.precedence
+            && self.previous_token.kind != TokenKind::Semicolon
         {
             node = infix_parser(self, node)?;
             infix_rule = ParseRule::from(self.current_token.kind);

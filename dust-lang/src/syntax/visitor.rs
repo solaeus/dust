@@ -120,6 +120,7 @@ pub trait SyntaxVisitor {
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression
             | SyntaxKind::ExponentExpression => self.visit_math_expression(reader, input),
+            SyntaxKind::NegationExpression => self.visit_negation_expression(reader, input),
             SyntaxKind::EqualExpression
             | SyntaxKind::NotEqualExpression
             | SyntaxKind::LessThanExpression
@@ -166,6 +167,7 @@ pub trait SyntaxVisitor {
                     SyntaxKind::DivisionExpression,
                     SyntaxKind::ModuloExpression,
                     SyntaxKind::ExponentExpression,
+                    SyntaxKind::NegationExpression,
                     SyntaxKind::EqualExpression,
                     SyntaxKind::NotEqualExpression,
                     SyntaxKind::LessThanExpression,

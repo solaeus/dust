@@ -18,6 +18,10 @@ use crate::{
 
 #[derive(Debug)]
 pub enum CompileError {
+    CannotAccessField {
+        type_id: TypeId,
+        position: crate::source::Position,
+    },
     CannotApplyOperator {
         operator: SyntaxKind,
         type_id: TypeId,
@@ -145,6 +149,9 @@ pub enum CompileError {
     ExpectedSyntaxKinds {
         expected: &'static [SyntaxKind],
         found: SyntaxKind,
+    },
+    ExpectedFieldDefinition {
+        found_declaration_id: DeclarationId,
     },
 }
 
@@ -943,6 +950,32 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
+            CompileError::CannotAccessField { type_id, position } => {
+                let title = "Cannot access field".to_string();
+                let r#type = match resolver.get_external_type(*type_id, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => {
+                        error.add_report((source, resolver), groups);
+
+                        return;
+                    }
+                };
+                let file_content = match source.get_file(position.file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!("Type {type} does not have any fields.")),
+                    ),
+                );
+
+                groups.push(group);
+            }
             CompileError::ExpectedModuleDeclaration(_)
             | CompileError::ExpectedTypeDeclaration(_)
             | CompileError::InvalidRegisterCount { .. }
@@ -952,7 +985,8 @@ impl<'a> AnnotatedError<'a> for CompileError {
             | CompileError::ExpectedJumpPlacement(_)
             | CompileError::ExpectedSyntaxKind { .. }
             | CompileError::ExpectedSyntaxKinds { .. }
-            | CompileError::ExpectedLocalDefinition => {
+            | CompileError::ExpectedLocalDefinition
+            | CompileError::ExpectedFieldDefinition { .. } => {
                 self.add_internal_report(groups);
             }
             CompileError::Syntax(error) => error.add_report((), groups),

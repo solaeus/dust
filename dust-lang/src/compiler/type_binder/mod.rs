@@ -14,10 +14,10 @@ use crate::{
         components::{
             ArrayExpression, ArrayRepeatExpression, AssignmentExpression, CallExpression,
             ComparisonExpression, CompoundAssignmentExpression, ConstItem, ExpressionStatement,
-            FunctionType, GroupedExpression, IfExpression, ImplItem, ImplTraitItem,
-            IndexExpression, LetStatement, LogicExpression, MathExpression, NegationExpression,
-            NotExpression, RangeExpression, StructExpression, StructExpressionStructFields,
-            TraitConst, TraitItem, WhileExpression,
+            FieldAccessExpression, FunctionType, GroupedExpression, IfExpression, ImplItem,
+            ImplTraitItem, IndexExpression, LetStatement, LogicExpression, MathExpression,
+            NegationExpression, NotExpression, RangeExpression, StructExpression,
+            StructExpressionStructFields, TraitConst, TraitItem, WhileExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -1304,7 +1304,44 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        todo!()
+        let FieldAccessExpression {
+            operand,
+            field_name,
+        } = reader.as_component()?;
+
+        let operand_type_id = self.visit_expression(operand, None)?;
+        let resolved_operand_type_id = self.infer_type(operand_type_id)?;
+        let operand_type = *self.resolver.types.get_type(resolved_operand_type_id)?;
+
+        match operand_type {
+            Type::Algebraic { declaration_id, .. } => {
+                let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+
+                if !matches!(
+                    declaration.definition,
+                    Definition::StructType { .. } | Definition::Variant { .. },
+                ) {
+                    return Err(CompileError::CannotAccessField {
+                        type_id: resolved_operand_type_id,
+                        position: operand.position(),
+                    });
+                }
+
+                let field_declaration_id =
+                    *self.resolver.get_declaration_binding(&field_name.id)?;
+
+                let field_declaration = self
+                    .resolver
+                    .declarations
+                    .get_declaration(field_declaration_id)?;
+
+                todo!()
+            }
+            _ => Err(CompileError::ExpectedValue {
+                node_kind: operand.node.kind,
+                position: operand.position(),
+            }),
+        }
     }
 
     fn visit_type(&mut self, reader: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
