@@ -71,7 +71,10 @@ fn generic_alias_resolves_type_parameter() {
         .unwrap();
 
     assert_eq!(t_declaration.symbol_id, t_symbol);
-    assert!(matches!(t_declaration.definition, Definition::TypeParameter));
+    assert!(matches!(
+        t_declaration.definition,
+        Definition::TypeParameter
+    ));
 
     let aliased_type = resolver.types.get_type(aliased_type_id).unwrap();
     let Type::Generic { declaration_id } = aliased_type else {

@@ -453,7 +453,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
                 for (index, field_type) in types.enumerate() {
                     let public = field_type.node.modifier;
-                    let symbol_id = self.resolver.symbols.add_index_symbol(index);
+                    let symbol_id = self.resolver.symbols.add_index_symbol(index as u32);
                     let type_id = self.visit_type(field_type)?;
                     let field_declaration_id =
                         self.resolver.declarations.add_declaration(Declaration {
@@ -586,7 +586,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                         let mut ids = SmallVec::<[DeclarationId; 4]>::new();
 
                         for field_type in types {
-                            let symbol_id = self.resolver.symbols.add_index_symbol(ids.len());
+                            let symbol_id =
+                                self.resolver.symbols.add_index_symbol(ids.len() as u32);
                             let type_id = self.visit_type(field_type)?;
                             let field_declaration_id =
                                 self.resolver.declarations.add_declaration(Declaration {
@@ -854,22 +855,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.visit_type(self_type)?;
 
-        let mut impl_index = 0;
-        let impl_symbol_id = loop {
-            let symbol_id = self.resolver.symbols.add_index_symbol(impl_index);
-
-            if self
-                .resolver
-                .declarations
-                .find_declaration(symbol_id, starting_scope_id, Visibility::Module)
-                .is_none()
-            {
-                break symbol_id;
-            }
-
-            impl_index += 1;
-        };
-
+        let impl_symbol_id = self.resolver.symbols.add_impl_symbol();
         let impl_declaration_id = self.resolver.declarations.add_declaration(Declaration {
             symbol_id: impl_symbol_id,
             definition: Definition::InherentImplementation {
@@ -1052,21 +1038,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.visit_type(self_type)?;
 
-        let mut impl_index = 0;
-        let impl_symbol_id = loop {
-            let symbol_id = self.resolver.symbols.add_index_symbol(impl_index);
-
-            if self
-                .resolver
-                .declarations
-                .find_declaration(symbol_id, starting_scope_id, Visibility::Module)
-                .is_none()
-            {
-                break symbol_id;
-            }
-
-            impl_index += 1;
-        };
+        let impl_symbol_id = self.resolver.symbols.add_impl_symbol();
 
         self.resolver.declarations.set_declaration(
             impl_declaration_id,

@@ -23,10 +23,7 @@ fn with_method() {
         .iter()
         .find(|(_, d)| matches!(d.definition, Definition::InherentImplementation { .. }))
         .unwrap();
-    let Definition::InherentImplementation {
-        declarations,
-        ..
-    } = impl_declaration.definition
+    let Definition::InherentImplementation { declarations, .. } = impl_declaration.definition
     else {
         panic!();
     };
@@ -69,9 +66,10 @@ fn methods_not_visible_at_module_scope() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("bar");
-    let result = resolver
-        .declarations
-        .find_declaration(bar_symbol, crate_scope_id, Visibility::Module);
+    let result =
+        resolver
+            .declarations
+            .find_declaration(bar_symbol, crate_scope_id, Visibility::Module);
 
     assert!(result.is_none());
 }

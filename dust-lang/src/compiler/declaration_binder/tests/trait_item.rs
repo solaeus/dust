@@ -66,9 +66,7 @@ fn with_method_and_const() {
         .get_declaration(member_ids[1])
         .unwrap();
     let Definition::AssociatedConstant {
-        parent,
-        type_id,
-        ..
+        parent, type_id, ..
     } = n_decl.definition
     else {
         panic!();
@@ -127,10 +125,7 @@ fn trait_creates_trait_scope() {
         .declarations
         .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
         .unwrap();
-    let Definition::Trait {
-        inner_scope_id, ..
-    } = foo_declaration.definition
-    else {
+    let Definition::Trait { inner_scope_id, .. } = foo_declaration.definition else {
         panic!();
     };
 

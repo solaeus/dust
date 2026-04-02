@@ -194,8 +194,6 @@ impl<'src> Compiler<'src> {
         }
 
         // Emission phase
-        let span = span!(Level::INFO, "emit");
-        let _enter = span.enter();
 
         let main_symbol_id = self.resolver.symbols.add_symbol("main");
         let (main_declaration_id, main_declaration) = match self
@@ -297,18 +295,21 @@ impl<'src> Compiler<'src> {
                 }
             }
 
-            let mut type_binder = TypeBinder::new(&mut self.resolver, &self.source);
+            let (argument_count, concrete_return_type_id) = {
+                let span = span!(Level::INFO, "type");
+                let _enter = span.enter();
 
-            match type_binder.bind_function_body(body, return_type_id) {
-                Ok(()) => {}
-                Err(error) => errors.push(ErrorKind::Compile(error)),
-            }
+                let mut type_binder = TypeBinder::new(&mut self.resolver, &self.source);
 
-            let concrete_return_type_id =
-                unwrap_or_return!(self.resolver.resolve_type(return_type_id));
+                match type_binder.bind_function_body(body, return_type_id) {
+                    Ok(()) => {}
+                    Err(error) => errors.push(ErrorKind::Compile(error)),
+                }
 
-            let argument_count =
-                {
+                let concrete_return_type_id =
+                    unwrap_or_return!(self.resolver.resolve_type(return_type_id));
+
+                let argument_count = {
                     let mut count = 0;
 
                     for index in value_parameters.as_range() {
@@ -334,60 +335,68 @@ impl<'src> Compiler<'src> {
 
                     count
                 };
+
+                (argument_count, concrete_return_type_id)
+            };
             let return_types =
                 unwrap_or_return!(self.resolver.get_operand_types(concrete_return_type_id));
 
-            let mut emitter = match Emitter::new(
-                Some(request.declaration_id),
-                request.prototype_id,
-                argument_count,
-                return_types,
-                scope_id,
-                (Some(declaration.symbol_id), position),
-                (
-                    &self.source,
-                    &mut self.constants,
-                    &mut self.resolver,
-                    &mut self.prototypes,
-                    &mut self.compilation_stack,
-                ),
-            ) {
-                Ok(emitter) => emitter,
-                Err(error) => {
+            {
+                let span = span!(Level::INFO, "emit");
+                let _enter = span.enter();
+
+                let mut emitter = match Emitter::new(
+                    Some(request.declaration_id),
+                    request.prototype_id,
+                    argument_count,
+                    return_types,
+                    scope_id,
+                    (Some(declaration.symbol_id), position),
+                    (
+                        &self.source,
+                        &mut self.constants,
+                        &mut self.resolver,
+                        &mut self.prototypes,
+                        &mut self.compilation_stack,
+                    ),
+                ) {
+                    Ok(emitter) => emitter,
+                    Err(error) => {
+                        errors.push(ErrorKind::Compile(error));
+
+                        return Err(errors);
+                    }
+                };
+
+                if let Err(error) = emitter.bind_parameters(parameters) {
                     errors.push(ErrorKind::Compile(error));
 
                     return Err(errors);
                 }
-            };
 
-            if let Err(error) = emitter.bind_parameters(parameters) {
-                errors.push(ErrorKind::Compile(error));
+                match emitter.emit_function_body(body) {
+                    Ok(()) => {}
+                    Err(error) => {
+                        errors.push(ErrorKind::Compile(error));
 
-                return Err(errors);
-            }
+                        return Err(errors);
+                    }
+                };
 
-            match emitter.emit_function_body(body) {
-                Ok(()) => {}
-                Err(error) => {
-                    errors.push(ErrorKind::Compile(error));
+                let prototype = match emitter.finish() {
+                    Ok(prototype) => prototype,
+                    Err(error) => {
+                        errors.push(ErrorKind::Compile(error));
 
-                    return Err(errors);
+                        return Err(errors);
+                    }
+                };
+
+                self.prototypes.set(request.prototype_id, prototype);
+
+                if request.prototype_id == PrototypeId::MAIN {
+                    concrete_main_return_type_id = Some(concrete_return_type_id);
                 }
-            };
-
-            let prototype = match emitter.finish() {
-                Ok(prototype) => prototype,
-                Err(error) => {
-                    errors.push(ErrorKind::Compile(error));
-
-                    return Err(errors);
-                }
-            };
-
-            self.prototypes.set(request.prototype_id, prototype);
-
-            if request.prototype_id == PrototypeId::MAIN {
-                concrete_main_return_type_id = Some(concrete_return_type_id);
             }
         }
 

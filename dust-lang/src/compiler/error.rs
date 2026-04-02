@@ -115,10 +115,6 @@ pub enum CompileError {
         position: Position,
     },
     ExpectedMainFunction,
-    Unimplemented {
-        syntax_kind: SyntaxKind,
-        position: Position,
-    },
     ListElementSizeOverflow {
         size: usize,
         type_id: TypeId,
@@ -840,27 +836,6 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let title = "Expected a main function".to_string();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Level::HELP.message("A \"main\" function is required to compile the program."),
-                );
-
-                groups.push(group);
-            }
-            CompileError::Unimplemented {
-                syntax_kind,
-                position,
-            } => {
-                let title = format!("Unimplemented: `{syntax_kind}`");
-                let file_content = match source.get_file(position.file_id) {
-                    Ok(file) => file.content_as_str(),
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
-                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_content).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!("The use of {syntax_kind} here is not implemented.")),
-                    ),
                 );
 
                 groups.push(group);

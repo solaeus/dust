@@ -1342,8 +1342,6 @@ impl<'src> Parser<'src> {
         let expression_node = self.parse_sub_expression(Precedence::Assignment)?;
         let expression_id = self.tree_builder.add_node(expression_node);
 
-        self.expect(TokenKind::Semicolon)?;
-
         Ok(SyntaxKind::AssignmentExpression.with_binary_children(
             Span::new(left.span.start(), self.previous_token.span.end()),
             left_id,

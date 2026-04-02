@@ -13,10 +13,11 @@ use crate::{
     syntax::{
         components::{
             ArrayExpression, ArrayRepeatExpression, AssignmentExpression, CallExpression,
-            ComparisonExpression, CompoundAssignmentExpression, ExpressionStatement, FunctionType,
-            GroupedExpression, IfExpression, IndexExpression, LetStatement, LogicExpression,
-            MathExpression, NegationExpression, NotExpression, RangeExpression, StructExpression,
-            StructExpressionStructFields, WhileExpression,
+            ComparisonExpression, CompoundAssignmentExpression, ConstItem, ExpressionStatement,
+            FunctionType, GroupedExpression, IfExpression, ImplItem, ImplTraitItem,
+            IndexExpression, LetStatement, LogicExpression, MathExpression, NegationExpression,
+            NotExpression, RangeExpression, StructExpression, StructExpressionStructFields,
+            TraitConst, TraitItem, WhileExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -417,38 +418,98 @@ impl SyntaxVisitor for TypeBinder<'_> {
     }
 
     fn visit_const_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+        let ConstItem {
+            name,
+            type_annotation: _,
+            value,
+            ..
+        } = reader.as_component()?;
+
+        let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
+        let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+        let Definition::Constant { type_id, .. } = declaration.definition else {
+            return Err(CompileError::ExpectedValue {
+                node_kind: reader.node.kind,
+                position: reader.position(),
+            });
+        };
+
+        let value_type_id = self.visit_expression(value, None)?;
+
+        self.unify_types(type_id, Some(reader), value_type_id, value)?;
+
+        Ok(())
     }
 
-    fn visit_type_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+    fn visit_type_item(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
+        Ok(())
     }
 
     fn visit_impl_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+        let ImplItem { body, .. } = reader.as_component()?;
+
+        for child in body.children() {
+            self.visit_item(child)?;
+        }
+
+        Ok(())
     }
 
     fn visit_impl_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+        let ImplTraitItem { body, .. } = reader.as_component()?;
+
+        for child in body.children() {
+            self.visit_item(child)?;
+        }
+
+        Ok(())
     }
 
     fn visit_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+        let TraitItem { body, .. } = reader.as_component()?;
+
+        for child in body.children() {
+            match child.node.kind {
+                SyntaxKind::TraitMethod => {}
+                SyntaxKind::TraitConst => {
+                    let TraitConst {
+                        name,
+                        type_annotation: _,
+                        value,
+                    } = child.as_component()?;
+
+                    if let Some(value) = value {
+                        let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
+                        let declaration =
+                            self.resolver.declarations.get_declaration(declaration_id)?;
+                        let Definition::AssociatedConstant { type_id, .. } = declaration.definition
+                        else {
+                            return Err(CompileError::ExpectedValue {
+                                node_kind: child.node.kind,
+                                position: child.position(),
+                            });
+                        };
+
+                        let value_type_id = self.visit_expression(value, None)?;
+
+                        self.unify_types(type_id, Some(child), value_type_id, value)?;
+                    }
+                }
+                SyntaxKind::TraitType => {}
+                _ => {
+                    return Err(CompileError::ExpectedSyntaxKinds {
+                        expected: &[
+                            SyntaxKind::TraitMethod,
+                            SyntaxKind::TraitConst,
+                            SyntaxKind::TraitType,
+                        ],
+                        found: child.node.kind,
+                    });
+                }
+            }
+        }
+
+        Ok(())
     }
 
     fn visit_let_statement(
@@ -735,7 +796,11 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
         let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
         let type_id = match declaration.definition {
-            Definition::Local { type_id, .. } => self.resolver.resolve_type(type_id)?,
+            Definition::Local { type_id, .. }
+            | Definition::Constant { type_id, .. }
+            | Definition::AssociatedConstant { type_id, .. } => {
+                self.resolver.resolve_type(type_id)?
+            }
             Definition::Function {
                 type_parameters, ..
             } => {
@@ -821,7 +886,11 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 let target_declaration = self.resolver.declarations.get_declaration(item)?;
 
                 match target_declaration.definition {
-                    Definition::Local { type_id, .. } => self.resolver.resolve_type(type_id)?,
+                    Definition::Local { type_id, .. }
+                    | Definition::Constant { type_id, .. }
+                    | Definition::AssociatedConstant { type_id, .. } => {
+                        self.resolver.resolve_type(type_id)?
+                    }
                     _ => {
                         let type_arguments = self.resolver.types.add_type_members(SmallVec::new());
                         let algebraic_type = Type::Algebraic {
@@ -1235,10 +1304,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+        todo!()
     }
 
     fn visit_type(&mut self, reader: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
@@ -1260,8 +1326,8 @@ impl SyntaxVisitor for TypeBinder<'_> {
             SyntaxKind::SliceType => {
                 let element_type = reader.single_child()?;
 
+                let slice_symbol_id = self.resolver.symbols.add_slice_symbol();
                 let element_type_id = self.visit_type(element_type)?;
-                let slice_symbol_id = self.resolver.symbols.add_symbol("[]");
                 let declaration_id = self.resolver.declarations.add_declaration(Declaration {
                     symbol_id: slice_symbol_id,
                     definition: Definition::TypeParameter,

@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use std::collections::HashMap;
 
 use lexical_core::{
@@ -25,9 +28,9 @@ use crate::{
     syntax::{
         components::{
             ArrayExpression, ArrayRepeatExpression, AssignmentExpression, CallExpression,
-            ComparisonExpression, ExpressionStatement, FunctionItem, FunctionParameters,
-            IndexExpression, LogicExpression, MathExpression, NegationExpression, NotExpression,
-            RangeExpression,
+            ComparisonExpression, ConstItem, ExpressionStatement, FunctionItem, FunctionParameters,
+            ImplItem, ImplTraitItem, IndexExpression, LogicExpression, MathExpression,
+            NegationExpression, NotExpression, RangeExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -1344,38 +1347,62 @@ impl SyntaxVisitor for Emitter<'_> {
     }
 
     fn visit_const_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+        let ConstItem { name, value, .. } = reader.as_component()?;
+
+        let expression_emission = self.visit_expression(value, None)?;
+
+        let place = match expression_emission {
+            Emission::Constant(constant) => {
+                let operand_type = constant.operand_type();
+                let index = self.add_constant(constant);
+
+                Place::Constant {
+                    operand_type,
+                    index,
+                }
+            }
+            Emission::Place(place @ Place::Constant { .. }) => place,
+            _ => {
+                return Err(CompileError::ExpectedValue {
+                    node_kind: value.node.kind,
+                    position: value.position(),
+                });
+            }
+        };
+
+        let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
+
+        self.locals.insert(declaration_id, place);
+
+        Ok(())
     }
 
-    fn visit_type_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+    fn visit_type_item(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
+        Ok(())
     }
 
     fn visit_impl_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+        let ImplItem { body, .. } = reader.as_component()?;
+
+        for child in body.children() {
+            self.visit_item(child)?;
+        }
+
+        Ok(())
     }
 
     fn visit_impl_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+        let ImplTraitItem { body, .. } = reader.as_component()?;
+
+        for child in body.children() {
+            self.visit_item(child)?;
+        }
+
+        Ok(())
     }
 
-    fn visit_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+    fn visit_trait_item(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
+        Ok(())
     }
 
     fn visit_expression_statement(
@@ -3610,10 +3637,7 @@ impl SyntaxVisitor for Emitter<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        Err(CompileError::Unimplemented {
-            syntax_kind: reader.node.kind,
-            position: reader.position(),
-        })
+        todo!()
     }
 
     fn visit_type(&mut self, _: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
