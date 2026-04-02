@@ -1416,29 +1416,29 @@ impl<'src> Parser<'src> {
         let start = left.span.start();
 
         let operator = self.current_token.kind;
-        let (node_kind, is_statement) = match operator {
-            TokenKind::Plus => (SyntaxKind::AdditionExpression, false),
-            TokenKind::PlusEqual => (SyntaxKind::AdditionAssignmentExpression, true),
-            TokenKind::Minus => (SyntaxKind::SubtractionExpression, false),
-            TokenKind::MinusEqual => (SyntaxKind::SubtractionAssignmentExpression, true),
-            TokenKind::Asterisk => (SyntaxKind::MultiplicationExpression, false),
-            TokenKind::AsteriskEqual => (SyntaxKind::MultiplicationAssignmentExpression, true),
-            TokenKind::Slash => (SyntaxKind::DivisionExpression, false),
-            TokenKind::SlashEqual => (SyntaxKind::DivisionAssignmentExpression, true),
-            TokenKind::Percent => (SyntaxKind::ModuloExpression, false),
-            TokenKind::PercentEqual => (SyntaxKind::ModuloAssignmentExpression, true),
-            TokenKind::Caret => (SyntaxKind::ExponentExpression, false),
-            TokenKind::CaretEqual => (SyntaxKind::ExponentAssignmentExpression, true),
-            TokenKind::DoubleEqual => (SyntaxKind::EqualExpression, false),
-            TokenKind::BangEqual => (SyntaxKind::NotEqualExpression, false),
-            TokenKind::Greater => (SyntaxKind::GreaterThanExpression, false),
-            TokenKind::GreaterEqual => (SyntaxKind::GreaterThanOrEqualExpression, false),
-            TokenKind::Less => (SyntaxKind::LessThanExpression, false),
-            TokenKind::LessEqual => (SyntaxKind::LessThanOrEqualExpression, false),
-            TokenKind::DoubleAmpersand => (SyntaxKind::AndExpression, false),
-            TokenKind::DoublePipe => (SyntaxKind::OrExpression, false),
-            TokenKind::DoubleDot => (SyntaxKind::RangeExpression, false),
-            TokenKind::DoubleDotEqual => (SyntaxKind::RangeInclusiveExpression, false),
+        let node_kind = match operator {
+            TokenKind::Plus => SyntaxKind::AdditionExpression,
+            TokenKind::PlusEqual => SyntaxKind::AdditionAssignmentExpression,
+            TokenKind::Minus => SyntaxKind::SubtractionExpression,
+            TokenKind::MinusEqual => SyntaxKind::SubtractionAssignmentExpression,
+            TokenKind::Asterisk => SyntaxKind::MultiplicationExpression,
+            TokenKind::AsteriskEqual => SyntaxKind::MultiplicationAssignmentExpression,
+            TokenKind::Slash => SyntaxKind::DivisionExpression,
+            TokenKind::SlashEqual => SyntaxKind::DivisionAssignmentExpression,
+            TokenKind::Percent => SyntaxKind::ModuloExpression,
+            TokenKind::PercentEqual => SyntaxKind::ModuloAssignmentExpression,
+            TokenKind::Caret => SyntaxKind::ExponentExpression,
+            TokenKind::CaretEqual => SyntaxKind::ExponentAssignmentExpression,
+            TokenKind::DoubleEqual => SyntaxKind::EqualExpression,
+            TokenKind::BangEqual => SyntaxKind::NotEqualExpression,
+            TokenKind::Greater => SyntaxKind::GreaterThanExpression,
+            TokenKind::GreaterEqual => SyntaxKind::GreaterThanOrEqualExpression,
+            TokenKind::Less => SyntaxKind::LessThanExpression,
+            TokenKind::LessEqual => SyntaxKind::LessThanOrEqualExpression,
+            TokenKind::DoubleAmpersand => SyntaxKind::AndExpression,
+            TokenKind::DoublePipe => SyntaxKind::OrExpression,
+            TokenKind::DoubleDot => SyntaxKind::RangeExpression,
+            TokenKind::DoubleDotEqual => SyntaxKind::RangeInclusiveExpression,
             _ => {
                 return Err(ParseError::ExpectedMultipleTokens {
                     expected: &[
@@ -1483,10 +1483,6 @@ impl<'src> Parser<'src> {
 
         let right = self.parse_sub_expression(right_precedence)?;
         let right_id = self.tree_builder.add_node(right);
-
-        if is_statement {
-            self.expect(TokenKind::Semicolon)?;
-        }
 
         Ok(node_kind.with_binary_children(
             Span::new(start, self.previous_token.span.end()),
