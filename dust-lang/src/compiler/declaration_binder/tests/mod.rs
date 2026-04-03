@@ -3,6 +3,7 @@
 mod const_item;
 mod enum_item;
 mod expression_scoping;
+mod field_access_expression;
 mod function_item;
 mod impl_item;
 mod impl_trait_item;

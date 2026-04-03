@@ -1906,7 +1906,7 @@ impl SyntaxVisitor for Emitter<'_> {
             {
                 return Err(CompileError::ExpectedFloatRegister);
             }
-            _ => {
+            None => {
                 let float = parse_with_options::<f64, RUST_LITERAL>(
                     float_str.as_bytes(),
                     &ParseFloatOptions::default(),
@@ -1914,6 +1914,9 @@ impl SyntaxVisitor for Emitter<'_> {
                 .unwrap_or_default();
 
                 ConstantEmission::F64(float)
+            }
+            _ => {
+                return Err(CompileError::ExpectedFloatRegister);
             }
         };
 

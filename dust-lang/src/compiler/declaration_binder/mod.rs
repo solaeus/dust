@@ -1765,9 +1765,77 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        let FieldAccessExpression { operand, .. } = reader.as_component()?;
+        let FieldAccessExpression {
+            operand,
+            field_name,
+        } = reader.as_component()?;
 
         self.visit_expression(operand, None)?;
+
+        let operand_declaration_id = *self.resolver.get_declaration_binding(&operand.id)?;
+        let operand_declaration = self
+            .resolver
+            .declarations
+            .get_declaration(operand_declaration_id)?;
+
+        let type_id = match operand_declaration.definition {
+            Definition::Local { type_id, .. } | Definition::Field { type_id, .. } => type_id,
+            _ => {
+                return Err(CompileError::ExpectedValue {
+                    node_kind: operand.node.kind,
+                    position: operand.position(),
+                });
+            }
+        };
+
+        let operand_type = *self.resolver.types.get_type(type_id)?;
+
+        let Type::Algebraic { declaration_id, .. } = operand_type else {
+            return Err(CompileError::CannotAccessField {
+                type_id,
+                position: operand.position(),
+            });
+        };
+
+        let struct_declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+
+        let fields = match struct_declaration.definition {
+            Definition::StructType { fields, .. } | Definition::Variant { fields, .. } => fields,
+            _ => {
+                return Err(CompileError::CannotAccessField {
+                    type_id,
+                    position: operand.position(),
+                });
+            }
+        };
+
+        let field_name_str = self.source.get_file_content(&field_name.position())?;
+        let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
+
+        let field_declaration_ids = self
+            .resolver
+            .declarations
+            .get_declaration_members(&fields)?;
+
+        let mut found_field_declaration_id = None;
+
+        for &field_id in field_declaration_ids {
+            let field_declaration = self.resolver.declarations.get_declaration(field_id)?;
+
+            if field_declaration.symbol_id == field_symbol_id {
+                found_field_declaration_id = Some(field_id);
+
+                break;
+            }
+        }
+
+        let field_declaration_id = found_field_declaration_id.ok_or(CompileError::Undeclared {
+            symbol_id: field_symbol_id,
+            usage_position: field_name.position(),
+        })?;
+
+        self.resolver
+            .add_declaration_binding(field_name.id, field_declaration_id);
 
         Ok(())
     }

@@ -642,7 +642,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
     fn visit_string_expression(
         &mut self,
-        reader: SyntaxReader,
+        _: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -1309,39 +1309,26 @@ impl SyntaxVisitor for TypeBinder<'_> {
             field_name,
         } = reader.as_component()?;
 
-        let operand_type_id = self.visit_expression(operand, None)?;
-        let resolved_operand_type_id = self.infer_type(operand_type_id)?;
-        let operand_type = *self.resolver.types.get_type(resolved_operand_type_id)?;
+        self.visit_expression(operand, None)?;
 
-        match operand_type {
-            Type::Algebraic { declaration_id, .. } => {
-                let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+        let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
+        let field_declaration = self
+            .resolver
+            .declarations
+            .get_declaration(field_declaration_id)?;
 
-                if !matches!(
-                    declaration.definition,
-                    Definition::StructType { .. } | Definition::Variant { .. },
-                ) {
-                    return Err(CompileError::CannotAccessField {
-                        type_id: resolved_operand_type_id,
-                        position: operand.position(),
-                    });
-                }
+        let Definition::Field { type_id, .. } = field_declaration.definition else {
+            return Err(CompileError::ExpectedValue {
+                node_kind: field_name.node.kind,
+                position: field_name.position(),
+            });
+        };
 
-                let field_declaration_id =
-                    *self.resolver.get_declaration_binding(&field_name.id)?;
+        let resolved_type_id = self.resolver.resolve_type(type_id)?;
 
-                let field_declaration = self
-                    .resolver
-                    .declarations
-                    .get_declaration(field_declaration_id)?;
+        self.resolver.add_type_binding(reader.id, resolved_type_id);
 
-                todo!()
-            }
-            _ => Err(CompileError::ExpectedValue {
-                node_kind: operand.node.kind,
-                position: operand.position(),
-            }),
-        }
+        Ok(resolved_type_id)
     }
 
     fn visit_type(&mut self, reader: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
@@ -1416,17 +1403,13 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(type_id)
     }
 
-    fn visit_path(
-        &mut self,
-        reader: SyntaxReader,
-        _: (),
-    ) -> Result<Self::PathOutput, CompileError> {
+    fn visit_path(&mut self, _: SyntaxReader, _: ()) -> Result<Self::PathOutput, CompileError> {
         todo!()
     }
 
     fn visit_simple_path(
         &mut self,
-        reader: SyntaxReader,
+        _: SyntaxReader,
         _: (),
     ) -> Result<Self::PathOutput, CompileError> {
         todo!()
