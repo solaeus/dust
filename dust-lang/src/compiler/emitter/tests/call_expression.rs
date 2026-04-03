@@ -1,14 +1,12 @@
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
-    resolver::symbols::SymbolId,
-    source::{Position, SourceFileId, Span},
 };
 
 use super::emit_function;
 
 #[test]
-fn call_with_return_value() {
+fn return_value() {
     let prototype = emit_function("fn bar() -> i32 { 42 } fn foo() -> i32 { bar() }");
 
     assert_eq!(
@@ -21,8 +19,27 @@ fn call_with_return_value() {
             return_types: vec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
-            debug_symbol_id: Some(SymbolId(15)),
-            debug_position: Position::new(SourceFileId::MAIN, Span::new(22, 49)),
+        }
+    );
+}
+
+#[test]
+fn multiple_arguments() {
+    let prototype =
+        emit_function("fn add(a: i32, b: i32) -> i32 { a + b } fn foo() -> i32 { add(1, 2) }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(2, OperandType::I_32, MemoryKind::CONSTANT, 1),
+                Instruction::call(0, MemoryKind::CONSTANT, 2, 2),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 0,
         }
     );
 }

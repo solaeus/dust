@@ -6,8 +6,8 @@ use crate::{
 use super::emit_function;
 
 #[test]
-fn used_in_return() {
-    let prototype = emit_function("fn foo() -> i32 { let x: i32 = 42; x }");
+fn reassignment() {
+    let prototype = emit_function("fn foo() { let mut x: i32 = 0; x = 1; }");
 
     assert_eq!(
         prototype,
@@ -16,7 +16,7 @@ fn used_in_return() {
                 Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: vec![],
             register_count: 1,
             argument_count: 0,
         }

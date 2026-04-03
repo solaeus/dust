@@ -1,14 +1,12 @@
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
-    resolver::symbols::SymbolId,
-    source::{Position, SourceFileId, Span},
 };
 
 use super::emit_function;
 
 #[test]
-fn and_expression() {
+fn and() {
     let prototype =
         emit_function("fn foo() -> bool { let a: bool = true; let b: bool = false; a && b }");
 
@@ -23,14 +21,12 @@ fn and_expression() {
             return_types: vec![OperandType::BOOLEAN],
             register_count: 1,
             argument_count: 0,
-            debug_symbol_id: Some(SymbolId(14)),
-            debug_position: Position::new(SourceFileId::MAIN, Span::new(0, 68)),
         }
     );
 }
 
 #[test]
-fn or_expression() {
+fn or() {
     let prototype =
         emit_function("fn foo() -> bool { let a: bool = true; let b: bool = false; a || b }");
 
@@ -45,8 +41,6 @@ fn or_expression() {
             return_types: vec![OperandType::BOOLEAN],
             register_count: 1,
             argument_count: 0,
-            debug_symbol_id: Some(SymbolId(14)),
-            debug_position: Position::new(SourceFileId::MAIN, Span::new(0, 68)),
         }
     );
 }

@@ -1,14 +1,12 @@
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
-    resolver::symbols::SymbolId,
-    source::{Position, SourceFileId, Span},
 };
 
 use super::emit_function;
 
 #[test]
-fn if_else_returning_value() {
+fn with_else() {
     let prototype = emit_function("fn foo() -> i32 { if true { 1 } else { 2 } }");
 
     assert_eq!(
@@ -24,8 +22,31 @@ fn if_else_returning_value() {
             return_types: vec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
-            debug_symbol_id: Some(SymbolId(14)),
-            debug_position: Position::new(SourceFileId::MAIN, Span::new(0, 45)),
+        }
+    );
+}
+
+#[test]
+fn without_else() {
+    let prototype = emit_function("fn foo() { let x: i32 = 1; if x == 1 {} }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    OperandType::I_32,
+                    MemoryKind::CONSTANT,
+                    0,
+                    MemoryKind::CONSTANT,
+                    0
+                ),
+                Instruction::r#return(),
+            ],
+            return_types: vec![],
+            register_count: 0,
+            argument_count: 0,
         }
     );
 }

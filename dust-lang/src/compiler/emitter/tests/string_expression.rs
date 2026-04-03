@@ -6,17 +6,17 @@ use crate::{
 use super::emit_function;
 
 #[test]
-fn used_in_return() {
-    let prototype = emit_function("fn foo() -> i32 { let x: i32 = 42; x }");
+fn hello() {
+    let prototype = emit_function("fn foo() -> str { \"hello\" }");
 
     assert_eq!(
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::POINTER, MemoryKind::CONSTANT, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: vec![OperandType::POINTER],
             register_count: 1,
             argument_count: 0,
         }

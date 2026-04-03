@@ -1,14 +1,12 @@
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
-    resolver::symbols::SymbolId,
-    source::{Position, SourceFileId, Span},
 };
 
 use super::emit_function;
 
 #[test]
-fn simple_reassignment() {
+fn reassignment() {
     let prototype = emit_function("fn foo() -> i32 { let mut x: i32 = 1; x = 2; x }");
 
     assert_eq!(
@@ -21,8 +19,6 @@ fn simple_reassignment() {
             return_types: vec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
-            debug_symbol_id: Some(SymbolId(14)),
-            debug_position: Position::new(SourceFileId::MAIN, Span::new(0, 49)),
         }
     );
 }
@@ -49,8 +45,141 @@ fn compound_addition() {
             return_types: vec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
-            debug_symbol_id: Some(SymbolId(14)),
-            debug_position: Position::new(SourceFileId::MAIN, Span::new(0, 50)),
+        }
+    );
+}
+
+#[test]
+fn compound_subtraction() {
+    let prototype =
+        emit_function("fn foo() -> i32 { let mut x: i32 = 10; x -= 3; x }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::subtract(
+                    0,
+                    OperandType::I_32,
+                    MemoryKind::REGISTER,
+                    0,
+                    MemoryKind::CONSTANT,
+                    1
+                ),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 0,
+        }
+    );
+}
+
+#[test]
+fn compound_multiplication() {
+    let prototype =
+        emit_function("fn foo() -> i32 { let mut x: i32 = 3; x *= 4; x }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::multiply(
+                    0,
+                    OperandType::I_32,
+                    MemoryKind::REGISTER,
+                    0,
+                    MemoryKind::CONSTANT,
+                    1
+                ),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 0,
+        }
+    );
+}
+
+#[test]
+fn compound_division() {
+    let prototype =
+        emit_function("fn foo() -> i32 { let mut x: i32 = 12; x /= 3; x }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::divide(
+                    0,
+                    OperandType::I_32,
+                    MemoryKind::REGISTER,
+                    0,
+                    MemoryKind::CONSTANT,
+                    1
+                ),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 0,
+        }
+    );
+}
+
+#[test]
+fn compound_modulo() {
+    let prototype =
+        emit_function("fn foo() -> i32 { let mut x: i32 = 10; x %= 3; x }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::modulo(
+                    0,
+                    OperandType::I_32,
+                    MemoryKind::REGISTER,
+                    0,
+                    MemoryKind::CONSTANT,
+                    1
+                ),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 0,
+        }
+    );
+}
+
+#[test]
+fn compound_power() {
+    let prototype =
+        emit_function("fn foo() -> i32 { let mut x: i32 = 2; x **= 3; x }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::power(
+                    0,
+                    OperandType::I_32,
+                    MemoryKind::REGISTER,
+                    0,
+                    MemoryKind::CONSTANT,
+                    1
+                ),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 0,
         }
     );
 }

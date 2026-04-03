@@ -351,7 +351,6 @@ impl<'src> Compiler<'src> {
                     argument_count,
                     return_types,
                     scope_id,
-                    (Some(declaration.symbol_id), position),
                     (
                         &self.source,
                         &mut self.constants,

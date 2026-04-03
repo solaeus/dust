@@ -6,17 +6,17 @@ use crate::{
 use super::emit_function;
 
 #[test]
-fn variable() {
-    let prototype = emit_function("fn foo() -> i32 { let x: i32 = 5; -x }");
+fn f32() {
+    let prototype = emit_function("fn foo() -> f32 { 3.14 }");
 
     assert_eq!(
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::negate(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::F_32, MemoryKind::CONSTANT, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: vec![OperandType::F_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -24,17 +24,17 @@ fn variable() {
 }
 
 #[test]
-fn constant() {
-    let prototype = emit_function("fn foo() -> i32 { -5 }");
+fn f64() {
+    let prototype = emit_function("fn foo() -> f64 { 2.718 }");
 
     assert_eq!(
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::F_64, MemoryKind::CONSTANT, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: vec![OperandType::F_64],
             register_count: 1,
             argument_count: 0,
         }

@@ -1,14 +1,12 @@
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
-    resolver::symbols::SymbolId,
-    source::{Position, SourceFileId, Span},
 };
 
 use super::emit_function;
 
 #[test]
-fn function_with_argument() {
+fn one_argument() {
     let prototype =
         emit_function("fn foo() -> i32 { fn add_one(x: i32) -> i32 { x + 1 } add_one(5) }");
 
@@ -23,8 +21,46 @@ fn function_with_argument() {
             return_types: vec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
-            debug_symbol_id: Some(SymbolId(14)),
-            debug_position: Position::new(SourceFileId::MAIN, Span::new(0, 66)),
+        }
+    );
+}
+
+#[test]
+fn no_arguments() {
+    let prototype =
+        emit_function("fn foo() -> i32 { fn returns_five() -> i32 { 5 } returns_five() }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::call(0, MemoryKind::CONSTANT, 0, u16::MAX),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 0,
+        }
+    );
+}
+
+#[test]
+fn multiple_arguments() {
+    let prototype =
+        emit_function("fn foo() -> i32 { fn add(a: i32, b: i32) -> i32 { a + b } add(3, 4) }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(2, OperandType::I_32, MemoryKind::CONSTANT, 1),
+                Instruction::call(0, MemoryKind::CONSTANT, 2, 2),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 0,
         }
     );
 }

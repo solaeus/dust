@@ -21,7 +21,6 @@ use crate::{
         declarations::{DeclarationId, Definition},
         error::ResolverError,
         scopes::ScopeId,
-        symbols::SymbolId,
         types::{FloatType, SignedIntegerType, Type, TypeId, TypeMembers, UnsignedIntegerType},
     },
     source::{Position, Source, Span},
@@ -75,10 +74,6 @@ pub struct Emitter<'a> {
     current_scope_id: ScopeId,
 
     next_jump_id: JumpId,
-
-    debug_symbol_id: Option<SymbolId>,
-
-    debug_position: Position,
 }
 
 impl<'a> Emitter<'a> {
@@ -88,7 +83,6 @@ impl<'a> Emitter<'a> {
         argument_count: u16,
         return_types: Vec<OperandType>,
         starting_scope_id: ScopeId,
-        debug_info: (Option<SymbolId>, Position),
         (source, constants, resolver, prototypes, compilation_stack): (
             &'a Source,
             &'a mut ConstantListBuilder,
@@ -131,8 +125,6 @@ impl<'a> Emitter<'a> {
             jump_over_branch_ids: Vec::new(),
             current_scope_id: starting_scope_id,
             next_jump_id: JumpId(0),
-            debug_symbol_id: debug_info.0,
-            debug_position: debug_info.1,
         })
     }
 
@@ -255,8 +247,6 @@ impl<'a> Emitter<'a> {
             return_types: self.return_types,
             register_count: self.register_tracker.max,
             argument_count: self.argument_count,
-            debug_symbol_id: self.debug_symbol_id,
-            debug_position: self.debug_position,
         })
     }
 

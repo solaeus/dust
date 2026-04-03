@@ -1,14 +1,12 @@
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
-    resolver::symbols::SymbolId,
-    source::{Position, SourceFileId, Span},
 };
 
 use super::emit_function;
 
 #[test]
-fn add_two_variables() {
+fn add() {
     let prototype = emit_function("fn foo() -> i32 { let a: i32 = 1; let b: i32 = 2; a + b }");
 
     assert_eq!(
@@ -28,14 +26,12 @@ fn add_two_variables() {
             return_types: vec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
-            debug_symbol_id: Some(SymbolId(14)),
-            debug_position: Position::new(SourceFileId::MAIN, Span::new(0, 57)),
         }
     );
 }
 
 #[test]
-fn subtract_two_variables() {
+fn subtract() {
     let prototype = emit_function("fn foo() -> i32 { let a: i32 = 5; let b: i32 = 3; a - b }");
 
     assert_eq!(
@@ -55,14 +51,12 @@ fn subtract_two_variables() {
             return_types: vec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
-            debug_symbol_id: Some(SymbolId(14)),
-            debug_position: Position::new(SourceFileId::MAIN, Span::new(0, 57)),
         }
     );
 }
 
 #[test]
-fn multiply_two_variables() {
+fn multiply() {
     let prototype = emit_function("fn foo() -> i32 { let a: i32 = 3; let b: i32 = 4; a * b }");
 
     assert_eq!(
@@ -82,14 +76,12 @@ fn multiply_two_variables() {
             return_types: vec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
-            debug_symbol_id: Some(SymbolId(14)),
-            debug_position: Position::new(SourceFileId::MAIN, Span::new(0, 57)),
         }
     );
 }
 
 #[test]
-fn tail_addition() {
+fn tail() {
     let prototype = emit_function("fn foo() -> i32 { 1 + 2 }");
 
     assert_eq!(
@@ -109,8 +101,84 @@ fn tail_addition() {
             return_types: vec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
-            debug_symbol_id: Some(SymbolId(14)),
-            debug_position: Position::new(SourceFileId::MAIN, Span::new(0, 25)),
+        }
+    );
+}
+
+#[test]
+fn divide() {
+    let prototype =
+        emit_function("fn foo() -> i32 { let a: i32 = 10; let b: i32 = 3; a / b }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::divide(
+                    0,
+                    OperandType::I_32,
+                    MemoryKind::CONSTANT,
+                    0,
+                    MemoryKind::CONSTANT,
+                    1
+                ),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 0,
+        }
+    );
+}
+
+#[test]
+fn modulo() {
+    let prototype =
+        emit_function("fn foo() -> i32 { let a: i32 = 10; let b: i32 = 3; a % b }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::modulo(
+                    0,
+                    OperandType::I_32,
+                    MemoryKind::CONSTANT,
+                    0,
+                    MemoryKind::CONSTANT,
+                    1
+                ),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 0,
+        }
+    );
+}
+
+#[test]
+fn power() {
+    let prototype =
+        emit_function("fn foo() -> i32 { let a: i32 = 2; let b: i32 = 3; a ** b }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::power(
+                    0,
+                    OperandType::I_32,
+                    MemoryKind::CONSTANT,
+                    0,
+                    MemoryKind::CONSTANT,
+                    1
+                ),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 0,
         }
     );
 }

@@ -1,17 +1,33 @@
 #![allow(clippy::disallowed_methods)]
 
+mod array_expression;
+mod array_repeat_expression;
 mod assignment_expression;
 mod block_expression;
+mod boolean_expression;
+mod byte_expression;
 mod call_expression;
+mod character_expression;
 mod comparison_expression;
 mod const_item;
+mod expression_statement;
+mod field_access_expression;
+mod float_expression;
 mod function_item;
+mod grouped_expression;
 mod if_expression;
 mod impl_item;
+mod index_expression;
+mod integer_expression;
 mod let_statement;
 mod logic_expression;
 mod math_expression;
 mod negation_expression;
+mod not_expression;
+mod path_expression;
+mod range_expression;
+mod string_expression;
+mod struct_expression;
 mod while_expression;
 
 use crate::{
@@ -83,7 +99,6 @@ fn emit_function(source_code: &str) -> Prototype {
         argument_count,
         return_types,
         scope_id,
-        (Some(foo_declaration.symbol_id), position),
         (
             &source,
             &mut constants,

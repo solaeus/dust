@@ -57,64 +57,7 @@ impl<'a> Disassembler<'a> {
         tabs.push(Tab::Declarations);
 
         for (id, prototype) in program.prototypes.iter() {
-            let name_display = if let Some(symbol_id) = prototype.debug_symbol_id {
-                let symbol = resolver.symbols.get_symbol(&symbol_id).unwrap();
-
-                symbol.to_string()
-            } else {
-                let file = source.get_file(prototype.debug_position.file_id).unwrap();
-                let file_name = file.file_name();
-                let span_range = prototype.debug_position.span.as_usize_range();
-                let (start_line, start_column) = file.content_as_str()[..span_range.start]
-                    .lines()
-                    .fold((1, 0), |(line, column), line_content| {
-                        let line_length = line_content.chars().count() + 1;
-
-                        if column + line_length > span_range.start {
-                            (line, column)
-                        } else {
-                            (line + 1, column + line_length)
-                        }
-                    });
-                let (end_line, end_column) = file.content_as_str()
-                    [span_range.start..span_range.end]
-                    .lines()
-                    .fold((start_line, 0), |(line, column), line_content| {
-                        let line_length = line_content.chars().count() + 1;
-
-                        if column + line_length > span_range.end {
-                            (line, column)
-                        } else {
-                            (line + 1, column + line_length)
-                        }
-                    });
-
-                format!(
-                    "closure @ {file_name} {start_line}:{start_column}..{end_line}:{end_column}"
-                )
-            };
-
-            let (source, source_lines, source_width) = {
-                let content = source.get_file_content(&prototype.debug_position).unwrap();
-                let mut line_count = 0;
-                let mut max_width = 0;
-
-                for line in content.lines() {
-                    line_count += 1;
-                    max_width = max_width.max(line.chars().count() as u16);
-                }
-
-                (Some(content), line_count, max_width)
-            };
-
-            tabs.push(Tab::Prototype(PrototypeTab {
-                id,
-                prototype,
-                name_display,
-                source,
-                source_lines,
-                source_width,
-            }));
+            tabs.push(Tab::Prototype(PrototypeTab { id, prototype }));
         }
 
         Self {
@@ -217,14 +160,7 @@ impl<'a> Disassembler<'a> {
     }
 
     fn draw_prototype_tab(&self, tab: &PrototypeTab, area: Rect, buffer: &mut Buffer) {
-        let PrototypeTab {
-            id,
-            prototype,
-            name_display,
-            source,
-            source_lines,
-            source_width,
-        } = tab;
+        let PrototypeTab { id, prototype } = tab;
 
         fn get_section_length(line_count: usize) -> u16 {
             if line_count == 0 {
@@ -244,42 +180,15 @@ impl<'a> Disassembler<'a> {
         let areas = Layout::vertical([
             Constraint::Length(2),
             Constraint::Length(2),
-            Constraint::Length(source_lines + 1),
             Constraint::Length(2),
             Constraint::Length(get_section_length(prototype.instructions.len())),
         ]);
-        let [
-            name_area,
-            id_area,
-            source_area,
-            info_area,
-            instructions_area,
-        ] = areas.flex(Flex::Start).areas(inner_area);
-
-        Paragraph::new(name_display.as_str())
-            .centered()
-            .wrap(Wrap { trim: true })
-            .bold()
-            .render(name_area, buffer);
+        let [id_area, info_area, instructions_area] = areas.flex(Flex::Start).areas(inner_area);
 
         Paragraph::new(id.to_string())
             .centered()
             .wrap(Wrap { trim: true })
             .render(id_area, buffer);
-
-        if let Some(source) = source {
-            let areas = Layout::horizontal([
-                Constraint::Fill(1),
-                Constraint::Length(*source_width),
-                Constraint::Fill(1),
-            ])
-            .areas(source_area);
-            let [_, source_area, _] = areas;
-
-            Paragraph::new(*source)
-                .wrap(Wrap { trim: false })
-                .render(source_area, buffer);
-        }
 
         Paragraph::new(format!(
             "{} instructions, {} registers",
@@ -499,12 +408,7 @@ impl<'a> From<&'a Tab<'a>> for Line<'a> {
                 Line::from(vec![title, file_name])
             }
             Tab::Declarations => Line::from("Declarations"),
-            Tab::Prototype(PrototypeTab { name_display, .. }) => {
-                let title = Span::raw("Prototype: ");
-                let name_display = Span::raw(name_display.as_str());
-
-                Line::from(vec![title, name_display])
-            }
+            Tab::Prototype(PrototypeTab { id, .. }) => Line::from(format!("{id}")),
         }
     }
 }
@@ -512,8 +416,4 @@ impl<'a> From<&'a Tab<'a>> for Line<'a> {
 struct PrototypeTab<'a> {
     id: PrototypeId,
     prototype: &'a Prototype,
-    name_display: String,
-    source: Option<&'a str>,
-    source_lines: u16,
-    source_width: u16,
 }

@@ -6,21 +6,14 @@ use crate::{
 use super::emit_function;
 
 #[test]
-fn tail_expression() {
-    let prototype = emit_function("fn foo() -> i32 { let x: i32 = 1; { let y: i32 = 2; x + y } }");
+fn addition() {
+    let prototype = emit_function("fn foo() -> i32 { (1 + 2) }");
 
     assert_eq!(
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::add(
-                    0,
-                    OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
-                ),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],

@@ -8,11 +8,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    instruction::{Instruction, OperandType},
-    resolver::symbols::SymbolId,
-    source::{Position, SourceFileId, Span},
-};
+use crate::instruction::{Instruction, OperandType};
 
 /// Compiled representation of a function.
 ///
@@ -24,8 +20,6 @@ pub struct Prototype {
     pub(crate) return_types: Vec<OperandType>,
     pub(crate) register_count: u16,
     pub(crate) argument_count: u16,
-    pub(crate) debug_symbol_id: Option<SymbolId>,
-    pub(crate) debug_position: Position,
 }
 
 impl Prototype {
@@ -35,8 +29,6 @@ impl Prototype {
             return_types: Vec::new(),
             register_count: 0,
             argument_count: 0,
-            debug_symbol_id: None,
-            debug_position: Position::new(SourceFileId::MAIN, Span::default()),
         }
     }
 }
