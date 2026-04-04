@@ -153,6 +153,7 @@ pub enum CompileError {
     ExpectedFieldDefinition {
         found_declaration_id: DeclarationId,
     },
+    ExpectedAllocation,
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
@@ -986,7 +987,8 @@ impl<'a> AnnotatedError<'a> for CompileError {
             | CompileError::ExpectedSyntaxKind { .. }
             | CompileError::ExpectedSyntaxKinds { .. }
             | CompileError::ExpectedLocalDefinition
-            | CompileError::ExpectedFieldDefinition { .. } => {
+            | CompileError::ExpectedFieldDefinition { .. }
+            | CompileError::ExpectedAllocation => {
                 self.add_internal_report(groups);
             }
             CompileError::Syntax(error) => error.add_report((), groups),

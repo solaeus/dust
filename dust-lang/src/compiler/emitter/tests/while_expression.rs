@@ -26,8 +26,7 @@ fn empty() {
 
 #[test]
 fn with_body() {
-    let prototype =
-        emit_function("fn foo() { let mut x: i32 = 0; while x < 10 { x += 1; } }");
+    let prototype = emit_function("fn foo() { let mut x: i32 = 0; while x < 10 { x += 1; } }");
 
     assert_eq!(
         prototype,

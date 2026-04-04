@@ -7,7 +7,7 @@ use super::emit_function;
 
 #[test]
 fn ascii() {
-    let prototype = emit_function("fn foo() -> u8 { b'a' }");
+    let prototype = emit_function("fn foo() -> u8 { 0x60 }");
 
     assert_eq!(
         prototype,

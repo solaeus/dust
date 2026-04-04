@@ -107,8 +107,7 @@ fn tail() {
 
 #[test]
 fn divide() {
-    let prototype =
-        emit_function("fn foo() -> i32 { let a: i32 = 10; let b: i32 = 3; a / b }");
+    let prototype = emit_function("fn foo() -> i32 { let a: i32 = 10; let b: i32 = 3; a / b }");
 
     assert_eq!(
         prototype,
@@ -133,8 +132,7 @@ fn divide() {
 
 #[test]
 fn modulo() {
-    let prototype =
-        emit_function("fn foo() -> i32 { let a: i32 = 10; let b: i32 = 3; a % b }");
+    let prototype = emit_function("fn foo() -> i32 { let a: i32 = 10; let b: i32 = 3; a % b }");
 
     assert_eq!(
         prototype,
@@ -159,8 +157,7 @@ fn modulo() {
 
 #[test]
 fn power() {
-    let prototype =
-        emit_function("fn foo() -> i32 { let a: i32 = 2; let b: i32 = 3; a ** b }");
+    let prototype = emit_function("fn foo() -> i32 { let a: i32 = 2; let b: i32 = 3; a ** b }");
 
     assert_eq!(
         prototype,

@@ -51,8 +51,7 @@ fn compound_addition() {
 
 #[test]
 fn compound_subtraction() {
-    let prototype =
-        emit_function("fn foo() -> i32 { let mut x: i32 = 10; x -= 3; x }");
+    let prototype = emit_function("fn foo() -> i32 { let mut x: i32 = 10; x -= 3; x }");
 
     assert_eq!(
         prototype,
@@ -78,8 +77,7 @@ fn compound_subtraction() {
 
 #[test]
 fn compound_multiplication() {
-    let prototype =
-        emit_function("fn foo() -> i32 { let mut x: i32 = 3; x *= 4; x }");
+    let prototype = emit_function("fn foo() -> i32 { let mut x: i32 = 3; x *= 4; x }");
 
     assert_eq!(
         prototype,
@@ -105,8 +103,7 @@ fn compound_multiplication() {
 
 #[test]
 fn compound_division() {
-    let prototype =
-        emit_function("fn foo() -> i32 { let mut x: i32 = 12; x /= 3; x }");
+    let prototype = emit_function("fn foo() -> i32 { let mut x: i32 = 12; x /= 3; x }");
 
     assert_eq!(
         prototype,
@@ -132,8 +129,7 @@ fn compound_division() {
 
 #[test]
 fn compound_modulo() {
-    let prototype =
-        emit_function("fn foo() -> i32 { let mut x: i32 = 10; x %= 3; x }");
+    let prototype = emit_function("fn foo() -> i32 { let mut x: i32 = 10; x %= 3; x }");
 
     assert_eq!(
         prototype,
@@ -159,8 +155,7 @@ fn compound_modulo() {
 
 #[test]
 fn compound_power() {
-    let prototype =
-        emit_function("fn foo() -> i32 { let mut x: i32 = 2; x **= 3; x }");
+    let prototype = emit_function("fn foo() -> i32 { let mut x: i32 = 2; x **= 3; x }");
 
     assert_eq!(
         prototype,

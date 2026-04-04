@@ -1734,9 +1734,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
         match expression_emission {
             Emission::Constant(constant) => {
-                let destination_registers = expression_emission
-                    .target()
-                    .expect("Failed to set provided target");
+                let destination_registers = expression_emission.expect_target()?;
 
                 for allocation in destination_registers.iter() {
                     let operand_index = self.add_constant(constant);
@@ -1758,10 +1756,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 operand_type,
                 index,
             }) => {
-                let destination = expression_emission
-                    .target()
-                    .expect("Failed to set provided target")
-                    .expect_single()?;
+                let destination = expression_emission.expect_target()?.expect_single()?;
 
                 let move_instruction = Instruction::r#move(
                     destination.index,
@@ -1773,10 +1768,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 assignment_instructions.push(move_instruction);
             }
             Emission::Place(Place::Register(RegisterAllocation::Single { register, .. })) => {
-                let destination = expression_emission
-                    .target()
-                    .expect("Failed to set provided target")
-                    .expect_single()?;
+                let destination = expression_emission.expect_target()?.expect_single()?;
 
                 let move_instruction = Instruction::r#move(
                     destination.index,
@@ -1792,8 +1784,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 ..
             })) => {
                 let (destination_registers, _) = expression_emission
-                    .target()
-                    .expect("Failed to set provided target")
+                    .expect_target()?
                     .expect_multiple(operand_registers.len())?;
 
                 for (destination, operand) in
@@ -2510,11 +2501,8 @@ impl SyntaxVisitor for Emitter<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        let declaration_id = self.resolver.get_declaration_binding(&reader.id)?;
-        let declaration = self
-            .resolver
-            .declarations
-            .get_declaration(*declaration_id)?;
+        let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
+        let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
 
         if let Definition::Variant {
             discriminant,
@@ -2542,16 +2530,45 @@ impl SyntaxVisitor for Emitter<'_> {
             return Ok(Emission::Instructions(instructions));
         }
 
-        let local = self
-            .locals
-            .get(declaration_id)
-            .ok_or_else(|| CompileError::DeclarationOutOfScope {
-                declaration_id: *declaration_id,
-                usage_position: reader.position(),
-            })?
-            .clone();
+        let place = if let Some(local) = self.locals.get(&declaration_id) {
+            local.clone()
+        } else {
+            let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
 
-        Ok(Emission::Place(local))
+            match declaration.definition {
+                Definition::Function {
+                    type_parameters, ..
+                } => {
+                    if !type_parameters.is_empty() {
+                        todo!("generic function path expression");
+                    }
+
+                    let cache_key = (declaration_id, SmallVec::new());
+                    let prototype_id =
+                        if let Some(existing) = self.resolver.get_cached_prototype(&cache_key) {
+                            existing
+                        } else {
+                            let reserved = self.prototypes.reserve();
+
+                            self.resolver.cache_prototype(cache_key, reserved);
+                            self.compilation_stack.push(CompilationRequest {
+                                declaration_id,
+                                prototype_id: reserved,
+                            });
+
+                            reserved
+                        };
+
+                    Place::Constant {
+                        operand_type: OperandType::FUNCTION,
+                        index: prototype_id.inner(),
+                    }
+                }
+                _ => todo!(),
+            }
+        };
+
+        Ok(Emission::Place(place))
     }
 
     fn visit_struct_expression(
@@ -3664,10 +3681,13 @@ pub enum Emission {
 }
 
 impl Emission {
-    fn target(&self) -> Option<&RegisterAllocation> {
+    fn expect_target(&self) -> Result<&RegisterAllocation, CompileError> {
         match self {
-            Emission::Instructions(emission) => emission.target.as_ref(),
-            _ => None,
+            Emission::Instructions(emission) => emission
+                .target
+                .as_ref()
+                .ok_or(CompileError::ExpectedAllocation),
+            _ => Err(CompileError::ExpectedAllocation),
         }
     }
 
@@ -3820,7 +3840,7 @@ impl RegisterAllocation {
                 temporary,
             } if registers.len() == expected => Ok((registers, *temporary)),
             _ => Err(CompileError::InvalidRegisterCount {
-                expected: 2,
+                expected,
                 found: self.len(),
             }),
         }

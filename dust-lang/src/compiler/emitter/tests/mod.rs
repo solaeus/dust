@@ -26,7 +26,6 @@ mod negation_expression;
 mod not_expression;
 mod path_expression;
 mod range_expression;
-mod string_expression;
 mod struct_expression;
 mod while_expression;
 

@@ -1,7 +1,10 @@
 use crate::{
-    resolver::scopes::ScopeKind,
+    resolver::{declarations::Definition, scopes::ScopeKind},
     source::{Source, SourceFile, SourceFileId},
-    syntax::node::SyntaxKind,
+    syntax::{
+        components::{StructExpression, StructExpressionStructFields, SyntaxComponent},
+        node::SyntaxKind,
+    },
 };
 
 use super::{bind_declarations, find_function_body_scope};
@@ -122,4 +125,79 @@ fn path_expression_binds_declaration() {
         declaration.definition,
         crate::resolver::declarations::Definition::Local { .. }
     ));
+}
+
+#[test]
+fn struct_expression_binds_field_name() {
+    let mut source = Source::new();
+
+    source.add_file(SourceFile::validated_borrowed(
+        "test",
+        "struct Foo { x: i64 } fn main() { Foo { x: 1 }; }",
+    ));
+
+    let (syntax, resolver, _crate_scope_id) = bind_declarations(&source);
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let struct_expr = tree
+        .iter()
+        .find(|node| node.node.kind == SyntaxKind::StructExpression)
+        .unwrap();
+
+    let StructExpression { fields, .. } = StructExpression::from_reader(&struct_expr).unwrap();
+    let StructExpressionStructFields {
+        name_expression_pairs,
+    } = StructExpressionStructFields::from_reader(&fields).unwrap();
+
+    for [field_name, _] in name_expression_pairs {
+        let declaration_id = resolver.get_declaration_binding(&field_name.id).unwrap();
+        let declaration = resolver
+            .declarations
+            .get_declaration(*declaration_id)
+            .unwrap();
+
+        assert!(matches!(declaration.definition, Definition::Field { .. }));
+    }
+}
+
+#[test]
+fn struct_expression_binds_multiple_field_names() {
+    let mut source = Source::new();
+
+    source.add_file(SourceFile::validated_borrowed(
+        "test",
+        "struct Foo { x: i64, y: i64 } fn main() { Foo { x: 1, y: 2 }; }",
+    ));
+
+    let (syntax, mut resolver, _crate_scope_id) = bind_declarations(&source);
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let struct_expr = tree
+        .iter()
+        .find(|node| node.node.kind == SyntaxKind::StructExpression)
+        .unwrap();
+
+    let StructExpression { fields, .. } = StructExpression::from_reader(&struct_expr).unwrap();
+    let StructExpressionStructFields {
+        name_expression_pairs,
+    } = StructExpressionStructFields::from_reader(&fields).unwrap();
+
+    let x_symbol = resolver.symbols.add_symbol("x");
+    let y_symbol = resolver.symbols.add_symbol("y");
+    let mut bound_symbols = Vec::new();
+
+    for [field_name, _] in name_expression_pairs {
+        let declaration_id = resolver.get_declaration_binding(&field_name.id).unwrap();
+        let declaration = resolver
+            .declarations
+            .get_declaration(*declaration_id)
+            .unwrap();
+
+        assert!(matches!(declaration.definition, Definition::Field { .. }));
+        bound_symbols.push(declaration.symbol_id);
+    }
+
+    assert_eq!(bound_symbols.len(), 2);
+    assert_eq!(bound_symbols[0], x_symbol);
+    assert_eq!(bound_symbols[1], y_symbol);
 }

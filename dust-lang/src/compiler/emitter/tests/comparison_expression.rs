@@ -57,8 +57,7 @@ fn less_than() {
 
 #[test]
 fn not_equal() {
-    let prototype =
-        emit_function("fn foo() -> bool { let a: i32 = 1; let b: i32 = 2; a != b }");
+    let prototype = emit_function("fn foo() -> bool { let a: i32 = 1; let b: i32 = 2; a != b }");
 
     assert_eq!(
         prototype,
@@ -83,8 +82,7 @@ fn not_equal() {
 
 #[test]
 fn greater_than() {
-    let prototype =
-        emit_function("fn foo() -> bool { let a: i32 = 2; let b: i32 = 1; a > b }");
+    let prototype = emit_function("fn foo() -> bool { let a: i32 = 2; let b: i32 = 1; a > b }");
 
     assert_eq!(
         prototype,
@@ -109,8 +107,7 @@ fn greater_than() {
 
 #[test]
 fn less_than_or_equal() {
-    let prototype =
-        emit_function("fn foo() -> bool { let a: i32 = 1; let b: i32 = 2; a <= b }");
+    let prototype = emit_function("fn foo() -> bool { let a: i32 = 1; let b: i32 = 2; a <= b }");
 
     assert_eq!(
         prototype,
@@ -135,8 +132,7 @@ fn less_than_or_equal() {
 
 #[test]
 fn greater_than_or_equal() {
-    let prototype =
-        emit_function("fn foo() -> bool { let a: i32 = 2; let b: i32 = 1; a >= b }");
+    let prototype = emit_function("fn foo() -> bool { let a: i32 = 2; let b: i32 = 1; a >= b }");
 
     assert_eq!(
         prototype,

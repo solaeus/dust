@@ -6,7 +6,7 @@ use crate::{
     source::{Source, SourceFile},
 };
 
-use super::bind_declarations;
+use super::{bind_declarations, bind_declarations_with_errors};
 
 #[test]
 fn with_method() {
@@ -72,4 +72,32 @@ fn methods_not_visible_at_module_scope() {
             .find_declaration(bar_symbol, crate_scope_id, Visibility::Module);
 
     assert!(result.is_none());
+}
+
+#[test]
+fn impl_method_path_resolves() {
+    let mut source = Source::new();
+
+    source.add_file(SourceFile::validated_borrowed(
+        "test",
+        "struct Foo {} impl Foo { fn value() -> i32 { 42 } } fn main() { Foo::value(); }",
+    ));
+
+    let (_syntax, _resolver, _crate_scope_id, errors) = bind_declarations_with_errors(&source);
+
+    assert!(errors.is_empty(), "{errors:#?}");
+}
+
+#[test]
+fn impl_method_with_arguments_resolves() {
+    let mut source = Source::new();
+
+    source.add_file(SourceFile::validated_borrowed(
+        "test",
+        "struct Foo {} impl Foo { fn add(a: i32, b: i32) -> i32 { a + b } } fn main() { Foo::add(1, 2); }",
+    ));
+
+    let (_syntax, _resolver, _crate_scope_id, errors) = bind_declarations_with_errors(&source);
+
+    assert!(errors.is_empty(), "{errors:#?}");
 }

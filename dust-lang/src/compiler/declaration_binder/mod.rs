@@ -13,6 +13,7 @@ use crate::{
             Declaration, DeclarationId, DeclarationMembers, Definition, ModuleKind, Visibility,
         },
         scopes::{Scope, ScopeId, ScopeKind},
+        symbols::SymbolId,
         types::{Type, TypeId, TypeMembers},
     },
     source::{Position, Source, Span},
@@ -1568,25 +1569,50 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let StructExpression { path, fields } = reader.as_component()?;
+        let StructExpressionStructFields {
+            name_expression_pairs,
+        } = fields.as_component()?;
 
-        self.visit_path(path, Visibility::Module)?;
+        let struct_declaration_id = self.visit_path(path, Visibility::Module)?;
 
-        if let SyntaxKind::StructExpressionStructFields = fields.node.kind {
-            let StructExpressionStructFields {
-                name_expression_pairs,
-            } = fields.as_component()?;
+        let struct_declaration = self
+            .resolver
+            .declarations
+            .get_declaration(struct_declaration_id)?;
+        let Definition::StructType {
+            fields: struct_fields,
+            ..
+        } = struct_declaration.definition
+        else {
+            return Err(CompileError::ExpectedSyntaxKind {
+                expected: SyntaxKind::StructExpression,
+                found: path.node.kind,
+            });
+        };
+        let field_declaration_ids = self
+            .resolver
+            .declarations
+            .get_declaration_members(&struct_fields)?
+            .to_vec();
 
-            for [_, field_value] in name_expression_pairs {
-                self.visit_expression(field_value, None)?;
+        for [field_name, field_value] in name_expression_pairs {
+            let field_name_str = self.source.get_file_content(&field_name.position())?;
+            let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
+
+            for &field_id in &field_declaration_ids {
+                let field_declaration = self.resolver.declarations.get_declaration(field_id)?;
+
+                if field_declaration.symbol_id == field_symbol_id {
+                    self.resolver
+                        .add_declaration_binding(field_name.id, field_id);
+                    break;
+                }
             }
 
-            Ok(())
-        } else {
-            Err(CompileError::ExpectedSyntaxKind {
-                expected: SyntaxKind::StructExpressionStructFields,
-                found: fields.node.kind,
-            })
+            self.visit_expression(field_value, None)?;
         }
+
+        Ok(())
     }
 
     fn visit_grouped_expression(
@@ -2018,29 +2044,41 @@ fn search_path_segments<'a>(
 
     let mut current_scope_id = binder.current_scope_id;
     let mut parent_declaration_id = None;
+    let mut impl_member_scope: Option<DeclarationId> = None;
 
-    let mut search =
-        |segment: SyntaxReader| {
-            let segment_str = file.content_str(segment.node.span)?;
-            let symbol_id = binder.resolver.symbols.add_symbol(segment_str);
+    let mut search = |segment: SyntaxReader| {
+        let segment_str = file.content_str(segment.node.span)?;
+        let symbol_id = binder.resolver.symbols.add_symbol(segment_str);
 
-            let (next_declaration_id, next_declaration) = binder
-                .resolver
-                .find_declaration_in_scope(symbol_id, current_scope_id, visibility, &segment)?;
+        let (next_declaration_id, next_definition) =
+            if let Some(type_declaration_id) = impl_member_scope.take() {
+                search_impl_member(binder, type_declaration_id, symbol_id, &segment)?
+            } else {
+                let (id, decl) = binder.resolver.find_declaration_in_scope(
+                    symbol_id,
+                    current_scope_id,
+                    visibility,
+                    &segment,
+                )?;
 
-            if let Definition::Module { inner_scope_id, .. } = next_declaration.definition {
+                (id, decl.definition)
+            };
+
+        match next_definition {
+            Definition::Module { inner_scope_id, .. } => {
                 current_scope_id = inner_scope_id;
             }
-
-            if let Definition::Field {
+            Definition::StructType { .. } | Definition::EnumType { .. } => {
+                impl_member_scope = Some(next_declaration_id);
+            }
+            Definition::Field {
                 parent_struct: next_parent_id,
                 ..
             }
             | Definition::Variant {
                 parent_enum: next_parent_id,
                 ..
-            } = next_declaration.definition
-            {
+            } => {
                 if let Some(current_parent_id) = parent_declaration_id
                     && current_parent_id != next_parent_id
                 {
@@ -2051,12 +2089,14 @@ fn search_path_segments<'a>(
                 }
 
                 parent_declaration_id = Some(next_parent_id);
-            } else {
+            }
+            _ => {
                 parent_declaration_id = None;
             }
+        }
 
-            Ok(next_declaration_id)
-        };
+        Ok(next_declaration_id)
+    };
 
     let mut current_declaration_id = search(first_segment)?;
 
@@ -2067,4 +2107,46 @@ fn search_path_segments<'a>(
     }
 
     Ok(current_declaration_id)
+}
+
+fn search_impl_member<'a>(
+    binder: &mut DeclarationBinder<'a>,
+    type_declaration_id: DeclarationId,
+    symbol_id: SymbolId,
+    segment: &SyntaxReader,
+) -> Result<(DeclarationId, Definition), CompileError> {
+    let type_declaration = binder
+        .resolver
+        .declarations
+        .get_declaration(type_declaration_id)?;
+    let type_scope_id = type_declaration.scope_id;
+
+    for (_, declaration) in binder.resolver.declarations.iter() {
+        if declaration.scope_id != type_scope_id {
+            continue;
+        }
+
+        let Definition::InherentImplementation { declarations, .. } = declaration.definition else {
+            continue;
+        };
+
+        let member_ids = binder
+            .resolver
+            .declarations
+            .get_declaration_members(&declarations)?
+            .to_vec();
+
+        for member_id in member_ids {
+            let member = binder.resolver.declarations.get_declaration(member_id)?;
+
+            if member.symbol_id == symbol_id {
+                return Ok((member_id, member.definition));
+            }
+        }
+    }
+
+    Err(CompileError::Undeclared {
+        symbol_id,
+        usage_position: segment.position(),
+    })
 }
