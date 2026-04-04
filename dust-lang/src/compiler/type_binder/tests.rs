@@ -27,6 +27,8 @@ fn return_type_binding() {
         "fn foo() -> u128 { 1 }",
         "fn foo() -> f32 { 1.0 }",
         "fn foo() -> f64 { 1.0 }",
+        "fn foo() -> [i32; 1] { [42] }",
+        "fn foo() -> [i32; 3] { [0; 3] }",
     ];
 
     for source_code in cases {
@@ -46,6 +48,8 @@ fn expression_forms() {
         "fn foo() { while true {} }",
         "fn bar() -> i32 { 1 } fn foo() -> i32 { bar() }",
         "fn foo() -> i32 { let x: i32 = 1; x }",
+        "fn foo() -> i32 { let arr:[i32; 3] = [10, 20, 30]; arr[1] }",
+        "fn foo() -> i32 { 2 ^ 3 }",
         "struct Bar {} fn foo() -> Bar { Bar {} }",
         "struct Bar { x: i32 } fn foo(b: Bar) -> i32 { b.x }",
     ];

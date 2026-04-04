@@ -343,6 +343,43 @@ impl<'a> TypeBinder<'a> {
                 Ok(())
             }
             (
+                Type::Array {
+                    element_type_id: left_element_type_id,
+                    length: left_length,
+                },
+                Type::Array {
+                    element_type_id: right_element_type_id,
+                    length: right_length,
+                },
+            ) => {
+                if left_length != right_length {
+                    let expected_position = if let Some(left) = left_syntax {
+                        left.children().next_back().map(|child| child.position())
+                    } else {
+                        None
+                    };
+                    let found_position = right_syntax
+                        .children()
+                        .next_back()
+                        .unwrap_or(right_syntax)
+                        .position();
+
+                    return Err(CompileError::TypeConflict {
+                        expected_type: left,
+                        expected_position,
+                        found_type: right,
+                        found_position,
+                    });
+                }
+
+                self.unify_types(
+                    left_element_type_id,
+                    left_syntax,
+                    right_element_type_id,
+                    right_syntax,
+                )
+            }
+            (
                 Type::Slice {
                     element_type_id: slice_element_type_id,
                     ..

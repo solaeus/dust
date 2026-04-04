@@ -102,18 +102,10 @@ pub enum SyntaxKind {
     RangeExpression,
     RangeInclusiveExpression,
 
-    // Function expressions
     CallExpression,
-
-    // Member access expressions
     FieldAccessExpression,
-
-    // Control flow expressions
     IfExpression,
-
-    // Loop expressions
     WhileExpression,
-
     ReturnExpression,
     BreakExpression,
     AsExpression,
@@ -287,6 +279,7 @@ impl SyntaxKind {
                 | SyntaxKind::CharacterExpression
                 | SyntaxKind::DivisionExpression
                 | SyntaxKind::EqualExpression
+                | SyntaxKind::ExponentExpression
                 | SyntaxKind::FieldAccessExpression
                 | SyntaxKind::FloatExpression
                 | SyntaxKind::GreaterThanExpression

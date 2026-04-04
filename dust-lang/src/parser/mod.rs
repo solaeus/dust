@@ -1170,11 +1170,75 @@ impl<'src> Parser<'src> {
                 Ok(SyntaxKind::F64Type.empty(self.previous_token.span))
             }
             TokenKind::Identifier => {
-                let mut path_node = self.expect_path()?;
+                let start = self.current_token.span.start();
 
-                path_node.kind = SyntaxKind::TypePath;
+                self.expect(TokenKind::Identifier)?;
 
-                Ok(path_node)
+                let mut children = Self::new_child_buffer();
+                let mut last_segment_span = self.previous_token.span;
+
+                loop {
+                    if !self.allow(TokenKind::DoubleColon)? {
+                        if let Some(type_arguments) = self.allow_type_arguments()? {
+                            let type_arguments_id = self.tree_builder.add_node(type_arguments);
+                            let segment = SyntaxKind::PathSegment
+                                .with_child(last_segment_span, type_arguments_id);
+
+                            children.push(self.tree_builder.add_node(segment));
+
+                            break;
+                        }
+
+                        let segment = SyntaxKind::PathSegment.empty(last_segment_span);
+
+                        children.push(self.tree_builder.add_node(segment));
+
+                        break;
+                    }
+
+                    if !self.allow(TokenKind::Less)? {
+                        let segment = SyntaxKind::PathSegment.empty(last_segment_span);
+
+                        children.push(self.tree_builder.add_node(segment));
+                        self.expect(TokenKind::Identifier)?;
+
+                        last_segment_span = self.previous_token.span;
+
+                        continue;
+                    }
+
+                    let Some(type_arguments) = self.allow_type_arguments()? else {
+                        let segment = SyntaxKind::PathSegment.empty(last_segment_span);
+
+                        children.push(self.tree_builder.add_node(segment));
+
+                        break;
+                    };
+
+                    let type_arguments_id = self.tree_builder.add_node(type_arguments);
+                    let segment =
+                        SyntaxKind::PathSegment.with_child(last_segment_span, type_arguments_id);
+
+                    children.push(self.tree_builder.add_node(segment));
+
+                    if !self.allow(TokenKind::DoubleColon)? {
+                        break;
+                    }
+
+                    self.expect(TokenKind::Identifier)?;
+
+                    last_segment_span = self.previous_token.span;
+
+                    continue;
+                }
+
+                let end = self.previous_token.span.end();
+
+                Ok(self.create_node_with_children(
+                    SyntaxKind::TypePath,
+                    Span::new(start, end),
+                    children,
+                ))
             }
             TokenKind::LeftParenthesis => {
                 let start = self.current_token.span.start();
@@ -1686,7 +1750,7 @@ impl<'src> Parser<'src> {
 
         self.advance();
 
-        let first_expression_node = self.parse_expression()?;
+        let first_expression_node = self.parse_sub_expression(Precedence::Assignment)?;
         let first_expression_id = self.tree_builder.add_node(first_expression_node);
 
         if self.allow(TokenKind::Semicolon)? {

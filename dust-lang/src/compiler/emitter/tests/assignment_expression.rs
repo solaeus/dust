@@ -155,7 +155,7 @@ fn compound_modulo() {
 
 #[test]
 fn compound_power() {
-    let prototype = emit_function("fn foo() -> i32 { let mut x: i32 = 2; x **= 3; x }");
+    let prototype = emit_function("fn foo() -> i32 { let mut x: i32 = 2; x ^= 3; x }");
 
     assert_eq!(
         prototype,

@@ -14,6 +14,7 @@ mod struct_expression;
 mod struct_item;
 mod trait_item;
 mod type_item;
+mod type_notation;
 mod unary_expressions;
 mod value_expressions;
 
