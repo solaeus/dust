@@ -7,7 +7,7 @@ use crate::{
         Resolver,
         declarations::{Declaration, DeclarationId, Definition},
         scopes::ScopeId,
-        types::{InferredTypeConstraint, Type, TypeId},
+        types::{InferredTypeConstraint, Type, TypeId, TypeMembers},
     },
     source::Source,
     syntax::{
@@ -16,7 +16,7 @@ use crate::{
             ComparisonExpression, CompoundAssignmentExpression, ConstItem, ExpressionStatement,
             FieldAccessExpression, FunctionType, GroupedExpression, IfExpression, ImplItem,
             ImplTraitItem, IndexExpression, LetStatement, LogicExpression, MathExpression,
-            NegationExpression, NotExpression, RangeExpression, StructExpression,
+            NegationExpression, NotExpression, PathSegment, RangeExpression, StructExpression,
             StructExpressionStructFields, TraitConst, TraitItem, WhileExpression,
         },
         node::SyntaxKind,
@@ -804,26 +804,49 @@ impl SyntaxVisitor for TypeBinder<'_> {
             Definition::Function {
                 type_parameters, ..
             } => {
-                let type_argument_types: SmallVec<[TypeId; 4]> = type_parameters
-                    .as_range()
-                    .map(|index| {
-                        let type_parameter_declaration_id = self
-                            .resolver
-                            .declarations
-                            .get_declaration_member(index)
-                            .copied();
+                let mut turbofish_type_arguments = None;
 
-                        match type_parameter_declaration_id {
-                            Ok(type_parameter_declaration_id) => self
-                                .resolver
-                                .type_parameter_map
-                                .get(&type_parameter_declaration_id)
-                                .copied()
-                                .unwrap_or_else(|| self.resolver.types.create_inferred_type(None)),
-                            Err(_) => self.resolver.types.create_inferred_type(None),
-                        }
-                    })
-                    .collect();
+                if let Some(last_segment) = reader.last_child()? {
+                    let PathSegment { type_arguments } = last_segment.as_component()?;
+
+                    if let Some(type_arguments_node) = type_arguments {
+                        let types: SmallVec<[TypeId; 4]> = type_arguments_node
+                            .children()
+                            .map(|type_argument| self.visit_type(type_argument))
+                            .try_collect()?;
+
+                        turbofish_type_arguments = Some(types);
+                    }
+                }
+
+                let type_argument_types: SmallVec<[TypeId; 4]> =
+                    if let Some(types) = turbofish_type_arguments {
+                        types
+                    } else {
+                        type_parameters
+                            .as_range()
+                            .map(|index| {
+                                let type_parameter_declaration_id = self
+                                    .resolver
+                                    .declarations
+                                    .get_declaration_member(index)
+                                    .copied();
+
+                                match type_parameter_declaration_id {
+                                    Ok(type_parameter_declaration_id) => self
+                                        .resolver
+                                        .type_parameter_map
+                                        .get(&type_parameter_declaration_id)
+                                        .copied()
+                                        .unwrap_or_else(|| {
+                                            self.resolver.types.create_inferred_type(None)
+                                        }),
+                                    Err(_) => self.resolver.types.create_inferred_type(None),
+                                }
+                            })
+                            .collect()
+                    };
+
                 let type_arguments = self.resolver.types.add_type_members(type_argument_types);
                 let function_definition_type = Type::FunctionDefinition {
                     declaration_id,
@@ -1136,27 +1159,55 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let callee_type = *self.resolver.types.get_type(resolved_callee_type_id)?;
 
         match callee_type {
-            Type::FunctionDefinition { declaration_id, .. } => {
+            Type::FunctionDefinition {
+                declaration_id,
+                type_arguments,
+            } => {
                 let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
 
-                let (value_parameters, return_type_id) = match declaration.definition {
-                    Definition::Function {
-                        value_parameters,
-                        return_type_id,
-                        ..
-                    } => (value_parameters, return_type_id),
-                    Definition::NativeFunction {
-                        value_parameters,
-                        return_type_id,
-                        ..
-                    } => (value_parameters, return_type_id),
-                    _ => {
-                        return Err(CompileError::ExpectedFunctionType {
-                            found: resolved_callee_type_id,
-                            position: callee.position(),
-                        });
+                let (type_parameters, value_parameters, return_type_id) =
+                    match declaration.definition {
+                        Definition::Function {
+                            type_parameters,
+                            value_parameters,
+                            return_type_id,
+                            ..
+                        } => (type_parameters, value_parameters, return_type_id),
+                        Definition::NativeFunction {
+                            value_parameters,
+                            return_type_id,
+                            ..
+                        } => (Default::default(), value_parameters, return_type_id),
+                        _ => {
+                            return Err(CompileError::ExpectedFunctionType {
+                                found: resolved_callee_type_id,
+                                position: callee.position(),
+                            });
+                        }
+                    };
+
+                let mut inserted_type_parameters = SmallVec::<[DeclarationId; 4]>::new();
+
+                if !type_arguments.is_empty() {
+                    let type_parameter_declaration_ids = self
+                        .resolver
+                        .declarations
+                        .get_declaration_members(&type_parameters)?;
+
+                    let type_argument_ids =
+                        self.resolver.types.get_type_members(type_arguments)?;
+
+                    for (&type_parameter_declaration_id, &type_argument_id) in
+                        type_parameter_declaration_ids
+                            .iter()
+                            .zip(type_argument_ids.iter())
+                    {
+                        self.resolver
+                            .type_parameter_map
+                            .insert(type_parameter_declaration_id, type_argument_id);
+                        inserted_type_parameters.push(type_parameter_declaration_id);
                     }
-                };
+                }
 
                 let mut argument_count = 0;
                 let mut parameter_range = value_parameters.as_range();
@@ -1191,6 +1242,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
                 }
 
                 let resolved_return_type_id = self.resolver.resolve_type(return_type_id)?;
+
+                for type_parameter_declaration_id in inserted_type_parameters {
+                    self.resolver
+                        .type_parameter_map
+                        .remove(&type_parameter_declaration_id);
+                }
 
                 self.resolver
                     .add_type_binding(reader.id, resolved_return_type_id);
@@ -1396,6 +1453,44 @@ impl SyntaxVisitor for TypeBinder<'_> {
                     value_parameters,
                     return_type: return_type_id,
                 })
+            }
+            SyntaxKind::TypePath => {
+                let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
+                let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+
+                match declaration.definition {
+                    Definition::TypeParameter => self
+                        .resolver
+                        .type_parameter_map
+                        .get(&declaration_id)
+                        .copied()
+                        .unwrap_or_else(|| self.resolver.types.create_inferred_type(None)),
+                    Definition::StructType { .. } | Definition::EnumType { .. } => {
+                        let type_arguments = if let Some(last_segment) = reader.last_child()? {
+                            let PathSegment { type_arguments } = last_segment.as_component()?;
+
+                            if let Some(type_arguments_node) = type_arguments {
+                                let type_argument_types: SmallVec<[TypeId; 4]> =
+                                    type_arguments_node
+                                        .children()
+                                        .map(|type_argument| self.visit_type(type_argument))
+                                        .try_collect()?;
+
+                                self.resolver.types.add_type_members(type_argument_types)
+                            } else {
+                                TypeMembers::default()
+                            }
+                        } else {
+                            TypeMembers::default()
+                        };
+
+                        self.resolver.types.add_type(Type::Algebraic {
+                            declaration_id,
+                            type_arguments,
+                        })
+                    }
+                    _ => return Err(CompileError::ExpectedTypeDeclaration(declaration_id)),
+                }
             }
             _ => unreachable!(),
         };

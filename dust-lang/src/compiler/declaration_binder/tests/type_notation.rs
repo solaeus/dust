@@ -4,7 +4,8 @@ use crate::{
         declarations::{Definition, Visibility},
         types::{Type, TypeId},
     },
-    source::{Source, SourceFile},
+    source::{Source, SourceFile, SourceFileId},
+    syntax::node::SyntaxKind,
 };
 
 use super::bind_declarations;
@@ -515,4 +516,32 @@ fn type_path_to_non_type_errors() {
     let (_syntax, _resolver, _crate_scope_id, errors) = bind_declarations_with_errors(&source);
 
     assert!(!errors.is_empty());
+}
+
+#[test]
+fn type_path_in_turbofish_binds_declaration() {
+    let mut source = Source::new();
+
+    source.add_file(SourceFile::validated_borrowed(
+        "test",
+        "struct Bar {} fn foo<T>() {} fn main() { foo::<Bar>(); }",
+    ));
+
+    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+
+    let bar_symbol = resolver.symbols.add_symbol("Bar");
+    let (bar_declaration_id, _) = resolver
+        .declarations
+        .find_declaration(bar_symbol, crate_scope_id, Visibility::Module)
+        .unwrap();
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let type_path = tree
+        .iter()
+        .find(|node| node.node.kind == SyntaxKind::TypePath)
+        .unwrap();
+
+    let declaration_id = resolver.get_declaration_binding(&type_path.id).unwrap();
+
+    assert_eq!(*declaration_id, bar_declaration_id);
 }

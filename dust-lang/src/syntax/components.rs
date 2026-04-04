@@ -1033,3 +1033,54 @@ impl<'a> SyntaxComponent<'a> for FieldAccessExpression<'a> {
         })
     }
 }
+
+pub struct PathExpression<'a> {
+    pub segments: SyntaxReaderIterator<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for PathExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting path expression");
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::PathExpression));
+
+        Ok(Self {
+            segments: reader.children(),
+        })
+    }
+}
+
+pub struct PathSegment<'a> {
+    pub type_arguments: Option<SyntaxReader<'a>>,
+}
+
+impl<'a> SyntaxComponent<'a> for PathSegment<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting path segment");
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::PathSegment));
+
+        let mut children = reader.children();
+
+        Ok(Self {
+            type_arguments: children.next(),
+        })
+    }
+}
+
+pub struct ArrayType<'a> {
+    pub element_type: SyntaxReader<'a>,
+    pub length: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for ArrayType<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting array type");
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::ArrayType));
+
+        let (element_type, length) = reader.binary_children()?;
+
+        Ok(Self {
+            element_type,
+            length,
+        })
+    }
+}

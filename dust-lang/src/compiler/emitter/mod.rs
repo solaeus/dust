@@ -2539,11 +2539,28 @@ impl SyntaxVisitor for Emitter<'_> {
                 Definition::Function {
                     type_parameters, ..
                 } => {
-                    if !type_parameters.is_empty() {
-                        todo!("generic function path expression");
-                    }
+                    let concrete_type_arguments = if !type_parameters.is_empty() {
+                        let type_id = *self.resolver.get_type_binding(&reader.id)?;
+                        let callee_type = *self.resolver.types.get_type(type_id)?;
 
-                    let cache_key = (declaration_id, SmallVec::new());
+                        if let Type::FunctionDefinition { type_arguments, .. } = callee_type {
+                            type_arguments
+                                .as_range()
+                                .map(|index| {
+                                    let type_id =
+                                        *self.resolver.types.get_type_member(index)?;
+
+                                    self.resolver.resolve_type(type_id)
+                                })
+                                .try_collect::<SmallVec<[TypeId; 4]>>()?
+                        } else {
+                            SmallVec::new()
+                        }
+                    } else {
+                        SmallVec::new()
+                    };
+
+                    let cache_key = (declaration_id, concrete_type_arguments);
                     let prototype_id =
                         if let Some(existing) = self.resolver.get_cached_prototype(&cache_key) {
                             existing
@@ -3502,19 +3519,42 @@ impl SyntaxVisitor for Emitter<'_> {
             value_parameters, ..
         } = definition
         {
-            let mut concrete_type_arguments = SmallVec::<[TypeId; 4]>::new();
+            let callee_type_id = *self.resolver.get_type_binding(&callee.id)?;
+            let callee_type = *self.resolver.types.get_type(callee_type_id)?;
 
-            for (argument, parameter_index) in arguments.children().zip(value_parameters.as_range())
-            {
-                let parameter_type_id = *self.resolver.types.get_type_member(parameter_index)?;
-                let parameter_type = *self.resolver.types.get_type(parameter_type_id)?;
+            let concrete_type_arguments =
+                if let Type::FunctionDefinition { type_arguments, .. } = callee_type
+                    && !type_arguments.is_empty()
+                {
+                    type_arguments
+                        .as_range()
+                        .map(|index| {
+                            let type_id = *self.resolver.types.get_type_member(index)?;
 
-                if matches!(parameter_type, Type::Slice { .. }) {
-                    let argument_type_id = *self.resolver.get_type_binding(&argument.id)?;
+                            self.resolver.resolve_type(type_id)
+                        })
+                        .try_collect::<SmallVec<[TypeId; 4]>>()?
+                } else {
+                    let mut types = SmallVec::<[TypeId; 4]>::new();
 
-                    concrete_type_arguments.push(argument_type_id);
-                }
-            }
+                    for (argument, parameter_index) in
+                        arguments.children().zip(value_parameters.as_range())
+                    {
+                        let parameter_type_id =
+                            *self.resolver.types.get_type_member(parameter_index)?;
+                        let parameter_type =
+                            *self.resolver.types.get_type(parameter_type_id)?;
+
+                        if matches!(parameter_type, Type::Slice { .. }) {
+                            let argument_type_id =
+                                *self.resolver.get_type_binding(&argument.id)?;
+
+                            types.push(argument_type_id);
+                        }
+                    }
+
+                    types
+                };
 
             if !concrete_type_arguments.is_empty() {
                 let cache_key = (declaration_id, concrete_type_arguments);

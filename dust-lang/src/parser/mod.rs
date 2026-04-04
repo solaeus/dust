@@ -1206,12 +1206,37 @@ impl<'src> Parser<'src> {
                 let element_type_node = self.expect_type()?;
                 let element_type_id = self.tree_builder.add_node(element_type_node);
 
-                self.expect(TokenKind::RightSquareBracket)?;
+                match self.current_token.kind {
+                    TokenKind::Semicolon => {
+                        self.advance();
+                        self.expect(TokenKind::IntegerLiteral)?;
 
-                Ok(SyntaxKind::SliceType.with_child(
-                    Span::new(start, self.previous_token.span.end()),
-                    element_type_id,
-                ))
+                        let length_node =
+                            SyntaxKind::IntegerExpression.empty(self.previous_token.span);
+                        let length_id = self.tree_builder.add_node(length_node);
+
+                        self.expect(TokenKind::RightSquareBracket)?;
+
+                        Ok(SyntaxKind::ArrayType.with_binary_children(
+                            Span::new(start, self.previous_token.span.end()),
+                            element_type_id,
+                            length_id,
+                        ))
+                    }
+                    TokenKind::RightSquareBracket => {
+                        self.advance();
+
+                        Ok(SyntaxKind::SliceType.with_child(
+                            Span::new(start, self.previous_token.span.end()),
+                            element_type_id,
+                        ))
+                    }
+                    _ => Err(ParseError::ExpectedMultipleTokens {
+                        expected: &[TokenKind::Semicolon, TokenKind::RightSquareBracket],
+                        found: self.current_token.kind,
+                        position: self.current_position(),
+                    }),
+                }
             }
             TokenKind::Fn => {
                 let start = self.current_token.span.start();
@@ -1800,19 +1825,48 @@ impl<'src> Parser<'src> {
         self.expect(TokenKind::Identifier)?;
 
         let mut children = Self::new_child_buffer();
+        let mut last_segment_span = self.previous_token.span;
 
-        let first_segment_node = SyntaxKind::PathSegment.empty(self.previous_token.span);
-        let first_segment_id = self.tree_builder.add_node(first_segment_node);
+        loop {
+            if !self.allow(TokenKind::DoubleColon)? {
+                let segment = SyntaxKind::PathSegment.empty(last_segment_span);
 
-        children.push(first_segment_id);
+                children.push(self.tree_builder.add_node(segment));
 
-        while self.allow(TokenKind::DoubleColon)? {
+                break;
+            }
+
+            if self.current_token.kind == TokenKind::Less {
+                let Some(type_arguments) = self.allow_type_arguments()? else {
+                    let segment = SyntaxKind::PathSegment.empty(last_segment_span);
+
+                    children.push(self.tree_builder.add_node(segment));
+
+                    break;
+                };
+                let type_arguments_id = self.tree_builder.add_node(type_arguments);
+                let segment =
+                    SyntaxKind::PathSegment.with_child(last_segment_span, type_arguments_id);
+
+                children.push(self.tree_builder.add_node(segment));
+
+                if !self.allow(TokenKind::DoubleColon)? {
+                    break;
+                }
+
+                self.expect(TokenKind::Identifier)?;
+
+                last_segment_span = self.previous_token.span;
+
+                continue;
+            }
+
+            let segment = SyntaxKind::PathSegment.empty(last_segment_span);
+
+            children.push(self.tree_builder.add_node(segment));
             self.expect(TokenKind::Identifier)?;
 
-            let segment_node = SyntaxKind::PathSegment.empty(self.previous_token.span);
-            let segment_id = self.tree_builder.add_node(segment_node);
-
-            children.push(segment_id);
+            last_segment_span = self.previous_token.span;
         }
 
         let end = self.previous_token.span.end();

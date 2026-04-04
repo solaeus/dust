@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+use lexical_core::{ParseIntegerOptions, format::RUST_LITERAL, parse_with_options};
 use smallvec::{SmallVec, smallvec};
 use tracing::debug;
 
@@ -20,12 +21,12 @@ use crate::{
     syntax::{
         Syntax,
         components::{
-            ArrayExpression, ArrayRepeatExpression, AssignmentExpression, CallExpression,
-            ComparisonExpression, CompoundAssignmentExpression, ConstItem, EnumItem, EnumVariant,
-            ExpressionStatement, FieldAccessExpression, FunctionItem, FunctionParameters,
-            FunctionType, GroupedExpression, IfExpression, ImplItem, ImplTraitItem,
-            IndexExpression, LetStatement, LogicExpression, MathExpression, ModuleItem,
-            NegationExpression, NotExpression, RangeExpression, StructExpression,
+            ArrayExpression, ArrayRepeatExpression, ArrayType, AssignmentExpression,
+            CallExpression, ComparisonExpression, CompoundAssignmentExpression, ConstItem,
+            EnumItem, EnumVariant, ExpressionStatement, FieldAccessExpression, FunctionItem,
+            FunctionParameters, FunctionType, GroupedExpression, IfExpression, ImplItem,
+            ImplTraitItem, IndexExpression, LetStatement, LogicExpression, MathExpression,
+            ModuleItem, NegationExpression, NotExpression, RangeExpression, StructExpression,
             StructExpressionStructFields, StructItem, StructItemStructFields,
             StructItemTupleFields, SyntaxComponent, TraitBounds, TraitConst, TraitItem,
             TraitMethod, TraitType, TypeItem, UseItem, WhileExpression,
@@ -1882,6 +1883,25 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             SyntaxKind::F32Type => TypeId::F_32,
             SyntaxKind::F64Type => TypeId::F_64,
             SyntaxKind::CharacterType => TypeId::CHARACTER,
+            SyntaxKind::ArrayType => {
+                let ArrayType {
+                    element_type,
+                    length,
+                } = reader.as_component()?;
+
+                let element_type_id = self.visit_type(element_type)?;
+                let length_str = self.source.get_file_content(&length.position())?;
+                let length = parse_with_options::<usize, RUST_LITERAL>(
+                    length_str.as_bytes(),
+                    &ParseIntegerOptions::default(),
+                )
+                .unwrap_or_default();
+
+                self.resolver.types.add_type(Type::Array {
+                    element_type_id,
+                    length,
+                })
+            }
             SyntaxKind::SliceType => {
                 let element_type = reader.single_child()?;
 
@@ -1934,6 +1954,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             }
             SyntaxKind::TypePath => {
                 let declaration_id = search_path_segments(self, reader, Visibility::Block)?;
+
+                self.resolver
+                    .add_declaration_binding(reader.id, declaration_id);
+
                 let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
 
                 match declaration.definition {
@@ -2095,15 +2119,19 @@ fn search_path_segments<'a>(
             }
         }
 
+        if let Some(type_arguments_node) = segment.children().next() {
+            for type_argument in type_arguments_node.children() {
+                binder.visit_type(type_argument)?;
+            }
+        }
+
         Ok(next_declaration_id)
     };
 
     let mut current_declaration_id = search(first_segment)?;
 
     for segment in segments {
-        let next_declaration_id = search(segment)?;
-
-        current_declaration_id = next_declaration_id;
+        current_declaration_id = search(segment)?;
     }
 
     Ok(current_declaration_id)

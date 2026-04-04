@@ -9,6 +9,7 @@ mod if_expression;
 mod impl_item;
 mod let_statement;
 mod module_item;
+mod path_expression;
 mod struct_expression;
 mod struct_item;
 mod trait_item;

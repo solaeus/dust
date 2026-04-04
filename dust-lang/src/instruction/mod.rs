@@ -442,7 +442,7 @@ impl Instruction {
         ((self.0 >> 48) & 0xFFFF) as u16
     }
 
-    pub fn d_field(&self) -> u16 {
+    pub fn _d_field(&self) -> u16 {
         ((self.0 >> 10) & 0x3F) as u16
     }
 
@@ -553,7 +553,7 @@ impl InstructionBuilder {
         self
     }
 
-    pub fn d_field(mut self, d_field: u16) -> Self {
+    pub fn _d_field(mut self, d_field: u16) -> Self {
         self.d_field = Some(d_field);
 
         self
