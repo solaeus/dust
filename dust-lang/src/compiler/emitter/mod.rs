@@ -299,7 +299,7 @@ impl<'a> Emitter<'a> {
         fn collect_registers(
             type_id: TypeId,
             temporary: bool,
-            registers: &mut SmallVec<[Register; 8]>,
+            registers: &mut SmallVec<[Register; 4]>,
             emitter: &mut Emitter,
             reader: &SyntaxReader,
         ) -> Result<(), CompileError> {
@@ -1727,7 +1727,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
                 let register_offset = constant_index * element_register_count;
 
-                let element_registers: SmallVec<[Register; 8]> = list_registers
+                let element_registers: SmallVec<[Register; 4]> = list_registers
                     .iter()
                     .skip(register_offset)
                     .take(element_register_count)
@@ -2433,7 +2433,7 @@ impl SyntaxVisitor for Emitter<'_> {
             let start_register_offset = start_index * element_register_count;
             let slice_register_count = (slice_end - start_index) * element_register_count;
 
-            let slice_registers: SmallVec<[Register; 8]> = list_registers
+            let slice_registers: SmallVec<[Register; 4]> = list_registers
                 .iter()
                 .skip(start_register_offset)
                 .take(slice_register_count)
@@ -2474,7 +2474,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
             let register_offset = constant_index * element_register_count;
 
-            let element_registers: SmallVec<[Register; 8]> = list_registers
+            let element_registers: SmallVec<[Register; 4]> = list_registers
                 .iter()
                 .skip(register_offset)
                 .take(element_register_count)
@@ -4183,7 +4183,7 @@ pub enum RegisterAllocation {
         temporary: bool,
     },
     Multiple {
-        registers: SmallVec<[Register; 8]>,
+        registers: SmallVec<[Register; 4]>,
         temporary: bool,
     },
 }
@@ -4230,7 +4230,7 @@ impl RegisterAllocation {
     fn expect_multiple(
         &self,
         expected: usize,
-    ) -> Result<(&SmallVec<[Register; 8]>, bool), CompileError> {
+    ) -> Result<(&SmallVec<[Register; 4]>, bool), CompileError> {
         match self {
             RegisterAllocation::Multiple {
                 registers,
