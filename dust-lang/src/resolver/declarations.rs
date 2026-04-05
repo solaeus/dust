@@ -158,17 +158,8 @@ impl Declarations {
 pub struct DeclarationId(#[cfg(test)] pub(crate) u32, #[cfg(not(test))] u32);
 
 impl DeclarationId {
-    pub const OPTION: Self = DeclarationId(4);
-    pub const RESULT: Self = DeclarationId(11);
-    pub const RANGE: Self = DeclarationId(15);
-    pub const RANGE_INCLUSIVE: Self = DeclarationId(19);
-
     pub fn inner(self) -> u32 {
         self.0
-    }
-
-    pub(crate) fn offset(self, offset: u32) -> Self {
-        DeclarationId(self.0 + offset)
     }
 }
 

@@ -34,14 +34,7 @@ fn without_else() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::equal(
-                    true,
-                    OperandType::I_32,
-                    MemoryKind::ENCODED,
-                    1,
-                    MemoryKind::ENCODED,
-                    1
-                ),
+                Instruction::test(true, MemoryKind::ENCODED, 1, 0),
                 Instruction::r#return(),
             ],
             return_types: vec![],

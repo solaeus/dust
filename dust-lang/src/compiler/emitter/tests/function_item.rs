@@ -19,7 +19,7 @@ fn one_argument() {
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
-            register_count: 1,
+            register_count: 2,
             argument_count: 0,
         }
     );

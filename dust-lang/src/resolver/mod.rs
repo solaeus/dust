@@ -44,6 +44,7 @@ pub struct Resolver {
     scope_bindings: HashMap<SyntaxId, ScopeId, FxBuildHasher>,
     type_bindings: HashMap<SyntaxId, TypeId, FxBuildHasher>,
     monomorphization_cache: HashMap<(DeclarationId, SmallVec<[TypeId; 4]>), PrototypeId>,
+    constant_values: HashMap<DeclarationId, ConstantValue, FxBuildHasher>,
 }
 
 impl Resolver {
@@ -59,6 +60,7 @@ impl Resolver {
             type_bindings: HashMap::default(),
             type_parameter_map: HashMap::new(),
             monomorphization_cache: HashMap::new(),
+            constant_values: HashMap::default(),
         };
 
         add_core(&mut resolver);
@@ -137,6 +139,14 @@ impl Resolver {
             .iter()
             .find(|(_, id)| **id == prototype_id)
             .map(|((_, type_arguments), _)| type_arguments)
+    }
+
+    pub fn store_constant_value(&mut self, declaration_id: DeclarationId, value: ConstantValue) {
+        self.constant_values.insert(declaration_id, value);
+    }
+
+    pub fn get_constant_value(&self, declaration_id: &DeclarationId) -> Option<ConstantValue> {
+        self.constant_values.get(declaration_id).copied()
     }
 
     pub fn resolve_type(&mut self, type_id: TypeId) -> Result<TypeId, ResolverError> {
@@ -318,6 +328,16 @@ impl Resolver {
                                             resolved: Some(resolved),
                                             ..
                                         } => *resolved,
+                                        Type::Inferred {
+                                            constraint: Some(InferredTypeConstraint::Integer),
+                                            resolved: None,
+                                            ..
+                                        } => TypeId::I_32,
+                                        Type::Inferred {
+                                            constraint: Some(InferredTypeConstraint::Float),
+                                            resolved: None,
+                                            ..
+                                        } => TypeId::F_64,
                                         Type::Inferred { resolved: None, .. } => continue,
                                         _ => concrete_type_id,
                                     };
@@ -338,7 +358,26 @@ impl Resolver {
                         operand_types.extend(max_variant_operand_types);
                         Ok(operand_types)
                     }
-                    Definition::StructType { fields, .. } => {
+                    Definition::StructType {
+                        fields,
+                        type_parameters,
+                        ..
+                    } => {
+                        let type_parameter_map: SmallVec<[(DeclarationId, TypeId); 4]> =
+                            type_parameters
+                                .as_range()
+                                .zip(type_arguments.as_range())
+                                .filter_map(|(parameter_index, argument_index)| {
+                                    let parameter_declaration_id = self
+                                        .declarations
+                                        .get_declaration_member(parameter_index)
+                                        .ok()?;
+                                    let argument_type_id =
+                                        self.types.get_type_member(argument_index).ok()?;
+                                    Some((*parameter_declaration_id, *argument_type_id))
+                                })
+                                .collect();
+
                         let field_declaration_ids =
                             self.declarations.get_declaration_members(fields)?;
                         let mut operand_types = Vec::new();
@@ -354,7 +393,45 @@ impl Resolver {
                                 continue;
                             };
 
-                            operand_types.extend(self.get_operand_types(field_type_id)?);
+                            let resolved_field_type = self.types.get_type(field_type_id)?;
+                            let concrete_type_id = if let Type::Generic {
+                                declaration_id: parameter_declaration,
+                            } = resolved_field_type
+                            {
+                                type_parameter_map
+                                    .iter()
+                                    .find(|(declaration, _)| declaration == parameter_declaration)
+                                    .map(|(_, type_id)| *type_id)
+                                    .unwrap_or(field_type_id)
+                            } else {
+                                field_type_id
+                            };
+
+                            let resolved_type_id = match self.types.get_type(concrete_type_id)? {
+                                Type::Inferred {
+                                    resolved: Some(resolved),
+                                    ..
+                                } => *resolved,
+                                Type::Inferred {
+                                    constraint: Some(InferredTypeConstraint::Integer),
+                                    resolved: None,
+                                    ..
+                                } => TypeId::I_32,
+                                Type::Inferred {
+                                    constraint: Some(InferredTypeConstraint::Float),
+                                    resolved: None,
+                                    ..
+                                } => TypeId::F_64,
+                                Type::Inferred { resolved: None, .. } => continue,
+                                _ => concrete_type_id,
+                            };
+
+                            match self.get_operand_types(resolved_type_id) {
+                                Ok(field_operand_types) => {
+                                    operand_types.extend(field_operand_types)
+                                }
+                                Err(_) => continue,
+                            }
                         }
 
                         Ok(operand_types)
@@ -713,28 +790,24 @@ fn add_core(resolver: &mut Resolver) {
         let some_symbol = resolver.symbols.add_symbol("Some");
         let none_symbol = resolver.symbols.add_symbol("None");
 
-        let base_id = resolver.declarations.next_declaration_id();
-        let t_declaration_id = base_id;
-        let some_field_declaration_id = base_id.offset(1);
-        let some_declaration_id = base_id.offset(2);
-        let none_declaration_id = base_id.offset(3);
+        let option_declaration_id = resolver.declarations.reserve_declaration_id();
 
-        let t_type_id = resolver.types.add_type(Type::Generic {
-            declaration_id: t_declaration_id,
-        });
-
-        let _t_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let t_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: t_symbol,
             definition: Definition::TypeParameter,
             scope_id: ScopeId::CORE,
             syntax: None,
         });
 
-        let _some_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let t_type_id = resolver.types.add_type(Type::Generic {
+            declaration_id: t_declaration_id,
+        });
+
+        let some_field_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: field_0_symbol,
             definition: Definition::Field {
                 public: false,
-                parent_struct: DeclarationId::OPTION,
+                parent_struct: option_declaration_id,
                 type_id: t_type_id,
             },
             scope_id: ScopeId::CORE,
@@ -745,11 +818,11 @@ fn add_core(resolver: &mut Resolver) {
             .declarations
             .add_declaration_members([some_field_declaration_id]);
 
-        let _some_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let some_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: some_symbol,
             definition: Definition::Variant {
                 discriminant: 0,
-                parent_enum: DeclarationId::OPTION,
+                parent_enum: option_declaration_id,
                 type_parameters: DeclarationMembers::default(),
                 fields: some_fields,
             },
@@ -757,11 +830,11 @@ fn add_core(resolver: &mut Resolver) {
             syntax: None,
         });
 
-        let _none_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let none_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: none_symbol,
             definition: Definition::Variant {
                 discriminant: 1,
-                parent_enum: DeclarationId::OPTION,
+                parent_enum: option_declaration_id,
                 type_parameters: DeclarationMembers::default(),
                 fields: DeclarationMembers::default(),
             },
@@ -776,22 +849,22 @@ fn add_core(resolver: &mut Resolver) {
             .declarations
             .add_declaration_members([some_declaration_id, none_declaration_id]);
 
-        let _option_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: option_symbol,
-            definition: Definition::EnumType {
-                public: true,
-                type_parameters,
-                variants,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
-
-        debug_assert_eq!(_t_declaration_id, t_declaration_id);
-        debug_assert_eq!(_some_field_declaration_id, some_field_declaration_id);
-        debug_assert_eq!(_some_declaration_id, some_declaration_id);
-        debug_assert_eq!(_none_declaration_id, none_declaration_id);
-        debug_assert_eq!(_option_declaration_id, DeclarationId::OPTION);
+        resolver
+            .declarations
+            .set_declaration(
+                option_declaration_id,
+                Declaration {
+                    symbol_id: option_symbol,
+                    definition: Definition::EnumType {
+                        public: true,
+                        type_parameters,
+                        variants,
+                    },
+                    scope_id: ScopeId::CORE,
+                    syntax: None,
+                },
+            )
+            .expect("reserved Option declaration ID is valid");
     }
 
     {
@@ -800,13 +873,21 @@ fn add_core(resolver: &mut Resolver) {
         let err_symbol = resolver.symbols.add_symbol("Err");
         let e_symbol = resolver.symbols.add_symbol("E");
 
-        let base_id = resolver.declarations.next_declaration_id();
-        let t_declaration_id = base_id;
-        let e_declaration_id = base_id.offset(1);
-        let ok_field_declaration_id = base_id.offset(2);
-        let ok_declaration_id = base_id.offset(3);
-        let err_field_declaration_id = base_id.offset(4);
-        let err_declaration_id = base_id.offset(5);
+        let result_declaration_id = resolver.declarations.reserve_declaration_id();
+
+        let t_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: t_symbol,
+            definition: Definition::TypeParameter,
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
+
+        let e_declaration_id = resolver.declarations.add_declaration(Declaration {
+            symbol_id: e_symbol,
+            definition: Definition::TypeParameter,
+            scope_id: ScopeId::CORE,
+            syntax: None,
+        });
 
         let t_type_id = resolver.types.add_type(Type::Generic {
             declaration_id: t_declaration_id,
@@ -815,25 +896,11 @@ fn add_core(resolver: &mut Resolver) {
             declaration_id: e_declaration_id,
         });
 
-        let _t_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: t_symbol,
-            definition: Definition::TypeParameter,
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
-
-        let _e_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: e_symbol,
-            definition: Definition::TypeParameter,
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
-
-        let _ok_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let ok_field_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: field_0_symbol,
             definition: Definition::Field {
                 public: false,
-                parent_struct: DeclarationId::RESULT,
+                parent_struct: result_declaration_id,
                 type_id: t_type_id,
             },
             scope_id: ScopeId::CORE,
@@ -844,11 +911,11 @@ fn add_core(resolver: &mut Resolver) {
             .declarations
             .add_declaration_members([ok_field_declaration_id]);
 
-        let _ok_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let ok_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: ok_symbol,
             definition: Definition::Variant {
                 discriminant: 0,
-                parent_enum: DeclarationId::RESULT,
+                parent_enum: result_declaration_id,
                 type_parameters: DeclarationMembers::default(),
                 fields: ok_fields,
             },
@@ -856,11 +923,11 @@ fn add_core(resolver: &mut Resolver) {
             syntax: None,
         });
 
-        let _err_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let err_field_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: field_0_symbol,
             definition: Definition::Field {
                 public: false,
-                parent_struct: DeclarationId::RESULT,
+                parent_struct: result_declaration_id,
                 type_id: e_type_id,
             },
             scope_id: ScopeId::CORE,
@@ -871,11 +938,11 @@ fn add_core(resolver: &mut Resolver) {
             .declarations
             .add_declaration_members([err_field_declaration_id]);
 
-        let _err_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let err_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: err_symbol,
             definition: Definition::Variant {
                 discriminant: 1,
-                parent_enum: DeclarationId::RESULT,
+                parent_enum: result_declaration_id,
                 type_parameters: DeclarationMembers::default(),
                 fields: err_fields,
             },
@@ -890,24 +957,22 @@ fn add_core(resolver: &mut Resolver) {
             .declarations
             .add_declaration_members([ok_declaration_id, err_declaration_id]);
 
-        let _result_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: result_symbol,
-            definition: Definition::EnumType {
-                public: true,
-                type_parameters,
-                variants,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
-
-        debug_assert_eq!(_t_declaration_id, t_declaration_id);
-        debug_assert_eq!(_e_declaration_id, e_declaration_id);
-        debug_assert_eq!(_ok_field_declaration_id, ok_field_declaration_id);
-        debug_assert_eq!(_ok_declaration_id, ok_declaration_id);
-        debug_assert_eq!(_err_field_declaration_id, err_field_declaration_id);
-        debug_assert_eq!(_err_declaration_id, err_declaration_id);
-        debug_assert_eq!(_result_declaration_id, DeclarationId::RESULT);
+        resolver
+            .declarations
+            .set_declaration(
+                result_declaration_id,
+                Declaration {
+                    symbol_id: result_symbol,
+                    definition: Definition::EnumType {
+                        public: true,
+                        type_parameters,
+                        variants,
+                    },
+                    scope_id: ScopeId::CORE,
+                    syntax: None,
+                },
+            )
+            .expect("reserved Result declaration ID is valid");
     }
 
     let start_symbol = resolver.symbols.add_symbol("start");
@@ -917,38 +982,35 @@ fn add_core(resolver: &mut Resolver) {
     {
         let range_symbol = resolver.symbols.add_symbol("Range");
 
-        let base_id = resolver.declarations.next_declaration_id();
-        let t_declaration_id = base_id;
-        let start_field_declaration_id = base_id.offset(1);
-        let end_field_declaration_id = base_id.offset(2);
+        let range_declaration_id = resolver.declarations.reserve_declaration_id();
 
-        let t_type_id = resolver.types.add_type(Type::Generic {
-            declaration_id: t_declaration_id,
-        });
-
-        let _t_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let t_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: t_symbol,
             definition: Definition::TypeParameter,
             scope_id: ScopeId::CORE,
             syntax: None,
         });
 
-        let _start_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let t_type_id = resolver.types.add_type(Type::Generic {
+            declaration_id: t_declaration_id,
+        });
+
+        let start_field_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: start_symbol,
             definition: Definition::Field {
                 public: true,
-                parent_struct: DeclarationId::RANGE,
+                parent_struct: range_declaration_id,
                 type_id: t_type_id,
             },
             scope_id: ScopeId::CORE,
             syntax: None,
         });
 
-        let _end_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let end_field_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: end_symbol,
             definition: Definition::Field {
                 public: true,
-                parent_struct: DeclarationId::RANGE,
+                parent_struct: range_declaration_id,
                 type_id: t_type_id,
             },
             scope_id: ScopeId::CORE,
@@ -962,58 +1024,56 @@ fn add_core(resolver: &mut Resolver) {
             .declarations
             .add_declaration_members([start_field_declaration_id, end_field_declaration_id]);
 
-        let _range_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: range_symbol,
-            definition: Definition::StructType {
-                public: true,
-                type_parameters,
-                fields,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
-
-        debug_assert_eq!(_t_declaration_id, t_declaration_id);
-        debug_assert_eq!(_start_field_declaration_id, start_field_declaration_id);
-        debug_assert_eq!(_end_field_declaration_id, end_field_declaration_id);
-        debug_assert_eq!(_range_declaration_id, DeclarationId::RANGE);
+        resolver
+            .declarations
+            .set_declaration(
+                range_declaration_id,
+                Declaration {
+                    symbol_id: range_symbol,
+                    definition: Definition::StructType {
+                        public: true,
+                        type_parameters,
+                        fields,
+                    },
+                    scope_id: ScopeId::CORE,
+                    syntax: None,
+                },
+            )
+            .expect("reserved Range declaration ID is valid");
     }
 
     {
         let range_inclusive_symbol = resolver.symbols.add_symbol("RangeInclusive");
 
-        let base_id = resolver.declarations.next_declaration_id();
-        let t_declaration_id = base_id;
-        let start_field_declaration_id = base_id.offset(1);
-        let last_field_declaration_id = base_id.offset(2);
+        let range_inclusive_declaration_id = resolver.declarations.reserve_declaration_id();
 
-        let t_type_id = resolver.types.add_type(Type::Generic {
-            declaration_id: t_declaration_id,
-        });
-
-        let _t_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let t_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: t_symbol,
             definition: Definition::TypeParameter,
             scope_id: ScopeId::CORE,
             syntax: None,
         });
 
-        let _start_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let t_type_id = resolver.types.add_type(Type::Generic {
+            declaration_id: t_declaration_id,
+        });
+
+        let start_field_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: start_symbol,
             definition: Definition::Field {
                 public: true,
-                parent_struct: DeclarationId::RANGE_INCLUSIVE,
+                parent_struct: range_inclusive_declaration_id,
                 type_id: t_type_id,
             },
             scope_id: ScopeId::CORE,
             syntax: None,
         });
 
-        let _last_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let last_field_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: last_symbol,
             definition: Definition::Field {
                 public: true,
-                parent_struct: DeclarationId::RANGE_INCLUSIVE,
+                parent_struct: range_inclusive_declaration_id,
                 type_id: t_type_id,
             },
             scope_id: ScopeId::CORE,
@@ -1027,23 +1087,567 @@ fn add_core(resolver: &mut Resolver) {
             .declarations
             .add_declaration_members([start_field_declaration_id, last_field_declaration_id]);
 
-        let _range_inclusive_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: range_inclusive_symbol,
-            definition: Definition::StructType {
-                public: true,
-                type_parameters,
-                fields,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
+        resolver
+            .declarations
+            .set_declaration(
+                range_inclusive_declaration_id,
+                Declaration {
+                    symbol_id: range_inclusive_symbol,
+                    definition: Definition::StructType {
+                        public: true,
+                        type_parameters,
+                        fields,
+                    },
+                    scope_id: ScopeId::CORE,
+                    syntax: None,
+                },
+            )
+            .expect("reserved RangeInclusive declaration ID is valid");
+    }
+}
 
-        debug_assert_eq!(_t_declaration_id, t_declaration_id);
-        debug_assert_eq!(_start_field_declaration_id, start_field_declaration_id);
-        debug_assert_eq!(_last_field_declaration_id, last_field_declaration_id);
-        debug_assert_eq!(
-            _range_inclusive_declaration_id,
-            DeclarationId::RANGE_INCLUSIVE
-        );
+#[derive(Clone, Copy, Debug)]
+pub enum ConstantValue {
+    Boolean(bool),
+    Character(char),
+    U8(u8),
+    I8(i8),
+    U16(u16),
+    I16(i16),
+    U32(u32),
+    I32(i32),
+    U64(u64),
+    I64(i64),
+    U128(u128),
+    I128(i128),
+    F32(f32),
+    F64(f64),
+}
+
+impl ConstantValue {
+    pub fn operand_type(&self) -> OperandType {
+        match self {
+            ConstantValue::Boolean(_) => OperandType::BOOLEAN,
+            ConstantValue::Character(_) => OperandType::CHARACTER,
+            ConstantValue::U8(_) => OperandType::U_8,
+            ConstantValue::I8(_) => OperandType::I_8,
+            ConstantValue::U16(_) => OperandType::U_16,
+            ConstantValue::I16(_) => OperandType::I_16,
+            ConstantValue::U32(_) => OperandType::U_32,
+            ConstantValue::I32(_) => OperandType::I_32,
+            ConstantValue::U64(_) => OperandType::U_64,
+            ConstantValue::I64(_) => OperandType::I_64,
+            ConstantValue::U128(_) => OperandType::U_128,
+            ConstantValue::I128(_) => OperandType::I_128,
+            ConstantValue::F32(_) => OperandType::F_32,
+            ConstantValue::F64(_) => OperandType::F_64,
+        }
+    }
+
+    pub fn type_id(&self) -> TypeId {
+        match self {
+            ConstantValue::Boolean(_) => TypeId::BOOLEAN,
+            ConstantValue::Character(_) => TypeId::CHARACTER,
+            ConstantValue::U8(_) => TypeId::U_8,
+            ConstantValue::I8(_) => TypeId::I_8,
+            ConstantValue::U16(_) => TypeId::U_16,
+            ConstantValue::I16(_) => TypeId::I_16,
+            ConstantValue::U32(_) => TypeId::U_32,
+            ConstantValue::I32(_) => TypeId::I_32,
+            ConstantValue::U64(_) => TypeId::U_64,
+            ConstantValue::I64(_) => TypeId::I_64,
+            ConstantValue::U128(_) => TypeId::U_128,
+            ConstantValue::I128(_) => TypeId::I_128,
+            ConstantValue::F32(_) => TypeId::F_32,
+            ConstantValue::F64(_) => TypeId::F_64,
+        }
+    }
+
+    pub fn fits_in_encoded(&self) -> bool {
+        match self {
+            ConstantValue::Boolean(_)
+            | ConstantValue::U8(_)
+            | ConstantValue::I8(_)
+            | ConstantValue::U16(_)
+            | ConstantValue::I16(_) => true,
+            ConstantValue::Character(character) => (*character as u32) <= u16::MAX as u32,
+            ConstantValue::U32(integer) => *integer <= u16::MAX as u32,
+            ConstantValue::I32(integer) => {
+                *integer >= i16::MIN as i32 && *integer <= i16::MAX as i32
+            }
+            ConstantValue::U64(integer) => *integer <= u16::MAX as u64,
+            ConstantValue::I64(integer) => {
+                *integer >= i16::MIN as i64 && *integer <= i16::MAX as i64
+            }
+            ConstantValue::U128(integer) => *integer <= u16::MAX as u128,
+            ConstantValue::I128(integer) => {
+                *integer >= i16::MIN as i128 && *integer <= i16::MAX as i128
+            }
+            ConstantValue::F32(_) | ConstantValue::F64(_) => false,
+        }
+    }
+
+    pub fn to_encoded_u16(&self) -> u16 {
+        match self {
+            ConstantValue::Boolean(boolean) => *boolean as u16,
+            ConstantValue::Character(character) => *character as u16,
+            ConstantValue::U8(integer) => *integer as u16,
+            ConstantValue::I8(integer) => *integer as i16 as u16,
+            ConstantValue::U16(integer) => *integer,
+            ConstantValue::I16(integer) => *integer as u16,
+            ConstantValue::U32(integer) => *integer as u16,
+            ConstantValue::I32(integer) => *integer as i16 as u16,
+            ConstantValue::U64(integer) => *integer as u16,
+            ConstantValue::I64(integer) => *integer as i16 as u16,
+            ConstantValue::U128(integer) => *integer as u16,
+            ConstantValue::I128(integer) => *integer as i16 as u16,
+            ConstantValue::F32(_) | ConstantValue::F64(_) => {
+                panic!("Cannot encode float as u16")
+            }
+        }
+    }
+
+    pub fn add(self, other: Self) -> Result<Option<Self>, CompileError> {
+        let sum = match (self, other) {
+            (ConstantValue::U8(left), ConstantValue::U8(right)) => ConstantValue::U8(left + right),
+            (ConstantValue::I8(left), ConstantValue::I8(right)) => ConstantValue::I8(left + right),
+            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
+                ConstantValue::U16(left + right)
+            }
+            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
+                ConstantValue::I16(left + right)
+            }
+            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
+                ConstantValue::U32(left + right)
+            }
+            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
+                ConstantValue::I32(left + right)
+            }
+            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
+                ConstantValue::U64(left + right)
+            }
+            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
+                ConstantValue::I64(left + right)
+            }
+            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
+                ConstantValue::U128(left + right)
+            }
+            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
+                ConstantValue::I128(left + right)
+            }
+            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
+                ConstantValue::F32(left + right)
+            }
+            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
+                ConstantValue::F64(left + right)
+            }
+            _ => return Ok(None),
+        };
+
+        Ok(Some(sum))
+    }
+
+    pub fn subtract(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
+                Some(ConstantValue::U8(left - right))
+            }
+            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
+                Some(ConstantValue::I8(left - right))
+            }
+            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
+                Some(ConstantValue::U16(left - right))
+            }
+            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
+                Some(ConstantValue::I16(left - right))
+            }
+            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
+                Some(ConstantValue::U32(left - right))
+            }
+            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
+                Some(ConstantValue::I32(left - right))
+            }
+            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
+                Some(ConstantValue::U64(left - right))
+            }
+            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
+                Some(ConstantValue::I64(left - right))
+            }
+            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
+                Some(ConstantValue::U128(left - right))
+            }
+            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
+                Some(ConstantValue::I128(left - right))
+            }
+            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
+                Some(ConstantValue::F32(left - right))
+            }
+            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
+                Some(ConstantValue::F64(left - right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn multiply(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
+                Some(ConstantValue::U8(left * right))
+            }
+            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
+                Some(ConstantValue::I8(left * right))
+            }
+            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
+                Some(ConstantValue::U16(left * right))
+            }
+            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
+                Some(ConstantValue::I16(left * right))
+            }
+            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
+                Some(ConstantValue::U32(left * right))
+            }
+            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
+                Some(ConstantValue::I32(left * right))
+            }
+            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
+                Some(ConstantValue::U64(left * right))
+            }
+            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
+                Some(ConstantValue::I64(left * right))
+            }
+            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
+                Some(ConstantValue::U128(left * right))
+            }
+            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
+                Some(ConstantValue::I128(left * right))
+            }
+            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
+                Some(ConstantValue::F32(left * right))
+            }
+            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
+                Some(ConstantValue::F64(left * right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn divide(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
+                Some(ConstantValue::U8(left / right))
+            }
+            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
+                Some(ConstantValue::I8(left / right))
+            }
+            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
+                Some(ConstantValue::U16(left / right))
+            }
+            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
+                Some(ConstantValue::I16(left / right))
+            }
+            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
+                Some(ConstantValue::U32(left / right))
+            }
+            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
+                Some(ConstantValue::I32(left / right))
+            }
+            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
+                Some(ConstantValue::U64(left / right))
+            }
+            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
+                Some(ConstantValue::I64(left / right))
+            }
+            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
+                Some(ConstantValue::U128(left / right))
+            }
+            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
+                Some(ConstantValue::I128(left / right))
+            }
+            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
+                Some(ConstantValue::F32(left / right))
+            }
+            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
+                Some(ConstantValue::F64(left / right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn modulo(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
+                Some(ConstantValue::U8(left % right))
+            }
+            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
+                Some(ConstantValue::I8(left % right))
+            }
+            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
+                Some(ConstantValue::U16(left % right))
+            }
+            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
+                Some(ConstantValue::I16(left % right))
+            }
+            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
+                Some(ConstantValue::U32(left % right))
+            }
+            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
+                Some(ConstantValue::I32(left % right))
+            }
+            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
+                Some(ConstantValue::U64(left % right))
+            }
+            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
+                Some(ConstantValue::I64(left % right))
+            }
+            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
+                Some(ConstantValue::U128(left % right))
+            }
+            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
+                Some(ConstantValue::I128(left % right))
+            }
+            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
+                Some(ConstantValue::F32(left % right))
+            }
+            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
+                Some(ConstantValue::F64(left % right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn power(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
+                Some(ConstantValue::U8(left.pow(right as u32)))
+            }
+            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
+                Some(ConstantValue::I8(left.pow(right as u32)))
+            }
+            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
+                Some(ConstantValue::U16(left.pow(right as u32)))
+            }
+            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
+                Some(ConstantValue::I16(left.pow(right as u32)))
+            }
+            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
+                Some(ConstantValue::U32(left.pow(right)))
+            }
+            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
+                Some(ConstantValue::I32(left.pow(right as u32)))
+            }
+            (ConstantValue::U64(left), ConstantValue::U32(right)) => {
+                Some(ConstantValue::U64(left.pow(right)))
+            }
+            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
+                Some(ConstantValue::I64(left.pow(right as u32)))
+            }
+            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
+                Some(ConstantValue::U128(left.pow(right as u32)))
+            }
+            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
+                Some(ConstantValue::I128(left.pow(right as u32)))
+            }
+            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
+                Some(ConstantValue::F32(left.powf(right)))
+            }
+            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
+                Some(ConstantValue::F64(left.powf(right)))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn equal(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantValue::Boolean(left), ConstantValue::Boolean(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::Character(left), ConstantValue::Character(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn not_equal(self, other: Self) -> Option<Self> {
+        self.equal(other).map(|equality| match equality {
+            ConstantValue::Boolean(boolean) => ConstantValue::Boolean(!boolean),
+            _ => unreachable!("Expected boolean constant from equality comparison"),
+        })
+    }
+
+    pub fn less(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantValue::Character(left), ConstantValue::Character(right)) => {
+                Some(ConstantValue::Boolean(left < right))
+            }
+            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
+                Some(ConstantValue::Boolean(left < right))
+            }
+            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
+                Some(ConstantValue::Boolean(left < right))
+            }
+            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
+                Some(ConstantValue::Boolean(left < right))
+            }
+            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
+                Some(ConstantValue::Boolean(left < right))
+            }
+            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
+                Some(ConstantValue::Boolean(left < right))
+            }
+            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
+                Some(ConstantValue::Boolean(left < right))
+            }
+            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
+                Some(ConstantValue::Boolean(left < right))
+            }
+            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
+                Some(ConstantValue::Boolean(left < right))
+            }
+            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
+                Some(ConstantValue::Boolean(left < right))
+            }
+            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
+                Some(ConstantValue::Boolean(left < right))
+            }
+            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
+                Some(ConstantValue::Boolean(left < right))
+            }
+            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
+                Some(ConstantValue::Boolean(left < right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn greater(self, other: Self) -> Option<Self> {
+        self.less_equal(other).map(|result| match result {
+            ConstantValue::Boolean(boolean) => ConstantValue::Boolean(!boolean),
+            _ => unreachable!("Expected boolean constant from less comparison"),
+        })
+    }
+
+    pub fn less_equal(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantValue::Character(left), ConstantValue::Character(right)) => {
+                Some(ConstantValue::Boolean(left <= right))
+            }
+            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
+                Some(ConstantValue::Boolean(left <= right))
+            }
+            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
+                Some(ConstantValue::Boolean(left <= right))
+            }
+            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
+                Some(ConstantValue::Boolean(left <= right))
+            }
+            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
+                Some(ConstantValue::Boolean(left <= right))
+            }
+            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
+                Some(ConstantValue::Boolean(left <= right))
+            }
+            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
+                Some(ConstantValue::Boolean(left <= right))
+            }
+            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
+                Some(ConstantValue::Boolean(left <= right))
+            }
+            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
+                Some(ConstantValue::Boolean(left <= right))
+            }
+            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
+                Some(ConstantValue::Boolean(left <= right))
+            }
+            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
+                Some(ConstantValue::Boolean(left <= right))
+            }
+            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
+                Some(ConstantValue::Boolean(left <= right))
+            }
+            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
+                Some(ConstantValue::Boolean(left <= right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn greater_equal(self, other: Self) -> Option<Self> {
+        self.less(other).map(|result| match result {
+            ConstantValue::Boolean(boolean) => ConstantValue::Boolean(!boolean),
+            _ => unreachable!("Expected boolean constant from less comparison"),
+        })
+    }
+
+    pub fn and(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantValue::Boolean(left), ConstantValue::Boolean(right)) => {
+                Some(ConstantValue::Boolean(left && right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn or(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            (ConstantValue::Boolean(left), ConstantValue::Boolean(right)) => {
+                Some(ConstantValue::Boolean(left || right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn negate(self) -> Option<Self> {
+        match self {
+            ConstantValue::Boolean(boolean) => Some(ConstantValue::Boolean(!boolean)),
+            ConstantValue::U8(integer) => Some(ConstantValue::U8(integer.wrapping_neg())),
+            ConstantValue::I8(integer) => Some(ConstantValue::I8(integer.wrapping_neg())),
+            ConstantValue::U16(integer) => Some(ConstantValue::U16(integer.wrapping_neg())),
+            ConstantValue::I16(integer) => Some(ConstantValue::I16(integer.wrapping_neg())),
+            ConstantValue::U32(integer) => Some(ConstantValue::U32(integer.wrapping_neg())),
+            ConstantValue::I32(integer) => Some(ConstantValue::I32(integer.wrapping_neg())),
+            ConstantValue::U64(integer) => Some(ConstantValue::U64(integer.wrapping_neg())),
+            ConstantValue::I64(integer) => Some(ConstantValue::I64(integer.wrapping_neg())),
+            ConstantValue::U128(integer) => Some(ConstantValue::U128(integer.wrapping_neg())),
+            ConstantValue::I128(integer) => Some(ConstantValue::I128(integer.wrapping_neg())),
+            _ => None,
+        }
     }
 }

@@ -14,7 +14,6 @@ fn and() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::test(false, MemoryKind::ENCODED, 1, 1),
                 Instruction::r#move(0, OperandType::BOOLEAN, MemoryKind::ENCODED, 0),
                 Instruction::r#return(),
             ],
@@ -34,8 +33,7 @@ fn or() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::test(true, MemoryKind::ENCODED, 1, 1),
-                Instruction::r#move(0, OperandType::BOOLEAN, MemoryKind::ENCODED, 0),
+                Instruction::r#move(0, OperandType::BOOLEAN, MemoryKind::ENCODED, 1),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::BOOLEAN],

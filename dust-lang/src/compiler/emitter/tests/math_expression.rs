@@ -13,14 +13,7 @@ fn add() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::subtract(
-                    0,
-                    OperandType::I_32,
-                    MemoryKind::ENCODED,
-                    5,
-                    MemoryKind::ENCODED,
-                    3
-                ),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 2),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
@@ -38,14 +31,7 @@ fn multiply() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::multiply(
-                    0,
-                    OperandType::I_32,
-                    MemoryKind::ENCODED,
-                    3,
-                    MemoryKind::ENCODED,
-                    4
-                ),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 12),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
@@ -63,14 +49,7 @@ fn tail() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::divide(
-                    0,
-                    OperandType::I_32,
-                    MemoryKind::ENCODED,
-                    10,
-                    MemoryKind::ENCODED,
-                    3
-                ),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 3),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
@@ -88,14 +67,7 @@ fn modulo() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::modulo(
-                    0,
-                    OperandType::I_32,
-                    MemoryKind::ENCODED,
-                    10,
-                    MemoryKind::ENCODED,
-                    3
-                ),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 1),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
@@ -113,14 +85,7 @@ fn power() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::power(
-                    0,
-                    OperandType::I_32,
-                    MemoryKind::ENCODED,
-                    2,
-                    MemoryKind::ENCODED,
-                    3
-                ),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 8),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],

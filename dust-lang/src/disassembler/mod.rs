@@ -180,7 +180,6 @@ impl<'a> Disassembler<'a> {
         let areas = Layout::vertical([
             Constraint::Length(2),
             Constraint::Length(2),
-            Constraint::Length(2),
             Constraint::Length(get_section_length(prototype.instructions.len())),
         ]);
         let [id_area, info_area, instructions_area] = areas.flex(Flex::Start).areas(inner_area);

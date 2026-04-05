@@ -5,7 +5,8 @@ use crate::{
     compiler::error::CompileError,
     resolver::{
         Resolver,
-        declarations::{Declaration, DeclarationId, Definition},
+        declarations::{Declaration, DeclarationId, Definition, Visibility},
+        error::ResolverError,
         scopes::ScopeId,
         types::{InferredTypeConstraint, Type, TypeId, TypeMembers},
     },
@@ -330,14 +331,30 @@ impl<'a> TypeBinder<'a> {
                     });
                 }
 
-                for (left_index, right_index) in left_type_arguments
-                    .as_range()
-                    .zip(right_type_arguments.as_range())
-                {
-                    let left_arg = *self.resolver.types.get_type_member(left_index)?;
-                    let right_arg = *self.resolver.types.get_type_member(right_index)?;
+                if left_type_arguments.is_empty() && !right_type_arguments.is_empty() {
+                    let left_node = self.resolver.types.get_type_mut(left)?;
 
-                    self.unify_types(left_arg, left_syntax, right_arg, right_syntax)?;
+                    *left_node = Type::Algebraic {
+                        declaration_id: left_declaration_id,
+                        type_arguments: right_type_arguments,
+                    };
+                } else if right_type_arguments.is_empty() && !left_type_arguments.is_empty() {
+                    let right_node = self.resolver.types.get_type_mut(right)?;
+
+                    *right_node = Type::Algebraic {
+                        declaration_id: right_declaration_id,
+                        type_arguments: left_type_arguments,
+                    };
+                } else {
+                    for (left_index, right_index) in left_type_arguments
+                        .as_range()
+                        .zip(right_type_arguments.as_range())
+                    {
+                        let left_arg = *self.resolver.types.get_type_member(left_index)?;
+                        let right_arg = *self.resolver.types.get_type_member(right_index)?;
+
+                        self.unify_types(left_arg, left_syntax, right_arg, right_syntax)?;
+                    }
                 }
 
                 Ok(())
@@ -779,9 +796,21 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let index_type = *self.resolver.types.get_type(index_type_id)?;
 
         let result_type_id = if let Type::Algebraic { declaration_id, .. } = index_type {
-            if declaration_id == DeclarationId::RANGE
-                || declaration_id == DeclarationId::RANGE_INCLUSIVE
-            {
+            let range_symbol = self.resolver.symbols.add_symbol("Range");
+            let range_inclusive_symbol = self.resolver.symbols.add_symbol("RangeInclusive");
+
+            let is_range = self
+                .resolver
+                .declarations
+                .find_declaration(range_symbol, ScopeId::CORE, Visibility::Module)
+                .is_some_and(|(id, _)| id == declaration_id);
+            let is_range_inclusive = self
+                .resolver
+                .declarations
+                .find_declaration(range_inclusive_symbol, ScopeId::CORE, Visibility::Module)
+                .is_some_and(|(id, _)| id == declaration_id);
+
+            if is_range || is_range_inclusive {
                 list_type_id
             } else {
                 element_type_id
@@ -805,11 +834,18 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let start_type_id = self.visit_expression(start, None)?;
         self.visit_expression(end, None)?;
 
-        let declaration_id = if reader.node.kind == SyntaxKind::RangeInclusiveExpression {
-            DeclarationId::RANGE_INCLUSIVE
+        let symbol_name = if reader.node.kind == SyntaxKind::RangeInclusiveExpression {
+            "RangeInclusive"
         } else {
-            DeclarationId::RANGE
+            "Range"
         };
+
+        let symbol_id = self.resolver.symbols.add_symbol(symbol_name);
+        let (declaration_id, _) = self
+            .resolver
+            .declarations
+            .find_declaration(symbol_id, ScopeId::CORE, Visibility::Module)
+            .ok_or(ResolverError::ExpectedConcreteType)?;
 
         let type_arguments = self
             .resolver

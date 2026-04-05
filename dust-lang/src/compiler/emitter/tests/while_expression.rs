@@ -41,6 +41,7 @@ fn with_body() {
                     MemoryKind::ENCODED,
                     10
                 ),
+                Instruction::jump(2, true),
                 Instruction::add(
                     0,
                     OperandType::I_32,

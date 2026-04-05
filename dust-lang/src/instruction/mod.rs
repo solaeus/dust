@@ -449,6 +449,7 @@ impl Instruction {
     pub fn is_coallescible_with_jump(&self, forward: bool) -> bool {
         match self.operation() {
             Operation::DROP => true,
+            Operation::NO_OP => true,
             Operation::MOVE => {
                 let Move {
                     jump_distance,
