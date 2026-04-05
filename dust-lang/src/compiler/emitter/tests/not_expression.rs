@@ -13,7 +13,7 @@ fn variable() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::negate(0, OperandType::BOOLEAN, MemoryKind::CONSTANT, 0),
+                Instruction::negate(0, OperandType::BOOLEAN, MemoryKind::ENCODED, 1),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::BOOLEAN],

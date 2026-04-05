@@ -13,7 +13,7 @@ fn used_in_return() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 10),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
@@ -31,7 +31,7 @@ fn expression_value() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 3),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
@@ -50,7 +50,7 @@ fn addition() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 30),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],

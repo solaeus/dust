@@ -13,7 +13,7 @@ fn ascii() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::U_8, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::U_8, MemoryKind::ENCODED, 96),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::U_8],

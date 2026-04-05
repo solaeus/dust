@@ -13,7 +13,7 @@ fn variable() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::negate(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::negate(0, OperandType::I_32, MemoryKind::ENCODED, 5),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
@@ -31,7 +31,7 @@ fn constant() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 65531),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],

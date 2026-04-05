@@ -13,10 +13,10 @@ fn with_else() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::test(true, MemoryKind::CONSTANT, 0, 2),
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 1),
+                Instruction::test(true, MemoryKind::ENCODED, 1, 2),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 1),
                 Instruction::jump(1, true),
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 2),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 2),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
@@ -37,10 +37,10 @@ fn without_else() {
                 Instruction::equal(
                     true,
                     OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    0
+                    MemoryKind::ENCODED,
+                    1,
+                    MemoryKind::ENCODED,
+                    1
                 ),
                 Instruction::r#return(),
             ],

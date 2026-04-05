@@ -14,8 +14,8 @@ fn two_fields() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
-                Instruction::r#move(1, OperandType::I_32, MemoryKind::CONSTANT, 1),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 1),
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 2),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32, OperandType::I_32],

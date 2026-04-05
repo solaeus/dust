@@ -13,7 +13,7 @@ fn i8() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_8, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_8, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_8],
@@ -31,7 +31,7 @@ fn u8() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::U_8, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::U_8, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::U_8],
@@ -49,7 +49,7 @@ fn i16() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_16, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_16, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_16],
@@ -67,7 +67,7 @@ fn u16() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::U_16, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::U_16, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::U_16],
@@ -85,8 +85,7 @@ fn i32() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
-                Instruction::r#return(),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 42),                Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
             register_count: 1,
@@ -103,7 +102,7 @@ fn u32() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::U_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::U_32, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::U_32],
@@ -121,11 +120,11 @@ fn i64() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_64, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_64, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_64],
-            register_count: 1,
+            register_count: 2,
             argument_count: 0,
         }
     );
@@ -139,11 +138,11 @@ fn u64() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::U_64, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::U_64, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::U_64],
-            register_count: 1,
+            register_count: 2,
             argument_count: 0,
         }
     );
@@ -157,11 +156,11 @@ fn i128() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_128, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_128, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_128],
-            register_count: 1,
+            register_count: 4,
             argument_count: 0,
         }
     );
@@ -175,11 +174,11 @@ fn u128() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::U_128, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::U_128, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::U_128],
-            register_count: 1,
+            register_count: 4,
             argument_count: 0,
         }
     );

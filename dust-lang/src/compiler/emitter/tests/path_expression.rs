@@ -13,11 +13,13 @@ fn unused_binding() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 1),
+                Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 2),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::REGISTER, 1),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
-            register_count: 1,
+            register_count: 3,
             argument_count: 0,
         }
     );

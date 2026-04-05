@@ -13,7 +13,8 @@ fn reassignment() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 1),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 1),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 2),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
@@ -31,14 +32,14 @@ fn compound_addition() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 1),
                 Instruction::add(
                     0,
                     OperandType::I_32,
                     MemoryKind::REGISTER,
                     0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::ENCODED,
+                    2
                 ),
                 Instruction::r#return(),
             ],
@@ -57,14 +58,14 @@ fn compound_subtraction() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 10),
                 Instruction::subtract(
                     0,
                     OperandType::I_32,
                     MemoryKind::REGISTER,
                     0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::ENCODED,
+                    3
                 ),
                 Instruction::r#return(),
             ],
@@ -83,14 +84,14 @@ fn compound_multiplication() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 3),
                 Instruction::multiply(
                     0,
                     OperandType::I_32,
                     MemoryKind::REGISTER,
                     0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::ENCODED,
+                    4
                 ),
                 Instruction::r#return(),
             ],
@@ -109,14 +110,14 @@ fn compound_division() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 12),
                 Instruction::divide(
                     0,
                     OperandType::I_32,
                     MemoryKind::REGISTER,
                     0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::ENCODED,
+                    3
                 ),
                 Instruction::r#return(),
             ],
@@ -135,14 +136,14 @@ fn compound_modulo() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 10),
                 Instruction::modulo(
                     0,
                     OperandType::I_32,
                     MemoryKind::REGISTER,
                     0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::ENCODED,
+                    3
                 ),
                 Instruction::r#return(),
             ],
@@ -161,14 +162,14 @@ fn compound_power() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 2),
                 Instruction::power(
                     0,
                     OperandType::I_32,
                     MemoryKind::REGISTER,
                     0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::ENCODED,
+                    3
                 ),
                 Instruction::r#return(),
             ],

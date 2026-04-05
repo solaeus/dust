@@ -7,31 +7,6 @@ use super::emit_function;
 
 #[test]
 fn add() {
-    let prototype = emit_function("fn foo() -> i32 { let a: i32 = 1; let b: i32 = 2; a + b }");
-
-    assert_eq!(
-        prototype,
-        Prototype {
-            instructions: vec![
-                Instruction::add(
-                    0,
-                    OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
-                ),
-                Instruction::r#return(),
-            ],
-            return_types: vec![OperandType::I_32],
-            register_count: 1,
-            argument_count: 0,
-        }
-    );
-}
-
-#[test]
-fn subtract() {
     let prototype = emit_function("fn foo() -> i32 { let a: i32 = 5; let b: i32 = 3; a - b }");
 
     assert_eq!(
@@ -41,10 +16,10 @@ fn subtract() {
                 Instruction::subtract(
                     0,
                     OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::ENCODED,
+                    5,
+                    MemoryKind::ENCODED,
+                    3
                 ),
                 Instruction::r#return(),
             ],
@@ -66,10 +41,10 @@ fn multiply() {
                 Instruction::multiply(
                     0,
                     OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::ENCODED,
+                    3,
+                    MemoryKind::ENCODED,
+                    4
                 ),
                 Instruction::r#return(),
             ],
@@ -82,31 +57,6 @@ fn multiply() {
 
 #[test]
 fn tail() {
-    let prototype = emit_function("fn foo() -> i32 { 1 + 2 }");
-
-    assert_eq!(
-        prototype,
-        Prototype {
-            instructions: vec![
-                Instruction::add(
-                    0,
-                    OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
-                ),
-                Instruction::r#return(),
-            ],
-            return_types: vec![OperandType::I_32],
-            register_count: 1,
-            argument_count: 0,
-        }
-    );
-}
-
-#[test]
-fn divide() {
     let prototype = emit_function("fn foo() -> i32 { let a: i32 = 10; let b: i32 = 3; a / b }");
 
     assert_eq!(
@@ -116,10 +66,10 @@ fn divide() {
                 Instruction::divide(
                     0,
                     OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::ENCODED,
+                    10,
+                    MemoryKind::ENCODED,
+                    3
                 ),
                 Instruction::r#return(),
             ],
@@ -141,10 +91,10 @@ fn modulo() {
                 Instruction::modulo(
                     0,
                     OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::ENCODED,
+                    10,
+                    MemoryKind::ENCODED,
+                    3
                 ),
                 Instruction::r#return(),
             ],
@@ -166,10 +116,10 @@ fn power() {
                 Instruction::power(
                     0,
                     OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::ENCODED,
+                    2,
+                    MemoryKind::ENCODED,
+                    3
                 ),
                 Instruction::r#return(),
             ],

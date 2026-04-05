@@ -13,7 +13,7 @@ fn return_value() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::call(0, MemoryKind::CONSTANT, 0, u16::MAX),
+                Instruction::call(0, MemoryKind::ENCODED, 1, u16::MAX),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
@@ -32,13 +32,13 @@ fn multiple_arguments() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(1, OperandType::I_32, MemoryKind::CONSTANT, 0),
-                Instruction::r#move(2, OperandType::I_32, MemoryKind::CONSTANT, 1),
-                Instruction::call(0, MemoryKind::CONSTANT, 2, 2),
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 1),
+                Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 2),
+                Instruction::call(0, MemoryKind::ENCODED, 1, 1),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
-            register_count: 1,
+            register_count: 3,
             argument_count: 0,
         }
     );

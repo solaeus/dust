@@ -16,10 +16,10 @@ fn tail_expression() {
                 Instruction::add(
                     0,
                     OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::ENCODED,
+                    1,
+                    MemoryKind::ENCODED,
+                    2
                 ),
                 Instruction::r#return(),
             ],

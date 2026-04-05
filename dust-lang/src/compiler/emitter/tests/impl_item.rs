@@ -15,7 +15,7 @@ fn method_returning_value() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::call(0, MemoryKind::CONSTANT, 0, u16::MAX),
+                Instruction::call(0, MemoryKind::ENCODED, 1, u16::MAX),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],

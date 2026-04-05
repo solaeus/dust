@@ -21,7 +21,10 @@ use crate::{
         declarations::{DeclarationId, Definition},
         error::ResolverError,
         scopes::ScopeId,
-        types::{FloatType, SignedIntegerType, Type, TypeId, TypeMembers, UnsignedIntegerType},
+        types::{
+            FloatType, InferredTypeConstraint, SignedIntegerType, Type, TypeId, TypeMembers,
+            UnsignedIntegerType,
+        },
     },
     source::{Position, Source, Span},
     syntax::{
@@ -280,6 +283,7 @@ impl<'a> Emitter<'a> {
             let type_node = emitter.resolver.types.get_type(type_id)?;
 
             let (operand_type, width) = match type_node {
+                Type::Never => return Ok(()),
                 Type::Boolean => (OperandType::BOOLEAN, RegisterWidth::Single),
                 Type::SignedInteger(SignedIntegerType::I8) => {
                     (OperandType::I_8, RegisterWidth::Single)
@@ -291,10 +295,10 @@ impl<'a> Emitter<'a> {
                     (OperandType::I_32, RegisterWidth::Single)
                 }
                 Type::SignedInteger(SignedIntegerType::I64) => {
-                    (OperandType::I_64, RegisterWidth::Single)
+                    (OperandType::I_64, RegisterWidth::Double)
                 }
                 Type::SignedInteger(SignedIntegerType::I128) => {
-                    (OperandType::I_128, RegisterWidth::Double)
+                    (OperandType::I_128, RegisterWidth::Quad)
                 }
                 Type::UnsignedInteger(UnsignedIntegerType::U8) => {
                     (OperandType::U_8, RegisterWidth::Single)
@@ -306,29 +310,69 @@ impl<'a> Emitter<'a> {
                     (OperandType::U_32, RegisterWidth::Single)
                 }
                 Type::UnsignedInteger(UnsignedIntegerType::U64) => {
-                    (OperandType::U_64, RegisterWidth::Single)
+                    (OperandType::U_64, RegisterWidth::Double)
                 }
                 Type::UnsignedInteger(UnsignedIntegerType::U128) => {
-                    (OperandType::U_128, RegisterWidth::Double)
+                    (OperandType::U_128, RegisterWidth::Quad)
                 }
                 Type::Float(FloatType::F32) => (OperandType::F_32, RegisterWidth::Single),
                 Type::Float(FloatType::F64) => (OperandType::F_64, RegisterWidth::Double),
-                Type::Never => todo!(),
                 Type::Character => (OperandType::CHARACTER, RegisterWidth::Single),
-                Type::FunctionDefinition { .. } => (OperandType::FUNCTION, RegisterWidth::Single),
-                Type::Inferred { resolved, .. } => {
-                    if let Some(resolved) = resolved {
-                        collect_registers(*resolved, temporary, registers, emitter, reader)?;
+                Type::Tuple { element_type_ids } => {
+                    let element_type_ids = *element_type_ids;
 
-                        return Ok(());
-                    } else {
-                        return Err(CompileError::CannotInferType {
-                            type_id,
-                            position: reader.position(),
-                        });
+                    for index in element_type_ids.as_range() {
+                        let element_type = *emitter.resolver.types.get_type_member(index)?;
+
+                        collect_registers(element_type, temporary, registers, emitter, reader)?;
                     }
+
+                    return Ok(());
                 }
-                Type::Algebraic { .. } | Type::Array { .. } => {
+                Type::Array {
+                    element_type_id,
+                    length,
+                } => {
+                    let element_type_id = *element_type_id;
+                    let length = *length;
+
+                    for _ in 0..length {
+                        collect_registers(element_type_id, temporary, registers, emitter, reader)?;
+                    }
+
+                    return Ok(());
+                }
+                Type::FunctionDefinition { .. } | Type::Closure { .. } | Type::Function { .. } => {
+                    (OperandType::FUNCTION, RegisterWidth::Single)
+                }
+                Type::Slice { .. } | Type::Pointer { .. } => {
+                    (OperandType::POINTER, RegisterWidth::Single)
+                }
+                Type::Inferred {
+                    resolved: Some(resolved),
+                    ..
+                } => {
+                    collect_registers(*resolved, temporary, registers, emitter, reader)?;
+
+                    return Ok(());
+                }
+                Type::Inferred {
+                    constraint: Some(InferredTypeConstraint::Integer),
+                    resolved: None,
+                    ..
+                } => (OperandType::I_32, RegisterWidth::Single),
+                Type::Inferred {
+                    constraint: Some(InferredTypeConstraint::Float),
+                    resolved: None,
+                    ..
+                } => (OperandType::F_64, RegisterWidth::Double),
+                Type::Inferred { .. } | Type::Generic { .. } => {
+                    return Err(CompileError::CannotInferType {
+                        type_id,
+                        position: reader.position(),
+                    });
+                }
+                Type::Algebraic { .. } => {
                     let operand_types = emitter.resolver.get_operand_types(type_id)?;
 
                     for operand_type in operand_types {
@@ -347,7 +391,6 @@ impl<'a> Emitter<'a> {
 
                     return Ok(());
                 }
-                _ => todo!(),
             };
 
             let next_register_index = if temporary {
@@ -2547,8 +2590,7 @@ impl SyntaxVisitor for Emitter<'_> {
                             type_arguments
                                 .as_range()
                                 .map(|index| {
-                                    let type_id =
-                                        *self.resolver.types.get_type_member(index)?;
+                                    let type_id = *self.resolver.types.get_type_member(index)?;
 
                                     self.resolver.resolve_type(type_id)
                                 })
@@ -3522,39 +3564,37 @@ impl SyntaxVisitor for Emitter<'_> {
             let callee_type_id = *self.resolver.get_type_binding(&callee.id)?;
             let callee_type = *self.resolver.types.get_type(callee_type_id)?;
 
-            let concrete_type_arguments =
-                if let Type::FunctionDefinition { type_arguments, .. } = callee_type
-                    && !type_arguments.is_empty()
+            let concrete_type_arguments = if let Type::FunctionDefinition { type_arguments, .. } =
+                callee_type
+                && !type_arguments.is_empty()
+            {
+                type_arguments
+                    .as_range()
+                    .map(|index| {
+                        let type_id = *self.resolver.types.get_type_member(index)?;
+
+                        self.resolver.resolve_type(type_id)
+                    })
+                    .try_collect::<SmallVec<[TypeId; 4]>>()?
+            } else {
+                let mut types = SmallVec::<[TypeId; 4]>::new();
+
+                for (argument, parameter_index) in
+                    arguments.children().zip(value_parameters.as_range())
                 {
-                    type_arguments
-                        .as_range()
-                        .map(|index| {
-                            let type_id = *self.resolver.types.get_type_member(index)?;
+                    let parameter_type_id =
+                        *self.resolver.types.get_type_member(parameter_index)?;
+                    let parameter_type = *self.resolver.types.get_type(parameter_type_id)?;
 
-                            self.resolver.resolve_type(type_id)
-                        })
-                        .try_collect::<SmallVec<[TypeId; 4]>>()?
-                } else {
-                    let mut types = SmallVec::<[TypeId; 4]>::new();
+                    if matches!(parameter_type, Type::Slice { .. }) {
+                        let argument_type_id = *self.resolver.get_type_binding(&argument.id)?;
 
-                    for (argument, parameter_index) in
-                        arguments.children().zip(value_parameters.as_range())
-                    {
-                        let parameter_type_id =
-                            *self.resolver.types.get_type_member(parameter_index)?;
-                        let parameter_type =
-                            *self.resolver.types.get_type(parameter_type_id)?;
-
-                        if matches!(parameter_type, Type::Slice { .. }) {
-                            let argument_type_id =
-                                *self.resolver.get_type_binding(&argument.id)?;
-
-                            types.push(argument_type_id);
-                        }
+                        types.push(argument_type_id);
                     }
+                }
 
-                    types
-                };
+                types
+            };
 
             if !concrete_type_arguments.is_empty() {
                 let cache_key = (declaration_id, concrete_type_arguments);

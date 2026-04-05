@@ -13,7 +13,7 @@ fn empty() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::test(false, MemoryKind::CONSTANT, 0, 1),
+                Instruction::test(false, MemoryKind::ENCODED, 1, 1),
                 Instruction::jump(1, false),
                 Instruction::r#return(),
             ],
@@ -32,22 +32,22 @@ fn with_body() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 0),
                 Instruction::less(
                     true,
                     OperandType::I_32,
                     MemoryKind::REGISTER,
                     0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::ENCODED,
+                    10
                 ),
                 Instruction::add(
                     0,
                     OperandType::I_32,
                     MemoryKind::REGISTER,
                     0,
-                    MemoryKind::CONSTANT,
-                    2
+                    MemoryKind::ENCODED,
+                    1
                 ),
                 Instruction::jump(3, false),
                 Instruction::r#return(),

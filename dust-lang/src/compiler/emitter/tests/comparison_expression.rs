@@ -13,18 +13,29 @@ fn equal() {
         prototype,
         Prototype {
             instructions: vec![
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 1),
+                Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 2),
                 Instruction::equal(
                     true,
                     OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::REGISTER,
+                    1,
+                    MemoryKind::REGISTER,
+                    2
                 ),
+                Instruction::move_with_jump(
+                    0,
+                    OperandType::BOOLEAN,
+                    MemoryKind::ENCODED,
+                    0,
+                    1,
+                    true
+                ),
+                Instruction::r#move(0, OperandType::BOOLEAN, MemoryKind::ENCODED, 1),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::BOOLEAN],
-            register_count: 1,
+            register_count: 3,
             argument_count: 0,
         }
     );
@@ -38,18 +49,29 @@ fn less_than() {
         prototype,
         Prototype {
             instructions: vec![
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 1),
+                Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 2),
                 Instruction::less(
                     true,
                     OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::REGISTER,
+                    1,
+                    MemoryKind::REGISTER,
+                    2
                 ),
+                Instruction::move_with_jump(
+                    0,
+                    OperandType::BOOLEAN,
+                    MemoryKind::ENCODED,
+                    0,
+                    1,
+                    true
+                ),
+                Instruction::r#move(0, OperandType::BOOLEAN, MemoryKind::ENCODED, 1),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::BOOLEAN],
-            register_count: 1,
+            register_count: 3,
             argument_count: 0,
         }
     );
@@ -63,18 +85,29 @@ fn not_equal() {
         prototype,
         Prototype {
             instructions: vec![
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 1),
+                Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 2),
                 Instruction::equal(
                     false,
                     OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::REGISTER,
+                    1,
+                    MemoryKind::REGISTER,
+                    2
                 ),
+                Instruction::move_with_jump(
+                    0,
+                    OperandType::BOOLEAN,
+                    MemoryKind::ENCODED,
+                    0,
+                    1,
+                    true
+                ),
+                Instruction::r#move(0, OperandType::BOOLEAN, MemoryKind::ENCODED, 1),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::BOOLEAN],
-            register_count: 1,
+            register_count: 3,
             argument_count: 0,
         }
     );
@@ -88,18 +121,29 @@ fn greater_than() {
         prototype,
         Prototype {
             instructions: vec![
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 2),
+                Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 1),
                 Instruction::less_equal(
                     false,
                     OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::REGISTER,
+                    1,
+                    MemoryKind::REGISTER,
+                    2
                 ),
+                Instruction::move_with_jump(
+                    0,
+                    OperandType::BOOLEAN,
+                    MemoryKind::ENCODED,
+                    0,
+                    1,
+                    true
+                ),
+                Instruction::r#move(0, OperandType::BOOLEAN, MemoryKind::ENCODED, 1),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::BOOLEAN],
-            register_count: 1,
+            register_count: 3,
             argument_count: 0,
         }
     );
@@ -113,18 +157,29 @@ fn less_than_or_equal() {
         prototype,
         Prototype {
             instructions: vec![
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 1),
+                Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 2),
                 Instruction::less_equal(
                     true,
                     OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::REGISTER,
+                    1,
+                    MemoryKind::REGISTER,
+                    2
                 ),
+                Instruction::move_with_jump(
+                    0,
+                    OperandType::BOOLEAN,
+                    MemoryKind::ENCODED,
+                    0,
+                    1,
+                    true
+                ),
+                Instruction::r#move(0, OperandType::BOOLEAN, MemoryKind::ENCODED, 1),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::BOOLEAN],
-            register_count: 1,
+            register_count: 3,
             argument_count: 0,
         }
     );
@@ -138,18 +193,29 @@ fn greater_than_or_equal() {
         prototype,
         Prototype {
             instructions: vec![
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 2),
+                Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 1),
                 Instruction::less(
                     false,
                     OperandType::I_32,
-                    MemoryKind::CONSTANT,
-                    0,
-                    MemoryKind::CONSTANT,
-                    1
+                    MemoryKind::REGISTER,
+                    1,
+                    MemoryKind::REGISTER,
+                    2
                 ),
+                Instruction::move_with_jump(
+                    0,
+                    OperandType::BOOLEAN,
+                    MemoryKind::ENCODED,
+                    0,
+                    1,
+                    true
+                ),
+                Instruction::r#move(0, OperandType::BOOLEAN, MemoryKind::ENCODED, 1),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::BOOLEAN],
-            register_count: 1,
+            register_count: 3,
             argument_count: 0,
         }
     );

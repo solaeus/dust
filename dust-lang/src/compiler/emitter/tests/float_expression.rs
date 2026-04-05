@@ -35,7 +35,7 @@ fn f64() {
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::F_64],
-            register_count: 1,
+            register_count: 2,
             argument_count: 0,
         }
     );
