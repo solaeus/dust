@@ -1,3 +1,9 @@
+disallowed-macros = [
+    "core::panic",
+    "core::unimplemented",
+    "core::unreachable",
+    "core::todo",
+]
 disallowed-methods = [
     "std::option::Option::expect",
     "std::option::Option::unwrap",

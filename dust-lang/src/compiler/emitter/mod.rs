@@ -12,7 +12,7 @@ use crate::{
         CompilationRequest,
         error::CompileError,
         value_creation::{
-            create_f32_from_decimal, create_f64_from_decimal, create_i8_from_decimal,
+            create_char, create_f32_from_decimal, create_f64_from_decimal, create_i8_from_decimal,
             create_i16_from_decimal, create_i32_from_decimal, create_i64_from_decimal,
             create_i128_from_decimal, create_u8_from_decimal, create_u8_from_hexadecimal,
             create_u16_from_decimal, create_u32_from_decimal, create_u64_from_decimal,
@@ -259,12 +259,7 @@ impl<'a> Emitter<'a> {
                         forward,
                     );
                 }
-                _ => {
-                    unreachable!(
-                        "Invalid jump anchor instruction: {}",
-                        instruction.operation()
-                    );
-                }
+                _ => {}
             }
         }
 
@@ -650,7 +645,25 @@ impl<'a> Emitter<'a> {
                 .ok_or_else(create_error),
             SyntaxKind::AndExpression => left_constant.and(right_constant).ok_or_else(create_error),
             SyntaxKind::OrExpression => left_constant.or(right_constant).ok_or_else(create_error),
-            _ => unreachable!("Invalid binary operator: {:?}", operator.node.kind),
+            _ => Err(CompileError::ExpectedSyntaxKinds {
+                expected: &[
+                    SyntaxKind::AdditionExpression,
+                    SyntaxKind::SubtractionExpression,
+                    SyntaxKind::MultiplicationExpression,
+                    SyntaxKind::DivisionExpression,
+                    SyntaxKind::ModuloExpression,
+                    SyntaxKind::ExponentExpression,
+                    SyntaxKind::EqualExpression,
+                    SyntaxKind::NotEqualExpression,
+                    SyntaxKind::LessThanExpression,
+                    SyntaxKind::GreaterThanExpression,
+                    SyntaxKind::LessThanOrEqualExpression,
+                    SyntaxKind::GreaterThanOrEqualExpression,
+                    SyntaxKind::AndExpression,
+                    SyntaxKind::OrExpression,
+                ],
+                found: operator.node.kind,
+            }),
         }
     }
 
@@ -1382,7 +1395,7 @@ impl<'a> Emitter<'a> {
 }
 
 impl SyntaxVisitor for Emitter<'_> {
-    type RootOutput = Emission;
+    type RootOutput = ();
     type StatementOutput = InstructionsEmission;
     type ExpressionInput = RegisterAllocation;
     type ExpressionOutput = Emission;
@@ -1391,11 +1404,11 @@ impl SyntaxVisitor for Emitter<'_> {
     type PathOutput = DeclarationId;
 
     fn visit_root(&mut self, _: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
-        unreachable!("Emitter should never visit root nodes");
+        Ok(())
     }
 
     fn visit_module_item(&mut self, _: SyntaxReader<'_>) -> Result<(), CompileError> {
-        todo!()
+        Ok(())
     }
 
     fn visit_function_item(&mut self, reader: SyntaxReader<'_>) -> Result<(), CompileError> {
@@ -1444,15 +1457,15 @@ impl SyntaxVisitor for Emitter<'_> {
     }
 
     fn visit_use_item(&mut self, _: SyntaxReader<'_>) -> Result<(), CompileError> {
-        todo!()
+        Ok(())
     }
 
     fn visit_struct_item(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
-        todo!()
+        Ok(())
     }
 
     fn visit_enum_item(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
-        todo!()
+        Ok(())
     }
 
     fn visit_const_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
@@ -1606,55 +1619,48 @@ impl SyntaxVisitor for Emitter<'_> {
             self.visit_expression(expression, None)?
         };
 
-        match expression_emission {
-            Emission::Constant(constant) => {
-                self.locals
-                    .insert(declaration_id, Local::Constant(constant));
+        let local = match expression_emission {
+            Emission::Constant(constant) => Local::Constant(constant),
+            Emission::Place(place @ Place::Register(..)) => Local::Place(place),
+            Emission::Place(Place::Constant {
+                operand_type: r#type,
+                index,
+            }) => {
+                let target = self.allocate_registers(type_id, false, &expression)?;
+                let destination = target.index();
+                let move_instruction =
+                    Instruction::r#move(destination, r#type, MemoryKind::CONSTANT, index);
+
+                let_statement_instructions.push(move_instruction);
+
+                Local::Place(Place::Register(target))
             }
-            emission => {
-                let place = match emission {
-                    Emission::Place(place @ Place::Register(..)) => place,
-                    Emission::Constant(_) => unreachable!(),
-                    Emission::Place(Place::Constant {
-                        operand_type: r#type,
-                        index,
-                    }) => {
-                        let target = self.allocate_registers(type_id, false, &expression)?;
-                        let destination = target.index();
-                        let move_instruction =
-                            Instruction::r#move(destination, r#type, MemoryKind::CONSTANT, index);
+            Emission::Instructions(expression_instructions) => {
+                let expression_target = expression_instructions.target.clone();
+                let_statement_instructions.merge(expression_instructions);
 
-                        let_statement_instructions.push(move_instruction);
+                if let Some(expression_target) = expression_target {
+                    Local::Place(Place::Register(expression_target))
+                } else {
+                    let target = self.allocate_registers(type_id, false, &expression)?;
 
-                        Place::Register(target)
-                    }
-                    Emission::Instructions(expression_instructions) => {
-                        let expression_target = expression_instructions.target.clone();
-                        let_statement_instructions.merge(expression_instructions);
-
-                        if let Some(expression_target) = expression_target {
-                            Place::Register(expression_target)
-                        } else {
-                            let target = self.allocate_registers(type_id, false, &expression)?;
-                            Place::Register(target)
-                        }
-                    }
-                    Emission::NativeFunction(_) => {
-                        return Err(CompileError::ExpectedNativeFunctionCall {
-                            position: reader.position(),
-                        });
-                    }
-                    Emission::None => {
-                        return Err(CompileError::ExpectedValue {
-                            node_kind: expression.node.kind,
-                            position: expression.position(),
-                        });
-                    }
-                };
-
-                self.locals.insert(declaration_id, Local::Place(place));
+                    Local::Place(Place::Register(target))
+                }
             }
-        }
+            Emission::NativeFunction(_) => {
+                return Err(CompileError::ExpectedNativeFunctionCall {
+                    position: reader.position(),
+                });
+            }
+            Emission::None => {
+                return Err(CompileError::ExpectedValue {
+                    node_kind: expression.node.kind,
+                    position: expression.position(),
+                });
+            }
+        };
+
+        self.locals.insert(declaration_id, local);
 
         let_statement_instructions.set_target(None);
 
@@ -2068,7 +2074,8 @@ impl SyntaxVisitor for Emitter<'_> {
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let text = self.source.get_file_content(&reader.position())?;
-        let character = text.chars().nth(1).unwrap_or_default();
+        let text = &text[1..text.len() - 1];
+        let character = create_char(text)?;
 
         Ok(Emission::Constant(ConstantValue::Character(character)))
     }
@@ -2087,11 +2094,14 @@ impl SyntaxVisitor for Emitter<'_> {
             {
                 ConstantValue::F32(create_f32_from_decimal(float_str)?)
             }
-            Some(RegisterAllocation::Multiple { .. }) | None => {
+            Some(RegisterAllocation::Multiple { registers, .. })
+                if registers[0].operand_type == OperandType::F_64 =>
+            {
                 ConstantValue::F64(create_f64_from_decimal(float_str)?)
             }
+            None => ConstantValue::F64(create_f64_from_decimal(float_str)?),
             _ => {
-                return Err(CompileError::ExpectedFloatRegister);
+                return Err(CompileError::InvalidRegisterAllocation);
             }
         };
 
@@ -2159,7 +2169,7 @@ impl SyntaxVisitor for Emitter<'_> {
             }
             None => ConstantValue::I32(create_i32_from_decimal(integer_str)?),
             _ => {
-                return Err(CompileError::ExpectedIntegerRegister);
+                return Err(CompileError::InvalidRegisterAllocation);
             }
         };
 
@@ -2740,7 +2750,12 @@ impl SyntaxVisitor for Emitter<'_> {
 
                 return Ok(Emission::Constant(value));
             }
-            _ => todo!(),
+            _ => {
+                return Err(CompileError::ExpectedValue {
+                    node_kind: reader.node.kind,
+                    position: reader.position(),
+                });
+            }
         };
 
         Ok(Emission::Place(place))
@@ -3284,7 +3299,25 @@ impl SyntaxVisitor for Emitter<'_> {
                     right_index,
                 )
             }
-            _ => unreachable!("Expected math expression, found {}", reader.node.kind),
+            _ => {
+                return Err(CompileError::ExpectedSyntaxKinds {
+                    expected: &[
+                        SyntaxKind::AdditionExpression,
+                        SyntaxKind::AdditionAssignmentExpression,
+                        SyntaxKind::SubtractionExpression,
+                        SyntaxKind::SubtractionAssignmentExpression,
+                        SyntaxKind::MultiplicationExpression,
+                        SyntaxKind::MultiplicationAssignmentExpression,
+                        SyntaxKind::DivisionExpression,
+                        SyntaxKind::DivisionAssignmentExpression,
+                        SyntaxKind::ModuloExpression,
+                        SyntaxKind::ModuloAssignmentExpression,
+                        SyntaxKind::ExponentExpression,
+                        SyntaxKind::ExponentAssignmentExpression,
+                    ],
+                    found: reader.node.kind,
+                });
+            }
         };
 
         math_emission.push(math_instruction);
@@ -3383,7 +3416,19 @@ impl SyntaxVisitor for Emitter<'_> {
                 right_memory,
                 right_index,
             ),
-            _ => unreachable!("Expected comparison expression, found {}", reader.node.kind),
+            _ => {
+                return Err(CompileError::ExpectedSyntaxKinds {
+                    expected: &[
+                        SyntaxKind::EqualExpression,
+                        SyntaxKind::NotEqualExpression,
+                        SyntaxKind::LessThanExpression,
+                        SyntaxKind::GreaterThanExpression,
+                        SyntaxKind::LessThanOrEqualExpression,
+                        SyntaxKind::GreaterThanOrEqualExpression,
+                    ],
+                    found: reader.node.kind,
+                });
+            }
         };
         let load_false_instruction = Instruction::move_with_jump(
             register.index,
@@ -3454,7 +3499,12 @@ impl SyntaxVisitor for Emitter<'_> {
         let test_instruction = match reader.node.kind {
             SyntaxKind::AndExpression => Instruction::test(false, left_memory, left_index, 1),
             SyntaxKind::OrExpression => Instruction::test(true, left_memory, left_index, 1),
-            _ => unreachable!("Expected logical expression, found {}", reader.node.kind),
+            _ => {
+                return Err(CompileError::ExpectedSyntaxKinds {
+                    expected: &[SyntaxKind::AndExpression, SyntaxKind::OrExpression],
+                    found: reader.node.kind,
+                });
+            }
         };
         let right_move_instruction = Instruction::move_with_jump(
             register.index,
@@ -4100,20 +4150,6 @@ impl InstructionsEmission {
     fn new() -> Self {
         Self {
             instructions: Vec::new(),
-            target: None,
-        }
-    }
-
-    fn with_capacity(capacity: usize) -> Self {
-        Self {
-            instructions: Vec::with_capacity(capacity),
-            target: None,
-        }
-    }
-
-    fn with_instruction(instruction: Instruction) -> Self {
-        Self {
-            instructions: vec![(instruction, Vec::new())],
             target: None,
         }
     }

@@ -117,3 +117,7 @@ pub fn create_u8_from_hexadecimal(text: &str) -> Result<u8, CompileError> {
     u8::from_lexical_with_options::<HEX>(text.as_bytes(), &SMALL)
         .map_err(CompileError::ValueCreation)
 }
+
+pub fn create_char(text: &str) -> Result<char, CompileError> {
+    Ok(text.chars().next().unwrap_or_default())
+}

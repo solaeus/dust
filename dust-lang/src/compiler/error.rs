@@ -132,8 +132,7 @@ pub enum CompileError {
         expected: usize,
         found: usize,
     },
-    ExpectedFloatRegister,
-    ExpectedIntegerRegister,
+    InvalidRegisterAllocation,
     ExpectedLocalDefinition,
     ExpectedEmissionTarget {
         node_kind: SyntaxKind,
@@ -981,8 +980,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             CompileError::ExpectedModuleDeclaration(_)
             | CompileError::ExpectedTypeDeclaration(_)
             | CompileError::InvalidRegisterCount { .. }
-            | CompileError::ExpectedFloatRegister
-            | CompileError::ExpectedIntegerRegister
+            | CompileError::InvalidRegisterAllocation
             | CompileError::ExpectedEmissionTarget { .. }
             | CompileError::ExpectedJumpPlacement(_)
             | CompileError::ExpectedSyntaxKind { .. }
