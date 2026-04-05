@@ -1,12 +1,11 @@
 #[cfg(test)]
 mod tests;
 
-use lexical_core::{ParseIntegerOptions, format::RUST_LITERAL, parse_with_options};
 use smallvec::{SmallVec, smallvec};
 use tracing::debug;
 
 use crate::{
-    compiler::error::CompileError,
+    compiler::{error::CompileError, value_creation::create_usize_from_decimal},
     error::ErrorKind,
     resolver::{
         Resolver,
@@ -1891,11 +1890,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
                 let element_type_id = self.visit_type(element_type)?;
                 let length_str = self.source.get_file_content(&length.position())?;
-                let length = parse_with_options::<usize, RUST_LITERAL>(
-                    length_str.as_bytes(),
-                    &ParseIntegerOptions::default(),
-                )
-                .unwrap_or_default();
+                let length = create_usize_from_decimal(length_str)?;
 
                 self.resolver.types.add_type(Type::Array {
                     element_type_id,

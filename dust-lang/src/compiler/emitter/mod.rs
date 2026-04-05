@@ -3,15 +3,22 @@ mod tests;
 
 use std::collections::HashMap;
 
-use lexical_core::{
-    ParseFloatOptions, ParseIntegerOptions, format::RUST_LITERAL, parse_with_options,
-};
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 use tracing::{debug, trace};
 
 use crate::{
-    compiler::{CompilationRequest, error::CompileError},
+    compiler::{
+        CompilationRequest,
+        error::CompileError,
+        value_creation::{
+            create_f32_from_decimal, create_f64_from_decimal, create_i8_from_decimal,
+            create_i16_from_decimal, create_i32_from_decimal, create_i64_from_decimal,
+            create_i128_from_decimal, create_u8_from_decimal, create_u8_from_hexadecimal,
+            create_u16_from_decimal, create_u32_from_decimal, create_u64_from_decimal,
+            create_u128_from_decimal, create_usize_from_decimal,
+        },
+    },
     constant_list::ConstantListBuilder,
     instruction::{Drop, Instruction, Jump, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
@@ -413,9 +420,13 @@ impl<'a> Emitter<'a> {
 
             for _ in 0..width_count {
                 let next_register_index = if temporary {
-                    emitter.register_tracker.allocate_next_temporary(RegisterWidth::Single)
+                    emitter
+                        .register_tracker
+                        .allocate_next_temporary(RegisterWidth::Single)
                 } else {
-                    emitter.register_tracker.allocate_next_local(RegisterWidth::Single)
+                    emitter
+                        .register_tracker
+                        .allocate_next_local(RegisterWidth::Single)
                 };
 
                 registers.push(Register {
@@ -526,9 +537,7 @@ impl<'a> Emitter<'a> {
     fn add_constant(&mut self, constant: ConstantValue) -> u16 {
         match constant {
             ConstantValue::Boolean(boolean) => boolean as u16,
-            ConstantValue::Character(character) => {
-                self.constants.add_character(character).inner()
-            }
+            ConstantValue::Character(character) => self.constants.add_character(character).inner(),
             ConstantValue::U8(integer) => integer as u16,
             ConstantValue::I8(integer) => integer as u16,
             ConstantValue::U16(integer) => integer,
@@ -639,12 +648,8 @@ impl<'a> Emitter<'a> {
             SyntaxKind::GreaterThanOrEqualExpression => left_constant
                 .greater_equal(right_constant)
                 .ok_or_else(create_error),
-            SyntaxKind::AndExpression => {
-                left_constant.and(right_constant).ok_or_else(create_error)
-            }
-            SyntaxKind::OrExpression => {
-                left_constant.or(right_constant).ok_or_else(create_error)
-            }
+            SyntaxKind::AndExpression => left_constant.and(right_constant).ok_or_else(create_error),
+            SyntaxKind::OrExpression => left_constant.or(right_constant).ok_or_else(create_error),
             _ => unreachable!("Invalid binary operator: {:?}", operator.node.kind),
         }
     }
@@ -661,12 +666,8 @@ impl<'a> Emitter<'a> {
                 } else {
                     (MemoryKind::CONSTANT, self.add_constant(constant))
                 };
-                let move_instruction = Instruction::r#move(
-                    0,
-                    constant.operand_type(),
-                    memory_kind,
-                    operand_index,
-                );
+                let move_instruction =
+                    Instruction::r#move(0, constant.operand_type(), memory_kind, operand_index);
 
                 self.emit_instruction(move_instruction);
             }
@@ -766,13 +767,11 @@ impl<'a> Emitter<'a> {
                                 backward_id,
                             } => {
                                 let next_index = self.instructions.len();
-                                let (forward_index, forward_coalesce) = {
-                                    let placement = self
-                                        .jump_placements
-                                        .get(&forward_id)
-                                        .ok_or(CompileError::ExpectedJumpPlacement(forward_id))?;
-                                    (placement.index, placement.coalesce)
-                                };
+                                let forward_index = self
+                                    .jump_placements
+                                    .get(&forward_id)
+                                    .ok_or(CompileError::ExpectedJumpPlacement(forward_id))?
+                                    .index;
                                 let coalesce = if instruction.is_coallescible_with_jump(false) {
                                     true
                                 } else {
@@ -794,11 +793,8 @@ impl<'a> Emitter<'a> {
 
                                 forward_placement.distance = forward_distance;
 
-                                let backward_distance = if forward_coalesce {
-                                    (self.instructions.len() - forward_index - 1) as u16
-                                } else {
-                                    (self.instructions.len() - forward_index) as u16
-                                };
+                                let backward_distance =
+                                    (self.instructions.len() - forward_index - 1) as u16;
                                 let backward_placement = JumpPlacement {
                                     index: self.instructions.len() - 1,
                                     distance: backward_distance,
@@ -953,13 +949,13 @@ impl<'a> Emitter<'a> {
                 } else {
                     (MemoryKind::CONSTANT, self.add_constant(constant))
                 };
-                let test_instruction =
-                    Instruction::test(comparator, memory_kind, operand_index, 0);
+                let test_instruction = Instruction::test(comparator, memory_kind, operand_index, 0);
 
                 instructions.push(test_instruction);
             }
             Emission::Place(Place::Constant { index, .. }) => {
-                let test_instruction = Instruction::test(comparator, MemoryKind::CONSTANT, index, 0);
+                let test_instruction =
+                    Instruction::test(comparator, MemoryKind::CONSTANT, index, 0);
 
                 instructions.push(test_instruction);
             }
@@ -1539,7 +1535,10 @@ impl SyntaxVisitor for Emitter<'_> {
 
         let declaration_id = *self.resolver.get_declaration_binding(&path.id)?;
         let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
-        let is_mutable = matches!(declaration.definition, Definition::Local { mutable: true, .. });
+        let is_mutable = matches!(
+            declaration.definition,
+            Definition::Local { mutable: true, .. }
+        );
 
         let type_id = *self.resolver.get_type_binding(&expression.id)?;
 
@@ -1716,15 +1715,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
             if index.node.kind == SyntaxKind::IntegerExpression {
                 let index_str = self.source.get_file_content(&index.position())?;
-                let index_type_id = *self.resolver.get_type_binding(&index.id)?;
-                let constant_index = parse_with_options::<usize, RUST_LITERAL>(
-                    index_str.as_bytes(),
-                    &ParseIntegerOptions::default(),
-                )
-                .map_err(|_| CompileError::ExpectedIntegerIndex {
-                    found: index_type_id,
-                    position: index.position(),
-                })?;
+                let constant_index = create_usize_from_decimal(index_str)?;
 
                 if constant_index >= array_length {
                     return Err(CompileError::IndexOutOfBounds {
@@ -2065,12 +2056,8 @@ impl SyntaxVisitor for Emitter<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        let text = self.source.get_file_content(&reader.position())?;
-        let hex_digits = text
-            .strip_prefix("0x")
-            .or_else(|| text.strip_prefix("0X"))
-            .unwrap_or(&text);
-        let byte = u8::from_str_radix(hex_digits, 16).unwrap_or_default();
+        let text = &self.source.get_file_content(&reader.position())?[2..];
+        let byte = create_u8_from_hexadecimal(text)?;
 
         Ok(Emission::Constant(ConstantValue::U8(byte)))
     }
@@ -2098,33 +2085,10 @@ impl SyntaxVisitor for Emitter<'_> {
             Some(RegisterAllocation::Single { register, .. })
                 if register.operand_type == OperandType::F_32 =>
             {
-                let float = parse_with_options::<f32, RUST_LITERAL>(
-                    float_str.as_bytes(),
-                    &ParseFloatOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::F32(float)
-            }
-            Some(RegisterAllocation::Single { register, .. })
-                if register.operand_type == OperandType::F_64 =>
-            {
-                let float = parse_with_options::<f64, RUST_LITERAL>(
-                    float_str.as_bytes(),
-                    &ParseFloatOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::F64(float)
+                ConstantValue::F32(create_f32_from_decimal(float_str)?)
             }
             Some(RegisterAllocation::Multiple { .. }) | None => {
-                let float = parse_with_options::<f64, RUST_LITERAL>(
-                    float_str.as_bytes(),
-                    &ParseFloatOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::F64(float)
+                ConstantValue::F64(create_f64_from_decimal(float_str)?)
             }
             _ => {
                 return Err(CompileError::ExpectedFloatRegister);
@@ -2146,122 +2110,54 @@ impl SyntaxVisitor for Emitter<'_> {
             Some(RegisterAllocation::Single { register, .. })
                 if register.operand_type == OperandType::U_8 =>
             {
-                let integer = parse_with_options::<u8, RUST_LITERAL>(
-                    integer_str.as_bytes(),
-                    &ParseIntegerOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::U8(integer)
+                ConstantValue::U8(create_u8_from_decimal(integer_str)?)
             }
             Some(RegisterAllocation::Single { register, .. })
                 if register.operand_type == OperandType::I_8 =>
             {
-                let integer = parse_with_options::<i8, RUST_LITERAL>(
-                    integer_str.as_bytes(),
-                    &ParseIntegerOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::I8(integer)
+                ConstantValue::I8(create_i8_from_decimal(integer_str)?)
             }
             Some(RegisterAllocation::Single { register, .. })
                 if register.operand_type == OperandType::U_16 =>
             {
-                let integer = parse_with_options::<u16, RUST_LITERAL>(
-                    integer_str.as_bytes(),
-                    &ParseIntegerOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::U16(integer)
+                ConstantValue::U16(create_u16_from_decimal(integer_str)?)
             }
             Some(RegisterAllocation::Single { register, .. })
                 if register.operand_type == OperandType::I_16 =>
             {
-                let integer = parse_with_options::<i16, RUST_LITERAL>(
-                    integer_str.as_bytes(),
-                    &ParseIntegerOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::I16(integer)
+                ConstantValue::I16(create_i16_from_decimal(integer_str)?)
             }
             Some(RegisterAllocation::Single { register, .. })
                 if register.operand_type == OperandType::U_32 =>
             {
-                let integer = parse_with_options::<u32, RUST_LITERAL>(
-                    integer_str.as_bytes(),
-                    &ParseIntegerOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::U32(integer)
+                ConstantValue::U32(create_u32_from_decimal(integer_str)?)
             }
             Some(RegisterAllocation::Single { register, .. })
                 if register.operand_type == OperandType::I_32 =>
             {
-                let integer = parse_with_options::<i32, RUST_LITERAL>(
-                    integer_str.as_bytes(),
-                    &ParseIntegerOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::I32(integer)
+                ConstantValue::I32(create_i32_from_decimal(integer_str)?)
             }
             Some(RegisterAllocation::Multiple { registers, .. })
                 if registers[0].operand_type == OperandType::U_64 =>
             {
-                let integer = parse_with_options::<u64, RUST_LITERAL>(
-                    integer_str.as_bytes(),
-                    &ParseIntegerOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::U64(integer)
+                ConstantValue::U64(create_u64_from_decimal(integer_str)?)
             }
             Some(RegisterAllocation::Multiple { registers, .. })
                 if registers[0].operand_type == OperandType::I_64 =>
             {
-                let integer = parse_with_options::<i64, RUST_LITERAL>(
-                    integer_str.as_bytes(),
-                    &ParseIntegerOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::I64(integer)
+                ConstantValue::I64(create_i64_from_decimal(integer_str)?)
             }
             Some(RegisterAllocation::Multiple { registers, .. })
                 if registers[0].operand_type == OperandType::U_128 =>
             {
-                let integer = parse_with_options::<u128, RUST_LITERAL>(
-                    integer_str.as_bytes(),
-                    &ParseIntegerOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::U128(integer)
+                ConstantValue::U128(create_u128_from_decimal(integer_str)?)
             }
             Some(RegisterAllocation::Multiple { registers, .. })
                 if registers[0].operand_type == OperandType::I_128 =>
             {
-                let integer = parse_with_options::<i128, RUST_LITERAL>(
-                    integer_str.as_bytes(),
-                    &ParseIntegerOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::I128(integer)
+                ConstantValue::I128(create_i128_from_decimal(integer_str)?)
             }
-            None => {
-                let integer = parse_with_options::<i32, RUST_LITERAL>(
-                    integer_str.as_bytes(),
-                    &ParseIntegerOptions::default(),
-                )
-                .unwrap_or_default();
-
-                ConstantValue::I32(integer)
-            }
+            None => ConstantValue::I32(create_i32_from_decimal(integer_str)?),
             _ => {
                 return Err(CompileError::ExpectedIntegerRegister);
             }
@@ -2272,7 +2168,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_string_expression(
         &mut self,
-        reader: SyntaxReader,
+        _: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         todo!()
@@ -2517,26 +2413,8 @@ impl SyntaxVisitor for Emitter<'_> {
             let range_start_str = self.source.get_file_content(&range_start.position())?;
             let range_end_str = self.source.get_file_content(&range_end.position())?;
 
-            let range_start_type_id = *self.resolver.get_type_binding(&range_start.id)?;
-            let range_end_type_id = *self.resolver.get_type_binding(&range_end.id)?;
-
-            let start_index = parse_with_options::<usize, RUST_LITERAL>(
-                range_start_str.as_bytes(),
-                &ParseIntegerOptions::default(),
-            )
-            .map_err(|_| CompileError::ExpectedIntegerIndex {
-                found: range_start_type_id,
-                position: range_start.position(),
-            })?;
-
-            let end_index = parse_with_options::<usize, RUST_LITERAL>(
-                range_end_str.as_bytes(),
-                &ParseIntegerOptions::default(),
-            )
-            .map_err(|_| CompileError::ExpectedIntegerIndex {
-                found: range_end_type_id,
-                position: range_end.position(),
-            })?;
+            let start_index = create_usize_from_decimal(range_start_str)?;
+            let end_index = create_usize_from_decimal(range_end_str)?;
 
             let slice_end = if index.node.kind == SyntaxKind::RangeInclusiveExpression {
                 end_index + 1
@@ -2584,15 +2462,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
         if index.node.kind == SyntaxKind::IntegerExpression {
             let index_str = self.source.get_file_content(&index.position())?;
-            let index_type_id = *self.resolver.get_type_binding(&index.id)?;
-            let constant_index = parse_with_options::<usize, RUST_LITERAL>(
-                index_str.as_bytes(),
-                &ParseIntegerOptions::default(),
-            )
-            .map_err(|_| CompileError::ExpectedIntegerIndex {
-                found: index_type_id,
-                position: index.position(),
-            })?;
+            let constant_index = create_usize_from_decimal(index_str)?;
 
             if constant_index >= array_length {
                 return Err(CompileError::IndexOutOfBounds {
@@ -3151,12 +3021,7 @@ impl SyntaxVisitor for Emitter<'_> {
             let mut then_emission = self.visit_block_expression(then_block, Some(target))?;
             let target = then_emission.take_target().unwrap_or(target_clone);
 
-            self.handle_branch_emission(
-                then_emission,
-                &mut if_instructions,
-                &target,
-                then_block,
-            )?;
+            self.handle_branch_emission(then_emission, &mut if_instructions, &target, then_block)?;
 
             if let Some(else_block) = else_block {
                 let jump_over_else_id = self.create_jump_id();
@@ -3171,8 +3036,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 });
 
                 let target_clone = target.clone();
-                let mut else_emission =
-                    self.visit_block_expression(else_block, Some(target))?;
+                let mut else_emission = self.visit_block_expression(else_block, Some(target))?;
                 let target = else_emission.take_target().unwrap_or(target_clone);
 
                 self.handle_branch_emission(
@@ -4052,9 +3916,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
                     Place::Register(registers)
                 }
-                Emission::NativeFunction(native_function) => {
-                    let call_native_instruction = todo!();
-                }
+                Emission::NativeFunction(_) => todo!(),
                 _ => {
                     return Err(CompileError::ExpectedFunction {
                         node_kind: callee.node.kind,
@@ -4131,10 +3993,7 @@ impl SyntaxVisitor for Emitter<'_> {
             }
         };
 
-        let struct_declaration = self
-            .resolver
-            .declarations
-            .get_declaration(parent_struct)?;
+        let struct_declaration = self.resolver.declarations.get_declaration(parent_struct)?;
 
         let fields = match struct_declaration.definition {
             Definition::StructType { fields, .. } => fields,
@@ -4158,10 +4017,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 break;
             }
 
-            let field_decl = self
-                .resolver
-                .declarations
-                .get_declaration(field_id)?;
+            let field_decl = self.resolver.declarations.get_declaration(field_id)?;
 
             if let Definition::Field { type_id, .. } = field_decl.definition {
                 let operand_types = self.resolver.get_operand_types(type_id)?;
@@ -4191,7 +4047,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_path(
         &mut self,
-        reader: SyntaxReader,
+        _: SyntaxReader,
         _: Self::PathInput,
     ) -> Result<Self::PathOutput, CompileError> {
         todo!()
@@ -4199,7 +4055,7 @@ impl SyntaxVisitor for Emitter<'_> {
 
     fn visit_simple_path(
         &mut self,
-        reader: SyntaxReader,
+        _: SyntaxReader,
         _: Self::PathInput,
     ) -> Result<Self::PathOutput, CompileError> {
         todo!()
@@ -4699,7 +4555,6 @@ pub fn get_byte_size(
             ..
         } => get_byte_size(*resolved, type_arguments, resolver),
         Type::Inferred { resolved: None, .. } => Ok(None),
-        _ => todo!("Handle byte size for type: {:?}", r#type),
     }
 }
 

@@ -50,7 +50,7 @@ fn with_body() {
                     MemoryKind::ENCODED,
                     1
                 ),
-                Instruction::jump(3, false),
+                Instruction::jump(2, false),
                 Instruction::r#return(),
             ],
             return_types: vec![],

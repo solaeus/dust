@@ -18,6 +18,7 @@ use crate::{
 
 #[derive(Debug)]
 pub enum CompileError {
+    ValueCreation(lexical_parse_integer::Error),
     CannotAccessField {
         type_id: TypeId,
         position: crate::source::Position,
@@ -988,7 +989,8 @@ impl<'a> AnnotatedError<'a> for CompileError {
             | CompileError::ExpectedSyntaxKinds { .. }
             | CompileError::ExpectedLocalDefinition
             | CompileError::ExpectedFieldDefinition { .. }
-            | CompileError::ExpectedAllocation => {
+            | CompileError::ExpectedAllocation
+            | CompileError::ValueCreation(_) => {
                 self.add_internal_report(groups);
             }
             CompileError::Syntax(error) => error.add_report((), groups),

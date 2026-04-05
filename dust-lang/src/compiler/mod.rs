@@ -2,6 +2,7 @@ mod declaration_binder;
 mod emitter;
 pub mod error;
 mod type_binder;
+mod value_creation;
 
 #[cfg(test)]
 pub(crate) mod tests;

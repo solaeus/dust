@@ -1,8 +1,7 @@
-use lexical_core::{ParseIntegerOptions, format::RUST_LITERAL, parse_with_options};
 use smallvec::{SmallVec, smallvec};
 
 use crate::{
-    compiler::error::CompileError,
+    compiler::{error::CompileError, value_creation::create_usize_from_decimal},
     resolver::{
         Resolver,
         declarations::{Declaration, DeclarationId, Definition, Visibility},
@@ -749,14 +748,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         let element_type_id = self.visit_expression(element, None)?;
 
         let length_str = self.source.get_file_content(&length_reader.position())?;
-        let length = parse_with_options::<usize, RUST_LITERAL>(
-            length_str.as_bytes(),
-            &ParseIntegerOptions::default(),
-        )
-        .map_err(|_| CompileError::ExpectedValue {
-            node_kind: length_reader.node.kind,
-            position: length_reader.position(),
-        })?;
+        let length = create_usize_from_decimal(length_str)?;
 
         let array_type = Type::Array {
             element_type_id,
@@ -1267,8 +1259,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
                         .declarations
                         .get_declaration_members(&type_parameters)?;
 
-                    let type_argument_ids =
-                        self.resolver.types.get_type_members(type_arguments)?;
+                    let type_argument_ids = self.resolver.types.get_type_members(type_arguments)?;
 
                     for (&type_parameter_declaration_id, &type_argument_id) in
                         type_parameter_declaration_ids
