@@ -13,7 +13,7 @@ use crate::{
 fn add_assign() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x += 42;")),
+        Lexer::with_unvalidated_source(function_wrapper!("x += 42;")),
     );
     let ParseResult {
         syntax_tree,
@@ -49,7 +49,7 @@ fn add_assign() {
 fn subtract_assign() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x -= 42;")),
+        Lexer::with_unvalidated_source(function_wrapper!("x -= 42;")),
     );
     let ParseResult {
         syntax_tree,
@@ -85,7 +85,7 @@ fn subtract_assign() {
 fn multiply_assign() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x *= 42;")),
+        Lexer::with_unvalidated_source(function_wrapper!("x *= 42;")),
     );
     let ParseResult {
         syntax_tree,
@@ -121,7 +121,7 @@ fn multiply_assign() {
 fn divide_assign() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x /= 42;")),
+        Lexer::with_unvalidated_source(function_wrapper!("x /= 42;")),
     );
     let ParseResult {
         syntax_tree,
@@ -157,7 +157,7 @@ fn divide_assign() {
 fn modulo_assign() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x %= 42;")),
+        Lexer::with_unvalidated_source(function_wrapper!("x %= 42;")),
     );
     let ParseResult {
         syntax_tree,
@@ -193,7 +193,7 @@ fn modulo_assign() {
 fn power_assign() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x ^= 42;")),
+        Lexer::with_unvalidated_source(function_wrapper!("x ^= 42;")),
     );
     let ParseResult {
         syntax_tree,

@@ -70,7 +70,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                         return;
                     }
                 };
-                let module_name = match file.content_str(position.span) {
+                let module_name = match file.get_str(position.span) {
                     Ok(str) => str,
                     Err(error) => {
                         error.add_report((), groups);

@@ -4,7 +4,7 @@ use crate::{
         scopes::ScopeKind,
         types::TypeId,
     },
-    source::{Source, SourceFile},
+    source::{Source, SourceCode},
 };
 
 use super::bind_declarations;
@@ -13,7 +13,7 @@ use super::bind_declarations;
 fn with_method_and_const() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "trait Foo { fn bar(x: i64); const N: i64; }",
     ));
@@ -82,7 +82,7 @@ fn with_method_and_const() {
 fn supertraits_resolved() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "trait Bar {} trait Foo: Bar {}",
     ));
@@ -117,7 +117,7 @@ fn supertraits_resolved() {
 fn trait_creates_trait_scope() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed("test", "trait Foo {}"));
+    source.add_file(SourceCode::validated_borrowed("test", "trait Foo {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");

@@ -16,7 +16,7 @@ mod type_item;
 mod type_notation;
 mod use_item;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use smallvec::SmallVec;
 
@@ -46,7 +46,7 @@ fn create_module_file(name: &str, content: &str) -> PathBuf {
     path
 }
 
-fn cleanup_module_file(path: &PathBuf) {
+fn cleanup_module_file(path: &Path) {
     let _ = std::fs::remove_file(path);
 
     if let Some(dir) = path.parent() {
@@ -58,7 +58,7 @@ fn bind_declarations_with_errors(source: &Source) -> (Syntax, Resolver, ScopeId,
     let mut syntax = Syntax::new(source.file_count());
 
     for (file_id, file) in source.iter() {
-        let lexer = Lexer::from_utf8(file.content_as_str());
+        let lexer = Lexer::with_validated_source(file.content_as_str());
         let parser = Parser::new(file_id, lexer);
         let ParseResult {
             syntax_tree,

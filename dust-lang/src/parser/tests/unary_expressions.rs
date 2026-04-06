@@ -13,7 +13,7 @@ use crate::{
 fn negation() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("-x")),
+        Lexer::with_unvalidated_source(function_wrapper!("-x")),
     );
     let ParseResult {
         syntax_tree,
@@ -43,7 +43,7 @@ fn negation() {
 fn logical_not() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("!x")),
+        Lexer::with_unvalidated_source(function_wrapper!("!x")),
     );
     let ParseResult {
         syntax_tree,

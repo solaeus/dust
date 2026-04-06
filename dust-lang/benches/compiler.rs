@@ -2,31 +2,38 @@
 
 use std::hint::black_box;
 
-use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use dust_lang::compiler::compile;
+use criterion::{BatchSize, Criterion, Throughput, criterion_group, criterion_main};
+use dust_lang::{
+    compiler::Compiler,
+    source::{Source, SourceCode},
+};
 
-const SOURCE_FILES: &[(&str, &str)] = &[(
-    "main.ds",
-    r#"
-        fn main() {
-            let x = 1 + 2;
-            let y = x * 3;
-            print(y);
-        }
-    "#,
-)];
+const SOURCE: &[u8] = br#"
+    fn main() {
+        let x = 1 + 2;
+        let y = x * 3;
+        print(y);
+    }
+"#;
 
-fn compile_bench(source: &[(&str, &str)]) {
-    compile(source).unwrap();
+fn compile_bench(source: Source) {
+    Compiler::new(source).compile(None).unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    // let source = String::new();
     let mut group = c.benchmark_group("compiler");
+
+    let mut source = Source::new();
+
+    source.add_file(SourceCode::borrowed("test", SOURCE));
 
     group.throughput(Throughput::Elements(1000));
     group.bench_function("compile", |b| {
-        b.iter(|| compile_bench(black_box(SOURCE_FILES)))
+        b.iter_batched(
+            || source.clone(),
+            |source| compile_bench(source),
+            BatchSize::SmallInput,
+        )
     });
 }
 

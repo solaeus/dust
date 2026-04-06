@@ -47,7 +47,7 @@ macro_rules! function_wrapper {
 fn assignment_expression() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x = 42;")),
+        Lexer::with_unvalidated_source(function_wrapper!("x = 42;")),
     );
     let ParseResult {
         syntax_tree,
@@ -79,7 +79,7 @@ fn assignment_expression() {
 fn grouped_expression() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("(x + y)")),
+        Lexer::with_unvalidated_source(function_wrapper!("(x + y)")),
     );
     let ParseResult {
         syntax_tree,

@@ -10,7 +10,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"trait Foo {}"));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(b"trait Foo {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -33,7 +33,7 @@ fn empty() {
 fn with_supertraits() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"trait Foo: Bar + Baz {}"),
+        Lexer::with_unvalidated_source(b"trait Foo: Bar + Baz {}"),
     );
     let ParseResult {
         syntax_tree,
@@ -62,7 +62,7 @@ fn with_supertraits() {
 fn with_type_parameters_and_supertraits() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"trait Foo<T>: Bar + Baz {}"),
+        Lexer::with_unvalidated_source(b"trait Foo<T>: Bar + Baz {}"),
     );
     let ParseResult {
         syntax_tree,
@@ -94,7 +94,7 @@ fn with_type_parameters_and_supertraits() {
 fn with_where_clause() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"trait Foo<T> where T: Bar {}"),
+        Lexer::with_unvalidated_source(b"trait Foo<T> where T: Bar {}"),
     );
     let ParseResult {
         syntax_tree,
@@ -128,7 +128,7 @@ fn with_where_clause() {
 fn with_const_member() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"trait Foo { const X: i64; }"),
+        Lexer::with_unvalidated_source(b"trait Foo { const X: i64; }"),
     );
     let ParseResult {
         syntax_tree,
@@ -155,7 +155,7 @@ fn with_const_member() {
 fn with_const_member_default() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"trait Foo { const X: i64 = 42; }"),
+        Lexer::with_unvalidated_source(b"trait Foo { const X: i64 = 42; }"),
     );
     let ParseResult {
         syntax_tree,
@@ -184,7 +184,7 @@ fn with_const_member_default() {
 fn with_method_signature() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"trait Foo { fn bar(self); }"),
+        Lexer::with_unvalidated_source(b"trait Foo { fn bar(self); }"),
     );
     let ParseResult {
         syntax_tree,
@@ -214,7 +214,7 @@ fn with_method_signature() {
 fn with_default_method() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"trait Foo { fn bar(self) {} }"),
+        Lexer::with_unvalidated_source(b"trait Foo { fn bar(self) {} }"),
     );
     let ParseResult {
         syntax_tree,
@@ -246,7 +246,7 @@ fn with_default_method() {
 fn with_method_signature_and_return_type() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"trait Foo { fn bar(self) -> i64; }"),
+        Lexer::with_unvalidated_source(b"trait Foo { fn bar(self) -> i64; }"),
     );
     let ParseResult {
         syntax_tree,
@@ -278,7 +278,7 @@ fn with_method_signature_and_return_type() {
 fn with_type_member() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"trait Foo { type Bar; }"),
+        Lexer::with_unvalidated_source(b"trait Foo { type Bar; }"),
     );
     let ParseResult {
         syntax_tree,
@@ -304,7 +304,7 @@ fn with_type_member() {
 fn with_type_member_default() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"trait Foo { type Bar = i64; }"),
+        Lexer::with_unvalidated_source(b"trait Foo { type Bar = i64; }"),
     );
     let ParseResult {
         syntax_tree,

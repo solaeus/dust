@@ -10,7 +10,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"fn foo() {}"));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(b"fn foo() {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -36,7 +36,7 @@ fn empty() {
 fn value_parameters() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"fn foo(x: i64, y: bool) {}"),
+        Lexer::with_unvalidated_source(b"fn foo(x: i64, y: bool) {}"),
     );
     let ParseResult {
         syntax_tree,
@@ -68,7 +68,7 @@ fn value_parameters() {
 fn type_parameters() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"fn foo<A, B, C>() {}"),
+        Lexer::with_unvalidated_source(b"fn foo<A, B, C>() {}"),
     );
     let ParseResult {
         syntax_tree,
@@ -101,7 +101,7 @@ fn type_parameters() {
 
 #[test]
 fn return_type() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"fn foo() -> i64 {}"));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(b"fn foo() -> i64 {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -128,7 +128,7 @@ fn return_type() {
 fn mixed() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"fn foo<A, B, C>(x: A, y: B) -> C {}"),
+        Lexer::with_unvalidated_source(b"fn foo<A, B, C>(x: A, y: B) -> C {}"),
     );
     let ParseResult {
         syntax_tree,

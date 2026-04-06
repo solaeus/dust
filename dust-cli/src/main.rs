@@ -16,7 +16,7 @@ use std::{
 use clap::Parser as CliParser;
 use dust_lang::{
     project::{EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
-    source::{Source, SourceFile},
+    source::{Source, SourceCode},
 };
 use tracing::{Event, Level, Subscriber, info, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -29,7 +29,6 @@ use crate::{
     compile::handle_compile_command,
     parse::handle_parse_command,
     run::handle_run_command,
-    // run::handle_run_command,
 };
 
 fn main() {
@@ -184,7 +183,7 @@ fn build_source<'src>(
 
     if let Some(input) = eval {
         let eval_program = format!("fn main<T>() -> T {{\n    {input}\n}}");
-        let file = SourceFile::validated_owned("CLI Input", eval_program);
+        let file = SourceCode::validated_owned("CLI Input", eval_program);
 
         source.add_file(file);
     }
@@ -216,7 +215,7 @@ fn build_source<'src>(
                 path.join("src").join("main.ds")
             };
             let file =
-                SourceFile::file(&main_file_path).unwrap_or_else(|error| error.print_and_exit());
+                SourceCode::file(main_file_path).unwrap_or_else(|error| error.print_and_exit());
 
             source.add_file(file);
 
@@ -224,12 +223,12 @@ fn build_source<'src>(
 
             if lib_file_path.exists() {
                 let file =
-                    SourceFile::file(&lib_file_path).unwrap_or_else(|error| error.print_and_exit());
+                    SourceCode::file(lib_file_path).unwrap_or_else(|error| error.print_and_exit());
 
                 source.add_file(file);
             }
         } else {
-            let file = SourceFile::file(&path).unwrap_or_else(|error| error.print_and_exit());
+            let file = SourceCode::file(path).unwrap_or_else(|error| error.print_and_exit());
 
             source.add_file(file);
         }
@@ -242,7 +241,7 @@ fn build_source<'src>(
             .read_to_end(&mut buffer)
             .expect("Failed to read from stdin");
 
-        let file = SourceFile::owned("stdin", buffer);
+        let file = SourceCode::owned("stdin", buffer);
 
         source.add_file(file);
     }

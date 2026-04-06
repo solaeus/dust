@@ -13,7 +13,7 @@ use crate::{
 fn index_expression() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x[0]")),
+        Lexer::with_unvalidated_source(function_wrapper!("x[0]")),
     );
     let ParseResult {
         syntax_tree,

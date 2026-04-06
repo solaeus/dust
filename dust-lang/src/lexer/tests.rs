@@ -9,7 +9,7 @@ use crate::{
 #[test]
 fn single_identifier() {
     let source = b"foo";
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -29,7 +29,7 @@ fn single_identifier() {
 #[test]
 fn identifier_with_digits_and_underscores() {
     let source = b"a1_b2";
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -49,7 +49,7 @@ fn identifier_with_digits_and_underscores() {
 #[test]
 fn multiple_identifiers() {
     let source = b"foo bar_baz qux123";
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -77,7 +77,7 @@ fn multiple_identifiers() {
 #[test]
 fn booleans() {
     let source = b"true false";
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -101,7 +101,7 @@ fn booleans() {
 #[test]
 fn hex_integers() {
     let source = b"0x42 0xFF";
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -134,7 +134,7 @@ fn characters() {
 
         let character = char::from_u32(codepoint).unwrap();
         let source = format!("'{character}'");
-        let tokens = Lexer::from_bytes(source.as_bytes()).collect::<Vec<_>>();
+        let tokens = Lexer::with_unvalidated_source(source.as_bytes()).collect::<Vec<_>>();
 
         assert_eq!(
             tokens,
@@ -153,7 +153,7 @@ fn characters() {
     }
 
     let source = br"'\''";
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -173,7 +173,7 @@ fn characters() {
 #[test]
 fn floats() {
     let source = b"3.14 0.001 42.0";
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -201,7 +201,7 @@ fn floats() {
 #[test]
 fn integers() {
     let source = b"0 123 456789";
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -229,7 +229,7 @@ fn integers() {
 #[test]
 fn strings() {
     let source = b"\"hello\" \"world\"";
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -305,7 +305,7 @@ fn keywords() {
         .collect::<Vec<_>>()
         .join(" ");
     let expected = keywords.iter().map(|(_, kind)| *kind).collect::<Vec<_>>();
-    let actual = Lexer::from_bytes(source.as_bytes())
+    let actual = Lexer::with_unvalidated_source(source.as_bytes())
         .map(|token| token.kind)
         .collect::<Vec<_>>();
 
@@ -359,7 +359,7 @@ fn operators_and_punctuation() {
         .collect::<Vec<_>>()
         .join(" ");
     let expected = symbols.iter().map(|(_, kind)| *kind).collect::<Vec<_>>();
-    let actual = Lexer::from_bytes(source.as_bytes())
+    let actual = Lexer::with_unvalidated_source(source.as_bytes())
         .map(|token| token.kind)
         .collect::<Vec<_>>();
 
@@ -369,7 +369,7 @@ fn operators_and_punctuation() {
 #[test]
 fn adjacent_tokens() {
     let source = b"let x:i32=42;";
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -451,7 +451,7 @@ fn example_source_code() {
         hello_world();
     "#;
 
-    let mut lexer = Lexer::from_bytes(source);
+    let mut lexer = Lexer::with_unvalidated_source(source);
 
     for _ in &mut lexer {}
 
@@ -483,7 +483,7 @@ fn mixed_utf8_input() {
         mixed_bytes.extend_from_slice(&byte_buffer[..utf8_character.len_utf8()]);
     }
 
-    let mut lexer = Lexer::from_bytes(&mixed_bytes);
+    let mut lexer = Lexer::with_unvalidated_source(&mixed_bytes);
 
     for _ in &mut lexer {}
 
@@ -493,7 +493,7 @@ fn mixed_utf8_input() {
 #[test]
 fn invalid_utf8_in_bytes_errors() {
     let source = b"abc\xFFdef";
-    let mut lexer = Lexer::from_bytes(source);
+    let mut lexer = Lexer::with_unvalidated_source(source);
 
     lexer.next();
 
@@ -503,7 +503,7 @@ fn invalid_utf8_in_bytes_errors() {
 #[test]
 fn unicode_identifier() {
     let source = "α".as_bytes();
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -523,7 +523,7 @@ fn unicode_identifier() {
 #[test]
 fn multiple_unicode_identifier() {
     let source = "αβγ".as_bytes();
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -543,7 +543,7 @@ fn multiple_unicode_identifier() {
 #[test]
 fn ascii_followed_by_unicode_identifier() {
     let source = "fooα".as_bytes();
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -563,7 +563,7 @@ fn ascii_followed_by_unicode_identifier() {
 #[test]
 fn unicode_followed_by_ascii_identifier() {
     let source = "αfoo".as_bytes();
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -583,7 +583,7 @@ fn unicode_followed_by_ascii_identifier() {
 #[test]
 fn underscore_followed_by_unicode_identifier() {
     let source = "_α".as_bytes();
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -603,7 +603,7 @@ fn underscore_followed_by_unicode_identifier() {
 #[test]
 fn chinese_identifier() {
     let source = "中文".as_bytes();
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -623,7 +623,7 @@ fn chinese_identifier() {
 #[test]
 fn emoji_is_not_identifier() {
     let source = "🍄".as_bytes();
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -643,7 +643,7 @@ fn emoji_is_not_identifier() {
 #[test]
 fn emoji_breaks_identifier() {
     let source = "foo🍄bar".as_bytes();
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -671,7 +671,7 @@ fn emoji_breaks_identifier() {
 #[test]
 fn emoji_character() {
     let source = "'🎉'".as_bytes();
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,
@@ -691,7 +691,7 @@ fn emoji_character() {
 #[test]
 fn emoji_string() {
     let source = "\"🎉\"".as_bytes();
-    let tokens = Lexer::from_bytes(source).collect::<Vec<_>>();
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
 
     assert_eq!(
         tokens,

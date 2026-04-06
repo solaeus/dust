@@ -32,7 +32,12 @@ use crate::{
         types::Type,
     },
     source::{Source, SourceFileId},
-    syntax::{Syntax, node::SyntaxKind, components::{FunctionItem, TraitMethod}, visitor::SyntaxVisitor},
+    syntax::{
+        Syntax,
+        components::{FunctionItem, TraitMethod},
+        node::SyntaxKind,
+        visitor::SyntaxVisitor,
+    },
 };
 
 pub struct Compiler<'src> {
@@ -121,9 +126,9 @@ impl<'src> Compiler<'src> {
 
             for (file_id, file) in self.source.iter_mut() {
                 let lexer = if file.utf8_validated() {
-                    Lexer::from_utf8(file.content_as_str())
+                    Lexer::with_validated_source(file.content_as_str())
                 } else {
-                    Lexer::from_bytes(file.content_as_bytes())
+                    Lexer::with_unvalidated_source(file.content_as_bytes())
                 };
                 let parser = Parser::new(file_id, lexer);
                 let ParseResult {
@@ -286,8 +291,7 @@ impl<'src> Compiler<'src> {
                     }
                 }
 
-                let scope =
-                    unwrap_or_return!(self.resolver.scopes.get_scope(declaration.scope_id));
+                let scope = unwrap_or_return!(self.resolver.scopes.get_scope(declaration.scope_id));
 
                 if scope.kind == ScopeKind::Trait {
                     let mut extra_index = type_parameter_declaration_ids.len();
@@ -301,8 +305,7 @@ impl<'src> Compiler<'src> {
                             && matches!(decl.definition, Definition::TypeParameter)
                             && !self.resolver.type_parameter_map.contains_key(&decl_id)
                         {
-                            let inferred_type_id =
-                                self.resolver.types.create_inferred_type(None);
+                            let inferred_type_id = self.resolver.types.create_inferred_type(None);
 
                             self.resolver
                                 .type_parameter_map

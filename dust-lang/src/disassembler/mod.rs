@@ -17,7 +17,7 @@ use crate::{
     instruction::OperandType,
     program::Program,
     prototype::{Prototype, PrototypeId},
-    source::{Source, SourceFile, SourceFileId},
+    source::{Source, SourceCode, SourceFileId},
     syntax::{Syntax, tree::SyntaxTree},
 };
 
@@ -122,7 +122,7 @@ impl<'a> Disassembler<'a> {
 
     fn draw_source_tab(
         &self,
-        source_file: &SourceFile,
+        source_file: &SourceCode,
         syntax_tree: &SyntaxTree,
         area: Rect,
         buffer: &mut Buffer,

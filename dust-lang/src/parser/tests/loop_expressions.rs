@@ -13,7 +13,7 @@ use crate::{
 fn while_expression() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("while x { y }")),
+        Lexer::with_unvalidated_source(function_wrapper!("while x { y }")),
     );
     let ParseResult {
         syntax_tree,
@@ -46,7 +46,7 @@ fn while_expression() {
 fn break_empty() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("while true { break; }")),
+        Lexer::with_unvalidated_source(function_wrapper!("while true { break; }")),
     );
     let ParseResult {
         syntax_tree,
@@ -77,7 +77,7 @@ fn break_empty() {
 fn break_with_value() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("while true { break 42 }")),
+        Lexer::with_unvalidated_source(function_wrapper!("while true { break 42 }")),
     );
     let ParseResult {
         syntax_tree,

@@ -10,7 +10,7 @@ use crate::{
 
 #[test]
 fn empty_variant() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"enum Foo { Bar }"));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(b"enum Foo { Bar }"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -34,7 +34,7 @@ fn empty_variant() {
 fn tuple_variant() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"enum Foo { Bar(i64, i64) }"),
+        Lexer::with_unvalidated_source(b"enum Foo { Bar(i64, i64) }"),
     );
     let ParseResult {
         syntax_tree,
@@ -63,7 +63,7 @@ fn tuple_variant() {
 fn fields_variant() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"enum Foo { Bar { x: i64, y: i64 } }"),
+        Lexer::with_unvalidated_source(b"enum Foo { Bar { x: i64, y: i64 } }"),
     );
     let ParseResult {
         syntax_tree,
@@ -95,7 +95,7 @@ fn fields_variant() {
 fn mixed_variants() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"enum Foo { Bar, Baz(i64), Qux { x: i64 } }"),
+        Lexer::with_unvalidated_source(b"enum Foo { Bar, Baz(i64), Qux { x: i64 } }"),
     );
     let ParseResult {
         syntax_tree,
@@ -134,7 +134,7 @@ fn mixed_variants() {
 fn type_parameters() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"enum Foo<A, B, C> { Bar }"),
+        Lexer::with_unvalidated_source(b"enum Foo<A, B, C> { Bar }"),
     );
     let ParseResult {
         syntax_tree,

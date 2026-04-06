@@ -33,9 +33,9 @@ pub fn handle_parse_command(command: ParseCommand) {
 
     for (file_id, file) in source.iter() {
         let lexer = if file.utf8_validated() {
-            Lexer::from_utf8(file.content_as_str())
+            Lexer::with_validated_source(file.content_as_str())
         } else {
-            Lexer::from_bytes(file.content_as_bytes())
+            Lexer::with_unvalidated_source(file.content_as_bytes())
         };
         let parser = Parser::new(file_id, lexer);
         let ParseResult {

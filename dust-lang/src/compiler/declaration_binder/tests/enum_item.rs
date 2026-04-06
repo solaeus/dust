@@ -3,7 +3,7 @@ use crate::{
         declarations::{Definition, Visibility},
         types::{Type, TypeId},
     },
-    source::{Source, SourceFile},
+    source::{Source, SourceCode},
 };
 
 use super::bind_declarations;
@@ -12,7 +12,7 @@ use super::bind_declarations;
 fn with_unit_variants() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "enum Color { Red, Green, Blue }",
     ));
@@ -102,7 +102,7 @@ fn with_unit_variants() {
 fn public_generic() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "pub enum Opt<A, B> { None, Some }",
     ));
@@ -152,7 +152,7 @@ fn public_generic() {
 #[test]
 fn with_mixed_variants() {
     let mut source = Source::new();
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "enum Shape { Point, Line(i64), Rect { w: i64, h: i64 } }",
     ));
@@ -280,7 +280,7 @@ fn with_mixed_variants() {
 fn variants_not_visible_at_module_scope() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed("test", "enum Foo { Bar }"));
+    source.add_file(SourceCode::validated_borrowed("test", "enum Foo { Bar }"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("Bar");
@@ -299,7 +299,7 @@ fn variants_not_visible_at_module_scope() {
 fn same_name_in_different_modules() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "mod a { enum Foo { X } } mod b { enum Foo { Y } }",
     ));
@@ -386,7 +386,7 @@ fn same_name_in_different_modules() {
 fn generic_variant_field() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "enum Opt<T> { Some(T), None }",
     ));

@@ -3,7 +3,7 @@ use crate::{
         declarations::{Definition, Visibility},
         types::{Type, TypeId},
     },
-    source::{Source, SourceFile},
+    source::{Source, SourceCode},
 };
 
 use super::bind_declarations;
@@ -12,7 +12,7 @@ use super::bind_declarations;
 fn simple() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed("test", "type Foo = i64;"));
+    source.add_file(SourceCode::validated_borrowed("test", "type Foo = i64;"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
@@ -39,7 +39,7 @@ fn simple() {
 fn generic_alias_resolves_type_parameter() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed("test", "type Pair<T> = T;"));
+    source.add_file(SourceCode::validated_borrowed("test", "type Pair<T> = T;"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let pair_symbol = resolver.symbols.add_symbol("Pair");

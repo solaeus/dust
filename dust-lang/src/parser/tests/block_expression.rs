@@ -13,7 +13,7 @@ use crate::{
 fn empty() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("{}")),
+        Lexer::with_unvalidated_source(function_wrapper!("{}")),
     );
     let ParseResult {
         syntax_tree,
@@ -41,7 +41,7 @@ fn empty() {
 fn item() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("{ fn foo() {} }")),
+        Lexer::with_unvalidated_source(function_wrapper!("{ fn foo() {} }")),
     );
     let ParseResult {
         syntax_tree,
@@ -75,7 +75,7 @@ fn item() {
 fn statement() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("{ let x = 42; }")),
+        Lexer::with_unvalidated_source(function_wrapper!("{ let x = 42; }")),
     );
     let ParseResult {
         syntax_tree,
@@ -106,7 +106,7 @@ fn statement() {
 fn expression() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("{ x + y }")),
+        Lexer::with_unvalidated_source(function_wrapper!("{ x + y }")),
     );
     let ParseResult {
         syntax_tree,
@@ -139,7 +139,7 @@ fn expression() {
 fn mixed() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("{ fn foo() {} let x = 42; x + y }")),
+        Lexer::with_unvalidated_source(function_wrapper!("{ fn foo() {} let x = 42; x + y }")),
     );
     let ParseResult {
         syntax_tree,

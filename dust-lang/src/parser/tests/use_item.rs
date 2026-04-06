@@ -7,7 +7,7 @@ use crate::{
 
 #[test]
 fn use_item() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"use foo;"));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(b"use foo;"));
     let ParseResult {
         syntax_tree,
         errors,

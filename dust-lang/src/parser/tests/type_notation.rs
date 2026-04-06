@@ -34,7 +34,7 @@ fn type_notations() {
     ];
 
     for source in cases {
-        let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(source.as_bytes()));
+        let parser = Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(source.as_bytes()));
         let ParseResult { errors, .. } = parser.parse();
 
         assert!(errors.is_empty(), "{source}: {errors:#?}");

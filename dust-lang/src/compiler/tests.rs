@@ -16,13 +16,13 @@ use crate::{
         declarations::{Definition, Visibility},
         scopes::{Scope, ScopeId, ScopeKind},
     },
-    source::{Source, SourceFile, SourceFileId},
+    source::{Source, SourceCode, SourceFileId},
     syntax::{Syntax, components::FunctionItem, visitor::SyntaxVisitor},
 };
 
 fn compile(source_code: &str) -> Program {
     let mut source = Source::new();
-    source.add_file(SourceFile::validated_borrowed("test", source_code));
+    source.add_file(SourceCode::validated_borrowed("test", source_code));
 
     Compiler::new(source).compile(None).unwrap()
 }
@@ -31,7 +31,7 @@ pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
     let mut syntax = Syntax::new(source.file_count());
 
     for (file_id, file) in source.iter() {
-        let lexer = Lexer::from_utf8(file.content_as_str());
+        let lexer = Lexer::with_validated_source(file.content_as_str());
         let parser = Parser::new(file_id, lexer);
         let ParseResult {
             syntax_tree,
@@ -70,7 +70,7 @@ pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
 
 pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
     let mut source = Source::new();
-    source.add_file(SourceFile::validated_borrowed("test", source_code));
+    source.add_file(SourceCode::validated_borrowed("test", source_code));
 
     let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 

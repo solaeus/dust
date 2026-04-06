@@ -6,16 +6,16 @@ use std::hint::cold_path;
 use crate::{
     error::ErrorKind,
     parser::error::ParseError,
-    source::{Position, Source, SourceFile, Span},
+    source::{Position, Source, SourceCode, Span},
     token::{Token, TokenKind},
 };
 use unicode_ident::{is_xid_continue, is_xid_start};
 
 pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, ErrorKind> {
     let mut source = Source::with_capacity(1);
-    let file_id = source.add_file(SourceFile::borrowed("tokenize", bytes));
+    let file_id = source.add_file(SourceCode::borrowed("tokenize", bytes));
 
-    let mut lexer = Lexer::from_bytes(bytes);
+    let mut lexer = Lexer::with_unvalidated_source(bytes);
     let mut tokens = Vec::new();
 
     for token in &mut lexer {
@@ -34,9 +34,9 @@ pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, ErrorKind> {
 
 pub fn tokenize_str(str: &str) -> Result<Vec<Token>, ErrorKind> {
     let mut source = Source::with_capacity(1);
-    let file_id = source.add_file(SourceFile::validated_borrowed("tokenize", str));
+    let file_id = source.add_file(SourceCode::validated_borrowed("tokenize", str));
 
-    let mut lexer = Lexer::from_utf8(str);
+    let mut lexer = Lexer::with_validated_source(str);
     let mut tokens = Vec::new();
 
     for token in &mut lexer {
@@ -64,7 +64,7 @@ pub struct Lexer<'src> {
 }
 
 impl<'src> Lexer<'src> {
-    pub fn from_bytes(source: &'src [u8]) -> Self {
+    pub fn with_unvalidated_source(source: &'src [u8]) -> Self {
         Self {
             source,
             index: 0,
@@ -76,8 +76,16 @@ impl<'src> Lexer<'src> {
         }
     }
 
-    pub fn from_utf8(source: &'src str) -> Self {
-        Self::from_bytes(source.as_bytes())
+    pub fn with_validated_source(source: &'src str) -> Self {
+        Self {
+            source: source.as_bytes(),
+            index: 0,
+            token_start: None,
+            token_flags: TokenFlags::default(),
+            eof: false,
+            error: false,
+            utf8_validated: true,
+        }
     }
 
     pub fn source(&self) -> &'src [u8] {

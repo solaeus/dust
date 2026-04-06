@@ -10,7 +10,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"impl Foo {}"));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(b"impl Foo {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -34,7 +34,7 @@ fn empty() {
 fn with_function() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"impl Foo { fn bar(self) {} }"),
+        Lexer::with_unvalidated_source(b"impl Foo { fn bar(self) {} }"),
     );
     let ParseResult {
         syntax_tree,
@@ -67,7 +67,7 @@ fn with_function() {
 fn with_pub_function() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"impl Foo { pub fn bar(self) {} }"),
+        Lexer::with_unvalidated_source(b"impl Foo { pub fn bar(self) {} }"),
     );
     let ParseResult {
         syntax_tree,
@@ -101,7 +101,7 @@ fn with_pub_function() {
 fn trait_impl() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"impl Bar for Foo {}"),
+        Lexer::with_unvalidated_source(b"impl Bar for Foo {}"),
     );
     let ParseResult {
         syntax_tree,
@@ -129,7 +129,7 @@ fn trait_impl() {
 fn with_where_clause() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"impl Foo where Foo: Bar {}"),
+        Lexer::with_unvalidated_source(b"impl Foo where Foo: Bar {}"),
     );
     let ParseResult {
         syntax_tree,

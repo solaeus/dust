@@ -39,7 +39,7 @@ use crate::{
     constant_list::ConstantListBuilder,
     prototype::{Prototype, PrototypeList},
     resolver::declarations::{Definition, Visibility},
-    source::{Source, SourceFile},
+    source::{Source, SourceCode},
     syntax::components::FunctionItem,
 };
 
@@ -87,7 +87,7 @@ fn emit_function(source_code: &str) -> Prototype {
     let return_types = resolver.get_operand_types(concrete_return_type_id).unwrap();
 
     let mut source = Source::new();
-    source.add_file(SourceFile::validated_borrowed("test", source_code));
+    source.add_file(SourceCode::validated_borrowed("test", source_code));
 
     let mut constants = ConstantListBuilder::new();
     let mut prototypes = PrototypeList::new();

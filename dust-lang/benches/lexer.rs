@@ -45,7 +45,7 @@ hello_world();
 "#;
 
 fn tokenize(source: &[u8]) {
-    let mut lexer = Lexer::from_bytes(source);
+    let mut lexer = Lexer::with_unvalidated_source(source);
 
     for _ in &mut lexer {}
 

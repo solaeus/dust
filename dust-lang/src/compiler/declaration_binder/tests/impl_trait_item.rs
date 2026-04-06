@@ -3,7 +3,7 @@ use crate::{
         declarations::{Definition, Visibility},
         types::TypeId,
     },
-    source::{Source, SourceFile},
+    source::{Source, SourceCode},
 };
 
 use super::bind_declarations;
@@ -12,7 +12,7 @@ use super::bind_declarations;
 fn with_method() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "trait Bar { fn baz(); } struct Foo {} impl Bar for Foo { fn baz() {} }",
     ));
@@ -59,7 +59,7 @@ fn with_method() {
 fn with_associated_type() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "trait Bar { type Item; } struct Foo {} impl Bar for Foo { type Item = i64; }",
     ));

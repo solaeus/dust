@@ -25,7 +25,7 @@ use crate::{
 };
 
 pub fn parse(source_code: &str) -> (SyntaxTree, Vec<ParseError>) {
-    let lexer = Lexer::from_utf8(source_code);
+    let lexer = Lexer::with_validated_source(source_code);
     let parser = Parser::new(SourceFileId::MAIN, lexer);
     let ParseResult {
         syntax_tree,

@@ -13,7 +13,7 @@ use crate::{
 fn boolean() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("true")),
+        Lexer::with_unvalidated_source(function_wrapper!("true")),
     );
     let ParseResult {
         syntax_tree,
@@ -41,7 +41,7 @@ fn boolean() {
 fn byte() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("0x2A")),
+        Lexer::with_unvalidated_source(function_wrapper!("0x2A")),
     );
     let ParseResult {
         syntax_tree,
@@ -69,7 +69,7 @@ fn byte() {
 fn character() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("'a'")),
+        Lexer::with_unvalidated_source(function_wrapper!("'a'")),
     );
     let ParseResult {
         syntax_tree,
@@ -97,7 +97,7 @@ fn character() {
 fn float() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("42.0")),
+        Lexer::with_unvalidated_source(function_wrapper!("42.0")),
     );
     let ParseResult {
         syntax_tree,
@@ -125,7 +125,7 @@ fn float() {
 fn integer() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("42")),
+        Lexer::with_unvalidated_source(function_wrapper!("42")),
     );
     let ParseResult {
         syntax_tree,
@@ -153,7 +153,7 @@ fn integer() {
 fn string() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("\"Hello, world!\"")),
+        Lexer::with_unvalidated_source(function_wrapper!("\"Hello, world!\"")),
     );
     let ParseResult {
         syntax_tree,
@@ -181,7 +181,7 @@ fn string() {
 fn list() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("[1, 2, 3]")),
+        Lexer::with_unvalidated_source(function_wrapper!("[1, 2, 3]")),
     );
     let ParseResult {
         syntax_tree,
@@ -213,7 +213,7 @@ fn list() {
 fn array_repeat() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("[0; 3]")),
+        Lexer::with_unvalidated_source(function_wrapper!("[0; 3]")),
     );
     let ParseResult {
         syntax_tree,

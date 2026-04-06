@@ -84,7 +84,7 @@ fn main() {
 
 fn parse_bench(source: &[u8]) {
     let ParseResult { errors, .. } =
-        Parser::new(SourceFileId::MAIN, Lexer::from_bytes(source)).parse();
+        Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(source)).parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
 }

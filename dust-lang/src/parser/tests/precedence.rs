@@ -13,7 +13,7 @@ use crate::{
 fn addition_and_multiplication() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("a + b * c")),
+        Lexer::with_unvalidated_source(function_wrapper!("a + b * c")),
     );
     let ParseResult {
         syntax_tree,
@@ -52,7 +52,7 @@ fn addition_and_multiplication() {
 fn right_associative_exponentiation() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("a ^ b ^ c")),
+        Lexer::with_unvalidated_source(function_wrapper!("a ^ b ^ c")),
     );
     let ParseResult {
         syntax_tree,

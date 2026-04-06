@@ -2,21 +2,20 @@ use std::{
     borrow::Cow,
     fmt::{self, Display, Formatter},
     fs::File,
-    io,
+    io::{self, Read},
     ops::Range,
     path::{Path, PathBuf},
 };
 
 use annotate_snippets::{Group, Level, Renderer};
-use memmap2::Mmap;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
 use crate::error::AnnotatedError;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Source<'src> {
-    files: Vec<SourceFile<'src>>,
+    files: Vec<SourceCode<'src>>,
 }
 
 impl<'src> Source<'src> {
@@ -34,11 +33,11 @@ impl<'src> Source<'src> {
         self.files.len()
     }
 
-    pub fn files(&self) -> &[SourceFile<'src>] {
+    pub fn files(&self) -> &[SourceCode<'src>] {
         &self.files
     }
 
-    pub fn add_file(&mut self, file: SourceFile<'src>) -> SourceFileId {
+    pub fn add_file(&mut self, file: SourceCode<'src>) -> SourceFileId {
         let id = SourceFileId(self.files.len() as u32);
 
         self.files.push(file);
@@ -46,17 +45,17 @@ impl<'src> Source<'src> {
         id
     }
 
-    pub fn get_file(&self, file_id: SourceFileId) -> Result<&SourceFile<'src>, SourceError> {
+    pub fn get_file(&self, file_id: SourceFileId) -> Result<&SourceCode<'src>, SourceError> {
         self.files
             .get(file_id.0 as usize)
             .ok_or(SourceError::MissingSourceFile(file_id))
     }
 
     pub fn get_file_content(&self, position: &Position) -> Result<&str, SourceError> {
-        self.get_file(position.file_id)?.content_str(position.span)
+        self.get_file(position.file_id)?.get_str(position.span)
     }
 
-    pub fn get_by_index(&self, index: usize) -> Option<(SourceFileId, &SourceFile<'src>)> {
+    pub fn get_by_index(&self, index: usize) -> Option<(SourceFileId, &SourceCode<'src>)> {
         self.files
             .get(index)
             .map(|file| (SourceFileId(index as u32), file))
@@ -64,9 +63,9 @@ impl<'src> Source<'src> {
 
     pub fn set_utf8_validated(&mut self, file_id: SourceFileId) {
         if let Some(
-            SourceFile::File { utf8_validated, .. }
-            | SourceFile::Borrowed { utf8_validated, .. }
-            | SourceFile::Owned { utf8_validated, .. },
+            SourceCode::File { utf8_validated, .. }
+            | SourceCode::Borrowed { utf8_validated, .. }
+            | SourceCode::Owned { utf8_validated, .. },
         ) = self.files.get_mut(file_id.0 as usize)
         {
             *utf8_validated = true;
@@ -77,14 +76,14 @@ impl<'src> Source<'src> {
         (0..self.files.len() as u32).map(SourceFileId)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (SourceFileId, &SourceFile<'src>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (SourceFileId, &SourceCode<'src>)> {
         self.files
             .iter()
             .enumerate()
             .map(|(index, file)| (SourceFileId(index as u32), file))
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (SourceFileId, &mut SourceFile<'src>)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (SourceFileId, &mut SourceCode<'src>)> {
         self.files
             .iter_mut()
             .enumerate()
@@ -109,11 +108,11 @@ impl SourceFileId {
     }
 }
 
-#[derive(Debug)]
-pub enum SourceFile<'src> {
+#[derive(Debug, Clone)]
+pub enum SourceCode<'src> {
     File {
         path: PathBuf,
-        mmap: Mmap,
+        content: Vec<u8>,
         utf8_validated: bool,
     },
     Borrowed {
@@ -128,36 +127,49 @@ pub enum SourceFile<'src> {
     },
 }
 
-impl<'src> SourceFile<'src> {
-    pub fn file(path: &Path) -> Result<Self, SourceError> {
-        let Ok(path) = path.canonicalize() else {
+impl<'src> SourceCode<'src> {
+    pub fn file(path: PathBuf) -> Result<Self, SourceError> {
+        let path = if path.is_absolute() {
+            path
+        } else {
+            path.canonicalize().map_err(|_| SourceError::InvalidPath {
+                found: path.display().to_string(),
+            })?
+        };
+        let Ok(metadata) = path.metadata() else {
             return Err(SourceError::InvalidPath {
                 found: path.display().to_string(),
             });
         };
 
-        if !path.is_file() {
+        if !metadata.is_file() {
             return Err(SourceError::ExpectedFilePath {
                 found: path.display().to_string(),
             });
         }
 
-        let file = File::open(&path).map_err(|error| SourceError::CannotOpen {
-            io_error: error.kind(),
-        })?;
-        let mmap = unsafe { Mmap::map(&file) }.map_err(|error| SourceError::CannotOpen {
-            io_error: error.kind(),
-        })?;
+        let mut content = Vec::with_capacity(metadata.len() as usize);
 
-        Ok(SourceFile::File {
+        File::options()
+            .read(true)
+            .open(&path)
+            .map_err(|error| SourceError::CannotOpen {
+                io_error: error.kind(),
+            })?
+            .read_to_end(&mut content)
+            .map_err(|error| SourceError::CannotOpen {
+                io_error: error.kind(),
+            })?;
+
+        Ok(SourceCode::File {
             path,
-            mmap,
+            content,
             utf8_validated: false,
         })
     }
 
     pub fn borrowed(name: &'src str, content: &'src [u8]) -> Self {
-        SourceFile::Borrowed {
+        SourceCode::Borrowed {
             name,
             content,
             utf8_validated: false,
@@ -165,7 +177,7 @@ impl<'src> SourceFile<'src> {
     }
 
     pub const fn validated_borrowed(name: &'src str, content: &'src str) -> Self {
-        SourceFile::Borrowed {
+        SourceCode::Borrowed {
             name,
             content: content.as_bytes(),
             utf8_validated: true,
@@ -173,7 +185,7 @@ impl<'src> SourceFile<'src> {
     }
 
     pub fn owned(name: &'src str, content: Vec<u8>) -> Self {
-        SourceFile::Owned {
+        SourceCode::Owned {
             name,
             content,
             utf8_validated: false,
@@ -181,7 +193,7 @@ impl<'src> SourceFile<'src> {
     }
 
     pub fn validated_owned(name: &'src str, content: String) -> Self {
-        SourceFile::Owned {
+        SourceCode::Owned {
             name,
             content: content.into_bytes(),
             utf8_validated: true,
@@ -190,7 +202,7 @@ impl<'src> SourceFile<'src> {
 
     pub fn path(&self) -> Option<&Path> {
         match self {
-            Self::File { path, .. } => Some(path.as_path()),
+            Self::File { path, .. } => Some(path),
             _ => None,
         }
     }
@@ -201,7 +213,7 @@ impl<'src> SourceFile<'src> {
             Self::File { path, .. } => path
                 .file_name()
                 .and_then(|name| name.to_str())
-                .expect("File name conatins invalid UTF-8"),
+                .unwrap_or("<invalid file name>"),
         }
     }
 
@@ -228,7 +240,7 @@ impl<'src> SourceFile<'src> {
         }
     }
 
-    pub fn content_bytes(&self, span: Span) -> Result<&[u8], SourceError> {
+    pub fn get_bytes(&self, span: Span) -> Result<&[u8], SourceError> {
         let full_source = self.content_as_bytes();
         let range = span.as_usize_range();
 
@@ -240,7 +252,7 @@ impl<'src> SourceFile<'src> {
             })
     }
 
-    pub fn content_str(&self, span: Span) -> Result<&str, SourceError> {
+    pub fn get_str(&self, span: Span) -> Result<&str, SourceError> {
         let full_source = self.content_as_str();
 
         full_source
@@ -254,8 +266,7 @@ impl<'src> SourceFile<'src> {
     pub fn content_as_bytes(&self) -> &[u8] {
         match self {
             Self::Borrowed { content, .. } => content,
-            Self::Owned { content, .. } => content,
-            Self::File { mmap, .. } => mmap,
+            Self::File { content, .. } | Self::Owned { content, .. } => content,
         }
     }
 
@@ -307,13 +318,13 @@ impl<'src> SourceFile<'src> {
             }
             Self::File {
                 path,
-                mmap,
+                content,
                 utf8_validated,
             } => {
                 if *utf8_validated {
-                    unsafe { str::from_utf8_unchecked(mmap) }
+                    unsafe { str::from_utf8_unchecked(content) }
                 } else {
-                    handle_utf8_validation(&path.to_string_lossy(), mmap)
+                    handle_utf8_validation(&path.to_string_lossy(), content)
                 }
             }
         }

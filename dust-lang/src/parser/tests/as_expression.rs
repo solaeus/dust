@@ -13,7 +13,7 @@ use crate::{
 fn as_expression() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x as i32")),
+        Lexer::with_unvalidated_source(function_wrapper!("x as i32")),
     );
     let ParseResult {
         syntax_tree,

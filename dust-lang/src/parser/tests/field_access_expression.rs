@@ -13,7 +13,7 @@ use crate::{
 fn field_access() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x.y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x.y")),
     );
     let ParseResult {
         syntax_tree,
@@ -44,7 +44,7 @@ fn field_access() {
 fn method_call() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x.foo(1)")),
+        Lexer::with_unvalidated_source(function_wrapper!("x.foo(1)")),
     );
     let ParseResult {
         syntax_tree,

@@ -13,7 +13,7 @@ use crate::{
 fn addition() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x + y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x + y")),
     );
     let ParseResult {
         syntax_tree,
@@ -45,7 +45,7 @@ fn addition() {
 fn subtraction() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x - y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x - y")),
     );
     let ParseResult {
         syntax_tree,
@@ -77,7 +77,7 @@ fn subtraction() {
 fn multiplication() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x * y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x * y")),
     );
     let ParseResult {
         syntax_tree,
@@ -113,7 +113,7 @@ fn multiplication() {
 fn division() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x / y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x / y")),
     );
     let ParseResult {
         syntax_tree,
@@ -145,7 +145,7 @@ fn division() {
 fn modulo() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x % y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x % y")),
     );
     let ParseResult {
         syntax_tree,
@@ -177,7 +177,7 @@ fn modulo() {
 fn power() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x ^ y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x ^ y")),
     );
     let ParseResult {
         syntax_tree,
@@ -209,7 +209,7 @@ fn power() {
 fn equal() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x == y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x == y")),
     );
     let ParseResult {
         syntax_tree,
@@ -241,7 +241,7 @@ fn equal() {
 fn not_equal() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x != y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x != y")),
     );
     let ParseResult {
         syntax_tree,
@@ -273,7 +273,7 @@ fn not_equal() {
 fn less_than() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x < y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x < y")),
     );
     let ParseResult {
         syntax_tree,
@@ -305,7 +305,7 @@ fn less_than() {
 fn less_than_or_equal() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x <= y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x <= y")),
     );
     let ParseResult {
         syntax_tree,
@@ -341,7 +341,7 @@ fn less_than_or_equal() {
 fn greater_than() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x > y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x > y")),
     );
     let ParseResult {
         syntax_tree,
@@ -373,7 +373,7 @@ fn greater_than() {
 fn greater_than_or_equal() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x >= y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x >= y")),
     );
     let ParseResult {
         syntax_tree,
@@ -409,7 +409,7 @@ fn greater_than_or_equal() {
 fn logical_and() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x && y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x && y")),
     );
     let ParseResult {
         syntax_tree,
@@ -441,7 +441,7 @@ fn logical_and() {
 fn logical_or() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("x || y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x || y")),
     );
     let ParseResult {
         syntax_tree,

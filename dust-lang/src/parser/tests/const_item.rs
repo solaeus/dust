@@ -10,7 +10,7 @@ use crate::{
 
 #[test]
 fn simple() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::from_bytes(b"const X: i64 = 42;"));
+    let parser = Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(b"const X: i64 = 42;"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -34,7 +34,7 @@ fn simple() {
 fn pub_const() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(b"pub const X: i64 = 42;"),
+        Lexer::with_unvalidated_source(b"pub const X: i64 = 42;"),
     );
     let ParseResult {
         syntax_tree,

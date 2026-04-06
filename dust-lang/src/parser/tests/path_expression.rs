@@ -13,7 +13,7 @@ use crate::{
 fn simple() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("foo")),
+        Lexer::with_unvalidated_source(function_wrapper!("foo")),
     );
     let ParseResult {
         syntax_tree,
@@ -42,7 +42,7 @@ fn simple() {
 fn multi_segment() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("foo::bar")),
+        Lexer::with_unvalidated_source(function_wrapper!("foo::bar")),
     );
     let ParseResult {
         syntax_tree,
@@ -72,7 +72,7 @@ fn multi_segment() {
 fn with_type_arguments() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("foo::<Bar>")),
+        Lexer::with_unvalidated_source(function_wrapper!("foo::<Bar>")),
     );
     let ParseResult {
         syntax_tree,
@@ -104,7 +104,7 @@ fn with_type_arguments() {
 fn with_multiple_type_arguments() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("foo::<Bar, Baz>")),
+        Lexer::with_unvalidated_source(function_wrapper!("foo::<Bar, Baz>")),
     );
     let ParseResult {
         syntax_tree,
@@ -138,7 +138,7 @@ fn with_multiple_type_arguments() {
 fn multi_segment_with_type_arguments() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("foo::bar::<Baz>")),
+        Lexer::with_unvalidated_source(function_wrapper!("foo::bar::<Baz>")),
     );
     let ParseResult {
         syntax_tree,
@@ -171,7 +171,7 @@ fn multi_segment_with_type_arguments() {
 fn type_arguments_on_middle_segment() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("foo::<Bar>::baz")),
+        Lexer::with_unvalidated_source(function_wrapper!("foo::<Bar>::baz")),
     );
     let ParseResult {
         syntax_tree,

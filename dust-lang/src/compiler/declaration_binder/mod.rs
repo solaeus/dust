@@ -94,10 +94,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_module_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let ModuleItem { public, name, body } = reader.as_component()?;
 
-        let module_name_str = self
-            .source
-            .get_file(name.file_id())?
-            .content_str(name.node.span)?;
+        let module_name_str = self.source.get_file_content(&name.position())?;
         let module_symbol_id = self.resolver.symbols.add_symbol(module_name_str);
         let module_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Module,
@@ -194,12 +191,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let mut symbol_id = self
             .resolver
             .symbols
-            .add_symbol(file.content_str(path.node.span)?);
+            .add_symbol(file.get_str(path.node.span)?);
 
         let mut path_segments = path.children();
 
         'outer: while let Some(segment) = path_segments.next() {
-            let segment_str = file.content_str(segment.node.span)?;
+            let segment_str = file.get_str(segment.node.span)?;
             let segment_symbol_id = self.resolver.symbols.add_symbol(segment_str);
             let (declaration_id, declaration) = self.resolver.find_declaration_in_scope(
                 segment_symbol_id,
@@ -227,7 +224,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     }
 
                     if let Some(next_segment) = path_segments.next() {
-                        let segment_str = file.content_str(next_segment.node.span)?;
+                        let segment_str = file.get_str(next_segment.node.span)?;
                         let segment_symbol_id = self.resolver.symbols.add_symbol(segment_str);
                         let variant_ids = self
                             .resolver
@@ -484,7 +481,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
                 for [field_name, field_type] in name_type_pairs {
                     let public = field_name.node.modifier;
-                    let field_name_str = file.content_str(field_name.node.span)?;
+                    let field_name_str = file.get_str(field_name.node.span)?;
                     let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
                     let field_type_id = self.visit_type(field_type)?;
                     let field_declaration_id =
@@ -625,7 +622,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                         let file = self.source.get_file(variant_name.file_id())?;
 
                         for [field_name, field_type] in name_type_pairs {
-                            let field_name_str = file.content_str(field_name.node.span)?;
+                            let field_name_str = file.get_str(field_name.node.span)?;
                             let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
                             let field_type_id = self.visit_type(field_type)?;
                             let field_declaration_id =
@@ -1847,9 +1844,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let type_id = match operand_declaration.definition {
             Definition::Local { type_id, .. } | Definition::Field { type_id, .. } => type_id,
-            Definition::Function {
-                return_type_id, ..
-            } => return_type_id,
+            Definition::Function { return_type_id, .. } => return_type_id,
             _ => {
                 return Err(CompileError::ExpectedValue {
                     node_kind: operand.node.kind,
@@ -1869,8 +1864,9 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     self.resolver.declarations.get_declaration(declaration_id)?;
 
                 let fields = match struct_declaration.definition {
-                    Definition::StructType { fields, .. }
-                    | Definition::Variant { fields, .. } => fields,
+                    Definition::StructType { fields, .. } | Definition::Variant { fields, .. } => {
+                        fields
+                    }
                     _ => {
                         return Err(CompileError::CannotAccessField {
                             type_id,
@@ -1887,8 +1883,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 let mut found_field_declaration_id = None;
 
                 for &field_id in field_declaration_ids {
-                    let field_declaration =
-                        self.resolver.declarations.get_declaration(field_id)?;
+                    let field_declaration = self.resolver.declarations.get_declaration(field_id)?;
 
                     if field_declaration.symbol_id == field_symbol_id {
                         found_field_declaration_id = Some(field_id);
@@ -1900,12 +1895,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 match found_field_declaration_id {
                     Some(id) => id,
                     None => {
-                        let (member_id, _) = search_impl_member(
-                            self,
-                            declaration_id,
-                            field_symbol_id,
-                            &field_name,
-                        )?;
+                        let (member_id, _) =
+                            search_impl_member(self, declaration_id, field_symbol_id, &field_name)?;
 
                         member_id
                     }
@@ -1916,11 +1907,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     self.resolver.declarations.get_declaration(declaration_id)?;
                 let scope_id = generic_declaration.scope_id;
 
-                match self
-                    .resolver
-                    .declarations
-                    .find_declaration(field_symbol_id, scope_id, Visibility::Module)
-                {
+                match self.resolver.declarations.find_declaration(
+                    field_symbol_id,
+                    scope_id,
+                    Visibility::Module,
+                ) {
                     Some((member_id, _)) => member_id,
                     None => {
                         return Err(CompileError::CannotAccessField {
@@ -2159,7 +2150,7 @@ fn search_path_segments<'a>(
     let mut impl_member_scope: Option<DeclarationId> = None;
 
     let mut search = |segment: SyntaxReader| {
-        let segment_str = file.content_str(segment.node.span)?;
+        let segment_str = file.get_str(segment.node.span)?;
         let symbol_id = binder.resolver.symbols.add_symbol(segment_str);
 
         let (next_declaration_id, next_definition) =

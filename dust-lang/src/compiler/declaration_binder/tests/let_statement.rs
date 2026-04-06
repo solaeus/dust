@@ -3,7 +3,7 @@ use crate::{
         declarations::{Definition, Visibility},
         types::{Type, TypeId},
     },
-    source::{Source, SourceFile},
+    source::{Source, SourceCode},
 };
 
 use super::{bind_declarations, find_function_body_scope};
@@ -12,7 +12,7 @@ use super::{bind_declarations, find_function_body_scope};
 fn immutable() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn main() { let x = 1; }",
     ));
@@ -46,7 +46,7 @@ fn immutable() {
 fn mutable() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn main() { let mut x = 1; }",
     ));
@@ -76,7 +76,7 @@ fn mutable() {
 fn with_type_notation() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn main() { let x: i64 = 1; }",
     ));
@@ -103,7 +103,7 @@ fn with_type_notation() {
 fn mutable_with_type_notation() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn main() { let mut x: bool = true; }",
     ));
@@ -130,7 +130,7 @@ fn mutable_with_type_notation() {
 fn shadowing() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn main() { let x = 1; let x = 2; }",
     ));
@@ -168,7 +168,7 @@ fn shadowing() {
 fn multiple() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn main() { let x = 1; let y = 2; }",
     ));
@@ -196,7 +196,7 @@ fn multiple() {
 fn block_visibility() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn main() { { let x = 1; } }",
     ));

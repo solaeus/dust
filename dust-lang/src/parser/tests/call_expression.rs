@@ -13,7 +13,7 @@ use crate::{
 fn call_with_two_arguments() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("foo(1, 2)")),
+        Lexer::with_unvalidated_source(function_wrapper!("foo(1, 2)")),
     );
     let ParseResult {
         syntax_tree,

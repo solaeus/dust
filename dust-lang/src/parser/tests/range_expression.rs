@@ -13,7 +13,7 @@ use crate::{
 fn exclusive() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("1..10")),
+        Lexer::with_unvalidated_source(function_wrapper!("1..10")),
     );
     let ParseResult {
         syntax_tree,
@@ -43,7 +43,7 @@ fn exclusive() {
 fn inclusive() {
     let parser = Parser::new(
         SourceFileId::MAIN,
-        Lexer::from_bytes(function_wrapper!("1..=10")),
+        Lexer::with_unvalidated_source(function_wrapper!("1..=10")),
     );
     let ParseResult {
         syntax_tree,

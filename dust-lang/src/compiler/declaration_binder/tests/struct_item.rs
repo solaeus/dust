@@ -3,7 +3,7 @@ use crate::{
         declarations::{Definition, Visibility},
         types::{Type, TypeId},
     },
-    source::{Source, SourceFile},
+    source::{Source, SourceCode},
 };
 
 use super::bind_declarations;
@@ -12,7 +12,7 @@ use super::bind_declarations;
 fn empty() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed("test", "struct Foo {}"));
+    source.add_file(SourceCode::validated_borrowed("test", "struct Foo {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
@@ -39,7 +39,7 @@ fn empty() {
 fn with_named_fields() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "struct Foo { x: i64, y: bool }",
     ));
@@ -94,7 +94,7 @@ fn with_named_fields() {
 fn tuple() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "struct Bar(i64, bool);",
     ));
@@ -144,7 +144,7 @@ fn tuple() {
 fn public_generic() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "pub struct Pair<A, B> { x: i64 }",
     ));
@@ -206,7 +206,7 @@ fn public_generic() {
 fn fields_not_visible_at_module_scope() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "struct Foo { x: i64 }",
     ));
@@ -227,7 +227,7 @@ fn fields_not_visible_at_module_scope() {
 #[test]
 fn same_name_in_different_modules() {
     let mut source = Source::new();
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "mod a { struct Foo { x: i64 } } mod b { struct Foo { x: bool } }",
     ));
@@ -323,7 +323,7 @@ fn same_name_in_different_modules() {
 fn unit() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed("test", "struct Foo;"));
+    source.add_file(SourceCode::validated_borrowed("test", "struct Foo;"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
@@ -349,7 +349,7 @@ fn unit() {
 fn field_publicity() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "struct Foo { pub x: i64, y: bool }",
     ));
@@ -395,7 +395,7 @@ fn field_publicity() {
 fn generic_field_uses_type_parameter() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "struct Foo<T> { x: T }",
     ));

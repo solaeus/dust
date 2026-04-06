@@ -4,7 +4,7 @@ use crate::{
         declarations::{Definition, Visibility},
         types::{Type, TypeId},
     },
-    source::{Source, SourceFile, SourceFileId},
+    source::{Source, SourceCode, SourceFileId},
     syntax::node::SyntaxKind,
 };
 
@@ -13,7 +13,7 @@ use super::bind_declarations;
 fn parameter_type_of_foo(source_code: &str) -> TypeId {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed("test", source_code));
+    source.add_file(SourceCode::validated_borrowed("test", source_code));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
@@ -151,7 +151,7 @@ fn character_type() {
 fn tuple_type_empty() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed("test", "fn foo(x: ()) {}"));
+    source.add_file(SourceCode::validated_borrowed("test", "fn foo(x: ()) {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
@@ -179,7 +179,7 @@ fn tuple_type_empty() {
 #[test]
 fn tuple_type_multiple() {
     let mut source = Source::new();
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn foo(x: (i64, bool)) {}",
     ));
@@ -212,7 +212,7 @@ fn tuple_type_multiple() {
 fn slice_type() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn foo(x: [i64]) {}",
     ));
@@ -247,7 +247,7 @@ fn slice_type() {
 fn function_type_basic() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn foo(x: fn(i64) -> i64) {}",
     ));
@@ -289,7 +289,7 @@ fn function_type_basic() {
 fn function_type_no_params() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn foo(x: fn() -> bool) {}",
     ));
@@ -326,7 +326,7 @@ fn function_type_no_params() {
 fn function_type_multiple_params() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn foo(x: fn(i64, bool) -> char) {}",
     ));
@@ -367,7 +367,7 @@ fn function_type_multiple_params() {
 fn function_type_no_return() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn foo(x: fn(i64)) {}",
     ));
@@ -405,7 +405,7 @@ fn function_type_no_return() {
 fn type_path_to_struct() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "struct Bar {} fn foo(x: Bar) {}",
     ));
@@ -447,7 +447,7 @@ fn type_path_to_struct() {
 fn type_path_to_enum() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "enum Color { Red } fn foo(x: Color) {}",
     ));
@@ -484,7 +484,7 @@ fn type_path_to_enum() {
 fn type_path_to_type_parameter() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed("test", "fn foo<T>(x: T) {}"));
+    source.add_file(SourceCode::validated_borrowed("test", "fn foo<T>(x: T) {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
@@ -522,7 +522,7 @@ fn type_path_to_type_parameter() {
 fn type_path_to_non_type_errors() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn bar() {} fn foo(x: bar) {}",
     ));
@@ -536,7 +536,7 @@ fn type_path_to_non_type_errors() {
 fn type_path_in_turbofish_binds_declaration() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "struct Bar {} fn foo<T>() {} fn main() { foo::<Bar>(); }",
     ));

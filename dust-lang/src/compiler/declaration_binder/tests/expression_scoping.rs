@@ -1,6 +1,6 @@
 use crate::{
     resolver::{declarations::Definition, scopes::ScopeKind},
-    source::{Source, SourceFile, SourceFileId},
+    source::{Source, SourceCode, SourceFileId},
     syntax::{
         components::{StructExpression, StructExpressionStructFields, SyntaxComponent},
         node::SyntaxKind,
@@ -13,7 +13,7 @@ use super::{bind_declarations, find_function_body_scope};
 fn block_creates_block_scope() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed("test", "fn main() { { } }"));
+    source.add_file(SourceCode::validated_borrowed("test", "fn main() { { } }"));
 
     let (syntax, resolver, crate_scope_id) = bind_declarations(&source);
     let fn_body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
@@ -41,7 +41,7 @@ fn block_creates_block_scope() {
 fn if_branches_create_scopes() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn main() { if true { } else { } }",
     ));
@@ -71,7 +71,7 @@ fn if_branches_create_scopes() {
 fn while_body_creates_scope() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn main() { while true { } }",
     ));
@@ -102,7 +102,7 @@ fn while_body_creates_scope() {
 fn path_expression_binds_declaration() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "fn main() { let x = 1; x; }",
     ));
@@ -131,7 +131,7 @@ fn path_expression_binds_declaration() {
 fn struct_expression_binds_field_name() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "struct Foo { x: i64 } fn main() { Foo { x: 1 }; }",
     ));
@@ -164,7 +164,7 @@ fn struct_expression_binds_field_name() {
 fn struct_expression_binds_multiple_field_names() {
     let mut source = Source::new();
 
-    source.add_file(SourceFile::validated_borrowed(
+    source.add_file(SourceCode::validated_borrowed(
         "test",
         "struct Foo { x: i64, y: i64 } fn main() { Foo { x: 1, y: 2 }; }",
     ));
