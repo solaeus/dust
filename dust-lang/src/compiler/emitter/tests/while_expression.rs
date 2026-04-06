@@ -68,8 +68,7 @@ fn with_break() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::test(false, MemoryKind::REGISTER, 0, 2),
-                Instruction::jump(1, true),
+                Instruction::test(false, MemoryKind::REGISTER, 0, 1),
                 Instruction::jump(1, false),
                 Instruction::r#return(),
             ],

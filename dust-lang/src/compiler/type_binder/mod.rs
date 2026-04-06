@@ -1212,6 +1212,16 @@ impl SyntaxVisitor for TypeBinder<'_> {
         Ok(TypeId::UNIT)
     }
 
+    fn visit_break_expression(
+        &mut self,
+        reader: SyntaxReader,
+        _: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
+        self.resolver.add_type_binding(reader.id, TypeId::UNIT);
+
+        Ok(TypeId::UNIT)
+    }
+
     fn visit_call_expression(
         &mut self,
         reader: SyntaxReader,
@@ -1239,10 +1249,11 @@ impl SyntaxVisitor for TypeBinder<'_> {
                             ..
                         } => (type_parameters, value_parameters, return_type_id),
                         Definition::NativeFunction {
+                            type_parameters,
                             value_parameters,
                             return_type_id,
                             ..
-                        } => (Default::default(), value_parameters, return_type_id),
+                        } => (type_parameters, value_parameters, return_type_id),
                         _ => {
                             return Err(CompileError::ExpectedFunctionType {
                                 found: resolved_callee_type_id,
@@ -1275,6 +1286,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
                 let mut argument_count = 0;
                 let mut parameter_range = value_parameters.as_range();
+
+                if callee.node.kind == SyntaxKind::FieldAccessExpression {
+                    parameter_range.next(); // For method calls, skip the `self` parameter
+                }
 
                 for argument in arguments.children() {
                     let Some(parameter_index) = parameter_range.next() else {
@@ -1438,18 +1453,50 @@ impl SyntaxVisitor for TypeBinder<'_> {
             .declarations
             .get_declaration(field_declaration_id)?;
 
-        let Definition::Field { type_id, .. } = field_declaration.definition else {
-            return Err(CompileError::ExpectedValue {
-                node_kind: field_name.node.kind,
-                position: field_name.position(),
-            });
+        let type_id = match field_declaration.definition {
+            Definition::Field { type_id, .. } => self.resolver.resolve_type(type_id)?,
+            Definition::Function {
+                type_parameters, ..
+            } => {
+                let type_argument_types: SmallVec<[TypeId; 4]> = type_parameters
+                    .as_range()
+                    .map(|index| {
+                        let type_parameter_declaration_id = self
+                            .resolver
+                            .declarations
+                            .get_declaration_member(index)
+                            .copied();
+
+                        match type_parameter_declaration_id {
+                            Ok(type_parameter_declaration_id) => self
+                                .resolver
+                                .type_parameter_map
+                                .get(&type_parameter_declaration_id)
+                                .copied()
+                                .unwrap_or_else(|| self.resolver.types.create_inferred_type(None)),
+                            Err(_) => self.resolver.types.create_inferred_type(None),
+                        }
+                    })
+                    .collect();
+
+                let type_arguments = self.resolver.types.add_type_members(type_argument_types);
+
+                self.resolver.types.add_type(Type::FunctionDefinition {
+                    declaration_id: field_declaration_id,
+                    type_arguments,
+                })
+            }
+            _ => {
+                return Err(CompileError::ExpectedValue {
+                    node_kind: field_name.node.kind,
+                    position: field_name.position(),
+                });
+            }
         };
 
-        let resolved_type_id = self.resolver.resolve_type(type_id)?;
+        self.resolver.add_type_binding(reader.id, type_id);
 
-        self.resolver.add_type_binding(reader.id, resolved_type_id);
-
-        Ok(resolved_type_id)
+        Ok(type_id)
     }
 
     fn visit_type(&mut self, reader: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {

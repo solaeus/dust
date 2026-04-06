@@ -46,6 +46,8 @@ pub struct DeclarationBinder<'a> {
     errors: &'a mut Vec<ErrorKind>,
 
     current_scope_id: ScopeId,
+
+    current_self_type_id: Option<TypeId>,
 }
 
 impl<'a> DeclarationBinder<'a> {
@@ -62,6 +64,7 @@ impl<'a> DeclarationBinder<'a> {
             resolver,
             errors,
             current_scope_id: starting_scope_id,
+            current_self_type_id: None,
         }
     }
 }
@@ -818,7 +821,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .declarations
             .add_declaration_members(type_parameter_declaration_ids);
 
-        let mut member_declaration_ids = SmallVec::<[DeclarationId; 8]>::new();
+        let self_type_id = self.visit_type(self_type)?;
+        let previous_self_type_id = self.current_self_type_id.replace(self_type_id);
+
+        let mut member_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
 
         for child in body.children() {
             match child.node.kind {
@@ -849,12 +855,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             }
         }
 
+        self.current_self_type_id = previous_self_type_id;
+
         let declarations = self
             .resolver
             .declarations
             .add_declaration_members(member_declaration_ids);
-
-        self.visit_type(self_type)?;
 
         let impl_symbol_id = self.resolver.symbols.add_impl_symbol();
         let impl_declaration_id = self.resolver.declarations.add_declaration(Declaration {
@@ -939,6 +945,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         };
 
         let impl_declaration_id = self.resolver.declarations.reserve_declaration_id();
+
+        let self_type_id = self.visit_type(self_type)?;
+        let previous_self_type_id = self.current_self_type_id.replace(self_type_id);
+
         let mut member_declaration_ids = SmallVec::<[DeclarationId; 8]>::new();
 
         for child in body.children() {
@@ -1032,12 +1042,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             }
         }
 
+        self.current_self_type_id = previous_self_type_id;
+
         let declarations = self
             .resolver
             .declarations
             .add_declaration_members(member_declaration_ids);
-
-        self.visit_type(self_type)?;
 
         let impl_symbol_id = self.resolver.symbols.add_impl_symbol();
 
@@ -1770,6 +1780,14 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         Ok(())
     }
 
+    fn visit_break_expression(
+        &mut self,
+        _: SyntaxReader,
+        _: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
+        Ok(())
+    }
+
     fn visit_call_expression(
         &mut self,
         reader: SyntaxReader,
@@ -1855,10 +1873,15 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             }
         }
 
-        let field_declaration_id = found_field_declaration_id.ok_or(CompileError::Undeclared {
-            symbol_id: field_symbol_id,
-            usage_position: field_name.position(),
-        })?;
+        let field_declaration_id = match found_field_declaration_id {
+            Some(id) => id,
+            None => {
+                let (member_id, _) =
+                    search_impl_member(self, declaration_id, field_symbol_id, &field_name)?;
+
+                member_id
+            }
+        };
 
         self.resolver
             .add_declaration_binding(field_name.id, field_declaration_id);
@@ -1981,6 +2004,14 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     }
                 }
             }
+            SyntaxKind::SelfType => self.current_self_type_id.ok_or_else(|| {
+                let symbol_id = self.resolver.symbols.add_symbol("Self");
+
+                CompileError::Undeclared {
+                    symbol_id,
+                    usage_position: reader.position(),
+                }
+            })?,
             _ => {
                 return Err(CompileError::ExpectedSyntaxKinds {
                     expected: &[
@@ -2002,6 +2033,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                         SyntaxKind::TupleType,
                         SyntaxKind::FunctionType,
                         SyntaxKind::TypePath,
+                        SyntaxKind::SelfType,
                     ],
                     found: reader.node.kind,
                 });
@@ -2144,27 +2176,32 @@ fn search_impl_member<'a>(
         .get_declaration(type_declaration_id)?;
     let type_scope_id = type_declaration.scope_id;
 
-    for (_, declaration) in binder.resolver.declarations.iter() {
+    for (declaration_id, declaration) in binder.resolver.declarations.iter() {
         if declaration.scope_id != type_scope_id {
             continue;
         }
 
-        let Definition::InherentImplementation { declarations, .. } = declaration.definition else {
-            continue;
-        };
+        match declaration.definition {
+            Definition::InherentImplementation { declarations, .. } => {
+                let member_ids = binder
+                    .resolver
+                    .declarations
+                    .get_declaration_members(&declarations)?;
 
-        let member_ids = binder
-            .resolver
-            .declarations
-            .get_declaration_members(&declarations)?
-            .to_vec();
+                for &member_id in member_ids {
+                    let member = binder.resolver.declarations.get_declaration(member_id)?;
 
-        for member_id in member_ids {
-            let member = binder.resolver.declarations.get_declaration(member_id)?;
-
-            if member.symbol_id == symbol_id {
-                return Ok((member_id, member.definition));
+                    if member.symbol_id == symbol_id {
+                        return Ok((member_id, member.definition));
+                    }
+                }
             }
+            Definition::Variant { parent_enum, .. }
+                if parent_enum == type_declaration_id && declaration.symbol_id == symbol_id =>
+            {
+                return Ok((declaration_id, declaration.definition));
+            }
+            _ => continue,
         }
     }
 

@@ -2654,7 +2654,7 @@ impl SyntaxVisitor for Emitter<'_> {
     fn visit_path_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        target: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
         let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
@@ -2667,7 +2667,11 @@ impl SyntaxVisitor for Emitter<'_> {
             && fields.is_empty()
         {
             let type_id = *self.resolver.get_type_binding(&reader.id)?;
-            let target = self.allocate_registers(type_id, true, &reader)?;
+            let target = if let Some(target) = target {
+                target
+            } else {
+                self.allocate_registers(type_id, true, &reader)?
+            };
             let discriminant_constant = self.add_constant(ConstantValue::U32(discriminant));
             let destination = target.index();
             let move_instruction = Instruction::r#move(
@@ -3662,6 +3666,10 @@ impl SyntaxVisitor for Emitter<'_> {
             while_emission.merge(instructions);
         }
 
+        for break_id in self.jump_over_branch_ids.drain(..) {
+            while_emission.push_drop_anchor(JumpAnchor::ForwardToNext { id: break_id });
+        }
+
         while_emission.push_drop_anchor(JumpAnchor::LoopEndOnNext {
             forward_id: jump_forward_id,
             backward_id: jump_backward_id,
@@ -3669,6 +3677,23 @@ impl SyntaxVisitor for Emitter<'_> {
         while_emission.set_target(None);
 
         Ok(Emission::Instructions(while_emission))
+    }
+
+    fn visit_break_expression(
+        &mut self,
+        _: SyntaxReader<'_>,
+        _: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError> {
+        let break_id = self.create_jump_id();
+
+        self.jump_over_branch_ids.push(break_id);
+
+        let mut break_emission = InstructionsEmission::new();
+
+        break_emission.push(Instruction::no_op());
+        break_emission.push_drop_anchor(JumpAnchor::ForwardFromHere { id: break_id });
+
+        Ok(Emission::Instructions(break_emission))
     }
 
     fn visit_call_expression(
@@ -3877,7 +3902,12 @@ impl SyntaxVisitor for Emitter<'_> {
 
         for argument in arguments.children() {
             has_arguments = true;
-            let argument_emission = self.visit_expression(argument, None)?;
+
+            let argument_type_id = *self.resolver.get_type_binding(&argument.id)?;
+            let argument_target = self.allocate_registers(argument_type_id, true, &argument)?;
+            self.register_tracker.next_temporary = argument_target.index();
+
+            let argument_emission = self.visit_expression(argument, Some(argument_target))?;
 
             if let Emission::Constant(constant) = &argument_emission
                 && constant.fits_in_encoded()
@@ -3894,6 +3924,11 @@ impl SyntaxVisitor for Emitter<'_> {
                 );
 
                 call_instructions.push(move_instruction);
+                continue;
+            }
+
+            if let Emission::Instructions(instructions) = argument_emission {
+                call_instructions.merge(instructions);
                 continue;
             }
 

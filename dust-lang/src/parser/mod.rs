@@ -462,7 +462,7 @@ impl<'src> Parser<'src> {
                 self.expect(TokenKind::Semicolon)?;
 
                 self.tree_builder
-                    .add_node(SyntaxKind::StructItemUnit.empty(self.current_token.span))
+                    .add_node(SyntaxKind::StructItemUnit.empty(self.previous_token.span))
             }
         };
 

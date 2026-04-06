@@ -137,6 +137,7 @@ pub trait SyntaxVisitor {
             SyntaxKind::BlockExpression => self.visit_block_expression(reader, input),
             SyntaxKind::IfExpression => self.visit_if_expression(reader, input),
             SyntaxKind::WhileExpression => self.visit_while_expression(reader, input),
+            SyntaxKind::BreakExpression => self.visit_break_expression(reader, input),
             SyntaxKind::CallExpression => self.visit_call_expression(reader, input),
             SyntaxKind::FieldAccessExpression => self.visit_field_access_expression(reader, input),
             _ => Err(CompileError::ExpectedSyntaxKinds {
@@ -181,6 +182,7 @@ pub trait SyntaxVisitor {
                     SyntaxKind::BlockExpression,
                     SyntaxKind::IfExpression,
                     SyntaxKind::WhileExpression,
+                    SyntaxKind::BreakExpression,
                     SyntaxKind::CallExpression,
                     SyntaxKind::FieldAccessExpression,
                 ],
@@ -352,6 +354,12 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_while_expression(
+        &mut self,
+        reader: SyntaxReader,
+        input: Option<Self::ExpressionInput>,
+    ) -> Result<Self::ExpressionOutput, CompileError>;
+
+    fn visit_break_expression(
         &mut self,
         reader: SyntaxReader,
         input: Option<Self::ExpressionInput>,

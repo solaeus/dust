@@ -39,7 +39,7 @@ fn tuple_variant() {
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::U_32, OperandType::F_64],
-            register_count: 2,
+            register_count: 3,
             argument_count: 0,
         }
     );

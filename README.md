@@ -6,7 +6,7 @@
 
 Dust is a general-purpose interpreted language based on the best features of modern programming languages.
 
-## Examples
+# Example
 
 If you know Rust, you already know Dust. If you know another C-family language, you already know most of Dust. Dust does not have "advanced" syntax or clever tricks. This is a choice inspired by Rust. The syntax is *composable*, favoring versatility of expression over terseness.
 
@@ -128,22 +128,6 @@ design choices and a high-quality implementation, providing **correctness**, **p
   - Simple syntax that is easy to read and write and resembles other C-family languages
   - Helpful error messages that guide users to correct syntax
   - Batteries included in a standard library that is always available
-
-## Usage
-
-**Dust is under active development and is not yet ready for general use.**
-
-The Dust CLI has commands to run, disassemble or tokenize Dust code. It can also provide logging at
-different levels and measure the time taken for compilation and execution.
-
-If not specified, the CLI will use the `run` command. This mode compiles and executes the Dust
-program, printing the return value to the console. You can also run Dust code directly from the
-command line using the `--eval` or `-e` flag.
-
-```sh
-dust foobar.ds
-dust -e 'let x = 42; x'
-```
 
 ## Benchmarks
 
