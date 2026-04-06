@@ -33,11 +33,13 @@ impl Types {
         let _i32_type_id = types.add_type(Type::SignedInteger(SignedIntegerType::I32));
         let _i64_type_id = types.add_type(Type::SignedInteger(SignedIntegerType::I64));
         let _i128_type_id = types.add_type(Type::SignedInteger(SignedIntegerType::I128));
+        let _isize_type_id = types.add_type(Type::SignedInteger(SignedIntegerType::ISize));
         let _u8_type_id = types.add_type(Type::UnsignedInteger(UnsignedIntegerType::U8));
         let _u16_type_id = types.add_type(Type::UnsignedInteger(UnsignedIntegerType::U16));
         let _u32_type_id = types.add_type(Type::UnsignedInteger(UnsignedIntegerType::U32));
         let _u64_type_id = types.add_type(Type::UnsignedInteger(UnsignedIntegerType::U64));
         let _u128_type_id = types.add_type(Type::UnsignedInteger(UnsignedIntegerType::U128));
+        let _usize_type_id = types.add_type(Type::UnsignedInteger(UnsignedIntegerType::USize));
         let _f32_type_id = types.add_type(Type::Float(FloatType::F32));
         let _f64_type_id = types.add_type(Type::Float(FloatType::F64));
         let _character_type_id = types.add_type(Type::Character);
@@ -50,11 +52,13 @@ impl Types {
         debug_assert_eq!(_i32_type_id, TypeId::I_32);
         debug_assert_eq!(_i64_type_id, TypeId::I_64);
         debug_assert_eq!(_i128_type_id, TypeId::I_128);
+        debug_assert_eq!(_isize_type_id, TypeId::I_SIZE);
         debug_assert_eq!(_u8_type_id, TypeId::U_8);
         debug_assert_eq!(_u16_type_id, TypeId::U_16);
         debug_assert_eq!(_u32_type_id, TypeId::U_32);
         debug_assert_eq!(_u64_type_id, TypeId::U_64);
         debug_assert_eq!(_u128_type_id, TypeId::U_128);
+        debug_assert_eq!(_usize_type_id, TypeId::U_SIZE);
         debug_assert_eq!(_f32_type_id, TypeId::F_32);
         debug_assert_eq!(_f64_type_id, TypeId::F_64);
         debug_assert_eq!(_character_type_id, TypeId::CHARACTER);
@@ -133,15 +137,17 @@ impl TypeId {
     pub const I_32: Self = TypeId(4);
     pub const I_64: Self = TypeId(5);
     pub const I_128: Self = TypeId(6);
-    pub const U_8: Self = TypeId(7);
-    pub const U_16: Self = TypeId(8);
-    pub const U_32: Self = TypeId(9);
-    pub const U_64: Self = TypeId(10);
-    pub const U_128: Self = TypeId(11);
-    pub const F_32: Self = TypeId(12);
-    pub const F_64: Self = TypeId(13);
-    pub const CHARACTER: Self = TypeId(14);
-    pub const NEVER: Self = TypeId(15);
+    pub const I_SIZE: Self = TypeId(7);
+    pub const U_8: Self = TypeId(8);
+    pub const U_16: Self = TypeId(9);
+    pub const U_32: Self = TypeId(10);
+    pub const U_64: Self = TypeId(11);
+    pub const U_128: Self = TypeId(12);
+    pub const U_SIZE: Self = TypeId(13);
+    pub const F_32: Self = TypeId(14);
+    pub const F_64: Self = TypeId(15);
+    pub const CHARACTER: Self = TypeId(16);
+    pub const NEVER: Self = TypeId(17);
 
     pub fn inner(self) -> u32 {
         self.0
@@ -152,19 +158,21 @@ impl TypeId {
             self,
             Self::UNIT
                 | Self::BOOLEAN
-                | Self::CHARACTER
                 | Self::I_8
                 | Self::I_16
                 | Self::I_32
                 | Self::I_64
                 | Self::I_128
+                | Self::I_SIZE
                 | Self::U_8
                 | Self::U_16
                 | Self::U_32
                 | Self::U_64
                 | Self::U_128
+                | Self::U_SIZE
                 | Self::F_32
                 | Self::F_64
+                | Self::CHARACTER
                 | Self::NEVER
         )
     }

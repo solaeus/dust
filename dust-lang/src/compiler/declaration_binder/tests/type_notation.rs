@@ -78,6 +78,13 @@ fn i128_type() {
 }
 
 #[test]
+fn isize_type() {
+    let type_id = parameter_type_of_foo("fn foo(x: isize) {}");
+
+    assert_eq!(type_id, TypeId::I_SIZE);
+}
+
+#[test]
 fn u8_type() {
     let type_id = parameter_type_of_foo("fn foo(x: u8) {}");
 
@@ -110,6 +117,13 @@ fn u128_type() {
     let type_id = parameter_type_of_foo("fn foo(x: u128) {}");
 
     assert_eq!(type_id, TypeId::U_128);
+}
+
+#[test]
+fn usize_type() {
+    let type_id = parameter_type_of_foo("fn foo(x: usize) {}");
+
+    assert_eq!(type_id, TypeId::U_SIZE);
 }
 
 #[test]

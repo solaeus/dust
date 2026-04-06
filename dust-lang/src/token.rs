@@ -56,6 +56,7 @@ pub enum TokenKind {
     I8,
     If,
     Impl,
+    ISize,
     Let,
     Loop,
     Map,
@@ -76,6 +77,7 @@ pub enum TokenKind {
     U64,
     U8,
     Use,
+    USize,
     Where,
     While,
 
@@ -175,6 +177,7 @@ impl Display for TokenKind {
             TokenKind::Identifier => write!(f, "identifier"),
             TokenKind::If => write!(f, "if keyword"),
             TokenKind::Impl => write!(f, "impl keyword"),
+            TokenKind::ISize => write!(f, "isize keyword"),
             TokenKind::InnerBlockDocComment => write!(f, "inner block doc comment"),
             TokenKind::InnerLineDocComment => write!(f, "inner line doc comment"),
             TokenKind::IntegerLiteral => write!(f, "integer literal"),
@@ -220,6 +223,7 @@ impl Display for TokenKind {
             TokenKind::U8 => write!(f, "u8 keyword"),
             TokenKind::Unknown => write!(f, "unknown token"),
             TokenKind::Use => write!(f, "use keyword"),
+            TokenKind::USize => write!(f, "usize keyword"),
             TokenKind::Where => write!(f, "where keyword"),
             TokenKind::While => write!(f, "while keyword"),
         }

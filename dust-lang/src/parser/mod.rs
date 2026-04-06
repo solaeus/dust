@@ -1159,6 +1159,16 @@ impl<'src> Parser<'src> {
 
                 Ok(SyntaxKind::I128Type.empty(self.previous_token.span))
             }
+            TokenKind::USize => {
+                self.advance();
+
+                Ok(SyntaxKind::USizeType.empty(self.previous_token.span))
+            }
+            TokenKind::ISize => {
+                self.advance();
+
+                Ok(SyntaxKind::ISizeType.empty(self.previous_token.span))
+            }
             TokenKind::F32 => {
                 self.advance();
 
@@ -1352,11 +1362,13 @@ impl<'src> Parser<'src> {
                     TokenKind::I32,
                     TokenKind::I64,
                     TokenKind::I128,
+                    TokenKind::ISize,
                     TokenKind::U8,
                     TokenKind::U16,
                     TokenKind::U32,
                     TokenKind::U64,
                     TokenKind::U128,
+                    TokenKind::USize,
                     TokenKind::F32,
                     TokenKind::F64,
                     TokenKind::Char,

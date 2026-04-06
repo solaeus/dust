@@ -226,20 +226,18 @@ impl<'a> SyntaxComponent<'a> for EnumVariant<'a> {
                 | SyntaxKind::EnumTupleVariant
         ));
 
-        match reader.node.kind {
-            SyntaxKind::EnumUnitVariant => Ok(Self {
+        if reader.has_children() {
+            let (name, fields) = reader.binary_children()?;
+
+            Ok(Self {
+                name,
+                fields: Some(fields),
+            })
+        } else {
+            Ok(Self {
                 name: *reader,
                 fields: None,
-            }),
-            SyntaxKind::EnumStructVariant | SyntaxKind::EnumTupleVariant => {
-                let mut children = reader.children();
-
-                Ok(Self {
-                    name: children.expect_next()?,
-                    fields: Some(children.expect_next()?),
-                })
-            }
-            _ => unreachable!(),
+            })
         }
     }
 }

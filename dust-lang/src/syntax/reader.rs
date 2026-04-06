@@ -56,6 +56,10 @@ impl<'a> SyntaxReader<'a> {
         }
     }
 
+    pub fn has_children(&self) -> bool {
+        self.node.children_kind != SyntaxPayloadKind::Empty
+    }
+
     pub fn has_left_child(&self) -> bool {
         matches!(
             self.node.children_kind,

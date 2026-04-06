@@ -273,6 +273,7 @@ fn keywords() {
         ("i128", TokenKind::I128),
         ("if", TokenKind::If),
         ("impl", TokenKind::Impl),
+        ("isize", TokenKind::ISize),
         ("let", TokenKind::Let),
         ("loop", TokenKind::Loop),
         ("map", TokenKind::Map),
@@ -293,6 +294,7 @@ fn keywords() {
         ("u64", TokenKind::U64),
         ("u128", TokenKind::U128),
         ("use", TokenKind::Use),
+        ("usize", TokenKind::USize),
         ("where", TokenKind::Where),
         ("while", TokenKind::While),
     ];

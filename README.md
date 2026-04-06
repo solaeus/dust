@@ -6,7 +6,7 @@
 
 Dust is a general-purpose interpreted language based on the best features of modern programming languages.
 
-# Example
+## Example
 
 If you know Rust, you already know Dust. If you know another C-family language, you already know most of Dust. Dust does not have "advanced" syntax or clever tricks. This is a choice inspired by Rust. The syntax is *composable*, favoring versatility of expression over terseness.
 
@@ -47,7 +47,7 @@ struct User {
 enum Title { // Each `enum` variant is a discriminant plus the size of the largest variant
     Sir,
     Madam,
-    Doctor,
+    Overlord,
     Custom(String),
 }
 

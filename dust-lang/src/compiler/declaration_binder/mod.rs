@@ -505,7 +505,16 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 }
             }
             SyntaxKind::StructItemUnit => {}
-            _ => unreachable!(),
+            _ => {
+                return Err(CompileError::ExpectedSyntaxKinds {
+                    expected: &[
+                        SyntaxKind::StructItemTupleFields,
+                        SyntaxKind::StructItemStructFields,
+                        SyntaxKind::StructItemUnit,
+                    ],
+                    found: fields.node.kind,
+                });
+            }
         }
 
         let fields = self
@@ -582,16 +591,17 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             let variant_symbol = self.resolver.symbols.add_symbol(variant_name_str);
 
             let fields = if let Some(variant_fields) = variant_fields {
-                let field_ids = match variant_fields.node.kind {
-                    SyntaxKind::StructItemTupleFields => {
-                        let StructItemTupleFields { types } =
-                            StructItemTupleFields::from_reader(&variant_fields)?;
+                let mut field_ids = SmallVec::<[DeclarationId; 4]>::new();
 
-                        let mut ids = SmallVec::<[DeclarationId; 4]>::new();
+                match variant_fields.node.kind {
+                    SyntaxKind::StructItemTupleFields => {
+                        let StructItemTupleFields { types } = variant_fields.as_component()?;
 
                         for field_type in types {
-                            let symbol_id =
-                                self.resolver.symbols.add_index_symbol(ids.len() as u32);
+                            let symbol_id = self
+                                .resolver
+                                .symbols
+                                .add_index_symbol(field_ids.len() as u32);
                             let type_id = self.visit_type(field_type)?;
                             let field_declaration_id =
                                 self.resolver.declarations.add_declaration(Declaration {
@@ -605,17 +615,14 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                                     syntax: Some((field_type.position(), field_type.id)),
                                 });
 
-                            ids.push(field_declaration_id);
+                            field_ids.push(field_declaration_id);
                         }
-
-                        ids
                     }
                     SyntaxKind::StructItemStructFields => {
                         let StructItemStructFields { name_type_pairs } =
-                            StructItemStructFields::from_reader(&variant_fields)?;
+                            variant_fields.as_component()?;
 
                         let file = self.source.get_file(variant_name.file_id())?;
-                        let mut ids = SmallVec::<[DeclarationId; 4]>::new();
 
                         for [field_name, field_type] in name_type_pairs {
                             let field_name_str = file.content_str(field_name.node.span)?;
@@ -633,13 +640,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                                     syntax: Some((field_name.position(), field_name.id)),
                                 });
 
-                            ids.push(field_declaration_id);
+                            field_ids.push(field_declaration_id);
                         }
-
-                        ids
                     }
-                    _ => SmallVec::default(),
-                };
+                    _ => {}
+                }
 
                 self.resolver
                     .declarations
@@ -1897,11 +1902,13 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             SyntaxKind::I32Type => TypeId::I_32,
             SyntaxKind::I64Type => TypeId::I_64,
             SyntaxKind::I128Type => TypeId::I_128,
+            SyntaxKind::ISizeType => TypeId::I_SIZE,
             SyntaxKind::U8Type => TypeId::U_8,
             SyntaxKind::U16Type => TypeId::U_16,
             SyntaxKind::U32Type => TypeId::U_32,
             SyntaxKind::U64Type => TypeId::U_64,
             SyntaxKind::U128Type => TypeId::U_128,
+            SyntaxKind::USizeType => TypeId::U_SIZE,
             SyntaxKind::F32Type => TypeId::F_32,
             SyntaxKind::F64Type => TypeId::F_64,
             SyntaxKind::CharacterType => TypeId::CHARACTER,
@@ -2021,11 +2028,13 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                         SyntaxKind::I32Type,
                         SyntaxKind::I64Type,
                         SyntaxKind::I128Type,
+                        SyntaxKind::ISizeType,
                         SyntaxKind::U8Type,
                         SyntaxKind::U16Type,
                         SyntaxKind::U32Type,
                         SyntaxKind::U64Type,
                         SyntaxKind::U128Type,
+                        SyntaxKind::USizeType,
                         SyntaxKind::F32Type,
                         SyntaxKind::F64Type,
                         SyntaxKind::CharacterType,

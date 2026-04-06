@@ -9,10 +9,9 @@ pub type InfixParser<'a> = fn(&mut Parser<'a>, SyntaxNode) -> Result<SyntaxNode,
 
 /// Pratt parsing rule for a single token.
 ///
-/// Each token can have a prefix and/or infix parsing function associated with it, which is used to
-/// parse an item, statement or expression involving that token. The [`Precedence`][] determines the
-/// order of operations when parsing infix operators and the [`Associativity`][] determines how
-/// operators of the same precedence are grouped.
+/// Each token has a prefix parsing function and an optional infix parsing function associated with
+/// it. The [`Precedence`][] determines the order of operations when parsing infix operators and the
+/// [`Associativity`][] determines how operators of the same precedence are grouped.
 #[derive(Debug)]
 pub struct ParseRule<'a> {
     pub prefix: PrefixParser<'a>,
@@ -78,32 +77,8 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
-            TokenKind::False => ParseRule {
-                prefix: Parser::parse_prefix_boolean,
-                infix: None,
-                precedence: Precedence::None,
-                associativity: Associativity::Left,
-            },
-            TokenKind::For => ParseRule {
-                prefix: Parser::parse_unexpected,
-                infix: None,
-                precedence: Precedence::None,
-                associativity: Associativity::Left,
-            },
-            TokenKind::True => ParseRule {
-                prefix: Parser::parse_prefix_boolean,
-                infix: None,
-                precedence: Precedence::None,
-                associativity: Associativity::Left,
-            },
             TokenKind::Break => ParseRule {
                 prefix: Parser::parse_prefix_break_keyword,
-                infix: None,
-                precedence: Precedence::None,
-                associativity: Associativity::Left,
-            },
-            TokenKind::HexIntegerLiteral => ParseRule {
-                prefix: Parser::parse_prefix_hexadecimal_integer,
                 infix: None,
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
@@ -174,6 +149,18 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
+            TokenKind::DoubleDot => ParseRule {
+                prefix: Parser::parse_unexpected,
+                infix: Some(Parser::parse_infix_binary_operator),
+                precedence: Precedence::Range,
+                associativity: Associativity::Left,
+            },
+            TokenKind::DoubleDotEqual => ParseRule {
+                prefix: Parser::parse_unexpected,
+                infix: Some(Parser::parse_infix_binary_operator),
+                precedence: Precedence::Range,
+                associativity: Associativity::Left,
+            },
             TokenKind::DoubleEqual => ParseRule {
                 prefix: Parser::parse_unexpected,
                 infix: Some(Parser::parse_infix_binary_operator),
@@ -186,16 +173,16 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::Logic,
                 associativity: Associativity::Left,
             },
-            TokenKind::DoubleDot => ParseRule {
+            TokenKind::Else => ParseRule {
                 prefix: Parser::parse_unexpected,
-                infix: Some(Parser::parse_infix_binary_operator),
-                precedence: Precedence::Range,
+                infix: None,
+                precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
-            TokenKind::DoubleDotEqual => ParseRule {
-                prefix: Parser::parse_unexpected,
-                infix: Some(Parser::parse_infix_binary_operator),
-                precedence: Precedence::Range,
+            TokenKind::Enum => ParseRule {
+                prefix: Parser::parse_prefix_enum_keyword,
+                infix: None,
+                precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
             TokenKind::Eof => ParseRule {
@@ -210,18 +197,6 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::Assignment,
                 associativity: Associativity::Right,
             },
-            TokenKind::Else => ParseRule {
-                prefix: Parser::parse_unexpected,
-                infix: None,
-                precedence: Precedence::None,
-                associativity: Associativity::Left,
-            },
-            TokenKind::Enum => ParseRule {
-                prefix: Parser::parse_prefix_enum_keyword,
-                infix: None,
-                precedence: Precedence::None,
-                associativity: Associativity::Left,
-            },
             TokenKind::F32 => ParseRule {
                 prefix: Parser::parse_unexpected,
                 infix: None,
@@ -230,6 +205,12 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::F64 => ParseRule {
                 prefix: Parser::parse_unexpected,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
+            TokenKind::False => ParseRule {
+                prefix: Parser::parse_prefix_boolean,
                 infix: None,
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
@@ -246,6 +227,12 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
+            TokenKind::For => ParseRule {
+                prefix: Parser::parse_unexpected,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
             TokenKind::Greater => ParseRule {
                 prefix: Parser::parse_unexpected,
                 infix: Some(Parser::parse_infix_binary_operator),
@@ -258,7 +245,13 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::Comparison,
                 associativity: Associativity::Left,
             },
-            TokenKind::I8 => ParseRule {
+            TokenKind::HexIntegerLiteral => ParseRule {
+                prefix: Parser::parse_prefix_hexadecimal_integer,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
+            TokenKind::I128 => ParseRule {
                 prefix: Parser::parse_unexpected,
                 infix: None,
                 precedence: Precedence::None,
@@ -282,7 +275,13 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
-            TokenKind::I128 => ParseRule {
+            TokenKind::I8 => ParseRule {
+                prefix: Parser::parse_unexpected,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
+            TokenKind::ISize => ParseRule {
                 prefix: Parser::parse_unexpected,
                 infix: None,
                 precedence: Precedence::None,
@@ -522,13 +521,19 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
+            TokenKind::True => ParseRule {
+                prefix: Parser::parse_prefix_boolean,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
             TokenKind::Type => ParseRule {
                 prefix: Parser::parse_prefix_type_keyword,
                 infix: None,
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
-            TokenKind::U8 => ParseRule {
+            TokenKind::U128 => ParseRule {
                 prefix: Parser::parse_unexpected,
                 infix: None,
                 precedence: Precedence::None,
@@ -552,7 +557,13 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
-            TokenKind::U128 => ParseRule {
+            TokenKind::U8 => ParseRule {
+                prefix: Parser::parse_unexpected,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
+            TokenKind::USize => ParseRule {
                 prefix: Parser::parse_unexpected,
                 infix: None,
                 precedence: Precedence::None,

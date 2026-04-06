@@ -886,9 +886,23 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
                 b"alse" => Some(TokenKind::False),
                 _ => None,
             },
+            b'i' => {
+                if &token[1..5] == b"size" {
+                    Some(TokenKind::ISize)
+                } else {
+                    None
+                }
+            }
             b't' => {
                 if &token[1..5] == b"rait" {
                     Some(TokenKind::Trait)
+                } else {
+                    None
+                }
+            }
+            b'u' => {
+                if &token[1..5] == b"size" {
+                    Some(TokenKind::USize)
                 } else {
                     None
                 }

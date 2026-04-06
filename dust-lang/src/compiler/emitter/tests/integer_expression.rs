@@ -184,3 +184,69 @@ fn u128() {
         }
     );
 }
+
+#[test]
+fn isize() {
+    let prototype = emit_function("fn foo() -> isize { 42 }");
+
+    #[cfg(target_pointer_width = "64")]
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(0, OperandType::I_64, MemoryKind::ENCODED, 42),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_64],
+            register_count: 2,
+            argument_count: 0,
+        }
+    );
+
+    #[cfg(target_pointer_width = "32")]
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 42),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 0,
+        }
+    );
+}
+
+#[test]
+fn usize() {
+    let prototype = emit_function("fn foo() -> usize { 42 }");
+
+    #[cfg(target_pointer_width = "64")]
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(0, OperandType::U_64, MemoryKind::ENCODED, 42),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::U_64],
+            register_count: 2,
+            argument_count: 0,
+        }
+    );
+
+    #[cfg(target_pointer_width = "32")]
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(0, OperandType::U_32, MemoryKind::ENCODED, 42),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::U_32],
+            register_count: 1,
+            argument_count: 0,
+        }
+    );
+}
