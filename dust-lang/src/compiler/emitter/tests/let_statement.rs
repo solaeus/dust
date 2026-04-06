@@ -32,19 +32,19 @@ fn function_call_binding() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::call(1, MemoryKind::ENCODED, 1, u16::MAX),
+                Instruction::call(0, MemoryKind::ENCODED, 1, u16::MAX),
                 Instruction::add(
                     0,
                     OperandType::I_32,
                     MemoryKind::REGISTER,
-                    1,
+                    0,
                     MemoryKind::ENCODED,
                     1
                 ),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
-            register_count: 2,
+            register_count: 1,
             argument_count: 0,
         }
     );

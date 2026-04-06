@@ -31,24 +31,9 @@ use crate::{
         scopes::{Scope, ScopeId, ScopeKind},
         types::Type,
     },
-    source::{Source, SourceFile, SourceFileId},
-    syntax::{Syntax, components::FunctionItem, visitor::SyntaxVisitor},
+    source::{Source, SourceFileId},
+    syntax::{Syntax, node::SyntaxKind, components::{FunctionItem, TraitMethod}, visitor::SyntaxVisitor},
 };
-
-pub fn compile<'src>(source_files: &[(&'src str, &'src str)]) -> Result<Program, Error<'src>> {
-    let mut source = Source::new();
-
-    for (name, source_code) in source_files {
-        let file = SourceFile::validated_borrowed(name, source_code);
-
-        source.add_file(file);
-    }
-
-    let compiler = Compiler::new(source);
-    let program = compiler.compile(None)?;
-
-    Ok(program)
-}
 
 pub struct Compiler<'src> {
     syntax: Syntax,
@@ -243,14 +228,26 @@ impl<'src> Compiler<'src> {
                     return Err(errors);
                 }
             };
-            let function_item = unwrap_or_return!(
+            let syntax_node = unwrap_or_return!(
                 self.syntax
                     .get_tree(position.file_id)
                     .and_then(|tree| tree.get_node(syntax_id))
             );
-            let FunctionItem {
-                parameters, body, ..
-            } = unwrap_or_return!(function_item.as_component());
+            let (parameters, body) = if syntax_node.node.kind == SyntaxKind::TraitMethod {
+                let TraitMethod {
+                    parameters, body, ..
+                } = unwrap_or_return!(syntax_node.as_component());
+                let body = match body {
+                    Some(body) => body,
+                    None => continue,
+                };
+                (parameters, body)
+            } else {
+                let FunctionItem {
+                    parameters, body, ..
+                } = unwrap_or_return!(syntax_node.as_component());
+                (parameters, body)
+            };
             let scope_id = *unwrap_or_return!(self.resolver.get_scope_binding(&body.id));
 
             self.resolver.type_parameter_map.clear();
@@ -286,6 +283,41 @@ impl<'src> Compiler<'src> {
 
                     if let Type::Inferred { resolved, .. } = inferred_type {
                         *resolved = Some(*concrete_type_id);
+                    }
+                }
+
+                let scope =
+                    unwrap_or_return!(self.resolver.scopes.get_scope(declaration.scope_id));
+
+                if scope.kind == ScopeKind::Trait {
+                    let mut extra_index = type_parameter_declaration_ids.len();
+
+                    for (decl_id, decl) in self.resolver.declarations.iter() {
+                        if extra_index >= concrete_type_arguments.len() {
+                            break;
+                        }
+
+                        if decl.scope_id == declaration.scope_id
+                            && matches!(decl.definition, Definition::TypeParameter)
+                            && !self.resolver.type_parameter_map.contains_key(&decl_id)
+                        {
+                            let inferred_type_id =
+                                self.resolver.types.create_inferred_type(None);
+
+                            self.resolver
+                                .type_parameter_map
+                                .insert(decl_id, inferred_type_id);
+
+                            let inferred_type = unwrap_or_return!(
+                                self.resolver.types.get_type_mut(inferred_type_id)
+                            );
+
+                            if let Type::Inferred { resolved, .. } = inferred_type {
+                                *resolved = Some(concrete_type_arguments[extra_index]);
+                            }
+
+                            extra_index += 1;
+                        }
                     }
                 }
             }
@@ -362,7 +394,7 @@ impl<'src> Compiler<'src> {
                     }
                 };
 
-                if let Err(error) = emitter.bind_parameters(parameters) {
+                if let Err(error) = emitter.handle_parameters(parameters) {
                     errors.push(ErrorKind::Compile(error));
 
                     return Err(errors);

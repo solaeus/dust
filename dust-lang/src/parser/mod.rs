@@ -953,18 +953,21 @@ impl<'src> Parser<'src> {
         while !self.allow(TokenKind::RightCurlyBrace)? {
             match self.current_token.kind {
                 TokenKind::Fn => {
-                    let method_node = self.expect_trait_method_definition()?;
+                    let method_node = self.parse_trait_method_definition()?;
                     let method_id = self.tree_builder.add_node(method_node);
+
                     body_children.push(method_id);
                 }
                 TokenKind::Const => {
-                    let const_node = self.expect_trait_const()?;
+                    let const_node = self.parse_trait_const()?;
                     let const_id = self.tree_builder.add_node(const_node);
+
                     body_children.push(const_id);
                 }
                 TokenKind::Type => {
-                    let type_node = self.expect_trait_type()?;
+                    let type_node = self.parse_trait_type()?;
                     let type_id = self.tree_builder.add_node(type_node);
+
                     body_children.push(type_id);
                 }
                 _ => {
@@ -2219,7 +2222,7 @@ impl<'src> Parser<'src> {
         Ok(None)
     }
 
-    fn expect_trait_const(&mut self) -> Result<SyntaxNode, ParseError> {
+    fn parse_trait_const(&mut self) -> Result<SyntaxNode, ParseError> {
         let start = self.current_token.span.start();
 
         self.advance();
@@ -2262,7 +2265,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn expect_trait_type(&mut self) -> Result<SyntaxNode, ParseError> {
+    fn parse_trait_type(&mut self) -> Result<SyntaxNode, ParseError> {
         let start = self.current_token.span.start();
 
         self.advance();
@@ -2289,7 +2292,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn expect_trait_method_definition(&mut self) -> Result<SyntaxNode, ParseError> {
+    fn parse_trait_method_definition(&mut self) -> Result<SyntaxNode, ParseError> {
         let start = self.current_token.span.start();
 
         self.advance();

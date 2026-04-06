@@ -32,13 +32,13 @@ fn multiple_arguments() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 1),
-                Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 2),
-                Instruction::call(0, MemoryKind::ENCODED, 1, 1),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 1),
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 2),
+                Instruction::call(0, MemoryKind::ENCODED, 1, 0),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
-            register_count: 3,
+            register_count: 2,
             argument_count: 0,
         }
     );

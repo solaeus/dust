@@ -3,6 +3,7 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use crate::{
     compiler::emitter::JumpId,
     constant_list::ConstantListError,
+    dust_type::DustType,
     error::AnnotatedError,
     instruction::OperandType,
     resolver::{
@@ -379,7 +380,10 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let title = "Type conflict".to_string();
                 let expected_type_string = match resolver.get_external_type(*expected_type, source)
                 {
-                    Ok(r#type) => r#type,
+                    Ok(r#type) => match r#type {
+                        DustType::Struct(struct_type) => struct_type.name,
+                        _ => r#type.to_string(),
+                    },
                     Err(error) => {
                         error.add_report((), groups);
 

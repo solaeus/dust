@@ -110,7 +110,7 @@ fn emit_function(source_code: &str) -> Prototype {
     )
     .unwrap();
 
-    emitter.bind_parameters(parameters).unwrap();
+    emitter.handle_parameters(parameters).unwrap();
     emitter.emit_function_body(body).unwrap();
     emitter.finish().unwrap()
 }

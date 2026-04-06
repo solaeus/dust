@@ -13,14 +13,14 @@ fn constant_index() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 10),
-                Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 20),
-                Instruction::r#move(3, OperandType::I_32, MemoryKind::ENCODED, 30),
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::REGISTER, 2),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 10),
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 20),
+                Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 30),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::REGISTER, 1),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
-            register_count: 4,
+            register_count: 3,
             argument_count: 0,
         }
     );

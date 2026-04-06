@@ -1815,6 +1815,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.visit_expression(callee, None)?;
 
+        let callee_declaration_id = *self.resolver.get_declaration_binding(&callee.id)?;
+
+        self.resolver
+            .add_declaration_binding(reader.id, callee_declaration_id);
+
         for argument in arguments.children() {
             self.visit_expression(argument, None)?;
         }
@@ -1842,6 +1847,9 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let type_id = match operand_declaration.definition {
             Definition::Local { type_id, .. } | Definition::Field { type_id, .. } => type_id,
+            Definition::Function {
+                return_type_id, ..
+            } => return_type_id,
             _ => {
                 return Err(CompileError::ExpectedValue {
                     node_kind: operand.node.kind,
@@ -1852,17 +1860,76 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let operand_type = *self.resolver.types.get_type(type_id)?;
 
-        let Type::Algebraic { declaration_id, .. } = operand_type else {
-            return Err(CompileError::CannotAccessField {
-                type_id,
-                position: operand.position(),
-            });
-        };
+        let field_name_str = self.source.get_file_content(&field_name.position())?;
+        let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
 
-        let struct_declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+        let field_declaration_id = match operand_type {
+            Type::Algebraic { declaration_id, .. } => {
+                let struct_declaration =
+                    self.resolver.declarations.get_declaration(declaration_id)?;
 
-        let fields = match struct_declaration.definition {
-            Definition::StructType { fields, .. } | Definition::Variant { fields, .. } => fields,
+                let fields = match struct_declaration.definition {
+                    Definition::StructType { fields, .. }
+                    | Definition::Variant { fields, .. } => fields,
+                    _ => {
+                        return Err(CompileError::CannotAccessField {
+                            type_id,
+                            position: operand.position(),
+                        });
+                    }
+                };
+
+                let field_declaration_ids = self
+                    .resolver
+                    .declarations
+                    .get_declaration_members(&fields)?;
+
+                let mut found_field_declaration_id = None;
+
+                for &field_id in field_declaration_ids {
+                    let field_declaration =
+                        self.resolver.declarations.get_declaration(field_id)?;
+
+                    if field_declaration.symbol_id == field_symbol_id {
+                        found_field_declaration_id = Some(field_id);
+
+                        break;
+                    }
+                }
+
+                match found_field_declaration_id {
+                    Some(id) => id,
+                    None => {
+                        let (member_id, _) = search_impl_member(
+                            self,
+                            declaration_id,
+                            field_symbol_id,
+                            &field_name,
+                        )?;
+
+                        member_id
+                    }
+                }
+            }
+            Type::Generic { declaration_id } => {
+                let generic_declaration =
+                    self.resolver.declarations.get_declaration(declaration_id)?;
+                let scope_id = generic_declaration.scope_id;
+
+                match self
+                    .resolver
+                    .declarations
+                    .find_declaration(field_symbol_id, scope_id, Visibility::Module)
+                {
+                    Some((member_id, _)) => member_id,
+                    None => {
+                        return Err(CompileError::CannotAccessField {
+                            type_id,
+                            position: operand.position(),
+                        });
+                    }
+                }
+            }
             _ => {
                 return Err(CompileError::CannotAccessField {
                     type_id,
@@ -1871,38 +1938,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             }
         };
 
-        let field_name_str = self.source.get_file_content(&field_name.position())?;
-        let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
-
-        let field_declaration_ids = self
-            .resolver
-            .declarations
-            .get_declaration_members(&fields)?;
-
-        let mut found_field_declaration_id = None;
-
-        for &field_id in field_declaration_ids {
-            let field_declaration = self.resolver.declarations.get_declaration(field_id)?;
-
-            if field_declaration.symbol_id == field_symbol_id {
-                found_field_declaration_id = Some(field_id);
-
-                break;
-            }
-        }
-
-        let field_declaration_id = match found_field_declaration_id {
-            Some(id) => id,
-            None => {
-                let (member_id, _) =
-                    search_impl_member(self, declaration_id, field_symbol_id, &field_name)?;
-
-                member_id
-            }
-        };
-
         self.resolver
             .add_declaration_binding(field_name.id, field_declaration_id);
+        self.resolver
+            .add_declaration_binding(reader.id, field_declaration_id);
 
         Ok(())
     }

@@ -14,12 +14,12 @@ fn one_argument() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 5),
-                Instruction::call(0, MemoryKind::ENCODED, 1, 1),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 5),
+                Instruction::call(0, MemoryKind::ENCODED, 1, 0),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
-            register_count: 2,
+            register_count: 1,
             argument_count: 0,
         }
     );
@@ -53,13 +53,13 @@ fn multiple_arguments() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 3),
-                Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 4),
-                Instruction::call(0, MemoryKind::ENCODED, 1, 1),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 3),
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 4),
+                Instruction::call(0, MemoryKind::ENCODED, 1, 0),
                 Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
-            register_count: 3,
+            register_count: 2,
             argument_count: 0,
         }
     );
