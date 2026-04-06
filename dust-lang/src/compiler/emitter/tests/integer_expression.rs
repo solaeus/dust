@@ -85,7 +85,8 @@ fn i32() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 42),                Instruction::r#return(),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 42),
+                Instruction::r#return(),
             ],
             return_types: vec![OperandType::I_32],
             register_count: 1,

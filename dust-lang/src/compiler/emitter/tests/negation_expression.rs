@@ -40,3 +40,21 @@ fn constant() {
         }
     );
 }
+
+#[test]
+fn parameter() {
+    let prototype = emit_function("fn foo(x: i32) -> i32 { -x }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::negate(0, OperandType::I_32, MemoryKind::REGISTER, 0),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 1,
+        }
+    );
+}

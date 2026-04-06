@@ -22,3 +22,21 @@ fn variable() {
         }
     );
 }
+
+#[test]
+fn parameter() {
+    let prototype = emit_function("fn foo(x: bool) -> bool { !x }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::negate(0, OperandType::BOOLEAN, MemoryKind::REGISTER, 0),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::BOOLEAN],
+            register_count: 1,
+            argument_count: 1,
+        }
+    );
+}

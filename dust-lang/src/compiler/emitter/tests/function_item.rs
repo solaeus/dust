@@ -64,3 +64,44 @@ fn multiple_arguments() {
         }
     );
 }
+
+#[test]
+fn parameter_passthrough() {
+    let prototype =
+        emit_function("fn foo(x: i32) -> i32 { fn double(n: i32) -> i32 { n + n } double(x) }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::REGISTER, 0),
+                Instruction::call(0, MemoryKind::ENCODED, 1, 1),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 2,
+            argument_count: 1,
+        }
+    );
+}
+
+#[test]
+fn generic_monomorphization() {
+    let prototype = emit_function(
+        "fn identity<T>(x: T) -> T { x } fn foo(n: i32) -> i32 { identity::<i32>(n) }",
+    );
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::REGISTER, 0),
+                Instruction::call(0, MemoryKind::ENCODED, 1, 1),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 2,
+            argument_count: 1,
+        }
+    );
+}

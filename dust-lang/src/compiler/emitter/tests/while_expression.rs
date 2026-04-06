@@ -59,3 +59,23 @@ fn with_body() {
         }
     );
 }
+
+#[test]
+fn with_break() {
+    let prototype = emit_function("fn foo(x: bool) { while x { break; } }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::test(false, MemoryKind::REGISTER, 0, 2),
+                Instruction::jump(1, true),
+                Instruction::jump(1, false),
+                Instruction::r#return(),
+            ],
+            return_types: vec![],
+            register_count: 1,
+            argument_count: 1,
+        }
+    );
+}

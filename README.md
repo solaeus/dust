@@ -4,18 +4,11 @@
 
 **Programming language focused on correctness, performance and ease of use.**
 
-Dust is an ongoing research project into a language implementation that enforces static typing, has
-no null or undefined values and emits helpful errors that guide users to correct syntax. Dust is
-designed to combine the best features of expressive syntax, register-based virtual machines and
-static typing to deliver a language that never compromises on correctness or speed while remaining
-delightfully easy to read and write.
+Dust is a general-purpose interpreted language based on the best features of modern programming languages.
 
+## Examples
 
-```sh
-#!/bin/sh
- 
-dust -e 'write_line("Hello, world!")'
-```
+If you know Rust, you already know Dust. If you know another C-family language, you already know most of Dust. Dust does not have "advanced" syntax or clever tricks. This is a choice inspired by Rust. The syntax is *composable*, favoring versatility of expression over terseness.
 
 ```rust
 fn fib (n: i32) -> i32 {
@@ -29,6 +22,82 @@ fn fib (n: i32) -> i32 {
 fn main() -> i32 {
     fib(10)
 }
+```
+
+The CLI can wrap your input in a `main` function, allowing Dust to be used for ad-hoc commands and small single-purpose programs with full access to all of the language's features.
+  
+```sh
+dust -e 'write_line("Hello, world!")'
+```
+
+Despite being an interpreted language, Dust adheres to a performant and predictable data model. A `struct` instance or `enum` variant is **not** a heap object, its values are placed in consecutive registers in the virtual machine. That means that there is no runtime overhead for taking advantage of these features and the compile-time overhead is negligible (so much so that, in most programs, it cannot be reliably measured).
+
+```rust
+struct Database {         // A `struct` is just a convenient way to group data, not a heap object
+    users: Vec<User>,     // This field points to a heap-allocated array
+    next_user_id: UserId, // This field is treated the same as a raw `u32`
+}
+
+struct User {
+    name: String,   // Like `Vec`, `String` is stored as a pointer to a heap object
+    email: String,
+    title: Title,
+}
+
+enum Title { // Each `enum` variant is a discriminant plus the size of the largest variant
+    Sir,
+    Madam,
+    Doctor,
+    Custom(String),
+}
+
+struct UserId(u32); // A "newtype" has the same representation as its inner type 
+```
+
+An `impl` block allows types to be associated with functions, constants and other types. 
+
+```rust
+impl Database {
+    fn new() -> Self {
+        Database {
+            users: Vec::new(),
+            next_user_id: 0,
+        }
+    }
+    
+    fn add_user(&mut self, name: String, email: String) -> UserId {
+        let new_user_id = self.next_user_id;
+        let new_user = User {
+            id: self.next_user_id,
+            name,
+            email,
+        };
+        self.next_user_id.0 += 1;
+        
+        self.users.push(new_user);
+        
+        new_user_id
+    }
+    
+    fn get_user(&self, id: UserId) -> Option<User> {
+        self.users.get(id.0 as usize)
+    }
+}
+```
+
+```rust
+fn main() -> Option<User> {
+    let mut database = Database::new();
+    
+    database.add_user("bob", "bob@example.com");
+    database.add_user("alice", "alice@example.com");
+    database.add_user("eve", "eve@example.com");
+    
+    let id = read_line::<UserId>("Enter user ID: ");
+    
+    database.get_user(id)     
+}
+
 ```
 
 ## Project Status

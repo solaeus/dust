@@ -22,3 +22,30 @@ fn used_in_return() {
         }
     );
 }
+
+#[test]
+fn function_call_binding() {
+    let prototype =
+        emit_function("fn bar() -> i32 { 42 } fn foo() -> i32 { let x: i32 = bar(); x + 1 }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::call(1, MemoryKind::ENCODED, 1, u16::MAX),
+                Instruction::add(
+                    0,
+                    OperandType::I_32,
+                    MemoryKind::REGISTER,
+                    1,
+                    MemoryKind::ENCODED,
+                    1
+                ),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 2,
+            argument_count: 0,
+        }
+    );
+}

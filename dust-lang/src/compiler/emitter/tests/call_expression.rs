@@ -43,3 +43,25 @@ fn multiple_arguments() {
         }
     );
 }
+
+#[test]
+fn nested_call() {
+    let prototype = emit_function(
+        "fn double(x: i32) -> i32 { x + x } fn triple(x: i32) -> i32 { x + x + x } fn foo(n: i32) -> i32 { double(triple(n)) }",
+    );
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::REGISTER, 0),
+                Instruction::call(1, MemoryKind::ENCODED, 2, 1),
+                Instruction::call(0, MemoryKind::ENCODED, 1, 1),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 2,
+            argument_count: 1,
+        }
+    );
+}

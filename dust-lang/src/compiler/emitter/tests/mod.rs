@@ -10,6 +10,7 @@ mod call_expression;
 mod character_expression;
 mod comparison_expression;
 mod const_item;
+mod enum_expression;
 mod expression_statement;
 mod field_access_expression;
 mod float_expression;

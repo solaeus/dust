@@ -43,3 +43,71 @@ fn without_else() {
         }
     );
 }
+
+#[test]
+fn runtime_condition_with_else() {
+    let prototype = emit_function("fn foo(x: bool) -> i32 { if x { 1 } else { 2 } }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::test(true, MemoryKind::REGISTER, 0, 2),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 1),
+                Instruction::jump(1, true),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 2),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 1,
+        }
+    );
+}
+
+#[test]
+fn runtime_condition_without_else() {
+    let prototype = emit_function("fn foo(x: bool) { if x {} }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::test(true, MemoryKind::REGISTER, 0, 0),
+                Instruction::r#return(),
+            ],
+            return_types: vec![],
+            register_count: 1,
+            argument_count: 1,
+        }
+    );
+}
+
+#[test]
+fn runtime_comparison_condition() {
+    let prototype = emit_function("fn foo(x: i32) -> i32 { if (x == 1) { 10 } else { 20 } }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::equal(
+                    true,
+                    OperandType::I_32,
+                    MemoryKind::REGISTER,
+                    0,
+                    MemoryKind::ENCODED,
+                    1
+                ),
+                Instruction::jump(2, true),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 10),
+                Instruction::jump(1, true),
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 20),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32],
+            register_count: 1,
+            argument_count: 1,
+        }
+    );
+}

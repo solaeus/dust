@@ -6,17 +6,18 @@ use crate::{
 use super::emit_function;
 
 #[test]
-fn tail_expression() {
-    let prototype = emit_function("fn foo() -> i32 { let x: i32 = 1; { let y: i32 = 2; x + y } }");
+fn unit_variant() {
+    let prototype =
+        emit_function("enum Color { Red, Green, Blue } fn foo() -> Color { Color::Red }");
 
     assert_eq!(
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 3),
+                Instruction::r#move(0, OperandType::U_32, MemoryKind::CONSTANT, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: vec![OperandType::U_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -24,20 +25,20 @@ fn tail_expression() {
 }
 
 #[test]
-fn multi_register_return() {
+fn tuple_variant() {
     let prototype = emit_function(
-        "struct Pair { a: i32, b: i32 } fn foo() -> Pair { { Pair { a: 1, b: 2 } } }",
+        "enum Shape { Circle(f64), Square(f64) } fn foo() -> Shape { Shape::Circle(3.14) }",
     );
 
     assert_eq!(
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 1),
-                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 2),
+                Instruction::r#move(0, OperandType::U_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(1, OperandType::F_64, MemoryKind::CONSTANT, 1),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32, OperandType::I_32],
+            return_types: vec![OperandType::U_32, OperandType::F_64],
             register_count: 2,
             argument_count: 0,
         }

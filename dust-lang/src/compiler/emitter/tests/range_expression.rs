@@ -23,3 +23,22 @@ fn literal() {
         }
     );
 }
+
+#[test]
+fn runtime() {
+    let prototype = emit_function("fn foo(a: i32, b: i32) -> Range<i32> { a..b }");
+
+    assert_eq!(
+        prototype,
+        Prototype {
+            instructions: vec![
+                Instruction::r#move(0, OperandType::I_32, MemoryKind::REGISTER, 0),
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::REGISTER, 1),
+                Instruction::r#return(),
+            ],
+            return_types: vec![OperandType::I_32, OperandType::I_32],
+            register_count: 2,
+            argument_count: 2,
+        }
+    );
+}

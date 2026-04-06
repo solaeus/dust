@@ -232,8 +232,7 @@ fn array_repeat() {
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_child(Span::new(10, 24), SyntaxId(6)),
-            ArrayRepeatExpression
-                .with_binary_children(Span::new(16, 22), SyntaxId(4), SyntaxId(5)),
+            ArrayRepeatExpression.with_binary_children(Span::new(16, 22), SyntaxId(4), SyntaxId(5)),
             IntegerExpression.empty(Span::new(17, 18)),
             IntegerExpression.empty(Span::new(20, 21)),
         ]

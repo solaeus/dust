@@ -136,3 +136,64 @@ fn turbofish_provides_concrete_type_arguments() {
     assert_eq!(type_argument_ids.len(), 1);
     assert_eq!(type_argument_ids[0], TypeId::I_32);
 }
+
+#[test]
+fn struct_expression_field_types() {
+    type_bind_function("struct Foo { x: i32, y: bool } fn foo() -> Foo { Foo { x: 1, y: true } }");
+}
+
+#[test]
+fn negation_preserves_type() {
+    let (syntax, mut resolver, _) = type_bind_function("fn foo(x: i32) -> i32 { -x }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let neg_expr = tree
+        .iter()
+        .find(|n| n.node.kind == SyntaxKind::NegationExpression)
+        .unwrap();
+
+    let type_id = *resolver.get_type_binding(&neg_expr.id).unwrap();
+    let resolved = resolver.resolve_type(type_id).unwrap();
+
+    assert_eq!(resolved, TypeId::I_32);
+}
+
+#[test]
+fn generic_function_infers_type_from_argument() {
+    let (syntax, mut resolver, _) =
+        type_bind_function("fn bar<T>(x: T) -> T { x } fn foo() -> i32 { bar(1) }");
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let call_expr = tree
+        .iter()
+        .find(|n| n.node.kind == SyntaxKind::CallExpression)
+        .unwrap();
+
+    let type_id = *resolver.get_type_binding(&call_expr.id).unwrap();
+    let resolved = resolver.resolve_type(type_id).unwrap();
+
+    assert_eq!(resolved, TypeId::I_32);
+}
+
+#[test]
+fn method_call_return_type() {
+    let (syntax, mut resolver, _) = type_bind_function(
+        "struct Foo {} impl Foo { fn bar(self) -> i32 { 1 } } fn foo(f: Foo) -> i32 { f.bar() }",
+    );
+
+    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let call_expr = tree
+        .iter()
+        .find(|n| n.node.kind == SyntaxKind::CallExpression)
+        .unwrap();
+
+    let type_id = *resolver.get_type_binding(&call_expr.id).unwrap();
+    let resolved = resolver.resolve_type(type_id).unwrap();
+
+    assert_eq!(resolved, TypeId::I_32);
+}
+
+#[test]
+fn range_slice_type() {
+    type_bind_function("fn foo() { let arr: [i32; 5] = [1, 2, 3, 4, 5]; arr[1..3]; }");
+}
