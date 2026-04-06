@@ -318,6 +318,17 @@ impl<'a> Emitter<'a> {
                 Type::SignedInteger(SignedIntegerType::I128) => {
                     (OperandType::I_128, RegisterWidth::Quad)
                 }
+                Type::SignedInteger(SignedIntegerType::ISize) => {
+                    #[cfg(target_pointer_width = "64")]
+                    {
+                        (OperandType::I_64, RegisterWidth::Double)
+                    }
+
+                    #[cfg(target_pointer_width = "32")]
+                    {
+                        (OperandType::I_32, RegisterWidth::Single)
+                    }
+                }
                 Type::UnsignedInteger(UnsignedIntegerType::U8) => {
                     (OperandType::U_8, RegisterWidth::Single)
                 }
@@ -332,6 +343,17 @@ impl<'a> Emitter<'a> {
                 }
                 Type::UnsignedInteger(UnsignedIntegerType::U128) => {
                     (OperandType::U_128, RegisterWidth::Quad)
+                }
+                Type::UnsignedInteger(UnsignedIntegerType::USize) => {
+                    #[cfg(target_pointer_width = "64")]
+                    {
+                        (OperandType::U_64, RegisterWidth::Double)
+                    }
+
+                    #[cfg(target_pointer_width = "32")]
+                    {
+                        (OperandType::U_32, RegisterWidth::Single)
+                    }
                 }
                 Type::Float(FloatType::F32) => (OperandType::F_32, RegisterWidth::Single),
                 Type::Float(FloatType::F64) => (OperandType::F_64, RegisterWidth::Double),
@@ -4579,8 +4601,8 @@ pub fn get_byte_size(
         | Type::UnsignedInteger(UnsignedIntegerType::U32)
         | Type::Float(FloatType::F32) => Ok(Some(4)),
         Type::Slice { .. } | Type::Pointer { .. } => Ok(Some(8)),
-        Type::SignedInteger(SignedIntegerType::I64)
-        | Type::UnsignedInteger(UnsignedIntegerType::U64)
+        Type::SignedInteger(SignedIntegerType::I64 | SignedIntegerType::ISize)
+        | Type::UnsignedInteger(UnsignedIntegerType::U64 | UnsignedIntegerType::USize)
         | Type::Float(FloatType::F64) => Ok(Some(8)),
         Type::SignedInteger(SignedIntegerType::I128)
         | Type::UnsignedInteger(UnsignedIntegerType::U128) => Ok(Some(16)),

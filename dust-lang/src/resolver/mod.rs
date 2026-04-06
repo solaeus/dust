@@ -212,11 +212,33 @@ impl Resolver {
             Type::SignedInteger(SignedIntegerType::I32) => Ok(vec![OperandType::I_32]),
             Type::SignedInteger(SignedIntegerType::I64) => Ok(vec![OperandType::I_64]),
             Type::SignedInteger(SignedIntegerType::I128) => Ok(vec![OperandType::I_128]),
+            Type::SignedInteger(SignedIntegerType::ISize) => {
+                #[cfg(target_pointer_width = "64")]
+                {
+                    Ok(vec![OperandType::I_64])
+                }
+
+                #[cfg(target_pointer_width = "32")]
+                {
+                    Ok(vec![OperandType::I_32])
+                }
+            }
             Type::UnsignedInteger(UnsignedIntegerType::U8) => Ok(vec![OperandType::U_8]),
             Type::UnsignedInteger(UnsignedIntegerType::U16) => Ok(vec![OperandType::U_16]),
             Type::UnsignedInteger(UnsignedIntegerType::U32) => Ok(vec![OperandType::U_32]),
             Type::UnsignedInteger(UnsignedIntegerType::U64) => Ok(vec![OperandType::U_64]),
             Type::UnsignedInteger(UnsignedIntegerType::U128) => Ok(vec![OperandType::U_128]),
+            Type::UnsignedInteger(UnsignedIntegerType::USize) => {
+                #[cfg(target_pointer_width = "64")]
+                {
+                    Ok(vec![OperandType::U_64])
+                }
+
+                #[cfg(target_pointer_width = "32")]
+                {
+                    Ok(vec![OperandType::U_32])
+                }
+            }
             Type::Float(FloatType::F32) => Ok(vec![OperandType::F_32]),
             Type::Float(FloatType::F64) => Ok(vec![OperandType::F_64]),
             Type::Never => Ok(vec![]),
@@ -531,21 +553,23 @@ impl Resolver {
             Type::Never => Ok(DustType::Unit),
             Type::Boolean => Ok(DustType::Boolean),
             Type::Character => Ok(DustType::Character),
-            Type::SignedInteger(si) => match si {
+            Type::SignedInteger(signed) => match signed {
                 SignedIntegerType::I8 => Ok(DustType::I8),
                 SignedIntegerType::I16 => Ok(DustType::I16),
                 SignedIntegerType::I32 => Ok(DustType::I32),
                 SignedIntegerType::I64 => Ok(DustType::I64),
                 SignedIntegerType::I128 => Ok(DustType::I128),
+                SignedIntegerType::ISize => Ok(DustType::ISize),
             },
-            Type::UnsignedInteger(ui) => match ui {
+            Type::UnsignedInteger(unsigned) => match unsigned {
                 UnsignedIntegerType::U8 => Ok(DustType::U8),
                 UnsignedIntegerType::U16 => Ok(DustType::U16),
                 UnsignedIntegerType::U32 => Ok(DustType::U32),
                 UnsignedIntegerType::U64 => Ok(DustType::U64),
                 UnsignedIntegerType::U128 => Ok(DustType::U128),
+                UnsignedIntegerType::USize => Ok(DustType::USize),
             },
-            Type::Float(ft) => match ft {
+            Type::Float(float) => match float {
                 FloatType::F32 => Ok(DustType::F32),
                 FloatType::F64 => Ok(DustType::F64),
             },

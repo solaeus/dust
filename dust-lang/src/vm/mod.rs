@@ -156,12 +156,66 @@ impl Vm {
                     return Ok(Some(DustValue::Boolean(return_registers[0].0 != 0)));
                 }
             }
-            DustType::Character => {
+            DustType::I8 => {
                 if return_registers.len() == 1 {
                     let value = return_registers[0].0;
-                    let character = char::from_u32(value).unwrap_or_default();
 
-                    return Ok(Some(DustValue::Character(character)));
+                    return Ok(Some(DustValue::I8(value as i8)));
+                }
+            }
+            DustType::I16 => {
+                if return_registers.len() == 1 {
+                    let value = return_registers[0].0;
+
+                    return Ok(Some(DustValue::I16(value as i16)));
+                }
+            }
+            DustType::I32 => {
+                if return_registers.len() == 1 {
+                    let value = return_registers[0].0;
+
+                    return Ok(Some(DustValue::I32(value as i32)));
+                }
+            }
+            DustType::I64 => {
+                if return_registers.len() == 2 {
+                    let low = return_registers[0].0 as u64;
+                    let high = return_registers[1].0 as u64;
+                    let value = (high << 32) | low;
+
+                    return Ok(Some(DustValue::I64(value as i64)));
+                }
+            }
+            DustType::I128 => {
+                if return_registers.len() == 4 {
+                    let value_0 = return_registers[0].0 as u128;
+                    let value_1 = return_registers[1].0 as u128;
+                    let value_2 = return_registers[2].0 as u128;
+                    let value_3 = return_registers[3].0 as u128;
+                    let value = (value_3 << 96) | (value_2 << 64) | (value_1 << 32) | value_0;
+
+                    return Ok(Some(DustValue::I128(value as i128)));
+                }
+            }
+            DustType::ISize => {
+                #[cfg(target_pointer_width = "64")]
+                {
+                    if return_registers.len() == 2 {
+                        let low = return_registers[0].0 as u64;
+                        let high = return_registers[1].0 as u64;
+                        let value = (high << 32) | low;
+
+                        return Ok(Some(DustValue::ISize(value as isize)));
+                    }
+                }
+
+                #[cfg(target_pointer_width = "32")]
+                {
+                    if return_registers.len() == 1 {
+                        let value = return_registers[0].0;
+
+                        return Ok(Some(DustValue::ISize(value as isize)));
+                    }
                 }
             }
             DustType::U8 => {
@@ -205,45 +259,25 @@ impl Vm {
                     return Ok(Some(DustValue::U128(value)));
                 }
             }
-            DustType::I8 => {
-                if return_registers.len() == 1 {
-                    let value = return_registers[0].0;
+            DustType::USize => {
+                #[cfg(target_pointer_width = "64")]
+                {
+                    if return_registers.len() == 2 {
+                        let low = return_registers[0].0 as u64;
+                        let high = return_registers[1].0 as u64;
+                        let value = (high << 32) | low;
 
-                    return Ok(Some(DustValue::I8(value as i8)));
+                        return Ok(Some(DustValue::USize(value as usize)));
+                    }
                 }
-            }
-            DustType::I16 => {
-                if return_registers.len() == 1 {
-                    let value = return_registers[0].0;
 
-                    return Ok(Some(DustValue::I16(value as i16)));
-                }
-            }
-            DustType::I32 => {
-                if return_registers.len() == 1 {
-                    let value = return_registers[0].0;
+                #[cfg(target_pointer_width = "32")]
+                {
+                    if return_registers.len() == 1 {
+                        let value = return_registers[0].0;
 
-                    return Ok(Some(DustValue::I32(value as i32)));
-                }
-            }
-            DustType::I64 => {
-                if return_registers.len() == 2 {
-                    let low = return_registers[0].0 as u64;
-                    let high = return_registers[1].0 as u64;
-                    let value = (high << 32) | low;
-
-                    return Ok(Some(DustValue::I64(value as i64)));
-                }
-            }
-            DustType::I128 => {
-                if return_registers.len() == 4 {
-                    let value_0 = return_registers[0].0 as u128;
-                    let value_1 = return_registers[1].0 as u128;
-                    let value_2 = return_registers[2].0 as u128;
-                    let value_3 = return_registers[3].0 as u128;
-                    let value = (value_3 << 96) | (value_2 << 64) | (value_1 << 32) | value_0;
-
-                    return Ok(Some(DustValue::I128(value as i128)));
+                        return Ok(Some(DustValue::USize(value as usize)));
+                    }
                 }
             }
             DustType::F32 => {
@@ -262,6 +296,14 @@ impl Vm {
                     let float_value = f64::from_bits(value);
 
                     return Ok(Some(DustValue::F64(float_value)));
+                }
+            }
+            DustType::Character => {
+                if return_registers.len() == 1 {
+                    let value = return_registers[0].0;
+                    let character = char::from_u32(value).unwrap_or_default();
+
+                    return Ok(Some(DustValue::Character(character)));
                 }
             }
             DustType::Tuple(dust_type) => todo!(),

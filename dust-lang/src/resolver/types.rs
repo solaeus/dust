@@ -620,53 +620,59 @@ impl Hash for Type {
             Type::SignedInteger(SignedIntegerType::I128) => {
                 state.write_u8(6);
             }
-            Type::UnsignedInteger(UnsignedIntegerType::U8) => {
+            Type::SignedInteger(SignedIntegerType::ISize) => {
                 state.write_u8(7);
             }
-            Type::UnsignedInteger(UnsignedIntegerType::U16) => {
+            Type::UnsignedInteger(UnsignedIntegerType::U8) => {
                 state.write_u8(8);
             }
-            Type::UnsignedInteger(UnsignedIntegerType::U32) => {
+            Type::UnsignedInteger(UnsignedIntegerType::U16) => {
                 state.write_u8(9);
             }
-            Type::UnsignedInteger(UnsignedIntegerType::U64) => {
+            Type::UnsignedInteger(UnsignedIntegerType::U32) => {
                 state.write_u8(10);
             }
-            Type::UnsignedInteger(UnsignedIntegerType::U128) => {
+            Type::UnsignedInteger(UnsignedIntegerType::U64) => {
                 state.write_u8(11);
             }
-            Type::Float(FloatType::F32) => {
+            Type::UnsignedInteger(UnsignedIntegerType::U128) => {
                 state.write_u8(12);
             }
-            Type::Float(FloatType::F64) => {
+            Type::UnsignedInteger(UnsignedIntegerType::USize) => {
                 state.write_u8(13);
             }
-            Type::Never => {
+            Type::Float(FloatType::F32) => {
                 state.write_u8(14);
             }
-            Type::Tuple { element_type_ids } => {
+            Type::Float(FloatType::F64) => {
                 state.write_u8(15);
+            }
+            Type::Never => {
+                state.write_u8(16);
+            }
+            Type::Tuple { element_type_ids } => {
+                state.write_u8(17);
                 element_type_ids.hash(state);
             }
             Type::Array {
                 element_type_id,
                 length,
             } => {
-                state.write_u8(16);
+                state.write_u8(18);
                 element_type_id.hash(state);
                 length.hash(state);
             }
             Type::Slice {
                 element_type_id, ..
             } => {
-                state.write_u8(17);
+                state.write_u8(19);
                 element_type_id.hash(state);
             }
             Type::FunctionDefinition {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(18);
+                state.write_u8(20);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }
@@ -674,7 +680,7 @@ impl Hash for Type {
                 value_parameters,
                 return_type_id,
             } => {
-                state.write_u8(19);
+                state.write_u8(21);
                 value_parameters.hash(state);
                 return_type_id.hash(state);
             }
@@ -682,7 +688,7 @@ impl Hash for Type {
                 value_parameters,
                 return_type,
             } => {
-                state.write_u8(20);
+                state.write_u8(22);
                 value_parameters.hash(state);
                 return_type.hash(state);
             }
@@ -690,12 +696,12 @@ impl Hash for Type {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(21);
+                state.write_u8(23);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }
             Type::Generic { declaration_id } => {
-                state.write_u8(22);
+                state.write_u8(24);
                 declaration_id.hash(state);
             }
             Type::Inferred {
@@ -703,14 +709,14 @@ impl Hash for Type {
                 constraint: _,
                 resolved: _,
             } => {
-                state.write_u8(23);
+                state.write_u8(25);
                 inferred_id.hash(state);
             }
             Type::Pointer {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(24);
+                state.write_u8(26);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }
@@ -752,6 +758,7 @@ pub enum SignedIntegerType {
     I32,
     I64,
     I128,
+    ISize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -761,6 +768,7 @@ pub enum UnsignedIntegerType {
     U32,
     U64,
     U128,
+    USize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
