@@ -195,7 +195,7 @@ impl TypeId {
 ///   when it is unified with an explicit type written elsewhere or the default `i32`.
 /// - Types based on a type [`Definition`][] have a `declaration_id` field that can be used to find
 ///   how it was declared, including its full definition. For each type parameter in the definition,
-///   there is a corresponding entry in the `type_arguments` field.
+///   there is a corresponding entry in the type's `type_arguments` field.
 ///
 /// Because the Rust type system is the primary inspiration for this one, the variants of this enum
 /// are very similar to the variants of [`rustc_type_ir::ty_kind::TyKind`][1].
@@ -837,7 +837,7 @@ mod tests {
 
     #[test]
     fn eq_hash_consistency() {
-        let cases: Vec<(Type, Type, bool)> = vec![
+        let cases = [
             (Type::Boolean, Type::Boolean, true),
             (Type::Boolean, Type::Character, false),
             (
@@ -898,7 +898,7 @@ mod tests {
 
     #[test]
     fn eq_ord_consistency() {
-        let cases: Vec<(Type, Type)> = vec![
+        let cases = [
             (algebraic(1, 0, 1), algebraic(1, 5, 9)),
             (function(1, 0, 1), function(1, 5, 9)),
             (closure(1, 0, 1), closure(1, 5, 9)),

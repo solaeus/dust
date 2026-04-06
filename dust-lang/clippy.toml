@@ -1,8 +1,8 @@
 disallowed-macros = [
-    "core::panic",
-    "core::unimplemented",
-    "core::unreachable",
-    "core::todo",
+    "std::panic",
+    "std::unimplemented",
+    "std::unreachable",
+    "std::todo",
 ]
 disallowed-methods = [
     "std::option::Option::expect",

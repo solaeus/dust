@@ -44,7 +44,7 @@ pub struct Resolver {
     scope_bindings: HashMap<SyntaxId, ScopeId, FxBuildHasher>,
     type_bindings: HashMap<SyntaxId, TypeId, FxBuildHasher>,
     monomorphization_cache: HashMap<(DeclarationId, SmallVec<[TypeId; 4]>), PrototypeId>,
-    constant_values: HashMap<DeclarationId, ConstantValue, FxBuildHasher>,
+    constant_item_values: HashMap<DeclarationId, ConstantValue, FxBuildHasher>,
 }
 
 impl Resolver {
@@ -60,7 +60,7 @@ impl Resolver {
             type_bindings: HashMap::default(),
             type_parameter_map: HashMap::new(),
             monomorphization_cache: HashMap::new(),
-            constant_values: HashMap::default(),
+            constant_item_values: HashMap::default(),
         };
 
         add_core(&mut resolver);
@@ -141,29 +141,28 @@ impl Resolver {
             .map(|((_, type_arguments), _)| type_arguments)
     }
 
-    pub fn store_constant_value(&mut self, declaration_id: DeclarationId, value: ConstantValue) {
-        self.constant_values.insert(declaration_id, value);
+    pub fn add_constant_item_value(&mut self, declaration_id: DeclarationId, value: ConstantValue) {
+        self.constant_item_values.insert(declaration_id, value);
     }
 
-    pub fn get_constant_value(&self, declaration_id: &DeclarationId) -> Option<ConstantValue> {
-        self.constant_values.get(declaration_id).copied()
+    pub fn get_constant_item_value(&self, declaration_id: &DeclarationId) -> Option<ConstantValue> {
+        self.constant_item_values.get(declaration_id).copied()
     }
 
     pub fn resolve_type(&mut self, type_id: TypeId) -> Result<TypeId, ResolverError> {
         let resolved_type = *self.types.get_type(type_id)?;
 
-        let start_type_id = if let Type::Generic { declaration_id } = resolved_type
-            && let Some(&inferred_type_id) = self.type_parameter_map.get(&declaration_id)
-        {
-            inferred_type_id
-        } else if let Type::Slice { declaration_id, .. } = resolved_type
-            && let Some(&concrete_type_id) = self.type_parameter_map.get(&declaration_id)
-        {
-            return Ok(concrete_type_id);
-        } else if matches!(resolved_type, Type::Inferred { .. }) {
-            type_id
-        } else {
-            return Ok(type_id);
+        let start_type_id = match resolved_type {
+            Type::Generic { declaration_id } | Type::Slice { declaration_id, .. } => {
+                let concrete_type_id = self
+                    .type_parameter_map
+                    .get(&declaration_id)
+                    .ok_or(ResolverError::ExpectedConcreteType)?;
+
+                *concrete_type_id
+            }
+            Type::Inferred { .. } => type_id,
+            _ => return Ok(type_id),
         };
 
         let mut current_type_id = start_type_id;
@@ -546,7 +545,7 @@ impl Resolver {
         &self,
         id: TypeId,
         _source: &Source,
-    ) -> Result<DustType, CompileError> {
+    ) -> Result<DustType, ResolverError> {
         let r#type = self.types.get_type(id)?;
 
         match r#type {
@@ -750,6 +749,7 @@ impl Resolver {
 
                 Ok(DustType::Array(Box::new(element_dust_type), *length))
             }
+            Type::Generic { .. } => Err(ResolverError::ExpectedConcreteType),
             _ => todo!("{type:?}"),
         }
     }
@@ -771,7 +771,7 @@ impl Resolver {
         &self,
         members: TypeMembers,
         source: &Source,
-    ) -> impl Iterator<Item = Result<DustType, CompileError>> {
+    ) -> impl Iterator<Item = Result<DustType, ResolverError>> {
         members.as_range().map(|member_index| {
             let type_id = *self.types.get_type_member(member_index)?;
 
@@ -873,22 +873,19 @@ fn add_core(resolver: &mut Resolver) {
             .declarations
             .add_declaration_members([some_declaration_id, none_declaration_id]);
 
-        resolver
-            .declarations
-            .set_declaration(
-                option_declaration_id,
-                Declaration {
-                    symbol_id: option_symbol,
-                    definition: Definition::EnumType {
-                        public: true,
-                        type_parameters,
-                        variants,
-                    },
-                    scope_id: ScopeId::CORE,
-                    syntax: None,
+        resolver.declarations.set_declaration(
+            option_declaration_id,
+            Declaration {
+                symbol_id: option_symbol,
+                definition: Definition::EnumType {
+                    public: true,
+                    type_parameters,
+                    variants,
                 },
-            )
-            .expect("reserved Option declaration ID is valid");
+                scope_id: ScopeId::CORE,
+                syntax: None,
+            },
+        );
     }
 
     {
@@ -981,22 +978,19 @@ fn add_core(resolver: &mut Resolver) {
             .declarations
             .add_declaration_members([ok_declaration_id, err_declaration_id]);
 
-        resolver
-            .declarations
-            .set_declaration(
-                result_declaration_id,
-                Declaration {
-                    symbol_id: result_symbol,
-                    definition: Definition::EnumType {
-                        public: true,
-                        type_parameters,
-                        variants,
-                    },
-                    scope_id: ScopeId::CORE,
-                    syntax: None,
+        resolver.declarations.set_declaration(
+            result_declaration_id,
+            Declaration {
+                symbol_id: result_symbol,
+                definition: Definition::EnumType {
+                    public: true,
+                    type_parameters,
+                    variants,
                 },
-            )
-            .expect("reserved Result declaration ID is valid");
+                scope_id: ScopeId::CORE,
+                syntax: None,
+            },
+        );
     }
 
     let start_symbol = resolver.symbols.add_symbol("start");
@@ -1048,22 +1042,19 @@ fn add_core(resolver: &mut Resolver) {
             .declarations
             .add_declaration_members([start_field_declaration_id, end_field_declaration_id]);
 
-        resolver
-            .declarations
-            .set_declaration(
-                range_declaration_id,
-                Declaration {
-                    symbol_id: range_symbol,
-                    definition: Definition::StructType {
-                        public: true,
-                        type_parameters,
-                        fields,
-                    },
-                    scope_id: ScopeId::CORE,
-                    syntax: None,
+        resolver.declarations.set_declaration(
+            range_declaration_id,
+            Declaration {
+                symbol_id: range_symbol,
+                definition: Definition::StructType {
+                    public: true,
+                    type_parameters,
+                    fields,
                 },
-            )
-            .expect("reserved Range declaration ID is valid");
+                scope_id: ScopeId::CORE,
+                syntax: None,
+            },
+        );
     }
 
     {
@@ -1111,22 +1102,19 @@ fn add_core(resolver: &mut Resolver) {
             .declarations
             .add_declaration_members([start_field_declaration_id, last_field_declaration_id]);
 
-        resolver
-            .declarations
-            .set_declaration(
-                range_inclusive_declaration_id,
-                Declaration {
-                    symbol_id: range_inclusive_symbol,
-                    definition: Definition::StructType {
-                        public: true,
-                        type_parameters,
-                        fields,
-                    },
-                    scope_id: ScopeId::CORE,
-                    syntax: None,
+        resolver.declarations.set_declaration(
+            range_inclusive_declaration_id,
+            Declaration {
+                symbol_id: range_inclusive_symbol,
+                definition: Definition::StructType {
+                    public: true,
+                    type_parameters,
+                    fields,
                 },
-            )
-            .expect("reserved RangeInclusive declaration ID is valid");
+                scope_id: ScopeId::CORE,
+                syntax: None,
+            },
+        );
     }
 }
 
@@ -1187,47 +1175,27 @@ impl ConstantValue {
         }
     }
 
-    pub fn fits_in_encoded(&self) -> bool {
+    pub fn as_encoded_u16(self) -> Option<u16> {
         match self {
-            ConstantValue::Boolean(_)
-            | ConstantValue::U8(_)
-            | ConstantValue::I8(_)
-            | ConstantValue::U16(_)
-            | ConstantValue::I16(_) => true,
-            ConstantValue::Character(character) => (*character as u32) <= u16::MAX as u32,
-            ConstantValue::U32(integer) => *integer <= u16::MAX as u32,
-            ConstantValue::I32(integer) => {
-                *integer >= i16::MIN as i32 && *integer <= i16::MAX as i32
+            ConstantValue::Boolean(boolean) => Some(boolean as u16),
+            ConstantValue::Character(character) => Some(character as u16),
+            ConstantValue::I8(integer) => Some(integer as i16 as u16),
+            ConstantValue::I16(integer) => Some(integer as u16),
+            ConstantValue::I32(integer) if integer <= u16::MAX as i32 => {
+                Some(integer as i16 as u16)
             }
-            ConstantValue::U64(integer) => *integer <= u16::MAX as u64,
-            ConstantValue::I64(integer) => {
-                *integer >= i16::MIN as i64 && *integer <= i16::MAX as i64
+            ConstantValue::I64(integer) if integer <= u16::MAX as i64 => {
+                Some(integer as i16 as u16)
             }
-            ConstantValue::U128(integer) => *integer <= u16::MAX as u128,
-            ConstantValue::I128(integer) => {
-                *integer >= i16::MIN as i128 && *integer <= i16::MAX as i128
+            ConstantValue::I128(integer) if integer <= u16::MAX as i128 => {
+                Some(integer as i16 as u16)
             }
-            ConstantValue::F32(_) | ConstantValue::F64(_) => false,
-        }
-    }
-
-    pub fn to_encoded_u16(&self) -> u16 {
-        match self {
-            ConstantValue::Boolean(boolean) => *boolean as u16,
-            ConstantValue::Character(character) => *character as u16,
-            ConstantValue::U8(integer) => *integer as u16,
-            ConstantValue::I8(integer) => *integer as i16 as u16,
-            ConstantValue::U16(integer) => *integer,
-            ConstantValue::I16(integer) => *integer as u16,
-            ConstantValue::U32(integer) => *integer as u16,
-            ConstantValue::I32(integer) => *integer as i16 as u16,
-            ConstantValue::U64(integer) => *integer as u16,
-            ConstantValue::I64(integer) => *integer as i16 as u16,
-            ConstantValue::U128(integer) => *integer as u16,
-            ConstantValue::I128(integer) => *integer as i16 as u16,
-            ConstantValue::F32(_) | ConstantValue::F64(_) => {
-                panic!("Cannot encode float as u16")
-            }
+            ConstantValue::U8(integer) => Some(integer as u16),
+            ConstantValue::U16(integer) => Some(integer),
+            ConstantValue::U32(integer) if integer <= u16::MAX as u32 => Some(integer as u16),
+            ConstantValue::U64(integer) if integer <= u16::MAX as u64 => Some(integer as u16),
+            ConstantValue::U128(integer) if integer <= u16::MAX as u128 => Some(integer as u16),
+            _ => None,
         }
     }
 

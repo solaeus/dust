@@ -10,12 +10,12 @@ use ron::ser::PrettyConfig;
 
 use crate::{
     build_source,
-    cli::{GlobalOptions, InputOptions, OutputOptions, ParseCommand},
+    cli::{InputOptions, OutputOptions, ParseCommand},
 };
 
 pub fn handle_parse_command(command: ParseCommand) {
     let ParseCommand {
-        global: GlobalOptions { log: _, name: _ },
+        global: _,
         input: InputOptions { eval, stdin, path },
         output:
             OutputOptions {

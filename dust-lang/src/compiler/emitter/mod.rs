@@ -696,8 +696,9 @@ impl<'a> Emitter<'a> {
     ) -> Result<(), CompileError> {
         match emission {
             Emission::Constant(constant) => {
-                let (memory_kind, operand_index) = if constant.fits_in_encoded() {
-                    (MemoryKind::ENCODED, constant.to_encoded_u16())
+                let (memory_kind, operand_index) = if let Some(encoded) = constant.as_encoded_u16()
+                {
+                    (MemoryKind::ENCODED, encoded)
                 } else {
                     (MemoryKind::CONSTANT, self.add_constant(constant))
                 };
@@ -863,12 +864,8 @@ impl<'a> Emitter<'a> {
     ) -> Result<(MemoryKind, u16, OperandType), CompileError> {
         match emission {
             Emission::Constant(constant) => {
-                if constant.fits_in_encoded() {
-                    Ok((
-                        MemoryKind::ENCODED,
-                        constant.to_encoded_u16(),
-                        constant.operand_type(),
-                    ))
+                if let Some(encoded) = constant.as_encoded_u16() {
+                    Ok((MemoryKind::ENCODED, encoded, constant.operand_type()))
                 } else {
                     Ok((
                         MemoryKind::CONSTANT,
@@ -979,8 +976,9 @@ impl<'a> Emitter<'a> {
     ) -> Result<(), CompileError> {
         match emission {
             Emission::Constant(constant) => {
-                let (memory_kind, operand_index) = if constant.fits_in_encoded() {
-                    (MemoryKind::ENCODED, constant.to_encoded_u16())
+                let (memory_kind, operand_index) = if let Some(encoded) = constant.as_encoded_u16()
+                {
+                    (MemoryKind::ENCODED, encoded)
                 } else {
                     (MemoryKind::CONSTANT, self.add_constant(constant))
                 };
@@ -1088,8 +1086,9 @@ impl<'a> Emitter<'a> {
         match branch_emission {
             Emission::Constant(constant) => {
                 let destination = target.expect_single()?;
-                let (memory_kind, operand_index) = if constant.fits_in_encoded() {
-                    (MemoryKind::ENCODED, constant.to_encoded_u16())
+                let (memory_kind, operand_index) = if let Some(encoded) = constant.as_encoded_u16()
+                {
+                    (MemoryKind::ENCODED, encoded)
                 } else {
                     (MemoryKind::CONSTANT, self.add_constant(constant))
                 };
@@ -1154,8 +1153,9 @@ impl<'a> Emitter<'a> {
                 let destination = self
                     .register_tracker
                     .allocate_next_reserved(RegisterWidth::from(operand_type));
-                let (memory_kind, operand_index) = if constant.fits_in_encoded() {
-                    (MemoryKind::ENCODED, constant.to_encoded_u16())
+                let (memory_kind, operand_index) = if let Some(encoded) = constant.as_encoded_u16()
+                {
+                    (MemoryKind::ENCODED, encoded)
                 } else {
                     (MemoryKind::CONSTANT, self.add_constant(constant))
                 };
@@ -1423,7 +1423,7 @@ impl SyntaxVisitor for Emitter<'_> {
     type ExpressionOutput = Emission;
     type TypeOutput = ();
     type PathInput = ();
-    type PathOutput = DeclarationId;
+    type PathOutput = ();
 
     fn visit_root(&mut self, _: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
         Ok(())
@@ -1508,7 +1508,7 @@ impl SyntaxVisitor for Emitter<'_> {
         let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
 
         self.resolver
-            .store_constant_value(declaration_id, constant_value);
+            .add_constant_item_value(declaration_id, constant_value);
 
         Ok(())
     }
@@ -1587,11 +1587,12 @@ impl SyntaxVisitor for Emitter<'_> {
                 Emission::Place(place @ Place::Register(..)) => place,
                 Emission::Constant(constant) => {
                     let destination = target.expect_single()?;
-                    let (memory_kind, operand_index) = if constant.fits_in_encoded() {
-                        (MemoryKind::ENCODED, constant.to_encoded_u16())
-                    } else {
-                        (MemoryKind::CONSTANT, self.add_constant(constant))
-                    };
+                    let (memory_kind, operand_index) =
+                        if let Some(encoded) = constant.as_encoded_u16() {
+                            (MemoryKind::ENCODED, encoded)
+                        } else {
+                            (MemoryKind::CONSTANT, self.add_constant(constant))
+                        };
                     let move_instruction = Instruction::r#move(
                         destination.index,
                         constant.operand_type(),
@@ -1780,11 +1781,12 @@ impl SyntaxVisitor for Emitter<'_> {
 
                 match value_emission {
                     Emission::Constant(constant) => {
-                        let (memory_kind, operand_index) = if constant.fits_in_encoded() {
-                            (MemoryKind::ENCODED, constant.to_encoded_u16())
-                        } else {
-                            (MemoryKind::CONSTANT, self.add_constant(constant))
-                        };
+                        let (memory_kind, operand_index) =
+                            if let Some(encoded) = constant.as_encoded_u16() {
+                                (MemoryKind::ENCODED, encoded)
+                            } else {
+                                (MemoryKind::CONSTANT, self.add_constant(constant))
+                            };
                         for register in destination.iter() {
                             let move_instruction = Instruction::r#move(
                                 register.index,
@@ -1872,9 +1874,9 @@ impl SyntaxVisitor for Emitter<'_> {
             let index_emission = self.visit_expression(index, None)?;
 
             let (index_memory, index_index) = if let Emission::Constant(constant) = &index_emission
-                && constant.fits_in_encoded()
+                && let Some(encoded) = constant.as_encoded_u16()
             {
-                (MemoryKind::ENCODED, constant.to_encoded_u16())
+                (MemoryKind::ENCODED, encoded)
             } else {
                 let index_place = self.handle_member_emission(index_emission, &index)?;
 
@@ -1896,9 +1898,9 @@ impl SyntaxVisitor for Emitter<'_> {
 
             let (source_memory, source_index) = if let Emission::Constant(constant) =
                 &value_emission
-                && constant.fits_in_encoded()
+                && let Some(encoded) = constant.as_encoded_u16()
             {
-                (MemoryKind::ENCODED, constant.to_encoded_u16())
+                (MemoryKind::ENCODED, encoded)
             } else {
                 let value_place = self.handle_member_emission(value_emission, &value)?;
 
@@ -1961,8 +1963,9 @@ impl SyntaxVisitor for Emitter<'_> {
 
         match expression_emission {
             Emission::Constant(constant) => {
-                let (memory_kind, operand_index) = if constant.fits_in_encoded() {
-                    (MemoryKind::ENCODED, constant.to_encoded_u16())
+                let (memory_kind, operand_index) = if let Some(encoded) = constant.as_encoded_u16()
+                {
+                    (MemoryKind::ENCODED, encoded)
                 } else {
                     (MemoryKind::CONSTANT, self.add_constant(constant))
                 };
@@ -2235,11 +2238,12 @@ impl SyntaxVisitor for Emitter<'_> {
                     array_instructions.merge(instructions);
                 }
                 Emission::Constant(constant) => {
-                    let (memory_kind, operand_index) = if constant.fits_in_encoded() {
-                        (MemoryKind::ENCODED, constant.to_encoded_u16())
-                    } else {
-                        (MemoryKind::CONSTANT, self.add_constant(constant))
-                    };
+                    let (memory_kind, operand_index) =
+                        if let Some(encoded) = constant.as_encoded_u16() {
+                            (MemoryKind::ENCODED, encoded)
+                        } else {
+                            (MemoryKind::CONSTANT, self.add_constant(constant))
+                        };
                     let move_instruction = Instruction::r#move(
                         destination.index,
                         constant.operand_type(),
@@ -2320,17 +2324,16 @@ impl SyntaxVisitor for Emitter<'_> {
         let mut array_instructions = InstructionsEmission::new();
 
         if let Emission::Constant(constant) = &element_emission
-            && constant.fits_in_encoded()
+            && let Some(encoded) = constant.as_encoded_u16()
         {
             let operand_type = constant.operand_type();
-            let value = constant.to_encoded_u16();
 
             for destination in target.iter() {
                 let move_instruction = Instruction::r#move(
                     destination.index,
                     operand_type,
                     MemoryKind::ENCODED,
-                    value,
+                    encoded,
                 );
 
                 array_instructions.push(move_instruction);
@@ -2536,9 +2539,9 @@ impl SyntaxVisitor for Emitter<'_> {
         let index_emission = self.visit_expression(index, None)?;
 
         let (index_memory, index_index) = if let Emission::Constant(constant) = &index_emission
-            && constant.fits_in_encoded()
+            && let Some(encoded) = constant.as_encoded_u16()
         {
-            (MemoryKind::ENCODED, constant.to_encoded_u16())
+            (MemoryKind::ENCODED, encoded)
         } else {
             let index_place = self.handle_member_emission(index_emission, &index)?;
 
@@ -2614,13 +2617,13 @@ impl SyntaxVisitor for Emitter<'_> {
             let field_emission = self.visit_expression(field_expression, None)?;
 
             if let Emission::Constant(constant) = &field_emission
-                && constant.fits_in_encoded()
+                && let Some(encoded) = constant.as_encoded_u16()
             {
                 let move_instruction = Instruction::r#move(
                     destination.index,
                     constant.operand_type(),
                     MemoryKind::ENCODED,
-                    constant.to_encoded_u16(),
+                    encoded,
                 );
 
                 range_instructions.push(move_instruction);
@@ -2768,7 +2771,7 @@ impl SyntaxVisitor for Emitter<'_> {
             Definition::Constant { .. } => {
                 let value = self
                     .resolver
-                    .get_constant_value(&declaration_id)
+                    .get_constant_item_value(&declaration_id)
                     .ok_or_else(|| CompileError::ExpectedValue {
                         node_kind: reader.node.kind,
                         position: reader.position(),
@@ -2815,13 +2818,13 @@ impl SyntaxVisitor for Emitter<'_> {
             let field_emission = self.visit_expression(field_expression, None)?;
 
             if let Emission::Constant(constant) = &field_emission
-                && constant.fits_in_encoded()
+                && let Some(encoded) = constant.as_encoded_u16()
             {
                 let move_instruction = Instruction::r#move(
                     destination.index,
                     constant.operand_type(),
                     MemoryKind::ENCODED,
-                    constant.to_encoded_u16(),
+                    encoded,
                 );
 
                 struct_instructions.push(move_instruction);
@@ -2941,11 +2944,12 @@ impl SyntaxVisitor for Emitter<'_> {
                 Emission::Constant(constant) => {
                     let destination = target.expect_single()?;
                     let operand_type = constant.operand_type();
-                    let (memory_kind, operand_index) = if constant.fits_in_encoded() {
-                        (MemoryKind::ENCODED, constant.to_encoded_u16())
-                    } else {
-                        (MemoryKind::CONSTANT, self.add_constant(constant))
-                    };
+                    let (memory_kind, operand_index) =
+                        if let Some(encoded) = constant.as_encoded_u16() {
+                            (MemoryKind::ENCODED, encoded)
+                        } else {
+                            (MemoryKind::CONSTANT, self.add_constant(constant))
+                        };
                     let move_instruction = Instruction::r#move(
                         destination.index,
                         operand_type,
@@ -3765,13 +3769,13 @@ impl SyntaxVisitor for Emitter<'_> {
                 let argument_emission = self.visit_expression(argument, None)?;
 
                 if let Emission::Constant(constant) = &argument_emission
-                    && constant.fits_in_encoded()
+                    && let Some(encoded) = constant.as_encoded_u16()
                 {
                     let move_instruction = Instruction::r#move(
                         field_register.index,
                         constant.operand_type(),
                         MemoryKind::ENCODED,
-                        constant.to_encoded_u16(),
+                        encoded,
                     );
 
                     variant_instructions.push(move_instruction);
@@ -3932,18 +3936,14 @@ impl SyntaxVisitor for Emitter<'_> {
             let argument_emission = self.visit_expression(argument, Some(argument_target))?;
 
             if let Emission::Constant(constant) = &argument_emission
-                && constant.fits_in_encoded()
+                && let Some(encoded) = constant.as_encoded_u16()
             {
                 let operand_type = constant.operand_type();
                 let destination = self
                     .register_tracker
                     .allocate_next_temporary(RegisterWidth::from(operand_type));
-                let move_instruction = Instruction::r#move(
-                    destination,
-                    operand_type,
-                    MemoryKind::ENCODED,
-                    constant.to_encoded_u16(),
-                );
+                let move_instruction =
+                    Instruction::r#move(destination, operand_type, MemoryKind::ENCODED, encoded);
 
                 call_instructions.push(move_instruction);
                 continue;
@@ -4157,7 +4157,7 @@ impl SyntaxVisitor for Emitter<'_> {
         _: SyntaxReader,
         _: Self::PathInput,
     ) -> Result<Self::PathOutput, CompileError> {
-        todo!()
+        Ok(())
     }
 
     fn visit_simple_path(
@@ -4165,7 +4165,7 @@ impl SyntaxVisitor for Emitter<'_> {
         _: SyntaxReader,
         _: Self::PathInput,
     ) -> Result<Self::PathOutput, CompileError> {
-        todo!()
+        Ok(())
     }
 }
 

@@ -1735,6 +1735,16 @@ impl<'src> Parser<'src> {
         todo!()
     }
 
+    fn parse_prefix_self_value(&mut self) -> Result<SyntaxNode, ParseError> {
+        let span = self.current_token.span;
+        let self_node = SyntaxKind::SimplePath.empty(span);
+        let self_id = self.tree_builder.add_node(self_node);
+
+        self.advance();
+
+        Ok(SyntaxKind::PathExpression.with_child(span, self_id))
+    }
+
     fn parse_prefix_identifier(&mut self) -> Result<SyntaxNode, ParseError> {
         let start = self.current_token.span.start();
         let may_be_struct = !matches!(self.previous_token.kind, TokenKind::If | TokenKind::While);

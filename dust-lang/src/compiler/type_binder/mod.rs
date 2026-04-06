@@ -444,7 +444,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
     type ExpressionOutput = TypeId;
     type TypeOutput = TypeId;
     type PathInput = ();
-    type PathOutput = TypeId;
+    type PathOutput = ();
 
     fn visit_root(&mut self, _: SyntaxReader) -> Result<Self::RootOutput, CompileError> {
         Ok(())
@@ -1500,23 +1500,23 @@ impl SyntaxVisitor for TypeBinder<'_> {
     }
 
     fn visit_type(&mut self, reader: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
-        let type_id = match reader.node.kind {
-            SyntaxKind::BooleanType => TypeId::BOOLEAN,
-            SyntaxKind::I8Type => TypeId::I_8,
-            SyntaxKind::I16Type => TypeId::I_16,
-            SyntaxKind::I32Type => TypeId::I_32,
-            SyntaxKind::I64Type => TypeId::I_64,
-            SyntaxKind::I128Type => TypeId::I_128,
-            SyntaxKind::ISizeType => TypeId::I_SIZE,
-            SyntaxKind::U8Type => TypeId::U_8,
-            SyntaxKind::U16Type => TypeId::U_16,
-            SyntaxKind::U32Type => TypeId::U_32,
-            SyntaxKind::U64Type => TypeId::U_64,
-            SyntaxKind::U128Type => TypeId::U_128,
-            SyntaxKind::USizeType => TypeId::U_SIZE,
-            SyntaxKind::F32Type => TypeId::F_32,
-            SyntaxKind::F64Type => TypeId::F_64,
-            SyntaxKind::CharacterType => TypeId::CHARACTER,
+        match reader.node.kind {
+            SyntaxKind::BooleanType => Ok(TypeId::BOOLEAN),
+            SyntaxKind::I8Type => Ok(TypeId::I_8),
+            SyntaxKind::I16Type => Ok(TypeId::I_16),
+            SyntaxKind::I32Type => Ok(TypeId::I_32),
+            SyntaxKind::I64Type => Ok(TypeId::I_64),
+            SyntaxKind::I128Type => Ok(TypeId::I_128),
+            SyntaxKind::ISizeType => Ok(TypeId::I_SIZE),
+            SyntaxKind::U8Type => Ok(TypeId::U_8),
+            SyntaxKind::U16Type => Ok(TypeId::U_16),
+            SyntaxKind::U32Type => Ok(TypeId::U_32),
+            SyntaxKind::U64Type => Ok(TypeId::U_64),
+            SyntaxKind::U128Type => Ok(TypeId::U_128),
+            SyntaxKind::USizeType => Ok(TypeId::U_SIZE),
+            SyntaxKind::F32Type => Ok(TypeId::F_32),
+            SyntaxKind::F64Type => Ok(TypeId::F_64),
+            SyntaxKind::CharacterType => Ok(TypeId::CHARACTER),
             SyntaxKind::SliceType => {
                 let element_type = reader.single_child()?;
 
@@ -1529,10 +1529,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
                     syntax: None,
                 });
 
-                self.resolver.types.add_type(Type::Slice {
+                Ok(self.resolver.types.add_type(Type::Slice {
                     declaration_id,
                     element_type_id,
-                })
+                }))
             }
             SyntaxKind::TupleType => {
                 let element_type_ids = reader
@@ -1541,9 +1541,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
                     .try_collect::<SmallVec<[TypeId; 4]>>()?;
                 let element_type_ids = self.resolver.types.add_type_members(element_type_ids);
 
-                self.resolver
+                Ok(self
+                    .resolver
                     .types
-                    .add_type(Type::Tuple { element_type_ids })
+                    .add_type(Type::Tuple { element_type_ids }))
             }
             SyntaxKind::FunctionType => {
                 let FunctionType {
@@ -1562,22 +1563,26 @@ impl SyntaxVisitor for TypeBinder<'_> {
                     TypeId::UNIT
                 };
 
-                self.resolver.types.add_type(Type::Function {
+                Ok(self.resolver.types.add_type(Type::Function {
                     value_parameters,
                     return_type: return_type_id,
-                })
+                }))
             }
             SyntaxKind::TypePath => {
                 let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
                 let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
 
                 match declaration.definition {
-                    Definition::TypeParameter => self
-                        .resolver
-                        .type_parameter_map
-                        .get(&declaration_id)
-                        .copied()
-                        .unwrap_or_else(|| self.resolver.types.create_inferred_type(None)),
+                    Definition::TypeParameter => {
+                        let type_id = self
+                            .resolver
+                            .type_parameter_map
+                            .get(&declaration_id)
+                            .copied()
+                            .unwrap_or_else(|| self.resolver.types.create_inferred_type(None));
+
+                        Ok(type_id)
+                    }
                     Definition::StructType { .. } | Definition::EnumType { .. } => {
                         let type_arguments = if let Some(last_segment) = reader.last_child()? {
                             let PathSegment { type_arguments } = last_segment.as_component()?;
@@ -1597,22 +1602,44 @@ impl SyntaxVisitor for TypeBinder<'_> {
                             TypeMembers::default()
                         };
 
-                        self.resolver.types.add_type(Type::Algebraic {
+                        Ok(self.resolver.types.add_type(Type::Algebraic {
                             declaration_id,
                             type_arguments,
-                        })
+                        }))
                     }
-                    _ => return Err(CompileError::ExpectedTypeDeclaration(declaration_id)),
+                    _ => Err(CompileError::ExpectedTypeDeclaration(declaration_id)),
                 }
             }
-            _ => unreachable!(),
-        };
-
-        Ok(type_id)
+            _ => Err(CompileError::ExpectedSyntaxKinds {
+                expected: &[
+                    SyntaxKind::BooleanType,
+                    SyntaxKind::I8Type,
+                    SyntaxKind::I16Type,
+                    SyntaxKind::I32Type,
+                    SyntaxKind::I64Type,
+                    SyntaxKind::I128Type,
+                    SyntaxKind::ISizeType,
+                    SyntaxKind::U8Type,
+                    SyntaxKind::U16Type,
+                    SyntaxKind::U32Type,
+                    SyntaxKind::U64Type,
+                    SyntaxKind::U128Type,
+                    SyntaxKind::USizeType,
+                    SyntaxKind::F32Type,
+                    SyntaxKind::F64Type,
+                    SyntaxKind::CharacterType,
+                    SyntaxKind::SliceType,
+                    SyntaxKind::TupleType,
+                    SyntaxKind::FunctionType,
+                    SyntaxKind::TypePath,
+                ],
+                found: reader.node.kind,
+            }),
+        }
     }
 
     fn visit_path(&mut self, _: SyntaxReader, _: ()) -> Result<Self::PathOutput, CompileError> {
-        todo!()
+        Ok(())
     }
 
     fn visit_simple_path(
@@ -1620,7 +1647,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
         _: SyntaxReader,
         _: (),
     ) -> Result<Self::PathOutput, CompileError> {
-        todo!()
+        Ok(())
     }
 }
 

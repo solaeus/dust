@@ -59,26 +59,14 @@ impl Declarations {
         id
     }
 
-    pub fn set_declaration(
-        &mut self,
-        id: DeclarationId,
-        declaration: Declaration,
-    ) -> Result<(), ResolverError> {
-        let index = id.0 as usize;
-
-        if self.declarations.get(index).is_none() {
-            return Err(ResolverError::MissingDeclaration(id));
-        }
-
+    pub fn set_declaration(&mut self, id: DeclarationId, declaration: Declaration) {
         let key = DeclarationKey {
             symbol_id: declaration.symbol_id,
             scope_id: declaration.scope_id,
         };
 
-        self.declarations[index] = declaration;
+        self.declarations[id.0 as usize] = declaration;
         self.declaration_lookup.insert(key, id);
-
-        Ok(())
     }
 
     pub fn find_declaration(

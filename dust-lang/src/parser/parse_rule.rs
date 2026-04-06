@@ -474,7 +474,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 associativity: Associativity::Left,
             },
             TokenKind::SelfValue => ParseRule {
-                prefix: Parser::parse_unexpected,
+                prefix: Parser::parse_prefix_self_value,
                 infix: None,
                 precedence: Precedence::None,
                 associativity: Associativity::Left,

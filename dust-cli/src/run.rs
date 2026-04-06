@@ -5,16 +5,16 @@ use dust_lang::{
 
 use crate::{
     build_source,
-    cli::{GlobalOptions, InputOptions, RunCommand},
+    cli::{InputOptions, RunCommand},
 };
 
 pub fn handle_run_command(commmand: RunCommand) {
     let RunCommand {
-        global: GlobalOptions { log, name },
+        global: _,
         input: InputOptions { eval, stdin, path },
     } = commmand;
 
-    let source = build_source(&eval, path, false);
+    let source = build_source(&eval, path, stdin);
     let compiler = Compiler::new(source);
     let compile_result = compiler.compile(None);
 

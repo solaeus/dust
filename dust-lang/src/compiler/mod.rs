@@ -94,19 +94,13 @@ impl<'src> Compiler<'src> {
     pub fn compile_with_extras(
         mut self,
         program_name: Option<String>,
-    ) -> Result<(Program, Source<'src>, Syntax, Resolver, Vec<OperandType>), Error<'src>> {
+    ) -> Result<(Program, Source<'src>, Syntax, Vec<OperandType>), Error<'src>> {
         match self.compile_inner() {
             Ok(return_type) => {
                 let (constants, constant_tags) = self.constants.build();
                 let program = Program::new(program_name, return_type, constants, self.prototypes);
 
-                Ok((
-                    program,
-                    self.source,
-                    self.syntax,
-                    self.resolver,
-                    constant_tags,
-                ))
+                Ok((program, self.source, self.syntax, constant_tags))
             }
             Err(errors) => {
                 let errors = Error::with_source_and_resolver(errors, self.source, self.resolver);

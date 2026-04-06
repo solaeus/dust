@@ -68,11 +68,6 @@ pub fn create_i128_from_decimal(text: &str) -> Result<i128, CompileError> {
         .map_err(CompileError::ValueCreation)
 }
 
-pub fn create_isize_from_decimal(text: &str) -> Result<isize, CompileError> {
-    isize::from_lexical_with_options::<INTEGER>(text.as_bytes(), &LARGE)
-        .map_err(CompileError::ValueCreation)
-}
-
 pub fn create_u8_from_decimal(text: &str) -> Result<u8, CompileError> {
     u8::from_lexical_with_options::<INTEGER>(text.as_bytes(), &SMALL)
         .map_err(CompileError::ValueCreation)

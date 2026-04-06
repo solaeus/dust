@@ -42,16 +42,11 @@ pub struct GlobalOptions {
     /// Set the log level
     #[arg(short, long, value_name = "LEVEL", env = "DUST_LOG")]
     pub log: Option<LevelFilter>,
-
-    /// Custom program name, overrides the file name
-    #[arg(short, long)]
-    pub name: Option<String>,
 }
 
 impl GlobalOptions {
     pub fn join(&mut self, other: GlobalOptions) {
         self.log = self.log.take().or(other.log);
-        self.name = self.name.take().or(other.name);
     }
 }
 

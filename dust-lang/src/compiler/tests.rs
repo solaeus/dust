@@ -1,3 +1,4 @@
+#![allow(clippy::disallowed_macros)]
 #![allow(clippy::disallowed_methods)]
 
 use smallvec::SmallVec;

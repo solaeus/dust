@@ -534,7 +534,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 scope_id: self.current_scope_id,
                 syntax: Some((reader.position(), reader.id)),
             },
-        )?;
+        );
 
         self.resolver
             .add_declaration_binding(reader.id, struct_declaration_id);
@@ -691,7 +691,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 scope_id: self.current_scope_id,
                 syntax: Some((reader.position(), reader.id)),
             },
-        )?;
+        );
 
         self.resolver
             .add_declaration_binding(name.id, enum_declaration_id);
@@ -1069,7 +1069,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 scope_id: starting_scope_id,
                 syntax: Some((reader.position(), reader.id)),
             },
-        )?;
+        );
 
         self.resolver
             .add_declaration_binding(reader.id, impl_declaration_id);
@@ -1145,6 +1145,18 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .add_declaration_members(supertrait_declaration_ids);
 
         let trait_declaration_id = self.resolver.declarations.reserve_declaration_id();
+
+        let self_type_declaration_id = self.resolver.declarations.add_declaration(Declaration {
+            symbol_id: self.resolver.symbols.add_self_symbol(),
+            definition: Definition::TypeParameter,
+            scope_id: self.current_scope_id,
+            syntax: None,
+        });
+        let self_type_id = self.resolver.types.add_type(Type::Generic {
+            declaration_id: self_type_declaration_id,
+        });
+        let previous_self_type_id = self.current_self_type_id.replace(self_type_id);
+
         let mut member_declaration_ids = SmallVec::<[DeclarationId; 8]>::new();
 
         for child in body.children() {
@@ -1382,13 +1394,14 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 scope_id: starting_scope_id,
                 syntax: Some((reader.position(), reader.id)),
             },
-        )?;
+        );
 
         self.resolver
             .add_declaration_binding(name.id, trait_declaration_id);
         self.resolver
             .add_scope_binding(body.id, self.current_scope_id);
 
+        self.current_self_type_id = previous_self_type_id;
         self.current_scope_id = starting_scope_id;
 
         Ok(())
@@ -2191,7 +2204,8 @@ fn search_impl_member<'a>(
         }
 
         match declaration.definition {
-            Definition::InherentImplementation { declarations, .. } => {
+            Definition::InherentImplementation { declarations, .. }
+            | Definition::TraitImplementation { declarations, .. } => {
                 let member_ids = binder
                     .resolver
                     .declarations
@@ -2202,6 +2216,39 @@ fn search_impl_member<'a>(
 
                     if member.symbol_id == symbol_id {
                         return Ok((member_id, member.definition));
+                    }
+                }
+
+                if let Definition::TraitImplementation {
+                    trait_declaration_id: Some(trait_declaration_id),
+                    ..
+                } = declaration.definition
+                {
+                    let trait_declaration = binder
+                        .resolver
+                        .declarations
+                        .get_declaration(trait_declaration_id)?;
+
+                    if let Definition::Trait {
+                        declarations: trait_declarations,
+                        ..
+                    } = trait_declaration.definition
+                    {
+                        let trait_member_ids = binder
+                            .resolver
+                            .declarations
+                            .get_declaration_members(&trait_declarations)?;
+
+                        for &trait_member_id in trait_member_ids {
+                            let trait_member = binder
+                                .resolver
+                                .declarations
+                                .get_declaration(trait_member_id)?;
+
+                            if trait_member.symbol_id == symbol_id {
+                                return Ok((trait_member_id, trait_member.definition));
+                            }
+                        }
                     }
                 }
             }

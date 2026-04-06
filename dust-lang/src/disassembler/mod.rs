@@ -17,7 +17,6 @@ use crate::{
     instruction::OperandType,
     program::Program,
     prototype::{Prototype, PrototypeId},
-    resolver::Resolver,
     source::{Source, SourceFile, SourceFileId},
     syntax::{Syntax, tree::SyntaxTree},
 };
@@ -28,7 +27,6 @@ pub struct Disassembler<'a> {
     program: &'a Program,
     source: &'a Source<'a>,
     syntax: &'a Syntax,
-    resolver: &'a Resolver,
     constant_tags: &'a [OperandType],
 
     tabs: Vec<Tab<'a>>,
@@ -42,7 +40,6 @@ impl<'a> Disassembler<'a> {
         program: &'a Program,
         source: &'a Source,
         syntax: &'a Syntax,
-        resolver: &'a Resolver,
         constant_tags: &'a [OperandType],
     ) -> Self {
         let mut tabs = Vec::with_capacity(source.file_count() + program.prototypes.len() + 1);
@@ -54,7 +51,7 @@ impl<'a> Disassembler<'a> {
             });
         }
 
-        tabs.push(Tab::Declarations);
+        tabs.push(Tab::Constants);
 
         for (id, prototype) in program.prototypes.iter() {
             tabs.push(Tab::Prototype(PrototypeTab { id, prototype }));
@@ -64,7 +61,6 @@ impl<'a> Disassembler<'a> {
             program,
             source,
             syntax,
-            resolver,
             constant_tags,
             state: TuiState::Run,
             selection_state: SelectionState {
@@ -220,39 +216,88 @@ impl<'a> Disassembler<'a> {
         instruction_section.render(instructions_area, buffer);
     }
 
-    fn draw_declaration_tab(&self, resolver: &'a Resolver, area: Rect, buffer: &mut Buffer) {
-        let block = Block::new()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Thick)
-            .title("Declarations")
-            .title_alignment(Alignment::Center);
-        let inner_area = block.inner(area);
-        let columns = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]);
-        let [symbol_area, definition_area] = columns.areas(inner_area);
+    fn draw_constant_tab(&self, area: Rect, buffer: &mut Buffer) {
         let block = Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Thick);
-        let symbol_block = block
-            .clone()
-            .title("Symbol")
-            .title_alignment(Alignment::Center);
-        let definition_block = block
-            .clone()
-            .title("Definition")
-            .title_alignment(Alignment::Center);
+        let inner_area = block.inner(area);
 
-        let mut symbol_rows = symbol_block.inner(symbol_area).rows();
-        let mut definition_rows = definition_block.inner(definition_area).rows();
+        block.render(area, buffer);
 
-        for result in resolver.definition_display_iterator() {
-            let (symbol, definition) = result.unwrap();
+        let constant_rows = self
+            .constant_tags
+            .iter()
+            .enumerate()
+            .map(|(index, tag)| {
+                let value = match *tag {
+                    OperandType::CHARACTER => self
+                        .program
+                        .constants
+                        .get_character(index as u16)
+                        .unwrap()
+                        .to_string(),
+                    OperandType::I_32 => self
+                        .program
+                        .constants
+                        .get_i32(index as u16)
+                        .unwrap()
+                        .to_string(),
+                    OperandType::I_64 => self
+                        .program
+                        .constants
+                        .get_i64(index as u16)
+                        .unwrap()
+                        .to_string(),
+                    OperandType::I_128 => self
+                        .program
+                        .constants
+                        .get_i128(index as u16)
+                        .unwrap()
+                        .to_string(),
+                    OperandType::U_32 => self
+                        .program
+                        .constants
+                        .get_u32(index as u16)
+                        .unwrap()
+                        .to_string(),
+                    OperandType::U_64 => self
+                        .program
+                        .constants
+                        .get_u64(index as u16)
+                        .unwrap()
+                        .to_string(),
+                    OperandType::U_128 => self
+                        .program
+                        .constants
+                        .get_u128(index as u16)
+                        .unwrap()
+                        .to_string(),
+                    OperandType::F_32 => self
+                        .program
+                        .constants
+                        .get_f32(index as u16)
+                        .unwrap()
+                        .to_string(),
+                    OperandType::F_64 => self
+                        .program
+                        .constants
+                        .get_f64(index as u16)
+                        .unwrap()
+                        .to_string(),
+                    _ => "<error>".to_string(),
+                };
 
-            Line::from(symbol.to_string()).render(symbol_rows.next().unwrap(), buffer);
+                [tag.to_string(), value]
+            })
+            .collect::<Vec<_>>();
+        let constant_section = BlockTable::new(
+            "Constants",
+            ["Type", "Value"],
+            constant_rows,
+            self.selection_state.current_row,
+        );
 
-            for line in definition.lines() {
-                Line::from(line).render(definition_rows.next().unwrap(), buffer);
-            }
-        }
+        constant_section.render(inner_area, buffer);
     }
 }
 
@@ -314,7 +359,7 @@ impl Widget for &mut Disassembler<'_> {
 
                 self.draw_source_tab(source_file, syntax_tree, tab_content_area, buffer);
             }
-            Tab::Declarations => self.draw_declaration_tab(self.resolver, tab_content_area, buffer),
+            Tab::Constants => self.draw_constant_tab(tab_content_area, buffer),
             Tab::Prototype(tab) => {
                 self.selection_state.row_count = tab.prototype.instructions.len();
 
@@ -393,7 +438,7 @@ enum Tab<'a> {
         file_name: &'a str,
         file_id: SourceFileId,
     },
-    Declarations,
+    Constants,
     Prototype(PrototypeTab<'a>),
 }
 
@@ -406,7 +451,7 @@ impl<'a> From<&'a Tab<'a>> for Line<'a> {
 
                 Line::from(vec![title, file_name])
             }
-            Tab::Declarations => Line::from("Declarations"),
+            Tab::Constants => Line::from("Constants"),
             Tab::Prototype(PrototypeTab { id, .. }) => Line::from(format!("{id}")),
         }
     }

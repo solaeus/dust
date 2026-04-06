@@ -5,12 +5,12 @@ use ron::ser::PrettyConfig;
 
 use crate::{
     build_source,
-    cli::{CompileCommand, GlobalOptions, InputOptions, OutputOptions},
+    cli::{CompileCommand, InputOptions, OutputOptions},
 };
 
 pub fn handle_compile_command(command: CompileCommand) {
     let CompileCommand {
-        global: GlobalOptions { log: _, name: _ },
+        global: _,
         input: InputOptions { eval, stdin, path },
         output:
             OutputOptions {
@@ -24,7 +24,7 @@ pub fn handle_compile_command(command: CompileCommand) {
 
     let source = build_source(&eval, path, stdin);
     let compiler = Compiler::new(source);
-    let (program, source, syntax, resolver, constants) = match compiler.compile_with_extras(None) {
+    let (program, source, syntax, constants) = match compiler.compile_with_extras(None) {
         Ok(result) => result,
         Err(errors) => errors.print_and_exit(),
     };
@@ -53,7 +53,7 @@ pub fn handle_compile_command(command: CompileCommand) {
             .write_all(&bytes)
             .expect("Failed to write Postcard output to stdout");
     } else if tui {
-        let disassembler = Disassembler::new(&program, &source, &syntax, &resolver, &constants);
+        let disassembler = Disassembler::new(&program, &source, &syntax, &constants);
 
         disassembler.disassemble().unwrap();
     }

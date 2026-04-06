@@ -1,3 +1,4 @@
+#![allow(clippy::disallowed_macros)]
 #![allow(clippy::disallowed_methods)]
 
 mod block_expression;
@@ -15,4 +16,5 @@ mod math_expression;
 mod negation_expression;
 mod not_expression;
 mod struct_expression;
+mod trait_expression;
 mod while_expression;
