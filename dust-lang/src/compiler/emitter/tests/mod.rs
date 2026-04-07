@@ -40,7 +40,7 @@ use crate::{
     prototype::{Prototype, PrototypeList},
     resolver::declarations::{Definition, Visibility},
     source::{Source, SourceCode},
-    syntax::components::FunctionItem,
+    syntax::components::{FunctionItem, FunctionSignature},
 };
 
 fn emit_function(source_code: &str) -> Prototype {
@@ -69,8 +69,9 @@ fn emit_function(source_code: &str) -> Prototype {
         .and_then(|tree| tree.get_node(syntax_id))
         .unwrap();
     let FunctionItem {
-        parameters, body, ..
+        signature, body, ..
     } = function_item.as_component().unwrap();
+    let FunctionSignature { parameters, .. } = signature.as_component().unwrap();
 
     let scope_id = *resolver.get_scope_binding(&body.id).unwrap();
 

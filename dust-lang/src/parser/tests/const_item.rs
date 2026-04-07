@@ -10,7 +10,10 @@ use crate::{
 
 #[test]
 fn simple() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(b"const X: i64 = 42;"));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::with_unvalidated_source(b"const X: i64 = 42;"),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -47,9 +50,12 @@ fn pub_const() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 22), SyntaxId(4)),
-            ConstItem
-                .with_multiple_children(Span::new(4, 22), SyntaxPayload::child_indices(0, 3))
-                .with_modifier(true),
+            {
+                let mut node = ConstItem
+                    .with_multiple_children(Span::new(4, 22), SyntaxPayload::child_indices(0, 3));
+                node.modifier.set_public();
+                node
+            },
             SimplePath.empty(Span::new(10, 11)),
             I64Type.empty(Span::new(13, 16)),
             IntegerExpression.empty(Span::new(19, 21)),

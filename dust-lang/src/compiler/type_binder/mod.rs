@@ -17,7 +17,7 @@ use crate::{
             FieldAccessExpression, FunctionType, GroupedExpression, IfExpression, ImplItem,
             ImplTraitItem, IndexExpression, LetStatement, LogicExpression, MathExpression,
             NegationExpression, NotExpression, PathSegment, RangeExpression, StructExpression,
-            StructExpressionStructFields, TraitConst, TraitItem, WhileExpression,
+            StructExpressionStructFields, TraitConstItem, TraitItem, WhileExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -523,11 +523,10 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         for child in body.children() {
             match child.node.kind {
-                SyntaxKind::TraitMethod => {}
                 SyntaxKind::TraitConst => {
-                    let TraitConst {
+                    let TraitConstItem {
                         name,
-                        type_annotation: _,
+                        type_notation: _,
                         value,
                     } = child.as_component()?;
 
@@ -548,11 +547,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
                         self.unify_types(type_id, Some(child), value_type_id, value)?;
                     }
                 }
-                SyntaxKind::TraitType => {}
+                SyntaxKind::TraitMethod | SyntaxKind::FunctionItem | SyntaxKind::TraitType => {}
                 _ => {
                     return Err(CompileError::ExpectedSyntaxKinds {
                         expected: &[
                             SyntaxKind::TraitMethod,
+                            SyntaxKind::FunctionItem,
                             SyntaxKind::TraitConst,
                             SyntaxKind::TraitType,
                         ],

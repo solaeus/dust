@@ -34,7 +34,7 @@ use crate::{
     source::{Source, SourceFileId},
     syntax::{
         Syntax,
-        components::{FunctionItem, TraitMethod},
+        components::{FunctionItem, FunctionSignature},
         node::SyntaxKind,
         visitor::SyntaxVisitor,
     },
@@ -238,21 +238,13 @@ impl<'src> Compiler<'src> {
                     .get_tree(position.file_id)
                     .and_then(|tree| tree.get_node(syntax_id))
             );
-            let (parameters, body) = if syntax_node.node.kind == SyntaxKind::TraitMethod {
-                let TraitMethod {
-                    parameters, body, ..
-                } = unwrap_or_return!(syntax_node.as_component());
-                let body = match body {
-                    Some(body) => body,
-                    None => continue,
-                };
-                (parameters, body)
-            } else {
-                let FunctionItem {
-                    parameters, body, ..
-                } = unwrap_or_return!(syntax_node.as_component());
-                (parameters, body)
-            };
+            if syntax_node.node.kind == SyntaxKind::TraitMethod {
+                continue;
+            }
+            let FunctionItem {
+                signature, body, ..
+            } = unwrap_or_return!(syntax_node.as_component());
+            let FunctionSignature { parameters, .. } = unwrap_or_return!(signature.as_component());
             let scope_id = *unwrap_or_return!(self.resolver.get_scope_binding(&body.id));
 
             self.resolver.type_parameter_map.clear();

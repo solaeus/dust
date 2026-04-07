@@ -10,7 +10,10 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(b"struct Foo {}"));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::with_unvalidated_source(b"struct Foo {}"),
+    );
     let ParseResult {
         syntax_tree,
         errors,

@@ -7,37 +7,54 @@ use serde::{Deserialize, Serialize};
 use crate::resolver::{Resolver, declarations::DeclarationId};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct NativeFunction(pub u16);
+pub enum NativeFunction {
+    NoOp = 0,
 
-impl NativeFunction {
-    pub const NO_OP: Self = Self(0);
-
-    // `Vec`
-    pub const VEC_WITH_CAPACITY: Self = Self(1);
-    pub const VEC_LENGTH: Self = Self(2);
-    pub const VEC_INSERT: Self = Self(3);
-    pub const VEC_REMOVE: Self = Self(4);
-    pub const VEC_CLEAR: Self = Self(5);
+    // Vec
+    VecWithCapacity = 1,
+    VecLength = 2,
+    VecInsert = 3,
+    VecRemove = 4,
+    VecClear = 5,
 
     // I/O
-    pub const READ_LINE: Self = Self(100);
-    pub const WRITE_LINE: Self = Self(101);
+    ReadLine = 100,
+    WriteLine = 101,
 
-    // Threads
-    pub const SPAWN_THREAD: Self = Self(200);
+    // Parallelism
+    SpawnThread = 200,
+}
 
-    pub fn as_str(self) -> &'static str {
+impl NativeFunction {
+    pub fn from_id(id: u16) -> Self {
+        match id {
+            1 => Self::VecWithCapacity,
+            2 => Self::VecLength,
+            3 => Self::VecInsert,
+            4 => Self::VecRemove,
+            5 => Self::VecClear,
+            100 => Self::ReadLine,
+            101 => Self::WriteLine,
+            200 => Self::SpawnThread,
+            _ => Self::NoOp,
+        }
+    }
+
+    pub fn id(self) -> u16 {
+        self as u16
+    }
+
+    pub fn symbol(self) -> &'static str {
         match self {
-            Self::NO_OP => "no_op",
-            Self::VEC_WITH_CAPACITY => "Vec::with_capacity",
-            Self::VEC_LENGTH => "Vec::len",
-            Self::VEC_INSERT => "Vec::insert",
-            Self::VEC_REMOVE => "Vec::remove",
-            Self::VEC_CLEAR => "Vec::clear",
-            Self::READ_LINE => "io::read_line",
-            Self::WRITE_LINE => "io::write_line",
-            Self::SPAWN_THREAD => "io::spawn_thread",
-            _ => "<unknown native function>",
+            NativeFunction::NoOp => "no_op",
+            NativeFunction::VecWithCapacity => "with_capacity",
+            NativeFunction::VecLength => "length",
+            NativeFunction::VecInsert => "insert",
+            NativeFunction::VecRemove => "remove",
+            NativeFunction::VecClear => "clear",
+            NativeFunction::ReadLine => "read_line",
+            NativeFunction::WriteLine => "write_line",
+            NativeFunction::SpawnThread => "spawn_thread",
         }
     }
 
@@ -48,6 +65,17 @@ impl NativeFunction {
 
 impl Display for NativeFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
+        let type_or_module_str = match *self {
+            NativeFunction::NoOp => "",
+            NativeFunction::VecWithCapacity
+            | NativeFunction::VecLength
+            | NativeFunction::VecInsert
+            | NativeFunction::VecRemove
+            | NativeFunction::VecClear => "Vec",
+            NativeFunction::ReadLine | NativeFunction::WriteLine => "io",
+            NativeFunction::SpawnThread => "thread",
+        };
+
+        write!(f, "{type_or_module_str}::{}", self.symbol())
     }
 }

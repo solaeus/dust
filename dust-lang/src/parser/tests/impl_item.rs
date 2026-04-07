@@ -10,7 +10,10 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(b"impl Foo {}"));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::with_unvalidated_source(b"impl Foo {}"),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -46,14 +49,16 @@ fn with_function() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 28), SyntaxId(11)),
-            ImplItem.with_binary_children(Span::new(0, 28), SyntaxId(2), SyntaxId(10)),
+            Root.with_child(Span::new(0, 28), SyntaxId(12)),
+            ImplItem.with_binary_children(Span::new(0, 28), SyntaxId(2), SyntaxId(11)),
             TypePath.with_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
-            ImplBody.with_child(Span::new(9, 28), SyntaxId(9)),
+            ImplBody.with_child(Span::new(9, 28), SyntaxId(10)),
             FunctionItem
-                .with_multiple_children(Span::new(11, 26), SyntaxPayload::child_indices(0, 3),),
+                .with_multiple_children(Span::new(11, 26), SyntaxPayload::child_indices(1, 4),),
             SimplePath.empty(Span::new(14, 17)),
+            FunctionSignature
+                .with_multiple_children(Span::new(11, 23), SyntaxPayload::child_indices(0, 1),),
             FunctionParameters.with_child(Span::new(11, 23), SyntaxId(6)),
             ValueParameters.with_binary_children(Span::new(11, 23), SyntaxId(4), SyntaxId(5)),
             SimplePath.empty(Span::new(18, 22)),
@@ -79,15 +84,20 @@ fn with_pub_function() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 32), SyntaxId(11)),
-            ImplItem.with_binary_children(Span::new(0, 32), SyntaxId(2), SyntaxId(10)),
+            Root.with_child(Span::new(0, 32), SyntaxId(12)),
+            ImplItem.with_binary_children(Span::new(0, 32), SyntaxId(2), SyntaxId(11)),
             TypePath.with_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
-            ImplBody.with_child(Span::new(9, 32), SyntaxId(9)),
-            FunctionItem
-                .with_multiple_children(Span::new(15, 30), SyntaxPayload::child_indices(0, 3),)
-                .with_modifier(true),
+            ImplBody.with_child(Span::new(9, 32), SyntaxId(10)),
+            {
+                let mut node = FunctionItem
+                    .with_multiple_children(Span::new(15, 30), SyntaxPayload::child_indices(1, 4));
+                node.modifier.set_public();
+                node
+            },
             SimplePath.empty(Span::new(18, 21)),
+            FunctionSignature
+                .with_multiple_children(Span::new(15, 27), SyntaxPayload::child_indices(0, 1),),
             FunctionParameters.with_child(Span::new(15, 27), SyntaxId(6)),
             ValueParameters.with_binary_children(Span::new(15, 27), SyntaxId(4), SyntaxId(5)),
             SimplePath.empty(Span::new(22, 26)),
@@ -142,7 +152,12 @@ fn with_where_clause() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 26), SyntaxId(11)),
-            ImplItem.with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3)),
+            {
+                let mut node = ImplItem
+                    .with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 3));
+                node.modifier.set_has_where_clause();
+                node
+            },
             TypePath.with_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             ImplBody.empty(Span::new(24, 26)),

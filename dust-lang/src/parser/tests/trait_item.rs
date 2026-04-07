@@ -10,7 +10,10 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(b"trait Foo {}"));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::with_unvalidated_source(b"trait Foo {}"),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -46,7 +49,12 @@ fn with_supertraits() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 23), SyntaxId(8)),
-            TraitItem.with_multiple_children(Span::new(0, 23), SyntaxPayload::child_indices(0, 3)),
+            {
+                let mut node = TraitItem
+                    .with_multiple_children(Span::new(0, 23), SyntaxPayload::child_indices(0, 3));
+                node.modifier.set_has_supertraits();
+                node
+            },
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.empty(Span::new(21, 23)),
             TraitBounds.with_binary_children(Span::new(11, 20), SyntaxId(3), SyntaxId(5)),
@@ -75,7 +83,13 @@ fn with_type_parameters_and_supertraits() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 26), SyntaxId(11)),
-            TraitItem.with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 4)),
+            {
+                let mut node = TraitItem
+                    .with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 4));
+                node.modifier.set_has_type_parameters();
+                node.modifier.set_has_supertraits();
+                node
+            },
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.empty(Span::new(24, 26)),
             TypeParameters.with_child(Span::new(9, 12), SyntaxId(3)),
@@ -107,7 +121,13 @@ fn with_where_clause() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_child(Span::new(0, 28), SyntaxId(13)),
-            TraitItem.with_multiple_children(Span::new(0, 28), SyntaxPayload::child_indices(0, 4)),
+            {
+                let mut node = TraitItem
+                    .with_multiple_children(Span::new(0, 28), SyntaxPayload::child_indices(0, 4));
+                node.modifier.set_has_type_parameters();
+                node.modifier.set_has_where_clause();
+                node
+            },
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.empty(Span::new(26, 28)),
             TypeParameters.with_child(Span::new(9, 12), SyntaxId(3)),
@@ -196,12 +216,14 @@ fn with_method_signature() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 27), SyntaxId(9)),
-            TraitItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(8)),
+            Root.with_child(Span::new(0, 27), SyntaxId(10)),
+            TraitItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(9)),
             SimplePath.empty(Span::new(6, 9)),
-            TraitBody.with_child(Span::new(10, 27), SyntaxId(7)),
-            TraitMethod.with_binary_children(Span::new(12, 25), SyntaxId(2), SyntaxId(6)),
+            TraitBody.with_child(Span::new(10, 27), SyntaxId(8)),
+            TraitMethod.with_binary_children(Span::new(12, 25), SyntaxId(2), SyntaxId(7)),
             SimplePath.empty(Span::new(15, 18)),
+            FunctionSignature
+                .with_multiple_children(Span::new(12, 24), SyntaxPayload::child_indices(0, 1),),
             FunctionParameters.with_child(Span::new(12, 24), SyntaxId(5)),
             ValueParameters.with_binary_children(Span::new(12, 24), SyntaxId(3), SyntaxId(4)),
             SimplePath.empty(Span::new(19, 23)),
@@ -226,13 +248,15 @@ fn with_default_method() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 29), SyntaxId(10)),
-            TraitItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(9)),
+            Root.with_child(Span::new(0, 29), SyntaxId(11)),
+            TraitItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(6, 9)),
-            TraitBody.with_child(Span::new(10, 29), SyntaxId(8)),
-            TraitMethod
-                .with_multiple_children(Span::new(12, 27), SyntaxPayload::child_indices(0, 3),),
+            TraitBody.with_child(Span::new(10, 29), SyntaxId(9)),
+            FunctionItem
+                .with_multiple_children(Span::new(12, 27), SyntaxPayload::child_indices(1, 4),),
             SimplePath.empty(Span::new(15, 18)),
+            FunctionSignature
+                .with_multiple_children(Span::new(12, 24), SyntaxPayload::child_indices(0, 1),),
             FunctionParameters.with_child(Span::new(12, 24), SyntaxId(5)),
             ValueParameters.with_binary_children(Span::new(12, 24), SyntaxId(3), SyntaxId(4)),
             SimplePath.empty(Span::new(19, 23)),
@@ -258,13 +282,18 @@ fn with_method_signature_and_return_type() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 34), SyntaxId(10)),
-            TraitItem.with_binary_children(Span::new(0, 34), SyntaxId(1), SyntaxId(9)),
+            Root.with_child(Span::new(0, 34), SyntaxId(11)),
+            TraitItem.with_binary_children(Span::new(0, 34), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(6, 9)),
-            TraitBody.with_child(Span::new(10, 34), SyntaxId(8)),
-            TraitMethod
-                .with_multiple_children(Span::new(12, 32), SyntaxPayload::child_indices(0, 3),),
+            TraitBody.with_child(Span::new(10, 34), SyntaxId(9)),
+            TraitMethod.with_binary_children(Span::new(12, 32), SyntaxId(2), SyntaxId(8)),
             SimplePath.empty(Span::new(15, 18)),
+            {
+                let mut node = FunctionSignature
+                    .with_multiple_children(Span::new(12, 31), SyntaxPayload::child_indices(0, 2));
+                node.modifier.set_has_return_type();
+                node
+            },
             FunctionParameters.with_child(Span::new(12, 24), SyntaxId(5)),
             ValueParameters.with_binary_children(Span::new(12, 24), SyntaxId(3), SyntaxId(4)),
             SimplePath.empty(Span::new(19, 23)),

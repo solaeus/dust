@@ -26,7 +26,7 @@ impl<'a> SyntaxComponent<'a> for ModuleItem<'a> {
         let mut children = reader.children();
 
         Ok(Self {
-            public: reader.node.modifier,
+            public: reader.node.modifier.is_public(),
             name: children.expect_next()?,
             body: children.next(),
         })
@@ -44,7 +44,7 @@ impl<'a> SyntaxComponent<'a> for UseItem<'a> {
         debug_assert!(matches!(reader.node.kind, SyntaxKind::UseItem));
 
         Ok(Self {
-            public: reader.node.modifier,
+            public: reader.node.modifier.is_public(),
             path: reader.single_child()?,
         })
     }
@@ -53,10 +53,8 @@ impl<'a> SyntaxComponent<'a> for UseItem<'a> {
 pub struct FunctionItem<'a> {
     pub public: bool,
     pub name: SyntaxReader<'a>,
-    pub parameters: SyntaxReader<'a>,
-    pub return_type: Option<SyntaxReader<'a>>,
+    pub signature: SyntaxReader<'a>,
     pub body: SyntaxReader<'a>,
-    pub where_clause: Option<SyntaxReader<'a>>,
 }
 
 impl<'a> SyntaxComponent<'a> for FunctionItem<'a> {
@@ -66,30 +64,43 @@ impl<'a> SyntaxComponent<'a> for FunctionItem<'a> {
 
         let mut children = reader.children();
 
-        let name = children.expect_next()?;
+        Ok(Self {
+            public: reader.node.modifier.is_public(),
+            name: children.expect_next()?,
+            signature: children.expect_next()?,
+            body: children.expect_next()?,
+        })
+    }
+}
+
+pub struct FunctionSignature<'a> {
+    pub parameters: SyntaxReader<'a>,
+    pub return_type: Option<SyntaxReader<'a>>,
+    pub where_clause: Option<SyntaxReader<'a>>,
+}
+
+impl<'a> SyntaxComponent<'a> for FunctionSignature<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting function signature");
+        debug_assert!(reader.node.kind == SyntaxKind::FunctionSignature);
+
+        let modifier = reader.node.modifier;
+        let mut children = reader.children();
+
         let parameters = children.expect_next()?;
-        let body = children.expect_next()?;
-
-        let mut return_type = None;
-        let mut where_clause = None;
-
-        if let Some(child) = children.next() {
-            if child.node.kind == SyntaxKind::WhereClause {
-                where_clause = Some(child);
-            } else {
-                return_type = Some(child);
-
-                if let Some(child) = children.next() {
-                    where_clause = Some(child);
-                }
-            }
-        }
+        let return_type = if modifier.has_return_type() {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
+        let where_clause = if modifier.has_where_clause() {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
 
         Ok(Self {
-            public: reader.node.modifier,
-            name,
             parameters,
-            body,
             return_type,
             where_clause,
         })
@@ -149,7 +160,7 @@ impl<'a> SyntaxComponent<'a> for StructItem<'a> {
         }
 
         Ok(Self {
-            public: reader.node.modifier,
+            public: reader.node.modifier.is_public(),
             name,
             fields,
             type_parameters,
@@ -203,7 +214,7 @@ impl<'a> SyntaxComponent<'a> for EnumItem<'a> {
         let mut children = reader.children();
 
         Ok(Self {
-            public: reader.node.modifier,
+            public: reader.node.modifier.is_public(),
             name: children.expect_next()?,
             variants: children.expect_next()?,
             type_parameters: children.next(),
@@ -257,7 +268,7 @@ impl<'a> SyntaxComponent<'a> for LetStatement<'a> {
         let mut children = reader.children();
 
         Ok(Self {
-            mutable: reader.node.modifier,
+            mutable: reader.node.modifier.is_public(),
             name: children.expect_next()?,
             expression: children.expect_next()?,
             type_notation: children.next(),
@@ -628,7 +639,7 @@ impl<'a> SyntaxComponent<'a> for ConstItem<'a> {
         let mut children = reader.children();
 
         Ok(Self {
-            public: reader.node.modifier,
+            public: reader.node.modifier.is_public(),
             name: children.expect_next()?,
             type_annotation: children.expect_next()?,
             value: children.expect_next()?,
@@ -651,7 +662,7 @@ impl<'a> SyntaxComponent<'a> for TypeItem<'a> {
         let mut children = reader.children();
 
         Ok(Self {
-            public: reader.node.modifier,
+            public: reader.node.modifier.is_public(),
             name: children.expect_next()?,
             aliased_type: children.expect_next()?,
             type_parameters: children.next(),
@@ -672,40 +683,26 @@ impl<'a> SyntaxComponent<'a> for ImplItem<'a> {
         debug!("Visiting impl item");
         debug_assert!(matches!(reader.node.kind, SyntaxKind::ImplItem));
 
+        let modifier = reader.node.modifier;
         let mut children = reader.children();
 
         let self_type = children.expect_next()?;
         let body = children.expect_next()?;
-
-        let mut type_parameters = None;
-        let mut type_arguments = None;
-        let mut where_clause = None;
-
-        if let Some(child) = children.next() {
-            if child.node.kind == SyntaxKind::TypeParameters {
-                type_parameters = Some(child);
-
-                if let Some(child) = children.next() {
-                    if child.node.kind == SyntaxKind::TypeArguments {
-                        type_arguments = Some(child);
-
-                        if let Some(child) = children.next() {
-                            where_clause = Some(child);
-                        }
-                    } else {
-                        where_clause = Some(child);
-                    }
-                }
-            } else if child.node.kind == SyntaxKind::TypeArguments {
-                type_arguments = Some(child);
-
-                if let Some(child) = children.next() {
-                    where_clause = Some(child);
-                }
-            } else {
-                where_clause = Some(child);
-            }
-        }
+        let type_parameters = if modifier.has_type_parameters() {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
+        let type_arguments = if modifier.has_type_arguments() {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
+        let where_clause = if modifier.has_where_clause() {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
 
         Ok(Self {
             self_type,
@@ -731,41 +728,27 @@ impl<'a> SyntaxComponent<'a> for ImplTraitItem<'a> {
         debug!("Visiting impl trait item");
         debug_assert!(matches!(reader.node.kind, SyntaxKind::ImplTraitItem));
 
+        let modifier = reader.node.modifier;
         let mut children = reader.children();
 
         let self_type = children.expect_next()?;
         let body = children.expect_next()?;
         let trait_path = children.expect_next()?;
-
-        let mut type_parameters = None;
-        let mut type_arguments = None;
-        let mut where_clause = None;
-
-        if let Some(child) = children.next() {
-            if child.node.kind == SyntaxKind::TypeParameters {
-                type_parameters = Some(child);
-
-                if let Some(child) = children.next() {
-                    if child.node.kind == SyntaxKind::TypeArguments {
-                        type_arguments = Some(child);
-
-                        if let Some(child) = children.next() {
-                            where_clause = Some(child);
-                        }
-                    } else {
-                        where_clause = Some(child);
-                    }
-                }
-            } else if child.node.kind == SyntaxKind::TypeArguments {
-                type_arguments = Some(child);
-
-                if let Some(child) = children.next() {
-                    where_clause = Some(child);
-                }
-            } else {
-                where_clause = Some(child);
-            }
-        }
+        let type_parameters = if modifier.has_type_parameters() {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
+        let type_arguments = if modifier.has_type_arguments() {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
+        let where_clause = if modifier.has_where_clause() {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
 
         Ok(Self {
             self_type,
@@ -792,43 +775,29 @@ impl<'a> SyntaxComponent<'a> for TraitItem<'a> {
         debug!("Visiting trait item");
         debug_assert!(matches!(reader.node.kind, SyntaxKind::TraitItem));
 
+        let modifier = reader.node.modifier;
         let mut children = reader.children();
 
         let name = children.expect_next()?;
         let body = children.expect_next()?;
-
-        let mut type_parameters = None;
-        let mut supertraits = None;
-        let mut where_clause = None;
-
-        if let Some(child) = children.next() {
-            if child.node.kind == SyntaxKind::TypeParameters {
-                type_parameters = Some(child);
-
-                if let Some(child) = children.next() {
-                    if child.node.kind == SyntaxKind::TraitBounds {
-                        supertraits = Some(child);
-
-                        if let Some(child) = children.next() {
-                            where_clause = Some(child);
-                        }
-                    } else {
-                        where_clause = Some(child);
-                    }
-                }
-            } else if child.node.kind == SyntaxKind::TraitBounds {
-                supertraits = Some(child);
-
-                if let Some(child) = children.next() {
-                    where_clause = Some(child);
-                }
-            } else {
-                where_clause = Some(child);
-            }
-        }
+        let type_parameters = if modifier.has_type_parameters() {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
+        let supertraits = if modifier.has_supertraits() {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
+        let where_clause = if modifier.has_where_clause() {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
 
         Ok(Self {
-            public: reader.node.modifier,
+            public: reader.node.modifier.is_public(),
             name,
             body,
             type_parameters,
@@ -838,73 +807,34 @@ impl<'a> SyntaxComponent<'a> for TraitItem<'a> {
     }
 }
 
-pub struct TraitMethod<'a> {
+pub struct TraitFunctionItem<'a> {
     pub public: bool,
     pub name: SyntaxReader<'a>,
-    pub parameters: SyntaxReader<'a>,
-    pub body: Option<SyntaxReader<'a>>,
-    pub return_type: Option<SyntaxReader<'a>>,
-    pub where_clause: Option<SyntaxReader<'a>>,
+    pub signature: SyntaxReader<'a>,
 }
 
-impl<'a> SyntaxComponent<'a> for TraitMethod<'a> {
+impl<'a> SyntaxComponent<'a> for TraitFunctionItem<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting trait method");
         debug_assert!(matches!(reader.node.kind, SyntaxKind::TraitMethod));
 
         let mut children = reader.children();
 
-        let name = children.expect_next()?;
-        let parameters = children.expect_next()?;
-
-        let mut body = None;
-        let mut return_type = None;
-        let mut where_clause = None;
-
-        if let Some(child) = children.next() {
-            if child.node.kind == SyntaxKind::BlockExpression {
-                body = Some(child);
-
-                if let Some(child) = children.next() {
-                    if child.node.kind == SyntaxKind::WhereClause {
-                        where_clause = Some(child);
-                    } else {
-                        return_type = Some(child);
-
-                        if let Some(child) = children.next() {
-                            where_clause = Some(child);
-                        }
-                    }
-                }
-            } else if child.node.kind == SyntaxKind::WhereClause {
-                where_clause = Some(child);
-            } else {
-                return_type = Some(child);
-
-                if let Some(child) = children.next() {
-                    where_clause = Some(child);
-                }
-            }
-        }
-
         Ok(Self {
-            public: reader.node.modifier,
-            name,
-            parameters,
-            body,
-            return_type,
-            where_clause,
+            public: reader.node.modifier.is_public(),
+            name: children.expect_next()?,
+            signature: children.expect_next()?,
         })
     }
 }
 
-pub struct TraitConst<'a> {
+pub struct TraitConstItem<'a> {
     pub name: SyntaxReader<'a>,
-    pub type_annotation: SyntaxReader<'a>,
+    pub type_notation: SyntaxReader<'a>,
     pub value: Option<SyntaxReader<'a>>,
 }
 
-impl<'a> SyntaxComponent<'a> for TraitConst<'a> {
+impl<'a> SyntaxComponent<'a> for TraitConstItem<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting trait const");
         debug_assert!(matches!(reader.node.kind, SyntaxKind::TraitConst));
@@ -912,23 +842,23 @@ impl<'a> SyntaxComponent<'a> for TraitConst<'a> {
         let mut children = reader.children();
 
         let name = children.expect_next()?;
-        let type_annotation = children.expect_next()?;
+        let type_notation = children.expect_next()?;
         let value = children.next();
 
         Ok(Self {
             name,
-            type_annotation,
+            type_notation,
             value,
         })
     }
 }
 
-pub struct TraitType<'a> {
+pub struct TraitTypeItem<'a> {
     pub name: SyntaxReader<'a>,
     pub aliased_type: Option<SyntaxReader<'a>>,
 }
 
-impl<'a> SyntaxComponent<'a> for TraitType<'a> {
+impl<'a> SyntaxComponent<'a> for TraitTypeItem<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting trait type");
         debug_assert!(matches!(reader.node.kind, SyntaxKind::TraitType));

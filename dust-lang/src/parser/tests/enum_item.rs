@@ -10,7 +10,10 @@ use crate::{
 
 #[test]
 fn empty_variant() {
-    let parser = Parser::new(SourceFileId::MAIN, Lexer::with_unvalidated_source(b"enum Foo { Bar }"));
+    let parser = Parser::new(
+        SourceFileId::MAIN,
+        Lexer::with_unvalidated_source(b"enum Foo { Bar }"),
+    );
     let ParseResult {
         syntax_tree,
         errors,

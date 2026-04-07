@@ -25,15 +25,17 @@ fn index_expression() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 22), SyntaxId(9)),
+            Root.with_child(Span::new(0, 22), SyntaxId(10)),
             FunctionItem
-                .with_multiple_children(Span::new(0, 22), SyntaxPayload::child_indices(0, 3)),
+                .with_multiple_children(Span::new(0, 22), SyntaxPayload::child_indices(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
+            FunctionSignature
+                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 22), SyntaxId(7)),
-            IndexExpression.with_binary_children(Span::new(16, 20), SyntaxId(5), SyntaxId(6)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(4)),
+            BlockExpression.with_child(Span::new(10, 22), SyntaxId(8)),
+            IndexExpression.with_binary_children(Span::new(16, 20), SyntaxId(6), SyntaxId(7)),
+            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.empty(Span::new(18, 19)),
         ]

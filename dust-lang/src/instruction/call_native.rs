@@ -16,7 +16,7 @@ impl From<&Instruction> for CallNative {
     fn from(instruction: &Instruction) -> Self {
         CallNative {
             destination: instruction.a_field(),
-            function: NativeFunction(instruction.b_field()),
+            function: NativeFunction::from_id(instruction.b_field()),
             argument_type: instruction.operand_type(),
             arguments_start: instruction.c_field(),
         }
@@ -34,7 +34,7 @@ impl From<CallNative> for Instruction {
 
         InstructionBuilder::new(Operation::CALL_NATIVE)
             .a_field(destination)
-            .b_field(function.0)
+            .b_field(function.id())
             .operand_type(argument_type)
             .c_field(arguments_start)
             .build()

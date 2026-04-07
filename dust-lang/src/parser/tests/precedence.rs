@@ -25,24 +25,26 @@ fn addition_and_multiplication() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 27), SyntaxId(13)),
+            Root.with_child(Span::new(0, 27), SyntaxId(14)),
             FunctionItem
-                .with_multiple_children(Span::new(0, 27), SyntaxPayload::child_indices(0, 3)),
+                .with_multiple_children(Span::new(0, 27), SyntaxPayload::child_indices(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
+            FunctionSignature
+                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 27), SyntaxId(11)),
-            AdditionExpression.with_binary_children(Span::new(16, 25), SyntaxId(5), SyntaxId(10)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(4)),
+            BlockExpression.with_child(Span::new(10, 27), SyntaxId(12)),
+            AdditionExpression.with_binary_children(Span::new(16, 25), SyntaxId(6), SyntaxId(11)),
+            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
             MultiplicationExpression.with_binary_children(
                 Span::new(20, 25),
-                SyntaxId(7),
-                SyntaxId(9)
+                SyntaxId(8),
+                SyntaxId(10)
             ),
-            PathExpression.with_child(Span::new(20, 21), SyntaxId(6)),
+            PathExpression.with_child(Span::new(20, 21), SyntaxId(7)),
             PathSegment.empty(Span::new(20, 21)),
-            PathExpression.with_child(Span::new(24, 25), SyntaxId(8)),
+            PathExpression.with_child(Span::new(24, 25), SyntaxId(9)),
             PathSegment.empty(Span::new(24, 25)),
         ]
     );
@@ -64,20 +66,22 @@ fn right_associative_exponentiation() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 27), SyntaxId(13)),
+            Root.with_child(Span::new(0, 27), SyntaxId(14)),
             FunctionItem
-                .with_multiple_children(Span::new(0, 27), SyntaxPayload::child_indices(0, 3)),
+                .with_multiple_children(Span::new(0, 27), SyntaxPayload::child_indices(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
+            FunctionSignature
+                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
             FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 27), SyntaxId(11)),
-            ExponentExpression.with_binary_children(Span::new(16, 25), SyntaxId(5), SyntaxId(10)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(4)),
+            BlockExpression.with_child(Span::new(10, 27), SyntaxId(12)),
+            ExponentExpression.with_binary_children(Span::new(16, 25), SyntaxId(6), SyntaxId(11)),
+            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            ExponentExpression.with_binary_children(Span::new(20, 25), SyntaxId(7), SyntaxId(9)),
-            PathExpression.with_child(Span::new(20, 21), SyntaxId(6)),
+            ExponentExpression.with_binary_children(Span::new(20, 25), SyntaxId(8), SyntaxId(10)),
+            PathExpression.with_child(Span::new(20, 21), SyntaxId(7)),
             PathSegment.empty(Span::new(20, 21)),
-            PathExpression.with_child(Span::new(24, 25), SyntaxId(8)),
+            PathExpression.with_child(Span::new(24, 25), SyntaxId(9)),
             PathSegment.empty(Span::new(24, 25)),
         ]
     );

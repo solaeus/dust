@@ -1229,19 +1229,19 @@ impl<'a> Emitter<'a> {
                 Ok(())
             }
             Emission::Instructions(mut instructions) => {
-                if let Some(target) = return_target {
-                    if let Some(registers) = instructions.target.take() {
-                        for (register, target_register) in registers.iter().zip(target.iter()) {
-                            if target_register.index != register.index {
-                                let move_instruction = Instruction::r#move(
-                                    target_register.index,
-                                    register.operand_type,
-                                    MemoryKind::REGISTER,
-                                    register.index,
-                                );
+                if let Some(target) = return_target
+                    && let Some(registers) = instructions.target.take()
+                {
+                    for (register, target_register) in registers.iter().zip(target.iter()) {
+                        if target_register.index != register.index {
+                            let move_instruction = Instruction::r#move(
+                                target_register.index,
+                                register.operand_type,
+                                MemoryKind::REGISTER,
+                                register.index,
+                            );
 
-                                instructions.push(move_instruction);
-                            }
+                            instructions.push(move_instruction);
                         }
                     }
                 }
@@ -1379,16 +1379,15 @@ impl<'a> Emitter<'a> {
                 .and_then(|target| target.iter().next().copied());
             let mut expression_emission = self.visit_expression(node, target.clone())?;
 
-            if let Some(return_register) = return_target_first_index {
-                if let Emission::Instructions(ref mut instructions) = expression_emission
-                    && instructions.target.as_ref().is_some_and(|target| {
-                        target
-                            .iter()
-                            .any(|register| register.index == return_register.index)
-                    })
-                {
-                    instructions.target.take();
-                }
+            if let Some(return_register) = return_target_first_index
+                && let Emission::Instructions(instructions) = &mut expression_emission
+                && instructions.target.as_ref().is_some_and(|target| {
+                    target
+                        .iter()
+                        .any(|register| register.index == return_register.index)
+                })
+            {
+                instructions.target.take();
             }
 
             self.handle_return_emission(
@@ -3824,15 +3823,12 @@ impl SyntaxVisitor for Emitter<'_> {
                     }
                 }
 
-                let callee_scope = self
-                    .resolver
-                    .scopes
-                    .get_scope(
-                        self.resolver
-                            .declarations
-                            .get_declaration(declaration_id)?
-                            .scope_id,
-                    )?;
+                let callee_scope = self.resolver.scopes.get_scope(
+                    self.resolver
+                        .declarations
+                        .get_declaration(declaration_id)?
+                        .scope_id,
+                )?;
 
                 if callee_scope.kind == ScopeKind::Trait
                     && callee.node.kind == SyntaxKind::FieldAccessExpression

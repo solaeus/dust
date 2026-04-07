@@ -12,18 +12,8 @@ pub struct SyntaxNode {
     pub(crate) kind: SyntaxKind,
     pub(crate) children: SyntaxPayload,
     pub(crate) children_kind: SyntaxPayloadKind,
+    pub(crate) modifier: SyntaxNodeModifier,
     pub(crate) span: Span,
-    pub(crate) attachments: SyntaxPayload,
-    pub(crate) attachments_kind: SyntaxPayloadKind,
-    pub(crate) modifier: bool,
-}
-
-impl SyntaxNode {
-    pub(crate) fn with_modifier(mut self, modifier: bool) -> Self {
-        self.modifier = modifier;
-
-        self
-    }
 }
 
 impl Display for SyntaxNode {
@@ -183,9 +173,7 @@ impl SyntaxKind {
             children: SyntaxPayload::empty(),
             children_kind: SyntaxPayloadKind::Empty,
             span,
-            attachments: SyntaxPayload::empty(),
-            attachments_kind: SyntaxPayloadKind::Empty,
-            modifier: false,
+            modifier: SyntaxNodeModifier::default(),
         }
     }
 
@@ -198,9 +186,7 @@ impl SyntaxKind {
             },
             children_kind: SyntaxPayloadKind::SingleChild,
             span,
-            attachments: SyntaxPayload::empty(),
-            attachments_kind: SyntaxPayloadKind::Empty,
-            modifier: false,
+            modifier: SyntaxNodeModifier::default(),
         }
     }
 
@@ -215,9 +201,7 @@ impl SyntaxKind {
             children: SyntaxPayload::binary_children(left_child_id, right_child_id),
             children_kind: SyntaxPayloadKind::BinaryChildren,
             span,
-            attachments: SyntaxPayload::empty(),
-            attachments_kind: SyntaxPayloadKind::Empty,
-            modifier: false,
+            modifier: SyntaxNodeModifier::default(),
         }
     }
 
@@ -227,9 +211,7 @@ impl SyntaxKind {
             children: payload,
             children_kind: SyntaxPayloadKind::MultipleChildren,
             span,
-            attachments: SyntaxPayload::empty(),
-            attachments_kind: SyntaxPayloadKind::Empty,
-            modifier: false,
+            modifier: SyntaxNodeModifier::default(),
         }
     }
 
@@ -670,4 +652,68 @@ pub enum SyntaxPayloadKind {
     SingleChild,
     BinaryChildren,
     MultipleChildren,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SyntaxNodeModifier(u8);
+
+impl SyntaxNodeModifier {
+    pub const PUBLIC: u8 = 1;
+    pub const HAS_RETURN_TYPE: u8 = 2;
+    pub const HAS_WHERE_CLAUSE: u8 = 8;
+    pub const HAS_TYPE_PARAMETERS: u8 = 2;
+    pub const HAS_TYPE_ARGUMENTS: u8 = 4;
+    pub const HAS_SUPERTRAITS: u8 = 4;
+
+    pub fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn is_public(&self) -> bool {
+        (self.0 & Self::PUBLIC) != 0
+    }
+
+    pub fn set_public(&mut self) {
+        self.0 |= Self::PUBLIC;
+    }
+
+    pub fn has_return_type(&self) -> bool {
+        (self.0 & Self::HAS_RETURN_TYPE) != 0
+    }
+
+    pub fn set_has_return_type(&mut self) {
+        self.0 |= Self::HAS_RETURN_TYPE;
+    }
+
+    pub fn has_where_clause(&self) -> bool {
+        (self.0 & Self::HAS_WHERE_CLAUSE) != 0
+    }
+
+    pub fn set_has_where_clause(&mut self) {
+        self.0 |= Self::HAS_WHERE_CLAUSE;
+    }
+
+    pub fn has_type_parameters(&self) -> bool {
+        (self.0 & Self::HAS_TYPE_PARAMETERS) != 0
+    }
+
+    pub fn set_has_type_parameters(&mut self) {
+        self.0 |= Self::HAS_TYPE_PARAMETERS;
+    }
+
+    pub fn has_type_arguments(&self) -> bool {
+        (self.0 & Self::HAS_TYPE_ARGUMENTS) != 0
+    }
+
+    pub fn set_has_type_arguments(&mut self) {
+        self.0 |= Self::HAS_TYPE_ARGUMENTS;
+    }
+
+    pub fn has_supertraits(&self) -> bool {
+        (self.0 & Self::HAS_SUPERTRAITS) != 0
+    }
+
+    pub fn set_has_supertraits(&mut self) {
+        self.0 |= Self::HAS_SUPERTRAITS;
+    }
 }
