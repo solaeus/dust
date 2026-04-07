@@ -1,6 +1,7 @@
 use crate::{
     compiler::{resolver::types::TypeId, tests::type_bind_function},
-    source::SourceFileId, syntax::node::SyntaxKind,
+    source::SourceFileId,
+    syntax::node::SyntaxKind,
 };
 
 #[test]

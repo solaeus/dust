@@ -32,13 +32,13 @@ mod struct_expression;
 mod while_expression;
 
 use crate::{
+    compiler::resolver::declarations::{Definition, Visibility},
     compiler::{
         emitter::{Emitter, get_register_size},
         tests::type_bind_function,
     },
     constant_list::ConstantListBuilder,
     prototype::{Prototype, PrototypeList},
-    compiler::resolver::declarations::{Definition, Visibility},
     source::{Source, SourceCode},
     syntax::components::{FunctionItem, FunctionSignature},
 };

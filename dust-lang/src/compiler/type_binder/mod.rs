@@ -1,13 +1,15 @@
 use smallvec::{SmallVec, smallvec};
 
 use crate::{
-    compiler::{error::CompileError, value_creation::create_usize_from_decimal},
-    compiler::resolver::{
-        Resolver,
-        declarations::{Declaration, DeclarationId, Definition, Visibility},
-        error::ResolverError,
-        scopes::ScopeId,
-        types::{InferredTypeConstraint, Type, TypeId, TypeMembers},
+    compiler::{
+        error::CompileError,
+        resolver::{
+            Resolver,
+            declarations::{Declaration, DeclarationId, Definition, Visibility},
+            scopes::ScopeId,
+            types::{InferredTypeConstraint, Type, TypeId, TypeMembers},
+        },
+        value_creation::create_usize_from_decimal,
     },
     source::Source,
     syntax::{
@@ -547,11 +549,13 @@ impl SyntaxVisitor for TypeBinder<'_> {
                         self.unify_types(type_id, Some(child), value_type_id, value)?;
                     }
                 }
-                SyntaxKind::TraitMethod | SyntaxKind::FunctionItem | SyntaxKind::TraitType => {}
+                SyntaxKind::TraitFunctionItem
+                | SyntaxKind::FunctionItem
+                | SyntaxKind::TraitType => {}
                 _ => {
                     return Err(CompileError::ExpectedSyntaxKinds {
                         expected: &[
-                            SyntaxKind::TraitMethod,
+                            SyntaxKind::TraitFunctionItem,
                             SyntaxKind::FunctionItem,
                             SyntaxKind::TraitConst,
                             SyntaxKind::TraitType,
@@ -766,9 +770,9 @@ impl SyntaxVisitor for TypeBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        let IndexExpression { list, index } = reader.as_component()?;
+        let IndexExpression { collection, index } = reader.as_component()?;
 
-        let list_type_id = self.visit_expression(list, None)?;
+        let list_type_id = self.visit_expression(collection, None)?;
         let index_type_id = self.visit_expression(index, None)?;
 
         let list_type = *self.resolver.types.get_type(list_type_id)?;
@@ -837,7 +841,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
             .resolver
             .declarations
             .find_declaration(symbol_id, ScopeId::CORE, Visibility::Module)
-            .ok_or(ResolverError::ExpectedConcreteType)?;
+            .ok_or(CompileError::ExpectedConcreteType)?;
 
         let type_arguments = self
             .resolver

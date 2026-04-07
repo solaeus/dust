@@ -21,14 +21,14 @@ use std::path::{Path, PathBuf};
 use smallvec::SmallVec;
 
 use crate::{
-    compiler::{declaration_binder::DeclarationBinder, tests::bind_declarations},
-    error::ErrorKind,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
     compiler::resolver::{
         Resolver,
         scopes::{Scope, ScopeId, ScopeKind},
     },
+    compiler::{declaration_binder::DeclarationBinder, tests::bind_declarations},
+    error::ErrorKind,
+    lexer::Lexer,
+    parser::{ParseResult, Parser},
     source::{Source, SourceFileId},
     syntax::{Syntax, node::SyntaxKind, visitor::SyntaxVisitor},
 };

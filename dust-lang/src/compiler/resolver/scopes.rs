@@ -1,6 +1,6 @@
 use smallvec::SmallVec;
 
-use crate::compiler::resolver::{declarations::DeclarationId, error::ResolverError};
+use crate::compiler::{error::CompileError, resolver::declarations::DeclarationId};
 
 #[derive(Debug, Default)]
 pub struct Scopes {
@@ -20,10 +20,10 @@ impl Scopes {
         id
     }
 
-    pub fn get_scope(&self, id: ScopeId) -> Result<&Scope, ResolverError> {
+    pub fn get_scope(&self, id: ScopeId) -> Result<&Scope, CompileError> {
         self.scopes
             .get(id.0 as usize)
-            .ok_or(ResolverError::MissingScope(id))
+            .ok_or(CompileError::MissingScope(id))
     }
 }
 

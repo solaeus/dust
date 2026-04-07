@@ -26,7 +26,7 @@ use crate::{
     },
     constant_list::ConstantListBuilder,
     dust_type::DustType,
-    error::{Error, ErrorKind},
+    error::{Error, ErrorContext, ErrorKind},
     instruction::OperandType,
     lexer::Lexer,
     parser::{ParseResult, Parser},
@@ -36,7 +36,6 @@ use crate::{
     syntax::{
         Syntax,
         components::{FunctionItem, FunctionSignature},
-        node::SyntaxKind,
         visitor::SyntaxVisitor,
     },
 };
@@ -75,7 +74,10 @@ impl<'src> Compiler<'src> {
                 Ok(program)
             }
             Err(errors) => {
-                let errors = Error::with_source_and_resolver(errors, self.source, self.resolver);
+                let errors = Error::new(
+                    errors,
+                    ErrorContext::Full(self.source, self.syntax, Box::new(self.resolver)),
+                );
 
                 Err(errors)
             }
@@ -94,7 +96,10 @@ impl<'src> Compiler<'src> {
                 Ok((program, self.source, self.syntax, constant_tags))
             }
             Err(errors) => {
-                let errors = Error::with_source_and_resolver(errors, self.source, self.resolver);
+                let errors = Error::new(
+                    errors,
+                    ErrorContext::Full(self.source, self.syntax, Box::new(self.resolver)),
+                );
 
                 Err(errors)
             }
@@ -211,16 +216,17 @@ impl<'src> Compiler<'src> {
 
         let mut concrete_main_return_type_id = None;
 
-        while let Some(request) = self.compilation_stack.pop() {
-            let declaration = *unwrap_or_return!(
-                self.resolver
-                    .declarations
-                    .get_declaration(request.declaration_id)
-            );
+        while let Some(CompilationRequest {
+            declaration_id,
+            prototype_id,
+        }) = self.compilation_stack.pop()
+        {
+            let declaration =
+                *unwrap_or_return!(self.resolver.declarations.get_declaration(declaration_id));
             let Definition::Function {
-                return_type_id,
-                value_parameters,
                 type_parameters,
+                value_parameters,
+                return_type_id,
                 ..
             } = declaration.definition
             else {
@@ -239,9 +245,11 @@ impl<'src> Compiler<'src> {
                     .get_tree(position.file_id)
                     .and_then(|tree| tree.get_node(syntax_id))
             );
-            if syntax_node.node.kind == SyntaxKind::TraitMethod {
-                continue;
-            }
+
+            // if syntax_node.node.kind == SyntaxKind::TraitFunctionItem {
+            //     continue;
+            // }
+
             let FunctionItem {
                 signature, body, ..
             } = unwrap_or_return!(syntax_node.as_component());
@@ -266,7 +274,7 @@ impl<'src> Compiler<'src> {
 
             if let Some(concrete_type_arguments) = self
                 .resolver
-                .get_concrete_type_arguments(request.prototype_id)
+                .get_concrete_type_arguments(prototype_id)
                 .cloned()
             {
                 for (&type_parameter_declaration_id, concrete_type_id) in
@@ -287,32 +295,27 @@ impl<'src> Compiler<'src> {
                 let scope = unwrap_or_return!(self.resolver.scopes.get_scope(declaration.scope_id));
 
                 if scope.kind == ScopeKind::Trait {
-                    let mut extra_index = type_parameter_declaration_ids.len();
+                    let mut type_argument_index = type_parameter_declaration_ids.len();
 
-                    for (decl_id, decl) in self.resolver.declarations.iter() {
-                        if extra_index >= concrete_type_arguments.len() {
-                            break;
-                        }
+                    for (declaration_id, declaration) in self.resolver.declarations.iter() {
+                        let type_argument_id = unwrap_or_return!(
+                            concrete_type_arguments
+                                .get(type_argument_index)
+                                .copied()
+                                .ok_or(CompileError::MissingTypeArgument(declaration_id))
+                        );
 
-                        if decl.scope_id == declaration.scope_id
-                            && matches!(decl.definition, Definition::TypeParameter)
-                            && !self.resolver.type_parameter_map.contains_key(&decl_id)
+                        if matches!(declaration.definition, Definition::TypeParameter)
+                            && !self
+                                .resolver
+                                .type_parameter_map
+                                .contains_key(&declaration_id)
                         {
-                            let inferred_type_id = self.resolver.types.create_inferred_type(None);
-
                             self.resolver
                                 .type_parameter_map
-                                .insert(decl_id, inferred_type_id);
+                                .insert(declaration_id, type_argument_id);
 
-                            let inferred_type = unwrap_or_return!(
-                                self.resolver.types.get_type_mut(inferred_type_id)
-                            );
-
-                            if let Type::Inferred { resolved, .. } = inferred_type {
-                                *resolved = Some(concrete_type_arguments[extra_index]);
-                            }
-
-                            extra_index += 1;
+                            type_argument_index += 1;
                         }
                     }
                 }
@@ -346,8 +349,7 @@ impl<'src> Compiler<'src> {
                             size
                         } else {
                             errors.push(ErrorKind::Compile(CompileError::CannotInferType {
-                                type_id: concrete_parameter_type_id,
-                                position,
+                                type_id: parameter_type_id,
                             }));
 
                             return Err(errors);
@@ -369,8 +371,8 @@ impl<'src> Compiler<'src> {
                 let _enter = span.enter();
 
                 let mut emitter = match Emitter::new(
-                    Some(request.declaration_id),
-                    request.prototype_id,
+                    Some(declaration_id),
+                    prototype_id,
                     argument_count,
                     return_types,
                     scope_id,
@@ -414,9 +416,9 @@ impl<'src> Compiler<'src> {
                     }
                 };
 
-                self.prototypes.set(request.prototype_id, prototype);
+                self.prototypes.set(prototype_id, prototype);
 
-                if request.prototype_id == PrototypeId::MAIN {
+                if prototype_id == PrototypeId::MAIN {
                     concrete_main_return_type_id = Some(concrete_return_type_id);
                 }
             }

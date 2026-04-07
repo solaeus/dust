@@ -126,6 +126,21 @@ impl<'a> SyntaxComponent<'a> for FunctionParameters<'a> {
     }
 }
 
+pub struct ValueParameters<'a> {
+    pub name_type_pairs: ArrayChunks<SyntaxReaderIterator<'a>, 2>,
+}
+
+impl<'a> SyntaxComponent<'a> for ValueParameters<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug!("Visiting value parameters");
+        debug_assert!(reader.node.kind == SyntaxKind::ValueParameters);
+
+        Ok(Self {
+            name_type_pairs: reader.children().array_chunks(),
+        })
+    }
+}
+
 pub struct StructItem<'a> {
     pub public: bool,
     pub name: SyntaxReader<'a>,
@@ -469,7 +484,7 @@ impl<'a> SyntaxComponent<'a> for ArrayRepeatExpression<'a> {
 }
 
 pub struct IndexExpression<'a> {
-    pub list: SyntaxReader<'a>,
+    pub collection: SyntaxReader<'a>,
     pub index: SyntaxReader<'a>,
 }
 
@@ -478,9 +493,9 @@ impl<'a> SyntaxComponent<'a> for IndexExpression<'a> {
         debug!("Visiting index expression");
         debug_assert!(matches!(reader.node.kind, SyntaxKind::IndexExpression));
 
-        let (list, index) = reader.binary_children()?;
+        let (collection, index) = reader.binary_children()?;
 
-        Ok(Self { list, index })
+        Ok(Self { collection, index })
     }
 }
 
@@ -816,7 +831,7 @@ pub struct TraitFunctionItem<'a> {
 impl<'a> SyntaxComponent<'a> for TraitFunctionItem<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug!("Visiting trait method");
-        debug_assert!(matches!(reader.node.kind, SyntaxKind::TraitMethod));
+        debug_assert!(matches!(reader.node.kind, SyntaxKind::TraitFunctionItem));
 
         let mut children = reader.children();
 

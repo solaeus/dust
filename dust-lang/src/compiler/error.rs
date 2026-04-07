@@ -1,20 +1,22 @@
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
-    compiler::emitter::JumpId,
+    compiler::{
+        emitter::JumpId,
+        resolver::{
+            Resolver,
+            declarations::{DeclarationId, DeclarationMembers},
+            scopes::ScopeId,
+            symbols::SymbolId,
+            types::{Type, TypeId, TypeMembers},
+        },
+    },
     constant_list::ConstantListError,
     dust_type::DustType,
     error::AnnotatedError,
     instruction::OperandType,
-    compiler::resolver::{
-        Resolver,
-        declarations::DeclarationId,
-        error::ResolverError,
-        symbols::SymbolId,
-        types::{Type, TypeId},
-    },
     source::{Position, Source, SourceError},
-    syntax::{error::SyntaxError, node::SyntaxKind},
+    syntax::{Syntax, SyntaxId, error::SyntaxError, node::SyntaxKind},
 };
 
 #[derive(Debug)]
@@ -43,7 +45,6 @@ pub enum CompileError {
     },
     CannotInferType {
         type_id: TypeId,
-        position: Position,
     },
     CannotIndex {
         type_id: TypeId,
@@ -140,7 +141,25 @@ pub enum CompileError {
     },
     ExpectedJumpPlacement(JumpId),
     Syntax(SyntaxError),
-    Resolver(ResolverError),
+    MissingSymbol(SymbolId),
+    MissingDeclaration(DeclarationId),
+    MissingDeclarationMember(u32),
+    MissingDeclarationMembers(DeclarationMembers),
+    MissingDeclarationType(DeclarationId),
+    MissingDeclarationBinding(SyntaxId),
+    MissingTypeDeclaration(DeclarationId),
+    MissingScope(ScopeId),
+    MissingScopeBinding(SyntaxId),
+    MissingType(TypeId),
+    MissingTypeMember(u32),
+    MissingTypeMembers(TypeMembers),
+    MissingTypeBinding(SyntaxId),
+    MissingFunctionDeclaration(DeclarationId),
+    ExpectedFieldDeclaration(DeclarationId),
+    MissingAlgebraicTypeDeclaration(DeclarationId),
+    MissingTypeArgument(DeclarationId),
+    ExpectedConcreteType,
+    ExpectedVariantDeclaration(DeclarationId),
     ConstantList(ConstantListError),
     Source(SourceError),
     ExpectedSyntaxKind {
@@ -158,9 +177,9 @@ pub enum CompileError {
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
-    type Context = (&'a Source<'a>, &'a Resolver);
+    type Context = (&'a Source<'a>, &'a Syntax, &'a Resolver);
 
-    fn add_report(&self, (source, resolver): Self::Context, groups: &mut Vec<Group<'a>>) {
+    fn add_report(&self, (source, syntax, resolver): Self::Context, groups: &mut Vec<Group<'a>>) {
         match self {
             CompileError::DivisionByZero { position } => {
                 let title = "Division by zero".to_string();
@@ -217,7 +236,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let found_type = match resolver.get_external_type(*found_type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -260,7 +279,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let declaration = match resolver.declarations.get_declaration(*declaration_id) {
                     Ok(declaration) => declaration,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -268,7 +287,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let name = match resolver.symbols.get_symbol(&declaration.symbol_id) {
                     Ok(name) => name,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -307,25 +326,54 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::CannotInferType { type_id, position } => {
+            CompileError::CannotInferType { type_id } => {
                 let type_node = match resolver.types.get_type(*type_id) {
                     Ok(type_node) => type_node,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
                 };
-                let type_declaration_id = match type_node {
+                let declaration = match type_node {
                     Type::Algebraic { declaration_id, .. }
                     | Type::FunctionDefinition { declaration_id, .. }
                     | Type::Generic { declaration_id }
-                    | Type::Slice { declaration_id, .. } => Some(*declaration_id),
+                    | Type::Slice { declaration_id, .. } => {
+                        match resolver.declarations.get_declaration(*declaration_id) {
+                            Ok(declaration) => Some(declaration),
+                            Err(error) => {
+                                error.add_report((source, syntax, resolver), groups);
+
+                                return;
+                            }
+                        }
+                    }
                     _ => None,
                 };
-                let type_string = if let Some(declaration_id) = type_declaration_id {
-                    let declaration = match resolver.declarations.get_declaration(declaration_id) {
-                        Ok(declaration) => declaration,
+                let type_string = if let Some(declaration) = declaration {
+                    match resolver.symbols.get_symbol(&declaration.symbol_id) {
+                        Ok(symbol) => Some(symbol.to_string()),
+                        Err(error) => {
+                            error.add_report((source, syntax, resolver), groups);
+
+                            return;
+                        }
+                    }
+                } else {
+                    None
+                };
+                let title = "Cannot infer type".to_string();
+                let message = if let Some(type_string) = type_string {
+                    format!("Cannot infer type `{type_string}`.")
+                } else {
+                    "Cannot infer this type.".to_string()
+                };
+                let group = if let Some((position, _)) =
+                    declaration.and_then(|declaration| declaration.syntax)
+                {
+                    let file_content = match source.get_file(position.file_id) {
+                        Ok(file) => file.content_as_str(),
                         Err(error) => {
                             error.add_report((), groups);
 
@@ -333,41 +381,17 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         }
                     };
 
-                    match resolver.symbols.get_symbol(&declaration.symbol_id) {
-                        Ok(symbol) => symbol.to_string(),
-                        Err(error) => {
-                            error.add_report((), groups);
-
-                            return;
-                        }
-                    }
+                    Group::with_title(Level::ERROR.primary_title(title)).element(
+                        Snippet::source(file_content).annotation(
+                            AnnotationKind::Primary
+                                .span(position.span.as_usize_range())
+                                .label(message),
+                        ),
+                    )
                 } else {
-                    match resolver.get_external_type(*type_id, source) {
-                        Ok(r#type) => r#type.to_string(),
-                        Err(error) => {
-                            error.add_report((), groups);
-
-                            return;
-                        }
-                    }
+                    Group::with_title(Level::ERROR.primary_title(title))
+                        .element(Level::ERROR.message(message))
                 };
-                let title = format!("Cannot infer type {type_string}");
-                let file_content = match source.get_file(position.file_id) {
-                    Ok(file) => file.content_as_str(),
-                    Err(error) => {
-                        error.add_report((), groups);
-
-                        return;
-                    }
-                };
-                let group = Group::with_title(Level::ERROR.primary_title(title))
-                    .elements([Snippet::source(file_content).annotation(
-                    AnnotationKind::Primary
-                        .span(position.span.as_usize_range())
-                        .label(format!(
-                            "Type {type_string} was declared here, but its type cannot be inferred."
-                        )),
-                )]);
 
                 groups.push(group);
             }
@@ -385,7 +409,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         _ => r#type.to_string(),
                     },
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -393,7 +417,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let found_type_string = match resolver.get_external_type(*found_type, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -473,7 +497,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let r#type = match resolver.get_external_type(*type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -537,7 +561,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let r#type = match resolver.get_external_type(*type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -573,7 +597,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let name_str = match resolver.symbols.get_symbol(symbol_id) {
                     Ok(name) => name,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -593,7 +617,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let symbol = match resolver.symbols.get_symbol(symbol_id) {
                     Ok(symbol) => symbol,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -657,7 +681,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let found_type = match resolver.get_external_type(*found, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -690,7 +714,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let function_type = match resolver.get_external_type(*function_type, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -787,7 +811,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let r#type = match resolver.get_external_type(*type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -867,7 +891,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let element_type = match resolver.get_external_type(*type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -882,7 +906,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     }) {
                     Ok(found) => found,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -925,7 +949,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let declaration = match resolver.declarations.get_declaration(*declaration_id) {
                     Ok(declaration) => declaration,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -933,7 +957,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let name = match resolver.symbols.get_symbol(&declaration.symbol_id) {
                     Ok(name) => name,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -960,7 +984,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let r#type = match resolver.get_external_type(*type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((), groups);
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -992,11 +1016,29 @@ impl<'a> AnnotatedError<'a> for CompileError {
             | CompileError::ExpectedLocalDefinition
             | CompileError::ExpectedFieldDefinition { .. }
             | CompileError::ExpectedAllocation
-            | CompileError::ValueCreation(_) => {
+            | CompileError::ValueCreation(_)
+            | CompileError::MissingSymbol(_)
+            | CompileError::MissingDeclaration(_)
+            | CompileError::MissingDeclarationMember(_)
+            | CompileError::MissingDeclarationMembers(_)
+            | CompileError::MissingDeclarationType(_)
+            | CompileError::MissingDeclarationBinding(_)
+            | CompileError::MissingTypeDeclaration(_)
+            | CompileError::MissingScope(_)
+            | CompileError::MissingScopeBinding(_)
+            | CompileError::MissingType(_)
+            | CompileError::MissingTypeMember(_)
+            | CompileError::MissingTypeMembers(_)
+            | CompileError::MissingTypeBinding(_)
+            | CompileError::MissingFunctionDeclaration(_)
+            | CompileError::ExpectedFieldDeclaration(_)
+            | CompileError::MissingAlgebraicTypeDeclaration(_)
+            | CompileError::MissingTypeArgument(_)
+            | CompileError::ExpectedConcreteType
+            | CompileError::ExpectedVariantDeclaration(_) => {
                 self.add_internal_report(groups);
             }
             CompileError::Syntax(error) => error.add_report((), groups),
-            CompileError::Resolver(error) => error.add_report((), groups),
             CompileError::ConstantList(error) => error.add_report((), groups),
             CompileError::Source(error) => error.add_report((), groups),
         }
@@ -1006,12 +1048,6 @@ impl<'a> AnnotatedError<'a> for CompileError {
 impl From<SyntaxError> for CompileError {
     fn from(error: SyntaxError) -> Self {
         CompileError::Syntax(error)
-    }
-}
-
-impl From<ResolverError> for CompileError {
-    fn from(error: ResolverError) -> Self {
-        CompileError::Resolver(error)
     }
 }
 

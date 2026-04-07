@@ -1,9 +1,9 @@
 use crate::{
-    compiler::tests::type_bind_function,
     compiler::resolver::{
         declarations::{Definition, Visibility},
         types::TypeId,
     },
+    compiler::tests::type_bind_function,
 };
 
 #[test]

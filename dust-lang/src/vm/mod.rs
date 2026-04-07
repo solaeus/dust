@@ -14,7 +14,7 @@ use crate::{
     compiler::Compiler,
     dust_type::{DustEnumType, DustStructType, DustStructValueType, DustType},
     dust_value::{DustEnumVariant, DustStruct, DustStructValue, DustValue},
-    error::{Error, ErrorKind},
+    error::{Error, ErrorContext, ErrorKind},
     program::Program,
     source::{Source, SourceCode},
     vm::{
@@ -73,12 +73,12 @@ impl Vm {
         let message_receiver = {
             info!("Spawning main VM thread");
 
-            let mut local_spawner = self.thread_pool.lock_spawner();
+            let mut spawner = self.thread_pool.lock_spawner();
 
-            local_spawner
+            spawner
                 .spawn_thread(0)
-                .map_err(|error| Error::without_context(vec![ErrorKind::Vm(error)]))?;
-            local_spawner.clone_message_receiver()
+                .map_err(|error| Error::new(vec![ErrorKind::Vm(error)], ErrorContext::None))?;
+            spawner.clone_message_receiver()
         };
 
         let mut return_value: Option<DustValue> = None;
@@ -94,7 +94,9 @@ impl Vm {
                     self.thread_pool
                         .lock_spawner()
                         .spawn_named_thread(thread_name, prototype_index)
-                        .map_err(|error| Error::without_context(vec![ErrorKind::Vm(error)]))?;
+                        .map_err(|error| {
+                            Error::new(vec![ErrorKind::Vm(error)], ErrorContext::None)
+                        })?;
                 }
                 Ok(ThreadMessage::RemoveThread { thread_id, result }) => {
                     info!("VM thread completed: Thread ID: {}", thread_id.as_u64());
@@ -121,12 +123,15 @@ impl Vm {
                     if spawner.is_empty() {
                         info!("All VM threads have completed.");
 
-                        let return_registers = result
-                            .map_err(|error| Error::without_context(vec![ErrorKind::Vm(error)]))?;
+                        let return_registers = result.map_err(|error| {
+                            Error::new(vec![ErrorKind::Vm(error)], ErrorContext::None)
+                        })?;
 
                         return_value = self
                             .create_value(self.program.return_type(), &return_registers, &mut 0)
-                            .map_err(|error| Error::without_context(vec![ErrorKind::Vm(error)]))?;
+                            .map_err(|error| {
+                                Error::new(vec![ErrorKind::Vm(error)], ErrorContext::None)
+                            })?;
 
                         break;
                     }

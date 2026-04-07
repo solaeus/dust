@@ -8,7 +8,7 @@ use std::{
 use indexmap::{IndexSet, set::MutableValues};
 use smallvec::SmallVec;
 
-use crate::compiler::resolver::{declarations::DeclarationId, error::ResolverError};
+use crate::compiler::{error::CompileError, resolver::declarations::DeclarationId};
 
 /// Type instance collection that stores every type known to the `Compiler`.
 #[derive(Debug)]
@@ -79,16 +79,16 @@ impl Types {
         type_id
     }
 
-    pub fn get_type(&self, id: TypeId) -> Result<&Type, ResolverError> {
+    pub fn get_type(&self, id: TypeId) -> Result<&Type, CompileError> {
         self.types
             .get_index(id.0 as usize)
-            .ok_or(ResolverError::MissingType(id))
+            .ok_or(CompileError::MissingType(id))
     }
 
-    pub fn get_type_mut(&mut self, id: TypeId) -> Result<&mut Type, ResolverError> {
+    pub fn get_type_mut(&mut self, id: TypeId) -> Result<&mut Type, CompileError> {
         self.types
             .get_index_mut2(id.0 as usize)
-            .ok_or(ResolverError::MissingType(id))
+            .ok_or(CompileError::MissingType(id))
     }
 
     pub fn add_type_members(&mut self, types: SmallVec<[TypeId; 4]>) -> TypeMembers {
@@ -101,16 +101,16 @@ impl Types {
         TypeMembers { start, end }
     }
 
-    pub fn get_type_members(&self, members: TypeMembers) -> Result<&[TypeId], ResolverError> {
+    pub fn get_type_members(&self, members: TypeMembers) -> Result<&[TypeId], CompileError> {
         self.members
             .get(members.as_usize_range())
-            .ok_or(ResolverError::MissingTypeMembers(members))
+            .ok_or(CompileError::MissingTypeMembers(members))
     }
 
-    pub fn get_type_member(&self, index: u32) -> Result<&TypeId, ResolverError> {
+    pub fn get_type_member(&self, index: u32) -> Result<&TypeId, CompileError> {
         self.members
             .get(index as usize)
-            .ok_or(ResolverError::MissingTypeMember(index))
+            .ok_or(CompileError::MissingTypeMember(index))
     }
 
     pub fn create_inferred_type(&mut self, constraint: Option<InferredTypeConstraint>) -> TypeId {

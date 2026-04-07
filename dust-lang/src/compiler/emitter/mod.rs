@@ -11,6 +11,15 @@ use crate::{
     compiler::{
         CompilationRequest,
         error::CompileError,
+        resolver::{
+            ConstantValue, Resolver,
+            declarations::{DeclarationId, Definition},
+            scopes::{ScopeId, ScopeKind},
+            types::{
+                FloatType, InferredTypeConstraint, SignedIntegerType, Type, TypeId, TypeMembers,
+                UnsignedIntegerType,
+            },
+        },
         value_creation::{
             create_char, create_f32_from_decimal, create_f64_from_decimal, create_i8_from_decimal,
             create_i16_from_decimal, create_i32_from_decimal, create_i64_from_decimal,
@@ -23,23 +32,13 @@ use crate::{
     instruction::{Drop, Instruction, Jump, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
     prototype::{Prototype, PrototypeId, PrototypeList},
-    compiler::resolver::{
-        ConstantValue, Resolver,
-        declarations::{DeclarationId, Definition},
-        error::ResolverError,
-        scopes::{ScopeId, ScopeKind},
-        types::{
-            FloatType, InferredTypeConstraint, SignedIntegerType, Type, TypeId, TypeMembers,
-            UnsignedIntegerType,
-        },
-    },
     source::{Position, Source, Span},
     syntax::{
         components::{
             ArrayExpression, ArrayRepeatExpression, AssignmentExpression, CallExpression,
             ComparisonExpression, ConstItem, ExpressionStatement, FieldAccessExpression,
             FunctionParameters, IndexExpression, LogicExpression, MathExpression,
-            NegationExpression, NotExpression, RangeExpression,
+            NegationExpression, NotExpression, RangeExpression, ValueParameters,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -143,8 +142,9 @@ impl<'a> Emitter<'a> {
             type_parameters: _,
             value_parameters,
         } = parameters.as_component()?;
+        let ValueParameters { name_type_pairs } = value_parameters.as_component()?;
 
-        for [parameter_name, _parameter_type] in value_parameters.children().array_chunks() {
+        for [parameter_name, _] in name_type_pairs {
             let declaration_id = *self.resolver.get_declaration_binding(&parameter_name.id)?;
             let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
             let Definition::Local { type_id, .. } = declaration.definition else {
@@ -287,14 +287,14 @@ impl<'a> Emitter<'a> {
         &mut self,
         type_id: TypeId,
         kind: RegisterKind,
-        reader: &SyntaxReader,
+        syntax: &SyntaxReader,
     ) -> Result<RegisterAllocation, CompileError> {
         fn collect_registers(
             type_id: TypeId,
             kind: RegisterKind,
             registers: &mut SmallVec<[Register; 4]>,
             emitter: &mut Emitter,
-            reader: &SyntaxReader,
+            syntax: &SyntaxReader,
         ) -> Result<(), CompileError> {
             let type_node = emitter.resolver.types.get_type(type_id)?;
 
@@ -362,7 +362,7 @@ impl<'a> Emitter<'a> {
                     for index in element_type_ids.as_range() {
                         let element_type = *emitter.resolver.types.get_type_member(index)?;
 
-                        collect_registers(element_type, kind, registers, emitter, reader)?;
+                        collect_registers(element_type, kind, registers, emitter, syntax)?;
                     }
 
                     return Ok(());
@@ -375,7 +375,7 @@ impl<'a> Emitter<'a> {
                     let length = *length;
 
                     for _ in 0..length {
-                        collect_registers(element_type_id, kind, registers, emitter, reader)?;
+                        collect_registers(element_type_id, kind, registers, emitter, syntax)?;
                     }
 
                     return Ok(());
@@ -390,7 +390,7 @@ impl<'a> Emitter<'a> {
                     resolved: Some(resolved),
                     ..
                 } => {
-                    collect_registers(*resolved, kind, registers, emitter, reader)?;
+                    collect_registers(*resolved, kind, registers, emitter, syntax)?;
 
                     return Ok(());
                 }
@@ -405,10 +405,7 @@ impl<'a> Emitter<'a> {
                     ..
                 } => (OperandType::F_64, RegisterWidth::Double),
                 Type::Inferred { .. } | Type::Generic { .. } => {
-                    return Err(CompileError::CannotInferType {
-                        type_id,
-                        position: reader.position(),
-                    });
+                    return Err(CompileError::CannotInferType { type_id });
                 }
                 Type::Algebraic { .. } => {
                     let operand_types = emitter.resolver.get_operand_types(type_id)?;
@@ -453,12 +450,12 @@ impl<'a> Emitter<'a> {
 
         let mut allocations = SmallVec::new();
 
-        collect_registers(type_id, kind, &mut allocations, self, reader)?;
+        collect_registers(type_id, kind, &mut allocations, self, syntax)?;
 
         match allocations.len() {
             0 => Err(CompileError::ExpectedValue {
-                node_kind: reader.node.kind,
-                position: reader.position(),
+                node_kind: syntax.node.kind,
+                position: syntax.position(),
             }),
             1 => Ok(RegisterAllocation::Single {
                 register: allocations[0],
@@ -1641,9 +1638,9 @@ impl SyntaxVisitor for Emitter<'_> {
         let AssignmentExpression { target, value } = reader.as_component()?;
 
         if target.node.kind == SyntaxKind::IndexExpression {
-            let IndexExpression { list, index } = target.as_component()?;
+            let IndexExpression { collection, index } = target.as_component()?;
 
-            let list_emission = self.visit_expression(list, None)?;
+            let list_emission = self.visit_expression(collection, None)?;
 
             let (list_registers, list_instructions) = match list_emission {
                 Emission::Place(Place::Register(registers)) => (registers, None),
@@ -1653,21 +1650,21 @@ impl SyntaxVisitor for Emitter<'_> {
                             .target
                             .clone()
                             .ok_or(CompileError::ExpectedValue {
-                                node_kind: list.node.kind,
-                                position: list.position(),
+                                node_kind: collection.node.kind,
+                                position: collection.position(),
                             })?;
 
                     (registers, Some(instructions))
                 }
                 _ => {
                     return Err(CompileError::ExpectedValue {
-                        node_kind: list.node.kind,
-                        position: list.position(),
+                        node_kind: collection.node.kind,
+                        position: collection.position(),
                     });
                 }
             };
 
-            let list_type_id = *self.resolver.get_type_binding(&list.id)?;
+            let list_type_id = *self.resolver.get_type_binding(&collection.id)?;
             let list_type = *self.resolver.types.get_type(list_type_id)?;
 
             let (element_type_id, array_length) = match list_type {
@@ -1678,7 +1675,7 @@ impl SyntaxVisitor for Emitter<'_> {
                 _ => {
                     return Err(CompileError::CannotIndex {
                         type_id: list_type_id,
-                        position: list.position(),
+                        position: collection.position(),
                     });
                 }
             };
@@ -2336,9 +2333,9 @@ impl SyntaxVisitor for Emitter<'_> {
         reader: SyntaxReader,
         target: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        let IndexExpression { list, index } = reader.as_component()?;
+        let IndexExpression { collection, index } = reader.as_component()?;
 
-        let list_emission = self.visit_expression(list, None)?;
+        let list_emission = self.visit_expression(collection, None)?;
 
         let (list_registers, list_instructions) = match list_emission {
             Emission::Place(Place::Register(registers)) => (registers, None),
@@ -2347,21 +2344,21 @@ impl SyntaxVisitor for Emitter<'_> {
                     .target
                     .clone()
                     .ok_or(CompileError::ExpectedValue {
-                        node_kind: list.node.kind,
-                        position: list.position(),
+                        node_kind: collection.node.kind,
+                        position: collection.position(),
                     })?;
 
                 (registers, Some(instructions))
             }
             _ => {
                 return Err(CompileError::ExpectedValue {
-                    node_kind: list.node.kind,
-                    position: list.position(),
+                    node_kind: collection.node.kind,
+                    position: collection.position(),
                 });
             }
         };
 
-        let list_type_id = *self.resolver.get_type_binding(&list.id)?;
+        let list_type_id = *self.resolver.get_type_binding(&collection.id)?;
         let list_type = *self.resolver.types.get_type(list_type_id)?;
 
         let (element_type_id, array_length) = match list_type {
@@ -2372,7 +2369,7 @@ impl SyntaxVisitor for Emitter<'_> {
             _ => {
                 return Err(CompileError::CannotIndex {
                     type_id: list_type_id,
-                    position: list.position(),
+                    position: collection.position(),
                 });
             }
         };
@@ -4084,9 +4081,9 @@ impl SyntaxVisitor for Emitter<'_> {
                 break;
             }
 
-            let field_decl = self.resolver.declarations.get_declaration(field_id)?;
+            let field_declaration = self.resolver.declarations.get_declaration(field_id)?;
 
-            if let Definition::Field { type_id, .. } = field_decl.definition {
+            if let Definition::Field { type_id, .. } = field_declaration.definition {
                 let operand_types = self.resolver.get_operand_types(type_id)?;
                 register_offset += operand_types.len();
             }
@@ -4489,8 +4486,8 @@ pub fn get_byte_size(
                         ..
                     } = field_declaration.definition
                     else {
-                        return Err(CompileError::Resolver(
-                            ResolverError::ExpectedFieldDeclaration(*field_declaration_id),
+                        return Err(CompileError::ExpectedFieldDeclaration(
+                            *field_declaration_id,
                         ));
                     };
 

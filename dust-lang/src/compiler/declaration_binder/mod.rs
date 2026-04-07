@@ -8,8 +8,6 @@ use smallvec::{SmallVec, smallvec};
 use tracing::debug;
 
 use crate::{
-    compiler::{error::CompileError, value_creation::create_usize_from_decimal},
-    error::ErrorKind,
     compiler::resolver::{
         Resolver,
         declarations::{
@@ -19,6 +17,8 @@ use crate::{
         symbols::SymbolId,
         types::{Type, TypeId, TypeMembers},
     },
+    compiler::{error::CompileError, value_creation::create_usize_from_decimal},
+    error::ErrorKind,
     source::{Position, Source, Span},
     syntax::{
         Syntax,
@@ -1229,7 +1229,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         for child in body.children() {
             match child.node.kind {
-                SyntaxKind::TraitMethod => {
+                SyntaxKind::TraitFunctionItem => {
                     let TraitFunctionItem {
                         public: method_public,
                         name: method_name,
@@ -1555,7 +1555,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 _ => {
                     return Err(CompileError::ExpectedSyntaxKinds {
                         expected: &[
-                            SyntaxKind::TraitMethod,
+                            SyntaxKind::TraitFunctionItem,
                             SyntaxKind::FunctionItem,
                             SyntaxKind::TraitConst,
                             SyntaxKind::TraitType,
@@ -1747,9 +1747,9 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         reader: SyntaxReader,
         _: Option<Self::ExpressionInput>,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        let IndexExpression { list, index } = reader.as_component()?;
+        let IndexExpression { collection, index } = reader.as_component()?;
 
-        self.visit_expression(list, None)?;
+        self.visit_expression(collection, None)?;
         self.visit_expression(index, None)?;
 
         Ok(())

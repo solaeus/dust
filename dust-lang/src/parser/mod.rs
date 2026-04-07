@@ -2455,7 +2455,7 @@ impl<'src> Parser<'src> {
         } else {
             self.expect(TokenKind::Semicolon)?;
 
-            Ok(SyntaxKind::TraitMethod.with_binary_children(
+            Ok(SyntaxKind::TraitFunctionItem.with_binary_children(
                 Span::new(start, self.previous_token.span.end()),
                 name_id,
                 signature_id,

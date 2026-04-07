@@ -1,6 +1,7 @@
 use crate::{
     compiler::{resolver::types::TypeId, tests::type_bind_function},
-    source::SourceFileId, syntax::node::SyntaxKind,
+    source::SourceFileId,
+    syntax::node::SyntaxKind,
 };
 
 #[test]
@@ -176,7 +177,10 @@ fn self_as_return_type() {
     let point_type = resolver.types.get_type(resolved).unwrap();
 
     assert!(
-        matches!(point_type, crate::compiler::resolver::types::Type::Algebraic { .. }),
+        matches!(
+            point_type,
+            crate::compiler::resolver::types::Type::Algebraic { .. }
+        ),
         "expected Self to resolve to Point struct, got {point_type:?}"
     );
 }

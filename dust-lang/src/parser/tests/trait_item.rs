@@ -220,7 +220,7 @@ fn with_method_signature() {
             TraitItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(9)),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.with_child(Span::new(10, 27), SyntaxId(8)),
-            TraitMethod.with_binary_children(Span::new(12, 25), SyntaxId(2), SyntaxId(7)),
+            TraitFunctionItem.with_binary_children(Span::new(12, 25), SyntaxId(2), SyntaxId(7)),
             SimplePath.empty(Span::new(15, 18)),
             FunctionSignature
                 .with_multiple_children(Span::new(12, 24), SyntaxPayload::child_indices(0, 1),),
@@ -286,7 +286,7 @@ fn with_method_signature_and_return_type() {
             TraitItem.with_binary_children(Span::new(0, 34), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.with_child(Span::new(10, 34), SyntaxId(9)),
-            TraitMethod.with_binary_children(Span::new(12, 32), SyntaxId(2), SyntaxId(8)),
+            TraitFunctionItem.with_binary_children(Span::new(12, 32), SyntaxId(2), SyntaxId(8)),
             SimplePath.empty(Span::new(15, 18)),
             {
                 let mut node = FunctionSignature

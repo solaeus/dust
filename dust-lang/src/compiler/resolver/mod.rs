@@ -1,5 +1,4 @@
 pub mod declarations;
-pub mod error;
 pub mod scopes;
 pub mod symbols;
 pub mod types;
@@ -16,7 +15,6 @@ use crate::{
             declarations::{
                 Declaration, DeclarationId, DeclarationMembers, Declarations, Definition,
             },
-            error::ResolverError,
             scopes::{Scope, ScopeId, ScopeKind, Scopes},
             symbols::Symbols,
             types::{
@@ -74,30 +72,30 @@ impl Resolver {
     pub fn get_declaration_binding(
         &self,
         syntax_id: &SyntaxId,
-    ) -> Result<&DeclarationId, ResolverError> {
+    ) -> Result<&DeclarationId, CompileError> {
         self.declaration_bindings
             .get(syntax_id)
-            .ok_or(ResolverError::MissingDeclarationBinding(*syntax_id))
+            .ok_or(CompileError::MissingDeclarationBinding(*syntax_id))
     }
 
     pub fn add_scope_binding(&mut self, syntax_id: SyntaxId, scope_id: ScopeId) {
         self.scope_bindings.insert(syntax_id, scope_id);
     }
 
-    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Result<&ScopeId, ResolverError> {
+    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Result<&ScopeId, CompileError> {
         self.scope_bindings
             .get(syntax_id)
-            .ok_or(ResolverError::MissingScopeBinding(*syntax_id))
+            .ok_or(CompileError::MissingScopeBinding(*syntax_id))
     }
 
     pub fn add_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {
         self.type_bindings.insert(syntax_id, type_id);
     }
 
-    pub fn get_type_binding(&self, syntax_id: &SyntaxId) -> Result<&TypeId, ResolverError> {
+    pub fn get_type_binding(&self, syntax_id: &SyntaxId) -> Result<&TypeId, CompileError> {
         self.type_bindings
             .get(syntax_id)
-            .ok_or(ResolverError::MissingTypeBinding(*syntax_id))
+            .ok_or(CompileError::MissingTypeBinding(*syntax_id))
     }
 
     pub fn get_cached_prototype(
@@ -121,8 +119,13 @@ impl Resolver {
     ) -> Option<&SmallVec<[TypeId; 4]>> {
         self.monomorphization_cache
             .iter()
-            .find(|(_, id)| **id == prototype_id)
-            .map(|((_, type_arguments), _)| type_arguments)
+            .find_map(|((_, type_arguments), id)| {
+                if *id == prototype_id {
+                    Some(type_arguments)
+                } else {
+                    None
+                }
+            })
     }
 
     pub fn add_constant_item_value(&mut self, declaration_id: DeclarationId, value: ConstantValue) {
@@ -133,7 +136,7 @@ impl Resolver {
         self.constant_item_values.get(declaration_id).copied()
     }
 
-    pub fn resolve_type(&mut self, type_id: TypeId) -> Result<TypeId, ResolverError> {
+    pub fn resolve_type(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
         let resolved_type = *self.types.get_type(type_id)?;
 
         let start_type_id = match resolved_type {
@@ -141,7 +144,7 @@ impl Resolver {
                 let concrete_type_id = self
                     .type_parameter_map
                     .get(&declaration_id)
-                    .ok_or(ResolverError::ExpectedConcreteType)?;
+                    .ok_or(CompileError::ExpectedConcreteType)?;
 
                 *concrete_type_id
             }
@@ -184,7 +187,7 @@ impl Resolver {
         }
     }
 
-    pub fn get_operand_types(&self, type_id: TypeId) -> Result<Vec<OperandType>, ResolverError> {
+    pub fn get_operand_types(&self, type_id: TypeId) -> Result<Vec<OperandType>, CompileError> {
         let r#type = self.types.get_type(type_id)?;
 
         match r#type {
@@ -291,7 +294,7 @@ impl Resolver {
                             let Definition::Variant { fields, .. } =
                                 &variant_declaration.definition
                             else {
-                                return Err(ResolverError::ExpectedVariantDeclaration(
+                                return Err(CompileError::ExpectedVariantDeclaration(
                                     *variant_declaration_id,
                                 ));
                             };
@@ -307,13 +310,13 @@ impl Resolver {
                                     ..
                                 } = field_declaration.definition
                                 else {
-                                    return Err(ResolverError::ExpectedFieldDeclaration(
+                                    return Err(CompileError::ExpectedFieldDeclaration(
                                         *field_declaration_id,
                                     ));
                                 };
 
                                 let resolved_field_type = *self.types.get_type(field_type_id)?;
-                                let concrete_type_id = if let Type::Generic {
+                                let type_id = if let Type::Generic {
                                     declaration_id: parameter_declaration_id,
                                 } = resolved_field_type
                                 {
@@ -326,37 +329,33 @@ impl Resolver {
                                                 None
                                             }
                                         })
-                                        .ok_or(ResolverError::MissingTypeArgument(
+                                        .ok_or(CompileError::MissingTypeArgument(
                                             *field_declaration_id,
                                         ))?
                                 } else {
                                     field_type_id
                                 };
 
-                                let resolved_type_id =
-                                    match self.types.get_type(concrete_type_id)? {
-                                        Type::Inferred {
-                                            resolved: Some(resolved),
-                                            ..
-                                        } => *resolved,
-                                        Type::Inferred {
-                                            constraint: Some(InferredTypeConstraint::Integer),
-                                            resolved: None,
-                                            ..
-                                        } => TypeId::I_32,
-                                        Type::Inferred {
-                                            constraint: Some(InferredTypeConstraint::Float),
-                                            resolved: None,
-                                            ..
-                                        } => TypeId::F_64,
-                                        Type::Inferred { resolved: None, .. } => {
-                                            return Err(CompileError::CannotInferType {
-                                                type_id: concrete_type_id,
-                                                position: (),
-                                            });
-                                        }
-                                        _ => concrete_type_id,
-                                    };
+                                let resolved_type_id = match self.types.get_type(type_id)? {
+                                    Type::Inferred {
+                                        resolved: Some(resolved),
+                                        ..
+                                    } => *resolved,
+                                    Type::Inferred {
+                                        constraint: Some(InferredTypeConstraint::Integer),
+                                        resolved: None,
+                                        ..
+                                    } => TypeId::I_32,
+                                    Type::Inferred {
+                                        constraint: Some(InferredTypeConstraint::Float),
+                                        resolved: None,
+                                        ..
+                                    } => TypeId::F_64,
+                                    Type::Inferred { resolved: None, .. } => {
+                                        return Err(CompileError::CannotInferType { type_id });
+                                    }
+                                    _ => type_id,
+                                };
                                 let field_operand_types =
                                     self.get_operand_types(resolved_type_id)?;
 
@@ -402,7 +401,7 @@ impl Resolver {
                             };
 
                             let resolved_field_type = *self.types.get_type(field_type_id)?;
-                            let concrete_type_id = if let Type::Generic {
+                            let type_id = if let Type::Generic {
                                 declaration_id: parameter_declaration_id,
                             } = resolved_field_type
                             {
@@ -415,14 +414,14 @@ impl Resolver {
                                             None
                                         }
                                     })
-                                    .ok_or(ResolverError::MissingTypeArgument(
+                                    .ok_or(CompileError::MissingTypeArgument(
                                         *field_declaration_id,
                                     ))?
                             } else {
                                 field_type_id
                             };
 
-                            let resolved_type_id = match self.types.get_type(concrete_type_id)? {
+                            let resolved_type_id = match self.types.get_type(type_id)? {
                                 Type::Inferred {
                                     resolved: Some(resolved),
                                     ..
@@ -438,7 +437,7 @@ impl Resolver {
                                     ..
                                 } => TypeId::F_64,
                                 Type::Inferred { resolved: None, .. } => continue,
-                                _ => concrete_type_id,
+                                _ => type_id,
                             };
 
                             match self.get_operand_types(resolved_type_id) {
@@ -451,10 +450,10 @@ impl Resolver {
 
                         Ok(operand_types)
                     }
-                    _ => Err(ResolverError::ExpectedConcreteType),
+                    _ => Err(CompileError::ExpectedConcreteType),
                 }
             }
-            Type::Generic { .. } => Err(ResolverError::ExpectedConcreteType),
+            Type::Generic { .. } => Err(CompileError::ExpectedConcreteType),
             Type::Inferred {
                 resolved: Some(resolved),
                 ..
@@ -469,7 +468,7 @@ impl Resolver {
                 resolved: None,
                 ..
             } => Ok(vec![OperandType::F_64]),
-            Type::Inferred { .. } => Err(ResolverError::ExpectedConcreteType),
+            Type::Inferred { .. } => Err(CompileError::ExpectedConcreteType),
         }
     }
 
@@ -702,7 +701,7 @@ impl Resolver {
         &self,
         id: TypeId,
         _source: &Source,
-    ) -> Result<DustType, ResolverError> {
+    ) -> Result<DustType, CompileError> {
         let r#type = self.types.get_type(id)?;
 
         match r#type {
@@ -926,7 +925,7 @@ impl Resolver {
                     Definition::TypeAlias {
                         aliased_type_id, ..
                     } => self.get_external_type(*aliased_type_id, _source),
-                    _ => Err(ResolverError::MissingAlgebraicTypeDeclaration(
+                    _ => Err(CompileError::MissingAlgebraicTypeDeclaration(
                         *declaration_id,
                     )),
                 }
@@ -939,7 +938,7 @@ impl Resolver {
 
                 Ok(DustType::Array(Box::new(element_dust_type), *length))
             }
-            Type::Generic { .. } => Err(ResolverError::ExpectedConcreteType),
+            Type::Generic { .. } => Err(CompileError::ExpectedConcreteType),
             Type::Function {
                 value_parameters,
                 return_type,
@@ -1096,7 +1095,7 @@ impl Resolver {
                             return_type: return_dust_type,
                         })))
                     }
-                    _ => Err(ResolverError::MissingFunctionDeclaration(*declaration_id)),
+                    _ => Err(CompileError::MissingFunctionDeclaration(*declaration_id)),
                 }
             }
             Type::Pointer { .. } => Ok(DustType::Unit),
@@ -1104,14 +1103,14 @@ impl Resolver {
                 resolved: None,
                 constraint: None,
                 ..
-            } => Err(ResolverError::ExpectedConcreteType),
+            } => Err(CompileError::ExpectedConcreteType),
         }
     }
 
     fn get_declaration_member_names(
         &self,
         members: DeclarationMembers,
-    ) -> impl Iterator<Item = Result<String, ResolverError>> {
+    ) -> impl Iterator<Item = Result<String, CompileError>> {
         members.as_range().map(|member_index| {
             let declaration_id = self.declarations.get_declaration_member(member_index)?;
             let declaration = self.declarations.get_declaration(*declaration_id)?;
@@ -1125,7 +1124,7 @@ impl Resolver {
         &self,
         members: TypeMembers,
         source: &Source,
-    ) -> impl Iterator<Item = Result<DustType, ResolverError>> {
+    ) -> impl Iterator<Item = Result<DustType, CompileError>> {
         members.as_range().map(|member_index| {
             let type_id = *self.types.get_type_member(member_index)?;
 
@@ -1135,7 +1134,7 @@ impl Resolver {
 
     pub fn definition_display_iterator(
         &self,
-    ) -> impl Iterator<Item = Result<(&str, String), ResolverError>> {
+    ) -> impl Iterator<Item = Result<(&str, String), CompileError>> {
         self.declarations.iter().map(|(_, declaration)| {
             let symbol = self.symbols.get_symbol(&declaration.symbol_id)?;
 

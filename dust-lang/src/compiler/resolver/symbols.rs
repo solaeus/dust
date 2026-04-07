@@ -7,7 +7,7 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::{compiler::resolver::error::ResolverError, source::Span};
+use crate::{compiler::error::CompileError, source::Span};
 
 #[derive(Debug)]
 pub struct Symbols {
@@ -152,11 +152,11 @@ impl Symbols {
         id
     }
 
-    pub fn get_symbol(&self, id: &SymbolId) -> Result<&str, ResolverError> {
+    pub fn get_symbol(&self, id: &SymbolId) -> Result<&str, CompileError> {
         let (_, span) = self
             .spans
             .get_index(id.0 as usize)
-            .ok_or(crate::compiler::resolver::error::ResolverError::MissingSymbol(*id))?;
+            .ok_or(crate::compiler::error::CompileError::MissingSymbol(*id))?;
         let symbol = &self.pool[span.as_usize_range()];
 
         Ok(symbol)

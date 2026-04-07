@@ -4,6 +4,11 @@
 use smallvec::SmallVec;
 
 use crate::{
+    compiler::resolver::{
+        Resolver,
+        declarations::{Definition, Visibility},
+        scopes::{Scope, ScopeId, ScopeKind},
+    },
     compiler::{Compiler, declaration_binder::DeclarationBinder, type_binder::TypeBinder},
     error::ErrorKind,
     instruction::{Instruction, MemoryKind, OperandType},
@@ -11,11 +16,6 @@ use crate::{
     parser::{ParseResult, Parser},
     program::Program,
     prototype::Prototype,
-    compiler::resolver::{
-        Resolver,
-        declarations::{Definition, Visibility},
-        scopes::{Scope, ScopeId, ScopeKind},
-    },
     source::{Source, SourceCode, SourceFileId},
     syntax::{Syntax, components::FunctionItem, visitor::SyntaxVisitor},
 };

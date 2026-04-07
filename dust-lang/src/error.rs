@@ -8,49 +8,23 @@ use std::{
 use annotate_snippets::{Group, Level, Renderer};
 
 use crate::{
-    compiler::error::CompileError,
+    compiler::{error::CompileError, resolver::Resolver},
     constant_list::ConstantListError,
     parser::error::ParseError,
-    compiler::resolver::{Resolver, error::ResolverError},
     source::{Source, SourceError},
-    syntax::error::SyntaxError,
+    syntax::{Syntax, error::SyntaxError},
     vm::error::VmError,
 };
 
 #[derive(Debug)]
 pub struct Error<'src> {
     errors: Vec<ErrorKind>,
-    source: Option<Source<'src>>,
-    resolver: Option<Box<Resolver>>,
+    context: ErrorContext<'src>,
 }
 
 impl<'src> Error<'src> {
-    pub fn without_context(errors: Vec<ErrorKind>) -> Self {
-        Self {
-            errors,
-            source: None,
-            resolver: None,
-        }
-    }
-
-    pub fn with_source(errors: Vec<ErrorKind>, source: Source<'src>) -> Self {
-        Self {
-            errors,
-            source: Some(source),
-            resolver: None,
-        }
-    }
-
-    pub fn with_source_and_resolver(
-        errors: Vec<ErrorKind>,
-        source: Source<'src>,
-        resolver: Resolver,
-    ) -> Self {
-        Self {
-            errors,
-            source: Some(source),
-            resolver: Some(Box::new(resolver)),
-        }
+    pub fn new(errors: Vec<ErrorKind>, context: ErrorContext<'src>) -> Self {
+        Self { errors, context }
     }
 
     pub fn errors(&self) -> &Vec<ErrorKind> {
@@ -76,10 +50,9 @@ impl<'a> Display for Error<'a> {
         let renderer = Renderer::styled();
 
         for error in &self.errors {
-            error.add_report(
-                (self.source.as_ref(), self.resolver.as_deref()),
-                &mut report,
-            );
+            let (source, syntax, resolver) = self.context.parts();
+
+            error.add_report((source, syntax, resolver), &mut report);
 
             let display = renderer.render(&report);
 
@@ -89,6 +62,25 @@ impl<'a> Display for Error<'a> {
         }
 
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub enum ErrorContext<'src> {
+    None,
+    Source(Source<'src>),
+    Full(Source<'src>, Syntax, Box<Resolver>),
+}
+
+impl<'src> ErrorContext<'src> {
+    pub fn parts(&self) -> (Option<&Source<'src>>, Option<&Syntax>, Option<&Resolver>) {
+        match self {
+            ErrorContext::None => (None, None, None),
+            ErrorContext::Source(source) => (Some(source), None, None),
+            ErrorContext::Full(source, syntax, resolver) => {
+                (Some(source), Some(syntax), Some(resolver))
+            }
+        }
     }
 }
 
@@ -124,12 +116,6 @@ impl From<SyntaxError> for ErrorKind {
     }
 }
 
-impl From<ResolverError> for ErrorKind {
-    fn from(error: ResolverError) -> Self {
-        ErrorKind::Compile(CompileError::Resolver(error))
-    }
-}
-
 impl From<ConstantListError> for ErrorKind {
     fn from(error: ConstantListError) -> Self {
         ErrorKind::Compile(CompileError::ConstantList(error))
@@ -143,11 +129,13 @@ impl From<SourceError> for ErrorKind {
 }
 
 impl<'a> AnnotatedError<'a> for ErrorKind {
-    type Context = (Option<&'a Source<'a>>, Option<&'a Resolver>);
+    type Context = (
+        Option<&'a Source<'a>>,
+        Option<&'a Syntax>,
+        Option<&'a Resolver>,
+    );
 
-    fn add_report(&self, context: Self::Context, groups: &mut Vec<Group<'a>>) {
-        let (source, resolver) = context;
-
+    fn add_report(&self, (source, syntax, resolver): Self::Context, groups: &mut Vec<Group<'a>>) {
         match self {
             ErrorKind::Parse(parse_error) => {
                 if let Some(source) = source {
@@ -157,10 +145,11 @@ impl<'a> AnnotatedError<'a> for ErrorKind {
                 }
             }
             ErrorKind::Compile(compile_error) => {
-                if let Some(resolver) = resolver
-                    && let Some(source) = source
+                if let Some(source) = source
+                    && let Some(syntax) = syntax
+                    && let Some(resolver) = resolver
                 {
-                    compile_error.add_report((source, resolver), groups)
+                    compile_error.add_report((source, syntax, resolver), groups)
                 } else {
                     MissingErrorContext.add_report((), groups);
                 }

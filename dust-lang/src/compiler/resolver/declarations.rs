@@ -3,10 +3,13 @@ use std::{collections::HashMap, ops::Range};
 use rustc_hash::FxBuildHasher;
 
 use crate::{
-    native_function::NativeFunction,
-    compiler::resolver::{
-        TypeId, error::ResolverError, scopes::ScopeId, symbols::SymbolId, types::TypeMembers,
+    compiler::{
+        error::CompileError,
+        resolver::{
+            TypeId, scopes::ScopeId, symbols::SymbolId, types::TypeMembers,
+        },
     },
+    native_function::NativeFunction,
     source::{Position, SourceFileId},
     syntax::SyntaxId,
 };
@@ -40,10 +43,10 @@ impl Declarations {
         declaration_id
     }
 
-    pub fn get_declaration(&self, id: DeclarationId) -> Result<&Declaration, ResolverError> {
+    pub fn get_declaration(&self, id: DeclarationId) -> Result<&Declaration, CompileError> {
         self.declarations
             .get(id.0 as usize)
-            .ok_or(ResolverError::MissingDeclaration(id))
+            .ok_or(CompileError::MissingDeclaration(id))
     }
 
     pub fn reserve_declaration_id(&mut self) -> DeclarationId {
@@ -98,7 +101,7 @@ impl Declarations {
     pub fn find_type_declaration(
         &self,
         type_id: TypeId,
-    ) -> Result<Option<&Declaration>, ResolverError> {
+    ) -> Result<Option<&Declaration>, CompileError> {
         for declaration in &self.declarations {
             match declaration.definition {
                 Definition::Local {
@@ -150,19 +153,19 @@ impl Declarations {
         DeclarationMembers { start, end }
     }
 
-    pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, ResolverError> {
+    pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, CompileError> {
         self.declaration_members
             .get(index as usize)
-            .ok_or(ResolverError::MissingDeclarationMember(index))
+            .ok_or(CompileError::MissingDeclarationMember(index))
     }
 
     pub fn get_declaration_members(
         &self,
         members: &DeclarationMembers,
-    ) -> Result<&[DeclarationId], ResolverError> {
+    ) -> Result<&[DeclarationId], CompileError> {
         self.declaration_members
             .get(members.as_usize_range())
-            .ok_or(ResolverError::MissingDeclarationMembers(*members))
+            .ok_or(CompileError::MissingDeclarationMembers(*members))
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (DeclarationId, &Declaration)> + '_ {
