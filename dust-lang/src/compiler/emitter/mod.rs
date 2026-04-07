@@ -23,7 +23,7 @@ use crate::{
     instruction::{Drop, Instruction, Jump, MemoryKind, Move, OperandType, Operation, Test},
     native_function::NativeFunction,
     prototype::{Prototype, PrototypeId, PrototypeList},
-    resolver::{
+    compiler::resolver::{
         ConstantValue, Resolver,
         declarations::{DeclarationId, Definition},
         error::ResolverError,
@@ -616,7 +616,7 @@ impl<'a> Emitter<'a> {
 
         match operator.node.kind {
             SyntaxKind::AdditionExpression => {
-                left_constant.add(right_constant)?.ok_or_else(create_error)
+                left_constant.add(right_constant).ok_or_else(create_error)
             }
             SyntaxKind::SubtractionExpression => left_constant
                 .subtract(right_constant)
@@ -4471,7 +4471,11 @@ pub fn get_byte_size(
         let declaration = resolver.declarations.get_declaration(declaration_id)?;
 
         match &declaration.definition {
-            Definition::StructType { fields, .. } => {
+            Definition::StructType {
+                type_parameters,
+                fields,
+                ..
+            } => {
                 let field_declaration_ids =
                     resolver.declarations.get_declaration_members(fields)?;
                 let mut total_size = 0;
@@ -4490,8 +4494,43 @@ pub fn get_byte_size(
                         ));
                     };
 
+                    let resolved_field_type_id = if let Some(type_arguments) = type_arguments {
+                        let field_type = resolver.types.get_type(field_type_id)?;
+
+                        if let Type::Generic {
+                            declaration_id: parameter_declaration_id,
+                        } = field_type
+                        {
+                            type_parameters
+                                .as_range()
+                                .zip(type_arguments.as_range())
+                                .find_map(|(parameter_member_index, argument_member_index)| {
+                                    let declaration_member_id = resolver
+                                        .declarations
+                                        .get_declaration_member(parameter_member_index)
+                                        .ok()?;
+
+                                    if declaration_member_id == parameter_declaration_id {
+                                        let argument_type_id = resolver
+                                            .types
+                                            .get_type_member(argument_member_index)
+                                            .ok()?;
+
+                                        Some(*argument_type_id)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .unwrap_or(field_type_id)
+                        } else {
+                            field_type_id
+                        }
+                    } else {
+                        field_type_id
+                    };
+
                     let byte_size = if let Some(size) =
-                        get_byte_size(field_type_id, type_arguments, resolver)?
+                        get_byte_size(resolved_field_type_id, type_arguments, resolver)?
                     {
                         size
                     } else {
@@ -4503,7 +4542,11 @@ pub fn get_byte_size(
 
                 Ok(Some(total_size))
             }
-            Definition::EnumType { variants, .. } => {
+            Definition::EnumType {
+                type_parameters,
+                variants,
+                ..
+            } => {
                 let discriminant_size = 4;
                 let variant_declaration_ids =
                     resolver.declarations.get_declaration_members(variants)?;
@@ -4533,8 +4576,44 @@ pub fn get_byte_size(
                             continue;
                         };
 
+                        let resolved_field_type_id = if let Some(type_arguments) = type_arguments {
+                            let field_type = resolver.types.get_type(field_type_id)?;
+
+                            if let Type::Generic {
+                                declaration_id: parameter_declaration_id,
+                            } = field_type
+                            {
+                                type_parameters
+                                    .as_range()
+                                    .zip(type_arguments.as_range())
+                                    .find_map(|(parameter_index, argument_index)| {
+                                        let declaration_member = resolver
+                                            .declarations
+                                            .get_declaration_member(parameter_index)
+                                            .ok()?;
+
+                                        if declaration_member == parameter_declaration_id {
+                                            let argument_type_id = resolver
+                                                .types
+                                                .get_type_member(argument_index)
+                                                .ok()?;
+
+                                            Some(*argument_type_id)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .unwrap_or(field_type_id)
+                            } else {
+                                field_type_id
+                            }
+                        } else {
+                            field_type_id
+                        };
+
                         let byte_size =
-                            get_byte_size(field_type_id, type_arguments, resolver)?.unwrap_or(0);
+                            get_byte_size(resolved_field_type_id, type_arguments, resolver)?
+                                .unwrap_or(0);
 
                         variant_size += byte_size;
                     }
@@ -4545,9 +4624,29 @@ pub fn get_byte_size(
                 Ok(Some(discriminant_size + max_variant_size))
             }
             Definition::TypeParameter => {
-                todo!()
+                if let Some(&concrete_type_id) = resolver.type_parameter_map.get(&declaration_id) {
+                    get_byte_size(concrete_type_id, type_arguments, resolver)
+                } else {
+                    Ok(None)
+                }
             }
-            _ => todo!("Handle byte size for declaration: {:?}", declaration),
+            Definition::TypeAlias {
+                aliased_type_id, ..
+            }
+            | Definition::AssociatedType {
+                aliased_type_id, ..
+            } => get_byte_size(*aliased_type_id, type_arguments, resolver),
+            Definition::Constant { type_id, .. }
+            | Definition::AssociatedConstant { type_id, .. }
+            | Definition::Local { type_id, .. }
+            | Definition::Field { type_id, .. } => {
+                get_byte_size(*type_id, type_arguments, resolver)
+            }
+            Definition::Use { item, .. } => {
+                get_definition_type_size(*item, type_arguments, resolver)
+            }
+            Definition::Function { .. } | Definition::NativeFunction { .. } => Ok(Some(2)),
+            _ => Ok(None),
         }
     }
 

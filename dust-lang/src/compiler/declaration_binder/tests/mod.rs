@@ -25,7 +25,7 @@ use crate::{
     error::ErrorKind,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    resolver::{
+    compiler::resolver::{
         Resolver,
         scopes::{Scope, ScopeId, ScopeKind},
     },

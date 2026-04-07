@@ -12,8 +12,8 @@ use tracing::{Level, error, info, span};
 
 use crate::{
     compiler::Compiler,
-    dust_type::{DustEnumType, DustStructValueType, DustType},
-    dust_value::{DustEnumVariant, DustStructValue, DustValue},
+    dust_type::{DustEnumType, DustStructType, DustStructValueType, DustType},
+    dust_value::{DustEnumVariant, DustStruct, DustStructValue, DustValue},
     error::{Error, ErrorKind},
     program::Program,
     source::{Source, SourceCode},
@@ -148,10 +148,22 @@ impl Vm {
         return_registers: &[Register],
         index: &mut usize,
     ) -> Result<Option<DustValue>, VmError> {
-        match self.program.return_type() {
+        match r#type {
             DustType::Unit if return_registers.is_empty() => Ok(None),
             DustType::Boolean if *index < return_registers.len() => {
                 let value = DustValue::Boolean(return_registers[*index].0 != 0);
+
+                *index += 1;
+
+                Ok(Some(value))
+            }
+            DustType::Character if *index < return_registers.len() => {
+                let value = char::from_u32(return_registers[*index].0)
+                    .map(DustValue::Character)
+                    .ok_or_else(|| VmError::InvalidReturnValue {
+                        register_count: return_registers.len(),
+                        expected_type: self.program.return_type().clone(),
+                    })?;
 
                 *index += 1;
 
@@ -280,6 +292,22 @@ impl Vm {
 
                 Ok(Some(value))
             }
+            DustType::F32 if *index < return_registers.len() => {
+                let value = DustValue::F32(f32::from_bits(return_registers[*index].0));
+
+                *index += 1;
+
+                Ok(Some(value))
+            }
+            DustType::F64 if *index + 1 < return_registers.len() => {
+                let low_bits = return_registers[*index].0 as u64;
+                let high_bits = return_registers[*index + 1].0 as u64;
+                let value = DustValue::F64(f64::from_bits((high_bits << 32) | low_bits));
+
+                *index += 2;
+
+                Ok(Some(value))
+            }
             DustType::Tuple(types) => {
                 let mut fields = Vec::new();
 
@@ -296,10 +324,56 @@ impl Vm {
 
                 Ok(Some(DustValue::Tuple(fields)))
             }
-            DustType::Array(_dust_type, _) => todo!(),
-            DustType::Slice(_dust_type) => todo!(),
-            DustType::Function(_dust_function_type) => todo!(),
-            DustType::Struct(_dust_struct_type) => todo!(),
+            DustType::Struct(dust_struct_type) => {
+                let DustStructType { name, value_type } = dust_struct_type.as_ref();
+
+                match value_type {
+                    DustStructValueType::Unit => {
+                        Ok(Some(DustValue::Struct(Box::new(DustStruct {
+                            struct_name: name.clone(),
+                            value: DustStructValue::Unit,
+                        }))))
+                    }
+                    DustStructValueType::Tuple(types) => {
+                        let mut fields = Vec::new();
+
+                        for field_type in types {
+                            let field_value = self
+                                .create_value(field_type, return_registers, index)?
+                                .ok_or_else(|| VmError::InvalidReturnValue {
+                                    register_count: return_registers.len(),
+                                    expected_type: self.program.return_type().clone(),
+                                })?;
+
+                            fields.push(field_value);
+                        }
+
+                        Ok(Some(DustValue::Struct(Box::new(DustStruct {
+                            struct_name: name.clone(),
+                            value: DustStructValue::Tuple(fields),
+                        }))))
+                    }
+                    DustStructValueType::Struct(items) => {
+                        let mut fields = Vec::new();
+
+                        for (field_name, field_type) in items {
+                            let field_value = self
+                                .create_value(field_type, return_registers, index)?
+                                .ok_or_else(|| VmError::InvalidReturnValue {
+                                    register_count: return_registers.len(),
+                                    expected_type: self.program.return_type().clone(),
+                                })?;
+
+                            fields.push((field_name.clone(), field_value));
+                        }
+
+                        Ok(Some(DustValue::Struct(Box::new(DustStruct {
+                            struct_name: name.clone(),
+                            value: DustStructValue::Struct(fields),
+                        }))))
+                    }
+                }
+            }
             DustType::Enum(enum_type) => {
                 let DustEnumType { name, variants } = enum_type.as_ref();
 

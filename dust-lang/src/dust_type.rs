@@ -2,41 +2,76 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Default, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum DustType {
-    #[default]
+    /// Convenience variant for the unit type, which is the same as an empty tuple.
     Unit,
-    Boolean,
-    I8,
-    I16,
-    I32,
-    I64,
-    I128,
-    ISize,
-    U8,
-    U16,
-    U32,
-    U64,
-    U128,
-    USize,
-    F32,
-    F64,
-    Character,
-    Tuple(Vec<DustType>),
-    Array(Box<DustType>, usize),
-    Slice(Box<DustType>),
-    Function(Box<DustFunctionType>),
-    Struct(Box<DustStructType>),
-    Enum(Box<DustEnumType>),
-}
 
-impl DustType {
-    pub fn into_function_type(self) -> Option<DustFunctionType> {
-        match self {
-            DustType::Function(function_type) => Some(*function_type),
-            _ => None,
-        }
-    }
+    /// `bool`: `true` or `false`
+    Boolean,
+
+    /// `i8`: -128..=127
+    I8,
+
+    /// `i16`: -32,768..=32,767
+    I16,
+
+    /// `i32`: -2,147,483,648..=2,147,483,647
+    I32,
+
+    /// `i64`: -2^63..=2^63-1
+    I64,
+
+    /// `i128`: -2^127..=2^127-1
+    I128,
+
+    /// `isize`: `i32` on 32-bit platforms, `i64` on 64-bit platforms
+    ISize,
+
+    /// `u8`: 0..=255
+    U8,
+
+    /// `u16`: 0..=65,535
+    U16,
+
+    /// `u32`: 0..=4,294,967,295
+    U32,
+
+    /// `u64`: 0..=2^64-1
+    U64,
+
+    /// `u128`: 0..=2^128-1
+    U128,
+
+    /// `usize`: `u32` on 32-bit platforms, `u64` on 64-bit platforms
+    USize,
+
+    /// `f32`: 32-bit floating-point number
+    F32,
+
+    /// `f64`: 64-bit floating-point number
+    F64,
+
+    /// `char`: a Unicode scalar value
+    Character,
+
+    /// `()`, `(T1, T2, ...)`
+    Tuple(Vec<DustType>),
+
+    /// `[T; N]`
+    Array(Box<DustType>, usize),
+
+    /// `[T]`
+    Slice(Box<DustType>),
+
+    /// `fn<T1, T2, ...>(P1, P2, ...) -> R`
+    Function(Box<DustFunctionType>),
+
+    /// `struct Name { ... }`
+    Struct(Box<DustStructType>),
+
+    /// `enum Name { Variant1, Variant2, ... }`
+    Enum(Box<DustEnumType>),
 }
 
 impl Display for DustType {
@@ -81,7 +116,7 @@ impl Display for DustType {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct DustFunctionType {
     pub type_parameters: Vec<String>,
     pub value_parameters: Vec<DustType>,

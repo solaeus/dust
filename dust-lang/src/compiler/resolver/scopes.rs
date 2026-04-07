@@ -1,6 +1,6 @@
 use smallvec::SmallVec;
 
-use crate::resolver::{declarations::DeclarationId, error::ResolverError};
+use crate::compiler::resolver::{declarations::DeclarationId, error::ResolverError};
 
 #[derive(Debug, Default)]
 pub struct Scopes {

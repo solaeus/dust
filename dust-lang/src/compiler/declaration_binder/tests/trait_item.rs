@@ -1,5 +1,5 @@
 use crate::{
-    resolver::{
+    compiler::resolver::{
         declarations::{Definition, Visibility},
         scopes::ScopeKind,
         types::TypeId,

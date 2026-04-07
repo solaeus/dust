@@ -11,7 +11,7 @@ use crate::{
     compiler::error::CompileError,
     constant_list::ConstantListError,
     parser::error::ParseError,
-    resolver::{Resolver, error::ResolverError},
+    compiler::resolver::{Resolver, error::ResolverError},
     source::{Source, SourceError},
     syntax::error::SyntaxError,
     vm::error::VmError,

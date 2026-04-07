@@ -1,5 +1,5 @@
 use crate::{
-    resolver::{declarations::Definition, scopes::ScopeKind},
+    compiler::resolver::{declarations::Definition, scopes::ScopeKind},
     source::{Source, SourceCode, SourceFileId},
     syntax::{
         components::{StructExpression, StructExpressionStructFields, SyntaxComponent},
@@ -123,7 +123,7 @@ fn path_expression_binds_declaration() {
 
     assert!(matches!(
         declaration.definition,
-        crate::resolver::declarations::Definition::Local { .. }
+        crate::compiler::resolver::declarations::Definition::Local { .. }
     ));
 }
 

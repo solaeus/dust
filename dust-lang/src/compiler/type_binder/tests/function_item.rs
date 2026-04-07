@@ -1,6 +1,6 @@
 use crate::{
     compiler::tests::type_bind_function,
-    resolver::{
+    compiler::resolver::{
         declarations::{Definition, Visibility},
         types::TypeId,
     },

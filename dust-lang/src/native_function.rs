@@ -4,8 +4,6 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::resolver::{Resolver, declarations::DeclarationId};
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum NativeFunction {
     NoOp = 0,
@@ -56,10 +54,6 @@ impl NativeFunction {
             NativeFunction::WriteLine => "write_line",
             NativeFunction::SpawnThread => "spawn_thread",
         }
-    }
-
-    pub fn signature(self, _resolver: &mut Resolver) -> DeclarationId {
-        todo!()
     }
 }
 

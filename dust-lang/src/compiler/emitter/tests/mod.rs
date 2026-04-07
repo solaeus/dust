@@ -38,7 +38,7 @@ use crate::{
     },
     constant_list::ConstantListBuilder,
     prototype::{Prototype, PrototypeList},
-    resolver::declarations::{Definition, Visibility},
+    compiler::resolver::declarations::{Definition, Visibility},
     source::{Source, SourceCode},
     syntax::components::{FunctionItem, FunctionSignature},
 };

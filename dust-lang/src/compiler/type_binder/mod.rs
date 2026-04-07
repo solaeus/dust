@@ -2,7 +2,7 @@ use smallvec::{SmallVec, smallvec};
 
 use crate::{
     compiler::{error::CompileError, value_creation::create_usize_from_decimal},
-    resolver::{
+    compiler::resolver::{
         Resolver,
         declarations::{Declaration, DeclarationId, Definition, Visibility},
         error::ResolverError,

@@ -1,6 +1,7 @@
 mod declaration_binder;
 mod emitter;
 pub mod error;
+pub mod resolver;
 mod type_binder;
 mod value_creation;
 
@@ -15,6 +16,12 @@ use crate::{
         declaration_binder::DeclarationBinder,
         emitter::{Emitter, get_register_size},
         error::CompileError,
+        resolver::{
+            Resolver,
+            declarations::{DeclarationId, Definition, Visibility},
+            scopes::{Scope, ScopeId, ScopeKind},
+            types::Type,
+        },
         type_binder::TypeBinder,
     },
     constant_list::ConstantListBuilder,
@@ -25,12 +32,6 @@ use crate::{
     parser::{ParseResult, Parser},
     program::Program,
     prototype::{PrototypeId, PrototypeList},
-    resolver::{
-        Resolver,
-        declarations::{DeclarationId, Definition, Visibility},
-        scopes::{Scope, ScopeId, ScopeKind},
-        types::Type,
-    },
     source::{Source, SourceFileId},
     syntax::{
         Syntax,
@@ -340,7 +341,7 @@ impl<'src> Compiler<'src> {
                         let concrete_parameter_type_id =
                             unwrap_or_return!(self.resolver.resolve_type(parameter_type_id));
                         let register_size = if let Some(size) = unwrap_or_return!(
-                            get_register_size(concrete_parameter_type_id, None, &self.resolver,)
+                            get_register_size(concrete_parameter_type_id, None, &self.resolver)
                         ) {
                             size
                         } else {

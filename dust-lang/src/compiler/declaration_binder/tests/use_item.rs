@@ -1,5 +1,5 @@
 use crate::{
-    resolver::declarations::{Definition, Visibility},
+    compiler::resolver::declarations::{Definition, Visibility},
     source::{Source, SourceCode},
 };
 

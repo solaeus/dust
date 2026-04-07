@@ -1,6 +1,6 @@
 use crate::{
     error::AnnotatedError,
-    resolver::{
+    compiler::resolver::{
         declarations::{DeclarationId, DeclarationMembers},
         scopes::ScopeId,
         symbols::SymbolId,
@@ -29,6 +29,7 @@ pub enum ResolverError {
     MissingAlgebraicTypeDeclaration(DeclarationId),
     MissingTypeArgument(DeclarationId),
     ExpectedConcreteType,
+    ExpectedVariantDeclaration(DeclarationId),
 }
 
 impl<'a> AnnotatedError<'a> for ResolverError {

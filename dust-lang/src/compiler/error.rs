@@ -6,7 +6,7 @@ use crate::{
     dust_type::DustType,
     error::AnnotatedError,
     instruction::OperandType,
-    resolver::{
+    compiler::resolver::{
         Resolver,
         declarations::DeclarationId,
         error::ResolverError,

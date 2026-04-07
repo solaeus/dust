@@ -1,6 +1,6 @@
 use crate::{
     compiler::declaration_binder::tests::bind_declarations_with_errors,
-    resolver::{
+    compiler::resolver::{
         declarations::{Definition, Visibility},
         types::{Type, TypeId},
     },

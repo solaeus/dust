@@ -21,7 +21,6 @@ pub mod parser;
 mod program;
 pub mod project;
 mod prototype;
-mod resolver;
 pub mod source;
 pub mod syntax;
 mod token;

@@ -11,7 +11,7 @@ use crate::{
     parser::{ParseResult, Parser},
     program::Program,
     prototype::Prototype,
-    resolver::{
+    compiler::resolver::{
         Resolver,
         declarations::{Definition, Visibility},
         scopes::{Scope, ScopeId, ScopeKind},

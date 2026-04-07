@@ -1,13 +1,16 @@
 #[cfg(test)]
 mod tests;
 
+use std::collections::HashSet;
+
+use rustc_hash::FxBuildHasher;
 use smallvec::{SmallVec, smallvec};
 use tracing::debug;
 
 use crate::{
     compiler::{error::CompileError, value_creation::create_usize_from_decimal},
     error::ErrorKind,
-    resolver::{
+    compiler::resolver::{
         Resolver,
         declarations::{
             Declaration, DeclarationId, DeclarationMembers, Definition, ModuleKind, Visibility,
@@ -45,6 +48,8 @@ pub struct DeclarationBinder<'a> {
 
     errors: &'a mut Vec<ErrorKind>,
 
+    scope_search: HashSet<ScopeId, FxBuildHasher>,
+
     current_scope_id: ScopeId,
 
     current_self_type_id: Option<TypeId>,
@@ -63,9 +68,72 @@ impl<'a> DeclarationBinder<'a> {
             syntax,
             resolver,
             errors,
+            scope_search: HashSet::default(),
             current_scope_id: starting_scope_id,
             current_self_type_id: None,
         }
+    }
+
+    pub fn find_declaration_in_scope(
+        &mut self,
+        symbol_id: SymbolId,
+        target_scope_id: ScopeId,
+        visibility: Visibility,
+        path_segment: &SyntaxReader,
+    ) -> Result<(DeclarationId, &Declaration), CompileError> {
+        let mut current_scope_id = target_scope_id;
+
+        loop {
+            if current_scope_id == ScopeId::NONE || !self.scope_search.insert(current_scope_id) {
+                break;
+            }
+
+            if let Some((declaration_id, declaration)) = self
+                .resolver
+                .declarations
+                .find_declaration(symbol_id, current_scope_id, visibility)
+            {
+                self.scope_search.clear();
+
+                return Ok((declaration_id, declaration));
+            }
+
+            let current_scope = self.resolver.scopes.get_scope(current_scope_id)?;
+
+            for module_scope_id in &current_scope.modules {
+                if let Some((declaration_id, declaration)) = self
+                    .resolver
+                    .declarations
+                    .find_declaration(symbol_id, *module_scope_id, visibility)
+                {
+                    self.scope_search.clear();
+
+                    return Ok((declaration_id, declaration));
+                }
+            }
+
+            for import_declaration_id in &current_scope.imports {
+                let import_declaration = self
+                    .resolver
+                    .declarations
+                    .get_declaration(*import_declaration_id)?;
+
+                if import_declaration.symbol_id == symbol_id {
+                    self.scope_search.clear();
+
+                    return Ok((*import_declaration_id, import_declaration));
+                }
+            }
+
+            current_scope_id = current_scope.parent;
+        }
+
+        self.scope_search.clear();
+
+        Err(CompileError::Undeclared {
+            symbol_id,
+            usage_position: path_segment.position(),
+        })
     }
 }
 
@@ -198,7 +266,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         'outer: while let Some(segment) = path_segments.next() {
             let segment_str = file.get_str(segment.node.span)?;
             let segment_symbol_id = self.resolver.symbols.add_symbol(segment_str);
-            let (declaration_id, declaration) = self.resolver.find_declaration_in_scope(
+            let (declaration_id, declaration) = self.find_declaration_in_scope(
                 segment_symbol_id,
                 current_scope_id,
                 Visibility::Module,
@@ -1551,7 +1619,6 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             self.resolver.types.create_inferred_type(None)
         };
         let shadowed = self
-            .resolver
             .find_declaration_in_scope(symbol_id, self.current_scope_id, Visibility::Block, &name)
             .ok()
             .map(|(declaration_id, _)| declaration_id);
@@ -2250,7 +2317,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let identifier = self.source.get_file_content(&simple_path.position())?;
         let symbol_id = self.resolver.symbols.add_symbol(identifier);
-        let (declaration_id, _) = self.resolver.find_declaration_in_scope(
+        let (declaration_id, _) = self.find_declaration_in_scope(
             symbol_id,
             self.current_scope_id,
             visibility,
@@ -2286,7 +2353,7 @@ fn search_path_segments<'a>(
             if let Some(type_declaration_id) = impl_member_scope.take() {
                 search_impl_member(binder, type_declaration_id, symbol_id, &segment)?
             } else {
-                let (id, decl) = binder.resolver.find_declaration_in_scope(
+                let (id, decl) = binder.find_declaration_in_scope(
                     symbol_id,
                     current_scope_id,
                     visibility,

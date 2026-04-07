@@ -1,6 +1,6 @@
 use crate::{
     compiler::tests::type_bind_function,
-    resolver::types::{Type, TypeId},
+    compiler::resolver::types::{Type, TypeId},
     source::SourceFileId,
     syntax::{components::CallExpression, node::SyntaxKind},
 };

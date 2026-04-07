@@ -4,7 +4,7 @@ use rustc_hash::FxBuildHasher;
 
 use crate::{
     native_function::NativeFunction,
-    resolver::{
+    compiler::resolver::{
         TypeId, error::ResolverError, scopes::ScopeId, symbols::SymbolId, types::TypeMembers,
     },
     source::{Position, SourceFileId},
