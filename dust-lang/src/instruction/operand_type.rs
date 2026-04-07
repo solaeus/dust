@@ -26,23 +26,6 @@ impl OperandType {
     pub const CHARACTER: OperandType = OperandType(13);
     pub const FUNCTION: OperandType = OperandType(14);
     pub const POINTER: OperandType = OperandType(15);
-
-    /// Returns the byte size of values of this type or `None`
-    pub fn byte_size(self) -> usize {
-        match self {
-            Self::BOOLEAN | Self::CHARACTER | Self::U_8 | Self::I_8 => 1,
-            Self::U_16 | Self::I_16 | Self::FUNCTION => 2,
-            Self::U_32 | Self::I_32 | Self::F_32 => 4,
-            Self::U_64 | Self::I_64 | Self::F_64 => 8,
-            Self::U_128 | Self::I_128 => 16,
-            Self::POINTER => size_of::<usize>(),
-            _ => panic!("Invalid operand type: {self:?}"),
-        }
-    }
-
-    pub fn register_size(self) -> usize {
-        self.byte_size() / size_of::<u32>()
-    }
 }
 
 impl Display for OperandType {

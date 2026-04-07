@@ -97,9 +97,40 @@ impl Declarations {
     /// used for error reporting or debugging.
     pub fn find_type_declaration(
         &self,
-        _type_id: TypeId,
+        type_id: TypeId,
     ) -> Result<Option<&Declaration>, ResolverError> {
-        todo!()
+        for declaration in &self.declarations {
+            match declaration.definition {
+                Definition::Local {
+                    type_id: declaration_type_id,
+                    ..
+                }
+                | Definition::Field {
+                    type_id: declaration_type_id,
+                    ..
+                }
+                | Definition::Function {
+                    return_type_id: declaration_type_id,
+                    ..
+                }
+                | Definition::NativeFunction {
+                    return_type_id: declaration_type_id,
+                    ..
+                }
+                | Definition::TypeAlias {
+                    aliased_type_id: declaration_type_id,
+                    ..
+                }
+                | Definition::AssociatedType {
+                    aliased_type_id: declaration_type_id,
+                    ..
+                } if declaration_type_id == type_id => {
+                    return Ok(Some(declaration));
+                }
+                _ => {}
+            }
+        }
+        Ok(None)
     }
 
     pub fn next_declaration_id(&self) -> DeclarationId {

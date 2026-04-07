@@ -12,13 +12,14 @@ use tracing::{Level, error, info, span};
 
 use crate::{
     compiler::Compiler,
-    dust_type::DustType,
-    dust_value::DustValue,
+    dust_type::{DustEnumType, DustStructValueType, DustType},
+    dust_value::{DustEnumVariant, DustStructValue, DustValue},
     error::{Error, ErrorKind},
     program::Program,
     source::{Source, SourceCode},
     vm::{
         error::VmError,
+        register::Register,
         thread_pool::{ThreadMessage, ThreadPool},
     },
 };
@@ -124,7 +125,7 @@ impl Vm {
                             .map_err(|error| Error::without_context(vec![ErrorKind::Vm(error)]))?;
 
                         return_value = self
-                            .create_return_value(return_registers)
+                            .create_value(self.program.return_type(), &return_registers, &mut 0)
                             .map_err(|error| Error::without_context(vec![ErrorKind::Vm(error)]))?;
 
                         break;
@@ -141,177 +142,167 @@ impl Vm {
         Ok(return_value)
     }
 
-    fn create_return_value(
+    fn create_value(
         &self,
-        return_registers: Vec<register::Register>,
+        r#type: &DustType,
+        return_registers: &[Register],
+        index: &mut usize,
     ) -> Result<Option<DustValue>, VmError> {
         match self.program.return_type() {
-            DustType::Unit => {
-                if return_registers.is_empty() {
-                    return Ok(None);
-                }
+            DustType::Unit if return_registers.is_empty() => Ok(None),
+            DustType::Boolean if *index < return_registers.len() => {
+                let value = DustValue::Boolean(return_registers[*index].0 != 0);
+
+                *index += 1;
+
+                Ok(Some(value))
             }
-            DustType::Boolean => {
-                if return_registers.len() == 1 {
-                    return Ok(Some(DustValue::Boolean(return_registers[0].0 != 0)));
-                }
+            DustType::I8 if *index < return_registers.len() => {
+                let value = DustValue::I8(return_registers[*index].0 as i8);
+
+                *index += 1;
+
+                Ok(Some(value))
             }
-            DustType::I8 => {
-                if return_registers.len() == 1 {
-                    let value = return_registers[0].0;
+            DustType::I16 if *index < return_registers.len() => {
+                let value = DustValue::I16(return_registers[*index].0 as i16);
 
-                    return Ok(Some(DustValue::I8(value as i8)));
-                }
+                *index += 1;
+
+                Ok(Some(value))
             }
-            DustType::I16 => {
-                if return_registers.len() == 1 {
-                    let value = return_registers[0].0;
+            DustType::I32 if *index < return_registers.len() => {
+                let value = DustValue::I32(return_registers[*index].0 as i32);
 
-                    return Ok(Some(DustValue::I16(value as i16)));
-                }
+                *index += 1;
+
+                Ok(Some(value))
             }
-            DustType::I32 => {
-                if return_registers.len() == 1 {
-                    let value = return_registers[0].0;
+            DustType::I64 if *index + 1 < return_registers.len() => {
+                let low_bits = return_registers[*index].0 as u64;
+                let high_bits = return_registers[*index + 1].0 as u64;
+                let value = DustValue::I64(((high_bits << 32) | low_bits) as i64);
 
-                    return Ok(Some(DustValue::I32(value as i32)));
-                }
+                *index += 2;
+
+                Ok(Some(value))
             }
-            DustType::I64 => {
-                if return_registers.len() == 2 {
-                    let low = return_registers[0].0 as u64;
-                    let high = return_registers[1].0 as u64;
-                    let value = (high << 32) | low;
+            DustType::I128 if *index + 3 < return_registers.len() => {
+                let low_bits = return_registers[*index].0 as u128;
+                let mid_low_bits = return_registers[*index + 1].0 as u128;
+                let mid_high_bits = return_registers[*index + 2].0 as u128;
+                let high_bits = return_registers[*index + 3].0 as u128;
+                let value = DustValue::I128(
+                    ((high_bits << 96) | (mid_high_bits << 64) | (mid_low_bits << 32) | low_bits)
+                        as i128,
+                );
 
-                    return Ok(Some(DustValue::I64(value as i64)));
-                }
+                *index += 4;
+
+                Ok(Some(value))
             }
-            DustType::I128 => {
-                if return_registers.len() == 4 {
-                    let value_0 = return_registers[0].0 as u128;
-                    let value_1 = return_registers[1].0 as u128;
-                    let value_2 = return_registers[2].0 as u128;
-                    let value_3 = return_registers[3].0 as u128;
-                    let value = (value_3 << 96) | (value_2 << 64) | (value_1 << 32) | value_0;
+            #[cfg(target_pointer_width = "64")]
+            DustType::ISize if *index + 1 < return_registers.len() => {
+                let low_bits = return_registers[*index].0 as u64;
+                let high_bits = return_registers[*index + 1].0 as u64;
+                let value = DustValue::ISize(((high_bits << 32) | low_bits) as isize);
 
-                    return Ok(Some(DustValue::I128(value as i128)));
-                }
+                *index += 2;
+
+                Ok(Some(value))
             }
-            DustType::ISize => {
-                #[cfg(target_pointer_width = "64")]
-                {
-                    if return_registers.len() == 2 {
-                        let low = return_registers[0].0 as u64;
-                        let high = return_registers[1].0 as u64;
-                        let value = (high << 32) | low;
+            #[cfg(target_pointer_width = "32")]
+            DustType::ISize if *index < return_registers.len() => {
+                let value = DustValue::ISize(return_registers[*index].0 as isize);
 
-                        return Ok(Some(DustValue::ISize(value as isize)));
-                    }
-                }
+                *index += 1;
 
-                #[cfg(target_pointer_width = "32")]
-                {
-                    if return_registers.len() == 1 {
-                        let value = return_registers[0].0;
-
-                        return Ok(Some(DustValue::ISize(value as isize)));
-                    }
-                }
+                Ok(Some(value))
             }
-            DustType::U8 => {
-                if return_registers.len() == 1 {
-                    let value = return_registers[0].0;
+            DustType::U8 if *index < return_registers.len() => {
+                let value = DustValue::U8(return_registers[*index].0 as u8);
 
-                    return Ok(Some(DustValue::U8(value as u8)));
-                }
+                *index += 1;
+
+                Ok(Some(value))
             }
-            DustType::U16 => {
-                if return_registers.len() == 1 {
-                    let value = return_registers[0].0;
+            DustType::U16 if *index < return_registers.len() => {
+                let value = DustValue::U16(return_registers[*index].0 as u16);
 
-                    return Ok(Some(DustValue::U16(value as u16)));
-                }
+                *index += 1;
+
+                Ok(Some(value))
             }
-            DustType::U32 => {
-                if return_registers.len() == 1 {
-                    let value = return_registers[0].0;
+            DustType::U32 if *index < return_registers.len() => {
+                let value = DustValue::U32(return_registers[*index].0 as u32);
 
-                    return Ok(Some(DustValue::U32(value)));
-                }
+                *index += 1;
+
+                Ok(Some(value))
             }
-            DustType::U64 => {
-                if return_registers.len() == 2 {
-                    let low = return_registers[0].0 as u64;
-                    let high = return_registers[1].0 as u64;
-                    let value = (high << 32) | low;
+            DustType::U64 if *index + 1 < return_registers.len() => {
+                let low_bits = return_registers[*index].0 as u64;
+                let high_bits = return_registers[*index + 1].0 as u64;
+                let value = DustValue::U64((high_bits << 32) | low_bits);
 
-                    return Ok(Some(DustValue::U64(value)));
-                }
+                *index += 2;
+
+                Ok(Some(value))
             }
-            DustType::U128 => {
-                if return_registers.len() == 4 {
-                    let value_0 = return_registers[0].0 as u128;
-                    let value_1 = return_registers[1].0 as u128;
-                    let value_2 = return_registers[2].0 as u128;
-                    let value_3 = return_registers[3].0 as u128;
-                    let value = (value_3 << 96) | (value_2 << 64) | (value_1 << 32) | value_0;
+            DustType::U128 if *index + 3 < return_registers.len() => {
+                let low_bits = return_registers[*index].0 as u128;
+                let mid_low_bits = return_registers[*index + 1].0 as u128;
+                let mid_high_bits = return_registers[*index + 2].0 as u128;
+                let high_bits = return_registers[*index + 3].0 as u128;
+                let value = DustValue::U128(
+                    (high_bits << 96) | (mid_high_bits << 64) | (mid_low_bits << 32) | low_bits,
+                );
 
-                    return Ok(Some(DustValue::U128(value)));
-                }
+                *index += 4;
+
+                Ok(Some(value))
             }
-            DustType::USize => {
-                #[cfg(target_pointer_width = "64")]
-                {
-                    if return_registers.len() == 2 {
-                        let low = return_registers[0].0 as u64;
-                        let high = return_registers[1].0 as u64;
-                        let value = (high << 32) | low;
+            #[cfg(target_pointer_width = "64")]
+            DustType::USize if *index + 1 < return_registers.len() => {
+                let low_bits = return_registers[*index].0 as u64;
+                let high_bits = return_registers[*index + 1].0 as u64;
+                let value = DustValue::USize(((high_bits << 32) | low_bits) as usize);
 
-                        return Ok(Some(DustValue::USize(value as usize)));
-                    }
-                }
+                *index += 2;
 
-                #[cfg(target_pointer_width = "32")]
-                {
-                    if return_registers.len() == 1 {
-                        let value = return_registers[0].0;
-
-                        return Ok(Some(DustValue::USize(value as usize)));
-                    }
-                }
+                Ok(Some(value))
             }
-            DustType::F32 => {
-                if return_registers.len() == 1 {
-                    let value = return_registers[0].0;
-                    let float_value = f32::from_bits(value);
+            #[cfg(target_pointer_width = "32")]
+            DustType::USize if *index < return_registers.len() => {
+                let value = DustValue::USize(return_registers[*index].0 as usize);
 
-                    return Ok(Some(DustValue::F32(float_value)));
-                }
-            }
-            DustType::F64 => {
-                if return_registers.len() == 2 {
-                    let low = return_registers[0].0 as u64;
-                    let high = return_registers[1].0 as u64;
-                    let value = (high << 32) | low;
-                    let float_value = f64::from_bits(value);
+                *index += 1;
 
-                    return Ok(Some(DustValue::F64(float_value)));
-                }
+                Ok(Some(value))
             }
-            DustType::Character => {
-                if return_registers.len() == 1 {
-                    let value = return_registers[0].0;
-                    let character = char::from_u32(value).unwrap_or_default();
+            DustType::Tuple(types) => {
+                let mut fields = Vec::new();
 
-                    return Ok(Some(DustValue::Character(character)));
+                for field_type in types {
+                    let field_value = self
+                        .create_value(field_type, return_registers, index)?
+                        .ok_or_else(|| VmError::InvalidReturnValue {
+                            register_count: return_registers.len(),
+                            expected_type: self.program.return_type().clone(),
+                        })?;
+
+                    fields.push(field_value);
                 }
+
+                Ok(Some(DustValue::Tuple(fields)))
             }
-            DustType::Tuple(dust_type) => todo!(),
-            DustType::Array(dust_type, _) => todo!(),
-            DustType::Slice(dust_type) => todo!(),
-            DustType::Function(dust_function_type) => todo!(),
-            DustType::Struct(dust_struct_type) => todo!(),
-            DustType::Enum(enum_name, variant_types) => {
+            DustType::Array(_dust_type, _) => todo!(),
+            DustType::Slice(_dust_type) => todo!(),
+            DustType::Function(_dust_function_type) => todo!(),
+            DustType::Struct(_dust_struct_type) => todo!(),
+            DustType::Enum(enum_type) => {
+                let DustEnumType { name, variants } = enum_type.as_ref();
+
                 if return_registers.is_empty() {
                     return Err(VmError::InvalidReturnValue {
                         register_count: 0,
@@ -319,127 +310,72 @@ impl Vm {
                     });
                 }
 
-                let discriminant = return_registers[0].0 as usize;
+                let discriminant = return_registers[*index].0 as usize;
 
-                if discriminant >= variant_types.len() {
+                if discriminant >= variants.len() {
                     return Err(VmError::InvalidReturnValue {
                         register_count: return_registers.len(),
                         expected_type: self.program.return_type().clone(),
                     });
                 }
 
-                let variant = &variant_types[discriminant];
-                let variant_name = variant.name.clone();
-                let mut fields = Vec::new();
-                let mut register_index = 1;
+                let (variant_name, variant) = &variants[discriminant];
 
-                for (_, field_type) in &variant.fields {
-                    let field_value = match field_type {
-                        DustType::Boolean => {
-                            let value = return_registers[register_index].0;
+                match variant {
+                    DustStructValueType::Unit => {
+                        Ok(Some(DustValue::EnumVariant(Box::new(DustEnumVariant {
+                            enum_name: name.clone(),
+                            variant_name: variant_name.clone(),
+                            value: DustStructValue::Unit,
+                        }))))
+                    }
+                    DustStructValueType::Tuple(types) => {
+                        let mut fields = Vec::new();
 
-                            register_index += 1;
+                        for field_type in types {
+                            let field_value = self
+                                .create_value(field_type, return_registers, index)?
+                                .ok_or_else(|| VmError::InvalidReturnValue {
+                                    register_count: return_registers.len(),
+                                    expected_type: self.program.return_type().clone(),
+                                })?;
 
-                            DustValue::Boolean(value != 0)
+                            fields.push(field_value);
                         }
-                        DustType::U8 => {
-                            let value = return_registers[register_index].0;
 
-                            register_index += 1;
+                        Ok(Some(DustValue::EnumVariant(Box::new(DustEnumVariant {
+                            enum_name: name.clone(),
+                            variant_name: variant_name.clone(),
+                            value: DustStructValue::Tuple(fields),
+                        }))))
+                    }
 
-                            DustValue::U8(value as u8)
+                    DustStructValueType::Struct(items) => {
+                        let mut fields = Vec::new();
+
+                        for (field_name, field_type) in items {
+                            let field_value = self
+                                .create_value(field_type, return_registers, index)?
+                                .ok_or_else(|| VmError::InvalidReturnValue {
+                                    register_count: return_registers.len(),
+                                    expected_type: self.program.return_type().clone(),
+                                })?;
+
+                            fields.push((field_name.clone(), field_value));
                         }
-                        DustType::U16 => {
-                            let value = return_registers[register_index].0;
 
-                            register_index += 1;
-
-                            DustValue::U16(value as u16)
-                        }
-                        DustType::U32 => {
-                            let value = return_registers[register_index].0;
-
-                            register_index += 1;
-
-                            DustValue::U32(value)
-                        }
-                        DustType::U64 => {
-                            let low = return_registers[register_index].0 as u64;
-                            let high = return_registers[register_index + 1].0 as u64;
-                            let value = (high << 32) | low;
-
-                            register_index += 2;
-
-                            DustValue::U64(value)
-                        }
-                        DustType::I8 => {
-                            let value = return_registers[register_index].0;
-
-                            register_index += 1;
-
-                            DustValue::I8(value as i8)
-                        }
-                        DustType::I16 => {
-                            let value = return_registers[register_index].0;
-
-                            register_index += 1;
-
-                            DustValue::I16(value as i16)
-                        }
-                        DustType::I32 => {
-                            let value = return_registers[register_index].0;
-
-                            register_index += 1;
-
-                            DustValue::I32(value as i32)
-                        }
-                        DustType::I64 => {
-                            let low = return_registers[register_index].0 as u64;
-                            let high = return_registers[register_index + 1].0 as u64;
-                            let value = (high << 32) | low;
-
-                            register_index += 2;
-
-                            DustValue::I64(value as i64)
-                        }
-                        DustType::F32 => {
-                            let value = return_registers[register_index].0;
-
-                            register_index += 1;
-
-                            DustValue::F32(f32::from_bits(value))
-                        }
-                        DustType::F64 => {
-                            let low = return_registers[register_index].0 as u64;
-                            let high = return_registers[register_index + 1].0 as u64;
-                            let value = (high << 32) | low;
-
-                            register_index += 2;
-
-                            DustValue::F64(f64::from_bits(value))
-                        }
-                        _ => {
-                            return Err(VmError::InvalidReturnValue {
-                                register_count: return_registers.len(),
-                                expected_type: self.program.return_type().clone(),
-                            });
-                        }
-                    };
-
-                    fields.push(field_value);
+                        Ok(Some(DustValue::EnumVariant(Box::new(DustEnumVariant {
+                            enum_name: name.clone(),
+                            variant_name: variant_name.clone(),
+                            value: DustStructValue::Struct(fields),
+                        }))))
+                    }
                 }
-
-                return Ok(Some(DustValue::Enum {
-                    enum_name: enum_name.clone(),
-                    variant_name,
-                    fields,
-                }));
             }
+            _ => Err(VmError::InvalidReturnValue {
+                register_count: return_registers.len(),
+                expected_type: self.program.return_type().clone(),
+            }),
         }
-
-        Err(VmError::InvalidReturnValue {
-            register_count: return_registers.len(),
-            expected_type: self.program.return_type().clone(),
-        })
     }
 }

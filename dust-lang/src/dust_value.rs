@@ -21,11 +21,9 @@ pub enum DustValue {
     F32(f32),
     F64(f64),
     Character(char),
-    Enum {
-        enum_name: String,
-        variant_name: String,
-        fields: Vec<DustValue>,
-    },
+    Tuple(Vec<DustValue>),
+    Struct(Box<DustStruct>),
+    EnumVariant(Box<DustEnumVariant>),
 }
 
 impl Display for DustValue {
@@ -52,29 +50,94 @@ impl Display for DustValue {
                     write!(f, "{float:.}")
                 }
             }
-            DustValue::Character(character) => write!(f, "'{character}'"),
-            DustValue::Enum {
-                variant_name,
-                fields,
-                ..
-            } => {
-                write!(f, "{variant_name}")?;
+            DustValue::Tuple(items) => {
+                write!(f, "(")?;
 
-                if !fields.is_empty() {
-                    write!(f, "(")?;
-
-                    for (index, field) in fields.iter().enumerate() {
-                        if index > 0 {
-                            write!(f, ", ")?;
-                        }
-
-                        write!(f, "{field}")?;
+                for (index, item) in items.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
                     }
 
-                    write!(f, ")")?;
+                    write!(f, "{item}")?;
                 }
 
-                Ok(())
+                write!(f, ")")
+            }
+            DustValue::Character(character) => write!(f, "'{character}'"),
+            DustValue::Struct(instance) => write!(f, "{instance}"),
+            DustValue::EnumVariant(variant) => write!(f, "{variant}"),
+        }
+    }
+}
+
+pub struct DustStruct {
+    pub struct_name: String,
+    pub value: DustStructValue,
+}
+
+impl Display for DustStruct {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let DustStruct { struct_name, value } = self;
+
+        write!(f, "{struct_name}{value}")
+    }
+}
+
+pub struct DustEnumVariant {
+    pub enum_name: String,
+    pub variant_name: String,
+    pub value: DustStructValue,
+}
+
+impl Display for DustEnumVariant {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let DustEnumVariant {
+            enum_name,
+            variant_name,
+            value,
+        } = self;
+
+        write!(f, "{enum_name}::{variant_name}{value}")
+    }
+}
+
+pub enum DustStructValue {
+    Unit,
+    Tuple(Vec<DustValue>),
+    Struct(Vec<(String, DustValue)>),
+}
+
+impl Display for DustStructValue {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            DustStructValue::Unit => Ok(()),
+            DustStructValue::Tuple(values) => {
+                write!(f, " (")?;
+
+                for (index, value) in values.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{value}")?;
+                }
+
+                write!(f, ")")
+            }
+            DustStructValue::Struct(fields) => {
+                if fields.len() == 1 {
+                    let (field_name, value) = &fields[0];
+
+                    return write!(f, " {{ {field_name}: {value} }}");
+                }
+
+                writeln!(f, " {{")?;
+
+                for (field_name, value) in fields {
+                    writeln!(f, "{field_name}: {value},")?;
+                }
+
+                writeln!(f, "}}")
             }
         }
     }

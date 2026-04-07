@@ -1,14 +1,13 @@
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex, MutexGuard},
-    thread::{self, Builder as ThreadBuilder, JoinHandle, ThreadId},
+    thread::{Builder as ThreadBuilder, JoinHandle, ThreadId},
 };
 
 use crossbeam_channel::{Receiver, Sender};
 use rustc_hash::FxBuildHasher;
 
 use crate::{
-    dust_value::DustValue,
     program::Program,
     vm::{error::VmError, register::Register, thread::Thread},
 };
@@ -64,8 +63,8 @@ impl ThreadSpawner {
     pub fn spawn_thread(&mut self, prototype_id: u16) -> Result<(), VmError> {
         let message_sender = Arc::clone(&self.message_sender);
         let program = Arc::clone(&self.program);
-        let minimum_object_heap = self.minimum_object_heap;
-        let minimum_object_sweep = self.minimum_object_sweep;
+        let _minimum_object_heap = self.minimum_object_heap;
+        let _minimum_object_sweep = self.minimum_object_sweep;
         let join_handle = ThreadBuilder::new()
             .spawn(move || {
                 let thread = Thread::new(program, prototype_id, message_sender);
@@ -86,8 +85,8 @@ impl ThreadSpawner {
     ) -> Result<(), VmError> {
         let message_sender = Arc::clone(&self.message_sender);
         let program = Arc::clone(&self.program);
-        let minimum_object_heap = self.minimum_object_heap;
-        let minimum_object_sweep = self.minimum_object_sweep;
+        let _minimum_object_heap = self.minimum_object_heap;
+        let _minimum_object_sweep = self.minimum_object_sweep;
         let join_handle = ThreadBuilder::new()
             .name(thread_name)
             .spawn(move || {

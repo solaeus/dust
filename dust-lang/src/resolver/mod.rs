@@ -11,7 +11,7 @@ use smallvec::SmallVec;
 
 use crate::{
     compiler::error::CompileError,
-    dust_type::{DustStructType, DustType},
+    dust_type::{DustEnumType, DustStructType, DustStructValueType, DustType},
     instruction::OperandType,
     prototype::PrototypeId,
     resolver::{
@@ -627,7 +627,7 @@ impl Resolver {
 
                         let variant_declaration_ids =
                             self.declarations.get_declaration_members(variants)?;
-                        let mut variant_types = Vec::new();
+                        let mut variants = Vec::with_capacity(variant_declaration_ids.len());
 
                         for variant_declaration_id in variant_declaration_ids {
                             let variant_declaration =
@@ -697,13 +697,26 @@ impl Resolver {
                                 field_types.push((field_name, field_dust_type));
                             }
 
-                            variant_types.push(DustStructType {
-                                name: variant_name,
-                                fields: field_types,
-                            });
+                            let value_type = if field_types.is_empty() {
+                                DustStructValueType::Unit
+                            } else if field_types.iter().all(|(name, _)| name == "0") {
+                                DustStructValueType::Tuple(
+                                    field_types
+                                        .into_iter()
+                                        .map(|(_, field_type)| field_type)
+                                        .collect(),
+                                )
+                            } else {
+                                DustStructValueType::Struct(field_types)
+                            };
+
+                            variants.push((variant_name, value_type));
                         }
 
-                        Ok(DustType::Enum(enum_name, variant_types))
+                        Ok(DustType::Enum(Box::new(DustEnumType {
+                            name: enum_name,
+                            variants,
+                        })))
                     }
                     Definition::StructType { fields, .. } => {
                         let struct_name =
@@ -733,9 +746,22 @@ impl Resolver {
                             field_types.push((field_name, field_dust_type));
                         }
 
+                        let value_type = if field_types.is_empty() {
+                            DustStructValueType::Unit
+                        } else if field_types.iter().all(|(name, _)| name == "0") {
+                            DustStructValueType::Tuple(
+                                field_types
+                                    .into_iter()
+                                    .map(|(_, field_type)| field_type)
+                                    .collect(),
+                            )
+                        } else {
+                            DustStructValueType::Struct(field_types)
+                        };
+
                         Ok(DustType::Struct(Box::new(DustStructType {
                             name: struct_name,
-                            fields: field_types,
+                            value_type,
                         })))
                     }
                     _ => todo!("{type:?}"),
@@ -1498,10 +1524,7 @@ impl ConstantValue {
     }
 
     pub fn not_equal(self, other: Self) -> Option<Self> {
-        self.equal(other).map(|equality| match equality {
-            ConstantValue::Boolean(boolean) => ConstantValue::Boolean(!boolean),
-            _ => unreachable!("Expected boolean constant from equality comparison"),
-        })
+        self.equal(other).and_then(|constant| constant.negate())
     }
 
     pub fn less(self, other: Self) -> Option<Self> {
@@ -1550,10 +1573,7 @@ impl ConstantValue {
     }
 
     pub fn greater(self, other: Self) -> Option<Self> {
-        self.less_equal(other).map(|result| match result {
-            ConstantValue::Boolean(boolean) => ConstantValue::Boolean(!boolean),
-            _ => unreachable!("Expected boolean constant from less comparison"),
-        })
+        self.less(other).and_then(|less| less.negate())
     }
 
     pub fn less_equal(self, other: Self) -> Option<Self> {
@@ -1602,10 +1622,7 @@ impl ConstantValue {
     }
 
     pub fn greater_equal(self, other: Self) -> Option<Self> {
-        self.less(other).map(|result| match result {
-            ConstantValue::Boolean(boolean) => ConstantValue::Boolean(!boolean),
-            _ => unreachable!("Expected boolean constant from less comparison"),
-        })
+        self.less(other).and_then(|less| less.negate())
     }
 
     pub fn and(self, other: Self) -> Option<Self> {

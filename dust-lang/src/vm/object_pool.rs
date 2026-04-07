@@ -113,7 +113,7 @@ impl<'a> ObjectPool<'a> {
         });
     }
 
-    fn mark(registers: &[Register], register_tags: &[RegisterTag]) {
+    fn mark(_registers: &[Register], _register_tags: &[RegisterTag]) {
         todo!()
     }
 

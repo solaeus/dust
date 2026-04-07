@@ -22,12 +22,12 @@ pub enum DustType {
     F32,
     F64,
     Character,
-    Tuple(Box<DustType>),
+    Tuple(Vec<DustType>),
     Array(Box<DustType>, usize),
     Slice(Box<DustType>),
     Function(Box<DustFunctionType>),
     Struct(Box<DustStructType>),
-    Enum(String, Vec<DustStructType>),
+    Enum(Box<DustEnumType>),
 }
 
 impl DustType {
@@ -59,24 +59,24 @@ impl Display for DustType {
             DustType::USize => write!(f, "usize"),
             DustType::F32 => write!(f, "f32"),
             DustType::F64 => write!(f, "f64"),
-            DustType::Tuple(item_type) => write!(f, "({item_type})"),
-            DustType::Array(item_type, size) => write!(f, "[{item_type}; {size}]"),
-            DustType::Slice(item_type) => write!(f, "[{item_type}]"),
-            DustType::Function(function_type) => write!(f, "{function_type}"),
-            DustType::Struct(struct_type) => write!(f, "{struct_type}"),
-            DustType::Enum(name, variants) => {
-                write!(f, "enum {name} {{")?;
+            DustType::Tuple(item_type) => {
+                write!(f, "(")?;
 
-                for (index, variant) in variants.iter().enumerate() {
+                for (index, r#type) in item_type.iter().enumerate() {
                     if index > 0 {
                         write!(f, ", ")?;
                     }
 
-                    write!(f, "{variant}")?;
+                    write!(f, "{type}")?;
                 }
 
-                write!(f, "}}")
+                write!(f, ")")
             }
+            DustType::Array(item_type, size) => write!(f, "[{item_type}; {size}]"),
+            DustType::Slice(item_type) => write!(f, "[{item_type}]"),
+            DustType::Function(function_type) => write!(f, "{function_type}"),
+            DustType::Struct(struct_type) => write!(f, "{struct_type}"),
+            DustType::Enum(enum_type) => write!(f, "{enum_type}"),
         }
     }
 }
@@ -136,24 +136,79 @@ impl Display for DustFunctionType {
     }
 }
 
-#[derive(Clone, Default, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct DustStructType {
     pub name: String,
-    pub fields: Vec<(String, DustType)>,
+    pub value_type: DustStructValueType,
 }
 
 impl Display for DustStructType {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "struct {} {{", self.name)?;
+        write!(f, "struct {}{}", self.name, self.value_type)
+    }
+}
 
-        for (index, (field_name, field_type)) in self.fields.iter().enumerate() {
+#[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct DustEnumType {
+    pub name: String,
+    pub variants: Vec<(String, DustStructValueType)>,
+}
+
+impl Display for DustEnumType {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "enum {} {{", self.name)?;
+
+        for (index, (variant_name, variant_value_type)) in self.variants.iter().enumerate() {
             if index > 0 {
                 write!(f, ", ")?;
             }
 
-            write!(f, "{field_name}: {field_type}")?;
+            write!(f, "{variant_name}{variant_value_type}")?;
         }
 
         write!(f, "}}")
+    }
+}
+
+#[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum DustStructValueType {
+    Unit,
+    Tuple(Vec<DustType>),
+    Struct(Vec<(String, DustType)>),
+}
+
+impl Display for DustStructValueType {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            DustStructValueType::Unit => Ok(()),
+            DustStructValueType::Tuple(types) => {
+                write!(f, "(")?;
+
+                for (index, r#type) in types.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{type}")?;
+                }
+
+                write!(f, ")")
+            }
+            DustStructValueType::Struct(fields) => {
+                if fields.len() == 1 {
+                    let (field_name, field_type) = &fields[0];
+
+                    return write!(f, "{{ {field_name}: {field_type} }}");
+                }
+
+                writeln!(f, "{{")?;
+
+                for (field_name, field_type) in fields {
+                    writeln!(f, "{field_name}: {field_type},")?;
+                }
+
+                writeln!(f, "}}")
+            }
+        }
     }
 }

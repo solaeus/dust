@@ -3,7 +3,6 @@ use std::{sync::Arc, thread::current_id};
 use crossbeam_channel::Sender;
 
 use crate::{
-    dust_value::DustValue,
     instruction::{MemoryKind, Move, OperandType, Operation},
     program::Program,
     vm::{call_frame::CallFrame, error::VmError, register::Register, thread_pool::ThreadMessage},

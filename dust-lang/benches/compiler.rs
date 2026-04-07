@@ -31,7 +31,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     group.bench_function("compile", |b| {
         b.iter_batched(
             || source.clone(),
-            |source| compile_bench(source),
+            |source| compile_bench(black_box(source)),
             BatchSize::SmallInput,
         )
     });
