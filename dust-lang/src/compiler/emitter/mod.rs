@@ -496,89 +496,12 @@ impl<'a> Emitter<'a> {
         }
     }
 
-    fn fold_constants(
-        &mut self,
-        left: ConstantValue,
-        right: ConstantValue,
-        expression: &SyntaxReader,
-    ) -> Result<ConstantValue, CompileError> {
-        let check_for_division_by_zero = || {
-            if matches!(
-                right,
-                ConstantValue::I8(0)
-                    | ConstantValue::I32(0)
-                    | ConstantValue::U64(0)
-                    | ConstantValue::I64(0)
-                    | ConstantValue::U128(0)
-                    | ConstantValue::I128(0)
-                    | ConstantValue::U8(0)
-                    | ConstantValue::U16(0)
-                    | ConstantValue::I16(0)
-                    | ConstantValue::U32(0)
-                    | ConstantValue::F32(0.0)
-                    | ConstantValue::F64(0.0)
-            ) {
-                Err(CompileError::DivisionByZero {
-                    position: expression.position(),
-                })
-            } else {
-                Ok(())
-            }
-        };
-
-        match expression.node.kind {
-            SyntaxKind::AdditionExpression => left.add(right, expression),
-            SyntaxKind::SubtractionExpression => left.subtract(right, expression),
-            SyntaxKind::MultiplicationExpression => left.multiply(right, expression),
-            SyntaxKind::DivisionExpression => {
-                check_for_division_by_zero()?;
-
-                left.divide(right, expression)
-            }
-            SyntaxKind::ModuloExpression => {
-                check_for_division_by_zero()?;
-
-                left.modulo(right, expression)
-            }
-            SyntaxKind::ExponentExpression => left.exponentiate(right, expression),
-            SyntaxKind::EqualExpression => left.equal(right, expression),
-            SyntaxKind::NotEqualExpression => left.not_equal(right, expression),
-            SyntaxKind::LessThanExpression => left.less_than(right, expression),
-            SyntaxKind::GreaterThanExpression => left.greater_than(right, expression),
-            SyntaxKind::LessThanOrEqualExpression => left.less_than_or_equal(right, expression),
-            SyntaxKind::GreaterThanOrEqualExpression => {
-                left.greater_than_or_equal(right, expression)
-            }
-            SyntaxKind::AndExpression => left.and(right, expression),
-            SyntaxKind::OrExpression => left.or(right, expression),
-            _ => Err(CompileError::ExpectedSyntaxKinds {
-                expected: &[
-                    SyntaxKind::AdditionExpression,
-                    SyntaxKind::SubtractionExpression,
-                    SyntaxKind::MultiplicationExpression,
-                    SyntaxKind::DivisionExpression,
-                    SyntaxKind::ModuloExpression,
-                    SyntaxKind::ExponentExpression,
-                    SyntaxKind::EqualExpression,
-                    SyntaxKind::NotEqualExpression,
-                    SyntaxKind::LessThanExpression,
-                    SyntaxKind::GreaterThanExpression,
-                    SyntaxKind::LessThanOrEqualExpression,
-                    SyntaxKind::GreaterThanOrEqualExpression,
-                    SyntaxKind::AndExpression,
-                    SyntaxKind::OrExpression,
-                ],
-                found: expression.node.kind,
-            }),
-        }
-    }
-
-    fn materialize_constant(&mut self, constant: ConstantValue) -> Result<Address, CompileError> {
+    fn materialize_value(&mut self, value: ConstantValue) -> Result<Address, CompileError> {
         fn encode<I: TryInto<u16>>(integer: I) -> Option<u16> {
             integer.try_into().ok()
         }
 
-        match constant {
+        match value {
             ConstantValue::Boolean(boolean) => Ok(Address {
                 memory: MemoryKind::ENCODED,
                 index: boolean as u16,
@@ -719,16 +642,51 @@ impl<'a> Emitter<'a> {
         }
     }
 
+    fn place_emission(
+        &mut self,
+        emission: Emission,
+        member: &SyntaxReader,
+    ) -> Result<Place, CompileError> {
+        match emission {
+            Emission::Value(constant) => {
+                let address = self.materialize_value(constant)?;
+
+                Ok(Place::Constant {
+                    operand_type: constant.operand_type(),
+                    index: address.index,
+                })
+            }
+            Emission::Place(place) => Ok(place),
+            Emission::Instructions(instructions) => {
+                let Some(registers) = instructions.allocation else {
+                    return Err(CompileError::ExpectedValue {
+                        file_id: member.file_id(),
+                        syntax_id: member.id,
+                    });
+                };
+
+                Ok(Place::Register(registers))
+            }
+            Emission::NativeFunction(_) => Err(CompileError::ExpectedNativeFunctionCall {
+                position: member.position(),
+            }),
+            _ => Err(CompileError::ExpectedValue {
+                file_id: member.file_id(),
+                syntax_id: member.id,
+            }),
+        }
+    }
+
     fn handle_top_emission(
         &mut self,
         emission: Emission,
         node: SyntaxReader,
     ) -> Result<(), CompileError> {
         match emission {
-            Emission::Constant(constant) => {
-                let allocation =
-                    self.allocate_registers(constant.type_id(), RegisterKind::Temporary)?;
-                let address = self.materialize_constant(constant)?;
+            Emission::Value(value) => {
+                let operand_type = value.operand_type();
+                let destination = self.register_tracker.allocate_next_temporary(operand_type);
+                let address = self.materialize_value(value)?;
                 let move_instruction =
                     Instruction::r#move(destination, operand_type, address.memory, address.index);
 
@@ -878,10 +836,14 @@ impl<'a> Emitter<'a> {
         operand: &SyntaxReader,
     ) -> Result<(MemoryKind, u16, OperandType::SmallVec), CompileError> {
         match emission {
-            Emission::Constant(constant) => {
-                let (address, operand_type) = self.materialize_constant(constant)?;
+            Emission::Value(value) => {
+                let address = self.materialize_value(value)?;
 
-                Ok((address.memory, address.index, smallvec![operand_type]))
+                Ok((
+                    address.memory,
+                    address.index,
+                    smallvec![value.operand_type()],
+                ))
             }
             Emission::Place(Place::Constant {
                 operand_type,
@@ -889,7 +851,7 @@ impl<'a> Emitter<'a> {
             }) => Ok((MemoryKind::CONSTANT, index, smallvec![operand_type])),
             Emission::Place(Place::Register(allocation)) => Ok((
                 MemoryKind::REGISTER,
-                allocation.index(),
+                allocation.base_index(),
                 allocation.operand_types(),
             )),
             Emission::Instructions(operand_instructions) => {
@@ -904,7 +866,7 @@ impl<'a> Emitter<'a> {
                 match &instructions.allocation {
                     Some(allocation) => Ok((
                         MemoryKind::REGISTER,
-                        allocation.index(),
+                        allocation.base_index(),
                         allocation.operand_types(),
                     )),
                     None => Err(CompileError::ExpectedValue {
@@ -923,41 +885,6 @@ impl<'a> Emitter<'a> {
         }
     }
 
-    fn place_emission(
-        &mut self,
-        emission: Emission,
-        member: &SyntaxReader,
-    ) -> Result<Place, CompileError> {
-        match emission {
-            Emission::Constant(constant) => {
-                let (address, operand_type) = self.materialize_constant(constant)?;
-
-                Ok(Place::Constant {
-                    operand_type,
-                    index: address.index,
-                })
-            }
-            Emission::Place(place) => Ok(place),
-            Emission::Instructions(instructions) => {
-                let Some(registers) = instructions.allocation else {
-                    return Err(CompileError::ExpectedValue {
-                        file_id: member.file_id(),
-                        syntax_id: member.id,
-                    });
-                };
-
-                Ok(Place::Register(registers))
-            }
-            Emission::NativeFunction(_) => Err(CompileError::ExpectedNativeFunctionCall {
-                position: member.position(),
-            }),
-            _ => Err(CompileError::ExpectedValue {
-                file_id: member.file_id(),
-                syntax_id: member.id,
-            }),
-        }
-    }
-
     fn handle_condition_emission(
         &mut self,
         instructions: &mut InstructionsEmission,
@@ -966,23 +893,29 @@ impl<'a> Emitter<'a> {
         comparator: bool,
     ) -> Result<(), CompileError> {
         match emission {
-            Emission::Constant(ConstantValue::Typed(ConstantValue::Boolean(boolean))) => {
+            Emission::Value(ConstantValue::Boolean(boolean)) => {
                 let test_instruction =
                     Instruction::test(comparator, MemoryKind::ENCODED, boolean as u16, 0);
 
                 instructions.push(test_instruction);
+
+                Ok(())
             }
             Emission::Place(Place::Constant { index, .. }) => {
                 let test_instruction =
                     Instruction::test(comparator, MemoryKind::CONSTANT, index, 0);
 
                 instructions.push(test_instruction);
+
+                Ok(())
             }
             Emission::Place(Place::Register(allocation)) if allocation.len() == 1 => {
                 let test_instruction =
-                    Instruction::test(comparator, MemoryKind::REGISTER, allocation.index(), 0);
+                    Instruction::test(comparator, MemoryKind::REGISTER, allocation.base_index(), 0);
 
                 instructions.push(test_instruction);
+
+                Ok(())
             }
             Emission::Instructions(mut condition_instructions) => {
                 let length = condition_instructions.length();
@@ -1049,17 +982,15 @@ impl<'a> Emitter<'a> {
                 }
 
                 instructions.merge(condition_instructions);
-            }
-            _ => {
-                return Err(CompileError::ExpectedBooleanExpression {
-                    found: *self.resolver.get_type_binding(&condition.id)?,
-                    node_kind: condition.node.kind,
-                    position: condition.position(),
-                });
-            }
-        }
 
-        Ok(())
+                Ok(())
+            }
+            _ => Err(CompileError::ExpectedBooleanExpression {
+                found: *self.resolver.get_type_binding(&condition.id)?,
+                node_kind: condition.node.kind,
+                position: condition.position(),
+            }),
+        }
     }
 
     fn handle_branch_emission(
@@ -1070,12 +1001,12 @@ impl<'a> Emitter<'a> {
         node: SyntaxReader,
     ) -> Result<(), CompileError> {
         match branch_emission {
-            Emission::Constant(constant) => {
+            Emission::Value(constant) => {
                 let destination = allocation.expect_single()?;
-                let (address, operand_type) = self.materialize_constant(constant)?;
+                let address = self.materialize_value(constant)?;
                 let move_instruction = Instruction::r#move(
                     destination.index,
-                    operand_type,
+                    constant.operand_type(),
                     address.memory,
                     address.index,
                 );
@@ -1133,18 +1064,13 @@ impl<'a> Emitter<'a> {
             self.allocate_registers(self.return_type_id, RegisterKind::Reserved)?;
 
         match emission {
-            Emission::Constant(constant) if let Some(allocation) = return_allocation => {
-                let (memory_kind, operand_index) = if let Some(encoded) = constant.as_encoded_u16()
-                {
-                    (MemoryKind::ENCODED, encoded)
-                } else {
-                    (MemoryKind::CONSTANT, self.add_constant(constant))
-                };
+            Emission::Value(value) if let Some(destination) = return_allocation => {
+                let address = self.materialize_value(value)?;
                 let move_instruction = Instruction::r#move(
-                    allocation.index(),
-                    constant.operand_type(),
-                    memory_kind,
-                    operand_index,
+                    destination.base_index(),
+                    value.operand_type(),
+                    address.memory,
+                    address.index,
                 );
 
                 return_instructions.push(move_instruction);
@@ -1154,7 +1080,7 @@ impl<'a> Emitter<'a> {
                 index,
             }) if let Some(allocation) = return_allocation => {
                 let move_instruction = Instruction::r#move(
-                    allocation.index(),
+                    allocation.base_index(),
                     operand_type,
                     MemoryKind::CONSTANT,
                     index,
@@ -1306,7 +1232,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let expression_emission = self.visit_expression(value, ())?;
 
         let constant_value = match expression_emission {
-            Emission::Constant(constant) => constant,
+            Emission::Value(constant) => constant,
             _ => {
                 return Err(CompileError::ExpectedValue {
                     file_id: value.file_id(),
@@ -1365,124 +1291,83 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         } = syntax.as_component()?;
 
         let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
-        let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
-        let is_mutable = matches!(
-            declaration.definition,
-            Definition::Local { mutable: true, .. }
-        );
-
         let type_id = *self.resolver.get_type_binding(&expression.id)?;
 
         let mut let_statement_instructions = InstructionsEmission::new();
 
-        let expression_emission = if is_mutable {
-            let emission = self.visit_expression(expression, ())?;
-            let allocation = self.allocate_registers(type_id, RegisterKind::Local)?;
+        let emission = self.visit_expression(expression, ())?;
+        let place = match emission {
+            Emission::Value(value) => {
+                let allocation = self
+                    .allocate_registers(type_id, RegisterKind::Local)?
+                    .ok_or(CompileError::ExpectedAllocation)?;
+                let address = self.materialize_value(value)?;
+                let move_instruction = Instruction::r#move(
+                    allocation.base_index(),
+                    value.operand_type(),
+                    address.memory,
+                    address.index,
+                );
 
-            let place = match emission {
-                Emission::Place(place @ Place::Register(..)) => place,
-                Emission::Place(Place::Constant {
-                    operand_type: r#type,
-                    index,
-                }) => {
-                    let allocation = allocation.ok_or(CompileError::ExpectedAllocation)?;
-                    let register = allocation.expect_single()?;
-                    let move_instruction =
-                        Instruction::r#move(register.index, r#type, MemoryKind::CONSTANT, index);
+                let_statement_instructions.push(move_instruction);
 
-                    let_statement_instructions.push(move_instruction);
-
-                    Place::Register(allocation)
-                }
-                Emission::Constant(constant) => {
-                    let allocation = allocation.ok_or(CompileError::ExpectedAllocation)?;
-                    let register = allocation.expect_single()?;
-                    let (memory_kind, operand_index) =
-                        if let Some(encoded) = constant.as_encoded_u16() {
-                            (MemoryKind::ENCODED, encoded)
-                        } else {
-                            (MemoryKind::CONSTANT, self.add_constant(constant))
-                        };
-                    let move_instruction = Instruction::r#move(
-                        register.index,
-                        constant.operand_type(),
-                        memory_kind,
-                        operand_index,
-                    );
-
-                    let_statement_instructions.push(move_instruction);
-
-                    Place::Register(allocation)
-                }
-                Emission::Instructions(expression_instructions) => {
-                    let allocation = allocation.ok_or(CompileError::ExpectedAllocation)?;
-
-                    let_statement_instructions.merge(expression_instructions);
-
-                    Place::Register(allocation)
-                }
-                Emission::Never if allocation.is_none() => {
-                    return Ok(let_statement_instructions);
-                }
-                Emission::NativeFunction(_) => {
-                    return Err(CompileError::ExpectedNativeFunctionCall {
-                        position: syntax.position(),
-                    });
-                }
-                Emission::Never => {
-                    return Err(CompileError::ExpectedValue {
-                        file_id: expression.file_id(),
-                        syntax_id: expression.id,
-                    });
-                }
-            };
-
-            self.locals.insert(declaration_id, Local::Place(place));
-            let_statement_instructions.set_allocation(None);
-
-            return Ok(let_statement_instructions);
-        } else {
-            self.visit_expression(expression, ())?
-        };
-
-        let local = match expression_emission {
-            Emission::Constant(constant) => Local::Constant(constant),
-            Emission::Place(place @ Place::Register(..)) => Local::Place(place),
+                Place::Register(allocation)
+            }
+            Emission::Place(place @ Place::Register(..)) => place,
             Emission::Place(Place::Constant {
-                operand_type: r#type,
+                operand_type,
                 index,
             }) => {
                 let allocation = self
                     .allocate_registers(type_id, RegisterKind::Local)?
                     .ok_or(CompileError::ExpectedAllocation)?;
-                let destination = allocation.index();
-                let move_instruction =
-                    Instruction::r#move(destination, r#type, MemoryKind::CONSTANT, index);
 
-                let_statement_instructions.push(move_instruction);
+                for register in &allocation.registers {
+                    let move_instruction = Instruction::r#move(
+                        register.index,
+                        operand_type,
+                        MemoryKind::CONSTANT,
+                        index,
+                    );
 
-                Local::Place(Place::Register(allocation))
+                    let_statement_instructions.push(move_instruction);
+                }
+
+                Place::Register(allocation)
             }
             Emission::Instructions(expression_instructions) => {
-                let expression_target = expression_instructions.allocation.clone();
-                let_statement_instructions.merge(expression_instructions);
+                let operand_allocation = expression_instructions
+                    .allocation
+                    .ok_or(CompileError::ExpectedAllocation)?;
+                let destination_allocation = self
+                    .allocate_registers(type_id, RegisterKind::Local)?
+                    .ok_or(CompileError::ExpectedAllocation)?;
 
-                if let Some(expression_target) = expression_target {
-                    Local::Place(Place::Register(expression_target))
-                } else {
-                    let allocation = self
-                        .allocate_registers(type_id, RegisterKind::Local)?
-                        .ok_or(CompileError::ExpectedAllocation)?;
+                let_statement_instructions.extend(expression_instructions.instructions);
 
-                    Local::Place(Place::Register(allocation))
+                for (destination, operand) in destination_allocation
+                    .registers
+                    .iter()
+                    .zip(operand_allocation.registers)
+                {
+                    let move_instruction = Instruction::r#move(
+                        destination.index,
+                        operand.operand_type,
+                        MemoryKind::REGISTER,
+                        operand.index,
+                    );
+
+                    let_statement_instructions.push(move_instruction);
                 }
+
+                Place::Register(destination_allocation)
             }
             Emission::NativeFunction(_) => {
                 return Err(CompileError::ExpectedNativeFunctionCall {
                     position: syntax.position(),
                 });
             }
-            Emission::Never => {
+            _ => {
                 return Err(CompileError::ExpectedValue {
                     file_id: expression.file_id(),
                     syntax_id: expression.id,
@@ -1490,9 +1375,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             }
         };
 
-        self.locals.insert(declaration_id, local);
-
-        let_statement_instructions.set_allocation(None);
+        self.locals.insert(declaration_id, Local::Place(place));
 
         Ok(let_statement_instructions)
     }
@@ -1552,7 +1435,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let source_emission = self.visit_expression(source, ())?;
 
         match source_emission {
-            Emission::Constant(constant) => {
+            Emission::Value(constant) => {
                 let (operand_memory, operand_index) =
                     if let Some(encoded) = constant.as_encoded_u16() {
                         (MemoryKind::ENCODED, encoded)
@@ -1650,7 +1533,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let text = self.source.get_content(&reader.position())?;
         let boolean = text == "true";
 
-        Ok(Emission::Constant(ConstantValue::Typed(
+        Ok(Emission::Value(ConstantValue::Typed(
             ConstantValue::Boolean(boolean),
         )))
     }
@@ -1663,7 +1546,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let text = &self.source.get_content(&reader.position())?[2..];
         let byte = create_u8_from_hexadecimal(text)?;
 
-        Ok(Emission::Constant(ConstantValue::Typed(ConstantValue::U8(
+        Ok(Emission::Value(ConstantValue::Typed(ConstantValue::U8(
             byte,
         ))))
     }
@@ -1676,7 +1559,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let text = self.source.get_content(&reader.position().shrink(1))?;
         let character = create_char(text)?;
 
-        Ok(Emission::Constant(ConstantValue::Character(character)))
+        Ok(Emission::Value(ConstantValue::Character(character)))
     }
 
     fn visit_float_expression(
@@ -1693,16 +1576,16 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             TypeId::F_32 => {
                 let float = create_f32_from_decimal(text)?;
 
-                Ok(Emission::Constant(ConstantValue::Typed(
-                    ConstantValue::F32(float),
-                )))
+                Ok(Emission::Value(ConstantValue::Typed(ConstantValue::F32(
+                    float,
+                ))))
             }
             TypeId::F_64 => {
                 let float = create_f64_from_decimal(text)?;
 
-                Ok(Emission::Constant(ConstantValue::Typed(
-                    ConstantValue::F64(float),
-                )))
+                Ok(Emission::Value(ConstantValue::Typed(ConstantValue::F64(
+                    float,
+                ))))
             }
             _ => Err(CompileError::InvalidTypeBinding(type_id)),
         }
@@ -1719,7 +1602,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let text = self.source.get_content(&reader.position())?;
 
         match type_id {
-            TypeId::I_8 => Ok(Emission::Constant(ConstantValue::Typed(ConstantValue::I8(
+            TypeId::I_8 => Ok(Emission::Value(ConstantValue::Typed(ConstantValue::I8(
                 create_i8_from_decimal(text)?,
             )))),
 
@@ -1770,7 +1653,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                 Emission::Instructions(instructions) => {
                     array_instructions.merge(instructions);
                 }
-                Emission::Constant(constant) => {
+                Emission::Value(constant) => {
                     let (memory_kind, operand_index) =
                         if let Some(encoded) = constant.as_encoded_u16() {
                             (MemoryKind::ENCODED, encoded)
@@ -1856,7 +1739,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let mut array_instructions = InstructionsEmission::new();
 
-        if let Emission::Constant(constant) = &element_emission
+        if let Emission::Value(constant) = &element_emission
             && let Some(encoded) = constant.as_encoded_u16()
         {
             let operand_type = constant.operand_type();
@@ -2072,7 +1955,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let index_emission = self.visit_expression(index, None)?;
 
-        let (index_memory, index_index) = if let Emission::Constant(constant) = &index_emission
+        let (index_memory, index_index) = if let Emission::Value(constant) = &index_emission
             && let Some(encoded) = constant.as_encoded_u16()
         {
             (MemoryKind::ENCODED, encoded)
@@ -2093,7 +1976,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             }
         };
 
-        let base_index = list_registers.index();
+        let base_index = list_registers.base_index();
 
         let element_type_id = *self.resolver.get_type_binding(&reader.id)?;
 
@@ -2150,7 +2033,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         for (field_expression, destination) in [start, end].into_iter().zip(allocation.iter()) {
             let field_emission = self.visit_expression(field_expression, None)?;
 
-            if let Emission::Constant(constant) = &field_emission
+            if let Emission::Value(constant) = &field_emission
                 && let Some(encoded) = constant.as_encoded_u16()
             {
                 let move_instruction = Instruction::r#move(
@@ -2250,7 +2133,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         if let Some(local) = self.locals.get(&declaration_id) {
             return match local {
                 Local::Place(place) => Ok(Emission::Place(place.clone())),
-                Local::Constant(value) => Ok(Emission::Constant(*value)),
+                Local::Constant(value) => Ok(Emission::Value(*value)),
             };
         }
 
@@ -2310,7 +2193,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                         position: reader.position(),
                     })?;
 
-                return Ok(Emission::Constant(value));
+                return Ok(Emission::Value(value));
             }
             _ => {
                 return Err(CompileError::ExpectedValue {
@@ -2350,7 +2233,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         for ([_, field_expression], destination) in fields_and_registers {
             let field_emission = self.visit_expression(field_expression, None)?;
 
-            if let Emission::Constant(constant) = &field_emission
+            if let Emission::Value(constant) = &field_emission
                 && let Some(encoded) = constant.as_encoded_u16()
             {
                 let move_instruction = Instruction::r#move(
@@ -2474,7 +2357,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             };
 
             match last_emission {
-                Emission::Constant(constant) => {
+                Emission::Value(constant) => {
                     let destination = allocation.expect_single()?;
                     let operand_type = constant.operand_type();
                     let (memory_kind, operand_index) =
@@ -2678,13 +2561,12 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let mut left_emission = self.visit_expression(left, None)?;
         let right_emission = self.visit_expression(right, None)?;
 
-        if let (Emission::Constant(left_value), Emission::Constant(right_value)) =
+        if let (Emission::Value(left_value), Emission::Value(right_value)) =
             (&left_emission, &right_emission)
         {
-            let combined =
-                self.fold_constants(&reader, *left_value, &left, *right_value, &right)?;
+            let combined = self.fold_values(&reader, *left_value, &left, *right_value, &right)?;
 
-            return Ok(Emission::Constant(combined));
+            return Ok(Emission::Value(combined));
         }
 
         let mut math_emission = InstructionsEmission::new();
@@ -2905,13 +2787,13 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let left_emission = self.visit_expression(left, None)?;
         let right_emission = self.visit_expression(right, None)?;
 
-        if let Emission::Constant(left_constant) = left_emission
-            && let Emission::Constant(right_constant) = right_emission
+        if let Emission::Value(left_constant) = left_emission
+            && let Emission::Value(right_constant) = right_emission
         {
             let combined =
-                self.fold_constants(&reader, left_constant, &left, right_constant, &right)?;
+                self.fold_values(&reader, left_constant, &left, right_constant, &right)?;
 
-            return Ok(Emission::Constant(combined));
+            return Ok(Emission::Value(combined));
         }
 
         let mut comparison_emission = InstructionsEmission::new();
@@ -3033,13 +2915,13 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
         let left_emission = self.visit_expression(left, None)?;
         let right_emission = self.visit_expression(right, None)?;
 
-        if let Emission::Constant(left_constant) = left_emission
-            && let Emission::Constant(right_constant) = right_emission
+        if let Emission::Value(left_constant) = left_emission
+            && let Emission::Value(right_constant) = right_emission
         {
             let combined =
-                self.fold_constants(&reader, left_constant, &left, right_constant, &right)?;
+                self.fold_values(&reader, left_constant, &left, right_constant, &right)?;
 
-            return Ok(Emission::Constant(combined));
+            return Ok(Emission::Value(combined));
         }
 
         let mut logic_instructions = InstructionsEmission::new();
@@ -3108,7 +2990,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let expression_emission = self.visit_expression(operand, None)?;
 
-        if let Emission::Constant(constant) = &expression_emission
+        if let Emission::Value(constant) = &expression_emission
             && operand.node.kind != SyntaxKind::PathExpression
         {
             let negated = constant
@@ -3119,7 +3001,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                     operand_position: operand.position(),
                 })?;
 
-            return Ok(Emission::Constant(negated));
+            return Ok(Emission::Value(negated));
         }
 
         let mut negation_emission = InstructionsEmission::new();
@@ -3161,7 +3043,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
         let expression_emission = self.visit_expression(operand, None)?;
 
-        if let Emission::Constant(constant) = &expression_emission
+        if let Emission::Value(constant) = &expression_emission
             && operand.node.kind != SyntaxKind::PathExpression
         {
             let negated = constant
@@ -3172,7 +3054,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
                     operand_position: operand.position(),
                 })?;
 
-            return Ok(Emission::Constant(negated));
+            return Ok(Emission::Value(negated));
         }
 
         let mut negation_emission = InstructionsEmission::new();
@@ -3307,7 +3189,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
             for (argument, field_register) in arguments.children().zip(field_registers) {
                 let argument_emission = self.visit_expression(argument, None)?;
 
-                if let Emission::Constant(constant) = &argument_emission
+                if let Emission::Value(constant) = &argument_emission
                     && let Some(encoded) = constant.as_encoded_u16()
                 {
                     let move_instruction = Instruction::r#move(
@@ -3519,7 +3401,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 
             let argument_emission = self.visit_expression(argument, Some(argument_target))?;
 
-            if let Emission::Constant(constant) = &argument_emission
+            if let Emission::Value(constant) = &argument_emission
                 && let Some(encoded) = constant.as_encoded_u16()
             {
                 let operand_type = constant.operand_type();
@@ -3758,8 +3640,7 @@ impl<'a> SyntaxVisitor for Emitter<'a> {
 #[derive(Clone, Debug)]
 pub enum Emission {
     Instructions(InstructionsEmission),
-    Constant(ConstantValue),
-
+    Value(ConstantValue),
     NativeFunction(NativeFunction),
     Place(Place),
     Never,
@@ -3893,7 +3774,7 @@ impl RegisterAllocation {
         self.kind == RegisterKind::Temporary
     }
 
-    fn index(&self) -> u16 {
+    fn base_index(&self) -> u16 {
         self.registers[0].index
     }
 
@@ -4062,6 +3943,8 @@ pub fn get_byte_size(
     type_arguments: Option<&TypeMembers>,
     resolver: &Resolver,
 ) -> Result<Option<usize>, CompileError> {
+    const DISCRIMINANT_BYTE_SIZE: usize = 2;
+
     fn get_definition_type_size(
         declaration_id: DeclarationId,
         type_arguments: Option<&TypeMembers>,
@@ -4146,7 +4029,6 @@ pub fn get_byte_size(
                 variants,
                 ..
             } => {
-                let discriminant_size = 2;
                 let variant_declaration_ids =
                     resolver.declarations.get_declaration_members(variants)?;
                 let mut max_variant_size = 0;
@@ -4220,7 +4102,7 @@ pub fn get_byte_size(
                     max_variant_size = max_variant_size.max(variant_size);
                 }
 
-                Ok(Some(discriminant_size + max_variant_size))
+                Ok(Some(max_variant_size + DISCRIMINANT_BYTE_SIZE))
             }
             Definition::TypeParameter => {
                 if let Some(&concrete_type_id) = resolver.type_parameter_map.get(&declaration_id) {

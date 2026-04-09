@@ -1,3 +1,5 @@
+//! A small (4-bit) type representation used to encode the types of instruction operands.
+
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
@@ -7,37 +9,40 @@ use crate::compiler::RegisterWidth;
 
 /// A small (4-bit) type representation used to encode the types of instruction operands.
 ///
-/// `OperandType` can represent any type, but not always with full specificity. It provides just
-/// enough information to determine how to interpret an instruction's operands at runtime.
+/// `OperandType` represents everything the VM knows about data types. It provides just enough
+/// information to determine how to interpret an instruction's operands at runtime. Some built-in
+/// types are represented as `OperandType::Pointer`, e.g. `Vec` and `String`. Alebraic types use
+/// consecutive registers so struct instances or enum variants can be flattened to
+/// [`OperandType::SmallVec`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct OperandType(pub(super) u8);
 
 impl OperandType {
-    pub type SmallVec = SmallVec<[OperandType; 8]>;
+    pub type SmallVec = SmallVec<[Self; 8]>;
 
-    pub const BOOLEAN: OperandType = OperandType(0);
-    pub const U_8: OperandType = OperandType(1);
-    pub const I_8: OperandType = OperandType(2);
-    pub const U_16: OperandType = OperandType(3);
-    pub const I_16: OperandType = OperandType(4);
-    pub const U_32: OperandType = OperandType(5);
-    pub const I_32: OperandType = OperandType(6);
-    pub const U_64: OperandType = OperandType(7);
-    pub const I_64: OperandType = OperandType(8);
-    pub const U_128: OperandType = OperandType(9);
-    pub const I_128: OperandType = OperandType(10);
-    pub const F_32: OperandType = OperandType(11);
-    pub const F_64: OperandType = OperandType(12);
-    pub const CHARACTER: OperandType = OperandType(13);
-    pub const FUNCTION: OperandType = OperandType(14);
-    pub const POINTER: OperandType = OperandType(15);
+    pub const BOOLEAN: OperandType = Self(0);
+    pub const U_8: OperandType = Self(1);
+    pub const I_8: OperandType = Self(2);
+    pub const U_16: OperandType = Self(3);
+    pub const I_16: OperandType = Self(4);
+    pub const U_32: OperandType = Self(5);
+    pub const I_32: OperandType = Self(6);
+    pub const U_64: OperandType = Self(7);
+    pub const I_64: OperandType = Self(8);
+    pub const U_128: OperandType = Self(9);
+    pub const I_128: OperandType = Self(10);
+    pub const F_32: OperandType = Self(11);
+    pub const F_64: OperandType = Self(12);
+    pub const CHARACTER: OperandType = Self(13);
+    pub const FUNCTION: OperandType = Self(14);
+    pub const POINTER: OperandType = Self(15);
 
     pub fn register_width(self) -> RegisterWidth {
         match self {
-            OperandType::U_64 | OperandType::I_64 | OperandType::F_64 => RegisterWidth::Double,
-            OperandType::U_128 | OperandType::I_128 => RegisterWidth::Quad,
+            Self::U_64 | Self::I_64 | Self::F_64 => RegisterWidth::Double,
+            Self::U_128 | Self::I_128 => RegisterWidth::Quad,
             #[cfg(target_pointer_width = "64")]
-            OperandType::POINTER => RegisterWidth::Double,
+            Self::POINTER => RegisterWidth::Double,
             _ => RegisterWidth::Single,
         }
     }
